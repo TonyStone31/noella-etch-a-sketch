@@ -1,0 +1,292 @@
+object Form1: TForm1
+  Left = 1876
+  Height = 469
+  Top = 1126
+  Width = 974
+  Caption = 'Noella Hazel Sketch'
+  ClientHeight = 469
+  ClientWidth = 974
+  Color = 2500288
+  Constraints.MinHeight = 438
+  Constraints.MinWidth = 562
+  DesignTimePPI = 120
+  KeyPreview = True
+  OnCreate = FormCreate
+  OnKeyDown = FormKeyDown
+  OnKeyUp = FormKeyUp
+  OnResize = FormResize
+  PopupMenu = pmnuSpeed
+  Position = poDesktopCenter
+  object shpX: TShape
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 25
+    Height = 62
+    Top = 363
+    Width = 62
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Left = 25
+    BorderSpacing.Bottom = 44
+    Shape = stCircle
+  end
+  object shpY: TShape
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 887
+    Height = 62
+    Top = 363
+    Width = 62
+    Anchors = [akRight, akBottom]
+    BorderSpacing.Right = 25
+    BorderSpacing.Bottom = 44
+    Shape = stCircle
+  end
+  object btnErase: TButton
+    AnchorSideLeft.Control = Owner
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 430
+    Height = 34
+    Top = 433
+    Width = 115
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Bottom = 2
+    Caption = 'Erase / Shake'
+    OnClick = btnEraseClick
+    TabOrder = 0
+  end
+  object imgDrawingSpace: TImage
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 31
+    Height = 289
+    Top = 37
+    Width = 912
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 6
+    BorderSpacing.Bottom = 112
+    BorderSpacing.Around = 31
+    Stretch = True
+  end
+  object sedtX: TSpinEdit
+    AnchorSideLeft.Control = shpX
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideTop.Side = asrCenter
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 16
+    Height = 28
+    Top = 439
+    Width = 81
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Left = 25
+    BorderSpacing.Bottom = 2
+    EditorEnabled = False
+    OnChange = sedtXChange
+    TabStop = False
+    TabOrder = 1
+  end
+  object sedtY: TSpinEdit
+    AnchorSideLeft.Control = shpY
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideTop.Control = shpY
+    AnchorSideTop.Side = asrCenter
+    AnchorSideRight.Control = shpY
+    AnchorSideRight.Side = asrCenter
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 878
+    Height = 28
+    Top = 440
+    Width = 81
+    Anchors = [akLeft, akBottom]
+    AutoSelect = False
+    BorderSpacing.Bottom = 1
+    EditorEnabled = False
+    OnChange = sedtYChange
+    TabStop = False
+    TabOrder = 2
+  end
+  object Label1: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideLeft.Side = asrCenter
+    Left = 356
+    Height = 24
+    Top = 10
+    Width = 262
+    Caption = 'Noella Stone Software, LTD'
+    Font.Height = -20
+    Font.Name = 'MathJax_Caligraphic'
+    Font.Style = [fsBold, fsItalic]
+    ParentFont = False
+  end
+  object ColorButton1: TColorButton
+    AnchorSideRight.Control = btnErase
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 365
+    Height = 34
+    Top = 433
+    Width = 65
+    Anchors = [akRight, akBottom]
+    BorderSpacing.Bottom = 2
+    BorderWidth = 2
+    ButtonColorSize = 16
+    ButtonColor = clBlack
+    ColorDialog = ColorDialog1
+  end
+  object TrackBar1: TTrackBar
+    AnchorSideLeft.Control = Owner
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideBottom.Control = btnErase
+    Left = 365
+    Height = 46
+    Top = 383
+    Width = 245
+    Min = 2
+    Position = 3
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Bottom = 4
+    TabOrder = 3
+  end
+  object Label2: TLabel
+    AnchorSideLeft.Control = TrackBar1
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideTop.Control = sedtX
+    AnchorSideBottom.Control = TrackBar1
+    Left = 285
+    Height = 48
+    Top = 335
+    Width = 404
+    Anchors = [akLeft, akBottom]
+    Caption = 'Use arrow keys to draw.  Right click anywhere to change speed.'#13#10'Shift+Arrows to draw faster.'#13#10'* Resizing window will erase image.  Sorry.'
+    Font.Height = -14
+    Font.Name = 'Sans'
+    Font.Style = [fsItalic]
+    ParentFont = False
+    OnClick = Label2Click
+  end
+  object tmrShakeUp: TTimer
+    Enabled = False
+    Interval = 150
+    OnTimer = tmrShakeUpTimer
+    Left = 10
+    Top = 50
+  end
+  object tmrShakeLeft: TTimer
+    Enabled = False
+    Interval = 75
+    OnTimer = tmrShakeLeftTimer
+    Left = 10
+    Top = 130
+  end
+  object ColorDialog1: TColorDialog
+    Color = clBlack
+    CustomColors.Strings = (
+      'ColorA=000000'
+      'ColorB=000080'
+      'ColorC=008000'
+      'ColorD=008080'
+      'ColorE=800000'
+      'ColorF=800080'
+      'ColorG=808000'
+      'ColorH=808080'
+      'ColorI=C0C0C0'
+      'ColorJ=0000FF'
+      'ColorK=00FF00'
+      'ColorL=00FFFF'
+      'ColorM=FF0000'
+      'ColorN=FF00FF'
+      'ColorO=FFFF00'
+      'ColorP=FFFFFF'
+      'ColorQ=C0DCC0'
+      'ColorR=F0CAA6'
+      'ColorS=F0FBFF'
+      'ColorT=A4A0A0'
+    )
+    Left = 41
+    Top = 263
+  end
+  object tmrDrawer: TTimer
+    Enabled = False
+    Interval = 30
+    OnTimer = tmrDrawerTimer
+    OnStartTimer = tmrDrawerStartTimer
+    OnStopTimer = tmrDrawerStopTimer
+    Left = 60
+    Top = 8
+  end
+  object pmnuSpeed: TPopupMenu
+    Left = 410
+    Top = 310
+    object mnuSlow: TMenuItem
+      AutoCheck = True
+      Caption = 'Slow'
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuSlowClick
+    end
+    object mnuMedSlow: TMenuItem
+      AutoCheck = True
+      Caption = 'Medium Slow'
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuMedSlowClick
+    end
+    object mnuMedium: TMenuItem
+      AutoCheck = True
+      Caption = 'Medium'
+      Checked = True
+      Default = True
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuMediumClick
+    end
+    object mnuMedFast: TMenuItem
+      AutoCheck = True
+      Caption = 'Medium Fast'
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuMedFastClick
+    end
+    object mnuFast: TMenuItem
+      AutoCheck = True
+      Caption = 'Fast'
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuFastClick
+    end
+    object mnuExtraFast: TMenuItem
+      AutoCheck = True
+      Caption = 'Extra Fast'
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuExtraFastClick
+    end
+    object mnuSuperDuperFast: TMenuItem
+      AutoCheck = True
+      Caption = 'Super Extra Fast'
+      GroupIndex = 1
+      RadioItem = True
+      OnClick = mnuSuperDuperFastClick
+    end
+    object MenuItem1: TMenuItem
+      Caption = '-'
+    end
+    object mnuAbout: TMenuItem
+      Caption = 'About Noella Hazel Sketch'
+      OnClick = mnuAboutClick
+    end
+  end
+end

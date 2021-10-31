@@ -1,0 +1,354 @@
+unit Unit1;
+{
+
+  10/19/2021 08:22:13 PM
+  Noella Hazel Sketch is a program my daughter Noella wanted to write so I can
+  teach her some basics about programming.  Most of it is her design and I
+  only helped write code that would implement how she described the desire
+  behavior.  I kept it as simple as possible but functional.  I am currently
+  a hobbyist and beginner programmer myself.  There may be plenty of room for
+  improvement in the code, however it was coded with a 7 year old child who has
+  never had any programming experience.  I am very proud of my daughters efforts
+  here and her well thought out design.  I hope in several years she can look
+  back at this and say "This is where i got my start and became a succesful and
+  amazing programmer!"  Love you Noella!  :-*
+
+  Copyright (c) 2021 Noella Stone
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to
+  deal in the Software without restriction, including without limitation the
+  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+  sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+  IN THE SOFTWARE.
+}
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, StdCtrls,
+  Spin, LCLType, ComCtrls, Menus;
+
+type
+
+  { TForm1 }
+
+  TForm1 = class(TForm)
+    btnErase: TButton;
+    Button1: TButton;
+    ColorButton1: TColorButton;
+    ColorDialog1: TColorDialog;
+    imgDrawingSpace: TImage;
+    Label1: TLabel;
+    Label2: TLabel;
+    MenuItem1: TMenuItem;
+    mnuSuperDuperFast: TMenuItem;
+    mnuAbout: TMenuItem;
+    mnuExtraFast: TMenuItem;
+    mnuSlow: TMenuItem;
+    mnuMedSlow: TMenuItem;
+    mnuMedium: TMenuItem;
+    mnuMedFast: TMenuItem;
+    mnuFast: TMenuItem;
+    pmnuSpeed: TPopupMenu;
+    shpX: TShape;
+    shpY: TShape;
+    sedtX: TSpinEdit;
+    sedtY: TSpinEdit;
+    tmrDrawer: TTimer;
+    tmrShakeUp: TTimer;
+    tmrShakeLeft: TTimer;
+    TrackBar1: TTrackBar;
+    procedure btnEraseClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
+
+    procedure FormKeyUp(Sender: TObject; var Key: word; Shift: TShiftState);
+    procedure FormResize(Sender: TObject);
+    procedure Label2Click(Sender: TObject);
+    procedure mnuAboutClick(Sender: TObject);
+    procedure mnuExtraFastClick(Sender: TObject);
+    procedure mnuSlowClick(Sender: TObject);
+    procedure mnuMedSlowClick(Sender: TObject);
+    procedure mnuMedFastClick(Sender: TObject);
+    procedure mnuFastClick(Sender: TObject);
+    procedure mnuMediumClick(Sender: TObject);
+    procedure mnuSuperDuperFastClick(Sender: TObject);
+    procedure sedtXChange(Sender: TObject);
+    procedure sedtYChange(Sender: TObject);
+    procedure tmrDrawerStartTimer(Sender: TObject);
+    procedure tmrDrawerStopTimer(Sender: TObject);
+    procedure tmrDrawerTimer(Sender: TObject);
+    procedure tmrShakeLeftTimer(Sender: TObject);
+    procedure tmrShakeUpTimer(Sender: TObject);
+    procedure StopShaking;
+  private
+
+  public
+    procedure DoDrawBlankBoard;
+    procedure DoDrawPoint;
+
+  end;
+
+var
+  Form1: TForm1;
+  eraserUp, eraseLeft: boolean;
+  shakeStart, drPntX, drPntY: integer;
+
+  kbUp: boolean = False;
+  kbDn: boolean = False;
+  kbLt: boolean = False;
+  kbRt: boolean = False;
+  kbShft: Boolean = False;
+
+implementation
+
+{$R *.lfm}
+
+{ TForm1 }
+
+procedure TForm1.btnEraseClick(Sender: TObject);
+begin
+  shakeStart := GetTickCount64;
+  tmrShakeUp.Enabled := True;
+  sleep(100);
+  tmrShakeLeft.Enabled := True;
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+begin
+
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  DoDrawBlankBoard;
+
+end;
+
+procedure TForm1.FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
+begin
+  if key = VK_LEFT then kbLt := True;
+
+  if key = VK_RIGHT then kbRt := True;
+
+  if key = VK_UP then kbUp := True;
+
+  if key = VK_DOWN then kbDn := True;
+
+  if key = VK_SHIFT then kbShft := True;
+
+  key := 0;
+  tmrDrawer.Enabled := True;
+end;
+
+procedure TForm1.FormKeyUp(Sender: TObject; var Key: word; Shift: TShiftState);
+begin
+  if key = VK_LEFT then kbLt := False;
+
+  if key = VK_RIGHT then kbRt := False;
+
+  if key = VK_UP then kbUp := False;
+
+  if key = VK_DOWN then kbDn := False;
+
+  if key = VK_SHIFT then kbShft := False;
+
+  if not kbDn and not kbUp and not kbLt and not kbRt then tmrDrawer.Enabled:=False;
+
+  key := 0;
+
+
+end;
+
+
+procedure TForm1.tmrDrawerTimer(Sender: TObject);
+var
+  fastloop: integer = 1;
+  i: integer;
+begin
+
+  if mnuExtraFast.Checked  then
+  fastloop:= 2
+   else if mnuSuperDuperFast.Checked then
+  fastloop:= 7
+  else if kbShft then
+  fastloop:=40
+  else fastloop:=1;
+
+  for i:= 0 to fastloop do begin
+
+
+  if kbLt then sedtX.Value := sedtX.Value - 1;
+
+  if kbRt then sedtX.Value := sedtX.Value + 1;
+
+  if kbUp then sedtY.Value := sedtY.Value - 1;
+
+  if kbDn then sedtY.Value := sedtY.Value + 1;
+
+  end;
+
+end;
+
+
+procedure TForm1.FormResize(Sender: TObject);
+begin
+  imgDrawingSpace.Picture.Bitmap.SetSize(imgDrawingSpace.Width, imgDrawingSpace.Height);
+  sedtX.MaxValue := imgDrawingSpace.Width - 30;
+  sedtY.MaxValue := imgDrawingSpace.Height - 30;
+  DoDrawBlankBoard;
+end;
+
+procedure TForm1.Label2Click(Sender: TObject);
+begin
+
+end;
+
+procedure TForm1.mnuAboutClick(Sender: TObject);
+begin
+  ShowMessage('This Etch A Sketch program was designed by Noella Stone using Lazarus.' +
+  sLineBreak + 'Code is also her design with her fathers assistance.' +
+  sLineBreak + 'Not bad for a 7 year old!  Good job Noella!' +
+  sLineBreak + '10/19/2021');
+end;
+
+procedure TForm1.mnuExtraFastClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 1;
+end;
+
+procedure TForm1.mnuSlowClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 75;
+end;
+
+procedure TForm1.mnuMedSlowClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 40;
+end;
+
+procedure TForm1.mnuMedFastClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 10;
+end;
+
+procedure TForm1.mnuFastClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 5;
+end;
+
+procedure TForm1.mnuMediumClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 20;
+
+end;
+
+procedure TForm1.mnuSuperDuperFastClick(Sender: TObject);
+begin
+  tmrDrawer.Interval := 1;
+end;
+
+procedure TForm1.sedtXChange(Sender: TObject);
+begin
+  drPntX := sedtX.Value;
+  DoDrawPoint;
+end;
+
+procedure TForm1.sedtYChange(Sender: TObject);
+begin
+  drPntY := sedtY.Value;
+  DoDrawPoint;
+end;
+
+procedure TForm1.tmrDrawerStartTimer(Sender: TObject);
+begin
+  Label1.Caption:=BoolToStr(tmrDrawer.Enabled,true);
+end;
+
+procedure TForm1.tmrDrawerStopTimer(Sender: TObject);
+begin
+  Label1.Caption:=BoolToStr(tmrDrawer.Enabled,true);
+end;
+
+
+procedure TForm1.StopShaking();
+begin
+  tmrShakeLeft.Enabled := False;
+  tmrShakeUp.Enabled := False;
+  DoDrawBlankBoard;
+end;
+
+procedure TForm1.tmrShakeLeftTimer(Sender: TObject);
+begin
+  if GetTickCount64 - shakeStart > 2500 then StopShaking;
+  if eraseLeft then
+  begin
+    form1.left := Form1.left - 30;
+    eraseLeft := not eraseLeft;
+    Application.ProcessMessages;
+  end
+  else
+  begin
+    form1.left := form1.left + 30;
+    eraseLeft := not eraseLeft;
+    Application.ProcessMessages;
+  end;
+end;
+
+procedure TForm1.tmrShakeUpTimer(Sender: TObject);
+begin
+  if eraserUp then
+  begin
+    form1.Top := Form1.Top - 30;
+    eraserUp := not eraserUp;
+    Application.ProcessMessages;
+  end
+  else
+  begin
+    form1.Top := form1.Top + 30;
+    eraserUp := not eraserUp;
+    application.ProcessMessages;
+  end;
+
+end;
+
+
+procedure TForm1.DoDrawBlankBoard;
+begin
+  imgDrawingSpace.Canvas.Pen.Style := psInsideframe;
+  imgDrawingSpace.Canvas.Pen.Color := clGray;
+  imgDrawingSpace.Canvas.Pen.Width := 10;
+  imgDrawingSpace.Canvas.Brush.Style := bsSolid;
+  imgDrawingSpace.Canvas.Brush.Color := clWhite;
+  imgDrawingSpace.Canvas.Rectangle(0, 0, imgDrawingSpace.Width,
+    imgDrawingSpace.Height);
+end;
+
+
+procedure TForm1.DoDrawPoint;
+begin
+  imgDrawingSpace.Canvas.Pen.Color := ColorDialog1.Color;
+  imgDrawingSpace.Canvas.Pen.Width := TrackBar1.Position;
+  imgDrawingSpace.Canvas.MoveTo(drPntX + 15, drPntY + 15);
+  imgDrawingSpace.Canvas.LineTo(drPntX + 15, drPntY + 15);
+end;
+
+
+
+
+end.
