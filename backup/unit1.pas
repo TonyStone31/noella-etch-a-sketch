@@ -73,6 +73,7 @@ type
     tmrDrawer: TTimer;
     TrackBar1: TTrackBar;
     procedure btnEraseClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
     procedure ColorDialog1Close(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
