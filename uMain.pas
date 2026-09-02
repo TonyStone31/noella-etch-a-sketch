@@ -233,6 +233,7 @@ type
       event stream down to a trickle.  The work now happens once per
       tick instead, off the back of the newest position. }
     FMoveX, FMoveY: Integer;
+    FMoveShift: TShiftState;
     FMovePending: Boolean;
     FScreenDirty: Boolean;
     FHotMode: Integer;
@@ -242,6 +243,23 @@ type
     FDocPath: string;            // where this set of sheets came from
     FGuide: Boolean;             // an alignment guide is active
     FGuideFrom: TP3;
+
+    { A 90 degree relationship to a point you chose beats whatever else
+      happens to be within snapping distance.  FAxisFrom is the point it is
+      measured from - the start of the line, or one acquired by resting on
+      it - and FAxisLock says which axis is free: 0 X, 1 Y, 2 Z. }
+    FAxisLock: Integer;
+    FAxisFrom: TP3;
+
+    { which standard view we are parked on, or -1 after a free orbit }
+    FViewPreset: Integer;
+
+    { rest the cursor on a point and it is kept as a reference }
+    FLockOn: Boolean;
+    FLockPt: TP3;
+    FLockKind: TSnapKind;
+    FDwellSX, FDwellSY: Integer;
+    FDwellSince: QWord;
 
     { --- deck ----------------------------------------------------------- }
     FDeck: array of TDeckItem;
@@ -279,12 +297,15 @@ type
     procedure RefreshChrome;
     procedure ResizeSurfaces(AW, AH: Integer);
     procedure RepaintPaper;
+    procedure PaintOrbitAxes;
     procedure Recompose;
     procedure RecomposeAll;
     procedure FreshScreen;
     procedure RenderPro;
     procedure InvalidateStatus;
     procedure ServiceMotion;
+    procedure ServiceHover;
+    function GuideColor: TPix;
 
     procedure UIFont(C: TCanvas; Size: Integer; Bold: Boolean; const Col: TPix;
       Mono: Boolean = False);
@@ -348,6 +369,8 @@ type
     procedure SetSymmetry(V: Integer);
     procedure SetUnits(U: TUnitSystem);
     procedure SetView(V: TViewKind);
+    procedure ApplyViewPreset(I: Integer);
+    procedure CycleViewPreset(Step: Integer);
 
     { deck }
     function DeckHit(X, Y: Integer): Integer;
@@ -418,6 +441,36 @@ const
   MAX_PEN         = 40;
   SNAP_PX         = 12.0;   // pulling onto a point on the drawing
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
+  AXIS_PX         = 8.0;    // how near the axis through a reference counts
+  LOCK_PX         = 4.5;    // this close and the point is what you meant
+  AXIS_MIN_PX     = 14.0;   // nearer than this an axis lock says nothing
+  DWELL_MS        = 450;    // rest on a point this long to keep it
+
+type
+  TViewPreset = record
+    Name: string;
+    View: TViewKind;
+    Az, El: Double;
+  end;
+
+const
+  ISO_EL = 35.264 * Pi / 180;   // the true isometric tilt
+
+  { One key steps through the views worth having.  The four corners come
+    first because that is what you actually draw from; the flat elevations
+    and the top are there for reading a dimension off. }
+  VIEW_PRESETS: array[0..10] of TViewPreset = (
+    (Name: 'PLAN';              View: vkPlan;  Az: 0;           El: 0),
+    (Name: 'ISO';               View: vkIso;   Az: 0;           El: 0),
+    (Name: 'CORNER FRONT-LEFT'; View: vkOrbit; Az: -Pi / 4;     El: ISO_EL),
+    (Name: 'CORNER FRONT-RIGHT';View: vkOrbit; Az: Pi / 4;      El: ISO_EL),
+    (Name: 'CORNER BACK-RIGHT'; View: vkOrbit; Az: 3 * Pi / 4;  El: ISO_EL),
+    (Name: 'CORNER BACK-LEFT';  View: vkOrbit; Az: -3 * Pi / 4; El: ISO_EL),
+    (Name: 'FRONT';             View: vkOrbit; Az: 0;           El: 0),
+    (Name: 'RIGHT';             View: vkOrbit; Az: Pi / 2;      El: 0),
+    (Name: 'BACK';              View: vkOrbit; Az: Pi;          El: 0),
+    (Name: 'LEFT';              View: vkOrbit; Az: -Pi / 2;     El: 0),
+    (Name: 'TOP';               View: vkOrbit; Az: 0;           El: 1.45));
   PRINT_DPI       = 150;
 
   SYM_VALUES: array[0..4] of Integer = (1, 2, 4, 6, 8);
@@ -525,7 +578,11 @@ var
   Pts: TP3Array;
   I, BestAxis: Integer;
   Tol, D, Best: Double;
-  W: TP3;
+  W, Wf, AxRef: TP3;
+  SP: TPointF;
+  PtOK: Boolean;
+  PtPx, AxPx: Double;
+  AxIdx: Integer;
 
   { An alignment is only worth showing when the point is off in exactly one
     direction - then the guide is a clean line parallel to an axis.  If it
@@ -563,8 +620,39 @@ var
     end;
   end;
 
+  { The cursor is on an axis through R when it differs from R along one
+    direction only.  The error - how far off that line it is - is what
+    competes with the point snaps, so it is measured in pixels like they
+    are.  A lock only means something once you are some way along it;
+    right next to R every axis matches and the cursor would stick. }
+  procedure AxisTry(const R: TP3);
+  var
+    K: Integer;
+    DX, DY, DZ, Off, Along: Double;
+  begin
+    DX := Abs(Wf.X - R.X) * Ppu;
+    DY := Abs(Wf.Y - R.Y) * Ppu;
+    DZ := Abs(Wf.Z - R.Z) * Ppu;
+    for K := 0 to 2 do
+    begin
+      case K of
+        0: begin Along := DX; Off := Sqrt(Sqr(DY) + Sqr(DZ)); end;
+        1: begin Along := DY; Off := Sqrt(Sqr(DX) + Sqr(DZ)); end;
+      else begin Along := DZ; Off := Sqrt(Sqr(DX) + Sqr(DY)); end;
+      end;
+      if Along < AXIS_MIN_PX then Continue;
+      if Off < AxPx then
+      begin
+        AxPx := Off;
+        AxIdx := K;
+        AxRef := R;
+      end;
+    end;
+  end;
+
 begin
   FGuide := False;
+  FAxisLock := -1;
 
   { SNAP OFF means off: no grid, no points, no guides.  Holding Alt suspends
     all of it for one move, which is the usual way out of a sticky snap. }
@@ -574,13 +662,60 @@ begin
     Exit(WorldAt(SX, SY));
   end;
 
-  if FD.Doc.BestSnap(Proj, SX, SY, SNAP_PX, Hit) then
+  Wf := WorldAt(SX, SY);
+  PtOK := FD.Doc.BestSnap(Proj, SX, SY, SNAP_PX, Hit);
+  PtPx := 1E30;
+  if PtOK then
+  begin
+    SP := ScreenOf(Hit.P);
+    PtPx := Sqrt(Sqr(SX - SP.X) + Sqr(SY - SP.Y));
+  end;
+
+  { A definite point right under the cursor is what you were aiming at, so
+    it still wins outright.  A piece-midpoint does not count as definite -
+    those are the ones that turn up at the quarter points of everything you
+    have already split, and they are exactly what used to steal the cursor. }
+  if PtOK and (PtPx <= LOCK_PX) and
+     (Hit.Kind in [snEndpoint, snCross, snCentre, snMidpoint]) then
   begin
     FSnapKind := Hit.Kind;
     Exit(Hit.P);
   end;
 
-  W := SnapToGrid(WorldAt(SX, SY));
+  { Otherwise a 90 degree relationship to a point you chose - the start of
+    the line, or one you rested on - beats whatever else is nearby.  Going
+    straight up from the corner you started at is nearly always the answer
+    you wanted, and before this it could not win against any stray point
+    within snapping distance. }
+  AxIdx := -1;
+  AxPx := AXIS_PX;
+  if FDirLock < 0 then
+  begin
+    if FStage > 0 then AxisTry(FP1);
+    if FLockOn then AxisTry(FLockPt);
+  end;
+
+  if AxIdx >= 0 then
+  begin
+    W := SnapToGrid(Wf);
+    case AxIdx of
+      0: begin W.Y := AxRef.Y; W.Z := AxRef.Z; end;
+      1: begin W.X := AxRef.X; W.Z := AxRef.Z; end;
+    else begin W.X := AxRef.X; W.Y := AxRef.Y; end;
+    end;
+    FAxisLock := AxIdx;
+    FAxisFrom := AxRef;
+    FSnapKind := snGrid;
+    Exit(W);
+  end;
+
+  if PtOK then
+  begin
+    FSnapKind := Hit.Kind;
+    Exit(Hit.P);
+  end;
+
+  W := SnapToGrid(Wf);
   FSnapKind := snGrid;
 
   { A locked direction is already a constraint; inferring another one on top
@@ -928,6 +1063,44 @@ begin
   FRedoToyTop := 0;
 end;
 
+{ Orbiting has no lattice - a fixed grid looks wrong from an arbitrary angle
+  - so the three model axes are the only thing telling you which way is
+  which.  Positive solid, negative faint, each in its own colour, and the
+  same colours the rubber band picks up when you lock onto one. }
+procedure TMainForm.PaintOrbitAxes;
+var
+  K: Integer;
+  L: Double;
+  B: TP3;
+  PO, PB: TPointF;
+  Col: TPix;
+begin
+  L := (FPaper.Width + FPaper.Height) / Max(1E-9, Ppu);
+  PO := ScreenOf(P3(0, 0, 0));
+  for K := 0 to 2 do
+  begin
+    Col := AxisPix(K);
+    B := P3(0, 0, 0);
+    case K of
+      0: B.X := L;
+      1: B.Y := L;
+    else B.Z := L;
+    end;
+    PB := ScreenOf(B);
+    FPaper.Line(PO.X, PO.Y, PB.X, PB.Y, 1.8, Col, 0.55);
+
+    B := P3(0, 0, 0);
+    case K of
+      0: B.X := -L;
+      1: B.Y := -L;
+    else B.Z := -L;
+    end;
+    PB := ScreenOf(B);
+    FPaper.Line(PO.X, PO.Y, PB.X, PB.Y, 1.4, Col, 0.22);
+  end;
+  FPaper.Touch;
+end;
+
 procedure TMainForm.RepaintPaper;
 begin
   if FMode = mdPro then
@@ -937,8 +1110,10 @@ begin
       case FD.View of
         vkIso: PaintIsoGrid(FPaper, Theme, Ppu, FD.ViewX, FD.ViewY, 5);
         vkPlan: PaintMeasuredGrid(FPaper, Theme, Ppu, FD.ViewX, FD.ViewY, 5);
-        vkOrbit: ;   // a fixed lattice is more noise than help when orbiting
+        vkOrbit: ;   // handled below - the axes show whether the grid is on
       end;
+    if FD.View = vkOrbit then
+      PaintOrbitAxes;
   end
   else
     PaintScreenPaper(FPaper, Theme, FShowGrid);
@@ -2058,8 +2233,40 @@ begin
 end;
 
 
+{ Parking on a named camera rather than spinning to it by hand.  Free
+  orbiting sets FViewPreset to -1, so the next press puts you back on the
+  rails at the corner view instead of resuming a cycle you left long ago. }
+procedure TMainForm.ApplyViewPreset(I: Integer);
+var
+  N: Integer;
+begin
+  N := Length(VIEW_PRESETS);
+  FViewPreset := ((I mod N) + N) mod N;
+  FD.View := VIEW_PRESETS[FViewPreset].View;
+  FD.Az := VIEW_PRESETS[FViewPreset].Az;
+  FD.El := VIEW_PRESETS[FViewPreset].El;
+  if FD.View <> vkOrbit then FD.Plane := plXY;
+  FCmdMsg := VIEW_PRESETS[FViewPreset].Name + ' view.';
+  FitView;
+  RebuildDeck;
+  pbDeck.Invalidate;
+  pbView.Invalidate;
+  pbCmd.Invalidate;
+end;
+
+procedure TMainForm.CycleViewPreset(Step: Integer);
+begin
+  if FViewPreset < 0 then
+  begin
+    if FD.View = vkOrbit then ApplyViewPreset(2) else ApplyViewPreset(0);
+    Exit;
+  end;
+  ApplyViewPreset(FViewPreset + Step);
+end;
+
 procedure TMainForm.SetView(V: TViewKind);
 begin
+  FViewPreset := -1;
   if V = FD.View then Exit;
   FD.View := V;
   if V <> vkOrbit then FD.Plane := plXY;
@@ -2264,10 +2471,14 @@ end;
 { ======================================================================== }
 
 function TMainForm.SnapLabel: string;
+const
+  AXIS_LABEL: array[0..2] of string = ('ON X', 'ON Y', 'ON Z');
 begin
+  if FAxisLock in [0..2] then Exit(AXIS_LABEL[FAxisLock]);
   case FSnapKind of
     snEndpoint: Result := 'ENDPOINT';
     snMidpoint: Result := 'MIDPOINT';
+    snSubMid:   Result := 'ON SEGMENT';
     snCentre:   Result := 'CENTRE';
     snCross:    Result := 'CROSSING';
     snGrid:     Result := 'GRID';
@@ -2326,6 +2537,9 @@ var
   S1, S2: string;
   W1, W2, BoxW, BoxH, LnH: Integer;
 
+  { When the cursor is locked to an axis the band is drawn in that axis's
+    colour, so the direction you are committing to is readable without
+    looking away at the chip. }
   procedure Rubber(const A, B: TP3);
   var
     PA, PB: TPointF;
@@ -2333,11 +2547,20 @@ var
     PA := ScreenOf(A);
     PB := ScreenOf(B);
     C.Pen.Style := psDash;
-    C.Pen.Color := PixToColor(Theme.Accent);
-    C.Pen.Width := 1;
+    if FAxisLock in [0..2] then
+    begin
+      C.Pen.Color := PixToColor(AxisPix(FAxisLock));
+      C.Pen.Width := Max(2, Round(2 * FUIScale));
+    end
+    else
+    begin
+      C.Pen.Color := PixToColor(Theme.Accent);
+      C.Pen.Width := 1;
+    end;
     C.MoveTo(Round(PA.X), Round(PA.Y));
     C.LineTo(Round(PB.X), Round(PB.Y));
     C.Pen.Style := psSolid;
+    C.Pen.Width := 1;
   end;
 
 begin
@@ -2418,20 +2641,46 @@ begin
     end;
   end;
 
-  { --- alignment guide -------------------------------------------------- }
+  { --- the axis you are locked to --------------------------------------- }
+  if FAxisLock in [0..2] then
+  begin
+    GP := ScreenOf(FAxisFrom);
+    C.Pen.Style := psDot;
+    C.Pen.Color := PixToColor(AxisPix(FAxisLock));
+    C.Pen.Width := Max(1, Round(FUIScale));
+    { run it past the cursor as well, so it reads as a line you are on
+      rather than a measurement between two points }
+    C.MoveTo(Round(GP.X), Round(GP.Y));
+    C.LineTo(SX + Round((SX - GP.X) * 0.18), SY + Round((SY - GP.Y) * 0.18));
+    C.Pen.Style := psSolid;
+    C.Pen.Width := 1;
+  end;
+
+  { --- lined up with a point somewhere else ----------------------------- }
   if FGuide then
   begin
     GP := ScreenOf(FGuideFrom);
     C.Pen.Style := psDot;
-    C.Pen.Color := PixToColor(Theme.Accent);
+    C.Pen.Color := PixToColor(GuideColor);
     C.Pen.Width := 1;
     C.MoveTo(Round(GP.X), Round(GP.Y));
     C.LineTo(SX, SY);
     C.Pen.Style := psSolid;
-    C.Brush.Style := bsSolid;
-    C.Brush.Color := PixToColor(Theme.Accent);
-    C.FillRect(Round(GP.X) - 3, Round(GP.Y) - 3, Round(GP.X) + 4, Round(GP.Y) + 4);
     C.Brush.Style := bsClear;
+    C.Pen.Color := PixToColor(GuideColor);
+    C.Rectangle(Round(GP.X) - 3, Round(GP.Y) - 3, Round(GP.X) + 4, Round(GP.Y) + 4);
+  end;
+
+  { --- the point being held as a reference ------------------------------ }
+  if FLockOn then
+  begin
+    GP := ScreenOf(FLockPt);
+    C.Pen.Style := psSolid;
+    C.Pen.Width := Max(2, Round(2 * FUIScale));
+    C.Pen.Color := PixToColor(GuideColor);
+    C.Brush.Style := bsClear;
+    C.Ellipse(Round(GP.X) - 7, Round(GP.Y) - 7, Round(GP.X) + 8, Round(GP.Y) + 8);
+    C.Pen.Width := 1;
   end;
 
   { --- what kind of point the cursor is sitting on ---------------------- }
@@ -2571,7 +2820,7 @@ begin
     FOverlay.Line(CR + Rad - 1, CR, CR + Rad + 5, CR, 1.3, Contrast, 0.85);
     FOverlay.Line(CR, CR - Rad - 5, CR, CR - Rad + 1, 1.3, Contrast, 0.85);
     FOverlay.Line(CR, CR + Rad - 1, CR, CR + Rad + 5, 1.3, Contrast, 0.85);
-    if FSnapKind in [snEndpoint, snMidpoint, snCentre, snCross] then
+    if FSnapKind in [snEndpoint, snMidpoint, snCentre, snCross, snSubMid] then
       FOverlay.Ring(CR, CR, Rad * 0.55, 2.0, Theme.Accent, 0.95);
   end
   else if FPenUp then
@@ -2601,6 +2850,8 @@ begin
   FStage := 0;
   FHoverEnt := -1;
   FGuide := False;
+  FAxisLock := -1;
+  FLockOn := False;
   FDirLock := -1;
   FInput := '';
   pbScreen.Invalidate;
@@ -2983,6 +3234,13 @@ begin
   else if (W = 'undo') or (W = 'u') then DoUndo
   else if W = 'redo' then DoRedo
   else if (W = 'fit') or (W = 'zoom') then FitView
+  else if W = 'view' then CycleViewPreset(1)
+  else if (W = 'top') or (W = 'down') then ApplyViewPreset(10)
+  else if W = 'front' then ApplyViewPreset(6)
+  else if W = 'right' then ApplyViewPreset(7)
+  else if W = 'back' then ApplyViewPreset(8)
+  else if W = 'left' then ApplyViewPreset(9)
+  else if W = 'corner' then ApplyViewPreset(2)
   else if W = 'iso' then SetView(vkIso)
   else if (W = '3d') or (W = 'orbit') then SetView(vkOrbit)
   else if (W = 'plan') or (W = '2d') or (W = 'flat') then SetView(vkPlan)
@@ -3093,6 +3351,7 @@ begin
       FPanning := not FOrbiting;
       FPanRefX := X;
       FPanRefY := Y;
+      FMoveShift := Shift;
       pbScreen.Cursor := crSizeAll;
     end
     else if Button = mbRight then
@@ -3123,6 +3382,7 @@ procedure TMainForm.pbScreenMouseMove(Sender: TObject; Shift: TShiftState; X, Y:
 begin
   FMoveX := X;
   FMoveY := Y;
+  FMoveShift := Shift;
   FMovePending := True;
 end;
 
@@ -3138,22 +3398,23 @@ begin
   X := FMoveX;
   Y := FMoveY;
 
-  if FOrbiting then
+  { Middle drag orbits, and holding Shift pans instead - tested every move
+    rather than only when the button went down, so you can grab Shift part
+    way through an orbit the way you would in SketchUp. }
+  if FOrbiting or FPanning then
   begin
-    FD.Az := FD.Az + (X - FPanRefX) * 0.010;
-    FD.El := EnsureRange(FD.El + (Y - FPanRefY) * 0.010, -1.45, 1.45);
-    FPanRefX := X;
-    FPanRefY := Y;
-    RepaintPaper;
-    RenderPro;
-    RecomposeAll;
-    Invalidate;
-    Exit;
-  end;
-
-  if FPanning then
-  begin
-    PanBy(X - FPanRefX, Y - FPanRefY);
+    if FOrbiting and not (ssShift in FMoveShift) then
+    begin
+      FD.Az := FD.Az + (X - FPanRefX) * 0.010;
+      FD.El := EnsureRange(FD.El + (Y - FPanRefY) * 0.010, -1.45, 1.45);
+      FViewPreset := -1;
+      RepaintPaper;
+      RenderPro;
+      RecomposeAll;
+      Invalidate;
+    end
+    else
+      PanBy(X - FPanRefX, Y - FPanRefY);
     FPanRefX := X;
     FPanRefY := Y;
     Exit;
@@ -3175,6 +3436,52 @@ begin
 
   if FFreehand then
     PenTo(X, Y, not FPenUp);
+end;
+
+{ SketchUp's trick: rest on a point for a moment and it is remembered, so
+  you can move away and still line up with it.  Without it the only thing
+  you can align to is wherever the line already started, which is no help
+  when the point that matters is across the drawing. }
+procedure TMainForm.ServiceHover;
+var
+  Now64: QWord;
+begin
+  if FMode <> mdPro then Exit;
+
+  { any real movement restarts the clock }
+  if (Abs(FMoveX - FDwellSX) > 3) or (Abs(FMoveY - FDwellSY) > 3) then
+  begin
+    FDwellSX := FMoveX;
+    FDwellSY := FMoveY;
+    FDwellSince := GetTickCount64;
+    Exit;
+  end;
+
+  { only a point worth referencing is worth keeping }
+  if not (FSnapKind in [snEndpoint, snMidpoint, snCentre, snCross, snSubMid]) then
+    Exit;
+
+  Now64 := GetTickCount64;
+  if Now64 - FDwellSince < DWELL_MS then Exit;
+
+  if FLockOn and (Dist(FLockPt, FCur) < 1E-9) then Exit;   // already this one
+  FLockOn := True;
+  FLockPt := FCur;
+  FLockKind := FSnapKind;
+  FScreenDirty := True;
+  InvalidateStatus;
+end;
+
+{ Guides are not ink.  An axis lock takes that axis's colour, the way the
+  model axes are drawn; lining up with some other point on the drawing gets
+  this instead, so nothing that is only telling you where you are can be
+  mistaken for something about to be drawn. }
+function TMainForm.GuideColor: TPix;
+begin
+  if Theme.DarkScreen then
+    Result := Pix($E8, $7C, $F0)
+  else
+    Result := Pix($A8, $2A, $BA);
 end;
 
 procedure TMainForm.pbScreenMouseUp(Sender: TObject; Button: TMouseButton;
@@ -3713,6 +4020,7 @@ begin
   Dt := TICK_MS / 1000;
 
   ServiceMotion;
+  ServiceHover;
   try
 
   if FErasing then
@@ -3958,12 +4266,7 @@ begin
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMeasure);
       VK_V:
-        case FD.View of
-          vkPlan: RunCommand('iso');
-          vkIso: RunCommand('3d');
-        else
-          RunCommand('plan');
-        end;
+        if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
       VK_I: RunCommand(IfThen(FD.View = vkIso, 'plan', 'iso'));
       VK_K: RunCommand('plane');
       VK_F: FitView;

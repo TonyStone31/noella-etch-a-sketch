@@ -90,7 +90,13 @@ type
   TP3Array = array of TP3;
   TPointFArray = array of TPointF;
 
-  TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCentre, snCross);
+  { snSubMid is the midpoint of a piece of a line that something else has
+    crossed, as opposed to snMidpoint, the middle of a whole uncrossed one.
+    Splitting a rectangle in half puts one of these at the quarter point of
+    every edge it touched, so they multiply fast and are worth much less
+    than the point you actually aimed at. }
+  TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCentre, snCross,
+    snSubMid);
 
   TSnapHit = record
     P: TP3;
@@ -1288,6 +1294,7 @@ var
   Idx: array of Integer;
   Tmp: Double;
   K, M: Integer;
+  MidKind: TSnapKind;
 
   procedure Put(const Q: TP3; Kind: TSnapKind);
   begin
@@ -1361,6 +1368,9 @@ begin
       end;
       Cuts[I][M + 1] := Tmp;
     end;
+    { an uncrossed line has one piece, and its middle is the real midpoint;
+      anything else is a piece of a line and ranks well below it }
+    if Length(Cuts[I]) > 2 then MidKind := snSubMid else MidKind := snMidpoint;
     for K := 0 to High(Cuts[I]) - 1 do
     begin
       Tmp := (Cuts[I][K] + Cuts[I][K + 1]) / 2;
@@ -1368,7 +1378,7 @@ begin
       Put(P3(FEnts[Idx[I]].A.X + (FEnts[Idx[I]].B.X - FEnts[Idx[I]].A.X) * Tmp,
              FEnts[Idx[I]].A.Y + (FEnts[Idx[I]].B.Y - FEnts[Idx[I]].A.Y) * Tmp,
              FEnts[Idx[I]].A.Z + (FEnts[Idx[I]].B.Z - FEnts[Idx[I]].A.Z) * Tmp),
-          snMidpoint);
+          MidKind);
     end;
   end;
 
@@ -1473,7 +1483,7 @@ end;
 function TWorkDoc.BestSnap(const V: TProjector; SX, SY, TolPx: Double;
   out Hit: TSnapHit): Boolean;
 const
-  BIAS: array[TSnapKind] of Double = (0, 0, 3.5, 1.0, 2.0, 1.5);
+  BIAS: array[TSnapKind] of Double = (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25);
 var
   I: Integer;
   P: TPointF;
