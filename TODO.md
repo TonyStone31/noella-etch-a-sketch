@@ -11,14 +11,15 @@ plan is to give it away.
 
 ---
 
-## 1. A rectangle tool  ← smallest thing, biggest payoff
+## 1. ~~A rectangle tool~~  — done 2 September 2026
 
-Click a corner, click the opposite one, or type `12'x8'`. An hour of work.
+Click a corner, click the opposite one, or type `12'x8'`. `R`, or `/rect`.
+Makes its face by construction rather than waiting for four separate lines
+to happen to meet, so push/pull always has something to grab. The size and
+area read out while you drag it.
 
-It matters more than convenience: it makes a **face** reliably. Today a face
-only appears when four separate lines happen to close on each other, which
-is also why push/pull sometimes has nothing to grab. Almost everything below
-is easier to test once a face is one click away.
+Still to do here: no rotated rectangles, and it only lies in the working
+plane (`K` cycles XY / XZ / YZ) - see #7.
 
 ## 2. Selection and move
 
