@@ -293,6 +293,10 @@ type
     function DialsVisible: Boolean;
 
     procedure Relayout;
+    function TitleHeight: Integer;
+    function DeckRowH: Integer;
+    function DeckHeight: Integer;
+    function ChromeMargin: Integer;
     procedure RebuildShell;
     procedure RebuildDeck;
     procedure RebuildKnobs;
@@ -968,6 +972,48 @@ end;
 { layout                                                                    }
 { ======================================================================== }
 
+{ TOY earns its big friendly header - it is half the character of the thing.
+  PRO does not: it is a drawing board, and every pixel of chrome is a pixel
+  off the drawing. The two modes get their own sizes rather than one
+  compromise that suits neither.
+
+  Relayout, RebuildShell, pbDeckPaint and FormPaint all have to agree about
+  these, and before this they agreed by having the same numbers typed into
+  each of them. }
+function TMainForm.TitleHeight: Integer;
+begin
+  if FMode = mdPro then
+    Result := Round(50 * FUIScale)
+  else
+    Result := Round(84 * FUIScale);
+end;
+
+function TMainForm.ChromeMargin: Integer;
+begin
+  if FMode = mdPro then
+    Result := Round(14 * FUIScale)
+  else
+    Result := Round(22 * FUIScale);
+end;
+
+function TMainForm.DeckRowH: Integer;
+begin
+  if FMode = mdPro then
+    Result := Round(26 * FUIScale)
+  else
+    Result := Round(30 * FUIScale);
+end;
+
+{ Derived from the rows rather than fixed, so adding a fifth row of tools is
+  a change in one place instead of a constant nobody remembers to update. }
+function TMainForm.DeckHeight: Integer;
+const
+  ROWS = 4;
+begin
+  Result := ROWS * DeckRowH + (ROWS - 1) * Round(8 * FUIScale) +
+    Round(28 * FUIScale);
+end;
+
 procedure TMainForm.Relayout;
 var
   M, TitleH, DeckH, Bezel, KnobSz, Gap, ModeW, ModeH, CmdH, TabsH: Integer;
@@ -977,9 +1023,9 @@ var
 begin
   if not FBooted then Exit;
 
-  M := Round(22 * FUIScale);
-  TitleH := Round(84 * FUIScale);
-  DeckH := Round(172 * FUIScale);
+  M := ChromeMargin;
+  TitleH := TitleHeight;
+  DeckH := DeckHeight;
   Bezel := Round(16 * FUIScale);
   Gap := Round(16 * FUIScale);
   ModeW := Round(186 * FUIScale);
@@ -987,7 +1033,11 @@ begin
   CmdH := Round(44 * FUIScale);
   TabsH := Round(30 * FUIScale);
 
-  pbMode.SetBounds(ClientWidth - M - ModeW, Round(10 * FUIScale), ModeW, ModeH);
+  if FMode = mdPro then
+    pbMode.SetBounds(ClientWidth - M - ModeW, Round(4 * FUIScale),
+      ModeW, Round(24 * FUIScale))
+  else
+    pbMode.SetBounds(ClientWidth - M - ModeW, Round(10 * FUIScale), ModeW, ModeH);
 
   DeckR := Rect(M, ClientHeight - M - DeckH, ClientWidth - M, ClientHeight - M);
 
@@ -1057,9 +1107,9 @@ var
   M, TitleH, DeckH, Bezel, Gap, CmdH, TabsH: Integer;
   BezelR: TRect;
 begin
-  M := Round(22 * FUIScale);
-  TitleH := Round(84 * FUIScale);
-  DeckH := Round(172 * FUIScale);
+  M := ChromeMargin;
+  TitleH := TitleHeight;
+  DeckH := DeckHeight;
   Bezel := Round(16 * FUIScale);
   Gap := Round(16 * FUIScale);
   CmdH := Round(44 * FUIScale);
@@ -1786,7 +1836,7 @@ begin
 
   Pad := Round(14 * FUIScale);
   LabW := Round(74 * FUIScale);
-  RowH := Round(30 * FUIScale);
+  RowH := DeckRowH;
   RowGap := Round(8 * FUIScale);
   IconW := Round(34 * FUIScale);
   IconGap := Round(6 * FUIScale);
@@ -2101,7 +2151,7 @@ begin
   FDeckSkin.DrawTo(pbDeck.Canvas, 0, 0);
 
   Pad := Round(14 * FUIScale);
-  RowH := Round(30 * FUIScale);
+  RowH := DeckRowH;
   RowGap := Round(8 * FUIScale);
   Y0 := (FDeckSkin.Height - (4 * RowH + 3 * RowGap)) div 2;
 
@@ -3895,14 +3945,44 @@ end;
 
 procedure TMainForm.FormPaint(Sender: TObject);
 var
-  M, TitleH, Y, TW: Integer;
+  M, TitleH, Y, TW, RightEdge: Integer;
   S: string;
 begin
   if not FBooted then Exit;
   FShell.DrawTo(Canvas, 0, 0);
 
-  M := Round(22 * FUIScale);
-  TitleH := Round(84 * FUIScale);
+  M := ChromeMargin;
+  TitleH := TitleHeight;
+
+  if FMode = mdPro then
+  begin
+    { one line: the name small on the left, the reading that matters on the
+      right, and the hint between them only when it fits }
+    UIFont(Canvas, 13, True, Theme.Text);
+    Y := Round(7 * FUIScale);
+    TrackedText(Canvas, M + Round(2 * FUIScale), Y, UpperCase(APP_NAME),
+      Round(2 * FUIScale));
+
+    { the TOY/PRO switch lives at the right of this same line, so the reading
+      stops short of it rather than running underneath }
+    RightEdge := ClientWidth - M - Round(186 * FUIScale) - Round(14 * FUIScale);
+    UIFont(Canvas, 11, True, Theme.Text, True);
+    S := StatusLine;
+    TW := Canvas.TextWidth(S);
+    Canvas.TextOut(RightEdge - TW, Round(8 * FUIScale), S);
+
+    UIFont(Canvas, 9, False, Theme.TextDim);
+    S := FHint;
+    if Canvas.TextWidth(S) < RightEdge - TW - Round(190 * FUIScale) then
+      Canvas.TextOut(M + Round(170 * FUIScale), Round(10 * FUIScale), S);
+
+    UIFont(Canvas, 9, True, MixPix(Theme.Text, Theme.Bezel1, 0.35));
+    S := 'MAGIC SCREEN';
+    Canvas.TextOut(ClientWidth - M - Round(146 * FUIScale) +
+      (Round(132 * FUIScale) - Canvas.TextWidth(S)) div 2,
+      pbScreen.Top + pbScreen.Height + Round(4 * FUIScale), S);
+    Exit;
+  end;
 
   UIFont(Canvas, 20, True, Theme.Text);
   Y := Round(12 * FUIScale);
@@ -5045,6 +5125,7 @@ end;
 procedure TMainForm.LoadSettings;
 var
   Ini: TIniFile;
+  WW, WH, WL, WT: Integer;
 begin
   FInkColor := PALETTE[0];
   FInkAuto := True;
@@ -5066,6 +5147,32 @@ begin
       FD.Units := TUnitSystem(EnsureRange(Ini.ReadInteger('pro', 'units', 0), 0, 1));
       FD.ShowDims := Ini.ReadBool('pro', 'dims', True);
       FD.View := TViewKind(EnsureRange(Ini.ReadInteger('pro', 'view', 0), 0, 1));
+
+      { Where the window was last time.  Only honoured if it still lands on a
+        screen - monitors get unplugged, and a window restored onto one that
+        is no longer there is a window you cannot reach.  Size is clamped to
+        what the screen can actually show, which is the case that started
+        this: a default built on a big monitor arrived off the bottom of a
+        1920x1080 laptop. }
+      WW := Ini.ReadInteger('win', 'w', 0);
+      WH := Ini.ReadInteger('win', 'h', 0);
+      WL := Ini.ReadInteger('win', 'x', MaxInt);
+      WT := Ini.ReadInteger('win', 'y', MaxInt);
+      if (WW > 200) and (WH > 200) then
+      begin
+        WW := Min(WW, Screen.WorkAreaWidth);
+        WH := Min(WH, Screen.WorkAreaHeight);
+        SetBounds(Left, Top, WW, WH);
+      end;
+      if (WL <> MaxInt) and (WT <> MaxInt) and
+         (WL > -Width + 120) and (WT >= 0) and
+         (WL < Screen.DesktopWidth - 120) and
+         (WT < Screen.DesktopHeight - 80) then
+        SetBounds(WL, WT, Width, Height)
+      else
+        Position := poScreenCenter;
+      if Ini.ReadBool('win', 'max', False) then
+        WindowState := wsMaximized;
     finally
       Ini.Free;
     end;
@@ -5097,6 +5204,14 @@ begin
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));
       Ini.WriteBool('pro', 'dims', FD.ShowDims);
       Ini.WriteInteger('pro', 'view', Ord(FD.View));
+
+      { Restored*, not Left/Width: a maximised window would otherwise
+        remember the size of the screen and come back unmaximisable. }
+      Ini.WriteBool('win', 'max', WindowState = wsMaximized);
+      Ini.WriteInteger('win', 'x', RestoredLeft);
+      Ini.WriteInteger('win', 'y', RestoredTop);
+      Ini.WriteInteger('win', 'w', RestoredWidth);
+      Ini.WriteInteger('win', 'h', RestoredHeight);
       Ini.UpdateFile;
     finally
       Ini.Free;
