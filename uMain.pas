@@ -224,6 +224,7 @@ type
     FPanning: Boolean;
     FOrbiting: Boolean;
     FPushFace: Integer;
+    FHoverFace: Integer;   // the face push/pull would take, before you click
     FPushSX, FPushSY: Integer;   // where the drag started, on screen
     FPanRefX, FPanRefY: Integer;
     FMouseSX, FMouseSY: Integer;   // raw pointer, before snapping
@@ -305,6 +306,7 @@ type
     procedure RepaintPaper;
     procedure PaintOrbitAxes;
     procedure PaintPushPreview(C: TCanvas);
+    procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
     function PushDistance: Double;
     procedure Recompose;
     procedure RecomposeAll;
@@ -907,6 +909,7 @@ begin
   FTool := ptSelect;
   FDirLock := -1;
   FPushFace := -1;
+  FHoverFace := -1;
   FHint := TOY_HINT;
 
   LoadSettings;
@@ -1174,6 +1177,63 @@ end;
   - so the three model axes are the only thing telling you which way is
   which.  Positive solid, negative faint, each in its own colour, and the
   same colours the rubber band picks up when you lock onto one. }
+{ SketchUp stipples the face under the cursor so you can see there is
+  something to grab before committing to it.  Same idea: a field of dots
+  clipped to the polygon, and a bold outline. }
+procedure TMainForm.PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+var
+  Pts: TPointFArray;
+  I, J, N, X, Y, X0, Y0, X1, Y1, Step: Integer;
+  Inside: Boolean;
+begin
+  if Face < 0 then Exit;
+  Pts := FD.Doc.Outline(Proj, Face);
+  N := Length(Pts);
+  if N < 3 then Exit;
+
+  X0 := MaxInt; Y0 := MaxInt; X1 := -MaxInt; Y1 := -MaxInt;
+  for I := 0 to N - 1 do
+  begin
+    X0 := Min(X0, Round(Pts[I].X)); X1 := Max(X1, Round(Pts[I].X));
+    Y0 := Min(Y0, Round(Pts[I].Y)); Y1 := Max(Y1, Round(Pts[I].Y));
+  end;
+  X0 := Max(X0, 0); Y0 := Max(Y0, 0);
+  X1 := Min(X1, pbScreen.Width - 1); Y1 := Min(Y1, pbScreen.Height - 1);
+  if (X1 <= X0) or (Y1 <= Y0) then Exit;
+
+  Step := Max(5, Round(6 * FUIScale));
+  Y := Y0 - (Y0 mod Step);
+  while Y <= Y1 do
+  begin
+    X := X0 - (X0 mod Step);
+    while X <= X1 do
+    begin
+      Inside := False;
+      J := N - 1;
+      for I := 0 to N - 1 do
+      begin
+        if ((Pts[I].Y > Y) <> (Pts[J].Y > Y)) and
+           (X < (Pts[J].X - Pts[I].X) * (Y - Pts[I].Y) /
+                (Pts[J].Y - Pts[I].Y) + Pts[I].X) then
+          Inside := not Inside;
+        J := I;
+      end;
+      if Inside and (X >= X0) and (Y >= Y0) then
+        C.Pixels[X, Y] := PixToColor(Col);
+      Inc(X, Step);
+    end;
+    Inc(Y, Step);
+  end;
+
+  C.Pen.Color := PixToColor(Col);
+  C.Pen.Width := Max(2, Round(2 * FUIScale));
+  C.Pen.Style := psSolid;
+  C.MoveTo(Round(Pts[N - 1].X), Round(Pts[N - 1].Y));
+  for I := 0 to N - 1 do
+    C.LineTo(Round(Pts[I].X), Round(Pts[I].Y));
+  C.Pen.Width := 1;
+end;
+
 { How far the push would go.  The cursor always says which way along the
   face normal; a typed number only says how far, so typing 6" after moving
   inwards pushes in rather than jumping back out. }
@@ -2858,7 +2918,13 @@ begin
         if FStage = 1 then Rubber(FP1, FCur) else Rubber(FP1, FP2);
       end;
     ptPush:
-      if FStage = 1 then PaintPushPreview(C);
+      if FStage = 1 then
+      begin
+        PaintFaceHint(C, FPushFace, Theme.Accent);
+        PaintPushPreview(C);
+      end
+      else
+        PaintFaceHint(C, FHoverFace, Theme.Accent);
     ptSelect, ptText, ptErase: ;   // nothing to rubber-band
   end;
 
@@ -3106,6 +3172,15 @@ end;
 
 procedure TMainForm.SetTool(T: TProTool);
 begin
+  { Push/pull along a face normal that points at the camera can only move the
+    face away from you, which plan cannot draw and you cannot judge. Rather
+    than leave a tool that appears to do nothing, go and get a view where it
+    means something. }
+  if (T = ptPush) and (FD.View = vkPlan) then
+  begin
+    ApplyViewPreset(2);
+    FCmdMsg := 'Push/pull needs to see the face - switched to the corner view.';
+  end;
   FTool := T;
   ResetTool;
   FHint := TOOL_HINTS[T];
@@ -3118,6 +3193,7 @@ procedure TMainForm.ResetTool;
 begin
   FStage := 0;
   FHoverEnt := -1;
+  FHoverFace := -1;
   FGuide := False;
   FAxisLock := -1;
   FLockOn := False;
@@ -3477,6 +3553,7 @@ begin
           end;
         end;
         FPushFace := -1;
+  FHoverFace := -1;
         ResetTool;
       end;
 
@@ -3776,6 +3853,13 @@ begin
       FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
     else
       FHoverEnt := -1;
+    { what push/pull would pick up if you clicked now.  Without this the tool
+      looks broken: the click works, but nothing ever says a face was under
+      the cursor, so there is no telling a hit from a miss. }
+    if (FTool = ptPush) and (FStage = 0) then
+      FHoverFace := FD.Doc.HitFace(Proj, X, Y)
+    else
+      FHoverFace := -1;
     FScreenDirty := True;
     InvalidateStatus;
     Exit;
