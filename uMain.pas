@@ -507,6 +507,9 @@ const
     circle, few enough that extruding one does not bury the drawing in
     entities - a push turns every segment into a wall. }
   CIRCLE_SEGS     = 24;
+  { an arc that becomes part of a face's outline needs enough points to read
+    as a curve, but every one of them becomes a wall if the face is pulled }
+  ARC_SEGS        = 16;
 
 type
   TViewPreset = record
@@ -3761,9 +3764,23 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(C, R, A0, Sweep, FD.Plane, FInkColor, FPenSize);
+          { If the chord was one of a face's edges, the face takes the curve
+            rather than the arc hanging off the outside of it.  Rubbing the
+            straight edge out afterwards never worked - a face is a fixed
+            list of points and nothing rebuilt it. }
+          SetLength(Loop, ARC_SEGS + 1);
+          for I := 0 to ARC_SEGS do
+            Loop[I] := ArcPoint(C, R, A0 + Sweep * I / ARC_SEGS, FD.Plane);
+          if FD.Doc.BulgeFaceEdge(FP1, FP2, Loop) then
+          begin
+            FCmdMsg := Format('Arc radius %s   the face follows it',
+              [FormatLen(R, FD.Units)]);
+            FD.Doc.Delete(FD.Doc.Live - 1);   { the arc is the face's edge now }
+          end
+          else
+            FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
           RenderPro;
           RecomposeAll;
-          FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
         end;
         ResetTool;
       end;
@@ -4161,6 +4178,25 @@ begin
     end;
 
     FCur := ResolveSnapAt(X, Y);
+
+    { Snapping to a corner is not the same as being inside a face, so the
+      plane used to stay at whatever it was and the shape landed somewhere
+      else entirely - which is how arcs ended up behind the box.  A snapped
+      point that belongs to a face adopts that face's plane too. }
+    if (FStage = 0) and not FPlaneHeld and
+       (FTool in [ptLine, ptRect, ptCircle, ptArc]) and
+       (FSnapKind in [snEndpoint, snCross, snMidpoint, snSubMid]) then
+    begin
+      HF := FD.Doc.FaceThrough(FCur);
+      if HF >= 0 then
+      begin
+        HN := FD.Doc.FaceNormal(HF);
+        if Abs(HN.Z) > 0.9 then FD.Plane := plXY
+        else if Abs(HN.Y) > 0.9 then FD.Plane := plXZ
+        else if Abs(HN.X) > 0.9 then FD.Plane := plYZ;
+      end;
+    end;
+
     if FTool = ptErase then
       FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
     else
