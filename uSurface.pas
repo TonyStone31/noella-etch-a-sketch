@@ -726,10 +726,16 @@ begin
   Invalidate;
 end;
 
+{ Walk the line, not the box around it.  A diagonal crossing the surface has
+  a bounding box the size of the whole surface, so testing every pixel in it
+  cost 605,000 distance evaluations for a line that covers a few thousand -
+  and the isometric paper, which is four hundred such diagonals, took over a
+  second to draw. For each row, work out the span the segment can actually
+  reach and walk only that. }
 procedure TArtSurface.Line(X0, Y0, X1, Y1, LineW: Single; const C: TPix; Alpha: Single);
 var
-  X, Y, IX0, IY0, IX1, IY1: Integer;
-  HW, Pad: Single;
+  X, Y, IX0, IY0, IX1, IY1, RX0, RX1: Integer;
+  HW, Pad, DY, Lo, Hi, XA, XB, T: Single;
 begin
   HW := Max(LineW, 0.35) / 2;
   Pad := HW + 3;
@@ -737,10 +743,35 @@ begin
   IY0 := LoBound(Min(Y0, Y1) - Pad, FHeight);
   IX1 := HiBound(Max(X0, X1) + Pad, FWidth);
   IY1 := HiBound(Max(Y0, Y1) + Pad, FHeight);
+
+  DY := Y1 - Y0;
   for Y := IY0 to IY1 do
-    for X := IX0 to IX1 do
+  begin
+    if Abs(DY) < 1E-6 then
+    begin
+      { horizontal: the whole span is in this row anyway }
+      RX0 := IX0;
+      RX1 := IX1;
+    end
+    else
+    begin
+      { where the segment enters and leaves this row, padded by the width }
+      Lo := (Y - Pad - Y0) / DY;
+      Hi := (Y + 1 + Pad - Y0) / DY;
+      if Lo > Hi then begin T := Lo; Lo := Hi; Hi := T; end;
+      if Lo < 0 then Lo := 0;
+      if Hi > 1 then Hi := 1;
+      if Lo > Hi then Continue;               // the row is past an end
+      XA := X0 + (X1 - X0) * Lo;
+      XB := X0 + (X1 - X0) * Hi;
+      if XA > XB then begin T := XA; XA := XB; XB := T; end;
+      RX0 := Max(IX0, LoBound(XA - Pad, FWidth));
+      RX1 := Min(IX1, HiBound(XB + Pad, FWidth));
+    end;
+    for X := RX0 to RX1 do
       BlendPixel(X, Y, C,
         Coverage(SdSegment(X + 0.5, Y + 0.5, X0, Y0, X1, Y1) - HW) * Alpha);
+  end;
   Invalidate;
 end;
 
