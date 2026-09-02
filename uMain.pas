@@ -223,6 +223,7 @@ type
     FPanning: Boolean;
     FOrbiting: Boolean;
     FPushFace: Integer;
+    FPushSX, FPushSY: Integer;   // where the drag started, on screen
     FPanRefX, FPanRefY: Integer;
     FMouseSX, FMouseSY: Integer;   // raw pointer, before snapping
 
@@ -298,6 +299,8 @@ type
     procedure ResizeSurfaces(AW, AH: Integer);
     procedure RepaintPaper;
     procedure PaintOrbitAxes;
+    procedure PaintPushPreview(C: TCanvas);
+    function PushDistance: Double;
     procedure Recompose;
     procedure RecomposeAll;
     procedure FreshScreen;
@@ -1067,6 +1070,106 @@ end;
   - so the three model axes are the only thing telling you which way is
   which.  Positive solid, negative faint, each in its own colour, and the
   same colours the rubber band picks up when you lock onto one. }
+{ How far the push would go.  The cursor always says which way along the
+  face normal; a typed number only says how far, so typing 6" after moving
+  inwards pushes in rather than jumping back out. }
+function TMainForm.PushDistance: Double;
+var
+  L, Move, Len2, DirX, DirY: Double;
+  Nm: TP3;
+  PA, PN: TPointF;
+begin
+  Result := 0;
+  if FPushFace < 0 then Exit;
+  Nm := FD.Doc.FaceNormal(FPushFace);
+
+  { The cursor is unprojected onto the working plane, so it can never say
+    anything about Z - which is why dragging a horizontal face used to
+    report a move of zero however far you pulled, and only a typed number
+    did anything.  Measure the drag against the normal as it appears on
+    screen instead: the normal projected from the anchor gives pixels per
+    world unit, and the drag along it gives the distance. }
+  PA := ScreenOf(FP1);
+  PN := ScreenOf(P3(FP1.X + Nm.X, FP1.Y + Nm.Y, FP1.Z + Nm.Z));
+  DirX := PN.X - PA.X;
+  DirY := PN.Y - PA.Y;
+  Len2 := DirX * DirX + DirY * DirY;
+  if Len2 < 1E-9 then
+    Move := 0                 // the normal points straight at the camera
+  else
+  begin
+    Move := ((FMouseSX - FPushSX) * DirX + (FMouseSY - FPushSY) * DirY) / Len2;
+    if SnapStep > 0 then Move := Round(Move / SnapStep) * SnapStep;
+  end;
+
+  if (FInput <> '') and ParseLen(FInput, FD.Units, L) then
+  begin
+    { the number says how far, the drag still says which way }
+    if Move < 0 then Result := -L else Result := L;
+    Exit;
+  end;
+  Result := Move;
+end;
+
+{ Push/pull was blind: click a face, type a number, hope it went the way
+  you meant.  Now the face is drawn where it would land, joined to where it
+  is now by the walls that would be built, so the direction is settled
+  before you commit to it.  The walls run along the face normal, so they
+  take that axis's colour when the normal is one. }
+procedure TMainForm.PaintPushPreview(C: TCanvas);
+var
+  E: TWorkEnt;
+  I, N, Ax: Integer;
+  R: Double;
+  Nm, Q: TP3;
+  PA, PB: TPointF;
+  Col: TPix;
+begin
+  if FPushFace < 0 then Exit;
+  E := FD.Doc[FPushFace];
+  N := Length(E.Poly);
+  if N < 3 then Exit;
+
+  R := PushDistance;
+  if Abs(R) < 1E-9 then Exit;
+
+  Nm := FD.Doc.FaceNormal(FPushFace);
+  Ax := -1;
+  if Abs(Nm.X) > 0.9 then Ax := 0
+  else if Abs(Nm.Y) > 0.9 then Ax := 1
+  else if Abs(Nm.Z) > 0.9 then Ax := 2;
+  if Ax >= 0 then Col := AxisPix(Ax) else Col := Theme.Accent;
+
+  { the walls that would be built }
+  C.Pen.Style := psDot;
+  C.Pen.Width := 1;
+  C.Pen.Color := PixToColor(Col);
+  for I := 0 to N - 1 do
+  begin
+    PA := ScreenOf(E.Poly[I]);
+    PB := ScreenOf(P3(E.Poly[I].X + Nm.X * R, E.Poly[I].Y + Nm.Y * R,
+                      E.Poly[I].Z + Nm.Z * R));
+    C.MoveTo(Round(PA.X), Round(PA.Y));
+    C.LineTo(Round(PB.X), Round(PB.Y));
+  end;
+
+  { the face where it would land }
+  C.Pen.Style := psSolid;
+  C.Pen.Width := Max(2, Round(2 * FUIScale));
+  Q := P3(E.Poly[N - 1].X + Nm.X * R, E.Poly[N - 1].Y + Nm.Y * R,
+          E.Poly[N - 1].Z + Nm.Z * R);
+  PA := ScreenOf(Q);
+  C.MoveTo(Round(PA.X), Round(PA.Y));
+  for I := 0 to N - 1 do
+  begin
+    Q := P3(E.Poly[I].X + Nm.X * R, E.Poly[I].Y + Nm.Y * R,
+            E.Poly[I].Z + Nm.Z * R);
+    PB := ScreenOf(Q);
+    C.LineTo(Round(PB.X), Round(PB.Y));
+  end;
+  C.Pen.Width := 1;
+end;
+
 procedure TMainForm.PaintOrbitAxes;
 var
   K: Integer;
@@ -2596,7 +2699,9 @@ begin
       begin
         if FStage = 1 then Rubber(FP1, FCur) else Rubber(FP1, FP2);
       end;
-    ptSelect, ptPush, ptText, ptErase: ;   // nothing to rubber-band
+    ptPush:
+      if FStage = 1 then PaintPushPreview(C);
+    ptSelect, ptText, ptErase: ;   // nothing to rubber-band
   end;
 
   { --- scale bar, bottom left ------------------------------------------ }
@@ -2693,6 +2798,12 @@ begin
       C.FillRect(SX - 5, SY - 5, SX + 6, SY + 6);
     snMidpoint:
       C.Polygon([Point(SX, SY - 6), Point(SX + 6, SY + 5), Point(SX - 6, SY + 5)]);
+    snSubMid:
+      begin
+        { hollow: the middle of a piece of a line, not of the whole line }
+        C.Brush.Style := bsClear;
+        C.Polygon([Point(SX, SY - 5), Point(SX + 5, SY + 4), Point(SX - 5, SY + 4)]);
+      end;
     snCentre:
       begin
         C.Brush.Style := bsClear;
@@ -3034,8 +3145,14 @@ begin
         else
         begin
           FP1 := FCur;
+          FPushSX := FMouseSX;
+          FPushSY := FMouseSY;
           FStage := 1;
-          FCmdMsg := 'Type a distance, or move and click.';
+          if Abs(Dot3(FD.Doc.FaceNormal(FPushFace), ViewDir(Proj))) > 0.98 then
+            FCmdMsg := 'Type a distance, or move and click.  ' +
+              'Press V for a 3D view to watch it move.'
+          else
+            FCmdMsg := 'Type a distance, or move and click.';
         end;
       end
       else
@@ -3150,15 +3267,7 @@ begin
 
     ptPush:
       begin
-        if (FInput <> '') and ParseLen(FInput, FD.Units, L) then
-          R := L
-        else
-        begin
-          { how far the cursor has moved along the face normal }
-          C := FD.Doc.FaceNormal(FPushFace);
-          R := (FCur.X - FP1.X) * C.X + (FCur.Y - FP1.Y) * C.Y +
-               (FCur.Z - FP1.Z) * C.Z;
-        end;
+        R := PushDistance;
         if Abs(R) > 1E-9 then
         begin
           PushUndo;
@@ -3526,6 +3635,8 @@ end;
 function TMainForm.StatusLine: string;
 var
   L, A: Double;
+  Mv: TP3;
+  Ai: Integer;
 begin
   if FMode = mdToy then
   begin
@@ -3544,6 +3655,34 @@ begin
 
   if (FStage = 1) and (FTool in [ptLine, ptMeasure]) then
     Result := Result + '   LEN ' + FormatLen(Dist(FP1, PreviewTarget), FD.Units);
+
+  { Which way the face is actually going.  Saying "in" or "out" would only
+    describe the sign against the face's own normal, and which way that
+    points depends on how the loop happened to be wound - so it read "in"
+    while the face visibly went up. }
+  if (FStage = 1) and (FTool = ptPush) and (FPushFace >= 0) then
+  begin
+    L := PushDistance;
+    if Abs(L) > 1E-9 then
+    begin
+      Mv := FD.Doc.FaceNormal(FPushFace);
+      Mv := P3(Mv.X * L, Mv.Y * L, Mv.Z * L);
+      if (Abs(Mv.X) >= Abs(Mv.Y)) and (Abs(Mv.X) >= Abs(Mv.Z)) then
+        Ai := 0
+      else if Abs(Mv.Y) >= Abs(Mv.Z) then
+        Ai := 2
+      else
+        Ai := 4;
+      case Ai of
+        0: if Mv.X < 0 then Ai := 1;
+        2: if Mv.Y < 0 then Ai := 3;
+      else
+        if Mv.Z < 0 then Ai := 5;
+      end;
+      Result := Result + '   PUSH ' + FormatLen(Abs(L), FD.Units) +
+        ' ' + AxisName(Ai);
+    end;
+  end;
 
   L := FD.Doc.ChainLength;
   if L > 0 then
