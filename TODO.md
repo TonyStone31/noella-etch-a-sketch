@@ -41,7 +41,7 @@ step six times, or `/3` to divide it. Cheap once move exists, and it is the
 thing that makes a layout tool fast - hangers, repeated fittings, joist
 spacing.
 
-## 4. Planar region finding  — half done
+## 4. Planar region finding  — working for what it is asked to do
 
 **Working, 2 September 2026:** a closed shape drawn on top of another gives
 you something you can push on its own, because it makes its own face and the
@@ -50,11 +50,18 @@ pipe; a rectangle inside a rectangle pulls up on its own. Circles make faces
 now - they used to draw a curve and nothing else, which is why pulling one
 into a pipe did nothing at all.
 
-**Still missing, and this is the real thing:** a line drawn *across* a face
-does not split it. Draw a rectangle, draw a line down the middle, and it is
-still one face with a line lying on top - hover either half and the whole
-rectangle lights up. Nesting works because the shapes never had to be cut
-apart; splitting needs the graph walk below.
+**Also working, 2 September 2026:** a line drawn *across* a face cuts it in
+two. Draw a rectangle, split it down the middle, split a half again, and
+push one of the three - each region is its own face. `TWorkDoc.SplitFace`
+flattens the face into its own plane, intersects the cut with each edge, and
+walks the boundary both ways from one crossing to the other.
+
+**What it will not do**, because a clean pair of halves is the only case it
+takes: a cut that stops inside the face, one that only clips a corner, one
+that runs along an edge, or one that crosses a boundary more than twice. Any
+of those leaves the face alone rather than half-cutting it. The general
+answer is still the graph walk below, which would also handle a cut made of
+several lines drawn separately, and arcs as boundaries.
 
 One known rough edge in what does work: the outer face is not cut, so the
 pipe's bottom cap and the box top sit in the same plane. It draws correctly

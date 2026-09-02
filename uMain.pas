@@ -3454,8 +3454,16 @@ begin
           PushUndo;
           FD.Doc.AddLine(FP1, T, FInkColor, FPenSize, FD.ShowDims);
           FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
-          { closing a loop makes a face you can push/pull }
-          if FD.Doc.ClosedChain(Max(SnapStep, 1E-6) * 0.51, Loop) then
+          { A line drawn across a face divides it.  Without this the face
+            stayed whole with a line lying on top of it, so push/pull could
+            only ever move the outer shape however many times you split it. }
+          I := FD.Doc.SplitFacesWith(FP1, T);
+          if I > 0 then
+            FCmdMsg := FCmdMsg + Format('   split %d face%s',
+              [I, IfThen(I = 1, '', 's')])
+          { a run of lines that closes on itself makes a face of its own -
+            but only if it did not just cut one, or the two would overlap }
+          else if FD.Doc.ClosedChain(Max(SnapStep, 1E-6) * 0.51, Loop) then
           begin
             FD.Doc.AddFace(Loop, FInkColor);
             FCmdMsg := FCmdMsg + '   loop closed - face made';
