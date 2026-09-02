@@ -7,7 +7,7 @@
         <CompatibilityMode Value="True"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="etchasketch"/>
+      <Title Value="Heckers Sketch"/>
       <Scaled Value="True"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
@@ -106,19 +106,34 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="2">
+    <Units Count="5">
       <Unit0>
         <Filename Value="etchasketch.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
-        <Filename Value="unit1.pas"/>
+        <Filename Value="uMain.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form1"/>
+        <ComponentName Value="MainForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="Unit1"/>
+        <UnitName Value="uMain"/>
       </Unit1>
+      <Unit2>
+        <Filename Value="uSurface.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="uSurface"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="uSkin.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="uSkin"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="uWork.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="uWork"/>
+      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

@@ -1,0 +1,140 @@
+object MainForm: TMainForm
+  Left = 300
+  Height = 900
+  Top = 120
+  Width = 1280
+  Caption = 'Heckers Sketch'
+  ClientHeight = 900
+  ClientWidth = 1280
+  Color = clBlack
+  Constraints.MinHeight = 720
+  Constraints.MinWidth = 1060
+  DesignTimePPI = 96
+  DoubleBuffered = True
+  KeyPreview = True
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnKeyDown = FormKeyDown
+  OnKeyPress = FormKeyPress
+  OnKeyUp = FormKeyUp
+  OnPaint = FormPaint
+  OnResize = FormResize
+  OnShow = FormShow
+  Position = poScreenCenter
+  LCLVersion = '4.99.0.0'
+  object pbScreen: TPaintBox
+    Left = 40
+    Height = 460
+    Top = 120
+    Width = 1200
+    OnMouseDown = pbScreenMouseDown
+    OnMouseMove = pbScreenMouseMove
+    OnMouseUp = pbScreenMouseUp
+    OnMouseWheel = pbScreenMouseWheel
+    OnPaint = pbScreenPaint
+  end
+  object pbView: TPaintBox
+    Left = 1030
+    Height = 30
+    Top = 84
+    Width = 228
+    OnMouseDown = pbViewMouseDown
+    OnMouseLeave = pbViewMouseLeave
+    OnMouseMove = pbViewMouseMove
+    OnPaint = pbViewPaint
+  end
+  object pbTabs: TPaintBox
+    Left = 22
+    Height = 30
+    Top = 84
+    Width = 1236
+    OnMouseDown = pbTabsMouseDown
+    OnMouseLeave = pbTabsMouseLeave
+    OnMouseMove = pbTabsMouseMove
+    OnPaint = pbTabsPaint
+  end
+  object pbCmd: TPaintBox
+    Left = 22
+    Height = 44
+    Top = 630
+    Width = 1236
+    OnPaint = pbCmdPaint
+  end
+  object pbMode: TPaintBox
+    Left = 1072
+    Height = 32
+    Top = 10
+    Width = 186
+    OnMouseDown = pbModeMouseDown
+    OnMouseLeave = pbModeMouseLeave
+    OnMouseMove = pbModeMouseMove
+    OnPaint = pbModePaint
+  end
+  object pbKnobL: TPaintBox
+    Left = 28
+    Height = 136
+    Top = 710
+    Width = 136
+    OnMouseDown = pbKnobMouseDown
+    OnMouseLeave = pbKnobMouseLeave
+    OnMouseMove = pbKnobMouseMove
+    OnMouseUp = pbKnobMouseUp
+    OnMouseWheel = pbKnobMouseWheel
+    OnPaint = pbKnobPaint
+  end
+  object pbKnobR: TPaintBox
+    Left = 1116
+    Height = 136
+    Top = 710
+    Width = 136
+    OnMouseDown = pbKnobMouseDown
+    OnMouseLeave = pbKnobMouseLeave
+    OnMouseMove = pbKnobMouseMove
+    OnMouseUp = pbKnobMouseUp
+    OnMouseWheel = pbKnobMouseWheel
+    OnPaint = pbKnobPaint
+  end
+  object pbDeck: TPaintBox
+    Left = 180
+    Height = 172
+    Top = 692
+    Width = 920
+    OnMouseDown = pbDeckMouseDown
+    OnMouseLeave = pbDeckMouseLeave
+    OnMouseMove = pbDeckMouseMove
+    OnMouseUp = pbDeckMouseUp
+    OnPaint = pbDeckPaint
+  end
+  object tmrTick: TTimer
+    Enabled = False
+    Interval = 16
+    OnTimer = tmrTickTimer
+    Left = 60
+    Top = 16
+  end
+  object dlgColor: TColorDialog
+    Color = clBlack
+    Left = 132
+    Top = 16
+  end
+  object dlgOpen: TOpenDialog
+    Title = 'Open a drawing'
+    DefaultExt = '.hsk'
+    Filter = 'Heckers Sketch drawing|*.hsk|All files|*.*'
+    Options = [ofFileMustExist, ofEnableSizing, ofViewDetail]
+    Left = 348
+    Top = 16
+  end
+  object dlgSave: TSaveDialog
+    Title = 'Save your sketch'
+    DefaultExt = '.png'
+    Filter = 'PNG image|*.png'
+    Options = [ofOverwritePrompt, ofEnableSizing, ofViewDetail]
+    Left = 204
+    Top = 16
+  end
+  object dlgPrint: TPrintDialog
+    Left = 276
+    Top = 16
+  end
+end

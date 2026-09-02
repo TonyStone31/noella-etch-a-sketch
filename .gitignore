@@ -1,0 +1,23 @@
+# --- Lazarus / Free Pascal build output -------------------------------------
+lib/
+backup/
+*.lps
+*.compiled
+*.ppu
+*.or
+*.a
+*.dbg
+link*.res
+*.bak
+*~
+
+# --- compiled program -------------------------------------------------------
+etchasketch
+etchasketch.exe
+
+# NOTE: etchasketch.res (icon + manifest) and etchasketch.ico are project
+# sources, not build output - they are meant to stay in the repository.
+
+# --- editor / OS ------------------------------------------------------------
+.DS_Store
+Thumbs.db
