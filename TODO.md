@@ -273,6 +273,12 @@ order:
 * **Tape measure guides.** SketchUp's tape drops construction lines you can
   snap to and then wipe in one go. Wants a `ekGuide` entity that feeds the
   snap cache, prints as nothing, and clears with one command.
+* **More settings in the lists.** Scale, snap and the pen open a list now
+  rather than filling a row, so a list can hold more than a row ever could -
+  more scales, finer snaps. Nothing has been added to them yet.
+* **Custom mouse cursors.** The tool's glyph rides beside the crosshair,
+  which says which tool is in hand without the platform-specific business of
+  building cursor images. A real cursor per tool would be nicer still.
 * **Light mode is harder to read than dark.** Reported after a session in
   the dark themes. Worth one deliberate pass over the light palettes rather
   than nudging single colours.

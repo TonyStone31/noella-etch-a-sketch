@@ -252,6 +252,7 @@ type
     FHotMode: Integer;
     FHotView: Integer;
     FViewSkin: TArtSurface;
+    FGlyph: TArtSurface;    // the tool badge beside the cursor
     FHoverEnt: Integer;          // what the eraser is about to delete
     FDocPath: string;            // where this set of sheets came from
     FGuide: Boolean;             // an alignment guide is active
@@ -277,7 +278,13 @@ type
     { --- deck ----------------------------------------------------------- }
     FDeck: array of TDeckItem;
     FHotItem: Integer;
-    FDeckSnapX: Integer;   // where the snap group starts on the shared row
+    { The open settings list.  It is drawn on the canvas rather than in a
+      window of its own, so it needs no extra control and cannot fall behind
+      anything: the canvas is already above the deck. }
+    FPopup: Integer;
+    FPopupR: TRect;
+    FPopupN: Integer;
+    FPopupHot: Integer;
     FSliderGrab: Boolean;
 
     { --- history -------------------------------------------------------- }
@@ -327,6 +334,14 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
+    procedure OpenPopup(Which: Integer);
+    procedure ClosePopup;
+    function PopupCount(Which: Integer): Integer;
+    function PopupCaption(Which, I: Integer): string;
+    procedure PopupChoose(Which, I: Integer);
+    function PopupItemAt(SX, SY: Integer): Integer;
+    procedure PaintPopup(C: TCanvas);
+    procedure PaintToolGlyph(C: TCanvas; AX, AY: Integer);
     function PivotAt(SX, SY: Integer): TP3;
     function RectTarget: TP3;
     procedure ReportCrash(Sender: TObject; E: Exception);
@@ -443,6 +458,18 @@ const
   GRP_SCALE = 5;
   GRP_SNAP  = 6;
   GRP_TOOL  = 7;
+  GRP_POPUP = 8;   { a button that opens a list rather than setting a value }
+
+  { the lists those buttons open }
+  POP_NONE  = -1;
+  POP_SCALE = 0;
+  POP_SNAP  = 1;
+  POP_PEN   = 2;
+
+  { the pen widths the list offers - a few honest steps rather than a slider
+    nobody can land on a number with }
+  PEN_STEPS = 6;
+  PEN_SIZES: array[0..PEN_STEPS - 1] of Integer = (1, 2, 4, 6, 10, 16);
 
   { icon actions }
   ACT_UNDO    = 0;
@@ -518,6 +545,11 @@ const
     'Rainbow - the colour drifts through the spectrum as you draw.',
     'Sparkle - a thin trail that throws off glitter.',
     'Chalk - a soft, dusty, hand-drawn stroke.');
+
+  { one glyph per tool, for the button and for the cursor }
+  TOOL_ICONS: array[TProTool] of TIconKind =
+    (ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
+     ikTErase, ikTMeasure, ikTOrbit);
 
   TOOL_NAMES: array[TProTool] of string =
     ('POINT', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT', 'ERASE',
@@ -906,6 +938,8 @@ begin
   FModeSkin := TArtSurface.Create(16, 16);
   FCmdSkin := TArtSurface.Create(16, 16);
   FViewSkin := TArtSurface.Create(16, 16);
+  FGlyph := TArtSurface.Create(16, 16);
+  FPopup := POP_NONE;
   for I := 0 to 1 do
     FKnobSkin[I] := TArtSurface.Create(16, 16);
   FOverlay := TArtSurface.Create(16, 16);
@@ -968,6 +1002,7 @@ begin
   for I := 0 to 1 do
     FKnobSkin[I].Free;
   FViewSkin.Free;
+  FGlyph.Free;
   FCmdSkin.Free;
   FModeSkin.Free;
   FDeckSkin.Free;
@@ -1038,7 +1073,7 @@ end;
   Derived either way, so another row is a change here and nowhere else. }
 function TMainForm.DeckRows: Integer;
 begin
-  if FMode = mdPro then Result := 3 else Result := 4;
+  if FMode = mdPro then Result := 2 else Result := 4;
 end;
 
 function TMainForm.DeckHeight: Integer;
@@ -1993,43 +2028,37 @@ begin
     SegW := Avail div N;
     for I := 0 to N - 1 do
       Add(dkSegment, Rect(X + I * SegW + 2, RowY, X + (I + 1) * SegW - 2, RowY + RowH),
-        GRP_TOOL, I, TOOL_NAMES[TProTool(I)], TOOL_HINTS[TProTool(I)], ikDroplet);
+        GRP_TOOL, I, TOOL_NAMES[TProTool(I)], TOOL_HINTS[TProTool(I)],
+        TOOL_ICONS[TProTool(I)]);
     AddIconRow(RowY, ACT_UNDO, ACT_REDO, ACT_FIT, ikUndo, ikRedo, ikFit,
       'Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)');
 
-    { --- row 2: scale on the left, snap on the right ---------------------
-      Neither gets touched often, and a whole row each was a row of drawing
-      area spent on settings.  They share one now. }
+    { --- row 2: the settings, as buttons that open a list -----------------
+      Scale, snap and the pen get set once and then left alone, so a row of
+      choices each was drawing area spent on things nobody touches.  Each is
+      one button showing what it is set to, and the list opens above it -
+      which also means a list can be longer than a row ever was. }
     RowY := Y0 + RowH + RowGap;
-    HalfW := (Avail - IconW - 3 * RowGap) div 2;
-    SegW := HalfW div SCALE_COUNT;
-    for I := 0 to SCALE_COUNT - 1 do
-      Add(dkSegment, Rect(X + I * SegW + 1, RowY, X + (I + 1) * SegW - 1, RowY + RowH),
-        GRP_SCALE, I, ScaleTable(FD.Units, I).Name,
-        'Print scale ' + ScaleTable(FD.Units, I).Name +
-          IfThen(FD.Units = usImperial, ' = 1''-0"', ''), ikDroplet);
-    Add(dkIcon, Rect(X + HalfW + RowGap, RowY,
-      X + HalfW + RowGap + IconW, RowY + RowH),
+    SegW := (Avail - IconW - 3 * RowGap) div 3;
+    Add(dkSegment, Rect(X, RowY, X + SegW - RowGap, RowY + RowH),
+      GRP_POPUP, POP_SCALE, 'SCALE  ' + ScaleTable(FD.Units, FD.ScaleIdx).Name,
+      'Print scale - click for the list', ikDroplet);
+    Add(dkSegment, Rect(X + SegW, RowY, X + 2 * SegW - RowGap, RowY + RowH),
+      GRP_POPUP, POP_SNAP, 'SNAP  ' + SnapName(FD.Units, FD.SnapIdx),
+      'What the cursor snaps to - click for the list', ikDroplet);
+    Add(dkSegment, Rect(X + 2 * SegW, RowY, X + 3 * SegW - RowGap, RowY + RowH),
+      GRP_POPUP, POP_PEN, Format('PEN  %d px', [FPenSize]),
+      'Line colour and thickness - click for the list', ikDroplet);
+    Add(dkIcon, Rect(X + 3 * SegW, RowY, X + 3 * SegW + IconW, RowY + RowH),
       GRP_ICON, ACT_UNITS, '', 'Feet-and-inches or metric  (U)', ikUnits);
-
-    SnapX := X + HalfW + IconW + 2 * RowGap;
-    FDeckSnapX := SnapX;
-    SegW := (Avail - HalfW - IconW - 2 * RowGap) div SNAP_COUNT;
-    for I := 0 to SNAP_COUNT - 1 do
-      Add(dkSegment, Rect(SnapX + I * SegW + 1, RowY,
-        SnapX + (I + 1) * SegW - 1, RowY + RowH),
-        GRP_SNAP, I, SnapName(FD.Units, I),
-        IfThen(I = 0, 'No snapping at all - free cursor  (or hold Alt)',
-                      'Snap to ' + SnapName(FD.Units, I) +
-                      ' steps, and to points on the drawing'), ikDroplet);
 
     AddIconRow(RowY, ACT_OPEN, ACT_SAVE, ACT_EXPORT, ikOpen, ikSave, ikExport,
       'Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
       'Export a picture - PNG or SVG  (Ctrl+E)');
-    AddIconRow(Y0 + 2 * (RowH + RowGap), ACT_THEME, ACT_GRID, ACT_HELP,
-      ikTheme, ikGrid, ikHelp,
+    AddIconRow(Y0, ACT_THEME, ACT_GRID, ACT_HELP, ikTheme, ikGrid, ikHelp,
       'Change the theme  (T)', 'Show or hide the measured grid  (G)',
       'About this program  (F1)');
+    Exit;
   end;
 
   { --- ink row ---------------------------------------------------------- }
@@ -2204,6 +2233,23 @@ begin
             Edge := MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.12);
           end;
           PaintPill(FDeckSkin, R, Round(8 * FUIScale), C1, C2, Edge);
+          if (It.Group = GRP_TOOL) and (FMode = mdPro) then
+          begin
+            if Sel then Fg := Pix(22, 22, 26) else Fg := Theme.Text;
+            IR := Rect(R.Left + Round(5 * FUIScale),
+              R.Top + Round(3 * FUIScale),
+              R.Left + Round(5 * FUIScale) + (R.Bottom - R.Top) - Round(6 * FUIScale),
+              R.Bottom - Round(3 * FUIScale));
+            PaintIcon(FDeckSkin, It.Icon, IR, Fg, 0.95);
+          end;
+          { a settings button says there is more behind it }
+          if It.Group = GRP_POPUP then
+          begin
+            if Sel then Fg := Pix(22, 22, 26) else Fg := Theme.TextDim;
+            IR := Rect(R.Right - Round(16 * FUIScale), R.Top,
+              R.Right - Round(3 * FUIScale), R.Bottom);
+            PaintIcon(FDeckSkin, ikChevron, IR, Fg, 0.9);
+          end;
         end;
 
       dkSwatch:
@@ -2283,10 +2329,7 @@ begin
   else
   begin
     Section(0, 'TOOL');
-    { one row, two settings - there is no room beside the groups for a second
-      label, and the gutter takes both names }
-    Section(1, 'SCALE/SNAP');
-    Section(2, 'INK');
+    Section(1, 'SET');
   end;
 
   for I := 0 to High(FDeck) do
@@ -2298,10 +2341,19 @@ begin
     else
       UIFont(pbDeck.Canvas, 10, False, Theme.Text);
     TW := pbDeck.Canvas.TextWidth(It.Caption);
-    pbDeck.Canvas.TextOut(
-      (It.Bounds.Left + It.Bounds.Right - TW) div 2,
-      (It.Bounds.Top + It.Bounds.Bottom - pbDeck.Canvas.TextHeight(It.Caption)) div 2,
-      It.Caption);
+    { a tool wears its own glyph, so the buttons are told apart at a glance
+      and the same drawing follows the cursor }
+    if (It.Group = GRP_TOOL) and (FMode = mdPro) then
+      pbDeck.Canvas.TextOut(
+        It.Bounds.Left + (It.Bounds.Right - It.Bounds.Left - TW +
+          Round(18 * FUIScale)) div 2,
+        (It.Bounds.Top + It.Bounds.Bottom - pbDeck.Canvas.TextHeight(It.Caption)) div 2,
+        It.Caption)
+    else
+      pbDeck.Canvas.TextOut(
+        (It.Bounds.Left + It.Bounds.Right - TW) div 2,
+        (It.Bounds.Top + It.Bounds.Bottom - pbDeck.Canvas.TextHeight(It.Caption)) div 2,
+        It.Caption);
   end;
 
   for I := 0 to High(FDeck) do
@@ -2402,6 +2454,9 @@ begin
       else
         SetTool(TProTool(It.Value));
     GRP_INK:   SetInk(PALETTE[It.Value], False);
+    GRP_POPUP:
+      { clicking the open one shuts it, which is what a menu button does }
+      if FPopup = It.Value then ClosePopup else OpenPopup(It.Value);
     GRP_SCALE: SetScaleIdx(It.Value);
     GRP_SNAP:  begin FD.SnapIdx := It.Value; pbDeck.Invalidate; pbCmd.Invalidate; end;
     GRP_ICON:
@@ -3230,6 +3285,14 @@ begin
     FOverlay.Disc(CR, CR, 1.6, Contrast, 0.9);
 
   FOverlay.DrawTo(pbScreen.Canvas, SX - CR, SY - CR);
+
+  { the tool's own glyph rides beside the cursor, so which tool is in hand is
+    never a matter of remembering which button is lit }
+  if (FMode = mdPro) and (FTool <> ptSelect) then
+    PaintToolGlyph(pbScreen.Canvas, SX + CR - Round(2 * FUIScale),
+      SY - CR - Round(2 * FUIScale));
+
+  PaintPopup(pbScreen.Canvas);
 end;
 
 { ======================================================================== }
@@ -3868,6 +3931,8 @@ end;
 
 procedure TMainForm.pbScreenMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
+var
+  I: Integer;
 begin
   { a press supersedes whatever motion has not been serviced yet }
   FMoveX := X;
@@ -3905,6 +3970,16 @@ begin
     Exit;
   end;
   if Button <> mbLeft then Exit;
+
+  { a click on the drawing dismisses an open list, and is taken by it if it
+    landed on one of the rows }
+  if FPopup <> POP_NONE then
+  begin
+    I := PopupItemAt(X, Y);
+    if I >= 0 then PopupChoose(FPopup, I);
+    ClosePopup;
+    Exit;
+  end;
 
   if FMode = mdPro then
   begin
@@ -4072,6 +4147,187 @@ begin
     Result := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2)
   else
     Result := WorldAt(SX, SY);
+end;
+
+{ --- the settings lists -------------------------------------------------
+  Scale, snap and the pen each get a button showing what they are set to and
+  a list that opens above it.  The list is as long as it needs to be, which
+  is the point: a row could only ever hold five or six choices. }
+
+function TMainForm.PopupCount(Which: Integer): Integer;
+begin
+  case Which of
+    POP_SCALE: Result := SCALE_COUNT;
+    POP_SNAP: Result := SNAP_COUNT;
+    POP_PEN: Result := Length(PALETTE) + PEN_STEPS;
+  else
+    Result := 0;
+  end;
+end;
+
+function TMainForm.PopupCaption(Which, I: Integer): string;
+begin
+  case Which of
+    POP_SCALE: Result := ScaleTable(FD.Units, I).Name +
+      IfThen(FD.Units = usImperial, '  =  1''-0"', '');
+    POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
+    POP_PEN:
+      if I < Length(PALETTE) then Result := ''
+      else Result := Format('%d px', [PEN_SIZES[I - Length(PALETTE)]]);
+  else
+    Result := '';
+  end;
+end;
+
+procedure TMainForm.PopupChoose(Which, I: Integer);
+begin
+  case Which of
+    POP_SCALE: SetScaleIdx(I);
+    POP_SNAP:
+      begin
+        FD.SnapIdx := EnsureRange(I, 0, SNAP_COUNT - 1);
+        FCmdMsg := 'Snap: ' + SnapName(FD.Units, FD.SnapIdx);
+      end;
+    POP_PEN:
+      if I < Length(PALETTE) then
+        SetInk(PALETTE[I], False)
+      else
+        SetPenSize(PEN_SIZES[I - Length(PALETTE)]);
+  end;
+  RebuildDeck;
+  pbDeck.Invalidate;
+end;
+
+procedure TMainForm.OpenPopup(Which: Integer);
+var
+  N, I, W, H, RowH, LeftX, Bottom: Integer;
+  B: TRect;
+begin
+  N := PopupCount(Which);
+  if N <= 0 then Exit;
+  FPopup := Which;
+  FPopupN := N;
+  FPopupHot := -1;
+
+  { find the button it belongs to, and hang the list off its left edge }
+  LeftX := Round(20 * FUIScale);
+  for I := 0 to High(FDeck) do
+    if (FDeck[I].Group = GRP_POPUP) and (FDeck[I].Value = Which) then
+    begin
+      B := FDeck[I].Bounds;
+      LeftX := pbDeck.Left + B.Left - pbScreen.Left;
+      Break;
+    end;
+
+  RowH := Round(22 * FUIScale);
+  W := Round(190 * FUIScale);
+  if Which = POP_PEN then W := Round(230 * FUIScale);
+  H := N * RowH + Round(12 * FUIScale);
+  Bottom := pbScreen.Height - Round(6 * FUIScale);
+  if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
+  LeftX := EnsureRange(LeftX, 4, Max(4, pbScreen.Width - W - 4));
+  FPopupR := Rect(LeftX, Max(4, Bottom - H), LeftX + W, Bottom);
+  FScreenDirty := True;
+end;
+
+procedure TMainForm.ClosePopup;
+begin
+  if FPopup = POP_NONE then Exit;
+  FPopup := POP_NONE;
+  FPopupHot := -1;
+  FScreenDirty := True;
+end;
+
+function TMainForm.PopupItemAt(SX, SY: Integer): Integer;
+var
+  RowH: Integer;
+begin
+  Result := -1;
+  if FPopup = POP_NONE then Exit;
+  if (SX < FPopupR.Left) or (SX > FPopupR.Right) or
+     (SY < FPopupR.Top) or (SY > FPopupR.Bottom) then Exit;
+  RowH := Round(22 * FUIScale);
+  Result := (SY - FPopupR.Top - Round(6 * FUIScale)) div RowH;
+  if (Result < 0) or (Result >= FPopupN) then Result := -1;
+end;
+
+{ A small badge of the current tool, drawn through a scratch surface so it
+  gets the same anti-aliasing as everything else on the canvas. }
+procedure TMainForm.PaintToolGlyph(C: TCanvas; AX, AY: Integer);
+var
+  Sz: Integer;
+  Col: TPix;
+begin
+  Sz := Round(18 * FUIScale);
+  if Theme.DarkScreen then Col := Pix(235, 240, 250) else Col := Pix(30, 30, 36);
+  FGlyph.SetSize(Sz, Sz);
+  FGlyph.ClearTransparent;
+  PaintIcon(FGlyph, TOOL_ICONS[FTool], Rect(0, 0, Sz, Sz), Col, 0.95);
+  FGlyph.DrawTo(C, AX, AY);
+end;
+
+procedure TMainForm.PaintPopup(C: TCanvas);
+var
+  I, RowH, Y, Cur: Integer;
+  R: TRect;
+  Sel: Boolean;
+  S: string;
+begin
+  if FPopup = POP_NONE then Exit;
+  RowH := Round(22 * FUIScale);
+
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.15));
+  C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.30));
+  C.Pen.Width := Max(1, Round(FUIScale));
+  C.Rectangle(FPopupR);
+
+  case FPopup of
+    POP_SCALE: Cur := FD.ScaleIdx;
+    POP_SNAP: Cur := FD.SnapIdx;
+  else
+    Cur := -1;
+  end;
+
+  for I := 0 to FPopupN - 1 do
+  begin
+    Y := FPopupR.Top + Round(6 * FUIScale) + I * RowH;
+    if Y + RowH > FPopupR.Bottom then Break;
+    R := Rect(FPopupR.Left + Round(4 * FUIScale), Y,
+      FPopupR.Right - Round(4 * FUIScale), Y + RowH - 1);
+    Sel := (I = Cur) or
+      ((FPopup = POP_PEN) and (I < Length(PALETTE)) and (PALETTE[I] = FInkColor)) or
+      ((FPopup = POP_PEN) and (I >= Length(PALETTE)) and
+       (PEN_SIZES[I - Length(PALETTE)] = FPenSize));
+    if Sel then
+    begin
+      C.Brush.Color := PixToColor(ShadePix(Theme.Accent, 0.95));
+      C.FillRect(R);
+    end
+    else if I = FPopupHot then
+    begin
+      C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(255, 255, 255), 0.12));
+      C.FillRect(R);
+    end;
+
+    if (FPopup = POP_PEN) and (I < Length(PALETTE)) then
+    begin
+      C.Brush.Color := PALETTE[I];
+      C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.4));
+      C.Rectangle(R.Left + Round(4 * FUIScale), R.Top + Round(3 * FUIScale),
+        R.Left + Round(46 * FUIScale), R.Bottom - Round(3 * FUIScale));
+      C.Brush.Style := bsSolid;
+      Continue;
+    end;
+
+    S := PopupCaption(FPopup, I);
+    if Sel then UIFont(C, 10, True, Pix(22, 22, 26))
+    else UIFont(C, 10, False, Theme.Text);
+    C.TextOut(R.Left + Round(8 * FUIScale),
+      R.Top + (RowH - C.TextHeight('X')) div 2, S);
+  end;
+  C.Brush.Style := bsClear;
+  C.Pen.Width := 1;
 end;
 
 { SketchUp's trick: rest on a point for a moment and it is remembered, so
@@ -4990,7 +5246,14 @@ begin
       VK_SPACE, VK_RETURN: CommandEnter;
       VK_ESCAPE:
         begin
-          if FInput <> '' then
+          if FPopup <> POP_NONE then
+            ClosePopup
+          else if FPlaneHeld then
+          begin
+            FPlaneHeld := False;
+            FCmdMsg := 'Following the face under the cursor again.';
+          end
+          else if FInput <> '' then
             FInput := ''
           else if FStage > 0 then
             ResetTool
