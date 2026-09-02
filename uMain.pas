@@ -55,7 +55,8 @@ uses
 type
   TAppMode = (mdToy, mdPro);
 
-  TProTool = (ptSelect, ptLine, ptArc, ptCircle, ptPush, ptText, ptErase, ptMeasure);
+  TProTool = (ptSelect, ptLine, ptRect, ptArc, ptCircle, ptPush, ptText,
+    ptErase, ptMeasure);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -308,6 +309,7 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
+    function RectTarget: TP3;
     procedure ReportCrash(Sender: TObject; E: Exception);
     function GuideColor: TPix;
 
@@ -493,11 +495,13 @@ const
     'Chalk - a soft, dusty, hand-drawn stroke.');
 
   TOOL_NAMES: array[TProTool] of string =
-    ('POINT', 'LINE', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT', 'ERASE', 'MEASURE');
+    ('POINT', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT', 'ERASE',
+     'MEASURE');
 
   TOOL_HINTS: array[TProTool] of string = (
     'Point - move the cursor around and read where it is.  Nothing gets drawn.',
     'Line - click a start point, then click the end or just type a length.',
+    'Rectangle - click two opposite corners, or type 12''x8''.  Makes a face.',
     'Arc - pick two points, then pull the middle out.  Joins two loose ends.',
     'Circle - pick the centre, then type or drag the radius.',
     'Push/pull - click a face and type how far to lift it.  Close a loop of ' +
@@ -563,6 +567,49 @@ end;
 function TMainForm.WorldAt(SX, SY: Double): TP3;
 begin
   Result := Unproject(Proj, SX, SY, FD.Plane, FCur);
+end;
+
+{ The four corners of the rectangle with A and B at opposite ends, lying in
+  the working plane.  The plane decides which pair of coordinates varies; the
+  third stays at A's, which is what keeps the rectangle flat and gives the
+  face it makes a normal worth pushing along. }
+function RectCorners(const A, B: TP3; Pl: TPlane): TP3Array;
+begin
+  Result := nil;
+  SetLength(Result, 4);
+  case Pl of
+    plXZ:
+      begin
+        Result[0] := P3(A.X, A.Y, A.Z);
+        Result[1] := P3(B.X, A.Y, A.Z);
+        Result[2] := P3(B.X, A.Y, B.Z);
+        Result[3] := P3(A.X, A.Y, B.Z);
+      end;
+    plYZ:
+      begin
+        Result[0] := P3(A.X, A.Y, A.Z);
+        Result[1] := P3(A.X, B.Y, A.Z);
+        Result[2] := P3(A.X, B.Y, B.Z);
+        Result[3] := P3(A.X, A.Y, B.Z);
+      end;
+  else
+    begin
+      Result[0] := P3(A.X, A.Y, A.Z);
+      Result[1] := P3(B.X, A.Y, A.Z);
+      Result[2] := P3(B.X, B.Y, A.Z);
+      Result[3] := P3(A.X, B.Y, A.Z);
+    end;
+  end;
+end;
+
+{ The two side lengths of that rectangle, in the plane's own order. }
+procedure RectSides(const A, B: TP3; Pl: TPlane; out W, H: Double);
+begin
+  case Pl of
+    plXZ: begin W := Abs(B.X - A.X); H := Abs(B.Z - A.Z); end;
+    plYZ: begin W := Abs(B.Y - A.Y); H := Abs(B.Z - A.Z); end;
+  else    begin W := Abs(B.X - A.X); H := Abs(B.Y - A.Y); end;
+  end;
 end;
 
 function TMainForm.SnapToGrid(const P: TP3): TP3;
@@ -2597,6 +2644,51 @@ begin
   end;
 end;
 
+{ Where the far corner of the rectangle is.  Typing 12'x8' sets both sides at
+  once; the cursor still decides which way each one goes, so the rectangle
+  grows towards you rather than always up and to the right. }
+function TMainForm.RectTarget: TP3;
+var
+  I: Integer;
+  Txt, LW, LH: string;
+  W, H, SX, SY: Double;
+begin
+  Result := FCur;
+  if FStage <> 1 then Exit;
+
+  Txt := LowerCase(Trim(FInput));
+  I := Pos('x', Txt);
+  if I = 0 then I := Pos(',', Txt);
+  if I <= 1 then Exit;
+
+  LW := Trim(Copy(Txt, 1, I - 1));
+  LH := Trim(Copy(Txt, I + 1, MaxInt));
+  if not ParseLen(LW, FD.Units, W) then Exit;
+  if not ParseLen(LH, FD.Units, H) then Exit;
+
+  { sign from wherever the cursor is now }
+  case FD.Plane of
+    plXZ:
+      begin
+        if FCur.X < FP1.X then SX := -1 else SX := 1;
+        if FCur.Z < FP1.Z then SY := -1 else SY := 1;
+        Result := P3(FP1.X + W * SX, FP1.Y, FP1.Z + H * SY);
+      end;
+    plYZ:
+      begin
+        if FCur.Y < FP1.Y then SX := -1 else SX := 1;
+        if FCur.Z < FP1.Z then SY := -1 else SY := 1;
+        Result := P3(FP1.X, FP1.Y + W * SX, FP1.Z + H * SY);
+      end;
+  else
+    begin
+      if FCur.X < FP1.X then SX := -1 else SX := 1;
+      if FCur.Y < FP1.Y then SY := -1 else SY := 1;
+      Result := P3(FP1.X + W * SX, FP1.Y + H * SY, FP1.Z);
+    end;
+  end;
+end;
+
 { Where the rubber band currently ends: a typed distance wins, then a locked
   direction, then the cursor itself. }
 function TMainForm.PreviewTarget: TP3;
@@ -2644,6 +2736,8 @@ var
   R: TRect;
   GP: TPointF;
   Hi: TPointFArray;
+  RectPrev: TP3Array;
+  RectI: Integer;
   S1, S2: string;
   W1, W2, BoxW, BoxH, LnH: Integer;
 
@@ -2682,6 +2776,13 @@ begin
   case FTool of
     ptLine:
       if FStage = 1 then Rubber(FP1, PreviewTarget);
+    ptRect:
+      if FStage = 1 then
+      begin
+        RectPrev := RectCorners(FP1, RectTarget, FD.Plane);
+        for RectI := 0 to 3 do
+          Rubber(RectPrev[RectI], RectPrev[(RectI + 1) mod 4]);
+      end;
     ptArc:
       begin
         if FStage >= 1 then Rubber(FP1, FCur);
@@ -2993,6 +3094,9 @@ begin
       else
         Result := 'pull the middle out, or type the bulge';
       end;
+    ptRect:
+      if FStage = 0 then Result := 'pick a corner'
+      else Result := 'opposite corner, or type 12''x8''';
     ptCircle:
       if FStage = 0 then Result := 'pick the centre' else Result := 'radius?';
     ptText:
@@ -3110,6 +3214,16 @@ begin
       else
         ProCommit;
 
+    ptRect:
+      if FStage = 0 then
+      begin
+        FP1 := FCur;
+        FStage := 1;
+        FInput := '';
+      end
+      else
+        ProCommit;
+
     ptArc:
       if FStage = 0 then
       begin
@@ -3195,6 +3309,7 @@ end;
 
 procedure TMainForm.ProCommit;
 var
+  I: Integer;
   T, C: TP3;
   Loop: TP3Array;
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
@@ -3222,6 +3337,32 @@ begin
         end;
         FInput := '';
         FDirLock := -1;
+      end;
+
+    ptRect:
+      begin
+        T := RectTarget;
+        RectSides(FP1, T, FD.Plane, U1, V1);
+        if (U1 > 1E-9) and (V1 > 1E-9) then
+        begin
+          PushUndo;
+          Loop := RectCorners(FP1, T, FD.Plane);
+          for I := 0 to 3 do
+            FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
+              FInkColor, FPenSize, FD.ShowDims);
+          { closed by construction, so the face comes with it rather than
+            waiting for four separate lines to happen to meet }
+          FD.Doc.AddFace(Loop, FInkColor);
+          RenderPro;
+          RecomposeAll;
+          FCmdMsg := Format('%s x %s   area %s',
+            [FormatLen(U1, FD.Units), FormatLen(V1, FD.Units),
+             FormatArea(U1 * V1, FD.Units)]);
+        end
+        else
+          FCmdMsg := 'A rectangle needs two sides.';
+        ResetTool;
+        FInput := '';
       end;
 
     ptArc:
@@ -3344,6 +3485,7 @@ begin
   else if (W = 'circle') or (W = 'c') then SetTool(ptCircle)
   else if (W = 'text') or (W = 'note') or (W = 'n') then SetTool(ptText)
   else if (W = 'erase') or (W = 'e') or (W = 'del') then SetTool(ptErase)
+  else if (W = 'rect') or (W = 'rectangle') or (W = 'r') then SetTool(ptRect)
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'push') or (W = 'pull') or (W = 'pushpull') or (W = 'p') then
     SetTool(ptPush)
@@ -3680,7 +3822,7 @@ end;
 
 function TMainForm.StatusLine: string;
 var
-  L, A: Double;
+  L, A, RW, RH: Double;
   Mv: TP3;
   Ai: Integer;
 begin
@@ -3706,6 +3848,14 @@ begin
     describe the sign against the face's own normal, and which way that
     points depends on how the loop happened to be wound - so it read "in"
     while the face visibly went up. }
+  if (FStage = 1) and (FTool = ptRect) then
+  begin
+    RectSides(FP1, RectTarget, FD.Plane, RW, RH);
+    Result := Result + Format('   %s x %s   AREA %s',
+      [FormatLen(RW, FD.Units), FormatLen(RH, FD.Units),
+       FormatArea(RW * RH, FD.Units)]);
+  end;
+
   if (FStage = 1) and (FTool = ptPush) and (FPushFace >= 0) then
   begin
     L := PushDistance;
@@ -4288,6 +4438,18 @@ begin
     Exit;
   end;
 
+  { 'x' is only text while a rectangle is waiting for its size - everywhere
+    else letters stay as tool shortcuts }
+  if (Key in ['x', 'X', ',']) and (FTool = ptRect) and (FStage = 1) then
+  begin
+    FInput := FInput + 'x';
+    FCmdMsg := '';
+    pbCmd.Invalidate;
+    pbScreen.Invalidate;
+    Key := #0;
+    Exit;
+  end;
+
   if Key in ['0'..'9', '.', '/', '''', '"', ' ', '-'] then
   begin
     FInput := FInput + Key;
@@ -4444,6 +4606,7 @@ begin
       VK_TAB: SetTool(TProTool((Ord(FTool) + 1) mod (Ord(High(TProTool)) + 1)));
       VK_Q: SetTool(ptSelect);
       VK_L: SetTool(ptLine);
+      VK_R: SetTool(ptRect);
       VK_A: SetTool(ptArc);
       VK_C: SetTool(ptCircle);
       VK_P: SetTool(ptPush);
