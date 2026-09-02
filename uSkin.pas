@@ -51,7 +51,8 @@ var
 
 { Chassis parts. }
 procedure PaintShell(S: TArtSurface; const T: TTheme);
-procedure PaintBezel(S: TArtSurface; const R: TRect; const T: TTheme);
+procedure PaintBezel(S: TArtSurface; const R: TRect; const T: TTheme;
+  Radius: Single = 22);
 procedure PaintPanel(S: TArtSurface; const R: TRect; const T: TTheme; Radius: Single = 14);
 procedure PaintKnob(S: TArtSurface; const R: TRect; Angle: Single;
   const T: TTheme; Hot: Boolean);
@@ -204,7 +205,11 @@ begin
 end;
 
 { Recessed frame around the drawing screen: outer bevel, inner shadow. }
-procedure PaintBezel(S: TArtSurface; const R: TRect; const T: TTheme);
+{ Radius is the whole difference between a toy and an instrument.  TOY keeps
+  the fat rounded frame of the thing it is pretending to be; PRO squares it
+  off to something that reads as a drawing board. }
+procedure PaintBezel(S: TArtSurface; const R: TRect; const T: TTheme;
+  Radius: Single);
 var
   I: Integer;
   Outer: TRect;
@@ -215,13 +220,13 @@ begin
   { drop shadow under the whole assembly }
   for I := 6 downto 1 do
     S.RoundRect(Rect(Outer.Left - I, Outer.Top - I + 4, Outer.Right + I,
-      Outer.Bottom + I + 6), 22 + I, Pix(0, 0, 0), 0.05);
+      Outer.Bottom + I + 6), Radius + I, Pix(0, 0, 0), 0.05);
 
-  S.RoundRectV(Outer, 22, T.Bezel1, T.Bezel2);
+  S.RoundRectV(Outer, Radius, T.Bezel1, T.Bezel2);
   { top light catch }
   S.RoundFrame(Rect(Outer.Left + 1, Outer.Top + 1, Outer.Right - 1, Outer.Bottom - 1),
-    21, 1.4, Pix(255, 255, 255), 0.16);
-  S.RoundFrame(Outer, 22, 1.2, Pix(0, 0, 0), 0.45);
+    Max(1, Radius - 1), 1.4, Pix(255, 255, 255), 0.16);
+  S.RoundFrame(Outer, Radius, 1.2, Pix(0, 0, 0), 0.45);
 end;
 
 procedure PaintPanel(S: TArtSurface; const R: TRect; const T: TTheme; Radius: Single);

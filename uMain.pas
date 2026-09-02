@@ -464,7 +464,8 @@ const
   POP_NONE  = -1;
   POP_SCALE = 0;
   POP_SNAP  = 1;
-  POP_PEN   = 2;
+  POP_COLOUR = 2;
+  POP_WIDTH  = 3;
 
   { the pen widths the list offers - a few honest steps rather than a slider
     nobody can land on a number with }
@@ -1212,10 +1213,14 @@ begin
     BezelR := Rect(M, TitleH, ClientWidth - M, ClientHeight - M - DeckH - Gap);
 
   PaintShell(FShell, Theme);
-  PaintBezel(FShell, BezelR, Theme);
+  if FMode = mdPro then
+    PaintBezel(FShell, BezelR, Theme, Round(5 * FUIScale))
+  else
+    PaintBezel(FShell, BezelR, Theme, 22);
   PaintScreenWell(FShell, Rect(BezelR.Left + Bezel, BezelR.Top + Bezel,
     BezelR.Right - Bezel, BezelR.Bottom - Bezel), Round(3 * FUIScale));
 
+  if FMode = mdToy then
   FShell.RoundRectV(Rect(BezelR.Right - Round(150 * FUIScale),
                          BezelR.Bottom - Bezel + Round(2 * FUIScale),
                          BezelR.Right - Round(18 * FUIScale),
@@ -1929,7 +1934,7 @@ procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
   Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N: Integer;
-  HalfW, SnapX: Integer;
+  HalfW, SnapX, RightW6: Integer;
   Blank: TPix;
 
   procedure Add(K: TDeckKind; const B: TRect; G, V: Integer;
@@ -1962,6 +1967,23 @@ var
     Add(dkIcon, Rect(IX, RY, IX + IconW, RY + RowH), GRP_ICON, A3, '', H3, I3);
   end;
 
+  { PRO has two rows for what used to take three, so the icons go six across
+    rather than three - dropping a row of them is how the theme and the grid
+    went missing. }
+  procedure AddIconRow6(RY: Integer; const A: array of Integer;
+    const K: array of TIconKind; const H: array of string);
+  var
+    IX, J: Integer;
+  begin
+    IX := W - Pad - RightW6;
+    for J := 0 to High(A) do
+    begin
+      Add(dkIcon, Rect(IX, RY, IX + IconW, RY + RowH), GRP_ICON, A[J], '',
+        H[J], K[J]);
+      Inc(IX, IconW + IconGap);
+    end;
+  end;
+
   { Lay a segmented control across the free width, leaving room for Extras
     trailing icon slots. }
   procedure Segments(RY, Group, Count, Extras: Integer);
@@ -1990,6 +2012,7 @@ begin
   IconW := Round(34 * FUIScale);
   IconGap := Round(6 * FUIScale);
   RightW := 3 * IconW + 2 * IconGap;
+  RightW6 := 6 * IconW + 5 * IconGap;
 
   Y0 := (H - (DeckRows * RowH + (DeckRows - 1) * RowGap)) div 2;
   X := Pad + LabW;
@@ -2024,14 +2047,16 @@ begin
   begin
     { --- row 1: tools --------------------------------------------------- }
     RowY := Y0;
+    Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
     N := Ord(High(TProTool)) + 1;
     SegW := Avail div N;
     for I := 0 to N - 1 do
       Add(dkSegment, Rect(X + I * SegW + 2, RowY, X + (I + 1) * SegW - 2, RowY + RowH),
         GRP_TOOL, I, TOOL_NAMES[TProTool(I)], TOOL_HINTS[TProTool(I)],
         TOOL_ICONS[TProTool(I)]);
-    AddIconRow(RowY, ACT_UNDO, ACT_REDO, ACT_FIT, ikUndo, ikRedo, ikFit,
-      'Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)');
+    if FMode = mdToy then
+      AddIconRow(RowY, ACT_UNDO, ACT_REDO, ACT_FIT, ikUndo, ikRedo, ikFit,
+        'Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)');
 
     { --- row 2: the settings, as buttons that open a list -----------------
       Scale, snap and the pen get set once and then left alone, so a row of
@@ -2039,7 +2064,8 @@ begin
       one button showing what it is set to, and the list opens above it -
       which also means a list can be longer than a row ever was. }
     RowY := Y0 + RowH + RowGap;
-    SegW := (Avail - IconW - 3 * RowGap) div 3;
+    Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
+    SegW := (Avail - 3 * RowGap) div 4;
     Add(dkSegment, Rect(X, RowY, X + SegW - RowGap, RowY + RowH),
       GRP_POPUP, POP_SCALE, 'SCALE  ' + ScaleTable(FD.Units, FD.ScaleIdx).Name,
       'Print scale - click for the list', ikDroplet);
@@ -2047,17 +2073,26 @@ begin
       GRP_POPUP, POP_SNAP, 'SNAP  ' + SnapName(FD.Units, FD.SnapIdx),
       'What the cursor snaps to - click for the list', ikDroplet);
     Add(dkSegment, Rect(X + 2 * SegW, RowY, X + 3 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_PEN, Format('PEN  %d px', [FPenSize]),
-      'Line colour and thickness - click for the list', ikDroplet);
-    Add(dkIcon, Rect(X + 3 * SegW, RowY, X + 3 * SegW + IconW, RowY + RowH),
-      GRP_ICON, ACT_UNITS, '', 'Feet-and-inches or metric  (U)', ikUnits);
+      GRP_POPUP, POP_COLOUR, 'COLOUR',
+      'Line colour - click for the list', ikDroplet);
+    Add(dkSegment, Rect(X + 3 * SegW, RowY, X + 4 * SegW - RowGap, RowY + RowH),
+      GRP_POPUP, POP_WIDTH, Format('WIDTH  %d px', [FPenSize]),
+      'Line thickness - click for the list', ikDroplet);
 
-    AddIconRow(RowY, ACT_OPEN, ACT_SAVE, ACT_EXPORT, ikOpen, ikSave, ikExport,
-      'Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
-      'Export a picture - PNG or SVG  (Ctrl+E)');
-    AddIconRow(Y0, ACT_THEME, ACT_GRID, ACT_HELP, ikTheme, ikGrid, ikHelp,
-      'Change the theme  (T)', 'Show or hide the measured grid  (G)',
-      'About this program  (F1)');
+    AddIconRow6(Y0,
+      [ACT_UNDO, ACT_REDO, ACT_FIT, ACT_THEME, ACT_GRID, ACT_HELP],
+      [ikUndo, ikRedo, ikFit, ikTheme, ikGrid, ikHelp],
+      ['Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)',
+       'Change the theme  (T)', 'Show or hide the measured grid  (G)',
+       'About this program  (F1)']);
+    AddIconRow6(RowY,
+      [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_DIM, ACT_ORIGIN],
+      [ikOpen, ikSave, ikExport, ikUnits, ikDim, ikOrigin],
+      ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
+       'Export a picture - PNG or SVG  (Ctrl+E)',
+       'Feet-and-inches or metric  (U)',
+       'Put a dimension on every new line, or not  (D)',
+       'Move the origin here  (/origin)']);
     Exit;
   end;
 
@@ -2242,6 +2277,14 @@ begin
               R.Bottom - Round(3 * FUIScale));
             PaintIcon(FDeckSkin, It.Icon, IR, Fg, 0.95);
           end;
+          { the colour button wears the colour, so the row reads as a
+            summary of what is set rather than a row of words }
+          if (It.Group = GRP_POPUP) and (It.Value = POP_COLOUR) then
+            PaintSwatch(FDeckSkin,
+              Rect(R.Left + Round(7 * FUIScale), R.Top + Round(4 * FUIScale),
+                   R.Left + Round(29 * FUIScale), R.Bottom - Round(4 * FUIScale)),
+              ColorToPix(FInkColor), False, False, Theme);
+
           { a settings button says there is more behind it }
           if It.Group = GRP_POPUP then
           begin
@@ -2343,7 +2386,13 @@ begin
     TW := pbDeck.Canvas.TextWidth(It.Caption);
     { a tool wears its own glyph, so the buttons are told apart at a glance
       and the same drawing follows the cursor }
-    if (It.Group = GRP_TOOL) and (FMode = mdPro) then
+    if (It.Group = GRP_POPUP) and (It.Value = POP_COLOUR) then
+      pbDeck.Canvas.TextOut(
+        It.Bounds.Left + (It.Bounds.Right - It.Bounds.Left - TW +
+          Round(24 * FUIScale)) div 2,
+        (It.Bounds.Top + It.Bounds.Bottom - pbDeck.Canvas.TextHeight(It.Caption)) div 2,
+        It.Caption)
+    else if (It.Group = GRP_TOOL) and (FMode = mdPro) then
       pbDeck.Canvas.TextOut(
         It.Bounds.Left + (It.Bounds.Right - It.Bounds.Left - TW +
           Round(18 * FUIScale)) div 2,
@@ -3271,11 +3320,10 @@ begin
 
   if FMode = mdPro then
   begin
-    { crosshair arms make it easy to line up on a point }
-    FOverlay.Line(CR - Rad - 5, CR, CR - Rad + 1, CR, 1.3, Contrast, 0.85);
-    FOverlay.Line(CR + Rad - 1, CR, CR + Rad + 5, CR, 1.3, Contrast, 0.85);
-    FOverlay.Line(CR, CR - Rad - 5, CR, CR - Rad + 1, 1.3, Contrast, 0.85);
-    FOverlay.Line(CR, CR + Rad - 1, CR, CR + Rad + 5, 1.3, Contrast, 0.85);
+    { No crosshair arms here.  The mouse cursor is already a cross, and the
+      two sat on top of each other whenever the snapped point and the pointer
+      agreed, which is most of the time.  This ring marks where the point
+      will land; the cross marks where the mouse is. }
     if FSnapKind in [snEndpoint, snMidpoint, snCentre, snCross, snSubMid] then
       FOverlay.Ring(CR, CR, Rad * 0.55, 2.0, Theme.Accent, 0.95);
   end
@@ -4159,7 +4207,8 @@ begin
   case Which of
     POP_SCALE: Result := SCALE_COUNT;
     POP_SNAP: Result := SNAP_COUNT;
-    POP_PEN: Result := Length(PALETTE) + PEN_STEPS;
+    POP_COLOUR: Result := Length(PALETTE);
+    POP_WIDTH: Result := PEN_STEPS;
   else
     Result := 0;
   end;
@@ -4171,9 +4220,8 @@ begin
     POP_SCALE: Result := ScaleTable(FD.Units, I).Name +
       IfThen(FD.Units = usImperial, '  =  1''-0"', '');
     POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
-    POP_PEN:
-      if I < Length(PALETTE) then Result := ''
-      else Result := Format('%d px', [PEN_SIZES[I - Length(PALETTE)]]);
+    POP_COLOUR: Result := '';
+    POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
   else
     Result := '';
   end;
@@ -4188,11 +4236,8 @@ begin
         FD.SnapIdx := EnsureRange(I, 0, SNAP_COUNT - 1);
         FCmdMsg := 'Snap: ' + SnapName(FD.Units, FD.SnapIdx);
       end;
-    POP_PEN:
-      if I < Length(PALETTE) then
-        SetInk(PALETTE[I], False)
-      else
-        SetPenSize(PEN_SIZES[I - Length(PALETTE)]);
+    POP_COLOUR: SetInk(PALETTE[I], False);
+    POP_WIDTH: SetPenSize(PEN_SIZES[I]);
   end;
   RebuildDeck;
   pbDeck.Invalidate;
@@ -4221,7 +4266,7 @@ begin
 
   RowH := Round(22 * FUIScale);
   W := Round(190 * FUIScale);
-  if Which = POP_PEN then W := Round(230 * FUIScale);
+  if Which = POP_COLOUR then W := Round(150 * FUIScale);
   H := N * RowH + Round(12 * FUIScale);
   Bottom := pbScreen.Height - Round(6 * FUIScale);
   if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
@@ -4295,10 +4340,10 @@ begin
     if Y + RowH > FPopupR.Bottom then Break;
     R := Rect(FPopupR.Left + Round(4 * FUIScale), Y,
       FPopupR.Right - Round(4 * FUIScale), Y + RowH - 1);
+    { the one in force is lit, which the combined list never managed }
     Sel := (I = Cur) or
-      ((FPopup = POP_PEN) and (I < Length(PALETTE)) and (PALETTE[I] = FInkColor)) or
-      ((FPopup = POP_PEN) and (I >= Length(PALETTE)) and
-       (PEN_SIZES[I - Length(PALETTE)] = FPenSize));
+      ((FPopup = POP_COLOUR) and (PALETTE[I] = FInkColor)) or
+      ((FPopup = POP_WIDTH) and (PEN_SIZES[I] = FPenSize));
     if Sel then
     begin
       C.Brush.Color := PixToColor(ShadePix(Theme.Accent, 0.95));
@@ -4310,12 +4355,17 @@ begin
       C.FillRect(R);
     end;
 
-    if (FPopup = POP_PEN) and (I < Length(PALETTE)) then
+    if FPopup = POP_COLOUR then
     begin
       C.Brush.Color := PALETTE[I];
-      C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.4));
-      C.Rectangle(R.Left + Round(4 * FUIScale), R.Top + Round(3 * FUIScale),
-        R.Left + Round(46 * FUIScale), R.Bottom - Round(3 * FUIScale));
+      if Sel then
+        C.Pen.Color := PixToColor(Pix(255, 255, 255))
+      else
+        C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.4));
+      C.Pen.Width := IfThen(Sel, Max(2, Round(2 * FUIScale)), 1);
+      C.Rectangle(R.Left + Round(6 * FUIScale), R.Top + Round(3 * FUIScale),
+        R.Right - Round(6 * FUIScale), R.Bottom - Round(3 * FUIScale));
+      C.Pen.Width := 1;
       C.Brush.Style := bsSolid;
       Continue;
     end;
@@ -4534,11 +4584,6 @@ begin
     if Canvas.TextWidth(S) < RightEdge - TW - Round(190 * FUIScale) then
       Canvas.TextOut(M + Round(160 * FUIScale), Round(8 * FUIScale), S);
 
-    UIFont(Canvas, 9, True, MixPix(Theme.Text, Theme.Bezel1, 0.35));
-    S := 'MAGIC SCREEN';
-    Canvas.TextOut(ClientWidth - M - Round(146 * FUIScale) +
-      (Round(132 * FUIScale) - Canvas.TextWidth(S)) div 2,
-      pbScreen.Top + pbScreen.Height + Round(4 * FUIScale), S);
     Exit;
   end;
 

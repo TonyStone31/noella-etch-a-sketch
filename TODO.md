@@ -149,7 +149,17 @@ cycles XY / XZ / YZ). SketchUp infers it from whatever face you started on.
 That inference is the actual work, and it is what makes orbiting genuinely
 useful rather than just pretty.
 
-## 8. Push/pull that removes material
+## 8. Push/pull that removes material  — a solid resizes now
+
+Pushing a face that belongs to a solid slides it and drags everything joined
+to it, so a box gets shorter or shallower instead of growing a second box
+inside itself. That was the case that mattered.
+
+What is left is cutting: pushing a face *into* a different solid so the two
+meet and the material between them goes. That still needs regions, and the
+note below is the original one.
+
+### the original note
 
 Push a face *into* a solid to cut it away, not just pull it out. Needs
 regions (#4) first, because "which face am I cutting into" only means
@@ -276,6 +286,14 @@ order:
 * **More settings in the lists.** Scale, snap and the pen open a list now
   rather than filling a row, so a list can hold more than a row ever could -
   more scales, finer snaps. Nothing has been added to them yet.
+* **A dimension tool separate from the tape measure.** SketchUp has both:
+  the tape measures and leaves guides, the dimension tool puts a permanent
+  labelled dimension on the drawing. Ours has one tool doing the measuring,
+  and dimensions arrive automatically with every line - toggled by the button
+  on the deck, `D`, or `/dim`. Two tools would be better than a toggle.
+* **A move tool.** Wanted next. `MoveFaceWith` in uWork already slides a face
+  and drags what is attached to it, which is most of the primitive a move
+  tool needs.
 * **Custom mouse cursors.** The tool's glyph rides beside the crosshair,
   which says which tool is in hand without the platform-specific business of
   building cursor images. A real cursor per tool would be nicer still.
