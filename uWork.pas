@@ -123,6 +123,10 @@ type
 
     { push/pull: lift the face along its own normal and wall in the sides }
     function PushPull(Index: Integer; Dist: Double): Boolean;
+    { Cut every flat face this segment crosses in two.  Returns how many were
+      split.  This is what makes a line drawn across a shape divide it. }
+    function SplitFacesWith(const A, B: TP3): Integer;
+    function SplitFace(Index: Integer; const A, B: TP3): Boolean;
     function HitFace(const V: TProjector; SX, SY: Double): Integer;
     function FaceNormal(Index: Integer): TP3;
     function FaceArea(Index: Integer): Double;
@@ -1167,6 +1171,159 @@ end;
 { Lift the face along its normal and wall in the sides.  The original outline
   stays behind as the base, so what you get is a closed box - which is all
   push/pull needs to be for roughing something out. }
+{ Cut one face along a segment that crosses it.
+
+  The face is flattened into its own plane, the segment is intersected with
+  each edge in turn, and if it enters and leaves exactly once the boundary is
+  walked from one crossing round to the other, and then the other way, to
+  give the two halves.
+
+  Anything else is left alone. A segment that only clips a corner, that lies
+  along an edge, or that stops inside the face gives no clean pair of halves,
+  and half a cut is worse than none. }
+function TWorkDoc.SplitFace(Index: Integer; const A, B: TP3): Boolean;
+const
+  EPS = 1E-9;
+var
+  N, I, J, K, NHit, C1, C2: Integer;
+  Nm, U, V, Org, W: TP3;
+  PX, PY: array of Double;
+  AX, AY, BX, BY: Double;
+  EX, EY, RX, RY, Den, T, Q: Double;
+  HitEdge: array[0..1] of Integer;
+  HitP: array[0..1] of TP3;
+  Src, H1, H2: TP3Array;
+  Ink: TColor;
+
+  function Same(const P, R: TP3): Boolean;
+  begin
+    Result := Dist(P, R) < 1E-7;
+  end;
+
+begin
+  Result := False;
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekFace then Exit;
+  if FEnts[Index].Solid then Exit;          // belongs to a solid, not a drawing
+  N := Length(FEnts[Index].Poly);
+  if N < 3 then Exit;
+
+  { work from a copy - the original is overwritten with one of the halves }
+  SetLength(Src, N);
+  for I := 0 to N - 1 do
+    Src[I] := FEnts[Index].Poly[I];
+
+  Nm := FaceNormal(Index);
+  Org := Src[0];
+
+  { the cut has to lie in the face's plane }
+  W := P3(A.X - Org.X, A.Y - Org.Y, A.Z - Org.Z);
+  if Abs(Dot3(W, Nm)) > 1E-6 then Exit;
+  W := P3(B.X - Org.X, B.Y - Org.Y, B.Z - Org.Z);
+  if Abs(Dot3(W, Nm)) > 1E-6 then Exit;
+
+  { a basis in that plane }
+  U := Norm3(P3(Src[1].X - Org.X, Src[1].Y - Org.Y, Src[1].Z - Org.Z));
+  V := Cross3(Nm, U);
+
+  SetLength(PX, N);
+  SetLength(PY, N);
+  for I := 0 to N - 1 do
+  begin
+    W := P3(Src[I].X - Org.X, Src[I].Y - Org.Y, Src[I].Z - Org.Z);
+    PX[I] := Dot3(W, U);
+    PY[I] := Dot3(W, V);
+  end;
+  W := P3(A.X - Org.X, A.Y - Org.Y, A.Z - Org.Z);
+  AX := Dot3(W, U); AY := Dot3(W, V);
+  W := P3(B.X - Org.X, B.Y - Org.Y, B.Z - Org.Z);
+  BX := Dot3(W, U); BY := Dot3(W, V);
+
+  RX := BX - AX;
+  RY := BY - AY;
+  if Sqrt(RX * RX + RY * RY) < 1E-9 then Exit;
+
+  NHit := 0;
+  for I := 0 to N - 1 do
+  begin
+    J := (I + 1) mod N;
+    EX := PX[J] - PX[I];
+    EY := PY[J] - PY[I];
+    Den := RX * EY - RY * EX;
+    if Abs(Den) < EPS then Continue;        // parallel, including along an edge
+    T := ((PX[I] - AX) * EY - (PY[I] - AY) * EX) / Den;   // along the cut
+    Q := ((PX[I] - AX) * RY - (PY[I] - AY) * RX) / Den;   // along this edge
+    if (T < -1E-9) or (T > 1 + 1E-9) then Continue;
+    { a crossing exactly on a vertex would be reported by both edges that
+      meet there, so each edge owns its start and leaves its end to the next }
+    if (Q < -1E-9) or (Q > 1 - 1E-9) then Continue;
+    if NHit >= 2 then Exit;                 // more than a clean pair
+    HitEdge[NHit] := I;
+    HitP[NHit] := P3(Src[I].X + (Src[J].X - Src[I].X) * Q,
+                     Src[I].Y + (Src[J].Y - Src[I].Y) * Q,
+                     Src[I].Z + (Src[J].Z - Src[I].Z) * Q);
+    Inc(NHit);
+  end;
+
+  if NHit <> 2 then Exit;
+  if HitEdge[0] = HitEdge[1] then Exit;     // in and out through one edge
+  if Same(HitP[0], HitP[1]) then Exit;
+
+  Ink := FEnts[Index].Ink;
+
+  { one half: crossing 0, round the boundary, crossing 1 }
+  SetLength(H1, N + 4);
+  C1 := 0;
+  H1[C1] := HitP[0]; Inc(C1);
+  I := HitEdge[0];
+  repeat
+    I := (I + 1) mod N;
+    if not Same(Src[I], HitP[0]) and not Same(Src[I], HitP[1]) then
+    begin
+      H1[C1] := Src[I]; Inc(C1);
+    end;
+  until I = HitEdge[1];
+  H1[C1] := HitP[1]; Inc(C1);
+  SetLength(H1, C1);
+
+  { the other half: crossing 1, round the rest, crossing 0 }
+  SetLength(H2, N + 4);
+  C2 := 0;
+  H2[C2] := HitP[1]; Inc(C2);
+  K := HitEdge[1];
+  repeat
+    K := (K + 1) mod N;
+    if not Same(Src[K], HitP[0]) and not Same(Src[K], HitP[1]) then
+    begin
+      H2[C2] := Src[K]; Inc(C2);
+    end;
+  until K = HitEdge[0];
+  H2[C2] := HitP[0]; Inc(C2);
+  SetLength(H2, C2);
+
+  if (C1 < 3) or (C2 < 3) then Exit;
+
+  SetLength(FEnts[Index].Poly, C1);
+  for I := 0 to C1 - 1 do
+    FEnts[Index].Poly[I] := H1[I];
+  FEnts[Index].A := H1[0];
+  FEnts[Index].B := H1[C1 - 1];
+
+  AddFace(H2, Ink, False);
+  FSnapDirty := True;
+  Result := True;
+end;
+
+function TWorkDoc.SplitFacesWith(const A, B: TP3): Integer;
+var
+  I, Was: Integer;
+begin
+  Result := 0;
+  Was := FLive;                { only faces that were there before the cut }
+  for I := Was - 1 downto 0 do
+    if SplitFace(I, A, B) then Inc(Result);
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N: Integer;
