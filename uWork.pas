@@ -1137,18 +1137,47 @@ begin
 end;
 
 { Topmost first, so a small face sitting on a big one wins the click. }
+{ Which face is under the cursor.
+
+  This has to agree with what is on the screen, or you pick up something you
+  cannot see. It used to take the most recently added face, which meant a
+  wall behind a block could be grabbed through it, and which square you got
+  depended on the order they were drawn in.
+
+  So: the same back-face test the renderer uses, and then the same depth key,
+  picking the largest - the face the renderer draws last is the face on top.
+
+  The depth is taken at the cursor, not at the face's centre. Centres of two
+  flat faces lying in the same plane sit at different depths, and that
+  difference swamped the tiebreak: clicking a small square inside a big slab
+  picked up the slab. Solving for the point on the face under the cursor puts
+  coplanar faces at exactly the same depth, and then the area term does what
+  it is there for and the smaller face wins.
+
+  The point is found through Project itself rather than by inverting it:
+  the projection is affine, so three points on the face plane fix the mapping
+  and a 2x2 solve gives the rest. }
 function TWorkDoc.HitFace(const V: TProjector; SX, SY: Double): Integer;
 var
   I, J, K, N: Integer;
   Inside: Boolean;
   P: array of TPointF;
+  Look, Org, U, W, Hit: TP3;
+  P0, P1, P2: TPointF;
+  AX, AY, BX, BY, Det, SS, TT, D, Best: Double;
 begin
-  { topmost first, so the face you can see is the one you get }
-  for I := FLive - 1 downto 0 do
+  Result := -1;
+  Best := -1E300;
+  Look := ViewDir(V);
+
+  for I := 0 to FLive - 1 do
   begin
     if FEnts[I].Kind <> ekFace then Continue;
     N := Length(FEnts[I].Poly);
     if N < 3 then Continue;
+    { the back of a solid is not drawn, so it cannot be clicked either }
+    if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
+
     SetLength(P, N);
     for K := 0 to N - 1 do
       P[K] := Project(V, FEnts[I].Poly[K]);
@@ -1162,10 +1191,32 @@ begin
         Inside := not Inside;
       J := K;
     end;
-    if Inside then
-      Exit(I);
+    if not Inside then Continue;
+
+    { where the cursor meets this face's plane }
+    Org := FEnts[I].Poly[0];
+    U := P3(FEnts[I].Poly[1].X - Org.X, FEnts[I].Poly[1].Y - Org.Y,
+            FEnts[I].Poly[1].Z - Org.Z);
+    W := Cross3(FaceNormal(I), U);
+    P0 := Project(V, Org);
+    P1 := Project(V, P3(Org.X + U.X, Org.Y + U.Y, Org.Z + U.Z));
+    P2 := Project(V, P3(Org.X + W.X, Org.Y + W.Y, Org.Z + W.Z));
+    AX := P1.X - P0.X; AY := P1.Y - P0.Y;
+    BX := P2.X - P0.X; BY := P2.Y - P0.Y;
+    Det := AX * BY - AY * BX;
+    if Abs(Det) < 1E-12 then Continue;      // edge-on: nothing to click
+    SS := ((SX - P0.X) * BY - (SY - P0.Y) * BX) / Det;
+    TT := (AX * (SY - P0.Y) - AY * (SX - P0.X)) / Det;
+    Hit := P3(Org.X + U.X * SS + W.X * TT,
+              Org.Y + U.Y * SS + W.Y * TT,
+              Org.Z + U.Z * SS + W.Z * TT);
+    D := Dot3(Hit, Look) + 1E-6 / Max(1E-9, FaceArea(I));
+    if D > Best then
+    begin
+      Best := D;
+      Result := I;
+    end;
   end;
-  Result := -1;
 end;
 
 { Lift the face along its normal and wall in the sides.  The original outline

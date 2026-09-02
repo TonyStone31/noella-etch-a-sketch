@@ -990,7 +990,7 @@ end;
 function TMainForm.TitleHeight: Integer;
 begin
   if FMode = mdPro then
-    Result := Round(50 * FUIScale)
+    Result := Round(38 * FUIScale)
   else
     Result := Round(84 * FUIScale);
 end;
@@ -998,7 +998,7 @@ end;
 function TMainForm.ChromeMargin: Integer;
 begin
   if FMode = mdPro then
-    Result := Round(14 * FUIScale)
+    Result := Round(10 * FUIScale)
   else
     Result := Round(22 * FUIScale);
 end;
@@ -1006,7 +1006,7 @@ end;
 function TMainForm.DeckRowH: Integer;
 begin
   if FMode = mdPro then
-    Result := Round(26 * FUIScale)
+    Result := Round(22 * FUIScale)
   else
     Result := Round(30 * FUIScale);
 end;
@@ -1017,8 +1017,12 @@ function TMainForm.DeckHeight: Integer;
 const
   ROWS = 4;
 begin
-  Result := ROWS * DeckRowH + (ROWS - 1) * Round(8 * FUIScale) +
-    Round(28 * FUIScale);
+  if FMode = mdPro then
+    Result := ROWS * DeckRowH + (ROWS - 1) * Round(5 * FUIScale) +
+      Round(14 * FUIScale)
+  else
+    Result := ROWS * DeckRowH + (ROWS - 1) * Round(8 * FUIScale) +
+      Round(28 * FUIScale);
 end;
 
 procedure TMainForm.Relayout;
@@ -1037,12 +1041,21 @@ begin
   Gap := Round(16 * FUIScale);
   ModeW := Round(186 * FUIScale);
   ModeH := Round(32 * FUIScale);
-  CmdH := Round(44 * FUIScale);
-  TabsH := Round(30 * FUIScale);
+  if FMode = mdPro then
+  begin
+    CmdH := Round(32 * FUIScale);
+    TabsH := Round(25 * FUIScale);
+    Gap := Round(8 * FUIScale);
+  end
+  else
+  begin
+    CmdH := Round(44 * FUIScale);
+    TabsH := Round(30 * FUIScale);
+  end;
 
   if FMode = mdPro then
-    pbMode.SetBounds(ClientWidth - M - ModeW, Round(4 * FUIScale),
-      ModeW, Round(24 * FUIScale))
+    pbMode.SetBounds(ClientWidth - M - ModeW, Round(3 * FUIScale),
+      ModeW, Round(22 * FUIScale))
   else
     pbMode.SetBounds(ClientWidth - M - ModeW, Round(10 * FUIScale), ModeW, ModeH);
 
@@ -1118,9 +1131,18 @@ begin
   TitleH := TitleHeight;
   DeckH := DeckHeight;
   Bezel := Round(16 * FUIScale);
-  Gap := Round(16 * FUIScale);
-  CmdH := Round(44 * FUIScale);
-  TabsH := Round(30 * FUIScale);
+  if FMode = mdPro then
+  begin
+    Gap := Round(8 * FUIScale);
+    CmdH := Round(32 * FUIScale);
+    TabsH := Round(25 * FUIScale);
+  end
+  else
+  begin
+    Gap := Round(16 * FUIScale);
+    CmdH := Round(44 * FUIScale);
+    TabsH := Round(30 * FUIScale);
+  end;
 
   if FMode = mdPro then
     BezelR := Rect(M, TitleH + TabsH + Round(4 * FUIScale), ClientWidth - M,
@@ -1901,7 +1923,8 @@ begin
   Pad := Round(14 * FUIScale);
   LabW := Round(74 * FUIScale);
   RowH := DeckRowH;
-  RowGap := Round(8 * FUIScale);
+  if FMode = mdPro then RowGap := Round(5 * FUIScale)
+  else RowGap := Round(8 * FUIScale);
   IconW := Round(34 * FUIScale);
   IconGap := Round(6 * FUIScale);
   RightW := 3 * IconW + 2 * IconGap;
@@ -2216,7 +2239,8 @@ begin
 
   Pad := Round(14 * FUIScale);
   RowH := DeckRowH;
-  RowGap := Round(8 * FUIScale);
+  if FMode = mdPro then RowGap := Round(5 * FUIScale)
+  else RowGap := Round(8 * FUIScale);
   Y0 := (FDeckSkin.Height - (4 * RowH + 3 * RowGap)) div 2;
 
   if FMode = mdToy then
@@ -4012,6 +4036,12 @@ begin
        FormatArea(RW * RH, FD.Units)]);
   end;
 
+  { the face push/pull is offered, and how big it is - the same reading
+    SketchUp gives you, and it says which of several stacked faces you have }
+  if (FStage = 0) and (FTool = ptPush) and (FHoverFace >= 0) then
+    Result := Result + '   FACE ' +
+      FormatArea(FD.Doc.FaceArea(FHoverFace), FD.Units);
+
   if (FStage = 1) and (FTool = ptPush) and (FPushFace >= 0) then
   begin
     L := PushDistance;
@@ -4064,8 +4094,8 @@ begin
   begin
     { one line: the name small on the left, the reading that matters on the
       right, and the hint between them only when it fits }
-    UIFont(Canvas, 13, True, Theme.Text);
-    Y := Round(7 * FUIScale);
+    UIFont(Canvas, 12, True, Theme.Text);
+    Y := Round(5 * FUIScale);
     TrackedText(Canvas, M + Round(2 * FUIScale), Y, UpperCase(APP_NAME),
       Round(2 * FUIScale));
 
@@ -4075,12 +4105,12 @@ begin
     UIFont(Canvas, 11, True, Theme.Text, True);
     S := StatusLine;
     TW := Canvas.TextWidth(S);
-    Canvas.TextOut(RightEdge - TW, Round(8 * FUIScale), S);
+    Canvas.TextOut(RightEdge - TW, Round(6 * FUIScale), S);
 
     UIFont(Canvas, 9, False, Theme.TextDim);
     S := FHint;
     if Canvas.TextWidth(S) < RightEdge - TW - Round(190 * FUIScale) then
-      Canvas.TextOut(M + Round(170 * FUIScale), Round(10 * FUIScale), S);
+      Canvas.TextOut(M + Round(160 * FUIScale), Round(8 * FUIScale), S);
 
     UIFont(Canvas, 9, True, MixPix(Theme.Text, Theme.Bezel1, 0.35));
     S := 'MAGIC SCREEN';
