@@ -225,8 +225,18 @@ type
     FOrbiting: Boolean;
     FPushFace: Integer;
     FHoverFace: Integer;   // the face push/pull would take, before you click
+
+    { The working plane follows whatever face you are pointing at, so a shape
+      drawn on top of a box lands on top of it.  Alt cycles through the three
+      flat planes instead and latches, because sometimes you mean to draw in
+      mid air; Esc, or a new tool, hands it back to the face. }
+    FPlaneHeld: Boolean;
     FPushSX, FPushSY: Integer;   // where the drag started, on screen
     FPanRefX, FPanRefY: Integer;
+    { What the orbit turns about.  Spinning around the world origin sends
+      whatever you were looking at off the screen; SketchUp turns about the
+      thing under the cursor, so that is what this holds. }
+    FOrbitPivot: TP3;
     FMouseSX, FMouseSY: Integer;   // raw pointer, before snapping
 
     { Motion is recorded here and nowhere else.  Under a virtual display
@@ -267,6 +277,7 @@ type
     { --- deck ----------------------------------------------------------- }
     FDeck: array of TDeckItem;
     FHotItem: Integer;
+    FDeckSnapX: Integer;   // where the snap group starts on the shared row
     FSliderGrab: Boolean;
 
     { --- history -------------------------------------------------------- }
@@ -296,6 +307,7 @@ type
     procedure Relayout;
     function TitleHeight: Integer;
     function DeckRowH: Integer;
+    function DeckRows: Integer;
     function DeckHeight: Integer;
     function ChromeMargin: Integer;
     procedure RebuildShell;
@@ -315,6 +327,7 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
+    function PivotAt(SX, SY: Integer): TP3;
     function RectTarget: TP3;
     procedure ReportCrash(Sender: TObject; E: Exception);
     function GuideColor: TPix;
@@ -872,6 +885,11 @@ var
   I: Integer;
 begin
   Application.OnException := @ReportCrash;
+  { real hover tooltips on the deck, not just the hint line }
+  pbDeck.ShowHint := True;
+  Application.ShowHint := True;
+  Application.HintPause := 450;
+  Application.HintHidePause := 6000;
   Randomize;
   Caption := APP_NAME;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
@@ -1016,15 +1034,20 @@ end;
 
 { Derived from the rows rather than fixed, so adding a fifth row of tools is
   a change in one place instead of a constant nobody remembers to update. }
+{ PRO puts scale and snap on one row, so it needs three; TOY still has four.
+  Derived either way, so another row is a change here and nowhere else. }
+function TMainForm.DeckRows: Integer;
+begin
+  if FMode = mdPro then Result := 3 else Result := 4;
+end;
+
 function TMainForm.DeckHeight: Integer;
-const
-  ROWS = 4;
 begin
   if FMode = mdPro then
-    Result := ROWS * DeckRowH + (ROWS - 1) * Round(4 * FUIScale) +
+    Result := DeckRows * DeckRowH + (DeckRows - 1) * Round(4 * FUIScale) +
       Round(10 * FUIScale)
   else
-    Result := ROWS * DeckRowH + (ROWS - 1) * Round(8 * FUIScale) +
+    Result := DeckRows * DeckRowH + (DeckRows - 1) * Round(8 * FUIScale) +
       Round(28 * FUIScale);
 end;
 
@@ -1871,6 +1894,7 @@ procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
   Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N: Integer;
+  HalfW, SnapX: Integer;
   Blank: TPix;
 
   procedure Add(K: TDeckKind; const B: TRect; G, V: Integer;
@@ -1932,7 +1956,7 @@ begin
   IconGap := Round(6 * FUIScale);
   RightW := 3 * IconW + 2 * IconGap;
 
-  Y0 := (H - (4 * RowH + 3 * RowGap)) div 2;
+  Y0 := (H - (DeckRows * RowH + (DeckRows - 1) * RowGap)) div 2;
   X := Pad + LabW;
   Avail := Max(120, W - Pad - RightW - Round(18 * FUIScale) - X);
 
@@ -1973,40 +1997,43 @@ begin
     AddIconRow(RowY, ACT_UNDO, ACT_REDO, ACT_FIT, ikUndo, ikRedo, ikFit,
       'Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)');
 
-    { --- row 2: drawing scale ------------------------------------------- }
+    { --- row 2: scale on the left, snap on the right ---------------------
+      Neither gets touched often, and a whole row each was a row of drawing
+      area spent on settings.  They share one now. }
     RowY := Y0 + RowH + RowGap;
-    SegW := (Avail - IconW - RowGap) div SCALE_COUNT;
+    HalfW := (Avail - IconW - 3 * RowGap) div 2;
+    SegW := HalfW div SCALE_COUNT;
     for I := 0 to SCALE_COUNT - 1 do
-      Add(dkSegment, Rect(X + I * SegW + 2, RowY, X + (I + 1) * SegW - 2, RowY + RowH),
+      Add(dkSegment, Rect(X + I * SegW + 1, RowY, X + (I + 1) * SegW - 1, RowY + RowH),
         GRP_SCALE, I, ScaleTable(FD.Units, I).Name,
         'Print scale ' + ScaleTable(FD.Units, I).Name +
           IfThen(FD.Units = usImperial, ' = 1''-0"', ''), ikDroplet);
-    Add(dkIcon, Rect(X + SCALE_COUNT * SegW + RowGap, RowY,
-      X + SCALE_COUNT * SegW + RowGap + IconW, RowY + RowH),
+    Add(dkIcon, Rect(X + HalfW + RowGap, RowY,
+      X + HalfW + RowGap + IconW, RowY + RowH),
       GRP_ICON, ACT_UNITS, '', 'Feet-and-inches or metric  (U)', ikUnits);
-    AddIconRow(RowY, ACT_OPEN, ACT_SAVE, ACT_EXPORT, ikOpen, ikSave, ikExport,
-      'Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
-      'Export a picture - PNG or SVG  (Ctrl+E)');
 
-    { --- row 3: snap ---------------------------------------------------- }
-    RowY := Y0 + 2 * (RowH + RowGap);
-    SegW := Avail div SNAP_COUNT;
+    SnapX := X + HalfW + IconW + 2 * RowGap;
+    FDeckSnapX := SnapX;
+    SegW := (Avail - HalfW - IconW - 2 * RowGap) div SNAP_COUNT;
     for I := 0 to SNAP_COUNT - 1 do
-      Add(dkSegment, Rect(X + I * SegW + 2, RowY, X + (I + 1) * SegW - 2, RowY + RowH),
+      Add(dkSegment, Rect(SnapX + I * SegW + 1, RowY,
+        SnapX + (I + 1) * SegW - 1, RowY + RowH),
         GRP_SNAP, I, SnapName(FD.Units, I),
         IfThen(I = 0, 'No snapping at all - free cursor  (or hold Alt)',
                       'Snap to ' + SnapName(FD.Units, I) +
                       ' steps, and to points on the drawing'), ikDroplet);
-    AddIconRow(RowY, ACT_THEME, ACT_GRID, ACT_HELP, ikTheme, ikGrid, ikHelp,
+
+    AddIconRow(RowY, ACT_OPEN, ACT_SAVE, ACT_EXPORT, ikOpen, ikSave, ikExport,
+      'Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
+      'Export a picture - PNG or SVG  (Ctrl+E)');
+    AddIconRow(Y0 + 2 * (RowH + RowGap), ACT_THEME, ACT_GRID, ACT_HELP,
+      ikTheme, ikGrid, ikHelp,
       'Change the theme  (T)', 'Show or hide the measured grid  (G)',
       'About this program  (F1)');
   end;
 
   { --- ink row ---------------------------------------------------------- }
-  if FMode = mdToy then
-    RowY := Y0 + 2 * (RowH + RowGap)
-  else
-    RowY := Y0 + 3 * (RowH + RowGap);
+  RowY := Y0 + 2 * (RowH + RowGap);
 
   SwGap := Round(6 * FUIScale);
   SwSz := Min(RowH - Round(6 * FUIScale),
@@ -2244,7 +2271,7 @@ begin
   RowH := DeckRowH;
   if FMode = mdPro then RowGap := Round(4 * FUIScale)
   else RowGap := Round(8 * FUIScale);
-  Y0 := (FDeckSkin.Height - (4 * RowH + 3 * RowGap)) div 2;
+  Y0 := (FDeckSkin.Height - (DeckRows * RowH + (DeckRows - 1) * RowGap)) div 2;
 
   if FMode = mdToy then
   begin
@@ -2256,9 +2283,10 @@ begin
   else
   begin
     Section(0, 'TOOL');
-    Section(1, 'SCALE');
-    Section(2, 'SNAP');
-    Section(3, 'INK');
+    { one row, two settings - there is no room beside the groups for a second
+      label, and the gutter takes both names }
+    Section(1, 'SCALE/SNAP');
+    Section(2, 'INK');
   end;
 
   for I := 0 to High(FDeck) do
@@ -2313,6 +2341,11 @@ begin
       FHint := TOOL_HINTS[FTool]
     else
       FHint := TOY_HINT;
+    { An ordinary hover tooltip as well as the hint line.  The icons on the
+      right say nothing about themselves otherwise - you have to already know
+      what the little pictures mean. }
+    if H >= 0 then pbDeck.Hint := FDeck[H].Hint else pbDeck.Hint := '';
+    Application.CancelHint;
     pbDeck.Invalidate;
     Invalidate;
   end;
@@ -2324,6 +2357,8 @@ begin
   begin
     FHotItem := -1;
     if FMode = mdPro then FHint := TOOL_HINTS[FTool] else FHint := TOY_HINT;
+    pbDeck.Hint := '';
+    Application.CancelHint;
     pbDeck.Invalidate;
     Invalidate;
   end;
@@ -3223,6 +3258,7 @@ begin
   else
     FD.Plane := plXY;
   end;
+  FPlaneHeld := True;
   if FD.Plane <> Was then
   begin
     RepaintPaper;
@@ -3235,7 +3271,7 @@ begin
   else
     FCmdMsg := 'Drawing flat, on the XY plane.';
   end;
-  FCmdMsg := FCmdMsg + '  Arrows change it.';
+  FCmdMsg := FCmdMsg + '  Esc to follow faces again.';
   pbCmd.Invalidate;
   FScreenDirty := True;
 end;
@@ -3271,6 +3307,7 @@ begin
   FStage := 0;
   FHoverEnt := -1;
   FHoverFace := -1;
+  FPlaneHeld := False;
   FGuide := False;
   FAxisLock := -1;
   FLockOn := False;
@@ -3845,6 +3882,7 @@ begin
     FPanning := not FOrbiting;
     FPanRefX := X;
     FPanRefY := Y;
+    FOrbitPivot := PivotAt(X, Y);
     FMoveShift := Shift;
     pbScreen.Cursor := crSizeAll;
     Exit;
@@ -3858,6 +3896,7 @@ begin
       FPanning := not FOrbiting;
       FPanRefX := X;
       FPanRefY := Y;
+      FOrbitPivot := PivotAt(X, Y);
       FMoveShift := Shift;
       pbScreen.Cursor := crSizeAll;
     end
@@ -3937,7 +3976,9 @@ end;
   positions only ever fed a repaint that was immediately overdrawn. }
 procedure TMainForm.ServiceMotion;
 var
-  X, Y: Integer;
+  X, Y, HF: Integer;
+  HP, HN: TP3;
+  OP: TPointF;
 begin
   if not FMovePending then Exit;
   FMovePending := False;
@@ -3951,9 +3992,18 @@ begin
   begin
     if FOrbiting and not (ssShift in FMoveShift) then
     begin
-      FD.Az := FD.Az + (X - FPanRefX) * 0.010;
+      { Drag right and the model follows the cursor round, the way it does
+        when you push something on a turntable - the azimuth goes the other
+        way to the drag.  It used to follow the drag, which reads as the
+        model running away from you. }
+      FD.Az := FD.Az - (X - FPanRefX) * 0.010;
       FD.El := EnsureRange(FD.El + (Y - FPanRefY) * 0.010, -1.45, 1.45);
       FViewPreset := -1;
+      { hold the grabbed point still, so the view turns about it rather than
+        about the origin }
+      OP := ScreenOf(FOrbitPivot);
+      FD.ViewX := FD.ViewX + (FPanRefX - OP.X);
+      FD.ViewY := FD.ViewY + (FPanRefY - OP.Y);
       RepaintPaper;
       RenderPro;
       RecomposeAll;
@@ -3970,6 +4020,23 @@ begin
   begin
     FMouseSX := X;
     FMouseSY := Y;
+    { Point at a face and draw on it.  Before this the plane came only from a
+      key, so a square drawn on the top of a box was really being drawn on
+      the ground and merely looked right - and push/pull then took the box's
+      whole top, because that is what was actually under the cursor. }
+    if (FStage = 0) and not FPlaneHeld and
+       (FTool in [ptLine, ptRect, ptCircle, ptArc]) and
+       FD.Doc.FaceUnder(Proj, X, Y, HF, HP) then
+    begin
+      HN := FD.Doc.FaceNormal(HF);
+      if Abs(HN.Z) > 0.9 then FD.Plane := plXY
+      else if Abs(HN.Y) > 0.9 then FD.Plane := plXZ
+      else if Abs(HN.X) > 0.9 then FD.Plane := plYZ;
+      { the plane passes through where the cursor meets the face, so the
+        shape sits on the surface rather than at the old height }
+      FCur := HP;
+    end;
+
     FCur := ResolveSnapAt(X, Y);
     if FTool = ptErase then
       FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
@@ -3989,6 +4056,22 @@ begin
 
   if FFreehand then
     PenTo(X, Y, not FPenUp);
+end;
+
+{ What an orbit should turn about: whatever is under the cursor.  A face if
+  there is one, otherwise the working plane, and failing that the middle of
+  the drawing so an empty view still behaves. }
+function TMainForm.PivotAt(SX, SY: Integer): TP3;
+var
+  F: Integer;
+  P, Lo, Hi: TP3;
+begin
+  if FD.Doc.FaceUnder(Proj, SX, SY, F, P) then
+    Exit(P);
+  if FD.Doc.Bounds(Lo, Hi) then
+    Result := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2)
+  else
+    Result := WorldAt(SX, SY);
 end;
 
 { SketchUp's trick: rest on a point for a moment and it is remembered, so
@@ -4114,7 +4197,10 @@ begin
   end;
 
   if (FMode = mdPro) and (FD.View <> vkPlan) then
+  begin
     Result := Result + '   PLANE ' + PlaneName;
+    if FPlaneHeld then Result := Result + ' HELD';
+  end;
 
   { the face push/pull is offered, and how big it is - the same reading
     SketchUp gives you, and it says which of several stacked faces you have }
@@ -4853,7 +4939,21 @@ begin
   begin
     if Key = VK_MENU then
     begin
-      FPenUp := True;      // Alt: suspend snapping while it is held
+      { Alt steps through the flat planes and latches, so you can draw in mid
+        air.  It used to only suspend snapping, which it still does while
+        held. }
+      FD.Plane := TPlane((Ord(FD.Plane) + 1) mod 3);
+      FPlaneHeld := True;
+      case FD.Plane of
+        plXZ: FCmdMsg := 'Plane held upright, XZ.  Alt again to change, Esc to follow faces.';
+        plYZ: FCmdMsg := 'Plane held on the side, YZ.  Alt again to change, Esc to follow faces.';
+      else
+        FCmdMsg := 'Plane held flat, XY.  Alt again to change, Esc to follow faces.';
+      end;
+      RepaintPaper;
+      RenderPro;
+      RecomposeAll;
+      pbCmd.Invalidate;
       Key := 0;
       Exit;
     end;
