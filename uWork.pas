@@ -131,6 +131,12 @@ type
     { Cut every flat face this segment crosses in two.  Returns how many were
       split.  This is what makes a line drawn across a shape divide it. }
     function SplitFacesWith(const A, B: TP3): Integer;
+    { Replace the straight edge from A to B, in whatever face owns it, with
+      the given run of points.  This is how an arc rounds off a face. }
+    function BulgeFaceEdge(const A, B: TP3; const Pts: TP3Array): Boolean;
+    { The face a point lies on, or -1.  Used to work out which plane a new
+      shape belongs in when the cursor has snapped to a corner. }
+    function FaceThrough(const P: TP3): Integer;
     function SplitFace(Index: Integer; const A, B: TP3): Boolean;
     function HitFace(const V: TProjector; SX, SY: Double): Integer;
     { The same search, but also handing back the point on that face where the
@@ -1457,6 +1463,96 @@ begin
   AddFace(H2, Ink, False);
   FSnapDirty := True;
   Result := True;
+end;
+
+{ An arc drawn on top of one of a face's edges should reshape the face, not
+  hang off the outside of it.  Drawing the arc and then rubbing out the
+  straight edge left the face exactly as it was, because a face is a fixed
+  list of points and nothing was rebuilding it.
+
+  So: find the edge with these two ends and swap it for the arc's own points.
+  The face becomes the rounded shape, and pushing it up carries the curve. }
+function TWorkDoc.BulgeFaceEdge(const A, B: TP3; const Pts: TP3Array): Boolean;
+const
+  TOL = 1E-6;
+var
+  I, J, K, N, M: Integer;
+  Poly, Res: TP3Array;
+  Fwd: Boolean;
+begin
+  Result := False;
+  M := Length(Pts);
+  if M < 2 then Exit;
+
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    if FEnts[I].Solid then Continue;
+    N := Length(FEnts[I].Poly);
+    if N < 3 then Continue;
+    Poly := FEnts[I].Poly;
+
+    for J := 0 to N - 1 do
+    begin
+      K := (J + 1) mod N;
+      Fwd := (Dist(Poly[J], A) < TOL) and (Dist(Poly[K], B) < TOL);
+      if not Fwd and not ((Dist(Poly[J], B) < TOL) and
+                          (Dist(Poly[K], A) < TOL)) then Continue;
+
+      { keep everything up to this edge's start, then walk the arc, then the
+        rest - the edge's own two ends come from the arc }
+      SetLength(Res, 0);
+      SetLength(Res, N - 2 + M);
+      M := 0;
+      for K := 0 to Length(Pts) - 1 do
+      begin
+        if Fwd then Res[M] := Pts[K] else Res[M] := Pts[Length(Pts) - 1 - K];
+        Inc(M);
+      end;
+      K := (J + 2) mod N;
+      while K <> J do
+      begin
+        Res[M] := Poly[K];
+        Inc(M);
+        K := (K + 1) mod N;
+      end;
+      SetLength(Res, M);
+      if M >= 3 then
+      begin
+        SetLength(FEnts[I].Poly, M);
+        for K := 0 to M - 1 do FEnts[I].Poly[K] := Res[K];
+        FEnts[I].A := Res[0];
+        FEnts[I].B := Res[M - 1];
+        FSnapDirty := True;
+        Result := True;
+      end;
+      Exit;
+    end;
+  end;
+end;
+
+{ Which flat face a point sits on.  A corner of a box belongs to three of
+  them; the first found will do, since they are all planes a new shape could
+  reasonably be drawn in. }
+function TWorkDoc.FaceThrough(const P: TP3): Integer;
+const
+  TOL = 1E-6;
+var
+  I, K: Integer;
+  Nm, W: TP3;
+begin
+  Result := -1;
+  for I := FLive - 1 downto 0 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    if Length(FEnts[I].Poly) < 3 then Continue;
+    Nm := FaceNormal(I);
+    W := P3(P.X - FEnts[I].Poly[0].X, P.Y - FEnts[I].Poly[0].Y,
+            P.Z - FEnts[I].Poly[0].Z);
+    if Abs(Dot3(W, Nm)) > TOL then Continue;
+    for K := 0 to High(FEnts[I].Poly) do
+      if Dist(P, FEnts[I].Poly[K]) < 1E-5 then Exit(I);
+  end;
 end;
 
 function TWorkDoc.SplitFacesWith(const A, B: TP3): Integer;
