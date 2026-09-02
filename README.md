@@ -145,19 +145,18 @@ the sixteenth of an inch.
 
 ---
 
-## Running it in a web browser
+## Running it on a remote or virtual display
 
-It works under GTK's Broadway backend, so it can be shown on a machine that
-has no display of its own:
+It runs unchanged on a virtual X server - Xvfb, TigerVNC, KasmVNC - so it can
+be shown on a machine with no display of its own.
 
-```sh
-broadwayd :5 &
-GDK_BACKEND=broadway BROADWAY_DISPLAY=:5 ./etchasketch
-```
-
-then point a browser at `http://localhost:8085`. PRO mode is mostly static
-and travels well; TOY mode repaints continuously and will feel heavy over a
-slow link.
+Mouse motion is deliberately cheap: the handler records the pointer position
+and returns, and all snapping, hit-testing and repainting happens once per
+16 ms tick. That matters on a virtual display, where every repaint has to be
+encoded and shipped to the client: a motion handler that painted would take
+tens of milliseconds, and because GDK holds back the next motion event until
+the handler returns, the event stream would collapse to a few moves a second.
+Hover coordinates and click-drag drawing would stop tracking the pointer.
 
 ## Building
 

@@ -73,8 +73,10 @@ on work that already exists. Deliberately parked - it is its own project.
   from an arbitrary angle. A ground plane that follows the camera would fix
   it.
 * **Print more than one sheet** at a time.
-* **Broadway performance.** It works, but TOY mode repaints continuously and
-  is heavy over a slow link. PRO is mostly static and travels fine.
+* **Remote-display performance.** Motion no longer paints - it is serviced
+  once per tick - so the pointer tracks properly over VNC. TOY mode still
+  reloads the whole art bitmap per frame while drawing; only the dirty
+  region needs to move. PRO is mostly static and travels fine.
 * **Undo memory.** TOY keeps 16 full-screen bitmaps. PRO keeps whole document
   copies, which is cheap. TOY could be smarter.
 
