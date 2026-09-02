@@ -66,7 +66,22 @@ procedure PaintMeasuredGrid(S: TArtSurface; const T: TTheme;
 procedure PaintIsoGrid(S: TArtSurface; const T: TTheme;
   Ppu, OX, OY: Double; MajorEvery: Integer);
 
+{ The model axes, in SketchUp's colours: X red, Y green, Z blue.  Index is
+  0 X, 1 Y, 2 Z; anything else comes back grey. }
+function AxisPix(Index: Integer): TPix;
+
 implementation
+
+function AxisPix(Index: Integer): TPix;
+begin
+  case Index of
+    0: Result := Pix($E0, $46, $46);
+    1: Result := Pix($3C, $B0, $54);
+    2: Result := Pix($46, $78, $E6);
+  else
+    Result := Pix($90, $90, $98);
+  end;
+end;
 
 procedure InitThemes;
 begin
@@ -668,10 +683,10 @@ begin
     S.Line(DX + L * C30, DY - L * S30, DX - L * C30, DY + L * S30, 1.0, T.Grid, A);
   end;
 
-  { the three axes }
-  S.Line(OX, OY, OX + L * C30, OY + L * S30, 1.6, T.Accent, 0.40);   // +X
-  S.Line(OX, OY, OX - L * C30, OY + L * S30, 1.6, T.Accent, 0.40);   // +Y
-  S.Line(OX, OY, OX, OY - L, 1.6, T.Accent, 0.40);                   // +Z
+  { the three axes, each in its own colour so the view reads at a glance }
+  S.Line(OX, OY, OX + L * C30, OY + L * S30, 1.8, AxisPix(0), 0.55);   // +X
+  S.Line(OX, OY, OX - L * C30, OY + L * S30, 1.8, AxisPix(1), 0.55);   // +Y
+  S.Line(OX, OY, OX, OY - L, 1.8, AxisPix(2), 0.55);                   // +Z
   S.Touch;
 end;
 
