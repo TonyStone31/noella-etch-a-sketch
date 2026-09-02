@@ -105,7 +105,26 @@ regions (#4) first, because "which face am I cutting into" only means
 something once faces are properly bounded. Probably: push inward, and where
 the moved face lands flush with another one, drop both and stitch the walls.
 
-## 9. Export DXF
+## 9. Update from inside the program
+
+Check a version, say "update available", download, swap the binary, restart.
+Windows cannot overwrite a running exe, but rename-self, drop the new one in,
+relaunch and exit is the standard way round it.
+
+The blocker is not the mechanism, it is **where it checks**. Catbox gives
+every upload a random URL, so nothing there can mean "latest". It needs one
+stable address that always describes the current build.
+
+**Decided: GitHub Releases, but not yet.** The repository has to go up first,
+which is wanted anyway to give the thing away. Until then builds are hand
+carried.
+
+One detail worth settling before writing it: HTTPS from Free Pascal normally
+wants OpenSSL DLLs on Windows, which would end the single-file property. Use
+WinINet on Windows - a system DLL, nothing to ship - and shell out to curl on
+Linux.
+
+## 10. Export DXF
 
 `.skp` is a closed binary format with a C++ SDK and no Pascal binding, so
 exporting to SketchUp directly is not realistic - and DXF is the better
@@ -122,7 +141,7 @@ which is easy to write but is triangles only, so it would carry the pulled
 solids and lose the linework. Covering both means DXF for the drawing and
 STL or OBJ for the solids.
 
-## 10. Tracing an imported PDF or SVG
+## 11. Tracing an imported PDF or SVG
 
 Bring in a drawing as a background image, scale it against a known dimension,
 then trace over it with snapping. Would make the program immediately useful
@@ -184,14 +203,12 @@ order:
 
 ## Smaller things, roughly in order
 
-* **Hover feedback.** Light up the face under the cursor when push/pull can
-  act on it, the way SketchUp stipples a pullable face, and show a line's
-  length when you hover it. `FHoverEnt` already exists but is only computed
-  for the eraser.
-* **Push/pull should not be offered in plan.** The face normal points at the
-  camera there, so it can only work by typing and the preview can show
-  nothing moving. It currently prints a "press V for a 3D view" nudge, which
-  is a sign the tool should not be live in that view at all.
+* ~~**Hover feedback** for push/pull~~ — done 2 September 2026. The face
+  under the cursor is stippled and outlined before you click, so a hit is
+  told from a miss. Still to do: a line's length in a tooltip when you hover
+  it.
+* ~~**Push/pull in plan**~~ — done. Choosing it in plan now goes and gets the
+  corner view rather than leaving a tool that appears to do nothing.
 * **An angle on the tape measure.** It reads distance and dX/dY/dZ already.
   The angle from the last segment, and from horizontal, costs almost nothing
   and 45s and 22.5s are what pipe work is actually measured in.
