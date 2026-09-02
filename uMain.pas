@@ -56,7 +56,7 @@ type
   TAppMode = (mdToy, mdPro);
 
   TProTool = (ptSelect, ptLine, ptRect, ptArc, ptCircle, ptPush, ptText,
-    ptErase, ptMeasure);
+    ptErase, ptMeasure, ptOrbit);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -345,6 +345,8 @@ type
     function Prompt: string;
     function PreviewTarget: TP3;
     procedure SetTool(T: TProTool);
+    function PlaneName: string;
+    procedure PlaneByArrow(Key: Word);
     procedure ResetTool;
     procedure ProClick;
     procedure ProCommit;
@@ -506,7 +508,7 @@ const
 
   TOOL_NAMES: array[TProTool] of string =
     ('POINT', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT', 'ERASE',
-     'MEASURE');
+     'MEASURE', 'ORBIT');
 
   TOOL_HINTS: array[TProTool] of string = (
     'Point - move the cursor around and read where it is.  Nothing gets drawn.',
@@ -518,7 +520,8 @@ const
       'lines to make a face.',
     'Text - click where the note goes and type it.',
     'Erase - click anything to delete it.',
-    'Measure - click two points and read the distance between them.');
+    'Measure - click two points and read the distance between them.',
+    'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -990,7 +993,7 @@ end;
 function TMainForm.TitleHeight: Integer;
 begin
   if FMode = mdPro then
-    Result := Round(38 * FUIScale)
+    Result := Round(34 * FUIScale)
   else
     Result := Round(84 * FUIScale);
 end;
@@ -998,7 +1001,7 @@ end;
 function TMainForm.ChromeMargin: Integer;
 begin
   if FMode = mdPro then
-    Result := Round(10 * FUIScale)
+    Result := Round(8 * FUIScale)
   else
     Result := Round(22 * FUIScale);
 end;
@@ -1006,7 +1009,7 @@ end;
 function TMainForm.DeckRowH: Integer;
 begin
   if FMode = mdPro then
-    Result := Round(22 * FUIScale)
+    Result := Round(20 * FUIScale)
   else
     Result := Round(30 * FUIScale);
 end;
@@ -1018,8 +1021,8 @@ const
   ROWS = 4;
 begin
   if FMode = mdPro then
-    Result := ROWS * DeckRowH + (ROWS - 1) * Round(5 * FUIScale) +
-      Round(14 * FUIScale)
+    Result := ROWS * DeckRowH + (ROWS - 1) * Round(4 * FUIScale) +
+      Round(10 * FUIScale)
   else
     Result := ROWS * DeckRowH + (ROWS - 1) * Round(8 * FUIScale) +
       Round(28 * FUIScale);
@@ -1043,9 +1046,9 @@ begin
   ModeH := Round(32 * FUIScale);
   if FMode = mdPro then
   begin
-    CmdH := Round(32 * FUIScale);
-    TabsH := Round(25 * FUIScale);
-    Gap := Round(8 * FUIScale);
+    CmdH := Round(28 * FUIScale);
+    TabsH := Round(22 * FUIScale);
+    Gap := Round(6 * FUIScale);
   end
   else
   begin
@@ -1133,9 +1136,9 @@ begin
   Bezel := Round(16 * FUIScale);
   if FMode = mdPro then
   begin
-    Gap := Round(8 * FUIScale);
-    CmdH := Round(32 * FUIScale);
-    TabsH := Round(25 * FUIScale);
+    Gap := Round(6 * FUIScale);
+    CmdH := Round(28 * FUIScale);
+    TabsH := Round(22 * FUIScale);
   end
   else
   begin
@@ -1923,7 +1926,7 @@ begin
   Pad := Round(14 * FUIScale);
   LabW := Round(74 * FUIScale);
   RowH := DeckRowH;
-  if FMode = mdPro then RowGap := Round(5 * FUIScale)
+  if FMode = mdPro then RowGap := Round(4 * FUIScale)
   else RowGap := Round(8 * FUIScale);
   IconW := Round(34 * FUIScale);
   IconGap := Round(6 * FUIScale);
@@ -2239,7 +2242,7 @@ begin
 
   Pad := Round(14 * FUIScale);
   RowH := DeckRowH;
-  if FMode = mdPro then RowGap := Round(5 * FUIScale)
+  if FMode = mdPro then RowGap := Round(4 * FUIScale)
   else RowGap := Round(8 * FUIScale);
   Y0 := (FDeckSkin.Height - (4 * RowH + 3 * RowGap)) div 2;
 
@@ -2953,7 +2956,7 @@ begin
       end
       else
         PaintFaceHint(C, FHoverFace, Theme.Accent);
-    ptSelect, ptText, ptErase: ;   // nothing to rubber-band
+    ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
   end;
 
   { --- scale bar, bottom left ------------------------------------------ }
@@ -3198,6 +3201,45 @@ end;
 { pro mode: the tools                                                       }
 { ======================================================================== }
 
+function TMainForm.PlaneName: string;
+begin
+  Result := Copy('XYXZYZ', Ord(FD.Plane) * 2 + 1, 2);
+end;
+
+{ Drawing in 3D always landed flat, because the working plane only changed
+  from the K key or a typed command and nothing said so. The arrows pick it
+  now, before a shape is started: up or down for the upright plane, left or
+  right for the side one, Page Up or Down back to flat. Once a line is under
+  way the arrows go back to locking its direction, which is what they are
+  for at that point. }
+procedure TMainForm.PlaneByArrow(Key: Word);
+var
+  Was: TPlane;
+begin
+  Was := FD.Plane;
+  case Key of
+    VK_UP, VK_DOWN: FD.Plane := plXZ;
+    VK_LEFT, VK_RIGHT: FD.Plane := plYZ;
+  else
+    FD.Plane := plXY;
+  end;
+  if FD.Plane <> Was then
+  begin
+    RepaintPaper;
+    RenderPro;
+    RecomposeAll;
+  end;
+  case FD.Plane of
+    plXZ: FCmdMsg := 'Drawing upright, on the XZ plane.';
+    plYZ: FCmdMsg := 'Drawing on the side, the YZ plane.';
+  else
+    FCmdMsg := 'Drawing flat, on the XY plane.';
+  end;
+  FCmdMsg := FCmdMsg + '  Arrows change it.';
+  pbCmd.Invalidate;
+  FScreenDirty := True;
+end;
+
 procedure TMainForm.SetTool(T: TProTool);
 begin
   { Push/pull along a face normal that points at the camera can only move the
@@ -3209,6 +3251,13 @@ begin
     ApplyViewPreset(2);
     FCmdMsg := 'Push/pull needs to see the face - switched to the corner view.';
   end;
+  if (T = ptOrbit) and (FD.View <> vkOrbit) then
+  begin
+    ApplyViewPreset(2);
+    FCmdMsg := 'Orbit - drag to spin.  Shift drags to pan.';
+  end;
+  if T = ptOrbit then pbScreen.Cursor := crSizeAll
+  else pbScreen.Cursor := crCross;
   FTool := T;
   ResetTool;
   FHint := TOOL_HINTS[T];
@@ -3260,6 +3309,8 @@ begin
         Result := 'click a face'
       else
         Result := 'how far?  type it, or move and click';
+    ptOrbit:
+      Result := 'drag to spin the view - Shift drags to pan';
     ptSelect:
       Result := 'move the cursor - pick a tool to draw   (or /help)';
     ptErase:
@@ -3336,6 +3387,8 @@ var
   P: TPointF;
 begin
   case FTool of
+    ptOrbit: ;   // the drag does the work
+
     ptSelect:
       FCmdMsg := 'Here: ' + FormatLen(FCur.X, FD.Units) + ', ' +
         FormatLen(FCur.Y, FD.Units);
@@ -3476,8 +3529,13 @@ begin
         if Dist(FP1, T) > 1E-9 then
         begin
           PushUndo;
-          FD.Doc.AddLine(FP1, T, FInkColor, FPenSize, FD.ShowDims);
-          FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
+          if FD.Doc.HasLine(FP1, T) then
+            FCmdMsg := FormatLen(Dist(FP1, T), FD.Units) + '   (already an edge)'
+          else
+          begin
+            FD.Doc.AddLine(FP1, T, FInkColor, FPenSize, FD.ShowDims);
+            FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
+          end;
           { A line drawn across a face divides it.  Without this the face
             stayed whole with a line lying on top of it, so push/pull could
             only ever move the outer shape however many times you split it. }
@@ -3509,9 +3567,13 @@ begin
         begin
           PushUndo;
           Loop := RectCorners(FP1, T, FD.Plane);
+          { An edge that lands exactly on one already there is the same edge.
+            Adding it again left two lines in the same place and two
+            dimension labels on top of each other. }
           for I := 0 to 3 do
-            FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
-              FInkColor, FPenSize, FD.ShowDims);
+            if not FD.Doc.HasLine(Loop[I], Loop[(I + 1) mod 4]) then
+              FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
+                FInkColor, FPenSize, FD.ShowDims);
           { closed by construction, so the face comes with it rather than
             waiting for four separate lines to happen to meet }
           FD.Doc.AddFace(Loop, FInkColor);
@@ -3628,7 +3690,7 @@ begin
         end;
         ResetTool;
       end;
-    ptSelect, ptErase: ;   // these act on the click; nothing to commit
+    ptSelect, ptErase, ptOrbit: ;   // these act on the drag; nothing to commit
   end;
   pbScreen.Invalidate;
   pbCmd.Invalidate;
@@ -3658,6 +3720,7 @@ begin
   else if (W = 'circle') or (W = 'c') then SetTool(ptCircle)
   else if (W = 'text') or (W = 'note') or (W = 'n') then SetTool(ptText)
   else if (W = 'erase') or (W = 'e') or (W = 'del') then SetTool(ptErase)
+  else if (W = 'orbit') or (W = 'spin') then SetTool(ptOrbit)
   else if (W = 'rect') or (W = 'rectangle') or (W = 'r') then SetTool(ptRect)
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'push') or (W = 'pull') or (W = 'pushpull') or (W = 'p') then
@@ -3773,6 +3836,19 @@ begin
   FMoveX := X;
   FMoveY := Y;
   FMovePending := False;
+
+  { Laptops without a middle button need a way in, so the tool turns a plain
+    left drag into the same thing. }
+  if (Button = mbLeft) and (FMode = mdPro) and (FTool = ptOrbit) then
+  begin
+    FOrbiting := FD.View = vkOrbit;
+    FPanning := not FOrbiting;
+    FPanRefX := X;
+    FPanRefY := Y;
+    FMoveShift := Shift;
+    pbScreen.Cursor := crSizeAll;
+    Exit;
+  end;
 
   if Button in [mbMiddle, mbRight] then
   begin
@@ -3970,11 +4046,12 @@ begin
   FMovePending := True;
   ServiceMotion;
 
-  if (FPanning or FOrbiting) and (Button in [mbMiddle, mbRight]) then
+  if FPanning or FOrbiting then
   begin
     FPanning := False;
     FOrbiting := False;
-    pbScreen.Cursor := crCross;
+    if FTool = ptOrbit then pbScreen.Cursor := crSizeAll
+    else pbScreen.Cursor := crCross;
     Exit;
   end;
   if Button = mbRight then FPenUp := False;
@@ -4035,6 +4112,9 @@ begin
       [FormatLen(RW, FD.Units), FormatLen(RH, FD.Units),
        FormatArea(RW * RH, FD.Units)]);
   end;
+
+  if (FMode = mdPro) and (FD.View <> vkPlan) then
+    Result := Result + '   PLANE ' + PlaneName;
 
   { the face push/pull is offered, and how big it is - the same reading
     SketchUp gives you, and it says which of several stacked faces you have }
@@ -4799,7 +4879,14 @@ begin
     end;
 
     case Key of
-      VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_PRIOR, VK_NEXT: Arrow(Key);
+      VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_PRIOR, VK_NEXT:
+        { before a shape is under way the arrows pick the plane; after that
+          they lock a direction, which is only meaningful for a line }
+        if (FTool in [ptRect, ptCircle, ptArc]) or
+           ((FTool = ptLine) and (FStage = 0)) then
+          PlaneByArrow(Key)
+        else
+          Arrow(Key);
       VK_SPACE, VK_RETURN: CommandEnter;
       VK_ESCAPE:
         begin
@@ -4834,7 +4921,7 @@ begin
       VK_I: RunCommand(IfThen(FD.View = vkIso, 'plan', 'iso'));
       VK_K: RunCommand('plane');
       VK_F: FitView;
-      VK_O: SetOriginHere;
+      VK_O: SetTool(ptOrbit);
       VK_D: RunCommand('dim');
       VK_G: RunCommand('grid');
       VK_U: RunCommand('units');
@@ -5282,7 +5369,8 @@ begin
       FD.SnapIdx := EnsureRange(Ini.ReadInteger('pro', 'snap', 5), 0, SNAP_COUNT - 1);
       FD.Units := TUnitSystem(EnsureRange(Ini.ReadInteger('pro', 'units', 0), 0, 1));
       FD.ShowDims := Ini.ReadBool('pro', 'dims', True);
-      FD.View := TViewKind(EnsureRange(Ini.ReadInteger('pro', 'view', 0), 0, 1));
+      { the view is deliberately not restored - a drawing session starts
+        flat, and 3D is somewhere you go on purpose }
 
       { Where the window was last time.  Only honoured if it still lands on a
         screen - monitors get unplugged, and a window restored onto one that
@@ -5339,7 +5427,6 @@ begin
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));
       Ini.WriteBool('pro', 'dims', FD.ShowDims);
-      Ini.WriteInteger('pro', 'view', Ord(FD.View));
 
       { Restored*, not Left/Width: a maximised window would otherwise
         remember the size of the screen and come back unmaximisable. }

@@ -115,6 +115,8 @@ type
     procedure RebuildSnapCache;
   public
     procedure AddLine(const A, B: TP3; Ink: TColor; Weight: Single; Dim: Boolean);
+    { True when a line with these ends is already there, either way round. }
+    function HasLine(const A, B: TP3): Boolean;
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
@@ -890,6 +892,21 @@ begin
 end;
 
 { Anything in redo space is dropped the moment you draw again. }
+function TWorkDoc.HasLine(const A, B: TP3): Boolean;
+const
+  TOL = 1E-7;
+var
+  I: Integer;
+begin
+  Result := True;
+  for I := 0 to FLive - 1 do
+    if FEnts[I].Kind = ekLine then
+      if ((Dist(FEnts[I].A, A) < TOL) and (Dist(FEnts[I].B, B) < TOL)) or
+         ((Dist(FEnts[I].A, B) < TOL) and (Dist(FEnts[I].B, A) < TOL)) then
+        Exit;
+  Result := False;
+end;
+
 procedure TWorkDoc.AddLine(const A, B: TP3; Ink: TColor; Weight: Single;
   Dim: Boolean);
 begin
