@@ -308,6 +308,7 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
+    procedure ReportCrash(Sender: TObject; E: Exception);
     function GuideColor: TPix;
 
     procedure UIFont(C: TCanvas; Size: Integer; Bold: Boolean; const Col: TPix;
@@ -406,6 +407,9 @@ end;
 
 const
   APP_NAME = 'Heckers Sketch';
+  CRASH_LOG = 'heckers-sketch-crash.txt';
+  { so a crash report says which build it came from }
+  BUILD_STAMP = {$I %DATE%} + ' ' + {$I %TIME%};
 
   { deck groups }
   GRP_STYLE = 0;
@@ -807,6 +811,7 @@ procedure TMainForm.FormCreate(Sender: TObject);
 var
   I: Integer;
 begin
+  Application.OnException := @ReportCrash;
   Randomize;
   Caption := APP_NAME;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
@@ -3485,6 +3490,45 @@ begin
   FPenX := EnsureRange(X, 0, FArt.Width - 1);
   FPenY := EnsureRange(Y, 0, FArt.Height - 1);
   FScreenDirty := True;
+end;
+
+{ An unhandled exception used to be a message box saying "Access violation"
+  and nothing else, which is unactionable from the other end of a phone.  The
+  class, the message and the call stack go next to the executable instead, so
+  a crash can be reported by sending one small text file.  Written before the
+  dialog is shown, in case the dialog is what fails. }
+procedure TMainForm.ReportCrash(Sender: TObject; E: Exception);
+var
+  F: TextFile;
+  Path: string;
+  I: Integer;
+begin
+  Path := ExtractFilePath(ParamStr(0)) + CRASH_LOG;
+  try
+    AssignFile(F, Path);
+    if FileExists(Path) then Append(F) else Rewrite(F);
+    try
+      WriteLn(F, '---- ', DateTimeToStr(Now), ' ', APP_NAME, ' ', BUILD_STAMP);
+      WriteLn(F, E.ClassName, ': ', E.Message);
+      WriteLn(F, 'mode=', Ord(FMode), ' view=', Ord(FD.View), ' plane=', Ord(FD.Plane),
+        ' tool=', Ord(FTool), ' stage=', FStage, ' entities=', FD.Doc.Live,
+        ' pushface=', FPushFace, ' hover=', FHoverEnt, ' lock=', Ord(FLockOn));
+      WriteLn(F, BackTraceStrFunc(ExceptAddr));
+      if ExceptFrameCount > 0 then
+        for I := 0 to ExceptFrameCount - 1 do
+          WriteLn(F, BackTraceStrFunc(ExceptFrames[I]));
+      WriteLn(F);
+    finally
+      CloseFile(F);
+    end;
+  except
+    { a crash reporter that crashes helps nobody }
+  end;
+  MessageDlg(APP_NAME,
+    E.ClassName + ': ' + E.Message + LineEnding + LineEnding +
+    'Details were written to:' + LineEnding + Path + LineEnding + LineEnding +
+    'Please send that file - it says exactly where this went wrong.',
+    mtError, [mbOK], 0);
 end;
 
 { Motion handler: record and return.  Nothing here may paint, allocate,
