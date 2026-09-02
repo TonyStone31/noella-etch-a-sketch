@@ -115,7 +115,18 @@ its length in the status bar, and a dimension is a separate thing you place
 with a tool when you want it on the drawing. Nothing is dimensioned by
 default.
 
-## 7. Drawing in an arbitrary orbit  — arrows do it for now
+## 7. Drawing in an arbitrary orbit  — mostly done
+
+The working plane follows the face under the cursor, so a square drawn on
+the top of a box lands on the top of it. Alt cycles the three flat planes
+and latches for drawing in mid air; the arrows still set one directly; Esc
+hands it back to the face.
+
+What is left is planes that are not axis aligned. A face is matched to
+whichever of XY, XZ and YZ it is squarest to, so drawing on a sloped face
+still lands on the nearest flat plane rather than on the face itself.
+
+### the old note
 
 The orbit itself is done, the coloured axes say which way is which, and
 there is an ORBIT tool (`O`, or the button) so a laptop with no middle

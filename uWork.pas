@@ -122,6 +122,7 @@ type
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
     procedure AddDim(const A, B: TP3; Ink: TColor);
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
+    procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
 
     { push/pull: lift the face along its own normal and wall in the sides }
     function PushPull(Index: Integer; Dist: Double): Boolean;
@@ -130,6 +131,10 @@ type
     function SplitFacesWith(const A, B: TP3): Integer;
     function SplitFace(Index: Integer; const A, B: TP3): Boolean;
     function HitFace(const V: TProjector; SX, SY: Double): Integer;
+    { The same search, but also handing back the point on that face where the
+      cursor meets it - which is where a new shape drawn there should sit. }
+    function FaceUnder(const V: TProjector; SX, SY: Double;
+      out Face: Integer; out Pt: TP3): Boolean;
     function FaceNormal(Index: Integer): TP3;
     function FaceArea(Index: Integer): Double;
 
@@ -1085,7 +1090,48 @@ end;
 { faces and push/pull                                                      }
 { ---------------------------------------------------------------------- }
 
-procedure TWorkDoc.AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
+{ The winding of a face decides which way its normal points, and for a flat
+  one drawn on the screen that came out of which way the cursor was dragged -
+  a rectangle pulled down-right in plan faced down, one pulled up-left faced
+  up.  Nothing cared until push/pull built a solid from it: the face that
+  should have ended up on the outside faced inwards, was culled as a back
+  face, and could then neither be seen nor clicked.
+
+  So a drawing face is wound to face along whichever axis it is squarest to,
+  positively.  Solids are left alone - their windings are built deliberately
+  and mean something. }
+procedure OrientFace(var Pts: TP3Array);
+var
+  I, N: Integer;
+  Acc, Nm: TP3;
+  Tmp: TP3;
+  D: Double;
+begin
+  N := Length(Pts);
+  if N < 3 then Exit;
+  Acc := P3(0, 0, 0);
+  for I := 0 to N - 1 do
+  begin
+    Nm := Pts[(I + 1) mod N];
+    Acc.X := Acc.X + (Pts[I].Y - Nm.Y) * (Pts[I].Z + Nm.Z);
+    Acc.Y := Acc.Y + (Pts[I].Z - Nm.Z) * (Pts[I].X + Nm.X);
+    Acc.Z := Acc.Z + (Pts[I].X - Nm.X) * (Pts[I].Y + Nm.Y);
+  end;
+  if (Abs(Acc.Z) >= Abs(Acc.X)) and (Abs(Acc.Z) >= Abs(Acc.Y)) then D := Acc.Z
+  else if Abs(Acc.Y) >= Abs(Acc.X) then D := Acc.Y
+  else D := Acc.X;
+  if D >= 0 then Exit;
+  for I := 0 to N div 2 - 1 do
+  begin
+    Tmp := Pts[I];
+    Pts[I] := Pts[N - 1 - I];
+    Pts[N - 1 - I] := Tmp;
+  end;
+end;
+
+{ Adds the polygon exactly as given.  Solids build their windings on purpose,
+  so they come this way round. }
+procedure TWorkDoc.AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
 var
   I: Integer;
 begin
@@ -1104,6 +1150,23 @@ begin
   FEnts[FLive].Solid := Solid;
   Inc(FLive);
   FSnapDirty := True;
+end;
+
+procedure TWorkDoc.AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
+var
+  I: Integer;
+  Fixed: TP3Array;
+begin
+  if Length(Pts) < 3 then Exit;
+  if Solid then
+  begin
+    AddFaceRaw(Pts, Ink, Solid);
+    Exit;
+  end;
+  SetLength(Fixed, Length(Pts));
+  for I := 0 to High(Pts) do Fixed[I] := Pts[I];
+  OrientFace(Fixed);
+  AddFaceRaw(Fixed, Ink, Solid);
 end;
 
 { Newell's method, which copes with slightly non-planar loops. }
@@ -1174,7 +1237,8 @@ end;
   The point is found through Project itself rather than by inverting it:
   the projection is affine, so three points on the face plane fix the mapping
   and a 2x2 solve gives the rest. }
-function TWorkDoc.HitFace(const V: TProjector; SX, SY: Double): Integer;
+function TWorkDoc.FaceUnder(const V: TProjector; SX, SY: Double;
+  out Face: Integer; out Pt: TP3): Boolean;
 var
   I, J, K, N: Integer;
   Inside: Boolean;
@@ -1183,7 +1247,9 @@ var
   P0, P1, P2: TPointF;
   AX, AY, BX, BY, Det, SS, TT, D, Best: Double;
 begin
-  Result := -1;
+  Result := False;
+  Face := -1;
+  Pt := P3(0, 0, 0);
   Best := -1E300;
   Look := ViewDir(V);
 
@@ -1231,9 +1297,18 @@ begin
     if D > Best then
     begin
       Best := D;
-      Result := I;
+      Face := I;
+      Pt := Hit;
+      Result := True;
     end;
   end;
+end;
+
+function TWorkDoc.HitFace(const V: TProjector; SX, SY: Double): Integer;
+var
+  Pt: TP3;
+begin
+  if not FaceUnder(V, SX, SY, Result, Pt) then Result := -1;
 end;
 
 { Lift the face along its normal and wall in the sides.  The original outline
@@ -1423,24 +1498,39 @@ begin
     the result is a closed solid rather than an open shell.  The copy is
     wound the other way round so its normal points out of the solid, which is
     what lets the renderer hide the inside. }
-  for I := 0 to N - 1 do
-    FEnts[Index].Poly[I] := Top[I];
-  FEnts[Index].Solid := True;
-
   SetLength(Rev, N);
-  for I := 0 to N - 1 do
-    Rev[I] := Base[N - 1 - I];
-  AddFace(Rev, Ink, True);
+  if Dist >= 0 then
+  begin
+    { travelling along the face's own normal: the moved face already faces
+      out of the new solid, and the copy left behind is reversed }
+    for I := 0 to N - 1 do FEnts[Index].Poly[I] := Top[I];
+    for I := 0 to N - 1 do Rev[I] := Base[N - 1 - I];
+  end
+  else
+  begin
+    { travelling against it, so the two swap round }
+    for I := 0 to N - 1 do FEnts[Index].Poly[I] := Top[N - 1 - I];
+    for I := 0 to N - 1 do Rev[I] := Base[I];
+  end;
+  FEnts[Index].Solid := True;
+  AddFaceRaw(Rev, Ink, True);
 
   { walls, plus the edges so it reads as a solid in wireframe too }
   for I := 0 to N - 1 do
   begin
     J := (I + 1) mod N;
-    Quad[0] := Base[I];
-    Quad[1] := Base[J];
-    Quad[2] := Top[J];
-    Quad[3] := Top[I];
-    AddFace(Quad, Ink, True);
+    { the walls turn the same way round as the caps }
+    if Dist >= 0 then
+    begin
+      Quad[0] := Base[I]; Quad[1] := Base[J];
+      Quad[2] := Top[J];  Quad[3] := Top[I];
+    end
+    else
+    begin
+      Quad[0] := Base[J]; Quad[1] := Base[I];
+      Quad[2] := Top[I];  Quad[3] := Top[J];
+    end;
+    AddFaceRaw(Quad, Ink, True);
     AddLine(Base[I], Top[I], Ink, 1, False);
     AddLine(Top[I], Top[J], Ink, 1, False);
   end;
