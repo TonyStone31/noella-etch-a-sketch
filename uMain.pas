@@ -692,6 +692,8 @@ begin
     within snapping distance. }
   AxIdx := -1;
   AxPx := AXIS_PX;
+  AxRef := Wf;              { only read once AxisTry has set it; keeps the
+                              compiler from having to take that on trust }
   if FDirLock < 0 then
   begin
     if FStage > 0 then AxisTry(FP1);

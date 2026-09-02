@@ -15,6 +15,9 @@ link*.res
 etchasketch
 etchasketch.exe
 
+# --- staged builds ----------------------------------------------------------
+dist/
+
 # NOTE: etchasketch.res (icon + manifest) and etchasketch.ico are project
 # sources, not build output - they are meant to stay in the repository.
 
