@@ -3536,6 +3536,8 @@ procedure TMainForm.ProClick;
 var
   I: Integer;
   P: TPointF;
+  WasLine: Boolean;
+  EA, EB: TP3;
 begin
   case FTool of
     ptOrbit: ;   // the drag does the work
@@ -3549,14 +3551,25 @@ begin
         { hit test where the pointer actually is - snapping to a nearby
           endpoint would otherwise make it miss the thing being clicked }
         P := PtF(FMouseSX, FMouseSY);
-        I := FD.Doc.HitTest(Proj, P.X, P.Y, 9 * FUIScale);
+        I := FD.Doc.HitEdge(Proj, P.X, P.Y, 9 * FUIScale);
+        if I < 0 then I := FD.Doc.HitTest(Proj, P.X, P.Y, 9 * FUIScale);
         if I >= 0 then
         begin
           PushUndo;
+          { a line between two regions was holding them apart, so taking it
+            away should leave one region rather than two that happen to touch }
+          WasLine := FD.Doc[I].Kind in [ekLine, ekArc];
+          EA := FD.Doc[I].A;
+          EB := FD.Doc[I].B;
           FD.Doc.Delete(I);
+          if WasLine and FD.Doc.MergeFacesAcross(EA, EB) then
+            FCmdMsg := 'Deleted - the two faces either side are one now.'
+          else if WasLine and FD.Doc.MergeFacesAcross(EB, EA) then
+            FCmdMsg := 'Deleted - the two faces either side are one now.'
+          else
+            FCmdMsg := 'Deleted.';
           RenderPro;
           RecomposeAll;
-          FCmdMsg := 'Deleted.';
         end
         else
           FCmdMsg := 'Nothing under the cursor.';
@@ -3764,21 +3777,19 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(C, R, A0, Sweep, FD.Plane, FInkColor, FPenSize);
-          { If the chord was one of a face's edges, the face takes the curve
-            rather than the arc hanging off the outside of it.  Rubbing the
-            straight edge out afterwards never worked - a face is a fixed
-            list of points and nothing rebuilt it. }
-          SetLength(Loop, ARC_SEGS + 1);
-          for I := 0 to ARC_SEGS do
-            Loop[I] := ArcPoint(C, R, A0 + Sweep * I / ARC_SEGS, FD.Plane);
-          if FD.Doc.BulgeFaceEdge(FP1, FP2, Loop) then
+          { An arc whose chord is already an edge closes a loop with it, so
+            it gets a region of its own.  It stays a separate face from
+            whatever is on the other side of that edge - lift either alone -
+            until the edge between them is rubbed out. }
+          FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
+          if FD.Doc.HasLine(FP1, FP2) then
           begin
-            FCmdMsg := Format('Arc radius %s   the face follows it',
-              [FormatLen(R, FD.Units)]);
-            FD.Doc.Delete(FD.Doc.Live - 1);   { the arc is the face's edge now }
-          end
-          else
-            FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
+            SetLength(Loop, ARC_SEGS + 1);
+            for I := 0 to ARC_SEGS do
+              Loop[I] := ArcPoint(C, R, A0 + Sweep * I / ARC_SEGS, FD.Plane);
+            FD.Doc.AddFace(Loop, FInkColor);
+            FCmdMsg := FCmdMsg + '   closed a face with the edge';
+          end;
           RenderPro;
           RecomposeAll;
         end;
