@@ -37,7 +37,10 @@ type
     ikUndo, ikRedo, ikShake, ikSave, ikPrint, ikMagic,
     ikTheme, ikGrid, ikHelp, ikMirror, ikDroplet,
     ikUnits, ikDim, ikMeasure, ikOrigin,
-    ikOpen, ikFit, ikExport, ikArrow
+    ikOpen, ikFit, ikExport, ikArrow,
+    { one per tool, so a button and the cursor can both say which is which }
+    ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
+    ikTErase, ikTMeasure, ikTOrbit, ikChevron
   );
 
 const
@@ -356,6 +359,76 @@ begin
   LW := Max(1.6, U * 0.11);
 
   case Kind of
+    ikTPoint:
+      begin
+        S.Ring(CX, CY, U * 0.17, LW, C, Alpha);
+        S.Disc(CX, CY, LW * 0.7, C, Alpha);
+      end;
+
+    ikTLine:
+      begin
+        S.Line(X + W * 0.22, Y + H * 0.74, X + W * 0.78, Y + H * 0.26, LW, C, Alpha);
+        S.Disc(X + W * 0.22, Y + H * 0.74, LW * 0.9, C, Alpha);
+        S.Disc(X + W * 0.78, Y + H * 0.26, LW * 0.9, C, Alpha);
+      end;
+
+    ikTRect:
+      S.Poly([Px(0.20, 0.28), Px(0.80, 0.28), Px(0.80, 0.72), Px(0.20, 0.72)],
+        LW, C, True, Alpha);
+
+    ikTArc:
+      begin
+        S.Arc(CX, Y + H * 0.78, U * 0.34, Pi, 2 * Pi, LW, C, Alpha);
+        S.Line(X + W * 0.16, Y + H * 0.78, X + W * 0.84, Y + H * 0.78,
+          LW * 0.7, C, Alpha * 0.55);
+      end;
+
+    ikTCircle:
+      S.Ring(CX, CY, U * 0.30, LW, C, Alpha);
+
+    ikTPush:
+      begin
+        S.Poly([Px(0.24, 0.62), Px(0.52, 0.74), Px(0.80, 0.62), Px(0.52, 0.50)],
+          LW * 0.8, C, True, Alpha);
+        S.Line(CX, Y + H * 0.50, CX, Y + H * 0.20, LW, C, Alpha);
+        S.Poly([PtF(CX - U * 0.11, Y + H * 0.31), PtF(CX, Y + H * 0.18),
+                PtF(CX + U * 0.11, Y + H * 0.31)], LW, C, False, Alpha);
+      end;
+
+    ikTText:
+      begin
+        S.Line(X + W * 0.24, Y + H * 0.28, X + W * 0.76, Y + H * 0.28, LW, C, Alpha);
+        S.Line(CX, Y + H * 0.28, CX, Y + H * 0.74, LW, C, Alpha);
+      end;
+
+    ikTErase:
+      begin
+        S.Poly([Px(0.20, 0.66), Px(0.52, 0.30), Px(0.80, 0.50), Px(0.48, 0.76)],
+          LW, C, True, Alpha);
+        S.Line(X + W * 0.30, Y + H * 0.78, X + W * 0.82, Y + H * 0.78,
+          LW * 0.8, C, Alpha * 0.6);
+      end;
+
+    ikTMeasure:
+      begin
+        S.Poly([Px(0.16, 0.40), Px(0.84, 0.40), Px(0.84, 0.62), Px(0.16, 0.62)],
+          LW * 0.8, C, True, Alpha);
+        S.Line(X + W * 0.34, Y + H * 0.40, X + W * 0.34, Y + H * 0.52, LW * 0.7, C, Alpha);
+        S.Line(X + W * 0.50, Y + H * 0.40, X + W * 0.50, Y + H * 0.55, LW * 0.7, C, Alpha);
+        S.Line(X + W * 0.66, Y + H * 0.40, X + W * 0.66, Y + H * 0.52, LW * 0.7, C, Alpha);
+      end;
+
+    ikTOrbit:
+      begin
+        S.Ring(CX, CY, U * 0.30, LW * 0.9, C, Alpha);
+        S.Arc(CX, CY, U * 0.30, Pi * 0.15, Pi * 0.85, LW * 0.5, C, Alpha * 0.5);
+        S.Disc(CX + U * 0.30, CY, LW * 1.1, C, Alpha);
+      end;
+
+    ikChevron:
+      S.Poly([PtF(CX - U * 0.16, CY - U * 0.08), PtF(CX, CY + U * 0.10),
+              PtF(CX + U * 0.16, CY - U * 0.08)], LW, C, False, Alpha);
+
     ikUndo, ikRedo:
       begin
         if Kind = ikUndo then
