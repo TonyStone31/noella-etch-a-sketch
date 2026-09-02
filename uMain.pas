@@ -464,7 +464,7 @@ const
   POP_NONE  = -1;
   POP_SCALE = 0;
   POP_SNAP  = 1;
-  POP_COLOUR = 2;
+  POP_COLOR = 2;
   POP_WIDTH  = 3;
 
   { the pen widths the list offers - a few honest steps rather than a slider
@@ -543,7 +543,7 @@ const
   STYLE_HINTS: array[TPenStyle] of string = (
     'Classic - a clean, solid line, just like the real toy.',
     'Neon - a glowing tube of light.  Try it on the Midnight theme.',
-    'Rainbow - the colour drifts through the spectrum as you draw.',
+    'Rainbow - the color drifts through the spectrum as you draw.',
     'Sparkle - a thin trail that throws off glitter.',
     'Chalk - a soft, dusty, hand-drawn stroke.');
 
@@ -2073,8 +2073,8 @@ begin
       GRP_POPUP, POP_SNAP, 'SNAP  ' + SnapName(FD.Units, FD.SnapIdx),
       'What the cursor snaps to - click for the list', ikDroplet);
     Add(dkSegment, Rect(X + 2 * SegW, RowY, X + 3 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_COLOUR, 'COLOUR',
-      'Line colour - click for the list', ikDroplet);
+      GRP_POPUP, POP_COLOR, 'COLOR',
+      'Line color - click for the list', ikDroplet);
     Add(dkSegment, Rect(X + 3 * SegW, RowY, X + 4 * SegW - RowGap, RowY + RowH),
       GRP_POPUP, POP_WIDTH, Format('WIDTH  %d px', [FPenSize]),
       'Line thickness - click for the list', ikDroplet);
@@ -2107,12 +2107,12 @@ begin
   begin
     Add(dkSwatch, Rect(X + I * (SwSz + SwGap), RowY + (RowH - SwSz) div 2,
       X + I * (SwSz + SwGap) + SwSz, RowY + (RowH - SwSz) div 2 + SwSz),
-      GRP_INK, I, '', 'Ink colour', ikDroplet);
+      GRP_INK, I, '', 'Ink color', ikDroplet);
     FDeck[High(FDeck)].Swatch := ColorToPix(PALETTE[I]);
   end;
   Add(dkIcon, Rect(X + 12 * (SwSz + SwGap) + RowGap, RowY,
     X + 12 * (SwSz + SwGap) + RowGap + IconW, RowY + RowH),
-    GRP_ICON, ACT_PICK, '', 'Pick any colour you like...', ikDroplet);
+    GRP_ICON, ACT_PICK, '', 'Pick any color you like...', ikDroplet);
 
   { size slider shares the ink row when there is space, otherwise its own }
   I := X + 12 * (SwSz + SwGap) + RowGap + IconW + Round(20 * FUIScale);
@@ -2279,7 +2279,7 @@ begin
           end;
           { the colour button wears the colour, so the row reads as a
             summary of what is set rather than a row of words }
-          if (It.Group = GRP_POPUP) and (It.Value = POP_COLOUR) then
+          if (It.Group = GRP_POPUP) and (It.Value = POP_COLOR) then
             PaintSwatch(FDeckSkin,
               Rect(R.Left + Round(7 * FUIScale), R.Top + Round(4 * FUIScale),
                    R.Left + Round(29 * FUIScale), R.Bottom - Round(4 * FUIScale)),
@@ -2386,7 +2386,7 @@ begin
     TW := pbDeck.Canvas.TextWidth(It.Caption);
     { a tool wears its own glyph, so the buttons are told apart at a glance
       and the same drawing follows the cursor }
-    if (It.Group = GRP_POPUP) and (It.Value = POP_COLOUR) then
+    if (It.Group = GRP_POPUP) and (It.Value = POP_COLOR) then
       pbDeck.Canvas.TextOut(
         It.Bounds.Left + (It.Bounds.Right - It.Bounds.Left - TW +
           Round(24 * FUIScale)) div 2,
@@ -4207,7 +4207,7 @@ begin
   case Which of
     POP_SCALE: Result := SCALE_COUNT;
     POP_SNAP: Result := SNAP_COUNT;
-    POP_COLOUR: Result := Length(PALETTE);
+    POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
   else
     Result := 0;
@@ -4220,7 +4220,7 @@ begin
     POP_SCALE: Result := ScaleTable(FD.Units, I).Name +
       IfThen(FD.Units = usImperial, '  =  1''-0"', '');
     POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
-    POP_COLOUR: Result := '';
+    POP_COLOR: Result := '';
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
   else
     Result := '';
@@ -4236,7 +4236,7 @@ begin
         FD.SnapIdx := EnsureRange(I, 0, SNAP_COUNT - 1);
         FCmdMsg := 'Snap: ' + SnapName(FD.Units, FD.SnapIdx);
       end;
-    POP_COLOUR: SetInk(PALETTE[I], False);
+    POP_COLOR: SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
   end;
   RebuildDeck;
@@ -4266,7 +4266,7 @@ begin
 
   RowH := Round(22 * FUIScale);
   W := Round(190 * FUIScale);
-  if Which = POP_COLOUR then W := Round(150 * FUIScale);
+  if Which = POP_COLOR then W := Round(150 * FUIScale);
   H := N * RowH + Round(12 * FUIScale);
   Bottom := pbScreen.Height - Round(6 * FUIScale);
   if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
@@ -4342,7 +4342,7 @@ begin
       FPopupR.Right - Round(4 * FUIScale), Y + RowH - 1);
     { the one in force is lit, which the combined list never managed }
     Sel := (I = Cur) or
-      ((FPopup = POP_COLOUR) and (PALETTE[I] = FInkColor)) or
+      ((FPopup = POP_COLOR) and (PALETTE[I] = FInkColor)) or
       ((FPopup = POP_WIDTH) and (PEN_SIZES[I] = FPenSize));
     if Sel then
     begin
@@ -4355,7 +4355,7 @@ begin
       C.FillRect(R);
     end;
 
-    if FPopup = POP_COLOUR then
+    if FPopup = POP_COLOR then
     begin
       C.Brush.Color := PALETTE[I];
       if Sel then
@@ -5874,7 +5874,7 @@ const
   ABOUT_LINES: array[0..12] of string = (
     'Noella Hazel Stone was seven years old when she decided she wanted to',
     'write a program.  She drew the screen, the two dials and the shake',
-    'button on paper, picked the colours, and told her dad what each part',
+    'button on paper, picked the colors, and told her dad what each part',
     'was supposed to do.  He typed while she directed.  19 October 2021.',
     '',
     'TOY  -  the program she designed.  Two dials, five kinds of pen, a',
