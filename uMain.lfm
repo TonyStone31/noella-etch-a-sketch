@@ -1,14 +1,14 @@
 object MainForm: TMainForm
   Left = 300
-  Height = 900
+  Height = 760
   Top = 120
-  Width = 1280
+  Width = 1180
   Caption = 'Heckers Sketch'
-  ClientHeight = 900
-  ClientWidth = 1280
+  ClientHeight = 760
+  ClientWidth = 1180
   Color = clBlack
-  Constraints.MinHeight = 720
-  Constraints.MinWidth = 1060
+  Constraints.MinHeight = 600
+  Constraints.MinWidth = 940
   DesignTimePPI = 96
   DoubleBuffered = True
   KeyPreview = True
