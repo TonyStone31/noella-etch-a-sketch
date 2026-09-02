@@ -673,20 +673,23 @@ begin
     if not Major and (Ppu < 9) then Continue;
     if Major then A := 0.7 else A := 0.26;
 
-    { lines running along +X (down-right) offset along Y }
+    { Lines running along +X (down-right), stepped along +Y.  +Y projects to
+      (-C30, +S30): stepping by (-C30, -S30) instead put every line of the
+      family exactly on top of the last one, because that is the -X
+      direction - so the isometric paper has always been two lines. }
     DX := OX - I * C30 * Ppu;
-    DY := OY - I * S30 * Ppu;
+    DY := OY + I * S30 * Ppu;
     S.Line(DX - L * C30, DY - L * S30, DX + L * C30, DY + L * S30, 1.0, T.Grid, A);
-    { lines running along +Y (down-left) offset along X }
+    { lines running along +Y (down-left), stepped along +X }
     DX := OX + I * C30 * Ppu;
-    DY := OY - I * S30 * Ppu;
+    DY := OY + I * S30 * Ppu;
     S.Line(DX + L * C30, DY - L * S30, DX - L * C30, DY + L * S30, 1.0, T.Grid, A);
   end;
 
-  { the three axes, each in its own colour so the view reads at a glance }
-  S.Line(OX, OY, OX + L * C30, OY + L * S30, 1.8, AxisPix(0), 0.55);   // +X
-  S.Line(OX, OY, OX - L * C30, OY + L * S30, 1.8, AxisPix(1), 0.55);   // +Y
-  S.Line(OX, OY, OX, OY - L, 1.8, AxisPix(2), 0.55);                   // +Z
+  { No axes here.  Isometric is a drafting projection - what it wants is
+    isometric paper, the way plan gets a measured grid.  The coloured axes
+    belong to the orbit view, where they are the only thing saying which way
+    is which. }
   S.Touch;
 end;
 
