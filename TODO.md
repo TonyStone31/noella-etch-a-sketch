@@ -115,7 +115,21 @@ its length in the status bar, and a dimension is a separate thing you place
 with a tool when you want it on the drawing. Nothing is dimensioned by
 default.
 
-## 7. Drawing in an arbitrary orbit
+## 7. Drawing in an arbitrary orbit  — arrows do it for now
+
+The orbit itself is done, the coloured axes say which way is which, and
+there is an ORBIT tool (`O`, or the button) so a laptop with no middle
+button can still spin the view - drag to orbit, Shift-drag to pan.
+
+Where a new point lands is now chosen rather than inferred: with nothing
+under way, the arrow keys set the working plane - up or down for upright,
+left or right for the side, Page Up or Down back to flat - and the plane is
+shown in the status bar. Once a line has started the arrows go back to
+locking its direction.
+
+SketchUp infers the plane from the face you started on. That inference is
+still the real answer and would beat choosing by hand, but choosing by hand
+beats always landing flat, which is what happened before.
 
 The orbit itself is done, and the coloured axes now say which way is which.
 What is missing is a good answer to *where does a new point land* when the
@@ -239,6 +253,12 @@ order:
 * **An angle on the tape measure.** It reads distance and dX/dY/dZ already.
   The angle from the last segment, and from horizontal, costs almost nothing
   and 45s and 22.5s are what pipe work is actually measured in.
+* **Edges that lie on each other.** An edge landing exactly on one already
+  there is now skipped rather than added twice, which was leaving two lines
+  and two dimension labels in the same place. SketchUp goes further and
+  splits both where they *partly* overlap, so a new line borrows the part of
+  an existing edge it shares. Worth doing eventually; exact duplicates were
+  the case that actually showed.
 * **Tape measure guides.** SketchUp's tape drops construction lines you can
   snap to and then wipe in one go. Wants a `ekGuide` entity that feeds the
   snap cache, prints as nothing, and clears with one command.
