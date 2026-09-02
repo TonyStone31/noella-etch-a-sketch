@@ -300,10 +300,11 @@ order:
 * **Light mode is harder to read than dark.** Reported after a session in
   the dark themes. Worth one deliberate pass over the light palettes rather
   than nudging single colours.
-* **Arcs on a solid's face.** An arc drawn across a flat face's edge
-  reshapes that face. A face belonging to a solid is left alone, so an arc
-  cannot yet round off the end of a box that has already been pulled up -
-  draw the curve first, then pull.
+* **Arcs on a solid's face.** An arc whose chord is an existing edge closes
+  a region of its own, and rubbing that edge out joins the two. A face
+  belonging to a solid is left alone either way, so an arc cannot round off
+  the end of a box that has already been pulled up - draw the curve first,
+  then pull.
 * **Erasing a face** only works near one of its edges. `TWorkDoc.HitTest`
   falls through to the A..B segment test for `ekFace`, so the interior of a
   face is not clickable. Should use the same point-in-polygon test as

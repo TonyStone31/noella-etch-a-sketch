@@ -131,9 +131,9 @@ type
     { Cut every flat face this segment crosses in two.  Returns how many were
       split.  This is what makes a line drawn across a shape divide it. }
     function SplitFacesWith(const A, B: TP3): Integer;
-    { Replace the straight edge from A to B, in whatever face owns it, with
-      the given run of points.  This is how an arc rounds off a face. }
-    function BulgeFaceEdge(const A, B: TP3; const Pts: TP3Array): Boolean;
+    { Join the two faces that share the edge from A to B into one.  This is
+      what rubbing out a line between two regions should do. }
+    function MergeFacesAcross(const A, B: TP3): Boolean;
     { The face a point lies on, or -1.  Used to work out which plane a new
       shape belongs in when the cursor has snapped to a corner. }
     function FaceThrough(const P: TP3): Integer;
@@ -164,6 +164,9 @@ type
     { Hit testing and snapping are done in screen space so they behave the
       same in every view. }
     function HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
+    { The same search but only over edges - lines, arcs and dimensions.
+      Erasing means erasing an edge; a face is what is left behind. }
+    function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
 
     { Every point worth snapping or aligning to, including the places lines
       cross each other and the midpoints those crossings create. }
@@ -1341,7 +1344,7 @@ var
   PX, PY: array of Double;
   AX, AY, BX, BY: Double;
   EX, EY, RX, RY, Den, T, Q: Double;
-  HitEdge: array[0..1] of Integer;
+  CutEdge: array[0..1] of Integer;
   HitP: array[0..1] of TP3;
   Src, H1, H2: TP3Array;
   Ink: TColor;
@@ -1409,7 +1412,7 @@ begin
       meet there, so each edge owns its start and leaves its end to the next }
     if (Q < -1E-9) or (Q > 1 - 1E-9) then Continue;
     if NHit >= 2 then Exit;                 // more than a clean pair
-    HitEdge[NHit] := I;
+    CutEdge[NHit] := I;
     HitP[NHit] := P3(Src[I].X + (Src[J].X - Src[I].X) * Q,
                      Src[I].Y + (Src[J].Y - Src[I].Y) * Q,
                      Src[I].Z + (Src[J].Z - Src[I].Z) * Q);
@@ -1417,7 +1420,7 @@ begin
   end;
 
   if NHit <> 2 then Exit;
-  if HitEdge[0] = HitEdge[1] then Exit;     // in and out through one edge
+  if CutEdge[0] = CutEdge[1] then Exit;     // in and out through one edge
   if Same(HitP[0], HitP[1]) then Exit;
 
   Ink := FEnts[Index].Ink;
@@ -1426,14 +1429,14 @@ begin
   SetLength(H1, N + 4);
   C1 := 0;
   H1[C1] := HitP[0]; Inc(C1);
-  I := HitEdge[0];
+  I := CutEdge[0];
   repeat
     I := (I + 1) mod N;
     if not Same(Src[I], HitP[0]) and not Same(Src[I], HitP[1]) then
     begin
       H1[C1] := Src[I]; Inc(C1);
     end;
-  until I = HitEdge[1];
+  until I = CutEdge[1];
   H1[C1] := HitP[1]; Inc(C1);
   SetLength(H1, C1);
 
@@ -1441,14 +1444,14 @@ begin
   SetLength(H2, N + 4);
   C2 := 0;
   H2[C2] := HitP[1]; Inc(C2);
-  K := HitEdge[1];
+  K := CutEdge[1];
   repeat
     K := (K + 1) mod N;
     if not Same(Src[K], HitP[0]) and not Same(Src[K], HitP[1]) then
     begin
       H2[C2] := Src[K]; Inc(C2);
     end;
-  until K = HitEdge[0];
+  until K = CutEdge[0];
   H2[C2] := HitP[0]; Inc(C2);
   SetLength(H2, C2);
 
@@ -1465,70 +1468,110 @@ begin
   Result := True;
 end;
 
-{ An arc drawn on top of one of a face's edges should reshape the face, not
-  hang off the outside of it.  Drawing the arc and then rubbing out the
-  straight edge left the face exactly as it was, because a face is a fixed
-  list of points and nothing was rebuilding it.
+{ Two faces that meet along an edge become one when that edge goes.
 
-  So: find the edge with these two ends and swap it for the arc's own points.
-  The face becomes the rounded shape, and pushing it up carries the curve. }
-function TWorkDoc.BulgeFaceEdge(const A, B: TP3; const Pts: TP3Array): Boolean;
+  A rectangle with an arc across its end is two regions while the straight
+  line between them is there - lift either on its own - and one region once
+  it is rubbed out. Nothing was rebuilding faces from the geometry, so the
+  line could be deleted and the two faces would just sit there unchanged.
+
+  The shared edge runs one way round in each face, which is what makes them
+  separate regions rather than one folded over. Walk the first from B round
+  to A, then the second from A round to B, and the seam is gone. }
+function TWorkDoc.MergeFacesAcross(const A, B: TP3): Boolean;
 const
   TOL = 1E-6;
 var
-  I, J, K, N, M: Integer;
-  Poly, Res: TP3Array;
-  Fwd: Boolean;
-begin
-  Result := False;
-  M := Length(Pts);
-  if M < 2 then Exit;
+  F1, F2, I, J, K, N1, N2, M: Integer;
+  P1, P2, Res: TP3Array;
 
-  for I := 0 to FLive - 1 do
+  { Where the edge U..V starts in this polygon, or -1.  Direction matters:
+    two regions that share an edge run it opposite ways round. }
+  function EdgeAt(const Poly: TP3Array; const U, V: TP3): Integer;
+  var
+    Q, N: Integer;
   begin
-    if FEnts[I].Kind <> ekFace then Continue;
-    if FEnts[I].Solid then Continue;
-    N := Length(FEnts[I].Poly);
-    if N < 3 then Continue;
-    Poly := FEnts[I].Poly;
+    Result := -1;
+    N := Length(Poly);
+    for Q := 0 to N - 1 do
+      if (Dist(Poly[Q], U) < TOL) and (Dist(Poly[(Q + 1) mod N], V) < TOL) then
+        Exit(Q);
+  end;
 
-    for J := 0 to N - 1 do
+  procedure Reverse(var Poly: TP3Array);
+  var
+    Q, N: Integer;
+    T: TP3;
+  begin
+    N := Length(Poly);
+    for Q := 0 to N div 2 - 1 do
     begin
-      K := (J + 1) mod N;
-      Fwd := (Dist(Poly[J], A) < TOL) and (Dist(Poly[K], B) < TOL);
-      if not Fwd and not ((Dist(Poly[J], B) < TOL) and
-                          (Dist(Poly[K], A) < TOL)) then Continue;
-
-      { keep everything up to this edge's start, then walk the arc, then the
-        rest - the edge's own two ends come from the arc }
-      SetLength(Res, 0);
-      SetLength(Res, N - 2 + M);
-      M := 0;
-      for K := 0 to Length(Pts) - 1 do
-      begin
-        if Fwd then Res[M] := Pts[K] else Res[M] := Pts[Length(Pts) - 1 - K];
-        Inc(M);
-      end;
-      K := (J + 2) mod N;
-      while K <> J do
-      begin
-        Res[M] := Poly[K];
-        Inc(M);
-        K := (K + 1) mod N;
-      end;
-      SetLength(Res, M);
-      if M >= 3 then
-      begin
-        SetLength(FEnts[I].Poly, M);
-        for K := 0 to M - 1 do FEnts[I].Poly[K] := Res[K];
-        FEnts[I].A := Res[0];
-        FEnts[I].B := Res[M - 1];
-        FSnapDirty := True;
-        Result := True;
-      end;
-      Exit;
+      T := Poly[Q];
+      Poly[Q] := Poly[N - 1 - Q];
+      Poly[N - 1 - Q] := T;
     end;
   end;
+
+  { The edge either way round, flipping the polygon if that is what it takes.
+    Windings are normalised when a face is made, so which way a given edge
+    runs is not something to assume. }
+  function Orient(var Poly: TP3Array; const U, V: TP3): Integer;
+  begin
+    Result := EdgeAt(Poly, U, V);
+    if Result >= 0 then Exit;
+    Reverse(Poly);
+    Result := EdgeAt(Poly, U, V);
+  end;
+
+begin
+  Result := False;
+  F1 := -1;
+  F2 := -1;
+
+  for K := 0 to FLive - 1 do
+  begin
+    if FEnts[K].Kind <> ekFace then Continue;
+    if FEnts[K].Solid then Continue;
+    if Length(FEnts[K].Poly) < 3 then Continue;
+    if (EdgeAt(FEnts[K].Poly, A, B) < 0) and
+       (EdgeAt(FEnts[K].Poly, B, A) < 0) then Continue;
+    if F1 < 0 then F1 := K else if F2 < 0 then F2 := K;
+  end;
+  if (F1 < 0) or (F2 < 0) then Exit;
+
+  SetLength(P1, Length(FEnts[F1].Poly));
+  for K := 0 to High(P1) do P1[K] := FEnts[F1].Poly[K];
+  SetLength(P2, Length(FEnts[F2].Poly));
+  for K := 0 to High(P2) do P2[K] := FEnts[F2].Poly[K];
+
+  I := Orient(P1, A, B);
+  J := Orient(P2, B, A);
+  if (I < 0) or (J < 0) then Exit;
+
+  N1 := Length(P1);
+  N2 := Length(P2);
+  SetLength(Res, N1 + N2 - 2);
+  M := 0;
+  { the first face, from B all the way round to A }
+  for K := 0 to N1 - 1 do
+  begin
+    Res[M] := P1[(I + 1 + K) mod N1];
+    Inc(M);
+  end;
+  { then the second face's own points, between A and B }
+  for K := 0 to N2 - 3 do
+  begin
+    Res[M] := P2[(J + 2 + K) mod N2];
+    Inc(M);
+  end;
+
+  SetLength(FEnts[F1].Poly, M);
+  for K := 0 to M - 1 do FEnts[F1].Poly[K] := Res[K];
+  FEnts[F1].A := Res[0];
+  FEnts[F1].B := Res[M - 1];
+  Delete(F2);
+  FSnapDirty := True;
+  Result := True;
 end;
 
 { Which flat face a point sits on.  A corner of a box belongs to three of
@@ -1907,6 +1950,37 @@ begin
       SetLength(Result, 2);
       Result[0] := Project(V, FEnts[I].A);
       Result[1] := Project(V, FEnts[I].B);
+    end;
+  end;
+end;
+
+{ Erasing a line that divides two regions was deleting one of the regions
+  instead: a face is hit-tested on the segment between its first and last
+  points, and for a face closed along that very edge, that segment lies
+  exactly on top of the line.  So the eraser looks for an edge first and
+  only falls back to anything else. }
+function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
+var
+  I: Integer;
+  D, Best: Double;
+  PA, PB: TPointF;
+begin
+  Result := -1;
+  Best := TolPx;
+  for I := FLive - 1 downto 0 do
+  begin
+    if not (FEnts[I].Kind in [ekLine, ekArc, ekDim]) then Continue;
+    PA := Project(V, FEnts[I].A);
+    PB := Project(V, FEnts[I].B);
+    if FEnts[I].Kind = ekArc then
+      D := Abs(Sqrt(Sqr(SX - Project(V, FEnts[I].C).X) +
+                    Sqr(SY - Project(V, FEnts[I].C).Y)) - FEnts[I].R * V.Ppu)
+    else
+      D := Sqrt(DistToSeg2(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
+    if D < Best then
+    begin
+      Best := D;
+      Result := I;
     end;
   end;
 end;
