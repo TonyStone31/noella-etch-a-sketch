@@ -65,7 +65,9 @@ several lines drawn separately, and arcs as boundaries.
 
 One known rough edge in what does work: the outer face is not cut, so the
 pipe's bottom cap and the box top sit in the same plane. It draws correctly
-from outside, but the outer face should really carry a hole.
+from outside, but the outer face should really carry a hole. Nothing depends
+on it while the inner face is the one hit testing picks, but a hole is what
+would make the outer face's area read correctly.
 
 A face is only created when a run of lines closes on *itself*. Draw a line
 across an existing rectangle and you have visually made two smaller rooms,
@@ -228,9 +230,10 @@ order:
 ## Smaller things, roughly in order
 
 * ~~**Hover feedback** for push/pull~~ — done 2 September 2026. The face
-  under the cursor is stippled and outlined before you click, so a hit is
-  told from a miss. Still to do: a line's length in a tooltip when you hover
-  it.
+  under the cursor is stippled and outlined before you click, its area shown
+  in the status bar, and the face picked is the one you can see rather than
+  the one drawn last. Still to do: a line's length in a tooltip when you
+  hover it.
 * ~~**Push/pull in plan**~~ — done. Choosing it in plan now goes and gets the
   corner view rather than leaving a tool that appears to do nothing.
 * **An angle on the tape measure.** It reads distance and dX/dY/dZ already.
