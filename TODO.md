@@ -104,11 +104,80 @@ regions (#4) first, because "which face am I cutting into" only means
 something once faces are properly bounded. Probably: push inward, and where
 the moved face lands flush with another one, drop both and stitch the walls.
 
-## 9. Tracing an imported PDF or SVG
+## 9. Export DXF
+
+`.skp` is a closed binary format with a C++ SDK and no Pascal binding, so
+exporting to SketchUp directly is not realistic - and DXF is the better
+target anyway. Plain text, perhaps 150 lines to emit `LINE`, `CIRCLE` and
+`ARC` in the R12 flavour. SketchUp Pro reads it, and so do AutoCAD,
+LibreCAD, QCAD, Fusion and essentially every fabrication and CNC shop.
+
+`DoExport` in `uMain.pas` already does PNG and SVG through a file dialog, so
+this is a third branch in an existing function rather than new plumbing.
+
+One catch worth knowing before promising anything: **SketchUp Free (the web
+one) does not import DXF - that is a Pro feature.** The free path is STL,
+which is easy to write but is triangles only, so it would carry the pulled
+solids and lose the linework. Covering both means DXF for the drawing and
+STL or OBJ for the solids.
+
+## 10. Tracing an imported PDF or SVG
 
 Bring in a drawing as a background image, scale it against a known dimension,
 then trace over it with snapping. Would make the program immediately useful
 on work that already exists. Deliberately parked - it is its own project.
+
+---
+
+## Performance - where the walls actually are
+
+Measured 1 September 2026 on the KasmVNC display, driving synthetic grids
+where every line crosses every other one - the worst case, and nothing like
+a real drawing.
+
+**Snapping scales with crossings, not with lines.**
+
+| lines | snap points | per mouse move |
+|-------|-------------|----------------|
+| 100   | 7,503       | 0.16 ms        |
+| 500   | 187,503     | 3.4 ms         |
+| 502   | 1,506       | 0.03 ms        |
+| 2000  | 6,000       | 0.11 ms        |
+
+The jump at 502 is `MAX_LINES = 500` in `RebuildSnapCache`: above it the
+crossing loop is skipped entirely, so the program silently gets a hundred
+times faster **and loses every crossing snap and every sub-midpoint**. That
+is a correctness cliff wearing a performance guard's coat. It should be a
+spatial grid for crossing detection - O(n log n) - with no cap at all.
+
+Note that 2000 non-crossing lines cost nothing. Real ductwork will not get
+near this.
+
+**Orbiting is the real wall, and it arrives far earlier.**
+
+| lines | full re-render | frames/s |
+|-------|----------------|----------|
+| 100   | 9.4 ms         | 26       |
+| 502   | 57 ms          | 12       |
+| 2000  | 112 ms         | 8        |
+
+`RenderPro` re-rasterises the whole document every orbit frame, in software,
+anti-aliased. It gets choppy somewhere around 100 to 150 lines. Hovering and
+drawing never trigger it, and painting is a flat 0.4 ms however big the
+drawing is.
+
+**No GPU and no threading.** Both would paper over an algorithm choice. In
+order:
+
+1. While an orbit drag is in progress, draw plain unantialiased lines
+   straight to the canvas and do the real render only when the button comes
+   up. That one change probably makes 2000 lines interactive.
+2. `TArtSurface.AsBitmap` reloads the entire bitmap through
+   `LoadFromIntfImage` whenever the surface changes - 4.6 ms per orbit frame,
+   and the same cost per frame in TOY while drawing. Only the dirty region
+   needs to move.
+3. Cull geometry that projects entirely off the surface before rasterising
+   it. The bounds are clamped safely now, but the lines are still walked.
 
 ---
 
@@ -145,9 +214,8 @@ on work that already exists. Deliberately parked - it is its own project.
   plane that follows the camera would read better than nothing.
 * **Print more than one sheet** at a time.
 * **Remote-display performance.** Motion no longer paints - it is serviced
-  once per tick - so the pointer tracks properly over VNC. TOY mode still
-  reloads the whole art bitmap per frame while drawing; only the dirty
-  region needs to move. PRO is mostly static and travels fine.
+  once per tick - so the pointer tracks properly over VNC. What is left is
+  the whole-bitmap reload above. PRO is mostly static and travels fine.
 * **Undo memory.** TOY keeps 16 full-screen bitmaps. PRO keeps whole document
   copies, which is cheap. TOY could be smarter.
 
