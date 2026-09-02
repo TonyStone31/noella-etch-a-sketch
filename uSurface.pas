@@ -354,7 +354,9 @@ var
   A, DA, OA: Integer;
 begin
   if (X < 0) or (Y < 0) or (X >= FWidth) or (Y >= FHeight) then Exit;
-  if Cover <= 0 then Exit;
+  { written as "not > 0" so a NaN coverage - a degenerate shape upstream -
+    leaves rather than reaching Round below }
+  if not (Cover > 0) then Exit;
   if Cover > 1 then Cover := 1;
 
   P := ScanLine(Y);
@@ -400,10 +402,13 @@ begin
       else
       begin
         { out = (src*sa + dst*da*(1-sa)) / oa, kept in 0..255 integers.
-          The numerator is scaled by 255 so it divides by 255*OA. }
-        P^.R := (C.R * A * 255 + P^.R * DA * (255 - A)) div (255 * OA);
-        P^.G := (C.G * A * 255 + P^.G * DA * (255 - A)) div (255 * OA);
-        P^.B := (C.B * A * 255 + P^.B * DA * (255 - A)) div (255 * OA);
+          The numerator is scaled by 255 so it divides by 255*OA.
+          OA is truncated down, so the quotient can come out just over 255 -
+          at A=1 over DA=1 it reaches 509, which is a range check error on
+          the way into a Byte.  Clamp rather than widen the arithmetic. }
+        P^.R := Min(255, (C.R * A * 255 + P^.R * DA * (255 - A)) div (255 * OA));
+        P^.G := Min(255, (C.G * A * 255 + P^.G * DA * (255 - A)) div (255 * OA));
+        P^.B := Min(255, (C.B * A * 255 + P^.B * DA * (255 - A)) div (255 * OA));
         P^.A := Byte(OA);
       end;
     end
@@ -647,15 +652,36 @@ begin
   Invalidate;
 end;
 
+{ Every primitive works out an integer bounding box from float coordinates,
+  and those coordinates are not bounded: a wall a hundred feet long, drawn at
+  high zoom, projects to a line whose ends are millions of pixels off the
+  surface.  Converting that to an Integer and clamping afterwards is a range
+  check error waiting to happen - clamp first, and an off-surface shape just
+  produces an empty loop. }
+
+function LoBound(V: Double; Limit: Integer): Integer;
+begin
+  if IsNan(V) or (V <= 0) then Exit(0);
+  if V >= Limit then Exit(Limit);        // Lo > Hi: nothing to walk
+  Result := Floor(V);
+end;
+
+function HiBound(V: Double; Limit: Integer): Integer;
+begin
+  if IsNan(V) or (V < 0) then Exit(-1);  // Hi < Lo: nothing to walk
+  if V >= Limit - 1 then Exit(Limit - 1);
+  Result := Ceil(V);
+end;
+
 procedure TArtSurface.Disc(CX, CY, Radius: Single; const C: TPix; Alpha: Single);
 var
   X, Y, X0, Y0, X1, Y1: Integer;
 begin
   if Radius <= 0 then Exit;
-  X0 := Max(0, Floor(CX - Radius - 1));
-  Y0 := Max(0, Floor(CY - Radius - 1));
-  X1 := Min(FWidth - 1, Ceil(CX + Radius + 1));
-  Y1 := Min(FHeight - 1, Ceil(CY + Radius + 1));
+  X0 := LoBound(CX - Radius - 1, FWidth);
+  Y0 := LoBound(CY - Radius - 1, FHeight);
+  X1 := HiBound(CX + Radius + 1, FWidth);
+  Y1 := HiBound(CY + Radius + 1, FHeight);
   for Y := Y0 to Y1 do
     for X := X0 to X1 do
       BlendPixel(X, Y, C,
@@ -669,10 +695,10 @@ var
   C: TPix;
 begin
   if Radius <= 0 then Exit;
-  X0 := Max(0, Floor(CX - Radius - 1));
-  Y0 := Max(0, Floor(CY - Radius - 1));
-  X1 := Min(FWidth - 1, Ceil(CX + Radius + 1));
-  Y1 := Min(FHeight - 1, Ceil(CY + Radius + 1));
+  X0 := LoBound(CX - Radius - 1, FWidth);
+  Y0 := LoBound(CY - Radius - 1, FHeight);
+  X1 := HiBound(CX + Radius + 1, FWidth);
+  Y1 := HiBound(CY + Radius + 1, FHeight);
   for Y := Y0 to Y1 do
   begin
     C := MixPix(C1, C2, EnsureRange((Y - (CY - Radius)) / (2 * Radius), 0, 1));
@@ -685,13 +711,14 @@ end;
 
 procedure TArtSurface.Ring(CX, CY, Radius, LineW: Single; const C: TPix; Alpha: Single);
 var
-  X, Y, X0, Y0, X1, Y1, Pad: Integer;
+  X, Y, X0, Y0, X1, Y1: Integer;
+  Pad: Double;
 begin
-  Pad := Ceil(Radius + LineW) + 2;
-  X0 := Max(0, Floor(CX) - Pad);
-  Y0 := Max(0, Floor(CY) - Pad);
-  X1 := Min(FWidth - 1, Ceil(CX) + Pad);
-  Y1 := Min(FHeight - 1, Ceil(CY) + Pad);
+  Pad := Radius + LineW + 2;
+  X0 := LoBound(CX - Pad, FWidth);
+  Y0 := LoBound(CY - Pad, FHeight);
+  X1 := HiBound(CX + Pad, FWidth);
+  Y1 := HiBound(CY + Pad, FHeight);
   for Y := Y0 to Y1 do
     for X := X0 to X1 do
       BlendPixel(X, Y, C,
@@ -701,15 +728,15 @@ end;
 
 procedure TArtSurface.Line(X0, Y0, X1, Y1, LineW: Single; const C: TPix; Alpha: Single);
 var
-  X, Y, IX0, IY0, IX1, IY1, Pad: Integer;
-  HW: Single;
+  X, Y, IX0, IY0, IX1, IY1: Integer;
+  HW, Pad: Single;
 begin
   HW := Max(LineW, 0.35) / 2;
-  Pad := Ceil(HW) + 2;
-  IX0 := Max(0, Floor(Min(X0, X1)) - Pad);
-  IY0 := Max(0, Floor(Min(Y0, Y1)) - Pad);
-  IX1 := Min(FWidth - 1, Ceil(Max(X0, X1)) + Pad);
-  IY1 := Min(FHeight - 1, Ceil(Max(Y0, Y1)) + Pad);
+  Pad := HW + 3;
+  IX0 := LoBound(Min(X0, X1) - Pad, FWidth);
+  IY0 := LoBound(Min(Y0, Y1) - Pad, FHeight);
+  IX1 := HiBound(Max(X0, X1) + Pad, FWidth);
+  IY1 := HiBound(Max(Y0, Y1) + Pad, FHeight);
   for Y := IY0 to IY1 do
     for X := IX0 to IX1 do
       BlendPixel(X, Y, C,
@@ -760,10 +787,10 @@ var
   X, Y, X0, Y0, X1, Y1: Integer;
   E1, E2, E3, Sign: Single;
 begin
-  X0 := Max(0, Floor(Min(P1.X, Min(P2.X, P3.X))) - 1);
-  Y0 := Max(0, Floor(Min(P1.Y, Min(P2.Y, P3.Y))) - 1);
-  X1 := Min(FWidth - 1, Ceil(Max(P1.X, Max(P2.X, P3.X))) + 1);
-  Y1 := Min(FHeight - 1, Ceil(Max(P1.Y, Max(P2.Y, P3.Y))) + 1);
+  X0 := LoBound(Min(P1.X, Min(P2.X, P3.X)) - 1, FWidth);
+  Y0 := LoBound(Min(P1.Y, Min(P2.Y, P3.Y)) - 1, FHeight);
+  X1 := HiBound(Max(P1.X, Max(P2.X, P3.X)) + 1, FWidth);
+  Y1 := HiBound(Max(P1.Y, Max(P2.Y, P3.Y)) + 1, FHeight);
   Sign := Edge(P1, P2, P3.X, P3.Y);
   if Sign = 0 then Exit;
   Sign := Math.Sign(Sign);
@@ -788,7 +815,7 @@ const
   SAMPLES = 4;
 var
   N, I, J, Y, X, K, Cnt, X0, X1, Y0, Y1: Integer;
-  MinY, MaxY, SY, XA, XB: Single;
+  MinX, MaxX, MinY, MaxY, SY, XA, XB: Single;
   Xs: array of Single;
   Cov: array of Single;
   T: Single;
@@ -798,20 +825,20 @@ begin
 
   MinY := Pts[0].Y;
   MaxY := Pts[0].Y;
-  X0 := Floor(Pts[0].X);
-  X1 := Ceil(Pts[0].X);
+  MinX := Pts[0].X;
+  MaxX := Pts[0].X;
   for I := 1 to N - 1 do
   begin
     MinY := Min(MinY, Pts[I].Y);
     MaxY := Max(MaxY, Pts[I].Y);
-    X0 := Min(X0, Floor(Pts[I].X));
-    X1 := Max(X1, Ceil(Pts[I].X));
+    MinX := Min(MinX, Pts[I].X);
+    MaxX := Max(MaxX, Pts[I].X);
   end;
 
-  Y0 := Max(0, Floor(MinY));
-  Y1 := Min(FHeight - 1, Ceil(MaxY));
-  X0 := Max(0, X0 - 1);
-  X1 := Min(FWidth - 1, X1 + 1);
+  Y0 := LoBound(MinY, FHeight);
+  Y1 := HiBound(MaxY, FHeight);
+  X0 := LoBound(MinX - 1, FWidth);
+  X1 := HiBound(MaxX + 1, FWidth);
   if (Y1 < Y0) or (X1 < X0) then Exit;
 
   SetLength(Xs, N + 1);
@@ -855,6 +882,7 @@ begin
         XA := Xs[I];
         XB := Xs[I + 1];
         Inc(I, 2);
+        if IsNan(XA) or IsNan(XB) then Continue;
         if XB <= X0 then Continue;
         if XA >= X1 + 1 then Continue;
         XA := Max(XA, X0);
