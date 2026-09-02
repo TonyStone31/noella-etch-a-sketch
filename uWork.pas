@@ -126,6 +126,8 @@ type
 
     { push/pull: lift the face along its own normal and wall in the sides }
     function PushPull(Index: Integer; Dist: Double): Boolean;
+    { Slide a face along a vector, dragging everything joined to it. }
+    procedure MoveFaceWith(Index: Integer; const D: TP3);
     { Cut every flat face this segment crosses in two.  Returns how many were
       split.  This is what makes a line drawn across a shape divide it. }
     function SplitFacesWith(const A, B: TP3): Integer;
@@ -1467,6 +1469,57 @@ begin
     if SplitFace(I, A, B) then Inc(Result);
 end;
 
+{ Move a face and take the geometry attached to it along.
+
+  Pushing a face of a solid should make the solid bigger or smaller, not grow
+  a second box inside the first - which is what extruding did, leaving a
+  nest of lines inside a cube that looked unchanged from outside.
+
+  Every vertex that sits on the face moves with it, wherever it lives: the
+  walls that meet the face follow, the far cap does not, and the solid
+  changes size.  Vertices are matched against where the face was before the
+  move, so nothing is moved twice. }
+procedure TWorkDoc.MoveFaceWith(Index: Integer; const D: TP3);
+const
+  TOL = 1E-7;
+var
+  Was: TP3Array;
+  I, K, N: Integer;
+
+  function OnFace(const P: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    Result := True;
+    for J := 0 to High(Was) do
+      if Dist(P, Was[J]) < TOL then Exit;
+    Result := False;
+  end;
+
+  procedure Shift(var P: TP3);
+  begin
+    if OnFace(P) then
+      P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
+  end;
+
+begin
+  N := Length(FEnts[Index].Poly);
+  if N < 3 then Exit;
+  SetLength(Was, N);
+  for I := 0 to N - 1 do
+    Was[I] := FEnts[Index].Poly[I];
+
+  for I := 0 to FLive - 1 do
+  begin
+    Shift(FEnts[I].A);
+    Shift(FEnts[I].B);
+    if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
+    for K := 0 to High(FEnts[I].Poly) do
+      Shift(FEnts[I].Poly[K]);
+  end;
+  FSnapDirty := True;
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N: Integer;
@@ -1483,6 +1536,14 @@ begin
   if N < 3 then Exit;
   Nm := FaceNormal(Index);
   Ink := FEnts[Index].Ink;
+
+  { Already part of a solid: slide the face instead of extruding from it, so
+    the solid resizes.  Extruding here is what put a box inside a box. }
+  if FEnts[Index].Solid then
+  begin
+    MoveFaceWith(Index, P3(Nm.X * Dist, Nm.Y * Dist, Nm.Z * Dist));
+    Exit(True);
+  end;
 
   SetLength(Base, N);
   SetLength(Top, N);
