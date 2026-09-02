@@ -225,6 +225,16 @@ type
     FPushFace: Integer;
     FPanRefX, FPanRefY: Integer;
     FMouseSX, FMouseSY: Integer;   // raw pointer, before snapping
+
+    { Motion is recorded here and nowhere else.  Under a virtual display
+      every repaint has to be encoded and shipped to the client, so a
+      handler that painted would cost tens of milliseconds - and GDK
+      coalesces motion until the handler returns, which throttled the
+      event stream down to a trickle.  The work now happens once per
+      tick instead, off the back of the newest position. }
+    FMoveX, FMoveY: Integer;
+    FMovePending: Boolean;
+    FScreenDirty: Boolean;
     FHotMode: Integer;
     FHotView: Integer;
     FViewSkin: TArtSurface;
@@ -274,6 +284,7 @@ type
     procedure FreshScreen;
     procedure RenderPro;
     procedure InvalidateStatus;
+    procedure ServiceMotion;
 
     procedure UIFont(C: TCanvas; Size: Integer; Bold: Boolean; const Col: TPix;
       Mono: Boolean = False);
@@ -941,14 +952,14 @@ begin
   if (R.Right <= R.Left) or (R.Bottom <= R.Top) then Exit;
   InflateRect(R, 1, 1);
   FArt.CompositeOver(FPaper, ActiveInk, R);
-  pbScreen.Invalidate;
+  FScreenDirty := True;
 end;
 
 procedure TMainForm.RecomposeAll;
 begin
   FArt.CompositeOver(FPaper, ActiveInk, Rect(0, 0, FArt.Width, FArt.Height));
   ActiveInk.ResetDirty;
-  pbScreen.Invalidate;
+  FScreenDirty := True;
 end;
 
 procedure TMainForm.FreshScreen;
@@ -3069,6 +3080,11 @@ end;
 procedure TMainForm.pbScreenMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
+  { a press supersedes whatever motion has not been serviced yet }
+  FMoveX := X;
+  FMoveY := Y;
+  FMovePending := False;
+
   if Button in [mbMiddle, mbRight] then
   begin
     if FMode = mdPro then
@@ -3098,11 +3114,30 @@ begin
   BeginStroke;
   FPenX := EnsureRange(X, 0, FArt.Width - 1);
   FPenY := EnsureRange(Y, 0, FArt.Height - 1);
-  pbScreen.Invalidate;
+  FScreenDirty := True;
 end;
 
+{ Motion handler: record and return.  Nothing here may paint, allocate,
+  hit-test or snap.  See ServiceMotion, which the tick calls. }
 procedure TMainForm.pbScreenMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 begin
+  FMoveX := X;
+  FMoveY := Y;
+  FMovePending := True;
+end;
+
+{ Everything the motion handler used to do, run at most once per tick off
+  the newest pointer position.  Coalescing here is free: the intermediate
+  positions only ever fed a repaint that was immediately overdrawn. }
+procedure TMainForm.ServiceMotion;
+var
+  X, Y: Integer;
+begin
+  if not FMovePending then Exit;
+  FMovePending := False;
+  X := FMoveX;
+  Y := FMoveY;
+
   if FOrbiting then
   begin
     FD.Az := FD.Az + (X - FPanRefX) * 0.010;
@@ -3133,7 +3168,7 @@ begin
       FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
     else
       FHoverEnt := -1;
-    pbScreen.Invalidate;
+    FScreenDirty := True;
     InvalidateStatus;
     Exit;
   end;
@@ -3145,6 +3180,12 @@ end;
 procedure TMainForm.pbScreenMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
+  { the release position is the last thing the stroke saw }
+  FMoveX := X;
+  FMoveY := Y;
+  FMovePending := True;
+  ServiceMotion;
+
   if (FPanning or FOrbiting) and (Button in [mbMiddle, mbRight]) then
   begin
     FPanning := False;
@@ -3415,7 +3456,7 @@ begin
     EmitSegment(OX, OY, NX, NY);
     Recompose;
   end;
-  pbScreen.Invalidate;
+  FScreenDirty := True;
   InvalidateStatus;
 end;
 
@@ -3671,6 +3712,9 @@ var
 begin
   Dt := TICK_MS / 1000;
 
+  ServiceMotion;
+  try
+
   if FErasing then
   begin
     StepErase(Dt);
@@ -3710,6 +3754,15 @@ begin
   PenTo(FPenX + DX, FPenY + DY, not FPenUp);
   if DX <> 0 then pbKnobL.Invalidate;
   if DY <> 0 then pbKnobR.Invalidate;
+
+  finally
+    { one repaint per tick at most, whatever asked for it }
+    if FScreenDirty then
+    begin
+      FScreenDirty := False;
+      pbScreen.Invalidate;
+    end;
+  end;
 end;
 
 { ======================================================================== }
