@@ -237,6 +237,9 @@ function Unproject(const V: TProjector; SX, SY: Double; Pl: TPlane;
 function AxisDir(Index: Integer): TP3;
 function AxisName(Index: Integer): string;
 
+{ A point on a circle of radius R about C, at Ang radians, in plane Pl. }
+function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane): TP3;
+
 { Unit vectors of the view: screen right, screen up, and the direction the
   camera looks along (used to sort faces back to front). }
 function ViewRight(const V: TProjector): TP3;

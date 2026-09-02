@@ -41,7 +41,24 @@ step six times, or `/3` to divide it. Cheap once move exists, and it is the
 thing that makes a layout tool fast - hangers, repeated fittings, joist
 spacing.
 
-## 4. Planar region finding
+## 4. Planar region finding  — half done
+
+**Working, 2 September 2026:** a closed shape drawn on top of another gives
+you something you can push on its own, because it makes its own face and the
+hit test takes the most recent one first. A circle on a box pulls up into a
+pipe; a rectangle inside a rectangle pulls up on its own. Circles make faces
+now - they used to draw a curve and nothing else, which is why pulling one
+into a pipe did nothing at all.
+
+**Still missing, and this is the real thing:** a line drawn *across* a face
+does not split it. Draw a rectangle, draw a line down the middle, and it is
+still one face with a line lying on top - hover either half and the whole
+rectangle lights up. Nesting works because the shapes never had to be cut
+apart; splitting needs the graph walk below.
+
+One known rough edge in what does work: the outer face is not cut, so the
+pipe's bottom cap and the box top sit in the same plane. It draws correctly
+from outside, but the outer face should really carry a hole.
 
 A face is only created when a run of lines closes on *itself*. Draw a line
 across an existing rectangle and you have visually made two smaller rooms,
@@ -51,7 +68,7 @@ nothing to push/pull in the smaller squares.
 This is exactly the duct transition case: rectangle, subdivide it, pull one
 region.
 
-The standard planar-graph walk:
+The standard planar-graph walk, still to do:
 
 1. Split every line at its crossings. *The crossing points and the split
    parameters are already computed* - `TWorkDoc.RebuildSnapCache` in
