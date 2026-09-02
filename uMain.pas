@@ -460,6 +460,10 @@ const
   LOCK_PX         = 4.5;    // this close and the point is what you meant
   AXIS_MIN_PX     = 14.0;   // nearer than this an axis lock says nothing
   DWELL_MS        = 450;    // rest on a point this long to keep it
+  { SketchUp's default, and the same reasoning: round enough to read as a
+    circle, few enough that extruding one does not bury the drawing in
+    entities - a push turns every segment into a wall. }
+  CIRCLE_SEGS     = 24;
 
 type
   TViewPreset = record
@@ -3532,9 +3536,19 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(FP1, R, 0, 2 * Pi, FD.Plane, FInkColor, FPenSize);
+          { A circle drew a curve and nothing else, so there was never
+            anything for push/pull to take hold of - which is why drawing one
+            on a box and pulling it into a pipe did not work. It gets a face
+            of its own now, approximated as a polygon, and PushPull already
+            handles any number of sides. }
+          SetLength(Loop, CIRCLE_SEGS);
+          for I := 0 to CIRCLE_SEGS - 1 do
+            Loop[I] := ArcPoint(FP1, R, 2 * Pi * I / CIRCLE_SEGS, FD.Plane);
+          FD.Doc.AddFace(Loop, FInkColor);
           RenderPro;
           RecomposeAll;
-          FCmdMsg := 'Circle radius ' + FormatLen(R, FD.Units);
+          FCmdMsg := Format('Circle radius %s   area %s',
+            [FormatLen(R, FD.Units), FormatArea(Pi * R * R, FD.Units)]);
         end;
         ResetTool;
       end;
