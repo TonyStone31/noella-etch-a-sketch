@@ -1049,3 +1049,67 @@ The order from `SUGGESTIONS_TO_CLAUDE.md` still stands:
 
 The 109 headless checks are the safety net for it - they cover push, split,
 move, snapping, save and reload, and they should all still pass afterwards.
+
+## The planar region engine — 3 September 2026
+
+`uRegion.pas`.  Segments in, flat regions out, and it knows nothing about the
+document, the screen or any tool - which is what makes it testable on its own
+and what stops the special cases creeping back in.
+
+The pipeline is Codex's list, in order:
+
+1. cut every segment where another crosses or touches it
+2. weld ends that are within one tolerance of each other
+3. gather the edges into the planes they lie in
+4. in each plane, walk the smallest cycles of a directed half-edge graph
+5. a cycle inside another is a hole in it, as well as a region in its own right
+
+Step 4 is the only clever part: every undirected edge becomes two darts, the
+darts leaving each vertex are sorted by angle, and walking a face means
+"having arrived along a dart, leave by the one immediately clockwise of the
+way you came".  The cycle that comes out wound the wrong way is the infinite
+space around the drawing and is thrown away.
+
+**One tolerance.**  `REGION_TOL`, a distance in model units.  Welding, "is this
+point on that line" and "is this the same plane" all use it, so there is one
+number to argue about rather than a dozen scattered epsilons.
+
+**70 checks in `tests/run-region.sh`**, each one a drawing somebody would
+actually make: a plain square; three sides of one enclosing nothing; a cut down
+the middle; a cut that stops inside dividing nothing; a tic-tac-toe nine; lines
+drawn midpoint to midpoint so every meeting is a T; a square inside a square
+with the hole classified; an upright square; one on a 3-4-5 slope; a wall and a
+floor sharing an edge; two lines crossing in mid air enclosing nothing; a
+diagonal cut; a cut assembled from two strokes; the same edge drawn twice; one
+lying along part of another; a 24-sided ring; corners a nanometre apart welding
+shut; a concave L; two squares sharing a whole edge; an inner square sharing an
+edge with the outer; three cuts crossing to make six pieces; the standing 6 x 6
+grid; and 144 cells out of 26 segments in 3 ms.
+
+**Checked against a real drawing.**  `/regions` runs the engine over the
+document's edges and reports what it finds beside the faces actually stored.
+It changes nothing.  On a grid drawn through the GUI: *13 edges -> 30 regions
+(468.7 sq ft, 0 holes) in 1 ms.  Stored flat faces: 30 (468.7 sq ft).*  The two
+agree exactly.
+
+### What is left to wire it in
+
+The engine is done and proven; making the document use it is the next piece,
+and it is separate work:
+
+* **Derive non-solid faces from it** after any edit that changes edges - line,
+  arc, erase, move.  Keep the ink and any per-face state by matching a new
+  region to the old face whose centre falls inside it.
+* **Leave solid faces alone.**  They are 3D boundary topology, not planar
+  regions - Codex's step 7.  `IsPatch` already tells a whole side from a piece
+  of one, and that stays.
+* **Retire what it replaces**: `SplitFace`/`SplitFacesWith`, `MergeFacesAcross`,
+  `DropOpenFaces`, `ClosedChain`, and the special face-making in the rectangle,
+  circle and arc tools all become one call.
+* **Watch the cost.**  Splitting is O(n squared) in segments and welding is
+  O(n) per lookup; 26 segments is 3 ms, but a real duct drawing with a few
+  hundred wants a grid or a sort before this is called on every edit.  Cheap
+  fix when it matters: only rebuild the planes an edit touched.
+
+The 120 document checks plus these 70 are the safety net for that work.  They
+should all still pass when it lands.
