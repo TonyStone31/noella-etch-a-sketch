@@ -56,7 +56,7 @@ type
   TAppMode = (mdToy, mdPro);
 
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
-    ptText, ptErase, ptMeasure, ptDim, ptOrbit);
+    ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -229,6 +229,8 @@ type
     FPanning: Boolean;
     FOrbiting: Boolean;
     FPushFace: Integer;
+    { the face the offset tool is working on, or -1 }
+    FOffFace: Integer;
     FHoverFace: Integer;   // the face push/pull would take, before you click
 
     { Held down, the eraser gathers everything the cursor is dragged over and
@@ -366,6 +368,10 @@ type
 
     procedure Relayout;
     function TitleHeight: Integer;
+    function CursorOnPlane(const N, P0: TP3): TP3;
+    function OffsetDistance: Double;
+    function OffsetPreview: TP3Array;
+    procedure CommitOffset;
     function DeckRowH: Integer;
     function DeckRows: Integer;
     function DeckHeight: Integer;
@@ -646,11 +652,11 @@ const
   { one glyph per tool, for the button and for the cursor }
   TOOL_ICONS: array[TProTool] of TIconKind =
     (ikTSelect, ikTMove, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush,
-     ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit);
+     ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit, ikTOffset);
 
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
-     'ERASE', 'MEASURE', 'DIM', 'ORBIT');
+     'ERASE', 'MEASURE', 'DIM', 'ORBIT', 'OFFSET');
 
   { The tools in three groups of four, laid out two rows deep, so a group
     reads as a group and every name has room to be read.  The grouping is
@@ -659,7 +665,7 @@ const
   TOOL_GROUPS: array[0..2, 0..3] of TProTool =
     ((ptSelect, ptMove, ptErase, ptPush),
      (ptLine, ptRect, ptCircle, ptArc),
-     (ptMeasure, ptDim, ptText, ptOrbit));
+     (ptMeasure, ptDim, ptText, ptOffset));
 
   TOOL_HINTS: array[TProTool] of string = (
     'Select - click to pick, drag a box for several.  Ctrl adds, Shift ' +
@@ -676,7 +682,9 @@ const
     'Erase - click anything to delete it.',
     'Measure - click two points and read the distance between them.',
     'Dimension - click two points, then drag away to place the line.',
-    'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)');
+    'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)',
+    'Offset - click a face, then move in or out and click, or type a wall ' +
+      'thickness.  (F)');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -1221,7 +1229,8 @@ begin
   FProDials := False;
   FTool := ptSelect;
   FDirLock := -1;
-  FPushFace := -1;
+FPushFace := -1;
+  FOffFace := -1;
   FHoverFace := -1;
   FHint := TOY_HINT;
 
@@ -1655,6 +1664,119 @@ end;
 { How far the push would go.  The cursor always says which way along the
   face normal; a typed number only says how far, so typing 6" after moving
   inwards pushes in rather than jumping back out. }
+{ Where the cursor lands on a plane that is not the working plane.
+
+  The working plane turns the cursor into a point for drawing, but the offset
+  tool has to answer about the face under it, which may lie anywhere.  In an
+  orthographic view every pixel is a ray along the view direction, so this is
+  just where that ray crosses the face's own plane. }
+function TMainForm.CursorOnPlane(const N, P0: TP3): TP3;
+var
+  O, Dir: TP3;
+  Den, T: Double;
+begin
+  O := WorldAt(FMouseSX, FMouseSY);
+  Result := O;
+  Dir := ViewDir(Proj);
+  Den := Dot3(N, Dir);
+  if Abs(Den) < 1E-9 then Exit;          // looking along the face, edge on
+  T := (N.X * (P0.X - O.X) + N.Y * (P0.Y - O.Y) + N.Z * (P0.Z - O.Z)) / Den;
+  Result := P3(O.X + Dir.X * T, O.Y + Dir.Y * T, O.Z + Dir.Z * T);
+end;
+
+{ How far in or out the cursor is from the face's outline, in the face's own
+  plane.  Outside is positive and grows the shape; inside is negative and is
+  the one you want for a duct wall.  A typed number sets the size and the
+  cursor keeps saying which way. }
+function TMainForm.OffsetDistance: Double;
+var
+  Loop: TP3Array;
+  N, P, A, B, W, V: TP3;
+  I, J, Cnt: Integer;
+  Best, D, T, L2: Double;
+begin
+  Result := 0;
+  if (FOffFace < 0) or (FOffFace >= FD.Doc.Live) then Exit;
+  Loop := FD.Doc[FOffFace].Poly;
+  Cnt := Length(Loop);
+  if Cnt < 3 then Exit;
+  N := FD.Doc.FaceNormal(FOffFace);
+  P := CursorOnPlane(N, Loop[0]);
+
+  Best := 1E30;
+  for I := 0 to Cnt - 1 do
+  begin
+    J := (I + 1) mod Cnt;
+    A := Loop[I];
+    B := Loop[J];
+    V := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+    W := P3(P.X - A.X, P.Y - A.Y, P.Z - A.Z);
+    L2 := V.X * V.X + V.Y * V.Y + V.Z * V.Z;
+    if L2 < 1E-18 then T := 0
+    else T := EnsureRange((W.X * V.X + W.Y * V.Y + W.Z * V.Z) / L2, 0, 1);
+    D := Dist(P, P3(A.X + V.X * T, A.Y + V.Y * T, A.Z + V.Z * T));
+    if D < Best then Best := D;
+  end;
+
+  if PointInLoop(P, Loop, N) then Result := -Best else Result := Best;
+  if SnapStep > 0 then Result := Round(Result / SnapStep) * SnapStep;
+
+  { a typed thickness wins on size; the cursor still says in or out }
+  if (FInput <> '') and ParseLen(FInput, FD.Units, D) then
+  begin
+    if Result < 0 then Result := -Abs(D) else Result := Abs(D);
+  end;
+end;
+
+{ The loop the offset would lay down, for the rubber-band preview. }
+function TMainForm.OffsetPreview: TP3Array;
+var
+  D: Double;
+begin
+  Result := nil;
+  if (FOffFace < 0) or (FOffFace >= FD.Doc.Live) then Exit;
+  D := OffsetDistance;
+  if Abs(D) < 1E-9 then Exit;
+  Result := OffsetLoop(FD.Doc[FOffFace].Poly, FD.Doc.FaceNormal(FOffFace), D);
+end;
+
+procedure TMainForm.CommitOffset;
+var
+  R: TP3Array;
+  I, Cnt, Was: Integer;
+  D: Double;
+begin
+  D := OffsetDistance;
+  R := OffsetPreview;
+  Cnt := Length(R);
+  if Cnt < 3 then
+  begin
+    if Abs(D) > 1E-9 then
+      FCmdMsg := 'That takes it in further than it will go - ' +
+        FormatLen(Abs(D), FD.Units) + ' turns the face inside out.'
+    else
+      FCmdMsg := 'Move in or out from the face first, or type a thickness.';
+    Exit;
+  end;
+  PushUndo;
+  Was := FaceCount;
+  for I := 0 to Cnt - 1 do
+    if not FD.Doc.HasLine(R[I], R[(I + 1) mod Cnt]) then
+      FD.Doc.AddLine(R[I], R[(I + 1) mod Cnt], FInkColor, FEdgeW, False);
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  FCmdMsg := Format('Offset %s %s   %d face%s now',
+    [FormatLen(Abs(D), FD.Units),
+     specialize IfThen<string>(D < 0, 'in', 'out'),
+     FaceCount, specialize IfThen<string>(FaceCount = 1, '', 's')]);
+  if FaceCount = Was then
+    FCmdMsg := FCmdMsg + ' - nothing new closed';
+  FOffFace := -1;
+  ResetTool;
+  FInput := '';
+end;
+
 function TMainForm.PushDistance: Double;
 var
   L, Move, Len2, DirX, DirY: Double;
@@ -3531,6 +3653,13 @@ begin
         for RectI := 0 to 3 do
           Rubber(RectPrev[RectI], RectPrev[(RectI + 1) mod 4]);
       end;
+    ptOffset:
+      if FStage = 1 then
+      begin
+        RectPrev := OffsetPreview;
+        for RectI := 0 to High(RectPrev) do
+          Rubber(RectPrev[RectI], RectPrev[(RectI + 1) mod Length(RectPrev)]);
+      end;
     ptArc:
       begin
         if FStage >= 1 then Rubber(FP1, FCur);
@@ -4321,6 +4450,27 @@ begin
       else
         ProCommit;
 
+    ptOffset:
+      if FStage = 0 then
+      begin
+        FOffFace := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+        { as with push/pull, a face too crowded to click can be selected
+          first and then worked on }
+        if (FOffFace < 0) and (Length(FSel) = 1) and
+           (FD.Doc[FSel[0]].Kind = ekFace) then
+          FOffFace := FSel[0];
+        if FOffFace < 0 then
+          FCmdMsg := 'No face there.  Close a loop of lines to make one.'
+        else
+        begin
+          FStage := 1;
+          FInput := '';
+          FCmdMsg := 'Move in or out, or type a wall thickness.';
+        end;
+      end
+      else
+        CommitOffset;
+
     ptDim:
       case FStage of
         0:
@@ -4395,6 +4545,12 @@ var
   Ok: Boolean;
 begin
   case FTool of
+    ptOffset:
+      begin
+        CommitOffset;
+        Exit;
+      end;
+
     ptLine:
       begin
         T := PreviewTarget;
@@ -4632,6 +4788,7 @@ begin
   else if (W = 'rect') or (W = 'rectangle') or (W = 'r') then SetTool(ptRect)
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'dimension') or (W = 'dim') then SetTool(ptDim)
+  else if (W = 'offset') or (W = 'f') then SetTool(ptOffset)
   else if (W = 'push') or (W = 'pull') or (W = 'pushpull') or (W = 'p') then
     SetTool(ptPush)
   else if (W = 'undo') or (W = 'u') then DoUndo
@@ -5073,7 +5230,7 @@ begin
     { what push/pull would pick up if you clicked now.  Without this the tool
       looks broken: the click works, but nothing ever says a face was under
       the cursor, so there is no telling a hit from a miss. }
-    if (FTool = ptPush) and (FStage = 0) then
+    if (FTool in [ptPush, ptOffset]) and (FStage = 0) then
       FHoverFace := FD.Doc.HitFace(Proj, X, Y)
     else
       FHoverFace := -1;
@@ -6076,6 +6233,14 @@ begin
     describe the sign against the face's own normal, and which way that
     points depends on how the loop happened to be wound - so it read "in"
     while the face visibly went up. }
+  if (FStage = 1) and (FTool = ptOffset) then
+  begin
+    L := OffsetDistance;
+    if Abs(L) > 1E-9 then
+      Result := Result + '   OFFSET ' + FormatLen(Abs(L), FD.Units) +
+        specialize IfThen<string>(L < 0, ' IN', ' OUT');
+  end;
+
   if (FStage = 1) and (FTool = ptRect) then
   begin
     RectSides(FP1, RectTarget, FD.Plane, RW, RH);
@@ -7008,7 +7173,10 @@ begin
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
       VK_I: RunCommand(IfThen(FD.View = vkIso, 'plan', 'iso'));
       VK_K: RunCommand('plane');
-      VK_F: FitView;
+      { SketchUp puts Offset on F, and that is the muscle memory worth
+        matching.  Zoom-to-fit keeps the key with Shift, and /fit as well. }
+      VK_F:
+        if ssShift in Shift then FitView else SetTool(ptOffset);
       VK_O: SetTool(ptOrbit);
       VK_G: RunCommand('grid');
       VK_U: RunCommand('units');

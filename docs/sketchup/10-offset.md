@@ -19,5 +19,12 @@ some other drawing change happens.
 * Offsetting an arc gives a curve that can no longer be edited as an arc —
   except that circular arcs of three or more segments keep their arc entity.
 
-*(Not implemented.  This is the one that matters for drawing a duct wall
-thickness.)*
+*(Built.  **F**, or `/offset`.  Click a face, then move in or out and click,
+or type a thickness.  The readout says how far and which way.  Outward and
+inward both work, and taking it in further than the shape will go is refused
+rather than drawn - a 10 x 6 taken in by 3 would come back as a line and by 4
+as a box wound inside out, and neither is an offset of anything.
+
+Not built: working on a run of selected lines rather than a whole face, Alt
+to keep the overlaps, and double-clicking another face to repeat.  Offsetting
+an arc gives straight segments, because that is how arcs are stored.)*

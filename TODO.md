@@ -32,7 +32,7 @@ anything else.
 2. **Planar region finding proper** - #4 below.  Codex put it ahead of offset
    and rotate and that is right: every tool gets easier once a face is derived
    from its edges rather than stored and patched.
-3. **Offset** - duct wall thickness and flanges.  #5 below.
+3. ~~**Offset**~~ - done 3 September 2026.  `F`, or `/offset`.
 4. **Rotate** - 45s are the job.  #5 below.
 5. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line, endpoint styles.  Tony is coming back to this.
@@ -48,6 +48,11 @@ scaled 3D model seen at 30 degrees, which is a view rather than a kind of
 drawing - `docs/isometric-views.md` has the reasoning.  If an iso spool sheet
 is ever wanted it is an **export** off the scaled model, walking a run and
 hanging callouts off it, not a mode that changes how drawing works.
+
+Wanted next, from using it: **right-click a dimension to edit its text**, so a
+called-out length can be typed over the measured one.  That is how an
+annotated ISO gets made, and it is the last thing between the dimension tool
+and being able to draw a spool sheet.
 
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
