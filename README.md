@@ -1,90 +1,158 @@
 # Heckers Sketch
 
-An Etch A Sketch that grew up. Free Pascal / Lazarus, no third-party
-dependencies.
+A kid's Etch A Sketch that turned into a measuring tool I use on job sites.
+Free Pascal / Lazarus, no third-party dependencies, free forever.
+
+**[Download the latest release](../../releases/latest)** — Windows and Linux,
+no installer, single file.
+
+---
 
 ## The story
 
-On **19 October 2021**, Noella Hazel Stone was seven years old and decided she
+**19 October 2021.** Noella Hazel Stone was seven years old and decided she
 wanted to write a program. She drew the screen, the two dials and the shake
-button on paper, chose the colours, and told her dad what each part was
+button on paper, picked the colors, and told her dad what each part was
 supposed to do. He typed while she directed.
 
-The program now has two personalities. The layout is still hers.
+That program is still here. The layout is hers, unchanged, and it is still the
+first thing the app opens into.
+
+**Five years later** I came back to it, mostly for the fun of seeing how far an
+AI could take a seven-year-old's toy if I asked it to build the tools I
+actually wanted. The answer turned out to be further than I expected. The dials
+and the shake button are still there; next to them now is a second mode with a
+drawing board, real drawing scales, snapping and inference, push/pull, and a
+tape measure that reads out feet and inches down to the sixteenth.
+
+Somewhere in there her toy stopped being a toy. I use it at work.
+
+## What it is for
+
+I work in HVAC and construction. A good part of what I need to draw in a day is
+a duct transition, a pipe run, a curb, a piece of sheet metal — quick one-off
+ideas where the only thing that truly matters is getting an honest measurement
+out the other end, and getting it fast, standing in the field.
+
+SketchUp does that job well. It also costs hundreds of dollars a year, and I
+don't need most of what I'd be paying for.
+
+So Heckers Sketch is modeled on SketchUp deliberately. I know the SketchUp
+basics and I know how to build a useful model in it, so I wanted that same
+simplicity and those same tools here: close a loop and it becomes a face, click
+a face and push it, snap to endpoints and midpoints, type a length instead of
+dragging for it. [`docs/sketchup/`](docs/sketchup/) holds sixteen of their help
+pages, read properly and written up, each with a note on what we have, what we
+don't, and where we differ on purpose. When there is an argument about how
+something ought to behave, that is what we argue against.
+
+It is **not** a modeler and is not trying to become one. You would not produce a
+real set of drawings in it. It is for quick, scaled, honest sketches — the
+mockup you would otherwise open SketchUp to do — and it is given away free.
+
+## Developed with Claude
+
+This is an AI-built project and there is no reason to be coy about it. Nearly
+all of the PRO code was written by Anthropic's **Claude**, working from my
+descriptions of what the work actually needs, and checked against the SketchUp
+notes in `docs/sketchup/`. I direct it, I use the result on real jobs, and I
+tell it what is wrong with it; it writes the Pascal, builds it, and runs the
+tests.
+
+That shows in how the repository is laid out. The SketchUp reference notes, the
+headless test suites, and a `TODO.md` written as a running log all exist so the
+work can be picked back up cold. If you are curious what building something
+genuinely useful this way looks like, the commit history is an honest record of
+it.
 
 ---
 
 ## TOY
 
-The program she designed.
+The program Noella designed.
 
-* Two dials you actually grab and turn — left moves across, right moves up and
-  down, exactly like the toy. Arrow keys work too, with **Shift** to sprint
+* **Two dials you actually grab and turn** — left moves across, right moves up
+  and down, exactly like the toy. Arrow keys work too, with **Shift** to sprint
   and **Ctrl** to creep a pixel at a time.
 * **Five pen styles** — Classic, Neon (a glowing tube of light), Rainbow,
   Sparkle, Chalk.
 * **Kaleidoscope** — repeat every stroke 1, 2, 4, 6 or 8 times around the
-  centre, with an optional mirror. Scribbling turns into a mandala.
+  center, with an optional mirror. Scribbling turns into a mandala.
 * **Auto-draw** — the machine doodles a spirograph, rose curve or lissajous
   figure. Try it with rainbow ink and 8-fold symmetry.
-* **Shake to erase** dissolves the drawing into aluminium powder.
+* **Shake to erase** dissolves the drawing into aluminum powder.
 
 ## PRO
 
-The same idea taken seriously: a small drawing board for quick, honest
-sketches. It is not a CAD program and does not want to be. It exists so you
-can rough out two things and get a **real measurement** between them, down to
-the sixteenth of an inch.
+The same idea taken seriously.
+
+**Drawing**
 
 * **Draw by typing.** Click a start point, then type `12'6"` and press an
-  arrow. Or press an arrow to set the direction first and then type. It
-  accepts `12'6"`, `12-6`, `12 6`, `6 1/2"`, `150"`, `3.5m`, `350cm`.
-* **A command bar that tells you what it wants next**, so there is nothing to
-  memorise. Type a number and it is a length; start with `/` and it is a
+  arrow — or press an arrow to set the direction first, then type. It takes
+  `12'6"`, `12-6`, `12 6`, `6 1/2"`, `150"`, `3.5m`, `350cm`.
+* **A command bar that says what it wants next**, so there is nothing to
+  memorize. Type a number and it is a length; start with `/` and it is a
   command — `/iso`, `/3d`, `/plan`, `/fit`, `/scale 1/4`, `/units`, `/new`.
-* **Tools** — point, line (chained), arc, circle, push/pull, text notes,
-  eraser, and a tape measure that reads out distance plus dX/dY/dZ and can be
-  kept as a permanent dimension. Clicking the lit tool puts it away; Esc
-  backs out one step at a time.
+* **Tools** — select, line (chained), rectangle, arc, circle, push/pull, move,
+  tape measure, dimension, text note, eraser. Clicking the lit tool puts it
+  away; **Esc** backs out one step at a time.
 * **Arcs join two loose ends.** Pick the two points, pull the middle out. No
   trimming required.
-* **Snapping and inference** — endpoints, midpoints and arc centres beat the
-  grid, each with its own marker at the cursor (square, triangle, circle).
-  **SNAP OFF turns all of it off** — grid, points and guides — and holding
-  **Alt** suspends it while you reach past a sticky snap. Where two lines
-  cross, the crossing itself snaps, and each line picks up fresh midpoints
-  for the pieces the crossing divided it into.
-  A guide only appears when the point it lines up with is off in exactly one
-  direction, so guides are always parallel to an axis.
-  When the cursor lines up with a point somewhere else on the drawing, it is
-  pulled onto that line and a dotted guide is drawn back to whatever it lined
-  up with — the same idea as SketchUp's inference, or Lazarus's alignment
-  hints. Arrow keys nudge one snap step; **Shift+arrow** hops to the next
-  real point, so the whole thing works from a keyboard or a touch screen.
-* **The eraser highlights what it is about to delete** in red before you
-  click.
-* **True scale.** 1/16", 1/8", 1/4", 1/2" and 1" = 1'-0", or 1:200 through
-  1:10 in metric. Printing re-renders the page from the geometry at the
-  printer's own resolution, so a quarter inch on the paper really is a foot.
+* **Select and move.** Click picks; **Ctrl** adds, **Shift** toggles,
+  **Ctrl+Shift** removes. Drag a box — right-to-left takes anything it touches,
+  left-to-right only what fits wholly inside, which is SketchUp's rule, and the
+  dashed or solid box says which is in force. Moving a corner **stretches** what
+  is attached to it rather than tearing it off. **Ctrl** while moving copies.
+
+**Measuring**
+
+* **True scale.** 1/16", 1/8", 1/4", 1/2" and 1" = 1'-0", or 1:200 through 1:10
+  in metric. Printing re-renders the page from the geometry at the printer's own
+  resolution, so a quarter inch on the paper really is a foot.
+* **The tape measure** reads out distance plus dX/dY/dZ at the cursor as you
+  pull it, and can drop a **guide line** you then snap to — same as SketchUp.
+* **Dimensions you place yourself**, with the extension lines snapped square to
+  an axis so they read like a drawing instead of a sketch.
+
+**Geometry**
+
+* **Faces are derived, not stored.** Every edge is split at its crossings, the
+  coplanar ones are grouped, and the smallest closed loops are walked out of the
+  resulting graph. Draw a line across a square and you get two faces you can
+  push independently; erase it and you get the square back. Islands inside a
+  face become holes.
+* **Push/pull.** Pick a face, type how far, and it lifts into a shaded solid
+  with its sides walled in — including circles. Anything drawn on the face rides
+  along with it. Good enough to size up a roof curb in about ten seconds.
+* **Snapping and inference** — endpoints, midpoints and arc centers beat the
+  grid, each with its own marker at the cursor. Where two lines cross, the
+  crossing snaps, and each line picks up fresh midpoints for the pieces it was
+  divided into. When the cursor lines up with a point elsewhere in the drawing
+  it is pulled onto that line and a dotted guide is drawn back to whatever it
+  lined up with. **SNAP OFF** kills all of it; holding **Alt** suspends it while
+  you reach past a sticky snap.
+* **Profiles.** The silhouette of a shape is drawn heavier than the edges inside
+  it, and the facets of a curved surface are softened away, so a pushed circle
+  reads as a pipe instead of a 24-sided prism. Line weight is a property of the
+  drawing, not of individual edges — SketchUp's rule, and the right one.
+
+**Views and files**
+
 * **Plan, isometric and 3D.** `V` cycles them. ISO is the standard 30°
   projection — +X down-right, +Y down-left, +Z straight up — with dimensions
-  labelled at true length, which is how a pipe spool drawing is laid out. 3D
-  is a free orthographic view; middle-drag to orbit.
-* **Push/pull.** Close a loop of lines and it becomes a face, the way it does
-  in SketchUp. Pick the face, type how far, and it lifts into a shaded solid
-  with its sides walled in. Good enough to size up a roof curb in about ten
-  seconds.
+  labeled at true length, which is how a pipe spool drawing is laid out. The
+  isometric grid is real iso paper. 3D is a free orthographic view;
+  middle-drag to orbit.
 * **Tabs** — as many sheets as you like, each with its own scale, units and
   view. All of them save into one file.
 * **Its own file format.** Drawings save as `.hsk` — plain text, one line per
-  entity, so it stays readable and diffable and old files keep opening. PNG
-  and **SVG** are exports, not saves; the SVG is real vector output with the
+  entity, so it stays readable and diffable and old files keep opening. PNG and
+  **SVG** are exports, not saves; the SVG is real vector output with the
   dimensions as text, so it opens in Inkscape or a CAD package.
   `heckers-sketch drawing.hsk` opens one straight from the shell.
-* **Zoom and pan** are independent of the drawing scale, so zooming in to
-  place something does not change what prints.
-* The dials are off by default over here, but the button on the SCALE row
-  brings them back — they are good for nudging.
+* **Zoom and pan are independent of the drawing scale**, so zooming in to place
+  something does not change what prints.
 
 ---
 
@@ -100,7 +168,6 @@ the sixteenth of an inch.
 | Ctrl+E | export a picture (PNG or SVG) |
 | Ctrl+P | print |
 | Delete | shake to erase / clear the sheet |
-| T | next theme |
 | G | grid on/off |
 | W | swap TOY ⇄ PRO |
 | F1 | about |
@@ -117,16 +184,18 @@ the sixteenth of an inch.
 | S | cycle the kaleidoscope |
 | M | mirror |
 | A | auto-draw |
+| T | next theme |
 
 **PRO**
 
 | Key | Action |
 | --- | --- |
-| Q L A C P N E M | point, line, arc, circle, push/pull, note, erase, measure |
+| Q L R A C P M T D N E O | select, line, rect, arc, circle, push/pull, move, tape, dimension, note, erase, orbit |
+| Tab | next tool |
 | Space / Enter | place a point, or commit what you typed |
 | Arrow keys | set the direction while drawing; otherwise nudge the cursor |
-| PgUp / PgDn | the ±Y axis in isometric |
 | Shift+arrow | hop to the next point on the drawing |
+| PgUp / PgDn | the ±Y axis in isometric |
 | digits, `'` `"` `-` | type a length into the command bar |
 | `/` | start a typed command (`/iso`, `/fit`, `/scale 1/4`…) |
 | Esc | back out: clear what you typed, then the operation, then the tool |
@@ -135,40 +204,53 @@ the sixteenth of an inch.
 | I | isometric / plan |
 | K | cycle the working plane (XY / XZ / YZ) |
 | F | zoom to fit |
-| O | put 0,0 under the cursor |
-| D | dimension labels on/off |
 | U | feet-and-inches / metric |
-| Tab | next tool |
 | Ctrl+T / Ctrl+W / Ctrl+Tab | new sheet / close sheet / next sheet |
 | Right-drag | pan;  wheel = zoom |
 | Middle-drag | orbit, in the 3D view |
 
 ---
 
-## Running it on a remote or virtual display
+## Installing
 
-It runs unchanged on a virtual X server - Xvfb, TigerVNC, KasmVNC - so it can
-be shown on a machine with no display of its own.
+Grab the build for your machine from
+**[Releases](../../releases/latest)** and run it. There is no installer and
+nothing to set up.
 
-Mouse motion is deliberately cheap: the handler records the pointer position
-and returns, and all snapping, hit-testing and repainting happens once per
-16 ms tick. That matters on a virtual display, where every repaint has to be
-encoded and shipped to the client: a motion handler that painted would take
-tens of milliseconds, and because GDK holds back the next motion event until
-the handler returns, the event stream would collapse to a few moves a second.
-Hover coordinates and click-drag drawing would stop tracking the pointer.
+| File | For |
+| --- | --- |
+| `heckers-sketch.exe` | Windows |
+| `heckers-sketch-linux` | Linux (`chmod +x` it first) |
+| `checked/…` | the same two with range, overflow and heap checking on — slower, but they say what went wrong |
+
+Command line: `heckers-sketch [file.hsk] [--maximized] [--fullscreen]
+[--size=WxH]`, and `--help`.
 
 ## Building
 
-Needs Lazarus with the `Printer4Lazarus` package (ships with Lazarus).
+Needs Lazarus with the `Printer4Lazarus` package (it ships with Lazarus).
 Open `etchasketch.lpi` and build, or:
 
 ```sh
 lazbuild etchasketch.lpi
 ```
 
-Developed on Linux with the GTK3 widgetset. Plain LCL throughout, so Windows
-and macOS builds should work too.
+`build.sh` does the release plumbing — `./build.sh ship` produces all four
+binaries above and packs them into one zip.
+
+Developed on Linux with the GTK3 widgetset; Windows builds are cross-compiled
+from the same tree. Plain LCL throughout, so a macOS build should work too.
+
+## Tests
+
+```sh
+./tests/run.sh          # 135 headless geometry and document checks
+./tests/run-region.sh   #  76 planar-region checks
+```
+
+The region suite is worth a look on its own: squares cut in half, cuts that stop
+partway and divide nothing, tic-tac-toe grids, holes, concave shapes, vertices a
+nanometre apart, and timings at scale.
 
 ## How it is put together
 
@@ -176,11 +258,12 @@ and macOS builds should work too.
 | --- | --- |
 | `etchasketch.lpr` | program entry point |
 | `uSurface.pas` | a 32-bit BGRA raster surface — anti-aliased primitives from signed distance fields, blend modes, real alpha, damage tracking, text, PNG export |
-| `uSkin.pas` | colour themes and the chassis: panels, bezel, dials, line icons, measured and isometric grids |
+| `uSkin.pas` | color themes and the chassis: panels, bezel, dials, line icons, measured and isometric grids |
+| `uRegion.pas` | the planar region engine — segments in, faces and holes out. Knows nothing about the document, the screen or the tools |
 | `uWork.pas` | the PRO document — 3D geometry, length parsing and formatting, drawing scales, snapping, hit testing, rendering |
 | `uMain.pas` | the window — layout, both modes, tools, history, tabs |
 
-Three things are worth knowing if you come back to this later:
+Four things are worth knowing if you come back to this later.
 
 **Everything is drawn into pixel buffers and blitted during paint events**
 rather than poked onto a canvas from event handlers. That is what makes the
@@ -188,44 +271,51 @@ anti-aliasing, the neon glow and the erase dissolve possible — and it is also
 why it keeps working on GTK3, where drawing to `TImage.Canvas` outside a paint
 handler silently does nothing.
 
-**The screen is three layers** — paper, ink, and the composite you see. The
-ink carries its own alpha, so changing the theme re-papers underneath the
-drawing and leaves the drawing alone. Only the damaged rectangle is
-recomposited, so this costs nothing while you draw.
+**The screen is three layers** — paper, ink, and the composite you see. The ink
+carries its own alpha, so changing the theme re-papers underneath the drawing
+and leaves the drawing alone. Only the damaged rectangle is recomposited, so
+this costs nothing while you draw.
 
-**PRO geometry is stored in 3D from the start**, with the view as a
-projection — PLAN, ISO and a free orbit camera all read the same document.
-Changing scale, zooming or switching views re-renders from the geometry, so
-nothing is ever resampled.
+**PRO geometry is stored in 3D from the start**, with the view as a projection —
+PLAN, ISO and the free orbit camera all read the same document. Changing scale,
+zooming or switching views re-renders from the geometry, so nothing is ever
+resampled.
 
-Solids are a thin layer on top of that: a closed loop of coplanar lines
-becomes a face, push/pull moves the face along its own normal and walls in
-the sides, and faces are drawn after the edges, back to front, with their
-backs culled. That is enough for boxes and extrusions. It is deliberately not
-a solid modeller — there are no booleans, no intersections and no face
-merging, and the painter's ordering will show its seams if two solids
-interpenetrate.
+**Faces come from the edges, every time.** `uRegion.pas` welds coincident
+vertices with a spatial hash, splits every segment at its crossings, groups by
+plane, and walks the minimal cycles of the resulting half-edge graph — arriving
+along a dart, it leaves by the dart immediately clockwise of the way it came.
+The cycle wound the wrong way is the infinite outer face and is thrown away.
+Only the planes an edit actually touched are rebuilt, and results are cached by
+signature, which is what keeps a full rebuild in the low milliseconds.
+
+**Mouse motion is deliberately cheap**, which matters when this is running over
+VNC or on a virtual display: the handler records the pointer position and
+returns, and all snapping, hit-testing and repainting happens once per 16 ms
+tick. A motion handler that painted would take tens of milliseconds, and since
+GDK holds back the next motion event until the handler returns, the event stream
+would collapse to a few moves a second.
 
 ## Not there yet
 
 There is a fuller list, with notes on what each one would take, in
 [TODO.md](TODO.md).
 
-* No **move** tool — you can draw and erase, but not drag something that is
-  already down.
-* A face is only made when a run of lines closes on **itself**. Drawing a
-  line across an existing shape does not split its face into two, so you
-  cannot yet push/pull the smaller regions that line creates. That needs
-  proper planar region finding — split every edge at its crossings, build the
-  graph, walk the minimal cycles — and it is the next thing worth doing.
-* Push/pull only understands closed loops of coplanar lines. There are no
-  booleans, no intersections and no face merging, and the painter's ordering
-  will show its seams if two solids interpenetrate.
-* Nothing imports. Tracing a PDF or an SVG would be a lovely thing to have
-  and is not here.
+* No **offset** tool — duct wall thickness and flanges want it.
+* No **rotate** tool. Forty-fives are the job.
+* The dimension tool has no radius or diameter mode, and you cannot yet drag an
+  extension line or type over the text.
+* Back faces are not shown in their own color the way SketchUp shows them pale
+  blue, which is how you spot a solid built inside out.
+* No copy arrays (`*6`, `/3` after a Ctrl-move).
+* Two solids that interpenetrate sort wrongly — the painter's algorithm works on
+  whole faces, so it will show a seam.
+* Nothing imports. Tracing a PDF or an SVG would be a lovely thing to have and
+  is not here.
 
-## Licence
+## License
 
-MIT — see [LICENSE](LICENSE).
+**GPL-3.0** — see [LICENSE](LICENSE). Free to use, free to change, and anything
+you build on it stays free too.
 
-Copyright (c) 2021-2026 Noella Stone.
+Copyright © 2021–2026 Noella Stone and Tony Stone.
