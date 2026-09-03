@@ -294,6 +294,56 @@ begin
   end;
 end;
 
+{ --------------------------------------------- midpoints of cut-up lines - }
+procedure TestSubMidpoints;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Hit: TSnapHit;
+  S: TPointF;
+
+  procedure Want(const P: TP3; const What: string);
+  var
+    Q: TPointF;
+  begin
+    Q := Project(V, P);
+    if D.BestSnap(V, Q.X, Q.Y, 6, Hit) and (Dist(Hit.P, P) < 1E-6) then
+      Ok(True, What)
+    else
+      Ok(False, What);
+  end;
+
+begin
+  WriteLn('midpoints of the pieces a crossing makes');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan;
+    V.Ppu := 20;
+    V.OX := 400;
+    V.OY := 300;
+
+    { a rectangle, then lines across it midpoint to midpoint - the tic-tac-toe
+      board.  Each piece of an outer edge should offer its own middle. }
+    MakeRect(D, 0, 0, 12, 12);
+    D.AddLine(P3(4, 0, 0), P3(4, 12, 0), 0, 2, False);
+    D.AddLine(P3(8, 0, 0), P3(8, 12, 0), 0, 2, False);
+    D.AddLine(P3(0, 4, 0), P3(12, 4, 0), 0, 2, False);
+    D.AddLine(P3(0, 8, 0), P3(12, 8, 0), 0, 2, False);
+
+    Want(P3(6, 0, 0), 'the middle of the whole bottom edge');
+    Want(P3(2, 0, 0), 'the middle of the bottom edge left piece');
+    Want(P3(6, 4, 0), 'the middle of a piece of an inner line');
+    Want(P3(4, 2, 0), 'the middle of a vertical piece');
+    Want(P3(4, 4, 0), 'a crossing');
+    S := Project(V, P3(2, 0, 0));
+    Ok(D.BestSnap(V, S.X, S.Y, 6, Hit) and (Hit.Kind = snSubMid),
+       'and it is reported as a piece midpoint');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -303,6 +353,7 @@ begin
   TestMove;         WriteLn;
   TestSplitAndMerge; WriteLn;
   TestEdgeSnap;     WriteLn;
+  TestSubMidpoints; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
