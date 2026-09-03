@@ -109,7 +109,9 @@ The same idea taken seriously.
   same words on the end of a leader are an instruction.
 * **Double-click finishes a run of lines.** A line carries on from the point
   you just put down, which is what you want nine times in ten; a double-click
-  lands the last point and puts the pen down. Esc still works.
+  lets go of it without placing anything. Esc does the same. (SketchUp has no
+  mouse way to do this — there a second click just drops another point — and
+  this is one of the few places worth being deliberately unlike it.)
 * **Arcs join two loose ends.** Pick the two points, pull the middle out. No
   trimming required.
 * **Select and move.** Click picks; **Ctrl** adds, **Shift** toggles,
@@ -238,7 +240,7 @@ The same idea taken seriously.
 | Ctrl+T / Ctrl+W / Ctrl+Tab | new sheet / close sheet / next sheet |
 | Right-click a dimension | write over its figure |
 | Right-drag | pan;  wheel = zoom |
-| Middle-drag | orbit, in the 3D view |
+| Middle-drag | orbit — from any view, with any tool in hand, mid-line |
 
 ---
 

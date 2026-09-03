@@ -69,6 +69,22 @@ Notes got their leader lines on 3 September 2026.  Still wanted there: moving
 a note after it is placed, and a leader that stays attached to the edge it
 points at when that edge moves.
 
+**Tony's idea, worth building:** letting go of a run of lines by *holding*
+the left button.  Hold it still for about a second and the rubber band draws
+as a stick under strain - stretching, thinning, a crack running through it -
+and when it snaps you are disconnected.  Double-click does the job today and
+is invisible; this would teach itself the first time you leaned on the button
+by accident, and it is the kind of thing that makes a program feel made
+rather than assembled.  Wants: a hold timer that a few pixels of movement
+cancels, the band drawn in stages, and a snap that is obvious without being
+slapstick.
+
+Middle-drag orbits from any view now, mid-operation, which Tony was right to
+be wary of - that gesture is what found the axis-inference crash.  Tested
+three rounds of orbit-while-drawing-a-line with view changes both ways and a
+full cursor sweep after each, no crash.  Worth re-testing whenever anything
+near the snapping or the projection changes.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.
