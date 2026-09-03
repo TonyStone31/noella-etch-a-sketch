@@ -151,6 +151,9 @@ type
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
+    { A note with a leader out to Target.  Target = A means no leader, which
+      is a plain label. }
+    procedure AddNote(const A, Target: TP3; const S: string; Ink: TColor);
     { Off is the vector from what is measured to where the dimension line
       sits - a real displacement in the model, not a number of pixels. }
     procedure AddDim(const A, B: TP3; Ink: TColor; const Off: TP3;
@@ -1359,12 +1362,17 @@ end;
 
 procedure TWorkDoc.AddText(const A: TP3; const S: string; Ink: TColor);
 begin
+  AddNote(A, A, S, Ink);
+end;
+
+procedure TWorkDoc.AddNote(const A, Target: TP3; const S: string; Ink: TColor);
+begin
   SetLength(FEnts, FLive + 1);
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekText;
   FEnts[FLive].A := A;
-  FEnts[FLive].B := A;
+  FEnts[FLive].B := Target;
   FEnts[FLive].Txt := S;
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := 1;
@@ -3100,6 +3108,54 @@ begin
   if not TryStrToFloat(S, Result, FS) then Result := 0;
 end;
 
+{ Does this token read as a number?  Used to tell an old TEXT line, whose
+  words start right after the ink, from a new one carrying a target first. }
+function IsNum(const S: string): Boolean;
+var
+  D: Double;
+  FS: TFormatSettings;
+begin
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  Result := (S <> '') and TryStrToFloat(S, D, FS);
+end;
+
+{ Notes may have several lines; a .hsk entity is one line.  Backslash first,
+  so unescaping cannot turn a literal \n back into a break. }
+function EscapeNote(const S: string): string;
+begin
+  Result := StringReplace(S, '\', '\\', [rfReplaceAll]);
+  Result := StringReplace(Result, #13#10, '\n', [rfReplaceAll]);
+  Result := StringReplace(Result, #10, '\n', [rfReplaceAll]);
+  Result := StringReplace(Result, #13, '\n', [rfReplaceAll]);
+end;
+
+function UnescapeNote(const S: string): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] = '\') and (I < Length(S)) then
+    begin
+      case S[I + 1] of
+        'n': Result := Result + #10;
+        '\': Result := Result + '\';
+      else
+        Result := Result + S[I + 1];
+      end;
+      Inc(I, 2);
+    end
+    else
+    begin
+      Result := Result + S[I];
+      Inc(I);
+    end;
+  end;
+end;
+
 procedure TWorkDoc.SaveTo(L: TStrings);
 var
   I, K: Integer;
@@ -3124,7 +3180,12 @@ begin
       ekGuide:
         L.Add(Format('GUIDE %s %s', [N3(FEnts[I].A), N3(FEnts[I].B)], FS));
       ekText:
-        L.Add(Format('TEXT %s %d %s', [N3(FEnts[I].A), FEnts[I].Ink, FEnts[I].Txt], FS));
+        { A note is one line in the file but may be several on the drawing,
+          so the breaks are escaped.  The target goes before the text, which
+          is the only field that can contain spaces and so has to be last. }
+        L.Add(Format('TEXT %s %d %s %s',
+          [N3(FEnts[I].A), FEnts[I].Ink, N3(FEnts[I].B),
+           EscapeNote(FEnts[I].Txt)], FS));
       ekFace:
         begin
           Line := Format('FACE %d %d %d',
@@ -3221,15 +3282,26 @@ begin
       else if (Kind = 'TEXT') and (T.Count >= 6) then
       begin
         { the note itself is the rest of the line, spaces and all }
-        P := Pos(' ', Line);
-        for I := 1 to 4 do
+        { A file written before notes had leaders has the text straight
+          after the ink; one written since has the three target numbers in
+          between.  Telling them apart is a matter of whether those three
+          read as numbers. }
+        if (T.Count >= 8) and IsNum(T[5]) and IsNum(T[6]) and IsNum(T[7]) then
+          AddNote(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
+                  P3(RdF(T[5]), RdF(T[6]), RdF(T[7])),
+                  UnescapeNote(JoinFrom(T, 8)), StrToIntDef(T[4], 0))
+        else
         begin
-          P := PosEx(' ', Line, P + 1);
-          if P = 0 then Break;
+          P := Pos(' ', Line);
+          for I := 1 to 4 do
+          begin
+            P := PosEx(' ', Line, P + 1);
+            if P = 0 then Break;
+          end;
+          if P > 0 then
+            AddText(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
+                    Copy(Line, P + 1, MaxInt), StrToIntDef(T[4], 0));
         end;
-        if P > 0 then
-          AddText(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
-                  Copy(Line, P + 1, MaxInt), StrToIntDef(T[4], 0));
       end
       else if (Kind = 'FACE') and (T.Count >= 4) then
       begin
@@ -3401,6 +3473,72 @@ var
     Result := False;
   end;
 
+  { A note, with a box round it and a leader out to whatever it is about.
+
+    This is the half of an annotation that makes it an annotation rather than
+    a caption: on an isometric especially, "8in SCH 40" floating in space is
+    a riddle, and the same words on the end of a line pointing at a run are a
+    drawing.  A note whose anchor and target are the same point has no leader
+    and is a plain label, which is what every note made before this was. }
+  procedure Note(const At, Target: TP3; const Txt: string; const Col: TPix);
+  const
+    PADX = 5;
+    PADY = 3;
+  var
+    Lines: TStringList;
+    PA, PB: TPointF;
+    LH, W, H, BX, BY, K: Integer;
+    AX, AY: Double;
+    Sz: TSize;
+  begin
+    if Txt = '' then Exit;
+    PA := Project(V, At);
+    PB := Project(V, Target);
+
+    Lines := TStringList.Create;
+    try
+      Lines.Text := Txt;
+      if Lines.Count = 0 then Lines.Add(Txt);
+      LH := S.TextExtent('Xg', AFont).cy;
+      W := 0;
+      for K := 0 to Lines.Count - 1 do
+      begin
+        Sz := S.TextExtent(Lines[K], AFont);
+        if Sz.cx > W then W := Sz.cx;
+      end;
+      H := Lines.Count * LH;
+
+      { the box sits up and to the right of its anchor, the way a note
+        written on a drawing sits beside the thing it is about }
+      BX := Round(PA.X) + 5;
+      BY := Round(PA.Y) - H - 2 * PADY - 3;
+
+      S.FillRect(Rect(BX, BY, BX + W + 2 * PADX, BY + H + 2 * PADY),
+        Pix(255, 255, 255), 0.82);
+      S.Poly([PtF(BX, BY), PtF(BX + W + 2 * PADX, BY),
+              PtF(BX + W + 2 * PADX, BY + H + 2 * PADY),
+              PtF(BX, BY + H + 2 * PADY)], 1.0, Col, True, 0.75);
+      for K := 0 to Lines.Count - 1 do
+        S.TextOut(BX + PADX, BY + PADY + K * LH, Lines[K], AFont, Col);
+
+      { the leader, from the corner of the box nearest the target }
+      if Dist(At, Target) > 1E-9 then
+      begin
+        AX := BX;
+        if PB.X > BX + W then AX := BX + W + 2 * PADX;
+        AY := BY + H + 2 * PADY;
+        if PB.Y < BY then AY := BY;
+        S.Line(AX, AY, PA.X, PA.Y, 1.0, Col, 0.8);
+        S.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, 0.8);
+        S.Disc(PB.X, PB.Y, 2.4, Col, 0.95);
+      end
+      else
+        S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
+    finally
+      Lines.Free;
+    end;
+  end;
+
   { A dimension line parallel to the projected segment, always labelled with
     the true 3D length - which is what makes an isometric readable. }
   procedure Dimension(const A, B, Off: TP3; const Note: string);
@@ -3479,12 +3617,7 @@ begin
         that lie in the plane of a face still facing us are put back after
         the face pass. }
       ekText:
-        begin
-          PA := Project(V, FEnts[I].A);
-          S.TextOut(Round(PA.X) + 5, Round(PA.Y) - S.TextExtent('X', AFont).cy - 3,
-            FEnts[I].Txt, AFont, Col);
-          S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
-        end;
+        Note(FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
       ekDim:
         Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
 
@@ -3714,13 +3847,7 @@ begin
             Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
         ekText:
           if not Covered(FEnts[I].A, J) then
-          begin
-            PA := Project(V, FEnts[I].A);
-            S.TextOut(Round(PA.X) + 5,
-              Round(PA.Y) - S.TextExtent('X', AFont).cy - 3,
-              FEnts[I].Txt, AFont, Col);
-            S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
-          end;
+            Note(FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
       end;
       Break;
     end;

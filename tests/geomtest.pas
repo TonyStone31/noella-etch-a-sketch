@@ -1257,6 +1257,91 @@ begin
   end;
 end;
 
+{ Notes with leader lines, and getting them back off the disk.
+
+  The escaping is the part worth checking: a note is several lines on the
+  drawing and one line in the file, and a drawing that comes back with its
+  remarks run together is no use to the person reading it. }
+procedure TestNotes;
+var
+  A, B: TWorkDoc;
+  L: TStringList;
+  Idx, I, N: Integer;
+
+  function FirstNote(D: TWorkDoc): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to D.Live - 1 do
+      if D[J].Kind = ekText then Exit(J);
+  end;
+
+begin
+  WriteLn('notes, leaders and line breaks');
+  A := TWorkDoc.Create;
+  B := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    { a plain label, the way notes have always been }
+    A.AddText(P3(1, 2, 0), 'PLAIN', 0);
+    I := FirstNote(A);
+    Ok(I >= 0, 'a plain note exists');
+    Ok(Dist(A[I].A, A[I].B) < 1E-9, 'and points at itself, so no leader');
+
+    { one with a leader and three lines }
+    A.AddNote(P3(10, 10, 0), P3(4, 3, 2),
+      '8in SCH 40' + #10 + 'FIELD VERIFY' + #10 + 'weld 3 of 5', 0);
+    N := 0;
+    for I := 0 to A.Live - 1 do
+      if A[I].Kind = ekText then Inc(N);
+    EqI(N, 2, 'two notes now');
+
+    A.SaveTo(L);
+    Idx := 0;
+    B.LoadFrom(L, Idx);
+
+    N := 0;
+    for I := 0 to B.Live - 1 do
+      if B[I].Kind = ekText then Inc(N);
+    EqI(N, 2, 'both came back');
+
+    for I := 0 to B.Live - 1 do
+      if (B[I].Kind = ekText) and (Pos('SCH 40', B[I].Txt) > 0) then
+      begin
+        Ok(Abs(B[I].A.X - 10) < 1E-9, 'the note is where it was put');
+        Ok(Abs(B[I].B.X - 4) < 1E-9, 'and still points where it pointed');
+        Ok(Abs(B[I].B.Z - 2) < 1E-9, 'in all three coordinates');
+        Ok(Pos(#10, B[I].Txt) > 0, 'its line breaks survived');
+        Ok(Pos('FIELD VERIFY', B[I].Txt) > 0, 'and so did the middle line');
+        Ok(Copy(B[I].Txt, Length(B[I].Txt) - 10, 11) = 'weld 3 of 5',
+           'and the last one');
+      end;
+
+    { a backslash must not come back as a line break, or the other way about }
+    B.Clear;
+    L.Clear;
+    A.Clear;
+    A.AddNote(P3(0, 0, 0), P3(1, 0, 0), 'a\nb' + #10 + 'real break', 0);
+    A.SaveTo(L);
+    Idx := 0;
+    B.LoadFrom(L, Idx);
+    I := FirstNote(B);
+    Ok(I >= 0, 'the awkward note came back');
+    if I >= 0 then
+    begin
+      Ok(Pos('a\nb', B[I].Txt) > 0,
+         'a typed backslash-n is still a typed backslash-n');
+      EqI(Length(B[I].Txt) - Length(StringReplace(B[I].Txt, #10, '', [rfReplaceAll])),
+          1, 'and there is exactly one real break');
+    end;
+  finally
+    L.Free;
+    B.Free;
+    A.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -1280,6 +1365,7 @@ begin
   TestOffset;       WriteLn;
   TestPushAfterOffset; WriteLn;
   TestDimNote;      WriteLn;
+  TestNotes;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

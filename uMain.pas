@@ -3751,6 +3751,7 @@ end;
 
 procedure TMainForm.PaintProOverlay(C: TCanvas);
 var
+  HintFace: Integer;
   P: TPointF;
   SX, SY, AX, AY: Integer;
   BarLen, BarPx: Double;
@@ -3865,11 +3866,20 @@ begin
     points marked, so there is no doubt which surface you are drawing on.
     Only before the first click - once the shape is under way the plane is
     settled and the wash would just be in the way. }
-  if (FStage = 0) and (FHoverFace >= 0) and
-     (FTool in [ptLine, ptRect, ptCircle, ptArc]) then
+  if (FStage = 0) and (FTool in [ptLine, ptRect, ptCircle, ptArc]) and
+     not FPlaneHeld then
   begin
-    PaintFaceHint(C, FHoverFace, HINT_BLUE);
-    PaintFacePoints(C, FHoverFace);
+    { Asked here rather than read from what the motion handler cached.  The
+      cache is a tick behind and is cleared by things that have nothing to do
+      with where the cursor is, and the result was a face that lit up only
+      sometimes.  A point-in-polygon test over a handful of faces costs
+      nothing at paint time. }
+    HintFace := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+    if HintFace >= 0 then
+    begin
+      PaintFaceHint(C, HintFace, HINT_BLUE);
+      PaintFacePoints(C, HintFace);
+    end;
   end;
 
   { --- scale bar, bottom left ------------------------------------------ }
@@ -4046,7 +4056,7 @@ begin
       ptSelect: S2 := 'pick a tool below, or press L for a line';
       ptPush:  S2 := 'click a face to push or pull it';
       ptErase: S2 := 'click a line to delete it';
-      ptText:  S2 := 'space or click - place a note here';
+      ptText:  S2 := 'space or click - the note points here';
       ptMeasure:
         if FGuideMode then
           S2 := 'measure from here - Ctrl for no guide'
@@ -4063,7 +4073,7 @@ begin
       ptPush:   S2 := 'type how far, or move and click';
       ptCircle: S2 := 'type a radius, or click';
       ptArc:    S2 := 'pull the middle out, or type the bulge';
-      ptText:   S2 := 'type the note, then Enter';
+      ptText:   S2 := 'type it, move away, then Enter';
       ptMeasure: S2 := 'click the second point';
     else
       S2 := 'arrows set direction - type a length - Enter';
@@ -4298,7 +4308,7 @@ begin
       else if FDirLock >= 0 then
         Result := 'going ' + AxisName(FDirLock) + ' - length?'
       else
-        Result := 'to the next point, or type a length';
+        Result := 'to the next point, or type a length  -  double-click to finish';
     ptArc:
       case FStage of
         0: Result := 'pick the first end';
@@ -4312,7 +4322,10 @@ begin
     ptCircle:
       if FStage = 0 then Result := 'pick the center' else Result := 'radius?';
     ptText:
-      if FStage = 0 then Result := 'where does the note go?' else Result := 'type the note';
+      if FStage = 0 then
+        Result := 'click what the note is about'
+      else
+        Result := 'type it - Shift+Enter for another line - then move away and Enter';
     ptPush:
       if FStage = 0 then
         Result := 'click a face'
@@ -4506,7 +4519,21 @@ begin
         FDirLock := -1;
       end
       else
+      begin
+        { A line keeps going from the point you just put down, which is what
+          you want nine times in ten.  Letting go of it wanted the keyboard,
+          and right-click is the pan here so it cannot be that.
+
+          Double-click, which is what SketchUp uses: the second click lands
+          the point as usual and then puts the pen down.  Esc still works,
+          and so does picking another tool. }
         ProCommit;
+        if FClickN >= 2 then
+        begin
+          ResetTool;
+          FCmdMsg := 'Line finished.  Double-click ends a run; Esc does too.';
+        end;
+      end;
 
     ptRect:
       if FStage = 0 then
@@ -4882,10 +4909,18 @@ begin
         if Trim(FInput) <> '' then
         begin
           PushUndo;
-          FD.Doc.AddText(FP1, Trim(FInput), FInkColor);
+          { FP1 is what the note is about; the cursor is where the note goes.
+            Leave the cursor where you clicked and the two are the same point,
+            which is a plain label with no leader - what a note has always
+            been.  Move away first and you get the leader. }
+          FD.Doc.AddNote(FCur, FP1, Trim(FInput), FInkColor);
           RenderPro;
           RecomposeAll;
-          FCmdMsg := 'Note added.';
+          if Dist(FCur, FP1) > 1E-9 then
+            FCmdMsg := 'Note added, pointing at where you started.'
+          else
+            FCmdMsg := 'Note added.  Next time, move away before Enter for ' +
+              'a leader line.';
         end;
         ResetTool;
       end;
@@ -7310,7 +7345,17 @@ begin
        (FDimEdit >= 0) then
     begin
       case Key of
-        VK_RETURN: CommandEnter;
+        VK_RETURN:
+          { Shift+Enter is another line of the note, Enter finishes it.  A
+            note on a fab drawing is rarely one line - a size, a spec and a
+            remark stacked up is the normal shape of one. }
+          if (ssShift in Shift) and (FTool = ptText) and (FStage = 1) then
+          begin
+            FInput := FInput + #10;
+            pbCmd.Invalidate;
+          end
+          else
+            CommandEnter;
         VK_ESCAPE:
           if FDimEdit >= 0 then
           begin
@@ -7895,24 +7940,30 @@ var
   Tmp: string;
 begin
   if Length(FDrawings) = 0 then Exit;
-  L := TStringList.Create;
+  { The whole of it is wrapped, not just the write.  An autosave runs on the
+    tick, behind everything, and is the last thing that should ever be able
+    to take the program down with it - a background convenience that kills
+    the foreground work is worse than no autosave at all.  Whatever goes
+    wrong, the seq is marked done so it does not sit there failing forty
+    times a second. }
   try
-    if FDocPath <> '' then L.Add('# from ' + FDocPath);
-    BuildSession(L);
-    Tmp := DraftFile + '.tmp';
+    L := TStringList.Create;
     try
+      if FDocPath <> '' then L.Add('# from ' + FDocPath);
+      BuildSession(L);
+      Tmp := DraftFile + '.tmp';
       ForceDirectories(ExtractFilePath(DraftFile));
       L.SaveToFile(Tmp);
       if FileExists(DraftFile) then DeleteFile(DraftFile);
       RenameFile(Tmp, DraftFile);
-      FDraftSeq := FEditSeq;
-    except
-      { A draft that cannot be written is not worth interrupting anyone
-        over - it will be tried again on the next tick. }
+    finally
+      L.Free;
     end;
-  finally
-    L.Free;
+  except
+    on E: Exception do
+      FHint := 'Could not keep a draft just now (' + E.ClassName + ')';
   end;
+  FDraftSeq := FEditSeq;
 end;
 
 { Pick the draft back up at startup.
