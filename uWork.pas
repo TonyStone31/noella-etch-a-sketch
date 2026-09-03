@@ -120,7 +120,9 @@ type
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
-    procedure AddDim(const A, B: TP3; Ink: TColor);
+    { Off is how far the dimension line sits from what it measures, in
+      screen pixels and signed for which side. }
+    procedure AddDim(const A, B: TP3; Ink: TColor; Off: Double = 20);
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
 
@@ -974,7 +976,7 @@ begin
   FSnapDirty := True;
 end;
 
-procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor);
+procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; Off: Double);
 begin
   SetLength(FEnts, FLive + 1);
   Finalize(FEnts[FLive]);
@@ -982,6 +984,7 @@ begin
   FEnts[FLive].Kind := ekDim;
   FEnts[FLive].A := A;
   FEnts[FLive].B := B;
+  FEnts[FLive].R := Off;
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := 1;
   FEnts[FLive].Dim := True;
@@ -2133,7 +2136,8 @@ begin
           [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
            Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight], FS));
       ekDim:
-        L.Add(Format('DIM %s %s %d', [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink], FS));
+        L.Add(Format('DIM %s %s %d %.3f',
+          [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].R], FS));
       ekText:
         L.Add(Format('TEXT %s %d %s', [N3(FEnts[I].A), FEnts[I].Ink, FEnts[I].Txt], FS));
       ekFace:
@@ -2179,8 +2183,10 @@ begin
                RdF(T[6]), TPlane(StrToIntDef(T[7], 0)),
                StrToIntDef(T[8], 0), RdF(T[9]))
       else if (Kind = 'DIM') and (T.Count >= 8) then
+        { older files have no offset; the default is where they used to sit }
         AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
-               P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0))
+               P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),
+               IfThen(T.Count >= 9, RdF(T[8]), 20))
       else if (Kind = 'TEXT') and (T.Count >= 6) then
       begin
         { the note itself is the rest of the line, spaces and all }
@@ -2313,7 +2319,7 @@ var
 
   { A dimension line parallel to the projected segment, always labelled with
     the true 3D length - which is what makes an isometric readable. }
-  procedure Dimension(const A, B: TP3);
+  procedure Dimension(const A, B: TP3; OffPx: Double);
   var
     SA, SB: TPointF;
     NX, NY, L, Off, UX, UY, MX, MY: Double;
@@ -2333,7 +2339,15 @@ var
       NX := -NX;
       NY := -NY;
     end;
-    Off := 20;
+    { a negative offset puts it on the other side, which is what dragging
+      the other way should mean }
+    if OffPx < 0 then
+    begin
+      NX := -NX;
+      NY := -NY;
+      OffPx := -OffPx;
+    end;
+    Off := OffPx;
 
     S.Line(SA.X + NX * 4, SA.Y + NY * 4, SA.X + NX * (Off + 5), SA.Y + NY * (Off + 5),
       1.0, LabelCol, 0.5);
@@ -2494,14 +2508,14 @@ begin
           S.Disc(PA.X, PA.Y, 2.2, ColorToPix(FEnts[I].Ink), 0.9);
         end;
       ekDim:
-        Dimension(FEnts[I].A, FEnts[I].B);
+        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
       ekLine, ekArc, ekFace: ;
     end;
 
   if not ShowDims then Exit;
   for I := 0 to FLive - 1 do
     if (FEnts[I].Kind = ekLine) and FEnts[I].Dim then
-      Dimension(FEnts[I].A, FEnts[I].B);
+      Dimension(FEnts[I].A, FEnts[I].B, 20);
 end;
 
 end.

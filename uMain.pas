@@ -56,7 +56,7 @@ type
   TAppMode = (mdToy, mdPro);
 
   TProTool = (ptSelect, ptLine, ptRect, ptArc, ptCircle, ptPush, ptText,
-    ptErase, ptMeasure, ptOrbit);
+    ptErase, ptMeasure, ptDim, ptOrbit);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -226,6 +226,12 @@ type
     FPushFace: Integer;
     FHoverFace: Integer;   // the face push/pull would take, before you click
 
+    { Held down, the eraser gathers everything the cursor is dragged over and
+      shows it in red before any of it goes.  Deleting one line at a time is
+      slow, and a click that turns out to have hit the wrong thing is worse. }
+    FErasing2: Boolean;
+    FDoomed: array of Integer;
+
     { The working plane follows whatever face you are pointing at, so a shape
       drawn on top of a box lands on top of it.  Alt cycles through the three
       flat planes instead and latches, because sometimes you mean to draw in
@@ -334,6 +340,10 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
+    function DimOffsetPx: Double;
+    procedure DoomAt(SX, SY: Integer);
+    function IsDoomed(I: Integer): Boolean;
+    procedure BurnDoomed;
     procedure OpenPopup(Which: Integer);
     procedure ClosePopup;
     function PopupCount(Which: Integer): Integer;
@@ -553,11 +563,11 @@ const
   { one glyph per tool, for the button and for the cursor }
   TOOL_ICONS: array[TProTool] of TIconKind =
     (ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
-     ikTErase, ikTMeasure, ikTOrbit);
+     ikTErase, ikTMeasure, ikDim, ikTOrbit);
 
   TOOL_NAMES: array[TProTool] of string =
     ('POINT', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT', 'ERASE',
-     'MEASURE', 'ORBIT');
+     'MEASURE', 'DIM', 'ORBIT');
 
   TOOL_HINTS: array[TProTool] of string = (
     'Point - move the cursor around and read where it is.  Nothing gets drawn.',
@@ -570,6 +580,7 @@ const
     'Text - click where the note goes and type it.',
     'Erase - click anything to delete it.',
     'Measure - click two points and read the distance between them.',
+    'Dimension - click two points, then drag away to place the line.',
     'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
@@ -3090,6 +3101,10 @@ begin
       begin
         if FStage = 1 then Rubber(FP1, FCur) else Rubber(FP1, FP2);
       end;
+    ptDim:
+      if FStage = 1 then Rubber(FP1, FCur)
+      else if FStage = 2 then Rubber(FP1, FP2);
+
     ptPush:
       if FStage = 1 then
       begin
@@ -3121,7 +3136,24 @@ begin
     Format('%s   (view %.0f%%)', [S1, FD.Zoom * 100]));
 
   { --- what the eraser is about to remove ------------------------------ }
-  if (FTool = ptErase) and (FHoverEnt >= 0) then
+  { everything gathered so far, in red, so a sweep can be seen before it
+    happens and a wrong one abandoned by never letting go over anything }
+  for AY := 0 to High(FDoomed) do
+  begin
+    Hi := FD.Doc.Outline(Proj, FDoomed[AY]);
+    if Length(Hi) >= 2 then
+    begin
+      C.Pen.Color := PixToColor(Pix(240, 60, 60));
+      C.Pen.Width := Max(3, Round(3 * FUIScale));
+      C.Pen.Style := psSolid;
+      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
+      for AX := 1 to High(Hi) do
+        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
+      C.Pen.Width := 1;
+    end;
+  end;
+
+  if (FTool = ptErase) and (FHoverEnt >= 0) and not FErasing2 then
   begin
     Hi := FD.Doc.Outline(Proj, FHoverEnt);
     if Length(Hi) >= 2 then
@@ -3460,6 +3492,13 @@ begin
         Result := 'click a face'
       else
         Result := 'how far?  type it, or move and click';
+    ptDim:
+      case FStage of
+        0: Result := 'first point of the dimension';
+        1: Result := 'second point';
+      else
+        Result := 'drag away to set how far off it sits, then click';
+      end;
     ptOrbit:
       Result := 'drag to spin the view - Shift drags to pan';
     ptSelect:
@@ -3649,6 +3688,14 @@ begin
       end
       else
         ProCommit;
+
+    ptDim:
+      case FStage of
+        0: begin FP1 := FCur; FStage := 1; end;
+        1: begin FP2 := FCur; FStage := 2; end;
+      else
+        ProCommit;
+      end;
 
     ptMeasure:
       if FStage = 0 then
@@ -3854,6 +3901,19 @@ begin
         ResetTool;
       end;
 
+    ptDim:
+      begin
+        if Dist(FP1, FP2) > 1E-9 then
+        begin
+          PushUndo;
+          FD.Doc.AddDim(FP1, FP2, FInkColor, DimOffsetPx);
+          RenderPro;
+          RecomposeAll;
+          FCmdMsg := 'Dimension ' + FormatLen(Dist(FP1, FP2), FD.Units);
+        end;
+        ResetTool;
+      end;
+
     ptMeasure:
       begin
         if FStage = 2 then
@@ -3899,6 +3959,7 @@ begin
   else if (W = 'orbit') or (W = 'spin') then SetTool(ptOrbit)
   else if (W = 'rect') or (W = 'rectangle') or (W = 'r') then SetTool(ptRect)
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
+  else if (W = 'dimension') or (W = 'dim') then SetTool(ptDim)
   else if (W = 'push') or (W = 'pull') or (W = 'pushpull') or (W = 'p') then
     SetTool(ptPush)
   else if (W = 'undo') or (W = 'u') then DoUndo
@@ -4061,6 +4122,15 @@ begin
   begin
     FMouseSX := X;
     FMouseSY := Y;
+    { the eraser gathers while the button is held and deletes on release }
+    if FTool = ptErase then
+    begin
+      FErasing2 := True;
+      SetLength(FDoomed, 0);
+      DoomAt(X, Y);
+      FScreenDirty := True;
+      Exit;
+    end;
     FCur := ResolveSnapAt(X, Y);
     ProClick;
     Exit;
@@ -4135,6 +4205,16 @@ begin
   FMovePending := False;
   X := FMoveX;
   Y := FMoveY;
+
+  { a held eraser collects whatever it is dragged across }
+  if FErasing2 then
+  begin
+    FMouseSX := X;
+    FMouseSY := Y;
+    DoomAt(X, Y);
+    InvalidateStatus;
+    Exit;
+  end;
 
   { Middle drag orbits, and holding Shift pans instead - tested every move
     rather than only when the button went down, so you can grab Shift part
@@ -4427,6 +4507,94 @@ begin
   C.Pen.Width := 1;
 end;
 
+function TMainForm.IsDoomed(I: Integer): Boolean;
+var
+  K: Integer;
+begin
+  Result := True;
+  for K := 0 to High(FDoomed) do
+    if FDoomed[K] = I then Exit;
+  Result := False;
+end;
+
+{ Add whatever is under the cursor to the list the eraser is holding. }
+procedure TMainForm.DoomAt(SX, SY: Integer);
+var
+  I: Integer;
+begin
+  I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+  if I < 0 then I := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
+  if (I < 0) or IsDoomed(I) then Exit;
+  SetLength(FDoomed, Length(FDoomed) + 1);
+  FDoomed[High(FDoomed)] := I;
+  FScreenDirty := True;
+end;
+
+{ Delete everything gathered, highest index first so the lower ones do not
+  shift underneath, then see whether any regions should join up. }
+procedure TMainForm.BurnDoomed;
+var
+  I, J, T, N: Integer;
+  EA, EB: array of TP3;
+  Kinds: array of TEntKind;
+begin
+  N := Length(FDoomed);
+  if N = 0 then Exit;
+  for I := 0 to N - 2 do
+    for J := 0 to N - 2 - I do
+      if FDoomed[J] < FDoomed[J + 1] then
+      begin
+        T := FDoomed[J];
+        FDoomed[J] := FDoomed[J + 1];
+        FDoomed[J + 1] := T;
+      end;
+
+  SetLength(EA, N);
+  SetLength(EB, N);
+  SetLength(Kinds, N);
+  for I := 0 to N - 1 do
+  begin
+    EA[I] := FD.Doc[FDoomed[I]].A;
+    EB[I] := FD.Doc[FDoomed[I]].B;
+    Kinds[I] := FD.Doc[FDoomed[I]].Kind;
+  end;
+
+  PushUndo;
+  for I := 0 to N - 1 do
+    FD.Doc.Delete(FDoomed[I]);
+  for I := 0 to N - 1 do
+    if Kinds[I] in [ekLine, ekArc] then
+      if not FD.Doc.MergeFacesAcross(EA[I], EB[I]) then
+        FD.Doc.MergeFacesAcross(EB[I], EA[I]);
+
+  if N = 1 then FCmdMsg := 'Deleted.'
+  else FCmdMsg := Format('Deleted %d things.', [N]);
+  SetLength(FDoomed, 0);
+  RenderPro;
+  RecomposeAll;
+end;
+
+{ How far the dimension line sits from what it measures: the perpendicular
+  distance from the chord to the cursor, in screen pixels, signed so that
+  dragging to either side puts it on that side.  SketchUp asks the same
+  question the same way - click the two ends, then move away and click. }
+function TMainForm.DimOffsetPx: Double;
+var
+  PA, PB: TPointF;
+  DX, DY, L: Double;
+begin
+  Result := 20;
+  PA := ScreenOf(FP1);
+  PB := ScreenOf(FP2);
+  DX := PB.X - PA.X;
+  DY := PB.Y - PA.Y;
+  L := Sqrt(DX * DX + DY * DY);
+  if L < 1E-9 then Exit;
+  { the normal the renderer uses points one way; the sign says which side }
+  Result := ((FMouseSX - PA.X) * (-DY / L) + (FMouseSY - PA.Y) * (DX / L));
+  if Abs(Result) < 6 then Result := 6 * Sign(Result + 1E-9);
+end;
+
 { SketchUp's trick: rest on a point for a moment and it is remembered, so
   you can move away and still line up with it.  Without it the only thing
   you can align to is wherever the line already started, which is no help
@@ -4481,6 +4649,13 @@ begin
   FMoveY := Y;
   FMovePending := True;
   ServiceMotion;
+
+  if FErasing2 then
+  begin
+    FErasing2 := False;
+    BurnDoomed;
+    Exit;
+  end;
 
   if FPanning or FOrbiting then
   begin
@@ -5371,13 +5546,13 @@ begin
       VK_N: SetTool(ptText);
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMeasure);
+      VK_D: SetTool(ptDim);
       VK_V:
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
       VK_I: RunCommand(IfThen(FD.View = vkIso, 'plan', 'iso'));
       VK_K: RunCommand('plane');
       VK_F: FitView;
       VK_O: SetTool(ptOrbit);
-      VK_D: RunCommand('dim');
       VK_G: RunCommand('grid');
       VK_U: RunCommand('units');
       VK_T: CycleTheme(1);

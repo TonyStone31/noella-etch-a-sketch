@@ -286,11 +286,13 @@ order:
 * **More settings in the lists.** Scale, snap and the pen open a list now
   rather than filling a row, so a list can hold more than a row ever could -
   more scales, finer snaps. Nothing has been added to them yet.
-* **A dimension tool separate from the tape measure.** SketchUp has both:
-  the tape measures and leaves guides, the dimension tool puts a permanent
-  labelled dimension on the drawing. Ours has one tool doing the measuring,
-  and dimensions arrive automatically with every line - toggled by the button
-  on the deck, `D`, or `/dim`. Two tools would be better than a toggle.
+* ~~**A dimension tool separate from the tape measure**~~ — done 2 September
+  2026. DIM places one: click both ends, drag away to choose the offset,
+  click to set it, the same three steps SketchUp uses. A dimension is an
+  entity like any other, so the eraser takes it. The tape measure still just
+  measures. Automatic dimensions on every line remain a toggle on the deck.
+  Still to do: dimension an existing edge by clicking the edge itself rather
+  than its two ends.
 * **A move tool.** Wanted next. `MoveFaceWith` in uWork already slides a face
   and drags what is attached to it, which is most of the primitive a move
   tool needs.
@@ -309,7 +311,8 @@ order:
   falls through to the A..B segment test for `ekFace`, so the interior of a
   face is not clickable. Should use the same point-in-polygon test as
   `HitFace`.
-* **Dragging the eraser** over several edges, instead of one click each.
+* ~~**Dragging the eraser**~~ — done. Hold and sweep; everything the cursor
+  crosses turns red, and letting go deletes the lot.
 * **Dimension labels** can land inside a closed shape. They should be pushed
   to the outside of the run they belong to.
 * **Neon on a light screen** is muted. It went alpha-based so that a drawing
