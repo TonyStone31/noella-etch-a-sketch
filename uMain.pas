@@ -552,11 +552,12 @@ const
   TICK_MS         = 16;
   MIN_PEN         = 1;
   MAX_PEN         = 40;
-  SNAP_PX         = 12.0;   // pulling onto a point on the drawing
+  SNAP_PX         = 16.0;   // pulling onto a point on the drawing
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
   HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
-  LOCK_PX         = 4.5;    // this close and the point is what you meant
+  LOCK_PX         = 7.5;    // this close and the point is what you meant
+  PIECE_PX        = 5.0;    // ...and this close for the middle of a piece
   EDGE_PX         = 11.0;   // hovering a line means a point on that line
   { the face under the cursor, tinted the way SketchUp tints one }
   HINT_BLUE: TPix = (B: $E0; G: $8C; R: $3C; A: 255);
@@ -936,6 +937,17 @@ begin
     have already split, and they are exactly what used to steal the cursor. }
   if PtOK and (PtPx <= LOCK_PX) and
      (Hit.Kind in [snEndpoint, snCross, snCentre, snMidpoint]) then
+  begin
+    FSnapKind := Hit.Kind;
+    Exit(Hit.P);
+  end;
+
+  { The middle of a piece of a line gets a shorter reach of its own.  These
+    are the ones that turn up at every quarter point of a shape you have
+    divided, so they should not grab from as far away as a corner - but they
+    are also exactly what you are aiming at when you divide something up, and
+    before this they could only be had by beating the axis guides. }
+  if PtOK and (PtPx <= PIECE_PX) and (Hit.Kind = snSubMid) then
   begin
     FSnapKind := Hit.Kind;
     Exit(Hit.P);
@@ -1859,7 +1871,10 @@ begin
   ScaleIdx := 2;          // 1/4" = 1'-0"
   SnapIdx := 5;           // one foot
   Units := usImperial;
-  ShowDims := True;
+  { Off by default.  A dimension on every line you draw is a lot of ink for
+    something you mostly want on the few measurements you care about, and you
+    can put those on afterwards with the Dim tool. }
+  ShowDims := False;
   View := vkPlan;
   Plane := plXY;
   Az := -Pi / 4;
@@ -6931,7 +6946,7 @@ begin
       FD.ScaleIdx := EnsureRange(Ini.ReadInteger('pro', 'scale', 2), 0, SCALE_COUNT - 1);
       FD.SnapIdx := EnsureRange(Ini.ReadInteger('pro', 'snap', 5), 0, SNAP_COUNT - 1);
       FD.Units := TUnitSystem(EnsureRange(Ini.ReadInteger('pro', 'units', 0), 0, 1));
-      FD.ShowDims := Ini.ReadBool('pro', 'dims', True);
+      FD.ShowDims := Ini.ReadBool('pro', 'dims', False);
       { the view is deliberately not restored - a drawing session starts
         flat, and 3D is somewhere you go on purpose }
 

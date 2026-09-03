@@ -571,3 +571,43 @@ right beside it.
 row, saying AUTO DIM ON or OFF.  It was only ever an unlabelled icon, and the
 hint claimed `D` toggled it — `D` has been the dimension *tool* since that tool
 arrived.  `Shift+D` is the switch.
+
+## T-junctions, a firmer pull, and dimensions off by default — 2 Sep 2026
+
+**Dividing a shape gave nothing new to snap to.**  Draw a rectangle, run lines
+from the middle of one side to the middle of the other to make a tic-tac-toe
+board, and the pieces of the outer edges had no midpoints.
+
+`SegCross` turns down a meeting at an endpoint - rightly, because that point is
+already an endpoint snap.  But it was the *only* thing feeding the cut list, so
+a line drawn **from** the middle of another one made a T that never cut the
+line it met.  Every interior line got its pieces; the outer edges never did,
+which is precisely the case you hit first.  `PointOnSeg` now records those
+T-junctions as cuts.  Caught and confirmed by a headless test that asked for
+the middle of the bottom edge's left piece and did not get it.
+
+**A firmer pull.**  A definite point takes the cursor from 7.5 pixels rather
+than 4.5, and the general reach went from 12 to 16.  The middle of a *piece* of
+a line gets 5 pixels of its own - they turn up at every quarter point of a
+divided shape so they should not grab from as far as a corner, but before this
+they could only be had by beating the axis guides, which is why they felt like
+they were not there.
+
+**Auto dimensions are off by default now.**  A dimension on every line is a lot
+of ink for something you want on the few measurements you care about, and the
+Dim tool puts those on afterwards.  A saved preference still wins, so anyone
+who had them on keeps them until they press the switch.
+
+## The dimension tool needs another look
+
+Tony: "not behaving like sketchup at all... i mean its close... but".  Deferred
+until he can say what specifically.  Things `docs/sketchup/11-text-and-dimensions.md`
+lists that we do not do:
+
+* radius and diameter dimensions, and the right-click Type > Radius / Diameter
+* endpoint styles - slash is SketchUp's default, then dot, closed arrow, open
+  arrow, none
+* text placed centred, outside the start, or outside the end
+* aligning the text to the screen rather than to the dimension
+* typing over a dimension's text, which in SketchUp breaks its link to the
+  geometry and stops it updating

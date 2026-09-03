@@ -2087,6 +2087,29 @@ end;
 
 { Where two segments come closest.  They are treated as crossing only if
   that gap is negligible and the meeting point is properly inside both. }
+{ Where a point sits along a segment, when it sits on it at all and not at
+  either end.  A line drawn *from* the middle of another one makes a T, not a
+  cross, and SegCross turns that down - rightly, because the meeting point is
+  already an endpoint.  But the line being met is still cut in two by it, and
+  each half wants a middle of its own. }
+function PointOnSeg(const P, A, B: TP3; out T: Double): Boolean;
+var
+  DX, DY, DZ, L2: Double;
+  Q: TP3;
+begin
+  Result := False;
+  T := 0;
+  DX := B.X - A.X;
+  DY := B.Y - A.Y;
+  DZ := B.Z - A.Z;
+  L2 := DX * DX + DY * DY + DZ * DZ;
+  if L2 < 1E-12 then Exit;
+  T := ((P.X - A.X) * DX + (P.Y - A.Y) * DY + (P.Z - A.Z) * DZ) / L2;
+  if (T <= 0.001) or (T >= 0.999) then Exit;
+  Q := P3(A.X + DX * T, A.Y + DY * T, A.Z + DZ * T);
+  Result := Dist(P, Q) <= Sqrt(L2) * 1E-6 + 1E-9;
+end;
+
 function SegCross(const A1, A2, B1, B2: TP3; out P: TP3;
   out TA, TB: Double): Boolean;
 var
@@ -2150,6 +2173,17 @@ var
     Inc(N);
   end;
 
+  { Note that something crosses line Which at parameter T, once. }
+  procedure AddCut(Which: Integer; T: Double);
+  var
+    Q: Integer;
+  begin
+    for Q := 0 to High(Cuts[Which]) do
+      if Abs(Cuts[Which][Q] - T) < 1E-9 then Exit;
+    SetLength(Cuts[Which], Length(Cuts[Which]) + 1);
+    Cuts[Which][High(Cuts[Which])] := T;
+  end;
+
 begin
   N := 0;
   SetLength(FSnapCache, 128);
@@ -2190,10 +2224,24 @@ begin
                     FEnts[Idx[J]].A, FEnts[Idx[J]].B, P, TA, TB) then
         begin
           Put(P, snCross);
-          SetLength(Cuts[I], Length(Cuts[I]) + 1);
-          Cuts[I][High(Cuts[I])] := TA;
-          SetLength(Cuts[J], Length(Cuts[J]) + 1);
-          Cuts[J][High(Cuts[J])] := TB;
+          AddCut(I, TA);
+          AddCut(J, TB);
+        end
+        else
+        begin
+          { A T-junction cuts too.  Draw a line from the middle of one side of
+            a rectangle to the middle of the other and each half of the side
+            you started from is a separate run - and wants its own middle to
+            aim at.  Without this the whole tic-tac-toe way of dividing a
+            shape gave nothing new to snap to. }
+          if PointOnSeg(FEnts[Idx[J]].A, FEnts[Idx[I]].A, FEnts[Idx[I]].B, TA) then
+            AddCut(I, TA);
+          if PointOnSeg(FEnts[Idx[J]].B, FEnts[Idx[I]].A, FEnts[Idx[I]].B, TA) then
+            AddCut(I, TA);
+          if PointOnSeg(FEnts[Idx[I]].A, FEnts[Idx[J]].A, FEnts[Idx[J]].B, TB) then
+            AddCut(J, TB);
+          if PointOnSeg(FEnts[Idx[I]].B, FEnts[Idx[J]].A, FEnts[Idx[J]].B, TB) then
+            AddCut(J, TB);
         end;
 
   { a crossed line is really several sub-segments, so give each of them a
