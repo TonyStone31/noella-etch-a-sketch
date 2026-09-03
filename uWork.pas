@@ -105,6 +105,18 @@ type
   TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCentre, snCross,
     snSubMid, snOnEdge);
 
+  { Everything a dimension is drawn out of, in screen coordinates.  One
+    routine works it out so that the preview you drag around and the thing
+    that ends up on the drawing cannot drift apart. }
+  TDimGeom = record
+    A, B: TPointF;          { the two points being measured }
+    W1, W2: TPointF;        { where each witness line ends }
+    LA, LB: TPointF;        { the dimension line itself }
+    S1A, S1B, S2A, S2B: TPointF;   { the slashes at each end }
+    Mid: TPointF;           { where the text sits }
+    Txt: string;
+  end;
+
   TSnapHit = record
     P: TP3;
     Kind: TSnapKind;
@@ -128,9 +140,9 @@ type
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
-    { Off is how far the dimension line sits from what it measures, in
-      screen pixels and signed for which side. }
-    procedure AddDim(const A, B: TP3; Ink: TColor; Off: Double = 20);
+    { Off is the vector from what is measured to where the dimension line
+      sits - a real displacement in the model, not a number of pixels. }
+    procedure AddDim(const A, B: TP3; Ink: TColor; const Off: TP3);
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
 
@@ -293,6 +305,14 @@ function Unproject(const V: TProjector; SX, SY: Double; Pl: TPlane;
 { The six axis directions, and how they read on screen in the given view. }
 function AxisDir(Index: Integer): TP3;
 function AxisName(Index: Integer): string;
+
+{ Lay out a dimension.  Off is a vector in the model, not a number of pixels:
+  the dimension line is simply the measured edge shifted by it.  That is what
+  lets it keep its distance as you zoom and stay where you put it as you
+  orbit - a screen-space offset swings round the geometry instead.  False when
+  the two points are too close together on screen to dimension. }
+function DimGeometry(const V: TProjector; const A, B, Off: TP3;
+  U: TUnitSystem; out G: TDimGeom): Boolean;
 
 { A point on a circle of radius R about C, at Ang radians, in plane Pl. }
 function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane): TP3;
@@ -854,6 +874,57 @@ end;
 { SketchUp talks about the axes by colour, and so does everything on screen
   here, so a locked direction says the colour rather than a sign.  A lock runs
   both ways along its axis; which way is the cursor's business. }
+function DimGeometry(const V: TProjector; const A, B, Off: TP3;
+  U: TUnitSystem; out G: TDimGeom): Boolean;
+var
+  PA, PB: TPointF;
+  L, UX, UY, NX, NY, OL: Double;
+begin
+  Result := False;
+  FillChar(G, SizeOf(G), 0);
+  PA := Project(V, A);
+  PB := Project(V, B);
+  L := Sqrt(Sqr(PB.X - PA.X) + Sqr(PB.Y - PA.Y));
+  if L < 14 then Exit;
+  UX := (PB.X - PA.X) / L;
+  UY := (PB.Y - PA.Y) / L;
+
+  { the line, shifted bodily by the offset - everything else hangs off it }
+  G.LA := Project(V, P3(A.X + Off.X, A.Y + Off.Y, A.Z + Off.Z));
+  G.LB := Project(V, P3(B.X + Off.X, B.Y + Off.Y, B.Z + Off.Z));
+
+  { which way the offset went on screen, so the ticks and the text can lean
+    away from the geometry rather than into it }
+  NX := G.LA.X - PA.X;
+  NY := G.LA.Y - PA.Y;
+  OL := Sqrt(NX * NX + NY * NY);
+  if OL < 1E-6 then
+  begin
+    NX := -UY;
+    NY := UX;
+  end
+  else
+  begin
+    NX := NX / OL;
+    NY := NY / OL;
+  end;
+
+  { the witness lines stand off the geometry a little and run just past the
+    dimension line, which is what makes a drawing readable }
+  G.A := PtF(PA.X + NX * 4, PA.Y + NY * 4);
+  G.B := PtF(PB.X + NX * 4, PB.Y + NY * 4);
+  G.W1 := PtF(G.LA.X + NX * 5, G.LA.Y + NY * 5);
+  G.W2 := PtF(G.LB.X + NX * 5, G.LB.Y + NY * 5);
+  G.S1A := PtF(G.LA.X - UX * 4 - NX * 4, G.LA.Y - UY * 4 - NY * 4);
+  G.S1B := PtF(G.LA.X + UX * 4 + NX * 4, G.LA.Y + UY * 4 + NY * 4);
+  G.S2A := PtF(G.LB.X - UX * 4 - NX * 4, G.LB.Y - UY * 4 - NY * 4);
+  G.S2B := PtF(G.LB.X + UX * 4 + NX * 4, G.LB.Y + UY * 4 + NY * 4);
+  G.Mid := PtF((G.LA.X + G.LB.X) / 2 + NX * 8,
+               (G.LA.Y + G.LB.Y) / 2 + NY * 8);
+  G.Txt := FormatLen(Dist(A, B), U);
+  Result := True;
+end;
+
 function AxisName(Index: Integer): string;
 begin
   case Index of
@@ -1062,7 +1133,7 @@ begin
   FSnapDirty := True;
 end;
 
-procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; Off: Double);
+procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; const Off: TP3);
 begin
   SetLength(FEnts, FLive + 1);
   Finalize(FEnts[FLive]);
@@ -1070,7 +1141,7 @@ begin
   FEnts[FLive].Kind := ekDim;
   FEnts[FLive].A := A;
   FEnts[FLive].B := B;
-  FEnts[FLive].R := Off;
+  FEnts[FLive].C := Off;
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := 1;
   FEnts[FLive].Dim := True;
@@ -2222,9 +2293,10 @@ begin
           Put(FEnts[I].B, snEndpoint);
           Put(FEnts[I].C, snCentre);
         end;
-      ekFace: ;
-    else
-      Put(FEnts[I].A, snEndpoint);
+      { Nothing snaps to a dimension or a note.  They are annotation sitting
+        beside the drawing, and having the cursor jump to one while drawing a
+        line is only ever in the way. }
+      ekFace, ekDim, ekText: ;
     end;
 
   { every line gets a list of the parameters where something crosses it }
@@ -2315,6 +2387,7 @@ function TWorkDoc.Outline(const V: TProjector; I: Integer): TPointFArray;
 var
   K, Steps: Integer;
   Ang: Double;
+  DG: TDimGeom;
 begin
   Result := nil;
   if (I < 0) or (I >= FLive) then Exit;
@@ -2336,6 +2409,17 @@ begin
           Result[K] := Project(V, FEnts[I].Poly[K]);
         if Length(FEnts[I].Poly) > 0 then
           Result[High(Result)] := Result[0];
+      end;
+    ekDim:
+      begin
+        { the drawn line and its two witness lines, so highlighting a
+          dimension marks where it actually is }
+        if not DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C,
+             usImperial, DG) then Exit;
+        SetLength(Result, 6);
+        Result[0] := DG.A;   Result[1] := DG.W1;
+        Result[2] := DG.LA;  Result[3] := DG.LB;
+        Result[4] := DG.W2;  Result[5] := DG.B;
       end;
     ekText:
       begin
@@ -2437,6 +2521,7 @@ var
   I: Integer;
   D, Best: Double;
   PA, PB: TPointF;
+  DG: TDimGeom;
 begin
   Result := -1;
   Best := TolPx;
@@ -2449,6 +2534,17 @@ begin
         Measuring against the drawn segments is the only test that holds up in
         ISO and orbit. }
       D := ArcScreenDist(V, FEnts[I], SX, SY)
+    else if FEnts[I].Kind = ekDim then
+    begin
+      { A dimension is drawn off to one side of what it measures.  Testing
+        against the two measured points would mean clicking an invisible line
+        through the geometry to erase it, which is not where anyone aims. }
+      if not DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG) then
+        Continue;
+      D := Min(DistToSeg(SX, SY, DG.LA.X, DG.LA.Y, DG.LB.X, DG.LB.Y),
+           Min(DistToSeg(SX, SY, DG.A.X, DG.A.Y, DG.W1.X, DG.W1.Y),
+               DistToSeg(SX, SY, DG.B.X, DG.B.Y, DG.W2.X, DG.W2.Y)));
+    end
     else
     begin
       PA := Project(V, FEnts[I].A);
@@ -2468,6 +2564,7 @@ var
   I, K, Steps: Integer;
   D, Best, Ang: Double;
   PA, PB: TPointF;
+  DG: TDimGeom;
 begin
   for I := FLive - 1 downto 0 do
   begin
@@ -2479,6 +2576,15 @@ begin
           PA := Project(V, FEnts[I].A);
           D := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
         end;
+      ekDim:
+        { the drawn line and its witness lines, not the invisible chord
+          through the geometry - that is where the eraser is aimed }
+        if DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG) then
+          D := Min(DistToSeg(SX, SY, DG.LA.X, DG.LA.Y, DG.LB.X, DG.LB.Y),
+               Min(DistToSeg(SX, SY, DG.A.X, DG.A.Y, DG.W1.X, DG.W1.Y),
+                   DistToSeg(SX, SY, DG.B.X, DG.B.Y, DG.W2.X, DG.W2.Y)))
+        else
+          D := 1E30;
     else
       begin
         PA := Project(V, FEnts[I].A);
@@ -2601,8 +2707,9 @@ begin
           [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
            Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight], FS));
       ekDim:
-        L.Add(Format('DIM %s %s %d %.3f',
-          [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].R], FS));
+        L.Add(Format('DIM %s %s %d %s',
+          [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink,
+           N3(FEnts[I].C)], FS));
       ekText:
         L.Add(Format('TEXT %s %d %s', [N3(FEnts[I].A), FEnts[I].Ink, FEnts[I].Txt], FS));
       ekFace:
@@ -2656,10 +2763,18 @@ begin
                RdF(T[6]), TPlane(StrToIntDef(T[7], 0)),
                StrToIntDef(T[8], 0), RdF(T[9]))
       else if (Kind = 'DIM') and (T.Count >= 8) then
-        { older files have no offset; the default is where they used to sit }
-        AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
-               P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),
-               IfThen(T.Count >= 9, RdF(T[8]), 20))
+        { A file written before the offset became a vector has one number
+          where three should be.  There is no view to turn it back into a
+          direction, so those dimensions land on the line they measure and
+          can be dragged off again. }
+        if T.Count >= 11 then
+          AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
+                 P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),
+                 P3(RdF(T[8]), RdF(T[9]), RdF(T[10])))
+        else
+          AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
+                 P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),
+                 P3(0, 0, 0))
       else if (Kind = 'TEXT') and (T.Count >= 6) then
       begin
         { the note itself is the rest of the line, spaces and all }
@@ -2829,54 +2944,20 @@ var
 
   { A dimension line parallel to the projected segment, always labelled with
     the true 3D length - which is what makes an isometric readable. }
-  procedure Dimension(const A, B: TP3; OffPx: Double);
+  procedure Dimension(const A, B, Off: TP3);
   var
-    SA, SB: TPointF;
-    NX, NY, L, Off, UX, UY, MX, MY: Double;
-    Txt: string;
+    G: TDimGeom;
     Sz: TSize;
   begin
-    SA := Project(V, A);
-    SB := Project(V, B);
-    L := Sqrt(Sqr(SB.X - SA.X) + Sqr(SB.Y - SA.Y));
-    if L < 14 then Exit;
-    UX := (SB.X - SA.X) / L;
-    UY := (SB.Y - SA.Y) / L;
-    NX := -UY;
-    NY := UX;
-    if (NY < 0) or ((Abs(NY) < 0.001) and (NX < 0)) then
-    begin
-      NX := -NX;
-      NY := -NY;
-    end;
-    { a negative offset puts it on the other side, which is what dragging
-      the other way should mean }
-    if OffPx < 0 then
-    begin
-      NX := -NX;
-      NY := -NY;
-      OffPx := -OffPx;
-    end;
-    Off := OffPx;
-
-    S.Line(SA.X + NX * 4, SA.Y + NY * 4, SA.X + NX * (Off + 5), SA.Y + NY * (Off + 5),
-      1.0, LabelCol, 0.5);
-    S.Line(SB.X + NX * 4, SB.Y + NY * 4, SB.X + NX * (Off + 5), SB.Y + NY * (Off + 5),
-      1.0, LabelCol, 0.5);
-    S.Line(SA.X + NX * Off, SA.Y + NY * Off, SB.X + NX * Off, SB.Y + NY * Off,
-      1.2, LabelCol, 0.85);
-    S.Line(SA.X + NX * Off - UX * 4 - NX * 4, SA.Y + NY * Off - UY * 4 - NY * 4,
-           SA.X + NX * Off + UX * 4 + NX * 4, SA.Y + NY * Off + UY * 4 + NY * 4,
-           1.4, LabelCol, 0.9);
-    S.Line(SB.X + NX * Off - UX * 4 - NX * 4, SB.Y + NY * Off - UY * 4 - NY * 4,
-           SB.X + NX * Off + UX * 4 + NX * 4, SB.Y + NY * Off + UY * 4 + NY * 4,
-           1.4, LabelCol, 0.9);
-
-    Txt := FormatLen(Dist(A, B), U);
-    Sz := S.TextExtent(Txt, AFont);
-    MX := (SA.X + SB.X) / 2 + NX * (Off + 3);
-    MY := (SA.Y + SB.Y) / 2 + NY * (Off + 3);
-    S.TextOut(Round(MX - Sz.cx / 2), Round(MY - Sz.cy / 2), Txt, AFont, LabelCol);
+    if not DimGeometry(V, A, B, Off, U, G) then Exit;
+    S.Line(G.A.X, G.A.Y, G.W1.X, G.W1.Y, 1.0, LabelCol, 0.5);
+    S.Line(G.B.X, G.B.Y, G.W2.X, G.W2.Y, 1.0, LabelCol, 0.5);
+    S.Line(G.LA.X, G.LA.Y, G.LB.X, G.LB.Y, 1.2, LabelCol, 0.85);
+    S.Line(G.S1A.X, G.S1A.Y, G.S1B.X, G.S1B.Y, 1.4, LabelCol, 0.9);
+    S.Line(G.S2A.X, G.S2A.Y, G.S2B.X, G.S2B.Y, 1.4, LabelCol, 0.9);
+    Sz := S.TextExtent(G.Txt, AFont);
+    S.TextOut(Round(G.Mid.X - Sz.cx / 2), Round(G.Mid.Y - Sz.cy / 2),
+      G.Txt, AFont, LabelCol);
   end;
 
 begin
@@ -2921,7 +3002,7 @@ begin
           S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
         end;
       ekDim:
-        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
+        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C);
     end;
   end;
 
@@ -3044,7 +3125,7 @@ begin
           end;
         ekDim:
           if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then
-            Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
+            Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C);
         ekText:
           if not Covered(FEnts[I].A, J) then
           begin

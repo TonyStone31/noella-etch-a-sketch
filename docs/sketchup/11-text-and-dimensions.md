@@ -46,7 +46,29 @@ Arrow styles: none, dot, closed, open.
 Tools > 3D Text.  Font, alignment, height, Filled, Extruded.  A negative
 extrusion engraves.
 
-*(Built: a dimension entity you can select and erase, auto dimensions on new
-lines with a toggle, plain notes, **dimensioning a whole edge with one click**,
-and **double-clicking a face with the Text tool to drop its area in**.  Not
-built: radius and diameter dimensions, leaders, 3D text, endpoint styles.)*
+### What hovering does
+
+The docs say only that "as you hover your mouse, the SketchUp inference engine
+helps you identify these points", but in the app the edge under the cursor
+lights up before you click it, and that is the half that makes the rest make
+sense — it tells you whether the click is about to take the whole edge or start
+a point-to-point.
+
+> "After you place a dimension in a plane, you can move the dimension only
+> within that plane."
+
+### Editing the extension lines
+Hovering the end of an extension line turns the cursor into the Move tool;
+dragging moves that one extension line.  Dragging its offset point parallel to
+the line changes that one line's length.
+*(Not built.)*
+
+*(Built: hovering an edge lights it up; one click takes the whole edge; the
+dimension is previewed with its witness lines, end slashes and reading as you
+pull it out; the offset is a vector in the model, so it holds its distance as
+you zoom and stays in its plane as you orbit.  A dimension is an ordinary
+entity — select it, erase it, and nothing else snaps to it.  Double-clicking a
+face with the Text tool drops its area in.
+
+Not built: radius and diameter dimensions, leaders, 3D text, endpoint styles,
+dragging the extension lines, typing over the reading.)*

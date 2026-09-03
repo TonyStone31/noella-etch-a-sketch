@@ -125,7 +125,7 @@ begin
   try
     MakeRect(A, 0, 0, 10, 6);
     A.AddArc(P3(20, 0, 0), 3, 0, 2 * Pi, plXY, 0, 2);
-    A.AddDim(P3(0, 0, 0), P3(10, 0, 0), 0, 20);
+    A.AddDim(P3(0, 0, 0), P3(10, 0, 0), 0, P3(0, -2, 0));
     A.AddText(P3(1, 1, 0), 'a note with spaces', 0);
     Ok(A.PushPull(4, 4), 'the face pushed');   // entity 4 is the face
 
