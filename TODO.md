@@ -409,3 +409,52 @@ after some of them.
   fallback itself should use the polygon interior.
 * **Move connectivity rules** need writing down and testing: two solids touching
   at one corner currently drag each other.
+
+---
+
+## Second alignment pass, 2 September 2026
+
+Everything here came straight out of `docs/sketchup/` — reading the pages
+properly turned up a dozen things we had guessed at.
+
+**Arrow keys now mean what SketchUp's mean.** → red X, ← green Y, ↑ blue Z, in
+every view; ↓ lets go. They used to be screen-relative, which was our own
+invention. A lock is on the axis, not on a direction along it, so a locked line
+can be drawn backwards — it used to clamp at zero. The same three keys pick the
+working plane for the shape tools, naming it by the axis it is normal to.
+
+**The Line tool takes coordinates.** `[x,y,z]` for a point in the drawing,
+`<x,y,z>` for an offset from the start. It was on Move only; the docs give the
+same box to Line.
+
+**The command bar hands a measurement to the tool.** Anything starting with a
+digit, sign, bracket, comma or `x` goes to whatever tool is mid-shape rather
+than being read as a command. `6',` used to come back "I do not know 6'x".
+
+**Rectangle takes one side on its own** — `6',` sets the width and leaves the
+height under the cursor, `,6'` the other way about — and a negative value runs
+that side the opposite way whatever the cursor is doing.
+
+**Push/pull works on a preselected face**, which the docs recommend for a face
+too small or crowded to click, and **double-clicking another face repeats the
+last pull**. Not done: Ctrl+double-click to stack.
+
+**One click on an edge dimensions the whole edge** — "To take a dimension of a
+single line, simply click the line and move the cursor."
+
+**Double-clicking a face with the Text tool drops its area in as a note.**
+Straight out of the docs, and it is half of why you draw a panel.
+
+**The deck grew a row.** Twelve tools across one row was clipping the longer
+names. They are in three groups of four now — pick and change, draw, measure and
+look — two rows deep, with a rule down each gap. Row height went 20 to 24.
+
+### Still not aligned
+* No Square or Golden Section inference on the rectangle.
+* No parallel inference on push/pull, no "offset is limited" message.
+* No arc radius (`24r`), segment (`20s`) or circle-basis (`20c`) entry, and only
+  the 2-point arc of SketchUp's four.
+* Our eraser sweep highlights red; SketchUp's is blue. Blue is our selection
+  colour and the two would read the same, so this stays deliberate.
+* No Alt cycling of linear inferencing on the Line tool — our Alt holds the
+  working plane instead.

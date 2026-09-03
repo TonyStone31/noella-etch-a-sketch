@@ -31,5 +31,6 @@ Tips from the page:
 To cut a hole clean through, the pushed face must be **parallel** with the face
 on the far side, and no lines may divide that far face — erase them first.
 
-*(Not implemented here: preselect-then-push, the parallel inference,
-double-click repeat, Ctrl double-click stack, the "offset is limited" message.)*
+*(Built: preselect a face with the arrow then push it, and double-click
+another face to repeat the last pull.  Not built: the parallel inference,
+Ctrl double-click to stack, the "offset is limited" message.)*

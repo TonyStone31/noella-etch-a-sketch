@@ -16,8 +16,9 @@ dragging.
 
 Once you move on you cannot edit a rectangle's size — erase it, or scale it.
 
-*(We take `12'x8'` and also `12',8'`.  We have no Square or Golden Section
-inference.)*
+*(Built: `12'x8'`, `12',8'`, one side on its own as `6',` or `,6'`, and
+negative values running the other way.  Not built: the Square and Golden
+Section inferences.)*
 
 ## Circle — **C**
 The Measurements box shows the segment count before you start; typing a number

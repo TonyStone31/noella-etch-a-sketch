@@ -239,10 +239,16 @@ type
     FBoxing: Boolean;
     FBoxX, FBoxY: Integer;
 
+    { the two gaps between the three tool groups, so the deck can rule a line
+      down each one }
+    FGrpDivX: array[0..1] of Integer;
+    FGrpDivY0, FGrpDivY1: Integer;
+
     { the move in progress: where it was grabbed, and every corner that will
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    FLastPush: Double;         // what a double-click repeats
 
     { how many clicks have landed in the same spot in quick succession: two
       takes what is attached, three takes everything joined on }
@@ -601,6 +607,15 @@ const
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
      'ERASE', 'MEASURE', 'DIM', 'ORBIT');
+
+  { The tools in three groups of four, laid out two rows deep, so a group
+    reads as a group and every name has room to be read.  The grouping is
+    SketchUp's: what you pick and change with, what you draw with, and what
+    you measure and look with. }
+  TOOL_GROUPS: array[0..2, 0..3] of TProTool =
+    ((ptSelect, ptMove, ptErase, ptPush),
+     (ptLine, ptRect, ptCircle, ptArc),
+     (ptMeasure, ptDim, ptText, ptOrbit));
 
   TOOL_HINTS: array[TProTool] of string = (
     'Select - click to pick, drag a box for several.  Ctrl adds, Shift ' +
@@ -1112,8 +1127,10 @@ end;
 
 function TMainForm.DeckRowH: Integer;
 begin
+  { 20 was too tight: the longer tool names were being clipped and the icons
+    had nothing to sit in. }
   if FMode = mdPro then
-    Result := Round(20 * FUIScale)
+    Result := Round(24 * FUIScale)
   else
     Result := Round(30 * FUIScale);
 end;
@@ -1124,7 +1141,8 @@ end;
   Derived either way, so another row is a change here and nowhere else. }
 function TMainForm.DeckRows: Integer;
 begin
-  if FMode = mdPro then Result := 2 else Result := 4;
+  { two rows of tools, in three groups, and one row for the settings }
+  if FMode = mdPro then Result := 3 else Result := 4;
 end;
 
 function TMainForm.DeckHeight: Integer;
@@ -1983,7 +2001,7 @@ end;
 procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
-  Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N: Integer;
+  Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N, G, GX, GrpGap: Integer;
   HalfW, SnapX, RightW6: Integer;
   Blank: TPix;
 
@@ -2095,25 +2113,33 @@ begin
   end
   else
   begin
-    { --- row 1: tools --------------------------------------------------- }
-    RowY := Y0;
+    { --- rows 1 and 2: the tools, in three groups ------------------------
+      Six across instead of twelve, so the names fit, with a gap between the
+      groups wide enough to read as a break rather than as spacing. }
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
-    N := Ord(High(TProTool)) + 1;
-    SegW := Avail div N;
-    for I := 0 to N - 1 do
-      Add(dkSegment, Rect(X + I * SegW + 2, RowY, X + (I + 1) * SegW - 2, RowY + RowH),
-        GRP_TOOL, I, TOOL_NAMES[TProTool(I)], TOOL_HINTS[TProTool(I)],
-        TOOL_ICONS[TProTool(I)]);
-    if FMode = mdToy then
-      AddIconRow(RowY, ACT_UNDO, ACT_REDO, ACT_FIT, ikUndo, ikRedo, ikFit,
-        'Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)');
+    GrpGap := Round(20 * FUIScale);
+    SegW := (Avail - 2 * GrpGap) div 6;
+    FGrpDivY0 := Y0 + Round(2 * FUIScale);
+    FGrpDivY1 := Y0 + 2 * RowH + RowGap - Round(2 * FUIScale);
+    for G := 0 to 1 do
+      FGrpDivX[G] := X + (G + 1) * (2 * SegW + GrpGap) - GrpGap div 2;
+    for G := 0 to 2 do
+      for I := 0 to 3 do
+      begin
+        GX := X + G * (2 * SegW + GrpGap) + (I mod 2) * SegW;
+        RowY := Y0 + (I div 2) * (RowH + RowGap);
+        Add(dkSegment, Rect(GX + 2, RowY, GX + SegW - 2, RowY + RowH),
+          GRP_TOOL, Ord(TOOL_GROUPS[G, I]),
+          TOOL_NAMES[TOOL_GROUPS[G, I]], TOOL_HINTS[TOOL_GROUPS[G, I]],
+          TOOL_ICONS[TOOL_GROUPS[G, I]]);
+      end;
 
     { --- row 2: the settings, as buttons that open a list -----------------
       Scale, snap and the pen get set once and then left alone, so a row of
       choices each was drawing area spent on things nobody touches.  Each is
       one button showing what it is set to, and the list opens above it -
       which also means a list can be longer than a row ever was. }
-    RowY := Y0 + RowH + RowGap;
+    RowY := Y0 + 2 * (RowH + RowGap);
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
     SegW := (Avail - 3 * RowGap) div 4;
     Add(dkSegment, Rect(X, RowY, X + SegW - RowGap, RowY + RowH),
@@ -2135,7 +2161,7 @@ begin
       ['Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)',
        'Change the theme  (T)', 'Show or hide the measured grid  (G)',
        'About this program  (F1)']);
-    AddIconRow6(RowY,
+    AddIconRow6(Y0 + RowH + RowGap,
       [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_DIM, ACT_ORIGIN],
       [ikOpen, ikSave, ikExport, ikUnits, ikDim, ikOrigin],
       ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
@@ -2289,6 +2315,13 @@ begin
   PaintPanel(FDeckSkin, Rect(0, 0, FDeckSkin.Width, FDeckSkin.Height), Theme,
     Round(16 * FUIScale));
 
+  { a hairline down each gap, so the three groups of tools read as three
+    groups rather than as six buttons that happen to be spaced oddly }
+  if (FMode = mdPro) and (FGrpDivY1 > FGrpDivY0) then
+    for I := 0 to 1 do
+      FDeckSkin.Line(FGrpDivX[I], FGrpDivY0, FGrpDivX[I], FGrpDivY1,
+        Max(1.0, FUIScale), MixPix(Theme.Panel, Theme.TextDim, 0.9), 0.9);
+
   for I := 0 to High(FDeck) do
   begin
     It := FDeck[I];
@@ -2422,7 +2455,7 @@ begin
   else
   begin
     Section(0, 'TOOL');
-    Section(1, 'SET');
+    Section(2, 'SET');
   end;
 
   for I := 0 to High(FDeck) do
@@ -2989,12 +3022,17 @@ begin
   Txt := LowerCase(Trim(FInput));
   I := Pos('x', Txt);
   if I = 0 then I := Pos(',', Txt);
-  if I <= 1 then Exit;
+  if I = 0 then Exit;
 
+  { SketchUp takes a side on its own: "3'," sets the first and leaves the
+    second under the cursor, ",3'" the other way about.  Either side may be
+    negative, which runs it the opposite way whatever the cursor is doing. }
   LW := Trim(Copy(Txt, 1, I - 1));
   LH := Trim(Copy(Txt, I + 1, MaxInt));
-  if not ParseLen(LW, FD.Units, W) then Exit;
-  if not ParseLen(LH, FD.Units, H) then Exit;
+  RectSides(FP1, FCur, FD.Plane, W, H);
+  if (LW <> '') and not ParseLen(LW, FD.Units, W) then Exit;
+  if (LH <> '') and not ParseLen(LH, FD.Units, H) then Exit;
+  if (LW = '') and (LH = '') then Exit;
 
   { sign from wherever the cursor is now }
   case FD.Plane of
@@ -3002,18 +3040,24 @@ begin
       begin
         if FCur.X < FP1.X then SX := -1 else SX := 1;
         if FCur.Z < FP1.Z then SY := -1 else SY := 1;
+        if W < 0 then begin SX := -SX; W := -W; end;
+        if H < 0 then begin SY := -SY; H := -H; end;
         Result := P3(FP1.X + W * SX, FP1.Y, FP1.Z + H * SY);
       end;
     plYZ:
       begin
         if FCur.Y < FP1.Y then SX := -1 else SX := 1;
         if FCur.Z < FP1.Z then SY := -1 else SY := 1;
+        if W < 0 then begin SX := -SX; W := -W; end;
+        if H < 0 then begin SY := -SY; H := -H; end;
         Result := P3(FP1.X, FP1.Y + W * SX, FP1.Z + H * SY);
       end;
   else
     begin
       if FCur.X < FP1.X then SX := -1 else SX := 1;
       if FCur.Y < FP1.Y then SY := -1 else SY := 1;
+      if W < 0 then begin SX := -SX; W := -W; end;
+      if H < 0 then begin SY := -SY; H := -H; end;
       Result := P3(FP1.X + W * SX, FP1.Y + H * SY, FP1.Z);
     end;
   end;
@@ -3023,12 +3067,25 @@ end;
   direction, then the cursor itself. }
 function TMainForm.PreviewTarget: TP3;
 var
-  L, Len: Double;
+  L, Len, CX, CY, CZ: Double;
   Typed: Boolean;
   D: TP3;
+  Txt: string;
 begin
   Result := FCur;
   if FStage <> 1 then Exit;
+
+  { a point in the drawing, or an offset from where the line started }
+  Txt := Trim(FInput);
+  if (Length(Txt) >= 2) and (Txt[1] in ['[', '<']) then
+  begin
+    if ParseTriple(Txt, FD.Units, CX, CY, CZ) > 0 then
+    begin
+      if Txt[1] = '[' then Result := P3(CX, CY, CZ)
+      else Result := P3(FP1.X + CX, FP1.Y + CY, FP1.Z + CZ);
+    end;
+    Exit;
+  end;
 
   Typed := (FInput <> '') and ParseLen(FInput, FD.Units, L);
 
@@ -3036,11 +3093,10 @@ begin
   begin
     D := AxisDir(FDirLock);
     if not Typed then
-    begin
-      { no number yet, so slide along the locked axis under the cursor }
+      { no number yet, so slide along the locked axis under the cursor.  A
+        lock is on the axis, not on one direction along it, so drawing back
+        the other way is allowed. }
       L := (FCur.X - FP1.X) * D.X + (FCur.Y - FP1.Y) * D.Y + (FCur.Z - FP1.Z) * D.Z;
-      if L < 0 then L := 0;
-    end;
     Result := P3(FP1.X + D.X * L, FP1.Y + D.Y * L, FP1.Z + D.Z * L);
     Exit;
   end;
@@ -3481,11 +3537,21 @@ var
   Was: TPlane;
 begin
   Was := FD.Plane;
+  { SketchUp locks a plane by naming its normal with the axis colours: right
+    is red, left is green, up is blue.  Down lets go again. }
+  if Key = VK_DOWN then
+  begin
+    FPlaneHeld := False;
+    FCmdMsg := 'Following the face under the cursor again.';
+    pbCmd.Invalidate;
+    FScreenDirty := True;
+    Exit;
+  end;
   case Key of
-    VK_UP, VK_DOWN: FD.Plane := plXZ;
-    VK_LEFT, VK_RIGHT: FD.Plane := plYZ;
+    VK_RIGHT: FD.Plane := plYZ;     // normal is red, X
+    VK_LEFT: FD.Plane := plXZ;      // normal is green, Y
   else
-    FD.Plane := plXY;
+    FD.Plane := plXY;               // normal is blue, Z
   end;
   FPlaneHeld := True;
   if FD.Plane <> Was then
@@ -3798,6 +3864,23 @@ begin
     ptText:
       if FStage = 0 then
       begin
+        { "Double-click on any face, while in the Text tool, to display the
+          area of the face as a Text entity." - and knowing the area of a
+          panel is half the reason to draw one. }
+        if FClickN >= 2 then
+        begin
+          I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+          if I >= 0 then
+          begin
+            PushUndo;
+            FD.Doc.AddText(FCur,
+              FormatArea(FD.Doc.FaceArea(I), FD.Units), FInkColor);
+            RenderPro;
+            RecomposeAll;
+            FCmdMsg := 'Area ' + FormatArea(FD.Doc.FaceArea(I), FD.Units);
+            Exit;
+          end;
+        end;
         FP1 := FCur;
         FStage := 1;
         FInput := '';
@@ -3808,7 +3891,29 @@ begin
     ptPush:
       if FStage = 0 then
       begin
+        { A double-click on another face repeats the last pull, which is how
+          SketchUp does a row of identical extrusions. }
+        if (FClickN >= 2) and (Abs(FLastPush) > 1E-9) then
+        begin
+          I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+          if I >= 0 then
+          begin
+            PushUndo;
+            if FD.Doc.PushPull(I, FLastPush) then
+            begin
+              RenderPro;
+              RecomposeAll;
+              FCmdMsg := 'Same again - ' + FormatLen(Abs(FLastPush), FD.Units);
+            end;
+            Exit;
+          end;
+        end;
         FPushFace := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+        { A face too small or too crowded to click can be picked with the
+          arrow first and pushed afterwards, which the docs recommend. }
+        if (FPushFace < 0) and (Length(FSel) = 1) and
+           (FD.Doc[FSel[0]].Kind = ekFace) then
+          FPushFace := FSel[0];
         if FPushFace < 0 then
           FCmdMsg := 'No face there.  Close a loop of lines to make one.'
         else
@@ -3829,7 +3934,27 @@ begin
 
     ptDim:
       case FStage of
-        0: begin FP1 := FCur; FStage := 1; end;
+        0:
+          begin
+            { "To take a dimension of a single line, simply click the line and
+              move the cursor." - straight from their docs, and the thing you
+              want nine times out of ten. }
+            I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
+            if (I >= 0) and (FD.Doc[I].Kind in [ekLine, ekArc]) then
+            begin
+              FP1 := FD.Doc[I].A;
+              FP2 := FD.Doc[I].B;
+              FStage := 2;
+              FCmdMsg := 'The whole edge, ' +
+                FormatLen(Dist(FP1, FP2), FD.Units) +
+                ' - move away to place the line.';
+            end
+            else
+            begin
+              FP1 := FCur;
+              FStage := 1;
+            end;
+          end;
         1: begin FP2 := FCur; FStage := 2; end;
       else
         ProCommit;
@@ -4046,6 +4171,8 @@ begin
           PushUndo;
           if FD.Doc.PushPull(FPushFace, R) then
           begin
+            FLastPush := R;      // so a double-click can repeat it
+            SelectNone;
             RenderPro;
             RecomposeAll;
             FCmdMsg := 'Pulled ' + FormatLen(Abs(R), FD.Units);
@@ -4212,10 +4339,12 @@ begin
     Exit;
   end;
 
-  { a coordinate is not a length, and the move tool is the only thing that
-    takes one - hand it straight over rather than trying to read it as a
-    command }
-  if (FStage > 0) and (Length(FInput) >= 2) and (FInput[1] in ['[', '<']) then
+  { Not every entry is a plain length: a rectangle takes 8',20' or 6',, and
+    move and line take [x,y,z] and <x,y,z>.  Anything that starts like a
+    measurement belongs to the tool, which knows what to make of it.  Bare
+    words still fall through to the command list below. }
+  if (FStage > 0) and (FInput <> '') and
+     (FInput[1] in ['0'..'9', '-', '.', '[', '<', ',', 'x', 'X']) then
   begin
     ProCommit;
     FInput := '';
@@ -4316,16 +4445,17 @@ begin
     if (FTool = ptMove) and (FStage = 1) then
       FMoveCopy := ssCtrl in Shift;
 
+    if (GetTickCount64 - FClickT < 450) and (Abs(X - FClickX) < 5) and
+       (Abs(Y - FClickY) < 5) then
+      Inc(FClickN)
+    else
+      FClickN := 1;
+    FClickT := GetTickCount64;
+    FClickX := X;
+    FClickY := Y;
+
     if FTool = ptSelect then
     begin
-      if (GetTickCount64 - FClickT < 450) and (Abs(X - FClickX) < 5) and
-         (Abs(Y - FClickY) < 5) then
-        Inc(FClickN)
-      else
-        FClickN := 1;
-      FClickT := GetTickCount64;
-      FClickX := X;
-      FClickY := Y;
       FBoxing := True;
       FBoxX := X;
       FBoxY := Y;
@@ -5912,8 +6042,25 @@ var
   Handled: Boolean;
   Step: Double;
 
-  { Which model axis an arrow means depends on the view. }
+  { SketchUp's arrows name an axis by its colour, the same in every view:
+    right locks red, left locks green, up locks blue.  A lock is on the axis,
+    not on a direction along it, so the cursor still says which way. }
   function ArrowAxis(K: word): Integer;
+  begin
+    case K of
+      VK_RIGHT: Result := 0;      // red, X
+      VK_LEFT: Result := 2;       // green, Y
+      VK_UP: Result := 4;         // blue, Z
+      VK_PRIOR: Result := 4;
+      VK_NEXT: Result := 5;
+    else
+      Result := -1;               // down lets go, our stand-in for magenta
+    end;
+  end;
+
+  { Nudging the cursor with the arrows still wants a screen direction, which
+    is a different question from which axis a lock means. }
+  function ArrowStep(K: word): Integer;
   begin
     if FD.View = vkIso then
       case K of
@@ -5942,11 +6089,12 @@ var
     if (FTool in [ptLine, ptMove]) and (FStage = 1) then
     begin
       FDirLock := ArrowAxis(K);
-      FCmdMsg := '';
+      if FDirLock < 0 then FCmdMsg := 'Free again.'
+      else FCmdMsg := 'Locked to ' + AxisName(FDirLock) + '.';
     end
     else
     begin
-      D := AxisDir(ArrowAxis(K));
+      D := AxisDir(ArrowStep(K));
       Step := SnapStep;
       if Step <= 0 then Step := 1 / 12;
       if ssShift in Shift then
