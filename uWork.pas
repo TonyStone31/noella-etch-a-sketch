@@ -169,6 +169,11 @@ type
     function MergeFacesAcross(const A, B: TP3): Boolean;
     { How many flat faces run along the edge from A to B, either way round. }
     function FacesOnEdge(const A, B: TP3): Integer;
+    { How many faces you can actually see run along that edge, solids and all.
+      One means the edge is on the silhouette of something - the outline of
+      the shape against whatever is behind it - which is what SketchUp draws
+      thicker and calls a profile. }
+    function VisibleFacesOnEdge(const V: TProjector; const A, B: TP3): Integer;
     { Drop flat faces whose outline is no longer closed by real edges. }
     function DropOpenFaces: Integer;
     { The face a point lies on, or -1.  Used to work out which plane a new
@@ -1661,6 +1666,35 @@ end;
   The shared edge runs one way round in each face, which is what makes them
   separate regions rather than one folded over. Walk the first from B round
   to A, then the second from A round to B, and the seam is gone. }
+function TWorkDoc.VisibleFacesOnEdge(const V: TProjector;
+  const A, B: TP3): Integer;
+const
+  TOL = 1E-6;
+var
+  I, Q, N: Integer;
+  Look: TP3;
+begin
+  Result := 0;
+  Look := ViewDir(V);
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    { the back of a solid is not drawn, so it does not count towards whether
+      this edge is on the outline }
+    if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
+    N := Length(FEnts[I].Poly);
+    for Q := 0 to N - 1 do
+      if ((Dist(FEnts[I].Poly[Q], A) < TOL) and
+          (Dist(FEnts[I].Poly[(Q + 1) mod N], B) < TOL)) or
+         ((Dist(FEnts[I].Poly[Q], B) < TOL) and
+          (Dist(FEnts[I].Poly[(Q + 1) mod N], A) < TOL)) then
+      begin
+        Inc(Result);
+        Break;
+      end;
+  end;
+end;
+
 function TWorkDoc.FacesOnEdge(const A, B: TP3): Integer;
 const
   TOL = 1E-6;
@@ -2974,12 +3008,21 @@ var
     F, A, B: Integer;
     SP: TPointF;
     Inside: Boolean;
+    Nm: TP3;
   begin
     Result := True;
     SP := Project(V, P);
     for F := Slot + 1 to NFace - 1 do
     begin
       if Length(Shape[F]) < 3 then Continue;
+      { A face the point lies in cannot be in front of it.  Without this test
+        every edge of a solid was chopped to a dotted line: the edge lies in
+        the plane of the faces either side of it, they are drawn later, and
+        the point-in-polygon test on their shared boundary went either way
+        from sample to sample. }
+      Nm := FaceNormal(Order[F]);
+      if Abs(Dot3(Nm, P) - Dot3(Nm, FEnts[Order[F]].Poly[0])) < 1E-6 then
+        Continue;
       Inside := False;
       B := High(Shape[F]);
       for A := 0 to High(Shape[F]) do
@@ -3013,6 +3056,17 @@ var
       G.Txt, AFont, LabelCol);
   end;
 
+  { SketchUp's Profiles: the outline of a shape is drawn heavier than the
+    edges inside it, and that one difference is most of why a model reads as
+    solid rather than as a wireframe with fill.  An edge is on the outline
+    when only one of the faces you can see runs along it. }
+  function LineW(Ent: Integer): Single;
+  begin
+    Result := EdgeW;
+    if VisibleFacesOnEdge(V, FEnts[Ent].A, FEnts[Ent].B) = 1 then
+      Result := EdgeW * 2;
+  end;
+
 begin
   S.BlendMode := bmNormal;
 
@@ -3025,7 +3079,7 @@ begin
         begin
           PA := Project(V, FEnts[I].A);
           PB := Project(V, FEnts[I].B);
-          S.Line(PA.X, PA.Y, PB.X, PB.Y, EdgeW, Col);
+          S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
         end;
 
       ekArc:
@@ -3139,7 +3193,10 @@ begin
       properly is what stops a solid looking like glass. }
     Sh := 0.72 + 0.28 * Abs(Dot3(Nm, Lamp));
     S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
-    S.Poly(Flat, EdgeW, Col, True, 0.9);
+    { No outline.  Every boundary of a face is a real edge and gets drawn as
+      one, so stroking the polygon as well laid a second line over the first -
+      which is most of why the edges of a solid looked heavier than the lines
+      they were made of. }
   end;
 
 
@@ -3174,7 +3231,7 @@ begin
             if Covered(Lerp3(QA, QB, 0.5), J) then Continue;
             PA := Project(V, QA);
             PB := Project(V, QB);
-            S.Line(PA.X, PA.Y, PB.X, PB.Y, EdgeW, Col);
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
           end;
         ekDim:
           if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then
