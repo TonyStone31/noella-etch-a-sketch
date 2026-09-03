@@ -708,6 +708,96 @@ begin
   end;
 end;
 
+{ ------------------------------------------------- moving a solid about - }
+procedure TestMoveSolid;
+var
+  D: TWorkDoc;
+  Sel: array of Integer;
+  Pts: TP3Array;
+  I, N, Faces0: Integer;
+  MinZ, MaxZ, MinX: Double;
+begin
+  WriteLn('moving a whole solid, and one face of it');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'a box');
+    N := D.Live;
+    Faces0 := 0;
+    for I := 0 to N - 1 do
+      if D[I].Kind = ekFace then Inc(Faces0);
+
+    { the whole thing selected moves rigidly }
+    SetLength(Sel, N);
+    for I := 0 to N - 1 do Sel[I] := I;
+    D.VertsOf(Sel, Pts);
+    D.MoveVerts(Pts, P3(20, 0, 0));
+    EqI(D.Live, N, 'moving the lot adds nothing');
+    MinX := 1E30;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        MinX := Min(MinX, D[I].Poly[0].X);
+    EqF(MinX, 20, 'and the whole box went twenty feet along');
+
+    { and the box is still a box - top at 8 above its base }
+    MinZ := 1E30; MaxZ := -1E30;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for N := 0 to High(D[I].Poly) do
+        begin
+          MinZ := Min(MinZ, D[I].Poly[N].Z);
+          MaxZ := Max(MaxZ, D[I].Poly[N].Z);
+        end;
+    EqF(MinZ, 0, 'base still on the ground');
+    EqF(MaxZ, 8, 'top still eight up');
+    Ok(Faces0 = 6, 'and it still has its six faces');
+  finally
+    D.Free;
+  end;
+end;
+
+{ ------------------------------- moving one edge stretches what it holds - }
+procedure TestMoveEdgeStretches;
+var
+  D: TWorkDoc;
+  Sel: array of Integer;
+  Pts: TP3Array;
+  I, Ln: Integer;
+  MaxX: Double;
+begin
+  WriteLn('moving one edge of a box stretches it');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'a box');
+
+    { the top edge running along y = 0 at z = 8 }
+    Ln := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and
+         (Abs(D[I].A.Z - 8) < 1E-9) and (Abs(D[I].B.Z - 8) < 1E-9) and
+         (Abs(D[I].A.Y) < 1E-9) and (Abs(D[I].B.Y) < 1E-9) then Ln := I;
+    Ok(Ln >= 0, 'found a top edge');
+
+    SetLength(Sel, 1);
+    Sel[0] := Ln;
+    D.VertsOf(Sel, Pts);
+    EqI(Length(Pts), 2, 'an edge has two ends');
+    D.MoveVerts(Pts, P3(0, -4, 0));
+
+    EqF(Min(D[Ln].A.Y, D[Ln].B.Y), -4, 'the edge moved out to minus four');
+    { the top face followed, so it is bigger now }
+    MaxX := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].Z - 8) < 1E-9) and (Abs(D[I].Poly[2].Z - 8) < 1E-9) then
+        MaxX := Max(MaxX, D.FaceArea(I));
+    EqF(MaxX, 100, 'and the top stretched from sixty to a hundred', 1E-6);
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -724,6 +814,8 @@ begin
   TestPushLeavesNeighborAlone; WriteLn;
   TestCutBoxTop;    WriteLn;
   TestWholeSideStillSlides; WriteLn;
+  TestMoveSolid;    WriteLn;
+  TestMoveEdgeStretches; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

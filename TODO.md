@@ -990,3 +990,62 @@ That is the next structural piece, and it should come before offset and rotate.
   the reading at the cursor, offset far enough to read while dragging.
 * **The Move tool** has had almost no real use and is likely to have the same
   class of bug push/pull did.
+
+## The tape measure leaves guides — 3 September 2026
+
+SketchUp's tape does two jobs; ours only did one.  Sources:
+`https://help.sketchup.com/en/using-guides`, and the community writeups on the
+Ctrl toggle.
+
+**Guides are their own kind of thing.**  Infinite, dashed, snappable,
+erasable, saved, never part of a face - their docs are blunt: *"these lines do
+not interfere with regular geometry."*
+
+**What the tape leaves depends on where it started**, which is their rule:
+from an edge you get a **guide line parallel to that edge** at the distance you
+pulled - a wall thickness, a row of hangers - and from anywhere else you get a
+**guide point** at the far end.  **Ctrl** toggles it off so the tape only
+measures, and the prompt says which mode it is in.  `/guides` clears them all,
+their Edit > Delete Guides.
+
+**And the reading follows the cursor** while you drag, offset far enough to
+read - a tape you have to look away from is no use for a quick check.
+
+The eraser finds a guide anywhere along it.  One routine says where a guide
+lands on screen - the whole infinite line, not the one-unit stub that records
+its direction - and both hit tests and the highlight use it.
+
+Not done: the protractor, and typing a length to resize the whole model.
+
+## The Move tool, checked — 3 September 2026
+
+Tested rather than assumed, and it holds up.  Headless: a whole solid selected
+and moved goes rigidly, adds nothing, and keeps its six faces and its height;
+one top edge moved stretches the top from sixty square feet to a hundred.  In
+the app: box selected, `M`, grab a corner, type `<0,-25',0` - **Moved 25'-0"**,
+geometry intact.
+
+Left alone: selecting a solid highlights its back edges too, so a selected box
+reads as see-through.  SketchUp shows selected hidden edges as well, so this
+may be right; worth a look when someone finds it annoying.
+
+## Next: the planar region rebuild
+
+Agreed, and it should be next.  Every remaining feature leans on it, and each
+repair rule added meanwhile makes the migration harder.  `IsPatch` was written
+to *replace* a flag test rather than sit beside one, and it now answers push,
+split and profile with the same question - that is the direction, but it is not
+the destination.
+
+The order from `SUGGESTIONS_TO_CLAUDE.md` still stands:
+
+1. Split edges at intersections.
+2. Merge coincident vertices within one documented tolerance.
+3. Group edges by coplanar plane.
+4. Build directed half-edges and walk minimal bounded cycles.
+5. Nested cycles become holes, not overlapping faces.
+6. Rebuild affected regions after line, arc, erase and move.
+7. Keep solid faces separate from derived planar regions.
+
+The 109 headless checks are the safety net for it - they cover push, split,
+move, snapping, save and reload, and they should all still pass afterwards.
