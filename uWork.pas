@@ -123,7 +123,8 @@ type
     W1, W2: TPointF;        { where each witness line ends }
     LA, LB: TPointF;        { the dimension line itself }
     S1A, S1B, S2A, S2B: TPointF;   { the slashes at each end }
-    Mid: TPointF;           { where the text sits }
+    Mid: TPointF;           { the middle of the dimension line itself }
+    Nrm: TPointF;           { unit vector pointing away from the geometry }
     Txt: string;
   end;
 
@@ -363,6 +364,19 @@ function AxisName(Index: Integer): string;
   the two points are too close together on screen to dimension. }
 function DimGeometry(const V: TProjector; const A, B, Off: TP3;
   U: TUnitSystem; out G: TDimGeom): Boolean;
+
+{ Where the top-left of a dimension's text goes, given how big that text
+  turned out to be.
+
+  Pushing the text a fixed distance along the normal is not enough, because
+  the point it lands on is the *middle* of the text: half the figure is still
+  back over the line, and on an isometric - where the line runs at 30 degrees
+  and the lettering does not - that half is exactly the half you are trying
+  to read.  So the box has to be cleared rather than the centre moved: the
+  run from the middle of a W x H box out to its edge along (nx, ny) is
+  (|nx|W + |ny|H) / 2. }
+function DimTextTopLeft(const G: TDimGeom; TW, TH: Integer;
+  Gap: Double = 8): TPoint;
 
 { A point on a circle of radius R about C, at Ang radians, in plane Pl. }
 function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane): TP3;
@@ -1010,14 +1024,22 @@ begin
   G.S1B := PtF(G.LA.X + UX * 4 + NX * 4, G.LA.Y + UY * 4 + NY * 4);
   G.S2A := PtF(G.LB.X - UX * 4 - NX * 4, G.LB.Y - UY * 4 - NY * 4);
   G.S2B := PtF(G.LB.X + UX * 4 + NX * 4, G.LB.Y + UY * 4 + NY * 4);
-  { Well clear of the dimension line.  At eight pixels the text sat on the
-    line it belonged to and the two fought each other, which on an isometric
-    - where the line is at 30 degrees and the text is not - made the figure
-    hard to read at exactly the moment it matters. }
-  G.Mid := PtF((G.LA.X + G.LB.X) / 2 + NX * 15,
-               (G.LA.Y + G.LB.Y) / 2 + NY * 15);
+  G.Mid := PtF((G.LA.X + G.LB.X) / 2, (G.LA.Y + G.LB.Y) / 2);
+  G.Nrm := PtF(NX, NY);
   G.Txt := FormatLen(Dist(A, B), U);
   Result := True;
+end;
+
+function DimTextTopLeft(const G: TDimGeom; TW, TH: Integer;
+  Gap: Double): TPoint;
+var
+  Reach, CX, CY: Double;
+begin
+  Reach := (Abs(G.Nrm.X) * TW + Abs(G.Nrm.Y) * TH) / 2;
+  CX := G.Mid.X + G.Nrm.X * (Gap + Reach);
+  CY := G.Mid.Y + G.Nrm.Y * (Gap + Reach);
+  Result.X := Round(CX - TW / 2);
+  Result.Y := Round(CY - TH / 2);
 end;
 
 function AxisName(Index: Integer): string;
@@ -3319,6 +3341,7 @@ var
   var
     G: TDimGeom;
     Sz: TSize;
+    TP: TPoint;
   begin
     if not DimGeometry(V, A, B, Off, U, G) then Exit;
     S.Line(G.A.X, G.A.Y, G.W1.X, G.W1.Y, 1.0, LabelCol, 0.5);
@@ -3327,8 +3350,8 @@ var
     S.Line(G.S1A.X, G.S1A.Y, G.S1B.X, G.S1B.Y, 1.4, LabelCol, 0.9);
     S.Line(G.S2A.X, G.S2A.Y, G.S2B.X, G.S2B.Y, 1.4, LabelCol, 0.9);
     Sz := S.TextExtent(G.Txt, AFont);
-    S.TextOut(Round(G.Mid.X - Sz.cx / 2), Round(G.Mid.Y - Sz.cy / 2),
-      G.Txt, AFont, LabelCol);
+    TP := DimTextTopLeft(G, Sz.cx, Sz.cy);
+    S.TextOut(TP.X, TP.Y, G.Txt, AFont, LabelCol);
   end;
 
   { SketchUp's Profiles: the outline of a shape is drawn heavier than the
