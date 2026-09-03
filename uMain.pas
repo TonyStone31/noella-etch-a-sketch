@@ -240,6 +240,11 @@ type
     FBoxing: Boolean;
     FBoxX, FBoxY: Integer;
 
+    { asked for on the command line: keep filling the screen even if the
+      screen changes size under us }
+    FFill: (flNone, flMaximized, flFull);
+    FScrW, FScrH: Integer;
+
     { the two gaps between the three tool groups, so the deck can rule a line
       down each one }
     FGrpDivX: array[0..1] of Integer;
@@ -482,6 +487,7 @@ type
 
     procedure LoadSettings;
     procedure ApplyCommandLine;
+    procedure FollowScreenSize;
     procedure SaveSettings;
     procedure ShowAbout;
   end;
@@ -1238,14 +1244,23 @@ begin
   begin
     A := LowerCase(ParamStr(I));
     if (A = '--maximized') or (A = '--maximised') or (A = '-max') then
-      WindowState := wsMaximized
+    begin
+      FFill := flMaximized;
+      WindowState := wsMaximized;
+    end
     else if (A = '--fullscreen') or (A = '-full') then
     begin
-      { Asking for wsFullScreen and hoping is not enough - whether it lands
-        depends on the window manager, and a bare remote display may not have
-        one.  Take the whole monitor explicitly and drop the frame. }
-      BorderStyle := bsNone;
-      WindowState := wsNormal;
+      { Deliberately not BorderStyle := bsNone.  A borderless window is a
+        window GTK marks as not resizable, and it says so in the X size hints
+        - minimum, maximum and base all pinned to whatever size it opened at.
+        A remote display that later changes size then cannot resize it, which
+        is exactly what happens when KasmVNC follows the browser window.
+
+        Ask the window manager for full screen, which drops the frame and
+        keeps the window resizable, and set the bounds ourselves as well for
+        the case where there is no window manager at all. }
+      FFill := flFull;
+      WindowState := wsFullScreen;
       SetBounds(Monitor.Left, Monitor.Top, Monitor.Width, Monitor.Height);
     end
     else if Copy(A, 1, 7) = '--size=' then
@@ -1259,6 +1274,7 @@ begin
         H := StrToIntDef(Copy(V, X + 1, MaxInt), 0);
         if (W > 320) and (H > 240) then
         begin
+          FFill := flNone;
           WindowState := wsNormal;
           SetBounds(Left, Top, W, H);
           Position := poScreenCenter;
@@ -6212,12 +6228,44 @@ end;
 { the heartbeat                                                             }
 { ======================================================================== }
 
+{ A remote display can change size underneath us: KasmVNC resizes the virtual
+  screen to follow the browser window.  A window that was told on the command
+  line to fill the screen has to go on filling it, and there is no reliable
+  notification for the change, so it is watched on the tick.  Two integer
+  comparisons a frame. }
+procedure TMainForm.FollowScreenSize;
+var
+  W, H: Integer;
+begin
+  if FFill = flNone then Exit;
+  Screen.UpdateMonitors;
+  W := Screen.Width;
+  H := Screen.Height;
+  if (W < 320) or (H < 240) then Exit;
+  if (W = FScrW) and (H = FScrH) then Exit;
+  FScrW := W;
+  FScrH := H;
+  if FFill = flFull then
+  begin
+    WindowState := wsNormal;
+    SetBounds(0, 0, W, H);
+    WindowState := wsFullScreen;
+  end
+  else
+  begin
+    WindowState := wsNormal;
+    SetBounds(0, 0, W, H);
+    WindowState := wsMaximized;
+  end;
+end;
+
 procedure TMainForm.tmrTickTimer(Sender: TObject);
 var
   Dt, Speed, DX, DY: Single;
 begin
   Dt := TICK_MS / 1000;
 
+  FollowScreenSize;
   ServiceMotion;
   ServiceHover;
   try
