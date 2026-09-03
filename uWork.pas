@@ -169,6 +169,12 @@ type
     function MergeFacesAcross(const A, B: TP3): Boolean;
     { How many flat faces run along the edge from A to B, either way round. }
     function FacesOnEdge(const A, B: TP3): Integer;
+    { Is this face one piece of a larger flat area rather than the whole flat
+      side of something?  True when another face lying in the same plane runs
+      along one of its edges - which is exactly what a cut across a box top
+      leaves behind.  Push decides what to do from this: a whole side slides
+      and resizes the solid, a patch is lifted out of it. }
+    function IsPatch(Index: Integer): Boolean;
     { How many faces you can actually see run along that edge, solids and all.
       One means the edge is on the silhouette of something - the outline of
       the shape against whatever is behind it - which is what SketchUp draws
@@ -1536,6 +1542,8 @@ var
   HitP: array[0..1] of TP3;
   Src, H1, H2: TP3Array;
   Ink: TColor;
+  WasSolid: Boolean;
+  WasGrp: Integer;
 
   function Same(const P, R: TP3): Boolean;
   begin
@@ -1546,7 +1554,6 @@ begin
   Result := False;
   if (Index < 0) or (Index >= FLive) then Exit;
   if FEnts[Index].Kind <> ekFace then Exit;
-  if FEnts[Index].Solid then Exit;          // belongs to a solid, not a drawing
   N := Length(FEnts[Index].Poly);
   if N < 3 then Exit;
 
@@ -1645,13 +1652,26 @@ begin
 
   if (C1 < 3) or (C2 < 3) then Exit;
 
+  { both halves keep whatever the whole was - a side of a solid stays part of
+    that solid, and both pieces answer to the same group }
+  WasSolid := FEnts[Index].Solid;
+  WasGrp := FEnts[Index].Grp;
+
   SetLength(FEnts[Index].Poly, C1);
   for I := 0 to C1 - 1 do
     FEnts[Index].Poly[I] := H1[I];
   FEnts[Index].A := H1[0];
   FEnts[Index].B := H1[C1 - 1];
 
-  AddFace(H2, Ink, False);
+  if WasSolid then
+  begin
+    { raw, because both halves were walked round in the original's order and
+      already face the way it did - orienting them would turn one inside out }
+    AddFaceRaw(H2, Ink, True);
+    FEnts[FLive - 1].Grp := WasGrp;
+  end
+  else
+    AddFace(H2, Ink, False);
   FSnapDirty := True;
   Result := True;
 end;
@@ -1692,6 +1712,42 @@ begin
         Inc(Result);
         Break;
       end;
+  end;
+end;
+
+function TWorkDoc.IsPatch(Index: Integer): Boolean;
+const
+  TOL = 1E-6;
+var
+  I, Q, K, N, M: Integer;
+  Nm: TP3;
+  PlaneD: Double;
+begin
+  Result := False;
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
+  N := Length(FEnts[Index].Poly);
+  if N < 3 then Exit;
+  Nm := FaceNormal(Index);
+  PlaneD := Dot3(Nm, FEnts[Index].Poly[0]);
+
+  for I := 0 to FLive - 1 do
+  begin
+    if I = Index then Continue;
+    if FEnts[I].Kind <> ekFace then Continue;
+    M := Length(FEnts[I].Poly);
+    if M < 3 then Continue;
+    { in the same plane?  the normals may point opposite ways }
+    if Abs(Abs(Dot3(FaceNormal(I), Nm)) - 1) > TOL then Continue;
+    if Abs(Dot3(Nm, FEnts[I].Poly[0]) - PlaneD) > TOL then Continue;
+    { sharing an edge with it? }
+    for Q := 0 to N - 1 do
+      for K := 0 to M - 1 do
+        if ((Dist(FEnts[Index].Poly[Q], FEnts[I].Poly[K]) < TOL) and
+            (Dist(FEnts[Index].Poly[(Q + 1) mod N],
+                  FEnts[I].Poly[(K + 1) mod M]) < TOL)) or
+           ((Dist(FEnts[Index].Poly[Q], FEnts[I].Poly[(K + 1) mod M]) < TOL) and
+            (Dist(FEnts[Index].Poly[(Q + 1) mod N], FEnts[I].Poly[K]) < TOL)) then
+          Exit(True);
   end;
 end;
 
@@ -2205,9 +2261,14 @@ begin
   if Wt <= 0 then Wt := FEnts[Index].Weight;
   if Wt <= 0 then Wt := 1;
 
-  { Already part of a solid: slide the face instead of extruding from it, so
-    the solid resizes.  Extruding here is what put a box inside a box. }
-  if FEnts[Index].Solid then
+  { A face slides when it is the whole flat side of a solid; anything else
+    has a block extruded out of it.
+
+    This used to be "does it belong to a solid", which was right until you
+    could cut a solid's face.  Half a box top still belongs to the solid, but
+    pushing it has to lift that half out - sliding it would shear the box.
+    Asking whether the face is a patch answers both cases with one question. }
+  if FEnts[Index].Solid and not IsPatch(Index) then
   begin
     MoveFaceWith(Index, P3(Nm.X * Dist, Nm.Y * Dist, Nm.Z * Dist));
     Exit(True);
