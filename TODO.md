@@ -920,3 +920,73 @@ patching.
 The tape measure should leave guides the way SketchUp's does, and show the
 reading at the cursor offset far enough to read.  The Move tool has had almost
 no real use.  Both after the above.
+
+## Cutting a solid, and one rule instead of a flag — 3 September 2026
+
+You can draw a line across a box top and push one half of it up.
+
+`SplitFace` turned down any face belonging to a solid, so a box could not be
+divided at all.  It takes them now, and both halves keep what the whole was -
+still solid, same group, added raw so the winding is not canonicalized and
+turned inside out.
+
+The interesting half is what push does next.  It used to ask **"does this face
+belong to a solid"** and slide if so.  That was right until a solid's face
+could be cut: half a box top still belongs to the solid, but sliding it shears
+the box instead of lifting the half.
+
+So it asks about the shape instead.  A face is a **patch** when another face in
+the same plane runs along one of its edges - one piece of a larger flat area
+rather than the whole flat side of something.  A whole side slides and resizes;
+a patch has a block extruded out of it.  One question, both cases: an uncut top
+has no coplanar neighbor and still resizes, each half of a cut top shares the
+cut edge and lifts.
+
+*This is the shape the rest of the geometry should take* - see the note below.
+
+## The look: hairlines and shading — 3 September 2026
+
+PRO shared the toy's pen size, so every edge in a drawing was four pixels -
+four times SketchUp's.  PRO has its own edge weight now, default 1, under its
+own settings key.  Profiles put the silhouette one pixel above that, which is
+exactly SketchUp's 1 and 2.
+
+Face shading was spread over a few percent, so the edges had to do all the work
+of separating one side of a box from the next.  Top, front and side now land
+near 1.0, 0.90 and 0.80 of the material.
+
+**Soft edges.**  The creases down a pulled circle are not edges - they are how
+a curved surface is stored - so they are hidden, and drawn only where the
+surface turns away and the crease *is* the outline.  A pulled circle now reads
+as a pipe.  Nine sides or more and an extrusion's walls are softened.  Circles
+take a side every five pixels of rim, 24 to 96.
+
+Still to do here: SketchUp's other edge effects - Depth Cue, Extension,
+Endpoints, Jitter - and smooth shading across the facets of a curved surface
+rather than flat-shading each one.
+
+## Codex was right about the architecture
+
+Faces are still stored polygons kept correct by a set of repair rules, and the
+work above added another (`IsPatch`).  The difference is that `IsPatch`
+*replaced* a flag test rather than adding a case beside it, and the same
+question now answers push, split and profile.  That is the direction: fewer,
+more general questions about the shape.
+
+The real fix is still the planar-region rebuild in the suggestions file -
+derive faces from their edges instead of storing and patching them.  Everything
+outstanding leans on it:
+
+* push to zero deleting a face, and cutting a hole through
+* offset, which needs a reliable boundary
+* rotate
+* a cut made of several lines, or one that stops inside a face
+* holes and nested loops
+
+That is the next structural piece, and it should come before offset and rotate.
+
+## Asked for, not done yet
+* **The tape measure** should leave guides the way SketchUp's does, and show
+  the reading at the cursor, offset far enough to read while dragging.
+* **The Move tool** has had almost no real use and is likely to have the same
+  class of bug push/pull did.
