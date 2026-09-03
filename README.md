@@ -267,6 +267,11 @@ The same idea taken seriously.
 
 ## Keeping it up to date
 
+The **help button** on the deck — bottom right, the `?` — opens everything
+that lives on the web: About, check for updates, downloads, the manual, and
+somewhere to report a problem. The version is shown next to the name in the
+header, which is the first thing anybody needs when something goes wrong.
+
 It looks at the GitHub releases page **once a day** and says in the status bar
 if there is a newer build. `/update` fetches it, checks it against the
 checksums published with the release, puts it in place and starts again —

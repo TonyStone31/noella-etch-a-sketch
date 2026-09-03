@@ -486,7 +486,10 @@ type
 
     procedure UIFont(C: TCanvas; Size: Integer; Bold: Boolean; const Col: TPix;
       Mono: Boolean = False);
-    procedure TrackedText(C: TCanvas; X, Y: Integer; const S: string; Tracking: Integer);
+    { Draws the string letter by letter with Tracking pixels between, and
+      answers how wide it came out, so something can be put after it. }
+    function TrackedText(C: TCanvas; X, Y: Integer; const S: string;
+      Tracking: Integer): Integer;
 
     { history }
     procedure BeginStroke;
@@ -612,6 +615,11 @@ const
   POP_SNAP  = 1;
   POP_COLOR = 2;
   POP_WIDTH  = 3;
+  { The help button opens a list rather than the About box.  Everything that
+    lives on the web - the page, the manual, the downloads, somewhere to
+    report a problem - had no way in from the program at all, and neither did
+    the update check unless you knew to type /update. }
+  POP_HELP   = 4;
 
   { the pen widths the list offers - a few honest steps rather than a slider
     nobody can land on a number with }
@@ -1221,16 +1229,18 @@ begin
   C.Brush.Style := bsClear;
 end;
 
-procedure TMainForm.TrackedText(C: TCanvas; X, Y: Integer; const S: string;
-  Tracking: Integer);
+function TMainForm.TrackedText(C: TCanvas; X, Y: Integer; const S: string;
+  Tracking: Integer): Integer;
 var
-  I: Integer;
+  I, X0: Integer;
 begin
+  X0 := X;
   for I := 1 to Length(S) do
   begin
     C.TextOut(X, Y, S[I]);
     Inc(X, C.TextWidth(S[I]) + Tracking);
   end;
+  Result := X - X0;
 end;
 
 function TMainForm.ToolName(T: TProTool): string;
@@ -1255,7 +1265,7 @@ begin
   Application.HintPause := 450;
   Application.HintHidePause := 6000;
   Randomize;
-  Caption := APP_NAME;
+  Caption := APP_NAME + '  ' + CurrentVersion;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
   DoubleBuffered := True;
 
@@ -2701,7 +2711,7 @@ begin
       [ikUndo, ikRedo, ikFit, ikTheme, ikGrid, ikHelp],
       ['Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)',
        'Change the theme  (T)', 'Show or hide the measured grid  (G)',
-       'About this program  (F1)']);
+       'Help, downloads and updates  (F1 for about)']);
     AddIconRow6(Y0 + RowH + RowGap,
       [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_PRINT, ACT_ORIGIN],
       [ikOpen, ikSave, ikExport, ikUnits, ikPrint, ikOrigin],
@@ -2751,7 +2761,7 @@ begin
       GRP_SIZE, 0, '', 'How thick the line is  ( [ and ] )', ikDroplet);
     AddIconRow(RowY, ACT_THEME, ACT_GRID, ACT_HELP, ikTheme, ikGrid, ikHelp,
       'Change the theme  (T)', 'Show or hide the guide grid  (G)',
-      'About this program  (F1)');
+      'Help, downloads and updates  (F1 for about)');
   end;
 end;
 
@@ -3154,7 +3164,7 @@ begin
                       RecomposeAll;
                       pbDeck.Invalidate;
                     end;
-        ACT_HELP:   ShowAbout;
+        ACT_HELP:   if FPopup = POP_HELP then ClosePopup else OpenPopup(POP_HELP);
         ACT_MIRROR: begin FMirror := not FMirror; pbDeck.Invalidate; end;
         ACT_PICK:   DoPickColor;
         ACT_UNITS:  SetUnits(TUnitSystem(1 - Ord(FD.Units)));
@@ -5797,7 +5807,8 @@ begin
     AssignFile(F, Path);
     if FileExists(Path) then Append(F) else Rewrite(F);
     try
-      WriteLn(F, '---- ', DateTimeToStr(Now), ' ', APP_NAME, ' ', BUILD_STAMP);
+      WriteLn(F, '---- ', DateTimeToStr(Now), ' ', APP_NAME, ' ',
+    CurrentVersion, ' built ', BUILD_STAMP);
       WriteLn(F, E.ClassName, ': ', E.Message);
       WriteLn(F, 'mode=', Ord(FMode), ' view=', Ord(FD.View), ' plane=', Ord(FD.Plane),
         ' tool=', Ord(FTool), ' stage=', FStage, ' entities=', FD.Doc.Live,
@@ -6042,6 +6053,7 @@ begin
     POP_SNAP: Result := SNAP_COUNT;
     POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
+    POP_HELP: Result := 6;
   else
     Result := 0;
   end;
@@ -6055,6 +6067,16 @@ begin
     POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
     POP_COLOR: Result := '';
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
+    POP_HELP:
+      case I of
+        0: Result := 'About  (F1)';
+        1: Result := 'Check for updates';
+        2: Result := 'Downloads';
+        3: Result := 'The manual';
+        4: Result := 'Report a problem';
+      else
+        Result := 'Project page';
+      end;
   else
     Result := '';
   end;
@@ -6071,6 +6093,16 @@ begin
       end;
     POP_COLOR: SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
+    POP_HELP:
+      case I of
+        0: ShowAbout;
+        1: begin CheckForUpdate(True); DoUpdate; end;
+        2: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/releases/latest');
+        3: OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
+        4: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/issues/new');
+      else
+        OpenInBrowser('https://github.com/' + UPDATE_REPO);
+      end;
   end;
   RebuildDeck;
   pbDeck.Invalidate;
@@ -6090,7 +6122,9 @@ begin
   { find the button it belongs to, and hang the list off its left edge }
   LeftX := Round(20 * FUIScale);
   for I := 0 to High(FDeck) do
-    if (FDeck[I].Group = GRP_POPUP) and (FDeck[I].Value = Which) then
+    if ((FDeck[I].Group = GRP_POPUP) and (FDeck[I].Value = Which)) or
+       ((Which = POP_HELP) and (FDeck[I].Group = GRP_ICON) and
+        (FDeck[I].Value = ACT_HELP)) then
     begin
       B := FDeck[I].Bounds;
       LeftX := pbDeck.Left + B.Left - pbScreen.Left;
@@ -6100,6 +6134,7 @@ begin
   RowH := Round(22 * FUIScale);
   W := Round(190 * FUIScale);
   if Which = POP_COLOR then W := Round(150 * FUIScale);
+  if Which = POP_HELP then W := Round(210 * FUIScale);
   H := N * RowH + Round(12 * FUIScale);
   Bottom := pbScreen.Height - Round(6 * FUIScale);
   if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
@@ -7104,6 +7139,7 @@ end;
 
 procedure TMainForm.FormPaint(Sender: TObject);
 var
+  VerX: Integer;
   M, TitleH, Y, TW, RightEdge: Integer;
   S: string;
 begin
@@ -7119,8 +7155,16 @@ begin
       right, and the hint between them only when it fits }
     UIFont(Canvas, 12, True, Theme.Text);
     Y := Round(5 * FUIScale);
-    TrackedText(Canvas, M + Round(2 * FUIScale), Y, UpperCase(APP_NAME),
+    TW := TrackedText(Canvas, M + Round(2 * FUIScale), Y, UpperCase(APP_NAME),
       Round(2 * FUIScale));
+    { The version, quietly, after the name.  Worth having on screen now that
+      the program can replace itself: it is the first thing anybody needs to
+      say when something goes wrong, and the first thing to check after an
+      update claims to have worked. }
+    UIFont(Canvas, 9, False, Theme.TextDim);
+    VerX := M + Round(2 * FUIScale) + TW + Round(9 * FUIScale);
+    Canvas.TextOut(VerX, Y + Round(4 * FUIScale), CurrentVersion);
+    VerX := VerX + Canvas.TextWidth(CurrentVersion) + Round(14 * FUIScale);
 
     { the TOY/PRO switch lives at the right of this same line, so the reading
       stops short of it rather than running underneath }
@@ -7130,10 +7174,12 @@ begin
     TW := Canvas.TextWidth(S);
     Canvas.TextOut(RightEdge - TW, Round(6 * FUIScale), S);
 
+    { the hint starts after the version rather than at a fixed place, or the
+      two sit on top of each other }
     UIFont(Canvas, 9, False, Theme.TextDim);
     S := FHint;
-    if Canvas.TextWidth(S) < RightEdge - TW - Round(190 * FUIScale) then
-      Canvas.TextOut(M + Round(160 * FUIScale), Round(8 * FUIScale), S);
+    if Canvas.TextWidth(S) < RightEdge - TW - VerX then
+      Canvas.TextOut(VerX, Round(8 * FUIScale), S);
 
     Exit;
   end;
@@ -7145,7 +7191,7 @@ begin
 
   UIFont(Canvas, 9, False, Theme.TextDim);
   Canvas.TextOut(M + Round(5 * FUIScale), Y + Round(28 * FUIScale),
-    'Noella Stone Software, Ltd.  -  est. 2021');
+    'Noella Stone Software, Ltd.  -  est. 2021  -  ' + CurrentVersion);
 
   UIFont(Canvas, 10, False, Theme.TextDim);
   S := FHint;
