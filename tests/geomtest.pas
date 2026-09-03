@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork;
+  SysUtils, Classes, Math, Types, uWork, uRegion;
 
 var
   Fails: Integer = 0;
@@ -1050,6 +1050,135 @@ begin
   Ok(Abs(LoopArea2D(R) - 100) < 1E-9, 'no offset changes nothing');
 end;
 
+{ Offset a face, then push what the offset made.
+
+  This is the duct: a rectangle, a wall thickness offset inside it, and then
+  one of the two pieces lifted.  It goes through the region engine the same
+  way the tool does - the offset only ever lays down lines, and the faces are
+  worked out from them - so it also checks that an offset inside a face comes
+  back as a ring with a hole plus an island, rather than as two overlapping
+  rectangles. }
+procedure TestPushAfterOffset;
+var
+  D: TWorkDoc;
+  Segs: TSegArray;
+  Regs: TRegionArray;
+  Outer, Inner: TP3Array;
+  I, Ring, Isle, Lines: Integer;
+  ZTop, ZBase: Double;
+  V: TProjector;
+
+  { the flat face at height Z whose outline covers the given area }
+  function FaceOfArea(AtZ, WantArea: Double): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to D.Live - 1 do
+    begin
+      if D[J].Kind <> ekFace then Continue;
+      if Length(D[J].Poly) < 3 then Continue;
+      if Abs(D[J].Poly[0].Z - AtZ) > 1E-9 then Continue;
+      if Abs(D.FaceArea(J) - WantArea) < 0.01 then Exit(J);
+    end;
+  end;
+
+begin
+  WriteLn('offsetting a face and pushing what it made');
+  D := TWorkDoc.Create;
+  try
+    { a 10 x 6 rectangle on the ground }
+    Outer := Rect4(0, 0, 10, 6, 0);
+    for I := 0 to 3 do
+      D.AddLine(Outer[I], Outer[(I + 1) mod 4], 0, 2, False);
+
+    { a 1 foot wall inside it }
+    Inner := OffsetLoop(Outer, P3(0, 0, 1), -1);
+    EqI(Length(Inner), 4, 'the offset came back');
+    Ok(Abs(Inner[0].X - 1) < 1E-9, 'and it went in, not out');
+    for I := 0 to 3 do
+      D.AddLine(Inner[I], Inner[(I + 1) mod 4], 0, 2, False);
+
+    Lines := CountKind(D, ekLine);
+    EqI(Lines, 8, 'eight lines on the drawing');
+
+    { what the region engine makes of them - this is what the tool relies on }
+    SetLength(Segs, 0);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        SetLength(Segs, Length(Segs) + 1);
+        Segs[High(Segs)].A := D[I].A;
+        Segs[High(Segs)].B := D[I].B;
+      end;
+    Regs := BuildRegions(Segs);
+    EqI(Length(Regs), 2, 'two regions: the ring and the island');
+
+    { the ring is the one with a hole in it }
+    Ring := -1; Isle := -1;
+    for I := 0 to High(Regs) do
+      if Length(Regs[I].Holes) = 1 then Ring := I else Isle := I;
+    Ok(Ring >= 0, 'one of them has a hole');
+    Ok(Isle >= 0, 'and the other does not');
+    if (Ring >= 0) and (Isle >= 0) then
+    begin
+      Ok(Abs(Abs(LoopArea(Regs[Isle].Outer, P3(0, 0, 1))) - 32) < 0.01,
+         'the island is the 8 x 4 inside the wall');
+      Ok(Abs(Abs(LoopArea(Regs[Ring].Outer, P3(0, 0, 1))) - 60) < 0.01,
+         'and the ring''s outline is still the whole 10 x 6');
+    end;
+
+    { put both down as faces, the way the tool does, and push the island }
+    for I := 0 to High(Regs) do
+      D.AddFace(Regs[I].Outer, 0);
+
+    Isle := FaceOfArea(0, 32);
+    Ring := FaceOfArea(0, 60);
+    Ok(Isle >= 0, 'the island is a face on the drawing');
+    Ok(Ring >= 0, 'and so is the ring');
+
+    { Can the mouse actually land on each of them?  Clicking the wall band
+      reported "no face there" on screen, and if the hit test cannot tell the
+      ring from its own hole then the tool is unusable however right the
+      geometry is. }
+    if (Isle >= 0) and (Ring >= 0) then
+    begin
+      V.Kind := vkPlan;
+      V.Ppu := 20;
+      V.OX := 100;
+      V.OY := 500;
+      V.Az := 0;
+      V.El := 0;
+      { dead centre is the island }
+      EqI(D.HitFace(V, 100 + 5 * 20, 500 - 3 * 20), Isle,
+          'clicking the middle takes the island');
+      { half a foot in from the left edge is the wall band }
+      EqI(D.HitFace(V, 100 + Round(0.5 * 20), 500 - 3 * 20), Ring,
+          'clicking the wall band takes the ring');
+      { and just outside takes nothing }
+      EqI(D.HitFace(V, 100 - 40, 500 - 3 * 20), -1,
+          'clicking off the shape takes nothing');
+    end;
+
+    if (Isle >= 0) and (Ring >= 0) then
+    begin
+      ZBase := D[Ring].Poly[0].Z;
+      Ok(D.PushPull(Isle, 3), 'the island pushes');
+      { the ring must not have come with it - that is the whole question }
+      Ok(Abs(D[Ring].Poly[0].Z - ZBase) < 1E-9,
+         'and the ring stayed on the ground');
+      ZTop := -1E30;
+      for I := 0 to D.Live - 1 do
+        if (D[I].Kind = ekFace) and (Length(D[I].Poly) >= 3) then
+          if D[I].Poly[0].Z > ZTop then ZTop := D[I].Poly[0].Z;
+      Ok(Abs(ZTop - 3) < 1E-9, 'something is now three feet up');
+      Ok(FaceOfArea(3, 32) >= 0, 'and it is the island, still 8 x 4');
+    end;
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -1071,6 +1200,7 @@ begin
   TestSolidClaimsItsEdges; WriteLn;
   TestPlaneByDrag;  WriteLn;
   TestOffset;       WriteLn;
+  TestPushAfterOffset; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
