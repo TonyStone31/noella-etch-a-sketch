@@ -4518,22 +4518,24 @@ begin
         FStage := 1;
         FDirLock := -1;
       end
-      else
+      else if FClickN >= 2 then
       begin
-        { A line keeps going from the point you just put down, which is what
-          you want nine times in ten.  Letting go of it wanted the keyboard,
-          and right-click is the pan here so it cannot be that.
+        { Double-click lets go of the run.
 
-          Double-click, which is what SketchUp uses: the second click lands
-          the point as usual and then puts the pen down.  Esc still works,
-          and so does picking another tool. }
+          SketchUp does *not* do this - Tony checked, and there a second
+          click just drops another point; you press Esc.  This is one of the
+          few places worth being deliberately unlike it, because he asked for
+          a way to let go with the mouse and the keyboard was the only one.
+
+          The second click must not also place a point.  It lands in the same
+          spot as the first, so committing it would leave a line of zero
+          length on the drawing - geometry you cannot see, cannot click, and
+          would find later as a stray snap point. }
+        ResetTool;
+        FCmdMsg := 'Line finished.  Esc does the same.';
+      end
+      else
         ProCommit;
-        if FClickN >= 2 then
-        begin
-          ResetTool;
-          FCmdMsg := 'Line finished.  Double-click ends a run; Esc does too.';
-        end;
-      end;
 
     ptRect:
       if FStage = 0 then
@@ -5158,6 +5160,36 @@ begin
   begin
     if FMode = mdPro then
     begin
+      { Middle-drag orbits, whatever tool is in hand and whatever view you
+        are in - SketchUp lets you spin the model round mid-line and so does
+        this, because that is exactly when you need to see round the back of
+        something.  Nothing about the operation in progress is touched.
+
+        From PLAN or ISO it drops into the free camera first, aimed where you
+        were already looking so the model does not jump.  That is SketchUp's
+        behavior too: orbiting out of a standard view leaves it. }
+      if (Button = mbMiddle) and (FD.View <> vkOrbit) then
+      begin
+        if FD.View = vkIso then
+        begin
+          FD.Az := -Pi / 4;
+          FD.El := 0.6155;              // 35.26 degrees - a true isometric
+        end
+        else
+        begin
+          FD.Az := 0;
+          FD.El := 1.45;                // as near straight down as it tilts
+        end;
+        FD.View := vkOrbit;
+        FViewPreset := -1;
+        FCmdMsg := '3D view - drag to spin.  V goes back.';
+        RebuildDeck;
+        pbDeck.Invalidate;
+        pbView.Invalidate;
+        RepaintPaper;
+        RenderPro;
+        RecomposeAll;
+      end;
       FOrbiting := (Button = mbMiddle) and (FD.View = vkOrbit);
       FPanning := not FOrbiting;
       FPanRefX := X;
