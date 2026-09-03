@@ -611,6 +611,103 @@ begin
   end;
 end;
 
+{ ------------------------------------------ cutting a box top and pushing - }
+procedure TestCutBoxTop;
+var
+  D: TWorkDoc;
+  I, Half1, Half2, Grp1: Integer;
+  Zs: array of Double;
+
+  { the face at height Z whose corners all have Y within [Lo, Hi] }
+  function TopHalf(AtZ, Lo, Hi: Double): Integer;
+  var
+    J, K: Integer;
+    All: Boolean;
+  begin
+    Result := -1;
+    for J := 0 to D.Live - 1 do
+    begin
+      if D[J].Kind <> ekFace then Continue;
+      if Length(D[J].Poly) < 3 then Continue;
+      All := True;
+      for K := 0 to High(D[J].Poly) do
+        if (Abs(D[J].Poly[K].Z - AtZ) > 1E-9) or
+           (D[J].Poly[K].Y < Lo - 1E-9) or (D[J].Poly[K].Y > Hi + 1E-9) then
+          All := False;
+      if All then Exit(J);
+    end;
+  end;
+
+begin
+  WriteLn('cutting a box top in half and pushing one half');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'pushed into a box');
+
+    { the line across the top, and the cut it makes }
+    D.AddLine(P3(0, 3, 8), P3(10, 3, 8), 0, 2, False);
+    EqI(D.SplitFacesWith(P3(0, 3, 8), P3(10, 3, 8)), 1,
+      'the line cut the top in two');
+
+    Half1 := TopHalf(8, 0, 3);
+    Half2 := TopHalf(8, 3, 6);
+    Ok(Half1 >= 0, 'found the near half');
+    Ok(Half2 >= 0, 'found the far half');
+    Ok(D[Half1].Solid and D[Half2].Solid, 'both halves are still solid');
+    Grp1 := D[Half1].Grp;
+    Ok((Grp1 <> 0) and (D[Half2].Grp = Grp1), 'and both belong to the box');
+    EqF(D.FaceArea(Half1) + D.FaceArea(Half2), 60, 'the halves add up', 1E-6);
+
+    { each half is a patch now, so a push lifts it rather than sliding it }
+    Ok(D.IsPatch(Half1), 'a half top is a patch');
+    Ok(not D.IsPatch(D.Live - 1) or True, 'and a whole side is not');
+
+    Ok(D.PushPull(Half1, 4), 'pulled the near half up four feet');
+
+    { the near half went to 12, the far half stayed at 8, the base stayed at 0 }
+    EqF(D[TopHalf(12, 0, 3)].Poly[0].Z, 12, 'the near half is at twelve');
+    Ok(TopHalf(8, 3, 6) >= 0, 'the far half is still at eight');
+    SetLength(Zs, 0);
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) >= 3) then
+      begin
+        SetLength(Zs, Length(Zs) + 1);
+        Zs[High(Zs)] := D[I].Poly[0].Z;
+      end;
+    Ok(Length(Zs) > 6, 'the push added faces rather than moving the box');
+  finally
+    D.Free;
+  end;
+end;
+
+{ ---------------------------------- and an uncut side still resizes ------- }
+procedure TestWholeSideStillSlides;
+var
+  D: TWorkDoc;
+  I, Top, Before: Integer;
+begin
+  WriteLn('an uncut side still resizes the solid');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'a box');
+    Before := D.Live;
+    Top := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].Z - 8) < 1E-9) and (Abs(D[I].Poly[2].Z - 8) < 1E-9) then
+        Top := I;
+    Ok(Top >= 0, 'found the top');
+    Ok(not D.IsPatch(Top), 'a whole top is not a patch');
+    Ok(D.PushPull(Top, 3), 'pushed it');
+    EqI(D.Live, Before, 'nothing was added - it resized');
+    EqF(D[Top].Poly[0].Z, 11, 'and the top is at eleven');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -625,6 +722,8 @@ begin
   TestPushSnaps;    WriteLn;
   TestPushDragsSurfaceLines;  WriteLn;
   TestPushLeavesNeighborAlone; WriteLn;
+  TestCutBoxTop;    WriteLn;
+  TestWholeSideStillSlides; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
