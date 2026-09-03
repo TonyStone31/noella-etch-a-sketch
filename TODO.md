@@ -651,3 +651,44 @@ are covered by a test using the app's real numbers.
   Needs a soft flag on an edge and a renderer that skips it.
 * Two solids that interpenetrate still sort wrongly; the painter's algorithm
   works on whole faces.
+
+## The dimension tool, second pass — 2 September 2026
+
+**Hover an edge and it lights up.**  One click then takes the whole of it.  The
+highlight is the half that makes the tool readable: without it there is no
+telling whether a click is about to take the edge or start a point-to-point.
+
+**The dimension is previewed as it will be.**  Witness lines, end slashes and
+the reading, moving with the cursor — not a rubber band between two points.
+Preview and drawing come out of one routine, `DimGeometry`, so they cannot
+drift apart.
+
+**The offset is a vector in the model now, not a signed screen distance.**  Two
+things were wrong with the old one.  The sign disagreed with the one the
+renderer worked out — it applied a canonical "one consistent side" flip and the
+offset calculation did not — so pulling the line *down* put it *above* the edge,
+inside the shape it was measuring.  And being in pixels meant zooming in walked
+the dimension back towards the geometry, and orbiting swung it round.  It is
+now simply the displacement from the measured edge to where the line sits, and
+the dimension line is that edge shifted by it.  That is SketchUp's rule: "after
+you place a dimension in a plane, you can move the dimension only within that
+plane."
+
+**The eraser can take a dimension**, and highlights the right thing.  `HitEdge`,
+`HitTest` and `Outline` all used to measure a dimension against the invisible
+chord between the two measured points, which is not where anyone aims — it is
+the drawn line and its witness lines now.
+
+**Nothing snaps to a dimension or a note.**  They were feeding endpoints into
+the snap cache, so drawing a line near one pulled the cursor onto it.
+Annotation is not geometry.
+
+### Left for later
+* Radius and diameter dimensions on arcs and circles.
+* Dragging an extension line's end, which SketchUp allows once the dimension
+  is placed.
+* Endpoint styles - slash is the default, then dot, closed arrow, open arrow,
+  none.
+* Typing over the reading, which in SketchUp breaks the link to the geometry.
+* A file written before the offset became a vector loads its dimensions sitting
+  on the line they measure; drag them off again.

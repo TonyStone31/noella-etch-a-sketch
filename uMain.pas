@@ -358,6 +358,7 @@ type
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
     procedure PaintSnapMarker(C: TCanvas; SX, SY: Integer);
+    procedure PaintDimPreview(C: TCanvas);
     function PushDistance: Double;
     procedure Recompose;
     procedure RecomposeAll;
@@ -366,7 +367,7 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
-    function DimOffsetPx: Double;
+    function DimOffset3: TP3;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
@@ -3233,6 +3234,32 @@ begin
   end;
 end;
 
+{ The dimension as it will be, drawn where the cursor is putting it - the
+  witness lines, the slashes and the reading, not just a rubber band between
+  the two points.  It comes out of the same routine the renderer uses, so
+  what you drag around is what you get. }
+procedure TMainForm.PaintDimPreview(C: TCanvas);
+var
+  G: TDimGeom;
+  Sz: TSize;
+begin
+  if not DimGeometry(Proj, FP1, FP2, DimOffset3, FD.Units, G) then Exit;
+  C.Pen.Style := psSolid;
+  C.Pen.Color := PixToColor(AnnotColor);
+  C.Pen.Width := 1;
+  C.MoveTo(Round(G.A.X), Round(G.A.Y));   C.LineTo(Round(G.W1.X), Round(G.W1.Y));
+  C.MoveTo(Round(G.B.X), Round(G.B.Y));   C.LineTo(Round(G.W2.X), Round(G.W2.Y));
+  C.Pen.Width := Max(1, Round(1.5 * FUIScale));
+  C.MoveTo(Round(G.LA.X), Round(G.LA.Y));  C.LineTo(Round(G.LB.X), Round(G.LB.Y));
+  C.MoveTo(Round(G.S1A.X), Round(G.S1A.Y)); C.LineTo(Round(G.S1B.X), Round(G.S1B.Y));
+  C.MoveTo(Round(G.S2A.X), Round(G.S2A.Y)); C.LineTo(Round(G.S2B.X), Round(G.S2B.Y));
+  C.Pen.Width := 1;
+  C.Brush.Style := bsClear;
+  UIFont(C, 9, False, AnnotColor);
+  Sz := C.TextExtent(G.Txt);
+  C.TextOut(Round(G.Mid.X - Sz.cx / 2), Round(G.Mid.Y - Sz.cy / 2), G.Txt);
+end;
+
 { The mark that says what the cursor found.
 
   This has to be painted after the cursor overlay, not before: the overlay
@@ -3369,7 +3396,7 @@ begin
       end;
     ptDim:
       if FStage = 1 then Rubber(FP1, FCur)
-      else if FStage = 2 then Rubber(FP1, FP2);
+      else if FStage = 2 then PaintDimPreview(C);
 
     ptPush:
       if FStage = 1 then
@@ -3409,6 +3436,22 @@ begin
     if Length(Hi) >= 2 then
     begin
       C.Pen.Color := PixToColor(Pix(70, 130, 240));
+      C.Pen.Width := Max(3, Round(3 * FUIScale));
+      C.Pen.Style := psSolid;
+      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
+      for AX := 1 to High(Hi) do
+        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
+      C.Pen.Width := 1;
+    end;
+  end;
+
+  { the edge the dimension tool would take }
+  if (FTool = ptDim) and (FStage = 0) and (FHoverEnt >= 0) then
+  begin
+    Hi := FD.Doc.Outline(Proj, FHoverEnt);
+    if Length(Hi) >= 2 then
+    begin
+      C.Pen.Color := PixToColor(HINT_BLUE);
       C.Pen.Width := Max(3, Round(3 * FUIScale));
       C.Pen.Style := psSolid;
       C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
@@ -3811,10 +3854,14 @@ begin
         Result := 'how far?  type it, or move and click';
     ptDim:
       case FStage of
-        0: Result := 'first point of the dimension';
+        0:
+          if FHoverEnt >= 0 then
+            Result := 'click the lit edge to dimension all of it'
+          else
+            Result := 'click an edge, or a first point to measure from';
         1: Result := 'second point';
       else
-        Result := 'drag away to set how far off it sits, then click';
+        Result := 'move away to place the line, then click';
       end;
     ptOrbit:
       Result := 'drag to spin the view - Shift drags to pan';
@@ -4366,7 +4413,7 @@ begin
         if Dist(FP1, FP2) > 1E-9 then
         begin
           PushUndo;
-          FD.Doc.AddDim(FP1, FP2, FInkColor, DimOffsetPx);
+          FD.Doc.AddDim(FP1, FP2, FInkColor, DimOffset3);
           RenderPro;
           RecomposeAll;
           FCmdMsg := 'Dimension ' + FormatLen(Dist(FP1, FP2), FD.Units);
@@ -4379,7 +4426,7 @@ begin
         if FStage = 2 then
         begin
           PushUndo;
-          FD.Doc.AddDim(FP1, FP2, FInkColor);
+          FD.Doc.AddDim(FP1, FP2, FInkColor, DimOffset3);
           RenderPro;
           RecomposeAll;
           FCmdMsg := 'Kept as a dimension.';
@@ -4785,6 +4832,17 @@ begin
       FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
     else if (FTool = ptSelect) and not FBoxing then
       FHoverEnt := PickAt(X, Y)
+    else if (FTool = ptDim) and (FStage = 0) then
+    begin
+      { Hover an edge and it lights up; one click then dimensions the whole
+        of it.  This is the half of SketchUp's dimension tool that makes the
+        rest of it make sense - without it there is no way to tell whether
+        the click is going to take the edge or start a point-to-point. }
+      FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
+      if (FHoverEnt >= 0) and
+         not (FD.Doc[FHoverEnt].Kind in [ekLine, ekArc]) then
+        FHoverEnt := -1;
+    end
     else
       FHoverEnt := -1;
     { what push/pull would pick up if you clicked now.  Without this the tool
@@ -5396,21 +5454,39 @@ end;
   distance from the chord to the cursor, in screen pixels, signed so that
   dragging to either side puts it on that side.  SketchUp asks the same
   question the same way - click the two ends, then move away and click. }
-function TMainForm.DimOffsetPx: Double;
+{ Where the dimension line should sit, as a displacement in the model rather
+  than a number of pixels.  The cursor is dropped onto the working plane and
+  the part of it along the measured edge is taken out, which leaves a
+  perpendicular in that plane - so the dimension goes where you pull it, stays
+  there as you zoom, and does not swing round the geometry when you orbit.
+
+  It used to be a signed screen distance, and the sign disagreed with the one
+  the renderer worked out, which is why pulling the line down put it above the
+  edge - inside the shape it was measuring. }
+function TMainForm.DimOffset3: TP3;
 var
-  PA, PB: TPointF;
-  DX, DY, L: Double;
+  W, D, Perp: TP3;
+  L, Along: Double;
 begin
-  Result := 20;
-  PA := ScreenOf(FP1);
-  PB := ScreenOf(FP2);
-  DX := PB.X - PA.X;
-  DY := PB.Y - PA.Y;
-  L := Sqrt(DX * DX + DY * DY);
+  Result := P3(0, 0, 0);
+  D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
+  L := Sqrt(D.X * D.X + D.Y * D.Y + D.Z * D.Z);
   if L < 1E-9 then Exit;
-  { the normal the renderer uses points one way; the sign says which side }
-  Result := ((FMouseSX - PA.X) * (-DY / L) + (FMouseSY - PA.Y) * (DX / L));
-  if Abs(Result) < 6 then Result := 6 * Sign(Result + 1E-9);
+  D := P3(D.X / L, D.Y / L, D.Z / L);
+
+  W := WorldAt(FMouseSX, FMouseSY);
+  Perp := P3(W.X - FP1.X, W.Y - FP1.Y, W.Z - FP1.Z);
+  Along := Perp.X * D.X + Perp.Y * D.Y + Perp.Z * D.Z;
+  Result := P3(Perp.X - D.X * Along, Perp.Y - D.Y * Along, Perp.Z - D.Z * Along);
+
+  { never let it sit right on top of what it measures }
+  L := Sqrt(Sqr(Result.X) + Sqr(Result.Y) + Sqr(Result.Z));
+  if L * Ppu < 8 then
+  begin
+    if L < 1E-9 then Exit;
+    Result := P3(Result.X / L * 8 / Ppu, Result.Y / L * 8 / Ppu,
+                 Result.Z / L * 8 / Ppu);
+  end;
 end;
 
 { SketchUp's trick: rest on a point for a moment and it is remembered, so
