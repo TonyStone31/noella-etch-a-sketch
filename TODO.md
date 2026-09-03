@@ -758,3 +758,35 @@ does not hide it.
 and a bare remote display may not have one.  Measured on a 1600x1000 nested
 server: `--maximized` gives 1600x983 under openbox, `--fullscreen` 1600x1000,
 `--size=1100x700` exactly that.
+
+## The fullscreen window would not resize with the display — 3 September 2026
+
+Found by Codex within minutes of the switches landing, from the X11 side:
+Heckers Sketch's window had `WM_NORMAL_HINTS` with **minimum, maximum and base
+all pinned to 1600x1000**, so when KasmVNC resized the virtual screen to follow
+the browser the window could not follow it.  Reproduced exactly on a nested
+server.
+
+**Cause, and it was mine.**  `--fullscreen` set `BorderStyle := bsNone`.  A
+borderless form is one the LCL marks as not resizable, and GTK says so by
+pinning the size hints to whatever size the window opened at.  Nothing to do
+with the transport.
+
+**Fixed** by not touching `BorderStyle` at all.  `WindowState := wsFullScreen`
+asks the window manager for a frameless full screen and leaves the window
+resizable; the bounds are set explicitly as well, for a bare display with no
+window manager.  Hints now read minimum 940x600 (the form's own constraint) and
+**no maximum**.
+
+**And it now follows the display.**  There is no reliable notification when a
+remote display changes size, so `FollowScreenSize` watches for it on the 16 ms
+tick - two integer comparisons a frame - and refits when it changes.  Measured
+on a resizeable nested server, growing as well as shrinking, which is the case
+that was broken:
+
+    screen 1024x768   -> window 1024x768
+    screen 1400x1050  -> window 1400x1050
+    screen 1600x1200  -> window 1600x1200
+
+`--maximized` follows too (1400x1033 and 1600x1183 under openbox, less its
+panel).
