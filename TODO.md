@@ -1,13 +1,51 @@
 # Heckers Sketch - what's next
 
-Started 1 September 2026 at the end of the session that built PRO mode, and
-rewritten the same night after the inference, axis and push/pull work.
+The point has not changed: rough two items out at a real scale and get an
+honest measurement between them.  Quick duct transitions and pipe layouts -
+the mockup you would otherwise open SketchUp to do - given away free.
 
-Ordered roughly by "how much does this unlock for the money". The point of
-the thing has not changed: rough two items out at a real scale and get an
-honest measurement between them. It is aimed at quick duct transitions and
-pipe layouts - the mockup you would otherwise open SketchUp to do - and the
-plan is to give it away.
+`docs/sketchup/` is the spec.  Sixteen of their help pages, read properly and
+written up, with a note on each saying what we have, what we do not, and where
+we differ on purpose.  When we argue about how something should behave, that is
+what we argue against.
+
+---
+
+## Where it stands, end of 2 September 2026
+
+Working, and tested: select and move (with stretching, Ctrl-copy and typed
+coordinates), push/pull including on circles, solid opaque faces on white
+paper, the snapping and inference set - endpoints, midpoints, the midpoints a
+crossing or a T-junction makes, on-edge, axis locks and From Point - the
+eraser, and dimensions you place yourself.
+
+Two ways to check it: `./tests/run.sh` for 67 headless geometry checks, and the
+grid scenario written up in `tests/README.md`, which has found more bugs than
+anything else.
+
+## Next up, in order
+
+1. **Soften the edges of a curved surface.**  A pushed circle shows all 24 of
+   its facet edges, so a cylinder looks faceted rather than round.  SketchUp
+   hides them; their docs call the result a surface entity.  Needs a soft flag
+   on an edge and a renderer that skips it.  Small, and very visible.
+2. **Planar region finding proper** - #4 below.  Codex put it ahead of offset
+   and rotate and that is right: every tool gets easier once a face is derived
+   from its edges rather than stored and patched.
+3. **Offset** - duct wall thickness and flanges.  #5 below.
+4. **Rotate** - 45s are the job.  #5 below.
+5. **The rest of the dimension tool**: radius and diameter, dragging an
+   extension line, endpoint styles.  Tony is coming back to this.
+6. **Back faces in their own colour**, the way SketchUp shows them pale blue.
+   It is how you spot a solid built inside out, and it would have caught the
+   winding bug on sight.
+7. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  Note that SketchUp's own
+   arrays page does not document the syntax, so we would be working from the
+   app rather than a spec.
+
+Known rough edges: two solids that interpenetrate sort wrongly, because the
+painter's algorithm works on whole faces.  A file saved before tonight loads
+its dimensions sitting on the line they measure.
 
 ---
 
@@ -109,7 +147,7 @@ The standard planar-graph walk, still to do:
 
 Perhaps 200 lines. It is the last structural piece.
 
-## 5. Offset, then rotate
+## 5. Offset, then rotate  — still to do, and now the top of the list
 
 **Offset** pushes a closed loop in or out by a distance - duct wall
 thickness, a flange, a second run parallel to the first. One of SketchUp's
@@ -120,18 +158,13 @@ this is not optional; 45s are the job.
 
 Both are much cheaper once #2 exists, which is why they sit here.
 
-## 6. Dimensions you place, not dimensions that appear
+## 6. ~~Dimensions you place, not dimensions that appear~~  — done 2 Sep 2026
 
-Today `uMain.pas` calls `AddLine(FP1, T, FInkColor, FPenSize, FD.ShowDims)`,
-so every line is stamped with a `Dim` flag *when it is drawn*, and then
-`uWork.pas` gates drawing on a **global** `ShowDims`. The per-line flag
-exists but the global switch overrides it, so you cannot dimension one line
-and leave another plain.
-
-SketchUp's model is better and is mostly deletion: hovering a line tells you
-its length in the status bar, and a dimension is a separate thing you place
-with a tool when you want it on the drawing. Nothing is dimensioned by
-default.
+Automatic dimensions are gone, not switched off - `ShowDims` and the per-line
+`Dim` flag no longer drive anything.  A dimension is a thing you place with the
+Dim tool: hover an edge and it lights up, click it to take the whole of it,
+pull the line out and drop it.  It is an ordinary entity - select it, erase it -
+and nothing else snaps to it.  See the second-pass notes at the end.
 
 ## 7. Drawing in an arbitrary orbit  — mostly done
 
@@ -364,6 +397,13 @@ of SketchUp.
 
 
 ---
+
+---
+
+# Session log — 2 September 2026
+
+Everything below is history: what was found, why, and what it cost.  The
+current state and the next steps are at the top of this file.
 
 ## Fixed 2 September 2026, found while testing Move
 
