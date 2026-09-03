@@ -798,6 +798,35 @@ begin
   end;
 end;
 
+{ ------------------ a solid must not sprout a flat face from its own edges - }
+procedure TestSolidClaimsItsEdges;
+var
+  D: TWorkDoc;
+  I, Loose: Integer;
+begin
+  WriteLn('a solid takes the edges round its base with it');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Loose := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (D[I].Grp = 0) then Inc(Loose);
+    EqI(Loose, 4, 'four loose edges before the push');
+
+    Ok(D.PushPull(4, 8), 'pushed into a box');
+
+    Loose := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (D[I].Grp = 0) then Inc(Loose);
+    EqI(Loose, 0, 'and none of them loose afterwards');
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+        Ok(D[I].Grp <> 0, 'every edge of the box belongs to it');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -816,6 +845,7 @@ begin
   TestWholeSideStillSlides; WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;
+  TestSolidClaimsItsEdges; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

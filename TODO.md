@@ -1113,3 +1113,57 @@ and it is separate work:
 
 The 120 document checks plus these 70 are the safety net for that work.  They
 should all still pass when it lands.
+
+## The document is wired onto the region engine — 3 September 2026
+
+Drawn faces are worked out from the edges now.  One call, `RebuildFlatFaces`,
+runs after anything that changes an edge, and it replaced four rules:
+
+* `SplitFacesWith` - a line cutting a face in two
+* `ClosedChain` - a run of lines closing on itself
+* `MergeFacesAcross` - two faces joining when the line between them goes
+* `DropOpenFaces` - a face whose outline stopped being backed by real edges
+
+All four are deleted.  **127 net lines out of `uWork.pas`**, and the tools no
+longer make faces themselves: the rectangle, circle and arc tools add their
+edges and ask what the edges enclose.
+
+**The line Codex drew is the one that holds it together.**  A solid's faces are
+the boundary of something in three dimensions, not an area on a flat sheet, so
+they are left alone - and a solid's *edges* are kept out of the calculation for
+the same reason.  Without that second half, every box would grow a phantom flat
+face inside itself the next time anything was rebuilt.  `PushPull` now hands the
+edges round its base to the solid's group (`ClaimOutline`), and a test watches
+for it: four loose edges before the push, none after.
+
+Colors survive: a new region takes the color of whichever old face its middle
+fell inside.
+
+### Checked, end to end
+* rectangle drawn -> face appears, with no `AddFace` anywhere
+* a line across it -> two faces; another -> more, all the right areas
+* a circle inside one -> *53 edges -> 3 regions (512.8 sq ft, 1 hole) in 0 ms*,
+  the hole classified, stored faces matching exactly
+* rubbing out the cut line -> *"Deleted.  1 face gone with them."* - the merge
+  falls out of the rebuild rather than from a rule
+* push a box, then draw a line elsewhere to force a rebuild -> *1 edge -> 0
+  regions*, box intact, no phantom face
+* the standing grid: 9 edges -> 12 regions, pushed into towers, with a circle
+  pushed into a smooth cylinder beside them
+
+135 document checks and 70 region checks, all passing.
+
+### What is still stored, on purpose
+`SplitFace` on a **solid** face stays - that is how a box top is cut, and it is
+3D topology rather than a planar region.  `IsPatch` still decides whether a
+push slides a whole side or lifts a piece out.
+
+### Left to do
+* **Only rebuild the planes an edit touched.**  Splitting is O(n squared) in
+  segments; 53 edges is under a millisecond, but a real duct drawing with a few
+  hundred will want it.  The engine already groups by plane, so the hook is
+  there.
+* Arcs are chopped at a fixed 48 for the calculation.  A very large circle
+  deserves more, a tiny one fewer.
+* The vector types live in `uWork`, so `uRegion` has to use it.  They would sit
+  better in a small unit of their own with both depending on that.
