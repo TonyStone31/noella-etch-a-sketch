@@ -341,6 +341,15 @@ do_github() {
     done
   fi
 
+  # Stamp the version into the binary so it knows what it is, then put the
+  # file back afterwards - the tree has to stay clean for the next release.
+  printf '%s\n' \
+    '{ Written by build.sh at release time.  A hand-built copy keeps the' \
+    '  dev value, which is older than any real tag so it never claims to be' \
+    '  up to date when it is not. }' \
+    'const' \
+    "  APP_VERSION = '$tag';" > "$ROOT/version.inc"
+
   NOUPLOAD=1 do_ship
 
   local s zipfile stage
@@ -356,6 +365,11 @@ do_github() {
   cp "$DIST/dbg/$APP.exe"     "$stage/heckers-sketch-checked.exe"
   cp "$DIST/dbg/$APP"         "$stage/heckers-sketch-linux-checked"
   cp "$zipfile"               "$stage/heckers-sketch-all-builds.zip"
+
+  ( cd "$stage" && sha256sum * > SHA256SUMS ) 2>/dev/null || \
+    ( cd "$stage" && shasum -a 256 * > SHA256SUMS )
+
+  git -C "$ROOT" checkout -- version.inc 2>/dev/null || true
 
   say "pushing $(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
   git -C "$ROOT" push origin HEAD || die "push failed"

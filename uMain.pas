@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion;
+  uSurface, uSkin, uWork, uRegion, uUpdate;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -425,6 +425,9 @@ type
     procedure PaintOrbitAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure CheckForUpdate(Loud: Boolean);
+    procedure DoUpdate;
+    procedure OfferCrashReport;
     procedure ShakeWatch(X, Y: Integer);
     procedure PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
     procedure PaintSnapRecoil(C: TCanvas);
@@ -1385,6 +1388,11 @@ begin
     asked for by name always wins - it is a clear instruction, and the draft
     is only a safety net. }
   if not Opened then RestoreDraft;
+
+  { housekeeping from last time, then a quiet look for a newer build }
+  ForgetPreviousBuild;
+  OfferCrashReport;
+  CheckForUpdate(False);
 end;
 
 { The command line, for a launcher that wants the window a particular way.
@@ -3727,6 +3735,183 @@ end;
   Four reversals of at least a dozen pixels, within about three quarters of a
   second, on one axis more than the other.  Ordinary drawing does not do that
   - a hand moving to a point goes one way. }
+{ Is there a newer build?  Quiet unless there is, and at most once a day,
+  because a drawing program has no business pinging a server every time
+  somebody opens it - and none at all on a phone tether at a job site. }
+procedure TMainForm.CheckForUpdate(Loud: Boolean);
+var
+  Info: TUpdateInfo;
+  Err, Last: string;
+  Ini: TIniFile;
+  Today: string;
+begin
+  Today := FormatDateTime('yyyy-mm-dd', Now);
+  if not Loud then
+  begin
+    Ini := TIniFile.Create(GetAppConfigFile(False));
+    try
+      { Some people rightly dislike software that talks to the internet
+        without being asked.  This asks GitHub one question - what is the
+        newest release - and sends nothing about the machine or the drawing,
+        but the way to be trusted about that is to make it switchable and
+        say so.  /update never in the command bar turns it off for good. }
+      if not Ini.ReadBool('update', 'check', True) then Exit;
+      Last := Ini.ReadString('update', 'checked', '');
+    finally
+      Ini.Free;
+    end;
+    if Last = Today then Exit;
+  end;
+
+  if not FetchLatest(Info, Err) then
+  begin
+    if Loud then FCmdMsg := 'Could not check for an update - ' + Err;
+    Exit;
+  end;
+
+  Ini := TIniFile.Create(GetAppConfigFile(False));
+  try
+    Ini.WriteString('update', 'checked', Today);
+    Ini.WriteString('update', 'latest', Info.Tag);
+  finally
+    Ini.Free;
+  end;
+
+  if NewerThan(Info.Tag, CurrentVersion) then
+    FCmdMsg := Info.Tag + ' is out - you have ' + CurrentVersion +
+      '.  Type /update to fetch it.'
+  else if Loud then
+    FCmdMsg := 'Up to date - ' + CurrentVersion + '.';
+  pbCmd.Invalidate;
+end;
+
+{ Fetch it, check it is what the release says it is, put it in place and
+  start again.  Everything the drawing has is already in the draft, so the
+  restart brings it straight back. }
+procedure TMainForm.DoUpdate;
+var
+  Info: TUpdateInfo;
+  Err, Why, Tmp, Want, Got: string;
+begin
+  Why := WhyNotUpdate;
+  if Why <> '' then
+  begin
+    MessageDlg('Cannot update here', Why + '.' + #13#10#13#10 +
+      'Download it yourself from the Releases page instead.',
+      mtInformation, [mbOK], 0);
+    Exit;
+  end;
+
+  FCmdMsg := 'Looking...';
+  pbCmd.Invalidate;
+  Application.ProcessMessages;
+  if not FetchLatest(Info, Err) then
+  begin
+    FCmdMsg := 'Could not check for an update - ' + Err;
+    Exit;
+  end;
+  if not NewerThan(Info.Tag, CurrentVersion) then
+  begin
+    FCmdMsg := 'Already up to date - ' + CurrentVersion + '.';
+    Exit;
+  end;
+  if MessageDlg('Update available',
+       Format('%s is out, and this is %s.'#13#10#13#10 +
+         'It will be fetched, put in place, and the program restarted.  ' +
+         'Your drawing is kept and comes straight back.',
+         [Info.Tag, CurrentVersion]),
+       mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
+  begin
+    FCmdMsg := 'Left alone.';
+    Exit;
+  end;
+
+  SaveDraft;                          { whatever happens next, this survives }
+  FCmdMsg := 'Fetching ' + Info.Tag + '...';
+  pbCmd.Invalidate;
+  Application.ProcessMessages;
+
+  Tmp := GetTempDir + 'heckers-sketch-' + Info.Tag + '.download';
+  if not Download(Info.AssetURL, Tmp, Err) then
+  begin
+    FCmdMsg := 'The download failed - ' + Err;
+    Exit;
+  end;
+
+  { If the release published hashes, the download has to match one.  It does
+    not protect against a bad release, only against a bad download - but a
+    half-fetched binary put in place of a working one is exactly the failure
+    worth ruling out. }
+  Want := ExpectedSum(Info.SumsURL, ASSET_NAME);
+  if Want <> '' then
+  begin
+    Got := Sha256Of(Tmp);
+    if Got <> Want then
+    begin
+      DeleteFile(Tmp);
+      FCmdMsg := 'That download did not match its checksum - nothing changed.';
+      MessageDlg('Update stopped',
+        'What came down does not match what the release says it should be, ' +
+        'so it has been thrown away and nothing was changed.',
+        mtWarning, [mbOK], 0);
+      Exit;
+    end;
+  end;
+
+  if not SwapInAndRestart(Tmp, Err) then
+  begin
+    DeleteFile(Tmp);
+    FCmdMsg := 'Could not install it - ' + Err;
+    Exit;
+  end;
+  Close;
+end;
+
+{ A crash last time leaves a note behind.  Offer to send it, and open it
+  filled in so it can be read first - it carries file paths, and nobody
+  should have those leave their machine without seeing them go. }
+procedure TMainForm.OfferCrashReport;
+var
+  Fn: string;
+  L: TStringList;
+begin
+  Fn := ExtractFilePath(ExpandFileName(ParamStr(0))) + 'heckers-sketch-crash.txt';
+  if not FileExists(Fn) then Exit;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(Fn);
+    except
+      Exit;
+    end;
+    if L.Count = 0 then Exit;
+    { Reporting it on GitHub wants a GitHub account, which the people this is
+      built for have no reason to have.  So it is offered rather than assumed,
+      and saying no still leaves the report sitting there with its path on
+      screen, which is enough to send it on however suits. }
+    case MessageDlg('It crashed last time',
+           'There is a crash report from a previous run.'#13#10#13#10 +
+           'Report it on GitHub?  It opens in your browser, filled in, so ' +
+           'you can read it and say what you were doing before sending - or ' +
+           'close the tab and nothing goes anywhere.'#13#10#13#10 +
+           'No GitHub account?  Choose No and the file stays put; its ' +
+           'name is below and it can go by mail or any other way.',
+           mtConfirmation, [mbYes, mbNo], 0) of
+      mrYes:
+        begin
+          OpenInBrowser(CrashIssueURL(L.Text));
+          RenameFile(Fn, Fn + '.sent');
+          FCmdMsg := 'Opened a report in your browser.';
+        end;
+    else
+      RenameFile(Fn, Fn + '.kept');
+      FCmdMsg := 'Kept it: ' + Fn + '.kept';
+    end;
+  finally
+    L.Free;
+  end;
+end;
+
 procedure TMainForm.ShakeWatch(X, Y: Integer);
 const
   JERK_PX  = 12;
@@ -5281,6 +5466,33 @@ begin
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'dimension') or (W = 'dim') then SetTool(ptDim)
   else if (W = 'offset') or (W = 'f') then SetTool(ptOffset)
+  else if (W = 'update') or (W = 'upgrade') then
+  begin
+    if Rest = 'never' then
+    begin
+      with TIniFile.Create(GetAppConfigFile(False)) do
+      try
+        WriteBool('update', 'check', False);
+      finally
+        Free;
+      end;
+      FCmdMsg := 'It will not look for updates again.  /update still works ' +
+        'when you ask it to.';
+    end
+    else if Rest = 'always' then
+    begin
+      with TIniFile.Create(GetAppConfigFile(False)) do
+      try
+        WriteBool('update', 'check', True);
+      finally
+        Free;
+      end;
+      FCmdMsg := 'It will look once a day again.';
+    end
+    else
+      DoUpdate;
+  end
+  else if W = 'version' then FCmdMsg := 'Heckers Sketch ' + CurrentVersion
   else if (W = 'push') or (W = 'pull') or (W = 'pushpull') or (W = 'p') then
     SetTool(ptPush)
   else if (W = 'undo') or (W = 'u') then DoUndo
