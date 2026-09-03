@@ -3,7 +3,7 @@ unit uSkin;
 {
   uSkin - the look of Noella Hazel Sketch.
 
-  Colour themes plus the chassis parts (panels, knobs, buttons, line icons).
+  Color themes plus the chassis parts (panels, knobs, buttons, line icons).
   Everything here paints into a TArtSurface so the edges come out smooth;
   text is left to the caller because only the widgetset can render glyphs.
 
@@ -25,7 +25,7 @@ type
     Panel: TPix;            // control deck panel
     PanelHi: TPix;          // panel top highlight
     Screen1, Screen2: TPix; // the drawing surface itself
-    Ink: TPix;              // default pen colour on this screen
+    Ink: TPix;              // default pen color on this screen
     Accent: TPix;           // knob markers, active controls
     Text: TPix;
     TextDim: TPix;
@@ -47,7 +47,7 @@ const
   THEME_COUNT = 6;
   { PRO uses only these two: the drawing area is white in both, because that
     is what a SketchUp model looks like and what prints.  The four playful
-    ones stay for TOY, where the screen colour is half the point. }
+    ones stay for TOY, where the screen color is half the point. }
   THEME_PRO_LIGHT = 4;
   THEME_PRO_DARK  = 5;
 
@@ -75,8 +75,8 @@ procedure PaintMeasuredGrid(S: TArtSurface; const T: TTheme;
 procedure PaintIsoGrid(S: TArtSurface; const T: TTheme;
   Ppu, OX, OY: Double; MajorEvery: Integer);
 
-{ The model axes, in SketchUp's colours: X red, Y green, Z blue.  Index is
-  0 X, 1 Y, 2 Z; anything else comes back grey. }
+{ The model axes, in SketchUp's colors: X red, Y green, Z blue.  Index is
+  0 X, 1 Y, 2 Z; anything else comes back gray. }
 function AxisPix(Index: Integer): TPix;
 
 implementation
@@ -728,13 +728,13 @@ begin
     X := Step;
     while X < S.Width do
     begin
-      S.Line(X, 0, X, S.Height, 1.0, T.Grid, 0.55);
+      S.Line(X, 0, X, S.Height, 1.0, T.Grid, IfThen(T.DarkScreen, 0.55, 0.85));
       Inc(X, Step);
     end;
     Y := Step;
     while Y < S.Height do
     begin
-      S.Line(0, Y, S.Width, Y, 1.0, T.Grid, 0.55);
+      S.Line(0, Y, S.Width, Y, 1.0, T.Grid, IfThen(T.DarkScreen, 0.55, 0.85));
       Inc(Y, Step);
     end;
   end;
@@ -819,7 +819,18 @@ begin
   begin
     Major := (MajorEvery > 0) and (I mod MajorEvery = 0);
     if not Major and (Ppu < 9) then Continue;
-    if Major then A := 0.7 else A := 0.26;
+    { On white paper a quarter-strength gray line is barely a shade off the
+      sheet, which is why the isometric lattice went missing when PRO turned
+      white.  A dark screen needs the opposite - a bright grid at that
+      strength would shout. }
+    if T.DarkScreen then
+    begin
+      if Major then A := 0.7 else A := 0.26;
+    end
+    else
+    begin
+      if Major then A := 0.95 else A := 0.5;
+    end;
 
     { Lines running along +X (down-right), stepped along +Y.  +Y projects to
       (-C30, +S30): stepping by (-C30, -S30) instead put every line of the
@@ -835,7 +846,7 @@ begin
   end;
 
   { No axes here.  Isometric is a drafting projection - what it wants is
-    isometric paper, the way plan gets a measured grid.  The coloured axes
+    isometric paper, the way plan gets a measured grid.  The colored axes
     belong to the orbit view, where they are the only thing saying which way
     is which. }
   S.Touch;

@@ -4,7 +4,7 @@ Source: https://help.sketchup.com/en/sketchup/drawing-arcs  (fetched 2 Sep 2026)
 An arc is many straight segments acting as one entity.  Default 12 segments.
 
 ## The four arc tools
-**Arc** — click the centre, click the start point, click the end.  A protractor
+**Arc** — click the center, click the start point, click the end.  A protractor
 shows the plane.  The Measurements box takes the Radius, then the Angle.
 Produces an open arc.
 

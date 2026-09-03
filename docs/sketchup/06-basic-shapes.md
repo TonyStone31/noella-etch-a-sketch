@@ -22,7 +22,7 @@ Section inferences.)*
 
 ## Circle — **C**
 The Measurements box shows the segment count before you start; typing a number
-changes it.  Click the centre, move out for the radius, click.  Esc restarts.
+changes it.  Click the center, move out for the radius, click.  Esc restarts.
 
 Immediately afterwards: type a length to change the radius (`6"`, `8'`, `34cm`).
 Segment count is changed from Entity Info.
@@ -37,7 +37,7 @@ thing already.  No segment-count entry yet.)*
 
 ## Polygon
 Same as Circle but with visible sides.  Type a number for the side count, click
-the centre, move out for the radius, click.  Push/pulling a circle gives smooth
+the center, move out for the radius, click.  Push/pulling a circle gives smooth
 edges; a polygon shows its facets.
 
 *(Not implemented.)*

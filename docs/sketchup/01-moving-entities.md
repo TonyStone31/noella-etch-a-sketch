@@ -11,7 +11,7 @@ Source: https://help.sketchup.com/en/sketchup/moving-entities-around  (fetched 2
 6. A distance or coordinate may be typed during the move or immediately after it.
 
 ## Axis locking
-* **Shift** held while the move line is already showing an axis colour locks the
+* **Shift** held while the move line is already showing an axis color locks the
   inference to that axis.
 * **Arrow keys** lock an axis outright, without waiting for the inference.
 
@@ -26,7 +26,7 @@ Source: https://help.sketchup.com/en/sketchup/moving-entities-around  (fetched 2
 ## Corner inference grips
 Hovering or selecting a component/group puts inference icons on its bounding-box
 corners.  With the selection made and the cursor away from a grip, **Alt**
-(Windows) cycles the visible grips: corners, midpoints, side centres, centre.
+(Windows) cycles the visible grips: corners, midpoints, side centers, center.
 
 *(Grips are a group/component feature.  We have no groups yet, so this is not
 implemented.)*

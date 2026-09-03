@@ -9,7 +9,7 @@ line or arrow pointing at something), **3D text** (real edges and faces), and
 "Dimension entities move and update automatically as you create your model."
 
 They can start and end on endpoints, midpoints, on-edge points, intersections,
-arc centres and circle centres, and can be pulled into the red-green, red-blue
+arc centers and circle centers, and can be pulled into the red-green, red-blue
 or blue-green plane.  A dimension can measure a length, a circle's diameter or
 an arc's radius.
 
@@ -30,8 +30,8 @@ updating.
 
 ### Editing
 Right-click a radius or diameter dimension > **Type > Radius / Diameter**.  Text
-can sit centred, outside the start, or outside the end.  Endpoint style: slash
-(the default), dot, closed arrow, open arrow, or none.  Colour and font are per
+can sit centerd, outside the start, or outside the end.  Endpoint style: slash
+(the default), dot, closed arrow, open arrow, or none.  Color and font are per
 entity in Entity Info, or model-wide in Model Info > Dimensions.
 
 ## Leader text

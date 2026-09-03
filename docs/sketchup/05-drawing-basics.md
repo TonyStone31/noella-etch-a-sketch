@@ -2,7 +2,7 @@
 Source: https://help.sketchup.com/en/sketchup/introducing-drawing-basics-and-concepts  (fetched 2 Sep 2026)
 
 ## The Line tool
-**L**.  Click the start, watch the length in the Measurements box and the colour
+**L**.  Click the start, watch the length in the Measurements box and the color
 of the line, click the end.  A typed value then Enter sets it exactly.  Esc
 restarts.  It keeps going until another tool is picked.
 
@@ -25,16 +25,16 @@ Undo, or redraw the line that was removed — the face comes back on its own.
 
 ## Inference types
 **Point:** origin, component origin, endpoint, midpoint, arc midpoint,
-intersection, on face, on edge, centre, guide point, on line, on section.
+intersection, on face, on edge, center, guide point, on line, on section.
 
-*(We have endpoint, midpoint, arc centre, intersection and **on edge**.  Not
+*(We have endpoint, midpoint, arc center, intersection and **on edge**.  Not
 on face while a shape is under way, no guide points, no sections.  Each shows
-as one small solid diamond coloured the way SketchUp colours it: green a
+as one small solid diamond colored the way SketchUp colors it: green a
 corner, cyan a middle, red a point lying on an edge, violet a crossing.)*
 
 ### From Point — the one that matters most
 
-> **From Point** — "Linear alignment from a point; dotted line colour matches
+> **From Point** — "Linear alignment from a point; dotted line color matches
 > axis direction."
 
 This is the feature with no obvious name: rest the cursor on a corner for a
@@ -54,9 +54,9 @@ you asked for the held one, so it should be harder to shake off.)*
 extend edge, perpendicular, perpendicular to face, tangent at vertex.
 
 **Shape:** square, golden section, half / quarter / three-quarter circle, arc
-side and centre, circle or polygon centre.
+side and center, circle or polygon center.
 
-Everything is colour coded, with a ScreenTip naming it.  Pausing the cursor on a
+Everything is color coded, with a ScreenTip naming it.  Pausing the cursor on a
 point makes the engine prefer alignments to it.
 
 ## Locking with the keyboard — SketchUp's arrows

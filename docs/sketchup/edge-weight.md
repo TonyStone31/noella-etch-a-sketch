@@ -20,7 +20,7 @@ The style's edge settings, all in pixels:
 * **Endpoints** - "adds additional line thickness at the endpoints of lines."
 * **Jitter** - renders each line several times at a slight offset.
 
-Edge colour is also a style setting: **All Same**, **By Material**, or
+Edge color is also a style setting: **All Same**, **By Material**, or
 **By Axis**.
 
 Per-object line weight is a LayOut feature, not a SketchUp one.
@@ -39,5 +39,5 @@ setting does.  The per-entity weight is still written to the file so older
 drawings load unchanged, but nothing renders from it.
 
 **Not built:** Profiles, Depth Cue, Extension, Endpoints, Jitter, and the
-By Material / By Axis edge colouring.  Profiles is the one worth having - it
+By Material / By Axis edge coloring.  Profiles is the one worth having - it
 is most of why a SketchUp model reads as solid.

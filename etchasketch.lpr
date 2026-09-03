@@ -38,7 +38,7 @@ begin
     WriteLn;
     WriteLn('  --maximized        open filling the screen');
     WriteLn('  --fullscreen       open with no window frame at all');
-    WriteLn('  --size=1600x1000   open at a particular size, centred');
+    WriteLn('  --size=1600x1000   open at a particular size, centerd');
     WriteLn('  --help             this');
     WriteLn;
     WriteLn('Without a switch the window comes back the size and the place it');
