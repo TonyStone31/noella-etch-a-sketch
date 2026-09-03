@@ -84,12 +84,19 @@ implementation
 
 function AxisPix(Index: Integer): TPix;
 begin
+  { Red, green and blue, as far apart as they will go and still be those
+    three colors.  The green used to carry a fair bit of blue and the blue a
+    fair bit of green - $3CB054 against $4678E6 - which is a difference you
+    can measure and not one everybody can see, particularly at two pixels
+    wide on white paper.  Now the green has almost no blue in it and the blue
+    almost no green, and all three are dark enough to read against the
+    paper. }
   case Index of
-    0: Result := Pix($E0, $46, $46);
-    1: Result := Pix($3C, $B0, $54);
-    2: Result := Pix($46, $78, $E6);
+    0: Result := Pix($D2, $2C, $2C);        // X, red
+    1: Result := Pix($0E, $92, $32);        // Y, green - blue channel gone
+    2: Result := Pix($16, $46, $DC);        // Z, blue - green channel gone
   else
-    Result := Pix($90, $90, $98);
+    Result := Pix($78, $78, $84);
   end;
 end;
 
