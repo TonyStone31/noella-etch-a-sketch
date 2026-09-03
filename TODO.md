@@ -732,3 +732,29 @@ Annotation is not geometry.
 * Typing over the reading, which in SketchUp breaks the link to the geometry.
 * A file written before the offset became a vector loads its dimensions sitting
   on the line they measure; drag them off again.
+
+## Command line switches — 2 September 2026
+
+For LazPort, which launches the program itself and wants the window a
+particular way rather than however a person last left it.
+
+    etchasketch [switches] [drawing.hsk]
+
+      --maximized        open filling the screen
+      --fullscreen       open with no window frame at all
+      --size=1600x1000   open at a particular size, centred
+      --help             print this and leave
+
+A switch beats the remembered size and position - that is the point of it.
+`--help` is answered in the program file before any of the LCL starts, so it
+prints and exits rather than printing and then opening a window; on a Windows
+GUI build there is no console and it fails quietly.  Anything unrecognised is
+ignored rather than fatal, and the drawing to open is looked for among all the
+arguments rather than taken from the first, so a switch in front of a filename
+does not hide it.
+
+`--fullscreen` sets the bounds to the monitor explicitly instead of asking for
+`wsFullScreen` and hoping: whether that lands depends on the window manager,
+and a bare remote display may not have one.  Measured on a 1600x1000 nested
+server: `--maximized` gives 1600x983 under openbox, `--fullscreen` 1600x1000,
+`--size=1100x700` exactly that.
