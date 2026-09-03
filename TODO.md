@@ -312,7 +312,12 @@ order:
   face is not clickable. Should use the same point-in-polygon test as
   `HitFace`.
 * ~~**Dragging the eraser**~~ — done. Hold and sweep; everything the cursor
-  crosses turns red, and letting go deletes the lot.
+  crosses turns red, and letting go deletes the lot. Deleting an edge takes
+  the faces it bounded, which is SketchUp's behaviour; clicking clear of any
+  edge takes the face itself, which is not, but is how you hollow a box out.
+* **The eraser's modifier keys.** SketchUp softens and smooths an edge with
+  Ctrl held, and hides rather than erases with Shift. We have neither, and
+  no notion of a soft edge to hang them on.
 * **Dimension labels** can land inside a closed shape. They should be pushed
   to the outside of the run they belong to.
 * **Neon on a light screen** is muted. It went alpha-based so that a drawing

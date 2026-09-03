@@ -4522,7 +4522,10 @@ procedure TMainForm.DoomAt(SX, SY: Integer);
 var
   I: Integer;
 begin
+  { An edge under the cursor is what you meant; away from any edge, the face
+    itself is - which is how a box is hollowed out, leaving its wireframe. }
   I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+  if I < 0 then I := FD.Doc.HitFace(Proj, SX, SY);
   if I < 0 then I := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
   if (I < 0) or IsDoomed(I) then Exit;
   SetLength(FDoomed, Length(FDoomed) + 1);
@@ -4566,9 +4569,15 @@ begin
     if Kinds[I] in [ekLine, ekArc] then
       if not FD.Doc.MergeFacesAcross(EA[I], EB[I]) then
         FD.Doc.MergeFacesAcross(EB[I], EA[I]);
+  { whatever is left with a gap in its outline is not a face any more.  A
+    face rubbed out on purpose is a different matter and is simply gone. }
+  J := FD.Doc.DropOpenFaces;
 
   if N = 1 then FCmdMsg := 'Deleted.'
   else FCmdMsg := Format('Deleted %d things.', [N]);
+  if J > 0 then
+    FCmdMsg := FCmdMsg + Format('  %d face%s no longer closed.',
+      [J, IfThen(J = 1, '', 's')]);
   SetLength(FDoomed, 0);
   RenderPro;
   RecomposeAll;

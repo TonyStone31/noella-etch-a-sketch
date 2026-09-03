@@ -80,6 +80,11 @@ type
     Plane: TPlane;
     Poly: array of TP3;   // ekFace: the closed outline, in order
     Solid: Boolean;       // ekFace: part of a solid, so its back is hidden
+    { Which solid this belongs to, or 0 for loose drawing.  Push/pull drags
+      the geometry attached to the face it moves, and without this it dragged
+      anything that merely touched - a box beside another one deformed its
+      neighbour through the corner they shared. }
+    Grp: Integer;
     Txt: string;
     Ink: TColor;
     Weight: Single;
@@ -111,6 +116,7 @@ type
     FLive: Integer;      // entities in play; anything past this is redo space
     FSnapCache: array of TSnapHit;
     FSnapDirty: Boolean;
+    FNextGrp: Integer;
     function GetEnt(I: Integer): TWorkEnt;
     procedure RebuildSnapCache;
   public
@@ -136,6 +142,10 @@ type
     { Join the two faces that share the edge from A to B into one.  This is
       what rubbing out a line between two regions should do. }
     function MergeFacesAcross(const A, B: TP3): Boolean;
+    { How many flat faces run along the edge from A to B, either way round. }
+    function FacesOnEdge(const A, B: TP3): Integer;
+    { Drop flat faces whose outline is no longer closed by real edges. }
+    function DropOpenFaces: Integer;
     { The face a point lies on, or -1.  Used to work out which plane a new
       shape belongs in when the cursor has snapped to a corner. }
     function FaceThrough(const P: TP3): Integer;
@@ -1481,6 +1491,87 @@ end;
   The shared edge runs one way round in each face, which is what makes them
   separate regions rather than one folded over. Walk the first from B round
   to A, then the second from A round to B, and the seam is gone. }
+function TWorkDoc.FacesOnEdge(const A, B: TP3): Integer;
+const
+  TOL = 1E-6;
+var
+  I, Q, N: Integer;
+begin
+  Result := 0;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    if FEnts[I].Solid then Continue;
+    N := Length(FEnts[I].Poly);
+    for Q := 0 to N - 1 do
+      if ((Dist(FEnts[I].Poly[Q], A) < TOL) and
+          (Dist(FEnts[I].Poly[(Q + 1) mod N], B) < TOL)) or
+         ((Dist(FEnts[I].Poly[Q], B) < TOL) and
+          (Dist(FEnts[I].Poly[(Q + 1) mod N], A) < TOL)) then
+      begin
+        Inc(Result);
+        Break;
+      end;
+  end;
+end;
+
+{ A face is the inside of a closed run of edges.  Rub one of those edges out
+  and there is no longer an inside, so the face should go with it - deleting
+  three sides of a rectangle used to leave the fill hanging in mid air.
+
+  Every straight run of a flat face's outline has to be backed by a real
+  line; the curved runs an arc left behind are matched against arcs. }
+function TWorkDoc.DropOpenFaces: Integer;
+const
+  TOL = 1E-6;
+var
+  I, Q, N: Integer;
+  Gone: Boolean;
+
+  function Backed(const A, B: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    Result := True;
+    for J := 0 to FLive - 1 do
+      case FEnts[J].Kind of
+        ekLine:
+          if ((Dist(FEnts[J].A, A) < TOL) and (Dist(FEnts[J].B, B) < TOL)) or
+             ((Dist(FEnts[J].A, B) < TOL) and (Dist(FEnts[J].B, A) < TOL)) then
+            Exit;
+        ekArc:
+          { an arc's own points are not lines; the whole run belongs to it }
+          if (Abs(Dist(FEnts[J].C, A) - FEnts[J].R) < 1E-4) and
+             (Abs(Dist(FEnts[J].C, B) - FEnts[J].R) < 1E-4) then
+            Exit;
+        ekText, ekDim, ekFace: ;   // not edges
+      end;
+    Result := False;
+  end;
+
+begin
+  Result := 0;
+  repeat
+    Gone := False;
+    for I := FLive - 1 downto 0 do
+    begin
+      if FEnts[I].Kind <> ekFace then Continue;
+      if FEnts[I].Solid then Continue;
+      N := Length(FEnts[I].Poly);
+      if N < 3 then Continue;
+      for Q := 0 to N - 1 do
+        if not Backed(FEnts[I].Poly[Q], FEnts[I].Poly[(Q + 1) mod N]) then
+        begin
+          Delete(I);
+          Inc(Result);
+          Gone := True;
+          Break;
+        end;
+      if Gone then Break;
+    end;
+  until not Gone;
+end;
+
 function TWorkDoc.MergeFacesAcross(const A, B: TP3): Boolean;
 const
   TOL = 1E-6;
@@ -1626,7 +1717,7 @@ const
   TOL = 1E-7;
 var
   Was: TP3Array;
-  I, K, N: Integer;
+  I, K, N, G: Integer;
 
   function OnFace(const P: TP3): Boolean;
   var
@@ -1650,9 +1741,14 @@ begin
   SetLength(Was, N);
   for I := 0 to N - 1 do
     Was[I] := FEnts[Index].Poly[I];
+  G := FEnts[Index].Grp;
 
   for I := 0 to FLive - 1 do
   begin
+    { only this solid.  Two boxes split from one rectangle share corners, and
+      moving everything that touched meant pulling a face on one of them
+      dragged the other out of shape. }
+    if (I <> Index) and (FEnts[I].Grp <> G) then Continue;
     Shift(FEnts[I].A);
     Shift(FEnts[I].B);
     if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
@@ -1664,7 +1760,7 @@ end;
 
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
-  I, J, N: Integer;
+  I, J, N, G: Integer;
   Nm: TP3;
   Base, Top, Rev: TP3Array;
   Quad: array[0..3] of TP3;
@@ -1701,6 +1797,15 @@ begin
     the result is a closed solid rather than an open shell.  The copy is
     wound the other way round so its normal points out of the solid, which is
     what lets the renderer hide the inside. }
+  { one identity for everything this push makes, so a later push on any of
+    its faces moves this solid and nothing that merely touches it }
+  if FEnts[Index].Grp = 0 then
+  begin
+    Inc(FNextGrp);
+    FEnts[Index].Grp := FNextGrp;
+  end;
+  G := FEnts[Index].Grp;
+
   SetLength(Rev, N);
   if Dist >= 0 then
   begin
@@ -1717,6 +1822,7 @@ begin
   end;
   FEnts[Index].Solid := True;
   AddFaceRaw(Rev, Ink, True);
+  FEnts[FLive - 1].Grp := G;
 
   { walls, plus the edges so it reads as a solid in wireframe too }
   for I := 0 to N - 1 do
@@ -1734,8 +1840,11 @@ begin
       Quad[2] := Top[I];  Quad[3] := Top[J];
     end;
     AddFaceRaw(Quad, Ink, True);
+    FEnts[FLive - 1].Grp := G;
     AddLine(Base[I], Top[I], Ink, 1, False);
+    FEnts[FLive - 1].Grp := G;
     AddLine(Top[I], Top[J], Ink, 1, False);
+    FEnts[FLive - 1].Grp := G;
   end;
 
   FSnapDirty := True;
@@ -2128,9 +2237,9 @@ begin
   for I := 0 to FLive - 1 do
     case FEnts[I].Kind of
       ekLine:
-        L.Add(Format('LINE %s %s %d %.3f %d',
+        L.Add(Format('LINE %s %s %d %.3f %d %d',
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].Weight,
-           Ord(FEnts[I].Dim)], FS));
+           Ord(FEnts[I].Dim), FEnts[I].Grp], FS));
       ekArc:
         L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f',
           [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
@@ -2146,6 +2255,7 @@ begin
             [FEnts[I].Ink, Ord(FEnts[I].Solid), Length(FEnts[I].Poly)]);
           for K := 0 to High(FEnts[I].Poly) do
             Line := Line + ' ' + N3(FEnts[I].Poly[K]);
+          Line := Line + ' ' + IntToStr(FEnts[I].Grp);
           L.Add(Line);
         end;
     end;
@@ -2177,7 +2287,8 @@ begin
       if (Kind = 'LINE') and (T.Count >= 10) then
         AddLine(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                 P3(RdF(T[4]), RdF(T[5]), RdF(T[6])),
-                StrToIntDef(T[7], 0), RdF(T[8]), T[9] = '1')
+                StrToIntDef(T[7], 0), RdF(T[8]), T[9] = '1');
+        if T.Count >= 11 then FEnts[FLive - 1].Grp := StrToIntDef(T[10], 0)
       else if (Kind = 'ARC') and (T.Count >= 10) then
         AddArc(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])), RdF(T[4]), RdF(T[5]),
                RdF(T[6]), TPlane(StrToIntDef(T[7], 0)),
@@ -2209,6 +2320,9 @@ begin
           for I := 0 to N - 1 do
             Pts[I] := P3(RdF(T[4 + I * 3]), RdF(T[5 + I * 3]), RdF(T[6 + I * 3]));
           AddFace(Pts, StrToIntDef(T[1], 0), T[2] = '1');
+          { the solid it belongs to, when the file records one }
+          if (FLive > 0) and (T.Count >= 5 + N * 3) then
+            FEnts[FLive - 1].Grp := StrToIntDef(T[4 + N * 3], 0);
         end;
       end;
     end;
