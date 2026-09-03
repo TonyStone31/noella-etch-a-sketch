@@ -500,6 +500,117 @@ begin
   end;
 end;
 
+{ ------------------------- what a push drags along with the face it moves - }
+procedure TestPushDragsSurfaceLines;
+var
+  D: TWorkDoc;
+  I, Side, Ln: Integer;
+
+  { the face whose corners all sit at X = AtX }
+  function FaceAtX(AtX: Double): Integer;
+  var
+    J, K: Integer;
+    All: Boolean;
+  begin
+    Result := -1;
+    for J := 0 to D.Live - 1 do
+    begin
+      if D[J].Kind <> ekFace then Continue;
+      if Length(D[J].Poly) < 3 then Continue;
+      All := True;
+      for K := 0 to High(D[J].Poly) do
+        if Abs(D[J].Poly[K].X - AtX) > 1E-9 then All := False;
+      if All then Exit(J);
+    end;
+  end;
+
+begin
+  WriteLn('a push takes the lines drawn on the face with it');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'pushed into a box');
+
+    { a line across the top, from the middle of one short edge to the other -
+      exactly the thing you draw to split a duct top in half }
+    D.AddLine(P3(0, 3, 8), P3(10, 3, 8), 0, 2, False);
+    Ln := D.Live - 1;
+    { note: this does not split the top - SplitFace turns down any face that
+      belongs to a solid.  That is a separate gap, written up in the TODO.
+      The line still lies on the top, and has to move with it. }
+
+    Side := FaceAtX(10);
+    Ok(Side >= 0, 'found the far side face');
+    Ok(D.PushPull(Side, 5), 'pushed that side out five feet');
+
+    { the end that sat on the moving face goes with it; the other stays }
+    EqF(Max(D[Ln].A.X, D[Ln].B.X), 15, 'the line end on the moved face followed');
+    EqF(Min(D[Ln].A.X, D[Ln].B.X), 0, 'and the far end stayed put');
+
+    { and the top is still the full size of the box }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) >= 3) and
+         (Abs(D[I].Poly[0].Z - 8) < 1E-9) then
+        Ok(D.FaceArea(I) > 1E-6, 'a top face still has area');
+  finally
+    D.Free;
+  end;
+end;
+
+{ ------------------------------- and what it must leave alone ------------- }
+procedure TestPushLeavesNeighborAlone;
+var
+  D: TWorkDoc;
+  Sel: array of Integer;
+  I, Base, Copy0, Side, Moved: Integer;
+  Orig: TP3Array;
+begin
+  WriteLn('a push does not drag the box next to it');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'first box');
+    Base := D.Live;
+    SetLength(Sel, Base);
+    for I := 0 to Base - 1 do Sel[I] := I;
+    { a copy set down so it shares the whole face at X = 10 }
+    D.Duplicate(Sel, P3(10, 0, 0));
+
+    SetLength(Orig, 0);
+    for I := 0 to Base - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        SetLength(Orig, Length(Orig) + 1);
+        Orig[High(Orig)] := D[I].Poly[0];
+      end;
+
+    Copy0 := -1;
+    for I := Base to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Copy0 < 0) then Copy0 := I;
+    Side := -1;
+    for I := Base to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) then
+      begin
+        if (Abs(D[I].Poly[0].X - 20) < 1E-9) and
+           (Abs(D[I].Poly[1].X - 20) < 1E-9) then Side := I;
+      end;
+    Ok(Side >= 0, 'found the copy''s far side');
+    Ok(D.PushPull(Side, 4), 'pushed the copy out');
+
+    Moved := 0;
+    I := 0;
+    for Copy0 := 0 to Base - 1 do
+      if D[Copy0].Kind = ekFace then
+      begin
+        if Dist(D[Copy0].Poly[0], Orig[I]) > 1E-9 then Inc(Moved);
+        Inc(I);
+      end;
+    EqI(Moved, 0, 'the first box did not move');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -512,6 +623,8 @@ begin
   TestSubMidpoints; WriteLn;
   TestCircleOnFace; WriteLn;
   TestPushSnaps;    WriteLn;
+  TestPushDragsSurfaceLines;  WriteLn;
+  TestPushLeavesNeighborAlone; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
