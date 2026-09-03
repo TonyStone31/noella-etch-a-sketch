@@ -440,6 +440,66 @@ begin
   end;
 end;
 
+{ ------------------------------------ what a push leaves you to snap to - }
+procedure TestPushSnaps;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Hit: TSnapHit;
+  I, Top: Integer;
+
+  procedure Want(const P: TP3; const What: string);
+  var
+    Q: TPointF;
+  begin
+    Q := Project(V, P);
+    Ok(D.BestSnap(V, Q.X, Q.Y, 6, Hit) and (Dist(Hit.P, P) < 1E-6), What);
+  end;
+
+begin
+  WriteLn('snapping to what a push/pull made');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkIso;
+    V.Ppu := 20;
+    V.OX := 500;
+    V.OY := 500;
+
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'pushed it into a box');
+
+    Want(P3(0, 0, 0), 'a corner on the ground');
+    Want(P3(5, 0, 0), 'the middle of an edge on the ground');
+    Want(P3(0, 0, 8), 'a corner on the top');
+    Want(P3(10, 6, 8), 'the far corner on the top');
+    Want(P3(5, 0, 8), 'the middle of a top edge');
+    Want(P3(0, 0, 4), 'the middle of an upright edge');
+
+    { push it again - a solid resizes rather than growing a second box, and
+      that is a different path through PushPull }
+    Top := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].Z - 8) < 1E-9) and
+         (Abs(D[I].Poly[1].Z - 8) < 1E-9) and
+         (Abs(D[I].Poly[2].Z - 8) < 1E-9) then
+        Top := I;
+    Ok(Top >= 0, 'found the top face');
+    Ok(D.PushPull(Top, 5), 'pushed it again, to 13 high');
+
+    Want(P3(0, 0, 13), 'a corner on the new top');
+    Want(P3(5, 0, 13), 'the middle of a new top edge');
+    Want(P3(0, 0, 6.5), 'the middle of the taller upright edge');
+    Ok(not (D.BestSnap(V, Project(V, P3(0, 0, 8)).X,
+                          Project(V, P3(0, 0, 8)).Y, 3, Hit) and
+            (Abs(Hit.P.Z - 8) < 1E-9)),
+       'and nothing left snapping at the old height');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -451,6 +511,7 @@ begin
   TestEdgeSnap;     WriteLn;
   TestSubMidpoints; WriteLn;
   TestCircleOnFace; WriteLn;
+  TestPushSnaps;    WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

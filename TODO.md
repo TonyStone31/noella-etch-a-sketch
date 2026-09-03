@@ -790,3 +790,54 @@ that was broken:
 
 `--maximized` follows too (1400x1033 and 1600x1183 under openbox, less its
 panel).
+
+## Line weight, snapping and the white sheet — 3 September 2026
+
+**"Thick lines left behind" was per-edge line weight.**  Tony's instinct was
+right, and a search settled it: SketchUp has **no per-edge thickness** - weight
+is a style setting for the whole model, with Profiles thickening the
+silhouette.  See `docs/sketchup/edge-weight.md`.
+
+We stored a weight on every entity, taken from the pen size when it was drawn,
+and push/pull hardcoded its new edges to 1.  So a box pulled from a rectangle
+drawn with a 4 pixel pen had four heavy lines round its base and hairlines
+everywhere else, which reads as something left behind.  The renderer now takes
+one weight for the whole drawing and uses it for every edge and face outline;
+WIDTH changes the lot at once, live, the way a style setting does.  The
+per-entity weight is still written to the file so older drawings load, but
+nothing renders from it.
+
+**The grid was invisible on white paper.**  `Grid` in both PRO themes was a
+shade off the paper itself.  Darkened to `$BEC6D0`.  The isometric lattice is
+back, which matters - the pipefitters read iso drawings even if Tony does not.
+
+**Fractional snaps.**  The menu went 1/16" straight to 1", which is why
+everything ended up on foot increments.  Now: OFF, 1/16, 1/8, 1/4, 1/2, 1", 2",
+3", 6", 1'-0".  Metric to match.
+
+**A face has a centre to snap to.**  Drawing a circle from the middle of a
+square is something Tony does constantly, and getting there otherwise means
+resting on two edge midpoints and crossing the guides.  One point per face.
+
+**The face under the cursor is unmistakable now.**  The hover stipple was
+sparse enough to be a hint; it is every other pixel in a light blue, which
+reads as a wash.
+
+### Checked and already right
+Snapping to what push/pull leaves behind - corners, edge midpoints and upright
+midpoints, on the first push and on the resize path - has a headless test now
+and passes.  What Tony saw was the weight mismatch, not missing points.
+
+### Push to zero
+He asked whether push/pull should delete a face when pushed to nothing, the way
+SketchUp's does.  Their docs describe cutting a *hole through*: the pushed face
+must be parallel with the face on the far side and no lines may divide that far
+face.  That is a boolean operation on real topology.  Our faces are stored and
+patched rather than derived from their edges, so doing it honestly waits on the
+planar region work - it is the same dependency as offset and rotate.
+
+### Also noticed
+Drawing on a plane the camera is looking nearly along makes `WorldAt` blow up,
+so a rectangle drawn on the ground from a horizon-level 3D view comes out a
+sliver.  SketchUp has the same problem; a guard that refuses a point when the
+working plane is within a few degrees of edge-on would be kinder.

@@ -566,7 +566,7 @@ const
   PIECE_PX        = 5.0;    // ...and this close for the middle of a piece
   EDGE_PX         = 11.0;   // hovering a line means a point on that line
   { the face under the cursor, tinted the way SketchUp tints one }
-  HINT_BLUE: TPix = (B: $E0; G: $8C; R: $3C; A: 255);
+  HINT_BLUE: TPix = (B: $F2; G: $B4; R: $76; A: 255);
   AXIS_MIN_PX     = 14.0;   // nearer than this an axis lock says nothing
   DWELL_MS        = 450;    // rest on a point this long to keep it
   { SketchUp's default, and the same reasoning: round enough to read as a
@@ -1549,11 +1549,11 @@ begin
   X1 := Min(X1, pbScreen.Width - 1); Y1 := Min(Y1, pbScreen.Height - 1);
   if (X1 <= X0) or (Y1 <= Y0) then Exit;
 
-  { A sparse dither, not a solid wash: the canvas has no alpha channel, so a
-    light tint has to be made out of gaps.  It used to be dense enough to
-    read as a colour of its own, which on white paper looked like the face
-    had been painted rather than merely pointed at. }
-  Step := Max(7, Round(9 * FUIScale));
+  { A dither, because the canvas has no alpha channel and a tint has to be
+    made out of gaps.  Every other pixel reads as a solid wash at a glance,
+    which is what SketchUp does: the face you are pointing at should be
+    unmistakable rather than a hint. }
+  Step := 2;
   Y := Y0 - (Y0 mod Step);
   while Y <= Y1 do
   begin
@@ -1769,7 +1769,7 @@ procedure TMainForm.RenderPro;
 begin
   FInkPro.ClearTransparent;
   if FD.Doc.Live > 0 then
-    FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor);
+    FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FPenSize);
   FInkPro.MarkAllDirty;
 end;
 
@@ -6960,7 +6960,7 @@ begin
     begin
       L := TStringList.Create;
       try
-        FD.Doc.WriteSVG(L, Proj, FD.Units);
+        FD.Doc.WriteSVG(L, Proj, FD.Units, FPenSize);
         L.SaveToFile(Fn);
       finally
         L.Free;
@@ -7017,7 +7017,7 @@ begin
             V.OX := SW / 2 - P.X;
             V.OY := SH / 2 - P.Y;
           end;
-          FD.Doc.Render(Sheet, V, FD.Units, FDimFont, Pix(20, 20, 20));
+          FD.Doc.Render(Sheet, V, FD.Units, FDimFont, Pix(20, 20, 20), FPenSize);
           Printer.Canvas.StretchDraw(
             Rect(0, 0, Printer.PageWidth, Printer.PageHeight), Sheet.AsBitmap);
         finally
