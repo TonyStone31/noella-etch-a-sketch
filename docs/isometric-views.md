@@ -90,3 +90,78 @@ dimension tool is really ISO work.
 * If an iso spool sheet is ever wanted, it is an export off the model.  There
   is a line for it in TODO.md.
 * Finishing the dimension tool counts as ISO work, not as polish.
+
+
+---
+
+# Open question, 3 September 2026: what should ISO mode actually be?
+
+Tony, after pushing and pulling a rectangle in the ISO view: *"for an iso it
+doesn't seem quite proper... maybe the iso mode is just dumb as fuck but I
+think pipe fitters would want it... this deserves further discussion."*
+
+He is right that something is off, and the reason is that **there are three
+different things called an isometric drawing in this trade**, and we have
+built the first one while his coworkers expect the second.
+
+## 1. A camera on a 3D model - what we have, and what SketchUp has
+
+SketchUp's "Iso" is `Camera > Standard Views > Iso`, together with
+`Camera > Parallel Projection`.  That is all it is: a camera angle on a real
+3D model, with perspective turned off so lengths stay to scale.  Every tool
+keeps working, push/pull included, because there is a real solid underneath.
+
+Ours is the same thing, and by that standard pushing a rectangle in the ISO
+view is not a bug - it is the model working as designed.
+
+## 2. A 2D drafting mode on a flat sheet - AutoCAD's ISODRAFT
+
+AutoCAD has a genuine isometric *drafting* mode.  `ISODRAFT` on, and you draw
+on a flat sheet using three isoplanes - left, top and right - cycled with F5
+or Ctrl+E.  The left isoplane gives you the 90 and 150 degree axes, right
+gives 30 and 90, top gives 30 and 150.  Circles are drawn with the ELLIPSE
+command's Isocircle option, because a circle on iso paper is an ellipse.
+
+There is **no 3D underneath any of it**.  It is a flat drawing that looks
+three-dimensional by convention.  Push/pull is meaningless there because
+there is nothing to push - which is exactly the friction Tony felt.
+
+This is the one pipe fitters know.  Our `K` and arrow-key plane switching is
+already a close cousin of ISODRAFT's isoplanes; the difference is that ours
+moves a plane through real 3D space and theirs just changes which two paper
+axes the cursor follows.
+
+## 3. A sheet generated from a model - Plant 3D, Isogen
+
+In the big piping packages nobody draws the iso at all.  The 3D route is
+modelled, and the isometric sheet is *generated* from it, with the dimensions
+and callouts hung on automatically.  Designers then touch the result up using
+ISODRAFT, which is why they are fluent in it.
+
+## So which should we be?
+
+Genuinely undecided, and worth deciding deliberately rather than drifting.
+
+**Staying as we are (1)** costs nothing and keeps one document: build it in
+3D, look at it in ISO, hand it to a fitter.  The complaint is that it does not
+behave the way a fitter expects when they try to *draw* in it.
+
+**Adding a real drafting mode (2)** would mean a second kind of sheet - flat,
+not to scale, isoplanes rather than working planes, isocircles, and no
+push/pull.  It is the thing pipe fitters would actually reach for.  It is
+also a second document type with its own tools, which is a large commitment
+and cuts against one-model-three-views.
+
+**Generating sheets (3)** is the professional answer and the most work by
+far, and only makes sense once there is something worth generating from.
+
+A fourth possibility worth weighing: keep one model, and make the ISO view
+*behave* more like ISODRAFT for drawing purposes - lock the cursor to the two
+paper axes of the current isoplane, draw circles as isocircles - while still
+being a view of real 3D geometry.  That might get most of what a fitter wants
+without forking the document.  Whether that is clever or a muddle is exactly
+what needs discussing.
+
+Nothing to be done until that conversation happens.  Sources:
+AutoCAD ISODRAFT - https://help.autodesk.com/cloudhelp/2020/ENU/AutoCAD-Core/files/GUID-061FA171-5425-481C-B24C-887C4E195A7B.htm
+SketchUp viewing a model - https://help.sketchup.com/en/sketchup/viewing-model
