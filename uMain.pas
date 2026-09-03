@@ -259,6 +259,10 @@ type
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
     FLastPush: Double;         // what a double-click repeats
+    { The tape measure lays down a guide by default, the way SketchUp's does;
+      Ctrl turns that off and it only measures. }
+    FGuideMode: Boolean;
+    FMeasEdge: Integer;        // the edge the tape was started on, or -1
 
     { how many clicks have landed in the same spot in quick succession: two
       takes what is attached, three takes everything joined on }
@@ -377,6 +381,7 @@ type
     procedure ServiceMotion;
     procedure ServiceHover;
     function DimOffset3: TP3;
+    procedure LayGuide;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
@@ -1150,6 +1155,8 @@ begin
   FStyle := psClassic;
   FPenSize := 4;
   FEdgeW := 1;
+  FGuideMode := True;
+  FMeasEdge := -1;
   FSym := 1;
   FHotItem := -1;
   FHotMode := -1;
@@ -3483,6 +3490,16 @@ begin
       if FStage >= 1 then
       begin
         if FStage = 1 then Rubber(FP1, FCur) else Rubber(FP1, FP2);
+        { the running length beside the cursor, far enough off it to read
+          while you are dragging - a tape you have to look away from to read
+          is no use for a quick check }
+        if FStage = 1 then S1 := FormatLen(Dist(FP1, FCur), FD.Units)
+        else S1 := FormatLen(Dist(FP1, FP2), FD.Units);
+        UIFont(C, 11, True, AnnotColor);
+        C.Brush.Style := bsSolid;
+        C.Brush.Color := PixToColor(Theme.Screen1);
+        C.TextOut(SX + Round(22 * FUIScale), SY - Round(30 * FUIScale), S1);
+        C.Brush.Style := bsClear;
       end;
     ptDim:
       if FStage = 1 then Rubber(FP1, FCur)
@@ -3675,7 +3692,11 @@ begin
       ptPush:  S2 := 'click a face to push or pull it';
       ptErase: S2 := 'click a line to delete it';
       ptText:  S2 := 'space or click - place a note here';
-      ptMeasure: S2 := 'space or click - measure from here';
+      ptMeasure:
+        if FGuideMode then
+          S2 := 'measure from here - Ctrl for no guide'
+        else
+          S2 := 'measure from here - Ctrl to leave a guide';
     else
       S2 := 'space or click - start here';
     end;
@@ -4266,12 +4287,20 @@ begin
       if FStage = 0 then
       begin
         FP1 := FCur;
+        { what the tape was started from decides which kind of guide the
+          second click leaves: an edge gives a line parallel to it, anything
+          else gives a point.  SketchUp's own rule. }
+        FMeasEdge := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
+        if (FMeasEdge >= 0) and
+           not (FD.Doc[FMeasEdge].Kind in [ekLine, ekArc]) then
+          FMeasEdge := -1;
         FStage := 1;
       end
       else if FStage = 1 then
       begin
         FP2 := FCur;
         FStage := 2;
+        LayGuide;
         FCmdMsg := Format('%s   (dX %s  dY %s  dZ %s)',
           [FormatLen(Dist(FP1, FP2), FD.Units),
            FormatLen(Abs(FP2.X - FP1.X), FD.Units),
@@ -4593,6 +4622,22 @@ begin
     RepaintPaper;
     RecomposeAll;
     pbDeck.Invalidate;
+  end
+  else if (W = 'guides') or (W = 'noguides') then
+  begin
+    { SketchUp's Edit > Delete Guides.  They are aids, and a drawing that has
+      been laid out collects a lot of them. }
+    I := FD.Doc.GuideCount;
+    if I = 0 then
+      FCmdMsg := 'No guides to clear.'
+    else
+    begin
+      PushUndo;
+      FD.Doc.ClearGuides;
+      RenderPro;
+      RecomposeAll;
+      FCmdMsg := Format('Cleared %d guide%s.', [I, IfThen(I = 1, '', 's')]);
+    end;
   end
   else if W = 'units' then SetUnits(TUnitSystem(1 - Ord(FD.Units)))
   else if (W = 'new') or (W = 'tab') then NewDrawing
@@ -5560,6 +5605,41 @@ end;
   It used to be a signed screen distance, and the sign disagreed with the one
   the renderer worked out, which is why pulling the line down put it above the
   edge - inside the shape it was measuring. }
+{ What the tape measure leaves behind.  Starting on an edge and pulling away
+  from it gives a guide line parallel to that edge, which is how you set out a
+  wall thickness or a row of hangers; starting anywhere else gives a guide
+  point at the far end.  Ctrl turns it off and the tape only measures. }
+procedure TMainForm.LayGuide;
+var
+  D: TP3;
+  L: Double;
+begin
+  if not FGuideMode then Exit;
+  if Dist(FP1, FP2) < 1E-9 then Exit;
+  PushUndo;
+  if FMeasEdge >= 0 then
+  begin
+    D := P3(FD.Doc[FMeasEdge].B.X - FD.Doc[FMeasEdge].A.X,
+            FD.Doc[FMeasEdge].B.Y - FD.Doc[FMeasEdge].A.Y,
+            FD.Doc[FMeasEdge].B.Z - FD.Doc[FMeasEdge].A.Z);
+    L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
+    if L > 1E-9 then
+    begin
+      FD.Doc.AddGuide(FP2,
+        P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
+      FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
+        '   guide line, parallel to that edge';
+      RenderPro;
+      RecomposeAll;
+      Exit;
+    end;
+  end;
+  FD.Doc.AddGuide(FP2, FP2);
+  FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   guide point';
+  RenderPro;
+  RecomposeAll;
+end;
+
 function TMainForm.DimOffset3: TP3;
 var
   W, D, Perp, Ax, BestAx: TP3;
@@ -6655,6 +6735,18 @@ begin
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMove);
       VK_T: SetTool(ptMeasure);
+      VK_CONTROL:
+        { SketchUp toggles the tape between leaving a guide and only
+          measuring, and says which by putting a + on the cursor.  Ours says
+          it in the prompt. }
+        if FTool = ptMeasure then
+        begin
+          FGuideMode := not FGuideMode;
+          FCmdMsg := IfThen(FGuideMode,
+            'Tape will leave a guide.', 'Tape will only measure.');
+          pbCmd.Invalidate;
+          pbScreen.Invalidate;
+        end;
       VK_D: SetTool(ptDim);
       VK_V:
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);

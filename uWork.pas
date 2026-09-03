@@ -64,7 +64,11 @@ type
     Paper: Double;
   end;
 
-  TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace);
+  { A guide is a construction line or point laid down with the tape measure.
+    SketchUp's rule: "these lines do not interfere with regular geometry" -
+    they are infinite, dashed, snappable, erasable, and never make a face or
+    bound one.  A guide whose two points are the same is a guide point. }
+  TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace, ekGuide);
 
   { One thing on the drawing.  World coordinates, Y up, in feet or metres.
 
@@ -149,6 +153,11 @@ type
     { Off is the vector from what is measured to where the dimension line
       sits - a real displacement in the model, not a number of pixels. }
     procedure AddDim(const A, B: TP3; Ink: TColor; const Off: TP3);
+    { A construction line through A running towards B, or - when the two are
+      the same point - a construction point at A. }
+    procedure AddGuide(const A, B: TP3);
+    function GuideCount: Integer;
+    function ClearGuides: Integer;
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
 
@@ -1159,6 +1168,41 @@ begin
   FEnts[FLive].Weight := 1;
   Inc(FLive);
   FSnapDirty := True;
+end;
+
+procedure TWorkDoc.AddGuide(const A, B: TP3);
+begin
+  SetLength(FEnts, FLive + 1);
+  Finalize(FEnts[FLive]);
+  FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+  FEnts[FLive].Kind := ekGuide;
+  FEnts[FLive].A := A;
+  FEnts[FLive].B := B;
+  FEnts[FLive].Weight := 1;
+  Inc(FLive);
+  FSnapDirty := True;
+end;
+
+function TWorkDoc.GuideCount: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to FLive - 1 do
+    if FEnts[I].Kind = ekGuide then Inc(Result);
+end;
+
+function TWorkDoc.ClearGuides: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := FLive - 1 downto 0 do
+    if FEnts[I].Kind = ekGuide then
+    begin
+      Delete(I);
+      Inc(Result);
+    end;
 end;
 
 procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; const Off: TP3);
@@ -2510,6 +2554,10 @@ begin
           Put(P3(P.X / K, P.Y / K, P.Z / K), snCenter);
         end;
 
+      { a guide point is exactly the kind of thing you put down to aim at }
+      ekGuide:
+        if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then Put(FEnts[I].A, snEndpoint);
+
       { Nothing snaps to a dimension or a note.  They are annotation sitting
         beside the drawing, and having the cursor jump to one while drawing a
         line is only ever in the way. }
@@ -2627,6 +2675,21 @@ begin
         if Length(FEnts[I].Poly) > 0 then
           Result[High(Result)] := Result[0];
       end;
+    ekGuide:
+      begin
+        SetLength(Result, 2);
+        if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then
+        begin
+          Result[0] := Project(V, FEnts[I].A);
+          Result[1] := Result[0];
+        end
+        else
+        begin
+          DG.A := Project(V, FEnts[I].A);
+          Result[0] := DG.A;
+          Result[1] := Project(V, FEnts[I].B);
+        end;
+      end;
     ekDim:
       begin
         { the drawn line and its two witness lines, so highlighting a
@@ -2718,6 +2781,15 @@ begin
   for I := 0 to FLive - 1 do
     case FEnts[I].Kind of
       ekLine: Try_(FEnts[I].A, FEnts[I].B);
+      { a point on a guide line counts - that is what guides are for }
+      ekGuide:
+        if Dist(FEnts[I].A, FEnts[I].B) > 1E-9 then
+          Try_(P3(FEnts[I].A.X + (FEnts[I].A.X - FEnts[I].B.X) * 2000,
+                  FEnts[I].A.Y + (FEnts[I].A.Y - FEnts[I].B.Y) * 2000,
+                  FEnts[I].A.Z + (FEnts[I].A.Z - FEnts[I].B.Z) * 2000),
+               P3(FEnts[I].B.X + (FEnts[I].B.X - FEnts[I].A.X) * 2000,
+                  FEnts[I].B.Y + (FEnts[I].B.Y - FEnts[I].A.Y) * 2000,
+                  FEnts[I].B.Z + (FEnts[I].B.Z - FEnts[I].A.Z) * 2000));
       ekArc:
         begin
           QA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane);
@@ -2733,6 +2805,31 @@ begin
   Result := Ent >= 0;
 end;
 
+{ How far the pointer is from a guide as it is drawn - the whole infinite
+  line, not the one-unit stub that records its direction. }
+function GuideScreenDist(const V: TProjector; const E: TWorkEnt;
+  SX, SY: Double): Double;
+var
+  PA, PB: TPointF;
+  D: TP3;
+  L: Double;
+begin
+  PA := Project(V, E.A);
+  if Dist(E.A, E.B) < 1E-9 then
+  begin
+    Result := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
+    Exit;
+  end;
+  D := P3(E.B.X - E.A.X, E.B.Y - E.A.Y, E.B.Z - E.A.Z);
+  L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
+  if L < 1E-9 then Exit(1E30);
+  PA := Project(V, P3(E.A.X - D.X / L * 5000, E.A.Y - D.Y / L * 5000,
+                      E.A.Z - D.Z / L * 5000));
+  PB := Project(V, P3(E.A.X + D.X / L * 5000, E.A.Y + D.Y / L * 5000,
+                      E.A.Z + D.Z / L * 5000));
+  Result := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+end;
+
 function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
   I: Integer;
@@ -2744,8 +2841,10 @@ begin
   Best := TolPx;
   for I := FLive - 1 downto 0 do
   begin
-    if not (FEnts[I].Kind in [ekLine, ekArc, ekDim]) then Continue;
-    if FEnts[I].Kind = ekArc then
+    if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekGuide]) then Continue;
+    if FEnts[I].Kind = ekGuide then
+      D := GuideScreenDist(V, FEnts[I], SX, SY)
+    else if FEnts[I].Kind = ekArc then
       { A circle in the model is an ellipse on screen once its plane is tilted
         away from the camera, and a part arc is not a whole circle either.
         Measuring against the drawn segments is the only test that holds up in
@@ -2793,6 +2892,8 @@ begin
           PA := Project(V, FEnts[I].A);
           D := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
         end;
+      ekGuide:
+        D := GuideScreenDist(V, FEnts[I], SX, SY);
       ekDim:
         { the drawn line and its witness lines, not the invisible chord
           through the geometry - that is where the eraser is aimed }
@@ -2927,6 +3028,8 @@ begin
         L.Add(Format('DIM %s %s %d %s',
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink,
            N3(FEnts[I].C)], FS));
+      ekGuide:
+        L.Add(Format('GUIDE %s %s', [N3(FEnts[I].A), N3(FEnts[I].B)], FS));
       ekText:
         L.Add(Format('TEXT %s %d %s', [N3(FEnts[I].A), FEnts[I].Ink, FEnts[I].Txt], FS));
       ekFace:
@@ -2995,6 +3098,9 @@ begin
           AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                  P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),
                  P3(0, 0, 0))
+      else if (Kind = 'GUIDE') and (T.Count >= 7) then
+        AddGuide(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
+                 P3(RdF(T[4]), RdF(T[5]), RdF(T[6])))
       else if (Kind = 'TEXT') and (T.Count >= 6) then
       begin
         { the note itself is the rest of the line, spaces and all }
@@ -3130,6 +3236,7 @@ var
   Ar: Double;
   Flat: array of TPointF;
   Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
+  GuideCol: TPix;
   M, Run0: Integer;
   T0, T1: Double;
   QA, QB: TP3;
@@ -3215,6 +3322,7 @@ var
 
 begin
   S.BlendMode := bmNormal;
+  GuideCol := MixPix(LabelCol, Pix(120, 90, 190), 0.55);
 
   for I := 0 to FLive - 1 do
   begin
@@ -3257,6 +3365,39 @@ begin
         end;
       ekDim:
         Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C);
+
+      { Dashed, and a guide line is infinite - run out far enough each way to
+        cross any view of the drawing.  Drawn with the other annotation, so a
+        solid standing in front of one hides it. }
+      ekGuide:
+        begin
+          PA := Project(V, FEnts[I].A);
+          if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then
+          begin
+            S.Line(PA.X - 5, PA.Y, PA.X + 5, PA.Y, 1.2, GuideCol, 0.95);
+            S.Line(PA.X, PA.Y - 5, PA.X, PA.Y + 5, 1.2, GuideCol, 0.95);
+          end
+          else
+          begin
+            PB := Project(V, FEnts[I].B);
+            Ang := Sqrt(Sqr(PB.X - PA.X) + Sqr(PB.Y - PA.Y));
+            if Ang > 1E-6 then
+            begin
+              Sh := (S.Width + S.Height) * 1.5;
+              PB := PtF((PB.X - PA.X) / Ang, (PB.Y - PA.Y) / Ang);
+              K := 0;
+              while K * 12 < Sh do
+              begin
+                S.Line(PA.X + PB.X * (K * 12 - Sh / 2),
+                       PA.Y + PB.Y * (K * 12 - Sh / 2),
+                       PA.X + PB.X * (K * 12 + 6 - Sh / 2),
+                       PA.Y + PB.Y * (K * 12 + 6 - Sh / 2),
+                       1.0, GuideCol, 0.85);
+                Inc(K);
+              end;
+            end;
+          end;
+        end;
     end;
   end;
 
