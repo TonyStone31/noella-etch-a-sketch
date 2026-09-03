@@ -178,6 +178,10 @@ type
     FToyTheme: Integer;         // the playful one to go back to
     FProTheme: Integer;         // Light or Dark, remembered across a switch
     FPenSize: Integer;
+    { PRO's edge weight is its own setting.  It used to share the toy's pen,
+      which meant a pen thick enough to draw with on the magic screen was also
+      the weight of every edge in a drawing - four times what SketchUp uses. }
+    FEdgeW: Integer;
     FInkColor: TColor;
     FInkPix: TPix;
     FInkAuto: Boolean;
@@ -1145,6 +1149,7 @@ begin
   FProTheme := THEME_PRO_DARK;
   FStyle := psClassic;
   FPenSize := 4;
+  FEdgeW := 1;
   FSym := 1;
   FHotItem := -1;
   FHotMode := -1;
@@ -1780,7 +1785,7 @@ procedure TMainForm.RenderPro;
 begin
   FInkPro.ClearTransparent;
   if FD.Doc.Live > 0 then
-    FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FPenSize);
+    FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW);
   FInkPro.MarkAllDirty;
 end;
 
@@ -2353,7 +2358,7 @@ begin
       GRP_POPUP, POP_COLOR, 'COLOR',
       'Line color - click for the list', ikDroplet);
     Add(dkSegment, Rect(X + 3 * SegW, RowY, X + 4 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_WIDTH, Format('LINES  %d px', [FPenSize]),
+      GRP_POPUP, POP_WIDTH, Format('LINES  %d px', [FEdgeW]),
       'How thick every edge in this drawing is drawn.  It is one setting for ' +
       'the whole sheet, the way SketchUp does it - not a property of the ' +
       'line you happen to be drawing.', ikDroplet);
@@ -4291,6 +4296,7 @@ var
   T, C: TP3;
   Loop: TP3Array;
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
+  Segs: Integer;
   Ok: Boolean;
 begin
   case FTool of
@@ -4304,7 +4310,7 @@ begin
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units) + '   (already an edge)'
           else
           begin
-            FD.Doc.AddLine(FP1, T, FInkColor, FPenSize, False);
+            FD.Doc.AddLine(FP1, T, FInkColor, FEdgeW, False);
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
           end;
           { A line drawn across a face divides it.  Without this the face
@@ -4383,7 +4389,7 @@ begin
         if Ok then
         begin
           PushUndo;
-          FD.Doc.AddArc(C, R, A0, Sweep, FD.Plane, FInkColor, FPenSize);
+          FD.Doc.AddArc(C, R, A0, Sweep, FD.Plane, FInkColor, FEdgeW);
           { An arc whose chord is already an edge closes a loop with it, so
             it gets a region of its own.  It stays a separate face from
             whatever is on the other side of that edge - lift either alone -
@@ -4412,15 +4418,20 @@ begin
         if R > 1E-9 then
         begin
           PushUndo;
-          FD.Doc.AddArc(FP1, R, 0, 2 * Pi, FD.Plane, FInkColor, FPenSize);
+          FD.Doc.AddArc(FP1, R, 0, 2 * Pi, FD.Plane, FInkColor, FEdgeW);
           { A circle drew a curve and nothing else, so there was never
             anything for push/pull to take hold of - which is why drawing one
             on a box and pulling it into a pipe did not work. It gets a face
             of its own now, approximated as a polygon, and PushPull already
             handles any number of sides. }
-          SetLength(Loop, CIRCLE_SEGS);
-          for I := 0 to CIRCLE_SEGS - 1 do
-            Loop[I] := ArcPoint(FP1, R, 2 * Pi * I / CIRCLE_SEGS, FD.Plane);
+          { The bigger the circle, the more sides it takes to stop looking
+            like a polygon - roughly one every five pixels of the rim as it is
+            drawn, between two dozen and ninety-six.  A fixed twenty-four is
+            fine for a pipe and obviously faceted on a tank. }
+          Segs := EnsureRange(Round(Pi * R * Ppu / 5), CIRCLE_SEGS, 96);
+          SetLength(Loop, Segs);
+          for I := 0 to Segs - 1 do
+            Loop[I] := ArcPoint(FP1, R, 2 * Pi * I / Segs, FD.Plane);
           FD.Doc.AddFace(Loop, FInkColor);
           RenderPro;
           RecomposeAll;
@@ -5108,7 +5119,8 @@ begin
     { the one in force is lit, which the combined list never managed }
     Sel := (I = Cur) or
       ((FPopup = POP_COLOR) and (PALETTE[I] = FInkColor)) or
-      ((FPopup = POP_WIDTH) and (PEN_SIZES[I] = FPenSize));
+      ((FPopup = POP_WIDTH) and
+       (PEN_SIZES[I] = IfThen(FMode = mdPro, FEdgeW, FPenSize)));
     if Sel then
     begin
       C.Brush.Color := PixToColor(ShadePix(Theme.Accent, 0.95));
@@ -5550,8 +5562,10 @@ end;
   edge - inside the shape it was measuring. }
 function TMainForm.DimOffset3: TP3;
 var
-  W, D, Perp: TP3;
-  L, Along: Double;
+  W, D, Perp, Ax, BestAx: TP3;
+  L, Along, Best: Double;
+  K: Integer;
+  Got: Boolean;
 begin
   Result := P3(0, 0, 0);
   D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
@@ -5563,6 +5577,36 @@ begin
   Perp := P3(W.X - FP1.X, W.Y - FP1.Y, W.Z - FP1.Z);
   Along := Perp.X * D.X + Perp.Y * D.Y + Perp.Z * D.Z;
   Result := P3(Perp.X - D.X * Along, Perp.Y - D.Y * Along, Perp.Z - D.Z * Along);
+
+  { Pull it out along an axis rather than at whatever angle the cursor happens
+    to be at.  A dimension on a vertical line can go out along red or green,
+    and either way its witness lines run square with the drawing; free-angle
+    made them lean, which is what makes a drawing look wrong even when the
+    number on it is right.
+
+    Only axes square to what is being measured are offered.  A line that does
+    not run along an axis has none, and keeps the free perpendicular - which
+    is what an aligned dimension on a diagonal wants anyway. }
+  Best := 0;
+  Got := False;
+  for K := 0 to 2 do
+  begin
+    case K of
+      0: Ax := P3(1, 0, 0);
+      1: Ax := P3(0, 1, 0);
+    else Ax := P3(0, 0, 1);
+    end;
+    if Abs(Ax.X * D.X + Ax.Y * D.Y + Ax.Z * D.Z) > 1E-6 then Continue;
+    Along := Result.X * Ax.X + Result.Y * Ax.Y + Result.Z * Ax.Z;
+    if Abs(Along) > Abs(Best) then
+    begin
+      Best := Along;
+      BestAx := Ax;
+      Got := True;
+    end;
+  end;
+  if Got then
+    Result := P3(BestAx.X * Best, BestAx.Y * Best, BestAx.Z * Best);
 
   { never let it sit right on top of what it measures }
   L := Sqrt(Sqr(Result.X) + Sqr(Result.Y) + Sqr(Result.Z));
@@ -5852,6 +5896,16 @@ end;
 procedure TMainForm.SetPenSize(V: Integer);
 begin
   V := EnsureRange(V, MIN_PEN, MAX_PEN);
+  if FMode = mdPro then
+  begin
+    if V = FEdgeW then Exit;
+    FEdgeW := V;
+    RenderPro;
+    RecomposeAll;
+    pbDeck.Invalidate;
+    pbScreen.Invalidate;
+    Exit;
+  end;
   if V = FPenSize then Exit;
   FPenSize := V;
   pbDeck.Invalidate;
@@ -6612,8 +6666,8 @@ begin
       VK_U: RunCommand('units');
       VK_H: CycleTheme(1);
       VK_W: SetMode(mdToy);
-      VK_OEM_4: SetPenSize(FPenSize - 1);
-      VK_OEM_6: SetPenSize(FPenSize + 1);
+      VK_OEM_4: SetPenSize(FEdgeW - 1);
+      VK_OEM_6: SetPenSize(FEdgeW + 1);
     else
       Handled := False;
     end;
@@ -6973,7 +7027,7 @@ begin
     begin
       L := TStringList.Create;
       try
-        FD.Doc.WriteSVG(L, Proj, FD.Units, FPenSize);
+        FD.Doc.WriteSVG(L, Proj, FD.Units, FEdgeW);
         L.SaveToFile(Fn);
       finally
         L.Free;
@@ -7030,7 +7084,7 @@ begin
             V.OX := SW / 2 - P.X;
             V.OY := SH / 2 - P.Y;
           end;
-          FD.Doc.Render(Sheet, V, FD.Units, FDimFont, Pix(20, 20, 20), FPenSize);
+          FD.Doc.Render(Sheet, V, FD.Units, FDimFont, Pix(20, 20, 20), FEdgeW);
           Printer.Canvas.StretchDraw(
             Rect(0, 0, Printer.PageWidth, Printer.PageHeight), Sheet.AsBitmap);
         finally
@@ -7083,6 +7137,9 @@ begin
       FMode := TAppMode(EnsureRange(Ini.ReadInteger('look', 'mode', 0), 0, 1));
       FStyle := TPenStyle(EnsureRange(Ini.ReadInteger('pen', 'style', 0), 0, 4));
       FPenSize := EnsureRange(Ini.ReadInteger('pen', 'size', 4), MIN_PEN, MAX_PEN);
+      { a new key, so a pen size saved when the two were one thing does not
+        come back as a four pixel edge }
+      FEdgeW := EnsureRange(Ini.ReadInteger('pro', 'linew', 1), MIN_PEN, MAX_PEN);
       FInkColor := TColor(Ini.ReadInteger('pen', 'ink', PALETTE[0]));
       FInkAuto := Ini.ReadBool('pen', 'inkauto', True);
       FSym := EnsureRange(Ini.ReadInteger('pen', 'symmetry', 1), 1, 8);
@@ -7142,6 +7199,7 @@ begin
       Ini.WriteInteger('look', 'mode', Ord(FMode));
       Ini.WriteInteger('pen', 'style', Ord(FStyle));
       Ini.WriteInteger('pen', 'size', FPenSize);
+      Ini.WriteInteger('pro', 'linew', FEdgeW);
       Ini.WriteInteger('pen', 'ink', FInkColor);
       Ini.WriteBool('pen', 'inkauto', FInkAuto);
       Ini.WriteInteger('pen', 'symmetry', FSym);
