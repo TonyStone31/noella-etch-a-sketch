@@ -539,3 +539,35 @@ Sparser, and a fixed soft blue.
 * No materials, no styles, no sky or ground.
 * Hidden-line removal is still painter's algorithm on whole faces, so two
   solids that interpenetrate will sort wrongly.
+
+## From Point, and midpoints again — 2 September 2026
+
+Tony, drawing a rectangle out of four lines: bottom, right side, then across
+the top going left, wanting the last corner square with the first.  Resting on
+the bottom-left corner gave the dashed guide, but the moment the line snapped
+onto the red axis from the top-right corner the guide was thrown away — which
+is exactly when it is needed.
+
+SketchUp calls it **From Point**, and the point of it is that it *combines*
+with whatever else is in force: the axis pins two coordinates, the held point
+pins the third, and the answer is where the two guides cross.
+
+`ResolveSnapAt` used to `Exit` the instant an axis relationship was found.  It
+now calls `AlignFree`, which takes the one coordinate the axis left free and
+looks for a point we are level with.  A point rested on wins outright and holds
+from **18 pixels**; one the engine merely noticed holds from 7.  Verified: the
+cursor 16 px off still lands exactly on the intersection, with both guides
+drawn.
+
+**And a regression of my own.**  On Edge was sitting above every named point,
+so outside the four and a half pixels where a midpoint is taken outright, "a
+point somewhere along this line" won.  Midpoints on an outer line became almost
+impossible to hit, which read as the cursor snapping to the dimension line
+running alongside.  A named point within reach now beats On Edge, which is
+SketchUp's own order.  Verified: MIDPOINT from 9 px with the dimension line
+right beside it.
+
+**The auto-dimension switch is a labelled button now**, on the right of the SET
+row, saying AUTO DIM ON or OFF.  It was only ever an unlabelled icon, and the
+hint claimed `D` toggled it — `D` has been the dimension *tool* since that tool
+arrived.  `Shift+D` is the switch.

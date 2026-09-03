@@ -470,6 +470,7 @@ type
     { deck }
     function DeckHit(X, Y: Integer): Integer;
     procedure DeckActivate(Index: Integer);
+    function FindDeck(Group, Value: Integer): Integer;
     function IconLit(Value: Integer): Boolean;
     function IconEnabled(Value: Integer): Boolean;
     function SliderValueAt(const Item: TDeckItem; X: Integer): Integer;
@@ -512,6 +513,7 @@ const
   GRP_SNAP  = 6;
   GRP_TOOL  = 7;
   GRP_POPUP = 8;   { a button that opens a list rather than setting a value }
+  GRP_TOGGLE = 9;  { a button that is simply on or off, and says which }
 
   { the lists those buttons open }
   POP_NONE  = -1;
@@ -552,6 +554,7 @@ const
   MAX_PEN         = 40;
   SNAP_PX         = 12.0;   // pulling onto a point on the drawing
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
+  HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 4.5;    // this close and the point is what you meant
   EDGE_PX         = 11.0;   // hovering a line means a point on that line
@@ -805,6 +808,77 @@ var
     end;
   end;
 
+  { The second half of a compound inference.
+
+    Once an axis has pinned two of the three coordinates, the third is still
+    free, and it can be pulled level with a point we are holding.  That is
+    the whole trick behind closing a rectangle square: run left along the red
+    axis from the top corner, and the free coordinate lands on the X of the
+    bottom-left corner you rested on a moment ago.
+
+    Before this the axis fired and the function returned there and then, so
+    the alignment guide you had just charged up was thrown away the instant
+    the line snapped to an axis - which is exactly when you need it. }
+  procedure AlignFree(var Q: TP3; FreeAxis: Integer);
+  var
+    I: Integer;
+    APts: TP3Array;
+    Cur, BestOff: Double;
+    BestPt: TP3;
+    Got: Boolean;
+
+    function Coord(const C: TP3): Double;
+    begin
+      case FreeAxis of
+        0: Result := C.X;
+        1: Result := C.Y;
+      else Result := C.Z;
+      end;
+    end;
+
+    function TryLevel(const C: TP3; Tol: Double): Boolean;
+    var
+      Off: Double;
+    begin
+      Result := False;
+      Off := Abs(Coord(C) - Cur) * Ppu;
+      if Off > Tol then Exit;
+      { it has to be somewhere else, or the guide is a dot on the cursor }
+      if Dist(Q, C) * Ppu < 18 then Exit;
+      if Off >= BestOff then Exit;
+      BestOff := Off;
+      BestPt := C;
+      Got := True;
+      Result := True;
+    end;
+
+  begin
+    Cur := Coord(Q);
+    BestOff := 1E30;
+    Got := False;
+
+    { a point you rested on is the one you meant, so it goes first and wins
+      outright if it is anywhere near }
+    { A point you rested on was asked for, so it holds from much further out
+      than one the engine merely noticed.  Seven pixels either side is nothing
+      when you are coming back across the drawing to close a rectangle. }
+    if not (FLockOn and TryLevel(FLockPt, HOLD_PX)) then
+    begin
+      FD.Doc.SnapPoints(APts);
+      for I := 0 to High(APts) do TryLevel(APts[I], INFER_PX);
+      if FStage > 0 then TryLevel(FP1, INFER_PX);
+    end;
+    if not Got then Exit;
+
+    case FreeAxis of
+      0: Q.X := BestPt.X;
+      1: Q.Y := BestPt.Y;
+    else Q.Z := BestPt.Z;
+    end;
+    FGuide := True;
+    FGuideFrom := BestPt;
+  end;
+
   { The cursor is on an axis through R when it differs from R along one
     direction only.  The error - how far off that line it is - is what
     competes with the point snaps, so it is measured in pixels like they
@@ -872,8 +946,15 @@ begin
     to: the axis guide from some distant corner would win and drag the point
     off the edge into open space.  It sits above the guides because a real
     piece of geometry under the pointer is a more definite answer than an
-    alignment to something far away. }
-  if FD.Doc.EdgeSnap(Proj, SX, SY, EDGE_PX * FUIScale, EdgeP, EdgeI) then
+    alignment to something far away.
+
+    But it comes second to any named point within reach.  "Somewhere along
+    this line" is the weakest thing the drawing can tell you, and letting it
+    win made the middle of a line almost impossible to hit: outside the four
+    and a half pixels where a midpoint is taken outright, On Edge grabbed the
+    cursor and put it a fraction to one side. }
+  if (not PtOK) and
+     FD.Doc.EdgeSnap(Proj, SX, SY, EDGE_PX * FUIScale, EdgeP, EdgeI) then
   begin
     FSnapKind := snOnEdge;
     Exit(EdgeP);
@@ -905,6 +986,8 @@ begin
     FAxisLock := AxIdx;
     FAxisFrom := AxRef;
     FSnapKind := snGrid;
+    { and the third coordinate can still line up with something }
+    AlignFree(W, AxIdx);
     Exit(W);
   end;
 
@@ -2181,6 +2264,15 @@ begin
       GRP_POPUP, POP_WIDTH, Format('WIDTH  %d px', [FPenSize]),
       'Line thickness - click for the list', ikDroplet);
 
+    { The settings row has the whole right-hand side to itself now that the
+      icons sit on the two rows above, so the auto-dimension switch gets a
+      button that says what it is instead of an icon you have to remember. }
+    Add(dkSegment, Rect(W - Pad - RightW6, RowY, W - Pad, RowY + RowH),
+      GRP_TOGGLE, ACT_DIM,
+      IfThen(FD.ShowDims, 'AUTO DIM  ON', 'AUTO DIM  OFF'),
+      'Put a dimension on every new line, or not.  ' +
+      'Dimensions you place yourself are not affected.', ikDim);
+
     AddIconRow6(Y0,
       [ACT_UNDO, ACT_REDO, ACT_FIT, ACT_THEME, ACT_GRID, ACT_HELP],
       [ikUndo, ikRedo, ikFit, ikTheme, ikGrid, ikHelp],
@@ -2193,7 +2285,7 @@ begin
       ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
        'Export a picture - PNG or SVG  (Ctrl+E)',
        'Feet-and-inches or metric  (U)',
-       'Put a dimension on every new line, or not  (D)',
+       'Put a dimension on every new line, or not  (Shift+D)',
        'Move the origin here  (/origin)']);
     Exit;
   end;
@@ -2325,6 +2417,7 @@ var
     Result := ((A.Group = GRP_STYLE) and (A.Value = Ord(FStyle))) or
               ((A.Group = GRP_SYM) and (A.Value = FSym)) or
               ((A.Group = GRP_TOOL) and (A.Value = Ord(FTool))) or
+              ((A.Group = GRP_TOGGLE) and (A.Value = ACT_DIM) and FD.ShowDims) or
               ((A.Group = GRP_SCALE) and (A.Value = FD.ScaleIdx)) or
               ((A.Group = GRP_SNAP) and (A.Value = FD.SnapIdx));
   end;
@@ -2597,6 +2690,14 @@ begin
   FSliderGrab := False;
 end;
 
+{ Where a given control ended up in the deck, so a key can press it. }
+function TMainForm.FindDeck(Group, Value: Integer): Integer;
+begin
+  for Result := 0 to High(FDeck) do
+    if (FDeck[Result].Group = Group) and (FDeck[Result].Value = Value) then Exit;
+  Result := -1;
+end;
+
 procedure TMainForm.DeckActivate(Index: Integer);
 var
   It: TDeckItem;
@@ -2615,6 +2716,18 @@ begin
     GRP_POPUP:
       { clicking the open one shuts it, which is what a menu button does }
       if FPopup = It.Value then ClosePopup else OpenPopup(It.Value);
+    GRP_TOGGLE:
+      case It.Value of
+        ACT_DIM:
+          begin
+            FD.ShowDims := not FD.ShowDims;
+            FCmdMsg := IfThen(FD.ShowDims,
+              'New lines get a dimension.', 'New lines get no dimension.');
+            RenderPro;
+            RecomposeAll;
+            RefreshChrome;
+          end;
+      end;
     GRP_SCALE: SetScaleIdx(It.Value);
     GRP_SNAP:  begin FD.SnapIdx := It.Value; pbDeck.Invalidate; pbCmd.Invalidate; end;
     GRP_ICON:
@@ -6323,7 +6436,11 @@ begin
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMove);
       VK_T: SetTool(ptMeasure);
-      VK_D: SetTool(ptDim);
+      VK_D:
+        { Shift+D is the switch, plain D the tool.  The hint used to claim D
+          was the switch, which it has not been since the tool arrived. }
+        if ssShift in Shift then DeckActivate(FindDeck(GRP_TOGGLE, ACT_DIM))
+        else SetTool(ptDim);
       VK_V:
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
       VK_I: RunCommand(IfThen(FD.View = vkIso, 'plan', 'iso'));
