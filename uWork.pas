@@ -204,6 +204,10 @@ type
     { The same search but only over edges - lines, arcs and dimensions.
       Erasing means erasing an edge; a face is what is left behind. }
     function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
+    { The pen weight of the line running between these two points, or 0 when
+      there is not one.  A solid's new edges copy it, so everything drawn
+      from the same pen looks like it. }
+    function EdgeWeight(const A, B: TP3): Single;
     { The nearest point lying *on* a line or an arc, within TolPx of the
       pointer.  This is SketchUp's On Edge inference: hovering an edge should
       give you a point on that edge, not the nearest corner of it. }
@@ -220,13 +224,19 @@ type
       out Hit: TSnapHit): Boolean;
     function Bounds(out Lo, Hi: TP3): Boolean;
 
+    { EdgeW is one weight for every edge in the drawing.  SketchUp has no
+      per-edge thickness - it is a style setting for the whole model, with
+      Profiles thickening the silhouette - and copying that removes a whole
+      class of mismatch: geometry made by push/pull no longer has to guess
+      what pen the outline it grew from was drawn with. }
     procedure Render(S: TArtSurface; const V: TProjector;
-      U: TUnitSystem; AFont: TFont; const LabelCol: TPix);
+      U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 
     { the document, as plain text - one line per entity }
     procedure SaveTo(L: TStrings);
     procedure LoadFrom(L: TStrings; var Idx: Integer);
-    procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem);
+    procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
+      EdgeW: Single);
 
     property Live: Integer read FLive;
     property Ent[I: Integer]: TWorkEnt read GetEnt; default;
@@ -249,18 +259,19 @@ const
     (Name: '1:20';  Paper: 0.05),
     (Name: '1:10';  Paper: 0.1));
 
-  SNAP_COUNT = 6;
+  SNAP_COUNT = 10;
 
   { snap increments, in world units (feet / metres); 0 means no snapping }
+  { in feet: a sixteenth is 1/192 of one }
   IMPERIAL_SNAPS: array[0..SNAP_COUNT - 1] of Double =
-    (0, 1 / 192, 1 / 12, 0.25, 0.5, 1.0);
+    (0, 1 / 192, 1 / 96, 1 / 48, 1 / 24, 1 / 12, 1 / 6, 0.25, 0.5, 1.0);
   IMPERIAL_SNAP_NAMES: array[0..SNAP_COUNT - 1] of string =
-    ('OFF', '1/16"', '1"', '3"', '6"', '1''-0"');
+    ('OFF', '1/16"', '1/8"', '1/4"', '1/2"', '1"', '2"', '3"', '6"', '1''-0"');
 
   METRIC_SNAPS: array[0..SNAP_COUNT - 1] of Double =
-    (0, 0.001, 0.01, 0.05, 0.1, 1.0);
+    (0, 0.001, 0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 1.0);
   METRIC_SNAP_NAMES: array[0..SNAP_COUNT - 1] of string =
-    ('OFF', '1mm', '10mm', '50mm', '100mm', '1m');
+    ('OFF', '1mm', '2mm', '5mm', '10mm', '25mm', '50mm', '100mm', '250mm', '1m');
 
 function UnitName(U: TUnitSystem): string;
 function UnitShort(U: TUnitSystem): string;
@@ -2060,6 +2071,20 @@ begin
     Grow(FEnts[I].Poly[K]);
 end;
 
+function TWorkDoc.EdgeWeight(const A, B: TP3): Single;
+const
+  TOL = 1E-7;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to FLive - 1 do
+    if FEnts[I].Kind = ekLine then
+      if (SamePt(FEnts[I].A, A, TOL) and SamePt(FEnts[I].B, B, TOL)) or
+         (SamePt(FEnts[I].A, B, TOL) and SamePt(FEnts[I].B, A, TOL)) then
+        Exit(FEnts[I].Weight);
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N, G: Integer;
@@ -2067,6 +2092,7 @@ var
   Base, Top, Rev: TP3Array;
   Quad: array[0..3] of TP3;
   Ink: TColor;
+  Wt: Single;
 begin
   Result := False;
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
@@ -2076,6 +2102,14 @@ begin
   if N < 3 then Exit;
   Nm := FaceNormal(Index);
   Ink := FEnts[Index].Ink;
+
+  { The sides and the top are drawn with the same pen as the outline they grew
+    out of.  They used to be hardcoded to 1, so a box pulled from a rectangle
+    drawn with a 4 pixel pen came out with four heavy lines round its base and
+    hairlines everywhere else - which reads as something left behind. }
+  Wt := EdgeWeight(FEnts[Index].Poly[0], FEnts[Index].Poly[1]);
+  if Wt <= 0 then Wt := FEnts[Index].Weight;
+  if Wt <= 0 then Wt := 1;
 
   { Already part of a solid: slide the face instead of extruding from it, so
     the solid resizes.  Extruding here is what put a box inside a box. }
@@ -2143,9 +2177,9 @@ begin
     end;
     AddFaceRaw(Quad, Ink, True);
     FEnts[FLive - 1].Grp := G;
-    AddLine(Base[I], Top[I], Ink, 1, False);
+    AddLine(Base[I], Top[I], Ink, Wt, False);
     FEnts[FLive - 1].Grp := G;
-    AddLine(Top[I], Top[J], Ink, 1, False);
+    AddLine(Top[I], Top[J], Ink, Wt, False);
     FEnts[FLive - 1].Grp := G;
   end;
 
@@ -2293,10 +2327,28 @@ begin
           Put(FEnts[I].B, snEndpoint);
           Put(FEnts[I].C, snCentre);
         end;
+      { The middle of a face.  Drawing a circle from the centre of a square is
+        a thing you do constantly, and getting there otherwise means resting on
+        two edge midpoints and crossing their guides.  One point per face, so
+        it is not noise. }
+      ekFace:
+        if Length(FEnts[I].Poly) >= 3 then
+        begin
+          P := P3(0, 0, 0);
+          for K := 0 to High(FEnts[I].Poly) do
+          begin
+            P.X := P.X + FEnts[I].Poly[K].X;
+            P.Y := P.Y + FEnts[I].Poly[K].Y;
+            P.Z := P.Z + FEnts[I].Poly[K].Z;
+          end;
+          K := Length(FEnts[I].Poly);
+          Put(P3(P.X / K, P.Y / K, P.Z / K), snCentre);
+        end;
+
       { Nothing snaps to a dimension or a note.  They are annotation sitting
         beside the drawing, and having the cursor jump to one while drawing a
         line is only ever in the way. }
-      ekFace, ekDim, ekText: ;
+      ekDim, ekText: ;
     end;
 
   { every line gets a list of the parameters where something crosses it }
@@ -2810,7 +2862,8 @@ end;
 
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
   same size it prints. }
-procedure TWorkDoc.WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem);
+procedure TWorkDoc.WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
+  EdgeW: Single);
 var
   I, K, Steps: Integer;
   PA, PB: TPointF;
@@ -2869,7 +2922,7 @@ begin
             D := D + Format('%.2f,%.2f ', [PA.X, PA.Y], FS);
           end;
           L.Add(Format('<polyline points="%s" fill="none" stroke="%s" ' +
-            'stroke-width="%.2f"/>', [Trim(D), Col(FEnts[I].Ink), FEnts[I].Weight], FS));
+            'stroke-width="%.2f"/>', [Trim(D), Col(FEnts[I].Ink), EdgeW], FS));
         end;
       ekText:
         begin
@@ -2884,7 +2937,7 @@ begin
           PB := Project(V, FEnts[I].B);
           L.Add(Format('<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" ' +
             'stroke="%s" stroke-width="%.2f"/>',
-            [PA.X, PA.Y, PB.X, PB.Y, Col(FEnts[I].Ink), FEnts[I].Weight], FS));
+            [PA.X, PA.Y, PB.X, PB.Y, Col(FEnts[I].Ink), EdgeW], FS));
           if FEnts[I].Dim then
             L.Add(Format('<text x="%.2f" y="%.2f" font-family="sans-serif" ' +
               'font-size="11" text-anchor="middle" fill="%s">%s</text>',
@@ -2897,7 +2950,7 @@ begin
 end;
 
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
-  U: TUnitSystem; AFont: TFont; const LabelCol: TPix);
+  U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
   I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
@@ -2972,7 +3025,7 @@ begin
         begin
           PA := Project(V, FEnts[I].A);
           PB := Project(V, FEnts[I].B);
-          S.Line(PA.X, PA.Y, PB.X, PB.Y, FEnts[I].Weight, Col);
+          S.Line(PA.X, PA.Y, PB.X, PB.Y, EdgeW, Col);
         end;
 
       ekArc:
@@ -2984,7 +3037,7 @@ begin
           begin
             Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
             PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane));
-            S.Line(PA.X, PA.Y, PB.X, PB.Y, FEnts[I].Weight, Col);
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, EdgeW, Col);
             PA := PB;
           end;
         end;
@@ -3086,7 +3139,7 @@ begin
       properly is what stops a solid looking like glass. }
     Sh := 0.72 + 0.28 * Abs(Dot3(Nm, Lamp));
     S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
-    S.Poly(Flat, 1.1, Col, True, 0.9);
+    S.Poly(Flat, EdgeW, Col, True, 0.9);
   end;
 
 
@@ -3121,7 +3174,7 @@ begin
             if Covered(Lerp3(QA, QB, 0.5), J) then Continue;
             PA := Project(V, QA);
             PB := Project(V, QB);
-            S.Line(PA.X, PA.Y, PB.X, PB.Y, FEnts[I].Weight, Col);
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, EdgeW, Col);
           end;
         ekDim:
           if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then

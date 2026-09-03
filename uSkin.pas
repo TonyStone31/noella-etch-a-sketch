@@ -190,7 +190,9 @@ begin
     Accent := Pix($1C, $7C, $D6);
     Text := Pix($22, $26, $2C);
     TextDim := Pix($6A, $72, $7C);
-    Grid := Pix($DC, $DF, $E3);
+    { dark enough to read on white paper - the old value was a shade off
+      the paper itself and simply vanished }
+    Grid := Pix($BE, $C6, $D0);
     DarkScreen := False;
   end;
 
@@ -210,7 +212,9 @@ begin
     Accent := Pix($4A, $C8, $F0);
     Text := Pix($E8, $EC, $F2);
     TextDim := Pix($8A, $93, $A0);
-    Grid := Pix($DC, $DF, $E3);
+    { dark enough to read on white paper - the old value was a shade off
+      the paper itself and simply vanished }
+    Grid := Pix($BE, $C6, $D0);
     DarkScreen := False;
   end;
 end;
