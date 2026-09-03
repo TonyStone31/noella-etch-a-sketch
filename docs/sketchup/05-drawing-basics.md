@@ -9,7 +9,7 @@ restarts.  It keeps going until another tool is picked.
 Coordinates work here too: `[3', 5', 7']` absolute, `<1.5m, 4m, 2.75m>` relative
 to the start point.
 
-*(We have this on Move but not yet on Line — worth adding.)*
+*(Built on Line and on Move.)*
 
 ## Faces
 A closed loop of lines makes a face.  Drawing a line or curve across a face
@@ -45,10 +45,12 @@ point makes the engine prefer alignments to it.
 | **↓** | parallel/perpendicular to the inferenced edge or plane (magenta) |
 | **Shift** | whatever direction or plane is currently showing |
 
-> **We differ here.**  Our arrows are screen-relative: → +X, ← -X, ↑ +Y, ↓ -Y in
-> plan; in ISO, → +X, ← -X, PgUp +Y, PgDn -Y, ↑ +Z, ↓ -Z.  That reads better in
-> plan view, where SketchUp's ↑ would mean an axis pointing at your eye.  Say the
-> word and it changes to SketchUp's mapping.
+**Ours matches**, in every view: → red X, ← green Y, ↑ blue Z.  ↓ lets go
+again, our stand-in for the magenta parallel/perpendicular lock we do not have.
+A lock is on the axis and not on one direction along it, so you can draw back
+the other way without unlocking.  The same three keys pick the *plane* for the
+shape tools, naming it by the axis it is normal to: → the YZ plane, ← the XZ
+plane, ↑ the flat XY plane.
 
 ## Toggling linear inferencing (Line tool)
 After the first click, **Alt** cycles: all inferences on → all linear inferences

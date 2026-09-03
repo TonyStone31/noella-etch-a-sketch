@@ -838,16 +838,16 @@ begin
   end;
 end;
 
+{ SketchUp talks about the axes by colour, and so does everything on screen
+  here, so a locked direction says the colour rather than a sign.  A lock runs
+  both ways along its axis; which way is the cursor's business. }
 function AxisName(Index: Integer): string;
 begin
   case Index of
-    0: Result := '+X';
-    1: Result := '-X';
-    2: Result := '+Y';
-    3: Result := '-Y';
-    4: Result := 'UP';
+    0, 1: Result := 'red X';
+    2, 3: Result := 'green Y';
   else
-    Result := 'DOWN';
+    Result := 'blue Z';
   end;
 end;
 

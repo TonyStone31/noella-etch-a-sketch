@@ -46,6 +46,7 @@ Arrow styles: none, dot, closed, open.
 Tools > 3D Text.  Font, alignment, height, Filled, Extruded.  A negative
 extrusion engraves.
 
-*(We have: a dimension entity you can erase, auto dimensions on lines with a
-toggle, and plain notes.  We do not have: dimensioning by clicking one edge,
-radius/diameter dimensions, leaders, 3D text, endpoint styles.)*
+*(Built: a dimension entity you can select and erase, auto dimensions on new
+lines with a toggle, plain notes, **dimensioning a whole edge with one click**,
+and **double-clicking a face with the Text tool to drop its area in**.  Not
+built: radius and diameter dimensions, leaders, 3D text, endpoint styles.)*
