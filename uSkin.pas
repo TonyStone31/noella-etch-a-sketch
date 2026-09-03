@@ -44,7 +44,12 @@ type
   );
 
 const
-  THEME_COUNT = 4;
+  THEME_COUNT = 6;
+  { PRO uses only these two: the drawing area is white in both, because that
+    is what a SketchUp model looks like and what prints.  The four playful
+    ones stay for TOY, where the screen colour is half the point. }
+  THEME_PRO_LIGHT = 4;
+  THEME_PRO_DARK  = 5;
 
 var
   Themes: array[0..THEME_COUNT - 1] of TTheme;
@@ -166,6 +171,46 @@ begin
     Text := Pix($FF, $F0, $F8);
     TextDim := Pix($F0, $BC, $DA);
     Grid := Pix($E4, $C4, $D8);
+    DarkScreen := False;
+  end;
+
+  { 4 - Light: SketchUp's own look.  Pale chrome, white paper, black lines. }
+  with Themes[THEME_PRO_LIGHT] do
+  begin
+    Name := 'Light';
+    Shell1 := Pix($E4, $E6, $E9);
+    Shell2 := Pix($CF, $D3, $D8);
+    Bezel1 := Pix($BF, $C4, $CA);
+    Bezel2 := Pix($9F, $A6, $AE);
+    Panel := Pix($EC, $EE, $F1);
+    PanelHi := Pix($FF, $FF, $FF);
+    Screen1 := Pix($FF, $FF, $FF);
+    Screen2 := Pix($F4, $F5, $F6);
+    Ink := Pix($1A, $1C, $20);
+    Accent := Pix($1C, $7C, $D6);
+    Text := Pix($22, $26, $2C);
+    TextDim := Pix($6A, $72, $7C);
+    Grid := Pix($DC, $DF, $E3);
+    DarkScreen := False;
+  end;
+
+  { 5 - Dark: the same white paper, dark chrome around it. }
+  with Themes[THEME_PRO_DARK] do
+  begin
+    Name := 'Dark';
+    Shell1 := Pix($23, $26, $2C);
+    Shell2 := Pix($15, $17, $1C);
+    Bezel1 := Pix($33, $37, $3F);
+    Bezel2 := Pix($16, $18, $1E);
+    Panel := Pix($1D, $20, $27);
+    PanelHi := Pix($33, $38, $43);
+    Screen1 := Pix($FF, $FF, $FF);
+    Screen2 := Pix($F4, $F5, $F6);
+    Ink := Pix($1A, $1C, $20);
+    Accent := Pix($4A, $C8, $F0);
+    Text := Pix($E8, $EC, $F2);
+    TextDim := Pix($8A, $93, $A0);
+    Grid := Pix($DC, $DF, $E3);
     DarkScreen := False;
   end;
 end;

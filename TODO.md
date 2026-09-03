@@ -497,3 +497,45 @@ window, open beside this, shows a blue diamond and an "On Face" label and
 nothing else.
 
 TOY mode keeps its ring; it is a pen, not a pointer.
+
+## Solid faces, a white sheet, two themes — 2 September 2026
+
+**Faces are opaque now, everywhere.** Three things had been making a box look
+like glass:
+
+* In plan the fill was a 16 percent tint, on the grounds that there was
+  nothing to hide.  There was: a face laid over another one, and every line
+  underneath.  It is a full fill in every view now.
+* The face colour was the pen colour lightened 62 percent, so a cyan pen gave
+  a pale cyan wash that read as translucent.  Faces are a material now, not
+  ink: they start from SketchUp's near-white default and take only 8 percent
+  of the pen colour, so a red-inked part still reads as red without the
+  drawing turning into a paint chart.  Shading comes from how the face is
+  turned against a fixed lamp, which is what makes a box look like a box.
+* **Dimensions and notes were drawn last, on purpose, "so solids never hide a
+  label".**  That was the worst of it — every base dimension floated over the
+  top of the box it belonged under.  They are drawn before the faces now and
+  a solid in front covers them, which is what SketchUp does.  Anything lying
+  in the plane of a face that is still facing us gets put back afterwards.
+
+**PRO is a white sheet.**  Two looks, Light and Dark, and they differ only in
+the chrome — the paper stays white in both, because that is what a drawing is
+and what prints.  The four playful themes stay for TOY, where the screen
+colour is half the point; each mode remembers its own and gets it back on the
+way in.  `H` cycles it now (`T` is the tape measure).
+
+**On Edge reaches further** — 7 pixels to 11, and it follows `FUIScale` now,
+which it did not before.  On a high-DPI screen the old 7 was 7 device pixels
+however big everything else was drawn, which is most of why it felt like
+nothing.
+
+**The push/pull face hint** was a dense stipple in the theme accent.  On white
+paper that read as though the face had been painted rather than pointed at.
+Sparser, and a fixed soft blue.
+
+### Still to do here
+* Back faces have no separate colour.  SketchUp shows them pale blue, which is
+  how you spot a solid built inside out.
+* No materials, no styles, no sky or ground.
+* Hidden-line removal is still painter's algorithm on whole faces, so two
+  solids that interpenetrate will sort wrongly.

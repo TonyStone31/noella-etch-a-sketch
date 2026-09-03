@@ -176,6 +176,8 @@ type
     FMode: TAppMode;
     FUIScale: Single;
     FThemeIdx: Integer;
+    FToyTheme: Integer;         // the playful one to go back to
+    FProTheme: Integer;         // Light or Dark, remembered across a switch
     FPenSize: Integer;
     FInkColor: TColor;
     FInkPix: TPix;
@@ -454,6 +456,7 @@ type
     procedure DoPrint;
     procedure DoPickColor;
     procedure CycleTheme(Step: Integer);
+    procedure ApplyModeTheme;
     procedure SetMode(M: TAppMode);
     procedure SetPenSize(V: Integer);
     procedure SetStyle(V: TPenStyle);
@@ -551,7 +554,9 @@ const
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 4.5;    // this close and the point is what you meant
-  EDGE_PX         = 7.0;    // hovering a line means a point on that line
+  EDGE_PX         = 11.0;   // hovering a line means a point on that line
+  { the face under the cursor, tinted the way SketchUp tints one }
+  HINT_BLUE: TPix = (B: $E0; G: $8C; R: $3C; A: 255);
   AXIS_MIN_PX     = 14.0;   // nearer than this an axis lock says nothing
   DWELL_MS        = 450;    // rest on a point this long to keep it
   { SketchUp's default, and the same reasoning: round enough to read as a
@@ -868,7 +873,7 @@ begin
     off the edge into open space.  It sits above the guides because a real
     piece of geometry under the pointer is a more definite answer than an
     alignment to something far away. }
-  if FD.Doc.EdgeSnap(Proj, SX, SY, EDGE_PX, EdgeP, EdgeI) then
+  if FD.Doc.EdgeSnap(Proj, SX, SY, EDGE_PX * FUIScale, EdgeP, EdgeI) then
   begin
     FSnapKind := snOnEdge;
     Exit(EdgeP);
@@ -1034,7 +1039,9 @@ begin
   FDimFont.Height := -Round(11 * FUIScale);
 
   FMode := mdToy;
-  FThemeIdx := 0;
+  FThemeIdx := THEME_PRO_DARK;
+  FToyTheme := 0;
+  FProTheme := THEME_PRO_DARK;
   FStyle := psClassic;
   FPenSize := 4;
   FSym := 1;
@@ -1097,6 +1104,7 @@ procedure TMainForm.FormShow(Sender: TObject);
 begin
   if FBooted then Exit;
   FBooted := True;
+  ApplyModeTheme;
   Relayout;
   FD.ViewX := Round(FArt.Width * 0.10);
   FD.ViewY := Round(FArt.Height * 0.88);
@@ -1375,7 +1383,11 @@ begin
   X1 := Min(X1, pbScreen.Width - 1); Y1 := Min(Y1, pbScreen.Height - 1);
   if (X1 <= X0) or (Y1 <= Y0) then Exit;
 
-  Step := Max(5, Round(6 * FUIScale));
+  { A sparse dither, not a solid wash: the canvas has no alpha channel, so a
+    light tint has to be made out of gaps.  It used to be dense enough to
+    read as a colour of its own, which on white paper looked like the face
+    had been painted rather than merely pointed at. }
+  Step := Max(7, Round(9 * FUIScale));
   Y := Y0 - (Y0 mod Step);
   while Y <= Y1 do
   begin
@@ -3270,11 +3282,11 @@ begin
     ptPush:
       if FStage = 1 then
       begin
-        PaintFaceHint(C, FPushFace, Theme.Accent);
+        PaintFaceHint(C, FPushFace, HINT_BLUE);
         PaintPushPreview(C);
       end
       else
-        PaintFaceHint(C, FHoverFace, Theme.Accent);
+        PaintFaceHint(C, FHoverFace, HINT_BLUE);
     ptMove: PaintMoveGhost(C);
     ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
   end;
@@ -6401,7 +6413,10 @@ end;
 procedure TMainForm.SetMode(M: TAppMode);
 begin
   if M = FMode then Exit;
+  { each mode keeps its own look and gets it back on the way in }
+  if FMode = mdPro then FProTheme := FThemeIdx else FToyTheme := FThemeIdx;
   FMode := M;
+  ApplyModeTheme;
   ResetTool;
   if FMode = mdPro then
     FHint := TOOL_HINTS[FTool]
@@ -6414,9 +6429,40 @@ begin
   RefreshChrome;
 end;
 
+{ Each mode has its own set of looks and they do not overlap, so whichever
+  was last saved, coming into a mode picks that mode's own. }
+procedure TMainForm.ApplyModeTheme;
+begin
+  if FMode = mdPro then
+  begin
+    if (FProTheme < THEME_PRO_LIGHT) or (FProTheme > THEME_COUNT - 1) then
+      FProTheme := THEME_PRO_DARK;
+    FThemeIdx := FProTheme;
+  end
+  else
+  begin
+    if (FToyTheme < 0) or (FToyTheme >= THEME_PRO_LIGHT) then FToyTheme := 0;
+    FThemeIdx := FToyTheme;
+  end;
+  if FInkAuto then SetInk(PixToColor(Theme.Ink), True);
+end;
+
 procedure TMainForm.CycleTheme(Step: Integer);
 begin
-  FThemeIdx := (FThemeIdx + Step + THEME_COUNT) mod THEME_COUNT;
+  { PRO has two looks and they differ only in the chrome - the paper stays
+    white, because that is what a drawing is.  TOY keeps the four playful
+    ones, where the screen colour is half the fun. }
+  if FMode = mdPro then
+  begin
+    if FThemeIdx = THEME_PRO_LIGHT then FThemeIdx := THEME_PRO_DARK
+    else FThemeIdx := THEME_PRO_LIGHT;
+    FProTheme := FThemeIdx;
+  end
+  else
+  begin
+    FThemeIdx := (FThemeIdx + Step + THEME_PRO_LIGHT) mod THEME_PRO_LIGHT;
+    FToyTheme := FThemeIdx;
+  end;
   { Only the ink you have not deliberately chosen follows the theme. }
   if FInkAuto then
     SetInk(PixToColor(Theme.Ink), True);
@@ -6750,7 +6796,12 @@ begin
   try
     Ini := TIniFile.Create(GetAppConfigFile(False));
     try
-      FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', 0), 0, THEME_COUNT - 1);
+      FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
+        0, THEME_COUNT - 1);
+      FToyTheme := EnsureRange(Ini.ReadInteger('look', 'toytheme', 0),
+        0, THEME_PRO_LIGHT - 1);
+      FProTheme := EnsureRange(Ini.ReadInteger('look', 'protheme', THEME_PRO_DARK),
+        THEME_PRO_LIGHT, THEME_COUNT - 1);
       FShowGrid := Ini.ReadBool('look', 'grid', False);
       FMode := TAppMode(EnsureRange(Ini.ReadInteger('look', 'mode', 0), 0, 1));
       FStyle := TPenStyle(EnsureRange(Ini.ReadInteger('pen', 'style', 0), 0, 4));
@@ -6809,6 +6860,8 @@ begin
     Ini := TIniFile.Create(GetAppConfigFile(False));
     try
       Ini.WriteInteger('look', 'theme', FThemeIdx);
+      Ini.WriteInteger('look', 'toytheme', FToyTheme);
+      Ini.WriteInteger('look', 'protheme', FProTheme);
       Ini.WriteBool('look', 'grid', FShowGrid);
       Ini.WriteInteger('look', 'mode', Ord(FMode));
       Ini.WriteInteger('pen', 'style', Ord(FStyle));
