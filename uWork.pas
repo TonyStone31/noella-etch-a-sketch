@@ -89,6 +89,12 @@ type
     Ink: TColor;
     Weight: Single;
     Dim: Boolean;
+    { A soft edge is one of the many little creases that stand in for a curved
+      surface - the facets down the side of a pulled circle.  SketchUp hides
+      them, which is what makes a cylinder look like a pipe rather than a
+      barrel of staves, and shows them only where the surface turns away from
+      you and the crease is the outline. }
+    Soft: Boolean;
   end;
 
   TWorkEntArray = array of TWorkEnt;
@@ -2334,6 +2340,10 @@ begin
     FEnts[FLive - 1].Grp := G;
     AddLine(Base[I], Top[I], Ink, Wt, False);
     FEnts[FLive - 1].Grp := G;
+    { Many sides means the outline was a curve to begin with, so the creases
+      running down the extrusion are not real edges - they are how a round
+      surface is stored.  Nine or more and they are softened. }
+    FEnts[FLive - 1].Soft := N >= 9;
     AddLine(Top[I], Top[J], Ink, Wt, False);
     FEnts[FLive - 1].Grp := G;
   end;
@@ -2906,9 +2916,9 @@ begin
   for I := 0 to FLive - 1 do
     case FEnts[I].Kind of
       ekLine:
-        L.Add(Format('LINE %s %s %d %.3f %d %d',
+        L.Add(Format('LINE %s %s %d %.3f %d %d %d',
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].Weight,
-           Ord(FEnts[I].Dim), FEnts[I].Grp], FS));
+           Ord(FEnts[I].Dim), FEnts[I].Grp, Ord(FEnts[I].Soft)], FS));
       ekArc:
         L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f',
           [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
@@ -2964,6 +2974,9 @@ begin
                 StrToIntDef(T[7], 0), RdF(T[8]), T[9] = '1');
         if (FLive > 0) and (T.Count >= 11) then
           FEnts[FLive - 1].Grp := StrToIntDef(T[10], 0);
+        { older files have no soft flag, and nothing in them was softened }
+        if (FLive > 0) and (T.Count >= 12) then
+          FEnts[FLive - 1].Soft := T[11] = '1';
       end
       else if (Kind = 'ARC') and (T.Count >= 10) then
         AddArc(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])), RdF(T[4]), RdF(T[5]),
@@ -3182,6 +3195,14 @@ var
     edges inside it, and that one difference is most of why a model reads as
     solid rather than as a wireframe with fill.  An edge is on the outline
     when only one of the faces you can see runs along it. }
+  { A soft crease shows only where it is the outline of the surface; anywhere
+    else it is hidden, and the shading alone says the surface is curved. }
+  function Hidden(Ent: Integer): Boolean;
+  begin
+    Result := FEnts[Ent].Soft and
+      (VisibleFacesOnEdge(V, FEnts[Ent].A, FEnts[Ent].B) <> 1);
+  end;
+
   function LineW(Ent: Integer): Single;
   begin
     Result := EdgeW;
@@ -3202,6 +3223,7 @@ begin
       ekFace: ;   // already painted
       ekLine:
         begin
+          if Hidden(I) then Continue;
           PA := Project(V, FEnts[I].A);
           PB := Project(V, FEnts[I].B);
           S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
@@ -3316,7 +3338,13 @@ begin
       grounds that there was nothing to hide - but there is: a face laid over
       another one, and every line and dimension underneath.  Filling it
       properly is what stops a solid looking like glass. }
-    Sh := 0.72 + 0.28 * Abs(Dot3(Nm, Lamp));
+    { A wider spread between the faces.  SketchUp leans on shading to tell one
+      side of a box from another and keeps its edges to a hairline; ours had
+      the faces within a few percent of each other and made the edges do all
+      the work, which is why a box looked like it had been outlined in marker.
+      Top, front and side now land near 1.0, 0.90 and 0.80 of the material -
+      close to SketchUp's own default style. }
+    Sh := Min(1, 0.62 + 0.50 * Abs(Dot3(Nm, Lamp)));
     S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
     { No outline.  Every boundary of a face is a real edge and gets drawn as
       one, so stroking the polygon as well laid a second line over the first -
@@ -3350,6 +3378,9 @@ begin
       Col := ColorToPix(FEnts[I].Ink);
       case FEnts[I].Kind of
         ekLine:
+          if Hidden(I) then
+            { a softened crease stays hidden here too }
+          else
           { Only the stretches of it that nothing is standing in front of.
             Putting the whole line back is what let the lines of a flat grid
             run straight through the towers pushed up out of it - the solid
