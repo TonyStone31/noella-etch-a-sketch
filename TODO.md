@@ -85,6 +85,10 @@ three rounds of orbit-while-drawing-a-line with view changes both ways and a
 full cursor sweep after each, no crash.  Worth re-testing whenever anything
 near the snapping or the projection changes.
 
+The hold-to-throw-away gesture now covers lines, rectangles, circles and
+arcs.  Worth considering for push/pull and offset too, where the equivalent
+is abandoning a pull part way rather than committing a distance.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.

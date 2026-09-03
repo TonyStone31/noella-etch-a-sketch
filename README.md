@@ -107,13 +107,15 @@ The same idea taken seriously.
   where you clicked and it is a plain label instead. On an isometric this is
   most of the drawing: `8" SCH 40` floating in space is a riddle, and the
   same words on the end of a leader are an instruction.
-* **Lean on the button to snap the line off.** Hold the left button still
-  part way through a run and the rubber band stops being elastic: it bows,
-  goes bold and red, tells you **hold to snap the line off**, and at the end
-  starts to come apart before it goes with a burst. About a second and a half,
-  deliberately — long enough to read the warning and back out of. Nothing is
-  placed, which is the whole point and the thing a double-click cannot do.
-  Let go early, or move the mouse, and it was just a click.
+* **Lean on the button to throw away what you are drawing.** You know you
+  have made a mess the instant the button goes down — so keep leaning on it.
+  The shape stops being elastic: it bows, goes bold and red, asks **made a
+  mess? keep holding**, and comes apart. Nothing is drawn. Works on lines,
+  rectangles, circles and arcs; on a run of lines it lets go of the run
+  instead. About a second and a half, deliberately, so there is time to read
+  it and change your mind — let go early, or move the mouse, and it was just
+  an ordinary click. No switching to the eraser to undo something you had not
+  finished making.
 * **Double-click finishes a run of lines.** A line carries on from the point
   you just put down, which is what you want nine times in ten; a double-click
   lets go of it without placing anything. Esc does the same. (SketchUp has no

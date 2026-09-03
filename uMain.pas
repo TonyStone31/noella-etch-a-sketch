@@ -291,6 +291,9 @@ type
       settings, and the next launch picks it back up.  FDraftSeq is what was
       last written, FDraftAge counts ticks since the last change. }
     FEditSeq, FDraftSeq: Int64;
+    { unique to this run of the program, so two copies open at once cannot
+      write the same temporary file over each other }
+    FRunTag: string;
     FDraftAge: Integer;
     FRestored: Boolean;
     { Letting go of a run of lines by leaning on the button.
@@ -309,6 +312,7 @@ type
       reference - leaving its marker on screen, which reads as still being
       attached.  Refuse to until the hand has actually moved. }
     FNoLockUntilMoved: Boolean;
+    FWasLine: Boolean;
     { the dimension whose figure is being typed over, or -1.  While this is
       set the command bar is a text box for that label. }
     FDimEdit: Integer;
@@ -1233,6 +1237,8 @@ var
   I: Integer;
 begin
   Application.OnException := @ReportCrash;
+  Randomize;
+  FRunTag := IntToHex(GetTickCount64 and $FFFFFF, 6) + IntToHex(Random($10000), 4);
   { real hover tooltips on the deck, not just the hint line }
   pbDeck.ShowHint := True;
   Application.ShowHint := True;
@@ -3760,7 +3766,16 @@ begin
     accident and it looks like a bug. }
   if T > 0.12 then
   begin
-    if T > 0.7 then Cap := 'LETTING GO...' else Cap := 'hold to snap the line off';
+    if FTool = ptLine then
+    begin
+      if T > 0.7 then Cap := 'LETTING GO...'
+      else Cap := 'keep holding to snap the line off';
+    end
+    else
+    begin
+      if T > 0.7 then Cap := 'THROWING IT AWAY...'
+      else Cap := 'made a mess?  keep holding';
+    end;
     UIFont(C, 9, T > 0.7, Col);
     C.Brush.Style := bsSolid;
     C.Brush.Color := PixToColor(Theme.Screen1);
@@ -3950,16 +3965,26 @@ begin
   SY := Round(P.Y);
 
   { --- live preview ---------------------------------------------------- }
+
+  { Leaning on the button to throw away what is being drawn works for every
+    tool that has something in progress, not only for a run of lines.  Tony's
+    observation, and it is the right one: you know you have made a mess the
+    instant the button goes down, and the fix should be to keep leaning on it
+    rather than to finish the shape, find the eraser, and pick it off again.
+
+    While it is straining the shape's own preview is replaced by the strain,
+    so there is one thing happening on screen rather than two. }
+  if FHoldOn and (FHoldT > HOLD_STRAIN) and (FStage >= 1) then
+  begin
+    PaintStrain(C, ScreenOf(FP1), PtF(FMouseSX, FMouseSY),
+      (FHoldT - HOLD_STRAIN) / (HOLD_BREAK - HOLD_STRAIN));
+    PaintSnapRecoil(C);
+    Exit;
+  end;
+
   case FTool of
     ptLine:
-      if FStage = 1 then
-      begin
-        if FHoldOn and (FHoldT > HOLD_STRAIN) then
-          PaintStrain(C, ScreenOf(FP1), PtF(FMouseSX, FMouseSY),
-            (FHoldT - HOLD_STRAIN) / (HOLD_BREAK - HOLD_STRAIN))
-        else
-          Rubber(FP1, PreviewTarget);
-      end;
+      if FStage = 1 then Rubber(FP1, PreviewTarget);
     ptRect:
       if FStage = 1 then
       begin
@@ -5420,7 +5445,7 @@ begin
       might be a click - another point - or it might be a hold, which lets go
       of the run and places nothing.  Which one it was is not known until the
       button comes up, or until it has been held long enough to break. }
-    if (FTool = ptLine) and (FStage >= 1) then
+    if (FTool in [ptLine, ptRect, ptCircle, ptArc]) and (FStage >= 1) then
     begin
       FHoldOn := True;
       FHoldT := 0;
@@ -7309,6 +7334,7 @@ begin
       begin
         { It broke.  Let go of the run and place nothing - that is the whole
           point of the gesture, and what a double-click cannot do. }
+        FWasLine := FTool = ptLine;
         FSnapA := ScreenOf(FP1);
         FSnapB := PtF(FMouseSX, FMouseSY);
         FSnapM := PtF((FSnapA.X + FSnapB.X) / 2, (FSnapA.Y + FSnapB.Y) / 2);
@@ -7318,7 +7344,10 @@ begin
         FLockOn := False;
         FNoLockUntilMoved := True;
         FScreenDirty := True;
-        FCmdMsg := 'Snapped off.';
+        if FWasLine then
+          FCmdMsg := 'Snapped off.'
+        else
+          FCmdMsg := 'Thrown away - nothing was drawn.';
       end;
       FScreenDirty := True;
     end;
@@ -8219,11 +8248,25 @@ begin
     try
       if FDocPath <> '' then L.Add('# from ' + FDocPath);
       BuildSession(L);
-      Tmp := DraftFile + '.tmp';
+      { Two copies of the program open at once used to write the same
+        temporary file, one over the other, and rename the interleaved
+        result into place.  Whatever read it next - the other copy, or the
+        next launch - walked off the end of a half-written drawing.  That
+        was the crash.
+
+        A temporary of our own fixes it.  The rename is tried straight over
+        the target first, which on Unix replaces it in one indivisible step
+        so a reader sees the old file or the new one and never neither; only
+        if that fails is the target removed first, which is what Windows
+        needs. }
+      Tmp := DraftFile + '.' + FRunTag + '.tmp';
       ForceDirectories(ExtractFilePath(DraftFile));
       L.SaveToFile(Tmp);
-      if FileExists(DraftFile) then DeleteFile(DraftFile);
-      RenameFile(Tmp, DraftFile);
+      if not RenameFile(Tmp, DraftFile) then
+      begin
+        if FileExists(DraftFile) then DeleteFile(DraftFile);
+        if not RenameFile(Tmp, DraftFile) then DeleteFile(Tmp);
+      end;
     finally
       L.Free;
     end;
@@ -8261,7 +8304,19 @@ begin
     L.Free;
   end;
 
-  if not LoadDocument(DraftFile) then Exit;
+  { A draft is read before anything else has happened, so a bad one would
+    take the program down on the way up - which is the worst possible time
+    and looks like the program simply being broken. }
+  try
+    if not LoadDocument(DraftFile) then Exit;
+  except
+    on E: Exception do
+    begin
+      FCmdMsg := 'The last draft would not load (' + E.ClassName +
+        ') - starting empty.';
+      Exit;
+    end;
+  end;
   { LoadDocument quite reasonably puts the file it read in the title.  This
     is not a file anyone opened, so take it back out: showing the draft's
     own path would invite saving over the safety net. }
