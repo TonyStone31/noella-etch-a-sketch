@@ -286,6 +286,13 @@ type
       decides the plane and dragging must not overrule it.  False when it
       started in mid air, which is when the drag gets to choose. }
     FPlaneFromFace: Boolean;
+    { Nothing is ever lost.  Every change bumps FEditSeq; a few seconds later
+      the tick writes the whole session - all sheets - to a draft beside the
+      settings, and the next launch picks it back up.  FDraftSeq is what was
+      last written, FDraftAge counts ticks since the last change. }
+    FEditSeq, FDraftSeq: Int64;
+    FDraftAge: Integer;
+    FRestored: Boolean;
     { the dimension whose figure is being typed over, or -1.  While this is
       set the command bar is a text box for that label. }
     FDimEdit: Integer;
@@ -392,6 +399,7 @@ type
     procedure PaintOrbitAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure PaintFacePoints(C: TCanvas; Face: Integer);
     procedure PaintSnapMarker(C: TCanvas; SX, SY: Integer);
     procedure PaintDimPreview(C: TCanvas);
     function PushDistance: Double;
@@ -525,6 +533,10 @@ type
     function StatusLine: string;
     procedure PaintProOverlay(C: TCanvas);
 
+    function DraftFile: string;
+    procedure BuildSession(L: TStrings);
+    procedure SaveDraft;
+    procedure RestoreDraft;
     procedure LoadSettings;
     procedure ApplyCommandLine;
     procedure FollowScreenSize;
@@ -1282,6 +1294,9 @@ procedure TMainForm.FormDestroy(Sender: TObject);
 var
   I: Integer;
 begin
+  { Last thing before the sheets go: close the program with work on the
+    screen and it is still there next time. }
+  if FEditSeq <> FDraftSeq then SaveDraft;
   SaveSettings;
   FDimFont.Free;
   for I := High(FDrawings) downto 0 do
@@ -1304,6 +1319,7 @@ end;
 procedure TMainForm.FormShow(Sender: TObject);
 var
   I: Integer;
+  Opened: Boolean;
 begin
   if FBooted then Exit;
   FBooted := True;
@@ -1320,12 +1336,17 @@ begin
   { heckers-sketch drawing.hsk opens it straight away.  Scan for it rather
     than taking the first argument, so a switch in front of the filename does
     not hide it. }
+  Opened := False;
   for I := 1 to ParamCount do
     if (Copy(ParamStr(I), 1, 1) <> '-') and FileExists(ParamStr(I)) then
     begin
-      LoadDocument(ParamStr(I));
+      Opened := LoadDocument(ParamStr(I));
       Break;
     end;
+  { Nothing named on the command line, so carry on from last time.  A file
+    asked for by name always wins - it is a clear instruction, and the draft
+    is only a safety net. }
+  if not Opened then RestoreDraft;
 end;
 
 { The command line, for a launcher that wants the window a particular way.
@@ -3624,6 +3645,61 @@ end;
   copies a square of the artwork and blits it back over the canvas, so
   anything drawn here first was wiped out.  That is why only the ring ever
   showed. }
+{ The places worth aiming at on the face under the cursor: its corners, the
+  middle of each edge, and the middle of the face itself.
+
+  Drawn small and pale, because they are an offer rather than a
+  confirmation - the cursor marker still says what actually got snapped.
+  The middle of a face is the one Tony asked for by name: a circle struck
+  from the centre of a panel is most of what this program gets used for. }
+procedure TMainForm.PaintFacePoints(C: TCanvas; Face: Integer);
+var
+  Pts: TPointFArray;
+  I, J, N, R: Integer;
+  CX, CY: Double;
+
+  procedure Dot(X, Y: Double; Big: Boolean);
+  var
+    D: Integer;
+  begin
+    if Big then D := R + 1 else D := R;
+    if (X < -20) or (Y < -20) or
+       (X > pbScreen.Width + 20) or (Y > pbScreen.Height + 20) then Exit;
+    C.Ellipse(Round(X) - D, Round(Y) - D, Round(X) + D + 1, Round(Y) + D + 1);
+  end;
+
+begin
+  if Face < 0 then Exit;
+  Pts := FD.Doc.Outline(Proj, Face);
+  N := Length(Pts);
+  if N < 3 then Exit;
+  { A pulled circle has 48 sides; peppering it with dots would be noise. }
+  if N > 16 then Exit;
+
+  R := Max(2, Round(2.5 * FUIScale));
+  C.Pen.Style := psSolid;
+  C.Pen.Width := 1;
+  C.Pen.Color := PixToColor(Pix(90, 120, 160));
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := PixToColor(Pix(210, 228, 245));
+
+  CX := 0; CY := 0;
+  for I := 0 to N - 1 do
+  begin
+    J := (I + 1) mod N;
+    Dot(Pts[I].X, Pts[I].Y, False);                              // corner
+    Dot((Pts[I].X + Pts[J].X) / 2, (Pts[I].Y + Pts[J].Y) / 2, False);  // middle
+    CX := CX + Pts[I].X;
+    CY := CY + Pts[I].Y;
+  end;
+  { the middle of the whole face, a size up so it reads as the special one }
+  C.Brush.Color := PixToColor(Pix(255, 246, 210));
+  Dot(CX / N, CY / N, True);
+
+  C.Brush.Style := bsClear;
+  C.Pen.Width := 1;
+end;
+
 procedure TMainForm.PaintSnapMarker(C: TCanvas; SX, SY: Integer);
 var
   MarkPix: TPix;
@@ -3783,6 +3859,17 @@ begin
         PaintFaceHint(C, FHoverFace, HINT_BLUE);
     ptMove: PaintMoveGhost(C);
     ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
+  end;
+
+  { The face a new shape is about to land on, washed over and with its own
+    points marked, so there is no doubt which surface you are drawing on.
+    Only before the first click - once the shape is under way the plane is
+    settled and the wash would just be in the way. }
+  if (FStage = 0) and (FHoverFace >= 0) and
+     (FTool in [ptLine, ptRect, ptCircle, ptArc]) then
+  begin
+    PaintFaceHint(C, FHoverFace, HINT_BLUE);
+    PaintFacePoints(C, FHoverFace);
   end;
 
   { --- scale bar, bottom left ------------------------------------------ }
@@ -4787,7 +4874,6 @@ begin
           end;
         end;
         FPushFace := -1;
-  FHoverFace := -1;
         ResetTool;
       end;
 
@@ -5314,7 +5400,16 @@ begin
     { what push/pull would pick up if you clicked now.  Without this the tool
       looks broken: the click works, but nothing ever says a face was under
       the cursor, so there is no telling a hit from a miss. }
+    { Push/pull and offset want to know which face they would take.  So do
+      the drawing tools, for a different reason: a circle or a rectangle
+      about to be laid on the top of a box needs to say *which* face it is
+      going onto, before the click, or you find out afterwards that it went
+      on the ground.  SketchUp washes the face over and shows its points;
+      this does the same. }
     if (FTool in [ptPush, ptOffset]) and (FStage = 0) then
+      FHoverFace := FD.Doc.HitFace(Proj, X, Y)
+    else if (FTool in [ptLine, ptRect, ptCircle, ptArc]) and (FStage = 0) and
+            not FPlaneHeld then
       FHoverFace := FD.Doc.HitFace(Proj, X, Y)
     else
       FHoverFace := -1;
@@ -6719,6 +6814,10 @@ procedure TMainForm.PushUndo;
 var
   I: Integer;
 begin
+  { Everything that changes the drawing comes through here, which makes it
+    the one honest place to notice that there is something worth keeping. }
+  Inc(FEditSeq);
+  FDraftAge := 0;
   if FMode = mdPro then
   begin
     if FD.UndoTop >= UNDO_LEVELS then
@@ -6927,6 +7026,14 @@ begin
   FollowScreenSize;
   ServiceMotion;
   ServiceHover;
+
+  { A draft a couple of seconds after the drawing stops changing, so a busy
+    hand is never writing files and a put-down pen always is. }
+  if FEditSeq <> FDraftSeq then
+  begin
+    Inc(FDraftAge);
+    if FDraftAge > (2000 div TICK_MS) then SaveDraft;
+  end;
   try
 
   if FErasing then
@@ -7144,8 +7251,31 @@ begin
     VK_F1: begin ShowAbout; Key := 0; Exit; end;
     VK_DELETE:
       begin
-        if (FMode = mdPro) and (Length(FSel) > 0) then DeleteSelection
-        else StartErase;
+        { In the toy, Delete is the shake - that is the whole point of it.
+
+          In PRO it used to fall through to the same shake when nothing was
+          selected, which threw the entire drawing away without asking.  It
+          is the one key next to the one that deletes what you picked, so it
+          is easy to hit, and there was nothing between it and losing the
+          lot.  Now it deletes the selection, and clearing the sheet is a
+          question. }
+        if FMode <> mdPro then
+          StartErase
+        else if Length(FSel) > 0 then
+          DeleteSelection
+        else if FD.Doc.Live = 0 then
+          FCmdMsg := 'Nothing selected, and nothing to clear.'
+        else if MessageDlg('Clear the sheet?',
+             Format('Throw away all %d things on "%s"?'#13#10#13#10 +
+               'Ctrl+Z will bring them back.',
+               [FD.Doc.Live, FD.Name]),
+             mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+        begin
+          PushUndo;
+          StartErase;          { the shake, as the discard }
+        end
+        else
+          FCmdMsg := 'Left alone.';
         Key := 0;
         Exit;
       end;
@@ -7584,17 +7714,7 @@ begin
 
   L := TStringList.Create;
   try
-    L.Add(Format('%s %d', [DOC_MAGIC, DOC_VERSION]));
-    for I := 0 to High(FDrawings) do
-    begin
-      L.Add('SHEET ' + FDrawings[I].Name);
-      L.Add('UNITS ' + IntToStr(Ord(FDrawings[I].Units)));
-      L.Add('SCALE ' + IntToStr(FDrawings[I].ScaleIdx));
-      L.Add('SNAP ' + IntToStr(FDrawings[I].SnapIdx));
-      L.Add('VIEW ' + IntToStr(Ord(FDrawings[I].View)));
-      FDrawings[I].Doc.SaveTo(L);
-      L.Add('ENDSHEET');
-    end;
+    BuildSession(L);
     try
       L.SaveToFile(FDocPath);
       FCmdMsg := 'Saved ' + ExtractFileName(FDocPath);
@@ -7734,6 +7854,109 @@ end;
 { ======================================================================== }
 { settings                                                                  }
 { ======================================================================== }
+
+{ Beside the settings, so it travels with them and needs no permission. }
+function TMainForm.DraftFile: string;
+begin
+  Result := ExtractFilePath(GetAppConfigFile(False)) +
+    'heckers-sketch-draft.hsk';
+end;
+
+{ The whole session - every sheet, with its own units, scale, snap and view -
+  as the lines of a .hsk file.  Saving to a real file and writing the draft
+  are then the same job done twice to different places. }
+procedure TMainForm.BuildSession(L: TStrings);
+var
+  I: Integer;
+begin
+  L.Add(Format('%s %d', [DOC_MAGIC, DOC_VERSION]));
+  for I := 0 to High(FDrawings) do
+  begin
+    L.Add('SHEET ' + FDrawings[I].Name);
+    L.Add('UNITS ' + IntToStr(Ord(FDrawings[I].Units)));
+    L.Add('SCALE ' + IntToStr(FDrawings[I].ScaleIdx));
+    L.Add('SNAP ' + IntToStr(FDrawings[I].SnapIdx));
+    L.Add('VIEW ' + IntToStr(Ord(FDrawings[I].View)));
+    FDrawings[I].Doc.SaveTo(L);
+    L.Add('ENDSHEET');
+  end;
+end;
+
+{ Keep what is on screen, whether or not it has ever been given a name.
+
+  This is the Notepad bargain: you should not have to think about saving to
+  be safe.  A drawing that has a file still gets its draft written, because
+  the crash you want protecting from is the one between two saves.  Written
+  to a temporary and renamed, so a crash mid-write cannot leave a half a
+  draft where the good one was. }
+procedure TMainForm.SaveDraft;
+var
+  L: TStringList;
+  Tmp: string;
+begin
+  if Length(FDrawings) = 0 then Exit;
+  L := TStringList.Create;
+  try
+    if FDocPath <> '' then L.Add('# from ' + FDocPath);
+    BuildSession(L);
+    Tmp := DraftFile + '.tmp';
+    try
+      ForceDirectories(ExtractFilePath(DraftFile));
+      L.SaveToFile(Tmp);
+      if FileExists(DraftFile) then DeleteFile(DraftFile);
+      RenameFile(Tmp, DraftFile);
+      FDraftSeq := FEditSeq;
+    except
+      { A draft that cannot be written is not worth interrupting anyone
+        over - it will be tried again on the next tick. }
+    end;
+  finally
+    L.Free;
+  end;
+end;
+
+{ Pick the draft back up at startup.
+
+  It comes back as the drawing but not as the file: FDocPath is cleared, so
+  Ctrl+S asks where to put it.  Anything else would have the program quietly
+  writing over a file the drawing only half came from. }
+procedure TMainForm.RestoreDraft;
+var
+  L: TStringList;
+  Was: string;
+begin
+  if not FileExists(DraftFile) then Exit;
+  { an empty draft is not worth restoring }
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(DraftFile);
+    except
+      Exit;
+    end;
+    if L.Count < 3 then Exit;
+    Was := '';
+    if (L.Count > 0) and (Copy(L[0], 1, 7) = '# from ') then
+      Was := Trim(Copy(L[0], 8, MaxInt));
+  finally
+    L.Free;
+  end;
+
+  if not LoadDocument(DraftFile) then Exit;
+  { LoadDocument quite reasonably puts the file it read in the title.  This
+    is not a file anyone opened, so take it back out: showing the draft's
+    own path would invite saving over the safety net. }
+  FDocPath := '';
+  if Was <> '' then FHint := 'Not saved since ' + Was
+  else FHint := 'Not saved to a file yet  -  Ctrl+S';
+  FRestored := True;
+  FDraftSeq := FEditSeq;
+  if Was <> '' then
+    FCmdMsg := 'Picked up where you left off in ' + ExtractFileName(Was) +
+      '.  Ctrl+S to write it back.'
+  else
+    FCmdMsg := 'Picked up where you left off.  Ctrl+S to give it a name.';
+end;
 
 procedure TMainForm.LoadSettings;
 var

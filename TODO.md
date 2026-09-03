@@ -50,6 +50,11 @@ drawing - `docs/isometric-views.md` has the reasoning.  If an iso spool sheet
 is ever wanted it is an **export** off the scaled model, walking a run and
 hanging callouts off it, not a mode that changes how drawing works.
 
+Still wanted around files: a proper "you have unsaved changes" on exit is
+deliberately *not* there - the draft makes it unnecessary, and a prompt you
+always say yes to teaches you to stop reading prompts.  Worth revisiting if
+the draft ever proves not to be enough.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.
