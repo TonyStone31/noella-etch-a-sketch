@@ -864,3 +864,59 @@ fixed readable pitch is what paper does.
 reads CENTER, and colour/grey/behaviour/neighbour/normalise and the rest are
 gone from the code, the comments and the notes.  Second time he has had to say
 it.
+
+## Profiles, and three bugs behind them — 3 September 2026
+
+**Profiles.**  SketchUp's one edge effect worth having: the outline of a shape
+is drawn heavier than the edges inside it, and that difference is most of why
+a model reads as solid rather than as a wireframe with fill.  An edge is on
+the outline when only one of the faces you can *see* runs along it, so it is
+view-dependent - turn the model and the silhouette moves.  A profile is one
+pixel heavier than the pen, not twice it; doubling a four pixel pen gave an
+eight pixel border.
+
+**Face outlines are no longer stroked at all.**  Every boundary of a face is a
+real edge and gets drawn as one, so stroking the polygon as well laid a second
+line over the first.  That was most of why a solid's edges looked heavier than
+the lines they were made of even after the weight became one setting.
+
+**A face the point lies in cannot be in front of it.**  Without that the
+hidden-line chopping cut every edge of a solid into a dotted line: an edge lies
+in the plane of the faces either side of it, those are drawn later, and the
+point-in-polygon test on their shared boundary went either way from sample to
+sample.
+
+**And the chopping itself made notches.**  A line lying on a face was drawn as
+thirty-two abutting pieces, each with its own ends, which showed at a heavy
+weight.  Consecutive visible pieces are one line now.
+
+## A push carries what is drawn on it — 3 September 2026
+
+Draw a box, pull it up, draw a line across its top to the middle of an edge,
+push the side under that edge: the line stayed where it was.  `MoveFaceWith`
+asked "is this point one of the face's corners", and the line's end was on the
+moving face but not at a corner of it.  It now asks whether the point lies on
+the face at all, edges included.  Loose geometry comes along too - the group
+filter still keeps a neighbouring *solid* out of it, but a line drawn on this
+one belongs to no group.
+
+## A circle drawn on a face was hidden by it — 3 September 2026
+
+Not "put on the back": it was on the right face all along and the box was
+painting over it.  The pass that puts back the lines lying on a visible face
+knew about lines, dimensions and notes but not arcs.  Arcs are walked round the
+same way now.
+
+### The gap this turned up
+`SplitFace` turns down any face belonging to a solid - `if FEnts[Index].Solid
+then Exit` - so **a line drawn across the top of a box does not divide it**.
+You cannot cut a box's face in half and push one half, which is a core
+SketchUp move.  Allowing it means both halves must stay Solid and keep the
+group, and pushing half a top should extrude a new block rather than slide the
+half - which is the planar-region work again.  Worth doing properly, not
+patching.
+
+### Still untested
+The tape measure should leave guides the way SketchUp's does, and show the
+reading at the cursor offset far enough to read.  The Move tool has had almost
+no real use.  Both after the above.
