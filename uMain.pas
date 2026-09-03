@@ -286,6 +286,9 @@ type
       decides the plane and dragging must not overrule it.  False when it
       started in mid air, which is when the drag gets to choose. }
     FPlaneFromFace: Boolean;
+    { the dimension whose figure is being typed over, or -1.  While this is
+      set the command bar is a text box for that label. }
+    FDimEdit: Integer;
     { where the right button went down, so a click can be told from a pan }
     FRightSX, FRightSY: Integer;
     FPushSX, FPushSY: Integer;   // where the drag started, on screen
@@ -375,6 +378,7 @@ type
     function OffsetPreview: TP3Array;
     procedure CommitOffset;
     procedure EditDimUnder(X, Y: Integer);
+    procedure CommitDimNote;
     function DeckRowH: Integer;
     function DeckRows: Integer;
     function DeckHeight: Integer;
@@ -1811,21 +1815,41 @@ begin
   if FMode <> mdPro then Exit;
   I := FD.Doc.HitTest(Proj, X, Y, 10 * FUIScale);
   if (I < 0) or (FD.Doc[I].Kind <> ekDim) then Exit;
-  Was := FD.Doc[I].Txt;
-  Now_ := Was;
-  if not InputQuery('Dimension text',
-       'What should this dimension say?  Leave it empty to go back to the ' +
-       'measured length.', Now_) then Exit;
-  if Trim(Now_) = Trim(Was) then Exit;
+  { Into the command bar rather than a dialog.  Everything else in PRO is
+    typed there and committed with Enter, and a modal box stops the drawing
+    being looked at while the label is being written - which is the one
+    moment you want to see it. }
+  FDimEdit := I;
+  FInput := FD.Doc[I].Txt;
+  FCmdMsg := 'Type what this dimension should say, then Enter.  ' +
+    'Empty goes back to the measured length;  Esc leaves it alone.';
+  pbCmd.Invalidate;
+  pbScreen.Invalidate;
+end;
+
+{ Take what was typed and put it on the dimension.  Called from Enter. }
+procedure TMainForm.CommitDimNote;
+var
+  I: Integer;
+  Note: string;
+begin
+  I := FDimEdit;
+  FDimEdit := -1;
+  Note := Trim(FInput);
+  FInput := '';
+  if (I < 0) or (I >= FD.Doc.Live) or (FD.Doc[I].Kind <> ekDim) then Exit;
+  if Note = Trim(FD.Doc[I].Txt) then
+  begin
+    FCmdMsg := 'Left as it was.';
+    Exit;
+  end;
   PushUndo;
-  FD.Doc.SetDimNote(I, Now_);
+  FD.Doc.SetDimNote(I, Note);
   RenderPro;
   RecomposeAll;
   Invalidate;
-  if Trim(Now_) = '' then
-    FCmdMsg := 'Back to the measured length.'
-  else
-    FCmdMsg := 'Dimension reads "' + Trim(Now_) + '".';
+  if Note = '' then FCmdMsg := 'Back to the measured length.'
+  else FCmdMsg := 'Dimension reads "' + Note + '".';
 end;
 
 function TMainForm.PushDistance: Double;
@@ -4921,6 +4945,13 @@ procedure TMainForm.CommandEnter;
 var
   L: Double;
 begin
+  if FDimEdit >= 0 then
+  begin
+    CommitDimNote;
+    pbCmd.Invalidate;
+    Exit;
+  end;
+
   if (FTool = ptText) and (FStage = 1) then
   begin
     ProCommit;
@@ -6956,8 +6987,8 @@ procedure TMainForm.FormKeyPress(Sender: TObject; var Key: char);
 begin
   if FMode <> mdPro then Exit;
 
-  { while a note is being typed, everything is text }
-  if (FTool = ptText) and (FStage = 1) then
+  { while a note or a dimension's label is being typed, everything is text }
+  if ((FTool = ptText) and (FStage = 1)) or (FDimEdit >= 0) then
   begin
     if Key >= ' ' then
     begin
@@ -7145,11 +7176,22 @@ begin
 
     { While a note or a /command is being typed, letters are letters - not
       shortcuts.  Only the keys that finish or edit it are handled here. }
-    if ((FTool = ptText) and (FStage = 1)) or (Copy(FInput, 1, 1) = '/') then
+    if ((FTool = ptText) and (FStage = 1)) or (Copy(FInput, 1, 1) = '/') or
+       (FDimEdit >= 0) then
     begin
       case Key of
         VK_RETURN: CommandEnter;
-        VK_ESCAPE: ResetTool;
+        VK_ESCAPE:
+          if FDimEdit >= 0 then
+          begin
+            FDimEdit := -1;
+            FInput := '';
+            FCmdMsg := 'Left as it was.';
+            pbCmd.Invalidate;
+            pbScreen.Invalidate;
+          end
+          else
+            ResetTool;
         VK_BACK:
           begin
             if FInput <> '' then SetLength(FInput, Length(FInput) - 1);

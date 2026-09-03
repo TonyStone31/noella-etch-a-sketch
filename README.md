@@ -119,9 +119,11 @@ The same idea taken seriously.
 * **Dimensions you place yourself**, with the extension lines snapped square to
   an axis so they read like a drawing instead of a sketch.
 * **Right-click a dimension to write over its figure** — a nominal size, a cut
-  length that allows for a fitting, `FIELD VERIFY`. Clearing the box hands it
-  back to the measured length. The measurement underneath never changes, so
-  the drawing still knows what it really is.
+  length that allows for a fitting, `FIELD VERIFY`. It types into the command
+  bar like everything else; Enter commits, Esc leaves it alone, and clearing
+  it hands the dimension back to the measured length. The measurement
+  underneath never changes, so the drawing still knows what it really is —
+  and the written figure goes out in the SVG export too.
 
 **Geometry**
 
