@@ -100,8 +100,10 @@ type
     Splitting a rectangle in half puts one of these at the quarter point of
     every edge it touched, so they multiply fast and are worth much less
     than the point you actually aimed at. }
+  { snOnEdge is a free point anywhere along a line or an arc - SketchUp's
+    "On Edge" - as opposed to one of the named points along it. }
   TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCentre, snCross,
-    snSubMid);
+    snSubMid, snOnEdge);
 
   TSnapHit = record
     P: TP3;
@@ -190,6 +192,11 @@ type
     { The same search but only over edges - lines, arcs and dimensions.
       Erasing means erasing an edge; a face is what is left behind. }
     function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
+    { The nearest point lying *on* a line or an arc, within TolPx of the
+      pointer.  This is SketchUp's On Edge inference: hovering an edge should
+      give you a point on that edge, not the nearest corner of it. }
+    function EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
+      out P: TP3; out Ent: Integer): Boolean;
 
     { Every point worth snapping or aligning to, including the places lines
       cross each other and the midpoints those crossings create. }
@@ -2299,6 +2306,60 @@ begin
   end;
 end;
 
+function TWorkDoc.EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
+  out P: TP3; out Ent: Integer): Boolean;
+var
+  I, K: Integer;
+  Best: Double;
+  QA, QB: TP3;
+
+  { Project the segment, find the nearest point along it on screen, then read
+    the same fraction back off the model segment.  The projection is affine,
+    so the two fractions are the same number. }
+  procedure Try_(const MA, MB: TP3);
+  var
+    PA, PB: TPointF;
+    DX, DY, L2, T, D: Double;
+  begin
+    PA := Project(V, MA);
+    PB := Project(V, MB);
+    DX := PB.X - PA.X;
+    DY := PB.Y - PA.Y;
+    L2 := DX * DX + DY * DY;
+    if L2 < 1E-12 then Exit;
+    T := EnsureRange(((SX - PA.X) * DX + (SY - PA.Y) * DY) / L2, 0, 1);
+    D := Sqrt(Sqr(SX - (PA.X + DX * T)) + Sqr(SY - (PA.Y + DY * T)));
+    if D < Best then
+    begin
+      Best := D;
+      P := P3(MA.X + (MB.X - MA.X) * T, MA.Y + (MB.Y - MA.Y) * T,
+              MA.Z + (MB.Z - MA.Z) * T);
+      Ent := I;
+    end;
+  end;
+
+begin
+  P := P3(0, 0, 0);
+  Ent := -1;
+  Best := TolPx;
+  for I := 0 to FLive - 1 do
+    case FEnts[I].Kind of
+      ekLine: Try_(FEnts[I].A, FEnts[I].B);
+      ekArc:
+        begin
+          QA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane);
+          for K := 1 to 24 do
+          begin
+            QB := ArcPoint(FEnts[I].C, FEnts[I].R,
+                    FEnts[I].A0 + FEnts[I].Sweep * K / 24, FEnts[I].Plane);
+            Try_(QA, QB);
+            QA := QB;
+          end;
+        end;
+    end;
+  Result := Ent >= 0;
+end;
+
 function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
   I: Integer;
@@ -2365,7 +2426,9 @@ end;
 function TWorkDoc.BestSnap(const V: TProjector; SX, SY, TolPx: Double;
   out Hit: TSnapHit): Boolean;
 const
-  BIAS: array[TSnapKind] of Double = (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25);
+  { snOnEdge never comes out of this list - the cursor finds it separately -
+    so its bias is only here to keep the array the right length }
+  BIAS: array[TSnapKind] of Double = (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0);
 var
   I: Integer;
   P: TPointF;

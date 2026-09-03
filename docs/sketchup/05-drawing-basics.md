@@ -27,6 +27,11 @@ Undo, or redraw the line that was removed — the face comes back on its own.
 **Point:** origin, component origin, endpoint, midpoint, arc midpoint,
 intersection, on face, on edge, centre, guide point, on line, on section.
 
+*(We have endpoint, midpoint, arc centre, intersection and **on edge**.  Not
+on face while a shape is under way, no guide points, no sections.  Each shows
+as one small solid diamond coloured the way SketchUp colours it: green a
+corner, cyan a middle, red a point lying on an edge, violet a crossing.)*
+
 **Linear:** on red / green / blue axis, from point, through point, parallel,
 extend edge, perpendicular, perpendicular to face, tangent at vertex.
 

@@ -356,6 +356,7 @@ type
     procedure PaintOrbitAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure PaintSnapMarker(C: TCanvas; SX, SY: Integer);
     function PushDistance: Double;
     procedure Recompose;
     procedure RecomposeAll;
@@ -550,6 +551,7 @@ const
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 4.5;    // this close and the point is what you meant
+  EDGE_PX         = 7.0;    // hovering a line means a point on that line
   AXIS_MIN_PX     = 14.0;   // nearer than this an axis lock says nothing
   DWELL_MS        = 450;    // rest on a point this long to keep it
   { SketchUp's default, and the same reasoning: round enough to read as a
@@ -756,11 +758,11 @@ var
   Pts: TP3Array;
   I, BestAxis: Integer;
   Tol, D, Best: Double;
-  W, Wf, AxRef: TP3;
+  W, Wf, AxRef, EdgeP: TP3;
   SP: TPointF;
   PtOK: Boolean;
   PtPx, AxPx: Double;
-  AxIdx: Integer;
+  AxIdx, EdgeI: Integer;
 
   { An alignment is only worth showing when the point is off in exactly one
     direction - then the guide is a clean line parallel to an axis.  If it
@@ -858,6 +860,18 @@ begin
   begin
     FSnapKind := Hit.Kind;
     Exit(Hit.P);
+  end;
+
+  { A line under the pointer means a point on that line.  SketchUp calls this
+    On Edge, and without it running along an edge gave you nothing to hold on
+    to: the axis guide from some distant corner would win and drag the point
+    off the edge into open space.  It sits above the guides because a real
+    piece of geometry under the pointer is a more definite answer than an
+    alignment to something far away. }
+  if FD.Doc.EdgeSnap(Proj, SX, SY, EDGE_PX, EdgeP, EdgeI) then
+  begin
+    FSnapKind := snOnEdge;
+    Exit(EdgeP);
   end;
 
   { Otherwise a 90 degree relationship to a point you chose - the start of
@@ -3001,6 +3015,7 @@ begin
     snSubMid:   Result := 'ON SEGMENT';
     snCentre:   Result := 'CENTRE';
     snCross:    Result := 'CROSSING';
+    snOnEdge:   Result := 'ON EDGE';
     snGrid:     Result := 'GRID';
   else
     Result := '';
@@ -3112,6 +3127,61 @@ begin
     end;
     Result := P3(FP1.X + D.X * L / Len, FP1.Y + D.Y * L / Len, FP1.Z + D.Z * L / Len);
   end;
+end;
+
+{ The mark that says what the cursor found.
+
+  This has to be painted after the cursor overlay, not before: the overlay
+  copies a square of the artwork and blits it back over the canvas, so
+  anything drawn here first was wiped out.  That is why only the ring ever
+  showed. }
+procedure TMainForm.PaintSnapMarker(C: TCanvas; SX, SY: Integer);
+var
+  MarkPix: TPix;
+  MarkD: Integer;
+begin
+  { SketchUp marks it with one small solid diamond and lets the colour say
+    what it found: green a corner, cyan a middle, red a point lying on an
+    edge, violet a crossing.  One shape reads faster than five, and after a
+    while you stop reading the label at all. }
+  case FSnapKind of
+    snEndpoint, snCentre: MarkPix := Pix(60, 210, 90);
+    snMidpoint, snSubMid: MarkPix := Pix(90, 220, 235);
+    snOnEdge:             MarkPix := Pix(235, 70, 70);
+    snCross:              MarkPix := Pix(215, 120, 240);
+  else
+    MarkPix := Theme.Accent;
+  end;
+
+  C.Pen.Width := 1;
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := PixToColor(MarkPix);
+  if FSnapKind = snGrid then
+  begin
+    { the grid is ours, not SketchUp's, and it is everywhere - a full diamond
+      on every move would be noise, so it gets a dot }
+    C.Pen.Color := PixToColor(MarkPix);
+    C.FillRect(SX - 2, SY - 2, SX + 3, SY + 3);
+  end
+  else if FSnapKind <> snNone then
+  begin
+    MarkD := Round(5 * FUIScale);
+    { a thin dark rim so the diamond still reads over pale artwork }
+    C.Pen.Color := PixToColor(Pix(24, 24, 28));
+    C.Polygon([Point(SX, SY - MarkD), Point(SX + MarkD, SY),
+               Point(SX, SY + MarkD), Point(SX - MarkD, SY)]);
+    { hollow the middle of a sub-midpoint, which is the middle of a piece of
+      a line rather than of the whole one }
+    if FSnapKind = snSubMid then
+    begin
+      C.Brush.Color := PixToColor(Theme.Screen1);
+      C.Pen.Color := PixToColor(Theme.Screen1);
+      C.Polygon([Point(SX, SY - MarkD + 2), Point(SX + MarkD - 2, SY),
+                 Point(SX, SY + MarkD - 2), Point(SX - MarkD + 2, SY)]);
+    end;
+  end;
+  C.Brush.Style := bsClear;
+  C.Pen.Width := 1;
 end;
 
 procedure TMainForm.PaintProOverlay(C: TCanvas);
@@ -3356,39 +3426,6 @@ begin
     C.Pen.Width := 1;
   end;
 
-  { --- what kind of point the cursor is sitting on ---------------------- }
-  C.Pen.Width := 2;
-  C.Pen.Color := PixToColor(Theme.Accent);
-  C.Brush.Style := bsSolid;
-  C.Brush.Color := PixToColor(Theme.Accent);
-  case FSnapKind of
-    snEndpoint:
-      C.FillRect(SX - 5, SY - 5, SX + 6, SY + 6);
-    snMidpoint:
-      C.Polygon([Point(SX, SY - 6), Point(SX + 6, SY + 5), Point(SX - 6, SY + 5)]);
-    snSubMid:
-      begin
-        { hollow: the middle of a piece of a line, not of the whole line }
-        C.Brush.Style := bsClear;
-        C.Polygon([Point(SX, SY - 5), Point(SX + 5, SY + 4), Point(SX - 5, SY + 4)]);
-      end;
-    snCentre:
-      begin
-        C.Brush.Style := bsClear;
-        C.Ellipse(SX - 6, SY - 6, SX + 7, SY + 7);
-      end;
-    snCross:
-      begin
-        C.Pen.Width := 2;
-        C.MoveTo(SX - 6, SY - 6); C.LineTo(SX + 7, SY + 7);
-        C.MoveTo(SX + 6, SY - 6); C.LineTo(SX - 7, SY + 7);
-      end;
-    snGrid:
-      C.FillRect(SX - 2, SY - 2, SX + 3, SY + 3);
-    snNone: ;
-  end;
-  C.Brush.Style := bsClear;
-  C.Pen.Width := 1;
 
   { --- the action chip beside the cursor -------------------------------- }
   if FErasing then Exit;
@@ -3449,8 +3486,9 @@ end;
 
 procedure TMainForm.pbScreenPaint(Sender: TObject);
 var
-  CR, Rad, SX, SY: Integer;
-  Contrast: TPix;
+  CR, Rad, SX, SY, Arm, Gap, I: Integer;
+  Contrast, Halo, CPix: TPix;
+  CW, CA: Double;
   CP: TPointF;
 begin
   if not FBooted then Exit;
@@ -3489,24 +3527,47 @@ begin
 
   if Theme.DarkScreen then Contrast := Pix(255, 255, 255) else Contrast := Pix(20, 20, 24);
   FOverlay.BlendMode := bmNormal;
-  FOverlay.Ring(CR, CR, Rad + 1.2, 2.6, MixPix(Contrast, Pix(128, 128, 128), 0.85), 0.35);
-  FOverlay.Ring(CR, CR, Rad, 1.4, Contrast, 0.95);
 
   if FMode = mdPro then
   begin
-    { No crosshair arms here.  The mouse cursor is already a cross, and the
-      two sat on top of each other whenever the snapped point and the pointer
-      agreed, which is most of the time.  This ring marks where the point
-      will land; the cross marks where the mouse is. }
-    if FSnapKind in [snEndpoint, snMidpoint, snCentre, snCross, snSubMid] then
-      FOverlay.Ring(CR, CR, Rad * 0.55, 2.0, Theme.Accent, 0.95);
+    { A fine target, not a ring.  The old ring was nine pixels of solid line
+      sitting on the drawing, which hid the very corner you were aiming at.
+      Four short arms with a gap in the middle and a single dot say exactly
+      where the point will land and cover almost nothing.  The dark pass
+      underneath keeps it readable over pale artwork. }
+    Arm := Round(7 * FUIScale);
+    Gap := Round(2 * FUIScale);
+    Halo := MixPix(Contrast, Pix(128, 128, 128), 0.9);
+    for I := 0 to 1 do
+    begin
+      if I = 0 then begin CW := 2.6; CA := 0.30; CPix := Halo; end
+      else begin CW := 1.2; CA := 0.95; CPix := Contrast; end;
+      FOverlay.Line(CR - Arm, CR, CR - Gap, CR, CW, CPix, CA);
+      FOverlay.Line(CR + Gap, CR, CR + Arm, CR, CW, CPix, CA);
+      FOverlay.Line(CR, CR - Arm, CR, CR - Gap, CW, CPix, CA);
+      FOverlay.Line(CR, CR + Gap, CR, CR + Arm, CW, CPix, CA);
+    end;
+    FOverlay.Disc(CR, CR, 1.1, Contrast, 0.95);
   end
-  else if FPenUp then
-    FOverlay.Ring(CR, CR, Rad * 0.45, 1.2, Contrast, 0.7)
   else
-    FOverlay.Disc(CR, CR, 1.6, Contrast, 0.9);
+  begin
+    FOverlay.Ring(CR, CR, Rad + 1.2, 2.6,
+      MixPix(Contrast, Pix(128, 128, 128), 0.85), 0.35);
+    FOverlay.Ring(CR, CR, Rad, 1.4, Contrast, 0.95);
+  end;
+
+  if FMode = mdToy then
+  begin
+    if FPenUp then
+      FOverlay.Ring(CR, CR, Rad * 0.45, 1.2, Contrast, 0.7)
+    else
+      FOverlay.Disc(CR, CR, 1.6, Contrast, 0.9);
+  end;
 
   FOverlay.DrawTo(pbScreen.Canvas, SX - CR, SY - CR);
+
+  if FMode = mdPro then
+    PaintSnapMarker(pbScreen.Canvas, SX, SY);
 
   { the tool's own glyph rides beside the cursor, so which tool is in hand is
     never a matter of remembering which button is lit }

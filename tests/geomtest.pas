@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, uWork;
+  SysUtils, Classes, Math, Types, uWork;
 
 var
   Fails: Integer = 0;
@@ -262,6 +262,38 @@ begin
   end;
 end;
 
+{ ------------------------------------------------------- on-edge snapping - }
+procedure TestEdgeSnap;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  P: TP3;
+  Ent: Integer;
+  S: TPointF;
+begin
+  WriteLn('snapping onto an edge');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan;
+    V.Ppu := 20;
+    V.OX := 400;
+    V.OY := 300;
+
+    { a point three-quarters along the bottom edge, nudged two pixels off it }
+    S := Project(V, P3(7.5, 0, 0));
+    Ok(D.EdgeSnap(V, S.X, S.Y + 2, 7, P, Ent), 'found the edge under the pointer');
+    EqF(P.Y, 0, 'the point landed on the edge', 1E-6);
+    EqF(P.X, 7.5, 'and at the right place along it', 0.2);
+
+    { far enough away and it should find nothing }
+    Ok(not D.EdgeSnap(V, S.X, S.Y + 40, 7, P, Ent), 'nothing when well clear');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -270,6 +302,7 @@ begin
   TestDuplicate;    WriteLn;
   TestMove;         WriteLn;
   TestSplitAndMerge; WriteLn;
+  TestEdgeSnap;     WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
