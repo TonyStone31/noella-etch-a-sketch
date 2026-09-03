@@ -43,6 +43,12 @@ anything else.
    arrays page does not document the syntax, so we would be working from the
    app rather than a spec.
 
+Not doing, and why: a real not-to-scale field isometric mode.  Our ISO is a
+scaled 3D model seen at 30 degrees, which is a view rather than a kind of
+drawing - `docs/isometric-views.md` has the reasoning.  If an iso spool sheet
+is ever wanted it is an **export** off the scaled model, walking a run and
+hanging callouts off it, not a mode that changes how drawing works.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.
