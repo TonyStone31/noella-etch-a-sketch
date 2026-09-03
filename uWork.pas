@@ -208,7 +208,7 @@ type
       out Hit: TSnapHit): Boolean;
     function Bounds(out Lo, Hi: TP3): Boolean;
 
-    procedure Render(S: TArtSurface; const V: TProjector; ShowDims: Boolean;
+    procedure Render(S: TArtSurface; const V: TProjector;
       U: TUnitSystem; AFont: TFont; const LabelCol: TPix);
 
     { the document, as plain text - one line per entity }
@@ -321,6 +321,9 @@ const
   { SketchUp's default front material, near enough.  Faces start here and
     take only a hint of the pen colour. }
   FACE_MATERIAL: TPix = (B: $F6; G: $FA; R: $FA; A: 255);
+  { how finely a line lying on a face is chopped up when working out which
+    stretches of it are hidden }
+  LINE_STEPS = 32;
 
 function UnitName(U: TUnitSystem): string;
 begin
@@ -1342,7 +1345,7 @@ var
   P: array of TPointF;
   Look, Org, U, W, Hit: TP3;
   P0, P1, P2: TPointF;
-  AX, AY, BX, BY, Det, SS, TT, D, Best: Double;
+  AX, AY, BX, BY, Det, SS, TT, D, Best, Eps: Double;
 begin
   Result := False;
   Face := -1;
@@ -1373,11 +1376,14 @@ begin
     end;
     if not Inside then Continue;
 
-    { where the cursor meets this face's plane }
+    { Where the cursor meets this face's plane.  The basis is normalised
+      first: a circle's polygon has very short sides, and solving against a
+      one-foot-long axis instead of a thirteen-inch one is what keeps the
+      answer accurate enough to compare against another face's. }
     Org := FEnts[I].Poly[0];
-    U := P3(FEnts[I].Poly[1].X - Org.X, FEnts[I].Poly[1].Y - Org.Y,
-            FEnts[I].Poly[1].Z - Org.Z);
-    W := Cross3(FaceNormal(I), U);
+    U := Norm3(P3(FEnts[I].Poly[1].X - Org.X, FEnts[I].Poly[1].Y - Org.Y,
+                  FEnts[I].Poly[1].Z - Org.Z));
+    W := Norm3(Cross3(FaceNormal(I), U));
     P0 := Project(V, Org);
     P1 := Project(V, P3(Org.X + U.X, Org.Y + U.Y, Org.Z + U.Z));
     P2 := Project(V, P3(Org.X + W.X, Org.Y + W.Y, Org.Z + W.Z));
@@ -1390,8 +1396,17 @@ begin
     Hit := P3(Org.X + U.X * SS + W.X * TT,
               Org.Y + U.Y * SS + W.Y * TT,
               Org.Z + U.Z * SS + W.Z * TT);
-    D := Dot3(Hit, Look) + 1E-6 / Max(1E-9, FaceArea(I));
-    if D > Best then
+    { Two faces lying in the same plane - a circle drawn on a slab, a
+      rectangle inside a rectangle - come out with depths that differ only by
+      rounding.  That difference used to be thousands of times larger than
+      the nudge meant to prefer the smaller one, so the slab always won and a
+      circle could never be pulled out of the face it was drawn on.  Compare
+      with a tolerance instead, and inside it let the smaller face win: it is
+      the one drawn on top, and the one you were aiming at. }
+    D := Dot3(Hit, Look);
+    Eps := 1E-4 * (1 + Abs(D));
+    if (Face < 0) or (D > Best + Eps) or
+       ((D > Best - Eps) and (FaceArea(I) < FaceArea(Face))) then
     begin
       Best := D;
       Face := I;
@@ -2092,6 +2107,12 @@ end;
   cross, and SegCross turns that down - rightly, because the meeting point is
   already an endpoint.  But the line being met is still cut in two by it, and
   each half wants a middle of its own. }
+function Lerp3(const A, B: TP3; T: Double): TP3;
+begin
+  Result := P3(A.X + (B.X - A.X) * T, A.Y + (B.Y - A.Y) * T,
+               A.Z + (B.Z - A.Z) * T);
+end;
+
 function PointOnSeg(const P, A, B: TP3; out T: Double): Boolean;
 var
   DX, DY, DZ, L2: Double;
@@ -2760,7 +2781,7 @@ begin
   L.Add('</svg>');
 end;
 
-procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector; ShowDims: Boolean;
+procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix);
 var
   I, J, K, N, Steps, NFace: Integer;
@@ -2769,8 +2790,42 @@ var
   Col: TPix;
   Look, Lamp, Cen, Nm: TP3;
   Order: array of Integer;
-  Depth: array of Double;
+  Depth, Area: array of Double;
+  Ar: Double;
   Flat: array of TPointF;
+  Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
+  M: Integer;
+  T0, T1: Double;
+  QA, QB: TP3;
+
+  { Is this model point hidden by a face drawn after the one at Slot?  Later
+    in the sorted order means nearer the camera, so anything there is in
+    front of it. }
+  function Covered(const P: TP3; Slot: Integer): Boolean;
+  var
+    F, A, B: Integer;
+    SP: TPointF;
+    Inside: Boolean;
+  begin
+    Result := True;
+    SP := Project(V, P);
+    for F := Slot + 1 to NFace - 1 do
+    begin
+      if Length(Shape[F]) < 3 then Continue;
+      Inside := False;
+      B := High(Shape[F]);
+      for A := 0 to High(Shape[F]) do
+      begin
+        if ((Shape[F][A].Y > SP.Y) <> (Shape[F][B].Y > SP.Y)) and
+           (SP.X < (Shape[F][B].X - Shape[F][A].X) * (SP.Y - Shape[F][A].Y) /
+                   (Shape[F][B].Y - Shape[F][A].Y) + Shape[F][A].X) then
+          Inside := not Inside;
+        B := A;
+      end;
+      if Inside then Exit;
+    end;
+    Result := False;
+  end;
 
   { A dimension line parallel to the projected segment, always labelled with
     the true 3D length - which is what makes an isometric readable. }
@@ -2870,10 +2925,6 @@ begin
     end;
   end;
 
-  if ShowDims then
-    for I := 0 to FLive - 1 do
-      if (FEnts[I].Kind = ekLine) and FEnts[I].Dim then
-        Dimension(FEnts[I].A, FEnts[I].B, 20);
 
   { --- solids go on top of the edges, which is what hides the lines that
         run behind them ------------------------------------------------- }
@@ -2881,6 +2932,7 @@ begin
   NFace := 0;
   SetLength(Order, FLive);
   SetLength(Depth, FLive);
+  SetLength(Area, FLive);
   Look := ViewDir(V);
   Lamp := Norm3(P3(0.35, -0.55, 0.75));
   for I := 0 to FLive - 1 do
@@ -2902,35 +2954,42 @@ begin
       K := Length(FEnts[I].Poly);
       Cen := P3(Cen.X / K, Cen.Y / K, Cen.Z / K);
       Order[NFace] := I;
-      { Nudge the sort by area so that a small face lying on a big one is
-        drawn after it - otherwise the slab swallows the squares drawn on
-        top of it and there is nothing left to click. }
-      Depth[NFace] := Dot3(Cen, Look) + 1E-6 / Max(1E-9, FaceArea(I));
+      Depth[NFace] := Dot3(Cen, Look);
+      Area[NFace] := FaceArea(I);
       Inc(NFace);
     end;
 
-  { farthest from the camera first }
+  { Farthest from the camera first.  Where two faces are level to within
+    rounding - a circle drawn on a slab is exactly that - the bigger one goes
+    first, so the small one lands on top of it rather than underneath. }
   for I := 1 to NFace - 1 do
   begin
     K := Order[I];
     Sh := Depth[I];
+    Ar := Area[I];
     J := I - 1;
-    while (J >= 0) and (Depth[J] > Sh) do
+    while (J >= 0) and
+          ((Depth[J] > Sh + 1E-4 * (1 + Abs(Sh))) or
+           ((Depth[J] > Sh - 1E-4 * (1 + Abs(Sh))) and (Area[J] < Ar))) do
     begin
       Depth[J + 1] := Depth[J];
+      Area[J + 1] := Area[J];
       Order[J + 1] := Order[J];
       Dec(J);
     end;
     Depth[J + 1] := Sh;
+    Area[J + 1] := Ar;
     Order[J + 1] := K;
   end;
 
+  SetLength(Shape, NFace);
   for I := 0 to NFace - 1 do
   begin
     K := Order[I];
     SetLength(Flat, Length(FEnts[K].Poly));
     for J := 0 to High(FEnts[K].Poly) do
       Flat[J] := Project(V, FEnts[K].Poly[J]);
+    Shape[I] := Copy(Flat, 0, Length(Flat));
     Nm := FaceNormal(K);
     Col := ColorToPix(FEnts[K].Ink);
     { A face is a surface with a material on it, not a stroke of ink.  It
@@ -2968,16 +3027,26 @@ begin
       Col := ColorToPix(FEnts[I].Ink);
       case FEnts[I].Kind of
         ekLine:
+          { Only the stretches of it that nothing is standing in front of.
+            Putting the whole line back is what let the lines of a flat grid
+            run straight through the towers pushed up out of it - the solid
+            was opaque, and then the lines were painted back on top of it. }
+          for M := 0 to LINE_STEPS - 1 do
           begin
-            PA := Project(V, FEnts[I].A);
-            PB := Project(V, FEnts[I].B);
+            T0 := M / LINE_STEPS;
+            T1 := (M + 1) / LINE_STEPS;
+            QA := Lerp3(FEnts[I].A, FEnts[I].B, T0);
+            QB := Lerp3(FEnts[I].A, FEnts[I].B, T1);
+            if Covered(Lerp3(QA, QB, 0.5), J) then Continue;
+            PA := Project(V, QA);
+            PB := Project(V, QB);
             S.Line(PA.X, PA.Y, PB.X, PB.Y, FEnts[I].Weight, Col);
-            if ShowDims and FEnts[I].Dim then
-              Dimension(FEnts[I].A, FEnts[I].B, 20);
           end;
         ekDim:
-          Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
+          if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then
+            Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
         ekText:
+          if not Covered(FEnts[I].A, J) then
           begin
             PA := Project(V, FEnts[I].A);
             S.TextOut(Round(PA.X) + 5,

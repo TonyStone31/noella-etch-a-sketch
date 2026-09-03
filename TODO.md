@@ -611,3 +611,43 @@ lists that we do not do:
 * aligning the text to the screen rather than to the dimension
 * typing over a dimension's text, which in SketchUp breaks its link to the
   geometry and stops it updating
+
+## The grid test, and what it found — 2 September 2026
+
+Tony's scenario, now written down in `tests/README.md`: a square, filled in at
+the midpoints to a 6 x 6 grid, into 3D, push a couple of cells up, then circles
+in the cells pushed as well.  It has found more than anything else.
+
+**Solids were transparent because the lines were painted back on top of them.**
+The renderer draws edges, then faces over them, then puts back "lines that live
+on a visible face" - and that last pass put the *whole* line back.  So every
+grid line on the base plane was redrawn over the towers standing in front of
+it.  A line lying on a face is now chopped into 32 pieces and only the stretches
+that nothing nearer covers are drawn.
+
+**Auto dimensions are gone.**  Not a switch - removed.  "Stop making dimension
+lines... i think that is my job."  The Dim tool is untouched; dimensions you
+place are ordinary entities you can select and erase.  Files written before
+this still load; the DIMS line in them is read and ignored.
+
+**A circle drawn on a slab could not be pushed.**  This was a good one.  Both
+faces are coplanar, so `FaceUnder` should have broken the tie by area and
+preferred the smaller.  It could not: the cursor's depth on each face comes
+from a 2x2 solve against that face's own first edge, and a 24-sided circle of
+radius 5 has sides about 1.3 feet long against the slab's 20.8, so the circle's
+answer was less accurate by 5.6e-6 - about two thousand times the 1e-8 nudge
+meant to prefer it.  The slab won every time and pulling "the circle" raised
+the whole slab as a box.
+
+Fixed twice over: the basis is normalised before the solve, and the comparison
+is now tolerance-based - within 1e-4 relative, the smaller face wins.  The
+renderer's sort got the same rule, or the circle would draw underneath.  Both
+are covered by a test using the app's real numbers.
+
+### Still to do here
+* **Soften the edges of a curved surface.**  A pushed circle shows every one of
+  its 24 facet edges.  SketchUp hides them, which is what makes a cylinder look
+  round rather than faceted - their docs call the result a "surface entity".
+  Needs a soft flag on an edge and a renderer that skips it.
+* Two solids that interpenetrate still sort wrongly; the painter's algorithm
+  works on whole faces.
