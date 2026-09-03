@@ -315,7 +315,7 @@ There is a fuller list, with notes on what each one would take, in
 
 ## License
 
-**GPL-3.0** — see [LICENSE](LICENSE). Free to use, free to change, and anything
-you build on it stays free too.
+**MIT** — see [LICENSE](LICENSE). Do whatever you want with it: use it, change
+it, ship it, sell it. Keep the copyright line and that is the whole of it.
 
 Copyright © 2021–2026 Noella Stone and Tony Stone.
