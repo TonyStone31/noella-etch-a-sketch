@@ -800,7 +800,7 @@ var
   Pts: TP3Array;
   I, BestAxis: Integer;
   Tol, D, Best: Double;
-  W, Wf, AxRef, EdgeP: TP3;
+  W, Wf, AxRef, AxPt, EdgeP: TP3;
   SP: TPointF;
   PtOK: Boolean;
   PtPx, AxPx: Double;
@@ -918,27 +918,57 @@ var
     competes with the point snaps, so it is measured in pixels like they
     are.  A lock only means something once you are some way along it;
     right next to R every axis matches and the cursor would stick. }
+  { Is the cursor sitting on one of the three axes through R?
+
+    Measured on the screen, against the axis as it is drawn, rather than in
+    the model.  That matters in an isometric or 3D view, where the cursor is
+    only ever a ray: unprojecting it pins one model coordinate to the working
+    plane, so comparing model coordinates could never see the pinned one move.
+    With the plane flat that made DZ permanently zero, and the blue axis
+    impossible to infer - you could not click out a riser at all.  You got a
+    diagonal run across the ground that looked exactly like a riser and
+    measured 1.41 times what it should, which for a fab drawing is cut pipe in
+    the bin.
+
+    Working on screen, the answer comes back as a point on the axis itself,
+    so the working plane has no say in it. }
   procedure AxisTry(const R: TP3);
   var
     K: Integer;
-    DX, DY, DZ, Off, Along: Double;
+    Off, Along, T, LenSq: Double;
+    PR, PA: TPointF;
+    AD: TP3;
+    UX, UY, VX, VY: Double;
   begin
-    DX := Abs(Wf.X - R.X) * Ppu;
-    DY := Abs(Wf.Y - R.Y) * Ppu;
-    DZ := Abs(Wf.Z - R.Z) * Ppu;
+    PR := ScreenOf(R);
     for K := 0 to 2 do
     begin
+      { one unit along the axis, as it reads on screen }
       case K of
-        0: begin Along := DX; Off := Sqrt(Sqr(DY) + Sqr(DZ)); end;
-        1: begin Along := DY; Off := Sqrt(Sqr(DX) + Sqr(DZ)); end;
-      else begin Along := DZ; Off := Sqrt(Sqr(DX) + Sqr(DY)); end;
+        0: AD := P3(1, 0, 0);
+        1: AD := P3(0, 1, 0);
+      else AD := P3(0, 0, 1);
       end;
-      if Along < AXIS_MIN_PX then Continue;
+      PA := ScreenOf(P3(R.X + AD.X, R.Y + AD.Y, R.Z + AD.Z));
+      UX := PA.X - PR.X;
+      UY := PA.Y - PR.Y;
+      LenSq := UX * UX + UY * UY;
+      if LenSq < 1E-9 then Continue;      // the axis points at the camera
+
+      VX := SX - PR.X;
+      VY := SY - PR.Y;
+      Along := (VX * UX + VY * UY) / LenSq;      // in axis units
+      Off := Abs(VX * UY - VY * UX) / Sqrt(LenSq);
+
+      if Abs(Along) * Sqrt(LenSq) < AXIS_MIN_PX then Continue;
       if Off < AxPx then
       begin
         AxPx := Off;
         AxIdx := K;
         AxRef := R;
+        { the point on the axis nearest the cursor, in the model }
+        T := Along;
+        AxPt := P3(R.X + AD.X * T, R.Y + AD.Y * T, R.Z + AD.Z * T);
       end;
     end;
   end;
@@ -1012,6 +1042,7 @@ begin
     within snapping distance. }
   AxIdx := -1;
   AxPx := AXIS_PX;
+  AxPt := Wf;
   AxRef := Wf;              { only read once AxisTry has set it; keeps the
                               compiler from having to take that on trust }
   if FDirLock < 0 then
@@ -1022,7 +1053,10 @@ begin
 
   if AxIdx >= 0 then
   begin
-    W := SnapToGrid(Wf);
+    { The distance along the axis still snaps, so a riser lands on a round
+      number; the other two coordinates come from the reference point, which
+      is what puts the result exactly on the axis. }
+    W := SnapToGrid(AxPt);
     case AxIdx of
       0: begin W.Y := AxRef.Y; W.Z := AxRef.Z; end;
       1: begin W.X := AxRef.X; W.Z := AxRef.Z; end;
@@ -1164,7 +1198,9 @@ begin
   {$ELSE}
   FDimFont.Name := 'Sans';
   {$ENDIF}
-  FDimFont.Height := -Round(11 * FUIScale);
+  { Dimensions carry the drawing on an isometric - the geometry is only there
+    to hang them off - so they are set a size up from the rest of the labels. }
+  FDimFont.Height := -Round(13 * FUIScale);
 
   FMode := mdToy;
   FThemeIdx := THEME_PRO_DARK;

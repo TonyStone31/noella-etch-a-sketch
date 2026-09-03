@@ -1010,8 +1010,12 @@ begin
   G.S1B := PtF(G.LA.X + UX * 4 + NX * 4, G.LA.Y + UY * 4 + NY * 4);
   G.S2A := PtF(G.LB.X - UX * 4 - NX * 4, G.LB.Y - UY * 4 - NY * 4);
   G.S2B := PtF(G.LB.X + UX * 4 + NX * 4, G.LB.Y + UY * 4 + NY * 4);
-  G.Mid := PtF((G.LA.X + G.LB.X) / 2 + NX * 8,
-               (G.LA.Y + G.LB.Y) / 2 + NY * 8);
+  { Well clear of the dimension line.  At eight pixels the text sat on the
+    line it belonged to and the two fought each other, which on an isometric
+    - where the line is at 30 degrees and the text is not - made the figure
+    hard to read at exactly the moment it matters. }
+  G.Mid := PtF((G.LA.X + G.LB.X) / 2 + NX * 15,
+               (G.LA.Y + G.LB.Y) / 2 + NY * 15);
   G.Txt := FormatLen(Dist(A, B), U);
   Result := True;
 end;
