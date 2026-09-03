@@ -5,7 +5,7 @@ unit uMain;
 
   19 October 2021.  Noella Hazel Stone, age 7, decided she wanted to write a
   program.  She drew the screen, the two dials and the shake button on paper,
-  picked the colours, and told her dad what each part had to do.  He typed
+  picked the colors, and told her dad what each part had to do.  He typed
   while she directed.
 
   2026.  Same program, two personalities:
@@ -642,7 +642,7 @@ const
     'Line - click a start point, then click the end or just type a length.',
     'Rectangle - click two opposite corners, or type 12''x8''.  Makes a face.',
     'Arc - pick two points, then pull the middle out.  Joins two loose ends.',
-    'Circle - pick the centre, then type or drag the radius.',
+    'Circle - pick the center, then type or drag the radius.',
     'Push/pull - click a face and type how far to lift it.  Close a loop of ' +
       'lines to make a face.',
     'Text - click where the note goes and type it.',
@@ -942,7 +942,7 @@ begin
     those are the ones that turn up at the quarter points of everything you
     have already split, and they are exactly what used to steal the cursor. }
   if PtOK and (PtPx <= LOCK_PX) and
-     (Hit.Kind in [snEndpoint, snCross, snCentre, snMidpoint]) then
+     (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint]) then
   begin
     FSnapKind := Hit.Kind;
     Exit(Hit.P);
@@ -1232,7 +1232,7 @@ end;
 { The command line, for a launcher that wants the window a particular way.
   A switch here beats whatever was saved last time, which is the point: the
   remembered size is a convenience for a person, and a launcher is not one.
-  Anything we do not recognise is ignored rather than fatal - a program that
+  Anything we do not recognize is ignored rather than fatal - a program that
   refuses to start because of a stray argument is no use to anybody. }
 procedure TMainForm.ApplyCommandLine;
 var
@@ -1523,8 +1523,8 @@ end;
 
 { Orbiting has no lattice - a fixed grid looks wrong from an arbitrary angle
   - so the three model axes are the only thing telling you which way is
-  which.  Positive solid, negative faint, each in its own colour, and the
-  same colours the rubber band picks up when you lock onto one. }
+  which.  Positive solid, negative faint, each in its own color, and the
+  same colors the rubber band picks up when you lock onto one. }
 { SketchUp stipples the face under the cursor so you can see there is
   something to grab before committing to it.  Same idea: a field of dots
   clipped to the polygon, and a bold outline. }
@@ -1631,7 +1631,7 @@ end;
   you meant.  Now the face is drawn where it would land, joined to where it
   is now by the walls that would be built, so the direction is settled
   before you commit to it.  The walls run along the face normal, so they
-  take that axis's colour when the normal is one. }
+  take that axis's color when the normal is one. }
 procedure TMainForm.PaintPushPreview(C: TCanvas);
 var
   E: TWorkEnt;
@@ -1721,16 +1721,27 @@ begin
 end;
 
 procedure TMainForm.RepaintPaper;
+var
+  GridPitch: Double;
 begin
   if FMode = mdPro then
   begin
     PaintScreenPaper(FPaper, Theme, False);
     if FShowGrid then
+    begin
+      { The lattice only reads as paper if the spacing stays in a comfortable
+        band, so the pitch steps through the same round numbers the scale bar
+        picks from - an inch, three, six, a foot, five feet - rather than
+        being stuck at one world unit however far you have zoomed.  At a
+        working zoom that lands on a foot, which is what isometric paper is
+        ruled at, and it is always a number you would snap to. }
+      GridPitch := NiceBarLength(Ppu, 14 * FUIScale, 60 * FUIScale, FD.Units) * Ppu;
       case FD.View of
-        vkIso: PaintIsoGrid(FPaper, Theme, Ppu, FD.ViewX, FD.ViewY, 5);
-        vkPlan: PaintMeasuredGrid(FPaper, Theme, Ppu, FD.ViewX, FD.ViewY, 5);
+        vkIso: PaintIsoGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
+        vkPlan: PaintMeasuredGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
         vkOrbit: ;   // handled below - the axes show whether the grid is on
       end;
+    end;
     if FD.View = vkOrbit then
       PaintOrbitAxes;
   end
@@ -1862,7 +1873,7 @@ begin
   RecomposeAll;
 end;
 
-{ Re-centre the coordinate readout on the picked point without moving
+{ Re-center the coordinate readout on the picked point without moving
   anything that has been drawn. }
 procedure TMainForm.SetOriginHere;
 var
@@ -2293,7 +2304,7 @@ begin
     for I := 0 to 4 do
       Add(dkSegment, Rect(X + I * SegW + 2, RowY, X + (I + 1) * SegW - 2, RowY + RowH),
         GRP_SYM, SYM_VALUES[I], IntToStr(SYM_VALUES[I]),
-        Format('Kaleidoscope: repeat every stroke %d times around the centre.',
+        Format('Kaleidoscope: repeat every stroke %d times around the center.',
           [SYM_VALUES[I]]), ikDroplet);
     Add(dkIcon, Rect(X + 5 * SegW + RowGap, RowY, X + 5 * SegW + RowGap + IconW,
       RowY + RowH), GRP_ICON, ACT_MIRROR, '', 'Mirror left to right  (M)', ikMirror);
@@ -2549,7 +2560,7 @@ begin
               R.Bottom - Round(3 * FUIScale));
             PaintIcon(FDeckSkin, It.Icon, IR, Fg, 0.95);
           end;
-          { the colour button wears the colour, so the row reads as a
+          { the color button wears the color, so the row reads as a
             summary of what is set rather than a row of words }
           if (It.Group = GRP_POPUP) and (It.Value = POP_COLOR) then
             PaintSwatch(FDeckSkin,
@@ -3190,7 +3201,7 @@ begin
     snEndpoint: Result := 'ENDPOINT';
     snMidpoint: Result := 'MIDPOINT';
     snSubMid:   Result := 'ON SEGMENT';
-    snCentre:   Result := 'CENTRE';
+    snCenter:   Result := 'CENTER';
     snCross:    Result := 'CROSSING';
     snOnEdge:   Result := 'ON EDGE';
     snGrid:     Result := 'GRID';
@@ -3343,12 +3354,12 @@ var
   MarkPix: TPix;
   MarkD: Integer;
 begin
-  { SketchUp marks it with one small solid diamond and lets the colour say
+  { SketchUp marks it with one small solid diamond and lets the color say
     what it found: green a corner, cyan a middle, red a point lying on an
     edge, violet a crossing.  One shape reads faster than five, and after a
     while you stop reading the label at all. }
   case FSnapKind of
-    snEndpoint, snCentre: MarkPix := Pix(60, 210, 90);
+    snEndpoint, snCenter: MarkPix := Pix(60, 210, 90);
     snMidpoint, snSubMid: MarkPix := Pix(90, 220, 235);
     snOnEdge:             MarkPix := Pix(235, 70, 70);
     snCross:              MarkPix := Pix(215, 120, 240);
@@ -3401,7 +3412,7 @@ var
   W1, W2, BoxW, BoxH, LnH: Integer;
 
   { When the cursor is locked to an axis the band is drawn in that axis's
-    colour, so the direction you are committing to is readable without
+    color, so the direction you are committing to is readable without
     looking away at the chip. }
   procedure Rubber(const A, B: TP3);
   var
@@ -3817,7 +3828,7 @@ var
   Was: TPlane;
 begin
   Was := FD.Plane;
-  { SketchUp locks a plane by naming its normal with the axis colours: right
+  { SketchUp locks a plane by naming its normal with the axis colors: right
     is red, left is green, up is blue.  Down lets go again. }
   if Key = VK_DOWN then
   begin
@@ -3916,7 +3927,7 @@ begin
       if FStage = 0 then Result := 'pick a corner'
       else Result := 'opposite corner, or type 12''x8''';
     ptCircle:
-      if FStage = 0 then Result := 'pick the centre' else Result := 'radius?';
+      if FStage = 0 then Result := 'pick the center' else Result := 'radius?';
     ptText:
       if FStage = 0 then Result := 'where does the note go?' else Result := 'type the note';
     ptPush:
@@ -4860,7 +4871,7 @@ begin
     FMouseSX := X;
     FMouseSY := Y;
     { holding Ctrl part way through a move turns it into a copy, and the
-      ghost changes colour to say so }
+      ghost changes color to say so }
     if (FTool = ptMove) and (FStage = 1) then
       FMoveCopy := ssCtrl in FMoveShift;
     { Point at a face and draw on it.  Before this the plane came only from a
@@ -5417,7 +5428,7 @@ begin
   end;
   C.Pen.Width := 1;
 
-  { the travel line itself, in the axis colour when one is locked }
+  { the travel line itself, in the axis color when one is locked }
   PA := ScreenOf(FP1);
   PB := ScreenOf(P3(FP1.X + D.X, FP1.Y + D.Y, FP1.Z + D.Z));
   C.Pen.Style := psDash;
@@ -5581,7 +5592,7 @@ begin
   end;
 
   { only a point worth referencing is worth keeping }
-  if not (FSnapKind in [snEndpoint, snMidpoint, snCentre, snCross, snSubMid]) then
+  if not (FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross, snSubMid]) then
     Exit;
 
   Now64 := GetTickCount64;
@@ -5595,7 +5606,7 @@ begin
   InvalidateStatus;
 end;
 
-{ Guides are not ink.  An axis lock takes that axis's colour, the way the
+{ Guides are not ink.  An axis lock takes that axis's color, the way the
   model axes are drawn; lining up with some other point on the drawing gets
   this instead, so nothing that is only telling you where you are can be
   mistaken for something about to be drawn. }
@@ -6380,7 +6391,7 @@ var
   Handled: Boolean;
   Step: Double;
 
-  { SketchUp's arrows name an axis by its colour, the same in every view:
+  { SketchUp's arrows name an axis by its color, the same in every view:
     right locks red, left locks green, up locks blue.  A lock is on the axis,
     not on a direction along it, so the cursor still says which way. }
   function ArrowAxis(K: word): Integer;
@@ -6716,7 +6727,7 @@ procedure TMainForm.CycleTheme(Step: Integer);
 begin
   { PRO has two looks and they differ only in the chrome - the paper stays
     white, because that is what a drawing is.  TOY keeps the four playful
-    ones, where the screen colour is half the fun. }
+    ones, where the screen color is half the fun. }
   if FMode = mdPro then
   begin
     if FThemeIdx = THEME_PRO_LIGHT then FThemeIdx := THEME_PRO_DARK
@@ -6937,7 +6948,7 @@ begin
   if not dlgSave.Execute then Exit;
 
   { the chosen filter decides the format, and any extension the dialog or the
-    user tacked on is normalised away so nothing ends up as .svg.png }
+    user tacked on is normalized away so nothing ends up as .svg.png }
   if dlgSave.FilterIndex = 2 then Ext := '.svg' else Ext := '.png';
   if (Ext = '.svg') and (FMode <> mdPro) then
   begin
@@ -7081,7 +7092,7 @@ begin
       { the view is deliberately not restored - a drawing session starts
         flat, and 3D is somewhere you go on purpose }
 
-      { Where the window was last time.  Only honoured if it still lands on a
+      { Where the window was last time.  Only honored if it still lands on a
         screen - monitors get unplugged, and a window restored onto one that
         is no longer there is a window you cannot reach.  Size is clamped to
         what the screen can actually show, which is the case that started

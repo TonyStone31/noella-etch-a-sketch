@@ -37,7 +37,7 @@ type
   end;
   PPix = ^TPix;
 
-  { How a source colour is combined with what is already on the surface. }
+  { How a source color is combined with what is already on the surface. }
   TBlendMode = (
     bmNormal,    // ordinary source-over alpha blend
     bmLighten,   // keep the brighter channel - additive-ish
@@ -121,7 +121,7 @@ type
     property DirtyRect: TRect read FDirty;
   end;
 
-{ --- colour helpers ----------------------------------------------------- }
+{ --- color helpers ----------------------------------------------------- }
 function Pix(R, G, B: Byte; A: Byte = 255): TPix; inline;
 function ColorToPix(C: TColor): TPix; inline;
 function PixToColor(const P: TPix): TColor; inline;
@@ -136,7 +136,7 @@ const
   DEG = Pi / 180;
 
 { ------------------------------------------------------------------------ }
-{ colour helpers                                                            }
+{ color helpers                                                            }
 { ------------------------------------------------------------------------ }
 
 function Pix(R, G, B: Byte; A: Byte): TPix;
@@ -223,7 +223,7 @@ end;
 { signed distance fields                                                    }
 { ------------------------------------------------------------------------ }
 
-{ Distance from (PX,PY) to a rounded box centred on (CX,CY) with half-extents
+{ Distance from (PX,PY) to a rounded box centerd on (CX,CY) with half-extents
   (HX,HY) and corner radius Rad.  Negative inside, positive outside. }
 function SdRoundBox(PX, PY, CX, CY, HX, HY, Rad: Single): Single; inline;
 var

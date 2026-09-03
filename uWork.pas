@@ -69,7 +69,7 @@ type
   { One thing on the drawing.  World coordinates, Y up, in feet or metres.
 
     ekLine  uses A and B.
-    ekArc   uses C (centre), R, A0 (start angle) and Sweep; a circle is just
+    ekArc   uses C (center), R, A0 (start angle) and Sweep; a circle is just
             a sweep of 2*pi.  A and B are kept as the endpoints for snapping.
     ekText  uses A and Txt.
     ekDim   uses A and B and always draws its dimension line. }
@@ -83,7 +83,7 @@ type
     { Which solid this belongs to, or 0 for loose drawing.  Push/pull drags
       the geometry attached to the face it moves, and without this it dragged
       anything that merely touched - a box beside another one deformed its
-      neighbour through the corner they shared. }
+      neighbor through the corner they shared. }
     Grp: Integer;
     Txt: string;
     Ink: TColor;
@@ -102,7 +102,7 @@ type
     than the point you actually aimed at. }
   { snOnEdge is a free point anywhere along a line or an arc - SketchUp's
     "On Edge" - as opposed to one of the named points along it. }
-  TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCentre, snCross,
+  TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCenter, snCross,
     snSubMid, snOnEdge);
 
   { Everything a dimension is drawn out of, in screen coordinates.  One
@@ -350,7 +350,7 @@ implementation
 const
   MM_PER_INCH = 25.4;
   { SketchUp's default front material, near enough.  Faces start here and
-    take only a hint of the pen colour. }
+    take only a hint of the pen color. }
   FACE_MATERIAL: TPix = (B: $F6; G: $FA; R: $FA; A: 255);
   { how finely a line lying on a face is chopped up when working out which
     stretches of it are hidden }
@@ -882,8 +882,8 @@ begin
   end;
 end;
 
-{ SketchUp talks about the axes by colour, and so does everything on screen
-  here, so a locked direction says the colour rather than a sign.  A lock runs
+{ SketchUp talks about the axes by color, and so does everything on screen
+  here, so a locked direction says the color rather than a sign.  A lock runs
   both ways along its axis; which way is the cursor's business. }
 function DimGeometry(const V: TProjector; const A, B, Off: TP3;
   U: TUnitSystem; out G: TDimGeom): Boolean;
@@ -1409,7 +1409,7 @@ end;
   So: the same back-face test the renderer uses, and then the same depth key,
   picking the largest - the face the renderer draws last is the face on top.
 
-  The depth is taken at the cursor, not at the face's centre. Centres of two
+  The depth is taken at the cursor, not at the face's center. Centers of two
   flat faces lying in the same plane sit at different depths, and that
   difference swamped the tiebreak: clicking a small square inside a big slab
   picked up the slab. Solving for the point on the face under the cursor puts
@@ -1458,7 +1458,7 @@ begin
     end;
     if not Inside then Continue;
 
-    { Where the cursor meets this face's plane.  The basis is normalised
+    { Where the cursor meets this face's plane.  The basis is normalized
       first: a circle's polygon has very short sides, and solving against a
       one-foot-long axis instead of a thirteen-inch one is what keeps the
       answer accurate enough to compare against another face's. }
@@ -1777,7 +1777,7 @@ var
   end;
 
   { The edge either way round, flipping the polygon if that is what it takes.
-    Windings are normalised when a face is made, so which way a given edge
+    Windings are normalized when a face is made, so which way a given edge
     runs is not something to assume. }
   function Orient(var Poly: TP3Array; const U, V: TP3): Integer;
   begin
@@ -2325,9 +2325,9 @@ begin
         begin
           Put(FEnts[I].A, snEndpoint);
           Put(FEnts[I].B, snEndpoint);
-          Put(FEnts[I].C, snCentre);
+          Put(FEnts[I].C, snCenter);
         end;
-      { The middle of a face.  Drawing a circle from the centre of a square is
+      { The middle of a face.  Drawing a circle from the center of a square is
         a thing you do constantly, and getting there otherwise means resting on
         two edge midpoints and crossing their guides.  One point per face, so
         it is not noise. }
@@ -2342,7 +2342,7 @@ begin
             P.Z := P.Z + FEnts[I].Poly[K].Z;
           end;
           K := Length(FEnts[I].Poly);
-          Put(P3(P.X / K, P.Y / K, P.Z / K), snCentre);
+          Put(P3(P.X / K, P.Y / K, P.Z / K), snCenter);
         end;
 
       { Nothing snaps to a dimension or a note.  They are annotation sitting
@@ -3128,7 +3128,7 @@ begin
     Col := ColorToPix(FEnts[K].Ink);
     { A face is a surface with a material on it, not a stroke of ink.  It
       starts from SketchUp's near-white default and carries only a hint of
-      the pen colour, so a red-inked part still reads as red without the
+      the pen color, so a red-inked part still reads as red without the
       drawing turning into a paint chart.  Shading comes from how the face
       is turned relative to a fixed lamp, which is what makes a box look
       like a box.

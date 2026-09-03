@@ -16,7 +16,7 @@ the pointer touching the path.  Click at the end.  Esc restarts.
 
 ## Lathing
 Draw a circle.  Draw a profile — a cutaway of half the final shape — perpendicular
-to the circle with its base on the circle's centre.  Select the circle, pick
+to the circle with its base on the circle's center.  Select the circle, pick
 Follow Me, click the profile.
 
 If it fails, zoom in and look for gaps in the profile; close them with the Line

@@ -36,7 +36,7 @@ anything else.
 4. **Rotate** - 45s are the job.  #5 below.
 5. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line, endpoint styles.  Tony is coming back to this.
-6. **Back faces in their own colour**, the way SketchUp shows them pale blue.
+6. **Back faces in their own color**, the way SketchUp shows them pale blue.
    It is how you spot a solid built inside out, and it would have caught the
    winding bug on sight.
 7. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  Note that SketchUp's own
@@ -95,7 +95,7 @@ push/pull on one no longer deforms the other.
 The array part is not: type `*6` to repeat the step six times, or `/3` to divide
 it. Note that SketchUp's own arrays page does **not** document this syntax
 (see `docs/sketchup/09-flip-rotate-arrays.md`) — we would be working from the
-app's behaviour, not from a spec.
+app's behavior, not from a spec.
 
 ## 4. Planar region finding  — working for what it is asked to do
 
@@ -179,7 +179,7 @@ still lands on the nearest flat plane rather than on the face itself.
 
 ### the old note
 
-The orbit itself is done, the coloured axes say which way is which, and
+The orbit itself is done, the colored axes say which way is which, and
 there is an ORBIT tool (`O`, or the button) so a laptop with no middle
 button can still spin the view - drag to orbit, Shift-drag to pan.
 
@@ -193,7 +193,7 @@ SketchUp infers the plane from the face you started on. That inference is
 still the real answer and would beat choosing by hand, but choosing by hand
 beats always landing flat, which is what happened before.
 
-The orbit itself is done, and the coloured axes now say which way is which.
+The orbit itself is done, and the colored axes now say which way is which.
 What is missing is a good answer to *where does a new point land* when the
 camera is at some odd angle. Today the working plane is picked by hand (`K`
 cycles XY / XZ / YZ). SketchUp infers it from whatever face you started on.
@@ -352,7 +352,7 @@ order:
   building cursor images. A real cursor per tool would be nicer still.
 * **Light mode is harder to read than dark.** Reported after a session in
   the dark themes. Worth one deliberate pass over the light palettes rather
-  than nudging single colours.
+  than nudging single colors.
 * **Arcs on a solid's face.** An arc whose chord is an existing edge closes
   a region of its own, and rubbing that edge out joins the two. A face
   belonging to a solid is left alone either way, so an arc cannot round off
@@ -364,7 +364,7 @@ order:
   `HitFace`.
 * ~~**Dragging the eraser**~~ — done. Hold and sweep; everything the cursor
   crosses turns red, and letting go deletes the lot. Deleting an edge takes
-  the faces it bounded, which is SketchUp's behaviour; clicking clear of any
+  the faces it bounded, which is SketchUp's behavior; clicking clear of any
   edge takes the face itself, which is not, but is how you hollow a box out.
 * **The eraser's modifier keys.** SketchUp softens and smooths an edge with
   Ctrl held, and hides rather than erases with Shift. We have neither, and
@@ -373,7 +373,7 @@ order:
   to the outside of the run they belong to.
 * **Neon on a light screen** is muted. It went alpha-based so that a drawing
   survives a theme change; the trade was a softer glow on pale paper.
-* **A ground plane in the orbit view.** The three coloured axes are drawn
+* **A ground plane in the orbit view.** The three colored axes are drawn
   from the origin now, which is enough to know which way is up, but a ground
   plane that follows the camera would read better than nothing.
 * **Print more than one sheet** at a time.
@@ -495,7 +495,7 @@ look — two rows deep, with a rule down each gap. Row height went 20 to 24.
 * No arc radius (`24r`), segment (`20s`) or circle-basis (`20c`) entry, and only
   the 2-point arc of SketchUp's four.
 * Our eraser sweep highlights red; SketchUp's is blue. Blue is our selection
-  colour and the two would read the same, so this stays deliberate.
+  color and the two would read the same, so this stays deliberate.
 * No Alt cycling of linear inferencing on the Line tool — our Alt holds the
   working plane instead.
 
@@ -506,7 +506,7 @@ the point would not stay on the edge.  The axis guide from a distant corner won
 and dragged it off into open space.
 
 **Cause:** we had no On Edge inference at all.  The snap cache holds only
-discrete points — endpoints, crossings, centres, midpoints, sub-midpoints —
+discrete points — endpoints, crossings, centers, midpoints, sub-midpoints —
 so hovering an edge offered nothing to hold on to and the guide took over.
 SketchUp lists On Edge and On Face among its point inferences; we had neither.
 
@@ -531,8 +531,8 @@ endpoint squares and midpoint triangles had never once been visible in PRO.
 That is why the ring was the only thing anyone ever saw.
 
 Now: a fine four-arm target with a gap in the middle and a single dot, and the
-inference mark painted *after* the blit as one small solid diamond, coloured
-the way SketchUp colours it.  Which is what SketchUp itself draws — Tony's own
+inference mark painted *after* the blit as one small solid diamond, colored
+the way SketchUp colors it.  Which is what SketchUp itself draws — Tony's own
 window, open beside this, shows a blue diamond and an "On Face" label and
 nothing else.
 
@@ -546,10 +546,10 @@ like glass:
 * In plan the fill was a 16 percent tint, on the grounds that there was
   nothing to hide.  There was: a face laid over another one, and every line
   underneath.  It is a full fill in every view now.
-* The face colour was the pen colour lightened 62 percent, so a cyan pen gave
+* The face color was the pen color lightened 62 percent, so a cyan pen gave
   a pale cyan wash that read as translucent.  Faces are a material now, not
   ink: they start from SketchUp's near-white default and take only 8 percent
-  of the pen colour, so a red-inked part still reads as red without the
+  of the pen color, so a red-inked part still reads as red without the
   drawing turning into a paint chart.  Shading comes from how the face is
   turned against a fixed lamp, which is what makes a box look like a box.
 * **Dimensions and notes were drawn last, on purpose, "so solids never hide a
@@ -561,7 +561,7 @@ like glass:
 **PRO is a white sheet.**  Two looks, Light and Dark, and they differ only in
 the chrome — the paper stays white in both, because that is what a drawing is
 and what prints.  The four playful themes stay for TOY, where the screen
-colour is half the point; each mode remembers its own and gets it back on the
+color is half the point; each mode remembers its own and gets it back on the
 way in.  `H` cycles it now (`T` is the tape measure).
 
 **On Edge reaches further** — 7 pixels to 11, and it follows `FUIScale` now,
@@ -574,7 +574,7 @@ paper that read as though the face had been painted rather than pointed at.
 Sparser, and a fixed soft blue.
 
 ### Still to do here
-* Back faces have no separate colour.  SketchUp shows them pale blue, which is
+* Back faces have no separate color.  SketchUp shows them pale blue, which is
   how you spot a solid built inside out.
 * No materials, no styles, no sky or ground.
 * Hidden-line removal is still painter's algorithm on whole faces, so two
@@ -647,7 +647,7 @@ lists that we do not do:
 * radius and diameter dimensions, and the right-click Type > Radius / Diameter
 * endpoint styles - slash is SketchUp's default, then dot, closed arrow, open
   arrow, none
-* text placed centred, outside the start, or outside the end
+* text placed centerd, outside the start, or outside the end
 * aligning the text to the screen rather than to the dimension
 * typing over a dimension's text, which in SketchUp breaks its link to the
   geometry and stops it updating
@@ -679,7 +679,7 @@ answer was less accurate by 5.6e-6 - about two thousand times the 1e-8 nudge
 meant to prefer it.  The slab won every time and pulling "the circle" raised
 the whole slab as a box.
 
-Fixed twice over: the basis is normalised before the solve, and the comparison
+Fixed twice over: the basis is normalized before the solve, and the comparison
 is now tolerance-based - within 1e-4 relative, the smaller face wins.  The
 renderer's sort got the same rule, or the circle would draw underneath.  Both
 are covered by a test using the app's real numbers.
@@ -742,13 +742,13 @@ particular way rather than however a person last left it.
 
       --maximized        open filling the screen
       --fullscreen       open with no window frame at all
-      --size=1600x1000   open at a particular size, centred
+      --size=1600x1000   open at a particular size, centerd
       --help             print this and leave
 
 A switch beats the remembered size and position - that is the point of it.
 `--help` is answered in the program file before any of the LCL starts, so it
 prints and exits rather than printing and then opening a window; on a Windows
-GUI build there is no console and it fails quietly.  Anything unrecognised is
+GUI build there is no console and it fails quietly.  Anything unrecognized is
 ignored rather than fatal, and the drawing to open is looked for among all the
 arguments rather than taken from the first, so a switch in front of a filename
 does not hide it.
@@ -815,7 +815,7 @@ back, which matters - the pipefitters read iso drawings even if Tony does not.
 everything ended up on foot increments.  Now: OFF, 1/16, 1/8, 1/4, 1/2, 1", 2",
 3", 6", 1'-0".  Metric to match.
 
-**A face has a centre to snap to.**  Drawing a circle from the middle of a
+**A face has a center to snap to.**  Drawing a circle from the middle of a
 square is something Tony does constantly, and getting there otherwise means
 resting on two edge midpoints and crossing the guides.  One point per face.
 
@@ -841,3 +841,26 @@ Drawing on a plane the camera is looking nearly along makes `WorldAt` blow up,
 so a rectangle drawn on the ground from a horizon-level 3D view comes out a
 sliver.  SketchUp has the same problem; a guard that refuses a point when the
 working plane is within a few degrees of edge-on would be kinder.
+
+## The isometric paper, and American spelling — 3 September 2026
+
+**The grid was there but invisible.**  Two things, not one.  The color was a
+shade off the paper, which the last pass fixed - but the minor lines were also
+drawn at a quarter strength chosen for a dark screen, where a bright grid would
+shout.  On white it made them a shade off a shade.  Alpha is picked from
+`DarkScreen` now: 0.5 and 0.95 on paper, the old 0.26 and 0.7 on a dark toy
+screen.
+
+**And the pitch adapts.**  It was stuck at one world unit however far you had
+zoomed, so it was either a wall of lines or nothing.  It now steps through the
+same round numbers the scale bar picks from - an inch, three, six, a foot, five
+feet - keeping the spacing between 14 and 60 pixels.  At a working zoom that
+lands on a foot, which is what isometric paper is ruled at, and it is always a
+number you would snap to.  Tony asked whether it should follow the snap setting
+instead: no - at a 1/8" snap that would be ninety-six lines to the foot.  A
+fixed readable pitch is what paper does.
+
+**American spelling throughout.**  `snCentre` is `snCenter`, the snap label
+reads CENTER, and colour/grey/behaviour/neighbour/normalise and the rest are
+gone from the code, the comments and the notes.  Second time he has had to say
+it.
