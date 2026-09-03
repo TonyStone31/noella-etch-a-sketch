@@ -57,8 +57,31 @@ type
   end;
   TRegionArray = array of TRegion;
 
+  { A plane, in a form two of them can be compared: a unit normal whose first
+    non-zero part is positive, and how far along it the plane sits. }
+  TPlaneKey = record
+    N: TP3;
+    D: Double;
+  end;
+  TPlaneArray = array of TPlaneKey;
+
+  { What a rebuild remembers, so a plane whose edges did not move is not
+    worked out again.  Hand the same one back each time. }
+  TRegionCache = record
+    Keys: TPlaneArray;
+    Sig: array of Int64;
+    Found: array of TRegionArray;
+  end;
+
 { The whole pipeline.  Segments in, regions out. }
 function BuildRegions(const Segs: TSegArray; Tol: Double = REGION_TOL): TRegionArray;
+
+{ The same, but a plane whose segments have not moved since last time keeps
+  the regions it had.  Editing one wall of a model with forty planes in it
+  then costs one wall's worth of work rather than the whole model's.  Hand
+  back the same cache each time; an empty one is a full rebuild. }
+function BuildRegionsCached(const Segs: TSegArray; var Cache: TRegionCache;
+  Tol: Double = REGION_TOL): TRegionArray;
 
 { Step 1 on its own, because it is worth testing by itself: every segment cut
   wherever another crosses or touches it. }
@@ -76,13 +99,6 @@ function PointInLoop(const P: TP3; const Loop: TP3Array; const Normal: TP3;
 implementation
 
 type
-  { A plane, in a form two of them can be compared: a unit normal whose first
-    non-zero part is positive, and how far along it the plane sits. }
-  TPlaneKey = record
-    N: TP3;
-    D: Double;
-  end;
-
   TIntArray = array of Integer;
 
   TDart = record
@@ -226,9 +242,55 @@ end;
 function SplitAtCrossings(const Segs: TSegArray; Tol: Double): TSegArray;
 var
   Cuts: array of array of Double;
-  I, J, K, M, N, Count: Integer;
-  TA, TB, Tmp: Double;
-  P, Q: TP3;
+  I, J, K, M, N, Count, GMask: Integer;
+  TA, TB, Tmp, Cell: Double;
+  P, Q, Lo, Hi: TP3;
+  Grid: array of TIntArray;
+  Near: TIntArray;
+
+  procedure GrowBox(const R: TP3);
+  begin
+    Lo := P3(Min(Lo.X, R.X), Min(Lo.Y, R.Y), Min(Lo.Z, R.Z));
+    Hi := P3(Max(Hi.X, R.X), Max(Hi.Y, R.Y), Max(Hi.Z, R.Z));
+  end;
+
+  function GridHash(CX, CY, CZ: Int64): Integer;
+  begin
+    Result := Integer((CX * 73856093) xor (CY * 19349663) xor (CZ * 83492791))
+      and GMask;
+  end;
+
+  { Walk the cells this segment's box covers.  Putting it in when Add is set,
+    otherwise gathering everything already there. }
+  procedure Visit(Which: Integer; Add: Boolean);
+  var
+    X0, Y0, Z0, X1, Y1, Z1, CX, CY, CZ: Int64;
+    H, Q2: Integer;
+  begin
+    X0 := Floor(Min(Segs[Which].A.X, Segs[Which].B.X) / Cell);
+    X1 := Floor(Max(Segs[Which].A.X, Segs[Which].B.X) / Cell);
+    Y0 := Floor(Min(Segs[Which].A.Y, Segs[Which].B.Y) / Cell);
+    Y1 := Floor(Max(Segs[Which].A.Y, Segs[Which].B.Y) / Cell);
+    Z0 := Floor(Min(Segs[Which].A.Z, Segs[Which].B.Z) / Cell);
+    Z1 := Floor(Max(Segs[Which].A.Z, Segs[Which].B.Z) / Cell);
+    for CX := X0 to X1 do
+      for CY := Y0 to Y1 do
+        for CZ := Z0 to Z1 do
+        begin
+          H := GridHash(CX, CY, CZ);
+          if Add then
+          begin
+            SetLength(Grid[H], Length(Grid[H]) + 1);
+            Grid[H][High(Grid[H])] := Which;
+          end
+          else
+            for Q2 := 0 to High(Grid[H]) do
+            begin
+              SetLength(Near, Length(Near) + 1);
+              Near[High(Near)] := Grid[H][Q2];
+            end;
+        end;
+  end;
 
   procedure AddCut(Which: Integer; T: Double);
   var
@@ -245,9 +307,32 @@ begin
   N := Length(Segs);
   SetLength(Cuts, N);
 
-  for I := 0 to N - 2 do
-    for J := I + 1 to N - 1 do
+  { Only segments that come near each other can meet, so rather than trying
+    every pair, each one is listed in the cells of a coarse grid its box
+    covers and only the pairs that share a cell are tried.  Testing a pair
+    twice costs nothing - a cut already recorded is ignored. }
+  Lo := Segs[0].A; Hi := Segs[0].A;
+  for I := 0 to N - 1 do
+  begin
+    GrowBox(Segs[I].A);
+    GrowBox(Segs[I].B);
+  end;
+  Cell := Max(Dist(Lo, Hi) / Max(4, Round(Sqrt(N))), 1E-9);
+  GMask := 1;
+  while GMask < N * 4 do GMask := GMask * 2;
+  Dec(GMask);
+  SetLength(Grid, GMask + 1);
+  for I := 0 to N - 1 do
+    Visit(I, True);
+
+  for I := 0 to N - 1 do
+  begin
+    SetLength(Near, 0);
+    Visit(I, False);
+    for K := 0 to High(Near) do
     begin
+      J := Near[K];
+      if J <= I then Continue;
       { a proper crossing, each through the other's middle }
       if MeetAt(Segs[I].A, Segs[I].B, Segs[J].A, Segs[J].B, Tol, TA, TB) then
       begin
@@ -266,6 +351,7 @@ begin
       ClosestOnSeg(Segs[I].B, Segs[J].A, Segs[J].B, TA, TB);
       if TB < Tol then AddCut(J, TA);
     end;
+  end;
 
   Count := 0;
   SetLength(Result, N);
@@ -361,11 +447,167 @@ begin
   Result := Inside;
 end;
 
+{ Which plane each input segment can lie in, worked out from the segments
+  alone - no splitting, no welding.  Cheap enough to run on every edit, which
+  is what lets the planes that did not change be left alone. }
+function PlanesOf(const Segs: TSegArray; Tol: Double): TPlaneArray;
+var
+  I, J, K, N, NP: Integer;
+  Ends: TP3Array;
+  NEnds: Integer;
+  AtEnd: array of TIntArray;
+  Key: TPlaneKey;
+  Dir1, Dir2: TP3;
+
+  function EndOf(const P: TP3): Integer;
+  var
+    Q: Integer;
+  begin
+    for Q := 0 to NEnds - 1 do
+      if Dist(Ends[Q], P) < Tol then Exit(Q);
+    if NEnds >= Length(Ends) then SetLength(Ends, Max(16, NEnds * 2));
+    Ends[NEnds] := P;
+    Result := NEnds;
+    Inc(NEnds);
+  end;
+
+begin
+  Result := nil;
+  N := Length(Segs);
+  if N < 3 then Exit;
+  NEnds := 0;
+  SetLength(Ends, N * 2);
+  SetLength(AtEnd, N * 2);
+  for I := 0 to N - 1 do
+  begin
+    J := EndOf(Segs[I].A);
+    SetLength(AtEnd[J], Length(AtEnd[J]) + 1);
+    AtEnd[J][High(AtEnd[J])] := I;
+    J := EndOf(Segs[I].B);
+    SetLength(AtEnd[J], Length(AtEnd[J]) + 1);
+    AtEnd[J][High(AtEnd[J])] := I;
+  end;
+
+  NP := 0;
+  SetLength(Result, 8);
+  for K := 0 to NEnds - 1 do
+    for I := 0 to High(AtEnd[K]) - 1 do
+      for J := I + 1 to High(AtEnd[K]) do
+      begin
+        Dir1 := Sub3(Segs[AtEnd[K][I]].B, Segs[AtEnd[K][I]].A);
+        Dir2 := Sub3(Segs[AtEnd[K][J]].B, Segs[AtEnd[K][J]].A);
+        if Len3(Cross3(Dir1, Dir2)) < 1E-9 then Continue;
+        Key := MakePlane(Cross3(Dir1, Dir2), Ends[K]);
+        for N := 0 to NP - 1 do
+          if SamePlane(Result[N], Key, Tol) then Key.D := 1E300;
+        if Key.D > 1E299 then Continue;
+        if NP >= Length(Result) then SetLength(Result, NP * 2);
+        Result[NP] := Key;
+        Inc(NP);
+      end;
+  SetLength(Result, NP);
+end;
+
+{ The segments lying in one plane, and a number that changes whenever they do.
+  Two drawings with the same segments in a plane give the same signature, so a
+  plane whose signature has not moved does not need working out again. }
+function SegsInPlane(const Segs: TSegArray; const K: TPlaneKey; Tol: Double;
+  out Sig: Int64): TSegArray;
+var
+  I, N: Integer;
+
+  function Mix(const P: TP3): Int64;
+  begin
+    Result := Round(P.X / Tol) * 73856093;
+    Result := Result xor (Round(P.Y / Tol) * 19349663);
+    Result := Result xor (Round(P.Z / Tol) * 83492791);
+  end;
+
+begin
+  N := 0;
+  Sig := 0;
+  SetLength(Result, Length(Segs));
+  for I := 0 to High(Segs) do
+    if (Abs(Dot3(K.N, Segs[I].A) - K.D) < Tol) and
+       (Abs(Dot3(K.N, Segs[I].B) - K.D) < Tol) then
+    begin
+      Result[N] := Segs[I];
+      { order must not matter, so the two ends are added and the pair is
+        added into the running total }
+      Sig := Sig + (Mix(Segs[I].A) + Mix(Segs[I].B));
+      Inc(N);
+    end;
+  SetLength(Result, N);
+  Sig := Sig xor (Int64(N) * 2654435761);
+end;
+
+function BuildRegionsCached(const Segs: TSegArray; var Cache: TRegionCache;
+  Tol: Double): TRegionArray;
+var
+  Keys: TPlaneArray;
+  Mine: TSegArray;
+  Fresh: TRegionCache;
+  Sig: Int64;
+  I, J, N, Count: Integer;
+  Hit: Boolean;
+begin
+  Result := nil;
+  Keys := PlanesOf(Segs, Tol);
+  if Length(Keys) = 0 then
+  begin
+    Cache.Keys := nil;
+    Cache.Sig := nil;
+    Cache.Found := nil;
+    Exit;
+  end;
+
+  N := Length(Keys);
+  SetLength(Fresh.Keys, N);
+  SetLength(Fresh.Sig, N);
+  SetLength(Fresh.Found, N);
+  Count := 0;
+
+  for I := 0 to N - 1 do
+  begin
+    Mine := SegsInPlane(Segs, Keys[I], Tol, Sig);
+    Fresh.Keys[I] := Keys[I];
+    Fresh.Sig[I] := Sig;
+
+    Hit := False;
+    for J := 0 to High(Cache.Keys) do
+      if (Cache.Sig[J] = Sig) and SamePlane(Cache.Keys[J], Keys[I], Tol) then
+      begin
+        Fresh.Found[I] := Cache.Found[J];
+        Hit := True;
+        Break;
+      end;
+    if not Hit then
+      Fresh.Found[I] := BuildRegions(Mine, Tol);
+
+    Inc(Count, Length(Fresh.Found[I]));
+  end;
+
+  Cache := Fresh;
+  SetLength(Result, Count);
+  Count := 0;
+  for I := 0 to N - 1 do
+    for J := 0 to High(Fresh.Found[I]) do
+    begin
+      Result[Count] := Fresh.Found[I][J];
+      Inc(Count);
+    end;
+end;
+
 function BuildRegions(const Segs: TSegArray; Tol: Double): TRegionArray;
 var
   Cut: TSegArray;
   Verts: TP3Array;
   NV: Integer;
+  Bucket: array of TIntArray;
+  EBucket: array of TIntArray;
+  Parent: TIntArray;
+  HashMask: Integer;
+
   EA, EB: TIntArray;          { each undirected edge, as two vertex numbers }
   NE: Integer;
   Planes: array of TPlaneKey;
@@ -374,15 +616,72 @@ var
   LoopPlane: TIntArray;
   NLoop: Integer;
 
+  { Which bucket a grid cell falls in.  Any mixing will do - the cells are one
+    tolerance across, so a bucket holds one or two vertices. }
+  function CellHash(CX, CY, CZ: Int64): Integer;
+  begin
+    Result := Integer((CX * 73856093) xor (CY * 19349663) xor (CZ * 83492791))
+      and HashMask;
+  end;
+
+  { Has this pair of vertices already been joined?  Records it if not. }
+  function EdgeSeen(A, B: Integer): Boolean;
+  var
+    H, K, T: Integer;
+  begin
+    if A > B then begin T := A; A := B; B := T; end;
+    H := ((A * 92837111) xor (B * 689287499)) and HashMask;
+    if H < 0 then H := -H and HashMask;
+    for K := 0 to High(EBucket[H]) do
+      if (EA[EBucket[H][K]] = A) and (EB[EBucket[H][K]] = B) then Exit(True);
+    SetLength(EBucket[H], Length(EBucket[H]) + 1);
+    EBucket[H][High(EBucket[H])] := NE;
+    Result := False;
+  end;
+
+  { Which piece of the drawing a vertex belongs to.  Two loops can only sit
+    one inside the other if they are not joined up to each other, so this is
+    what stops every loop being measured against every other. }
+  function Root(V: Integer): Integer;
+  begin
+    while Parent[V] <> V do
+    begin
+      Parent[V] := Parent[Parent[V]];
+      V := Parent[V];
+    end;
+    Result := V;
+  end;
+
+  { Welding by walking every vertex found so far is what made a big drawing
+    crawl - a grid of forty lines welds three thousand ends against sixteen
+    hundred vertices, five million distance sums.  The points are dropped into
+    a grid of cells one tolerance across instead, so anything close enough to
+    weld is in this cell or one of the twenty-six around it. }
   function VertexOf(const P: TP3): Integer;
   var
-    I: Integer;
+    CX, CY, CZ, DX, DY, DZ: Int64;
+    H, I, K: Integer;
   begin
-    for I := 0 to NV - 1 do
-      if Dist(Verts[I], P) < Tol then Exit(I);
+    CX := Floor(P.X / Tol);
+    CY := Floor(P.Y / Tol);
+    CZ := Floor(P.Z / Tol);
+    for DX := -1 to 1 do
+      for DY := -1 to 1 do
+        for DZ := -1 to 1 do
+        begin
+          H := CellHash(CX + DX, CY + DY, CZ + DZ);
+          for K := 0 to High(Bucket[H]) do
+          begin
+            I := Bucket[H][K];
+            if Dist(Verts[I], P) < Tol then Exit(I);
+          end;
+        end;
     if NV >= Length(Verts) then SetLength(Verts, Max(16, NV * 2));
     Verts[NV] := P;
     Result := NV;
+    H := CellHash(CX, CY, CZ);
+    SetLength(Bucket[H], Length(Bucket[H]) + 1);
+    Bucket[H][High(Bucket[H])] := NV;
     Inc(NV);
   end;
 
@@ -517,10 +816,13 @@ var
   end;
 
 var
-  I, J, E, PI2, Count: Integer;
+  I, J, K, E, PI2, Count: Integer;
   Dir1, Dir2: TP3;
   Mid: TP3;
   Inner: Boolean;
+  AtVert: array of TIntArray;
+  LoopArea_: array of Double;
+  LoopPart: TIntArray;
 begin
   Result := nil;
   Cut := SplitAtCrossings(Segs, Tol);
@@ -529,39 +831,56 @@ begin
   { 2. weld the ends together }
   NV := 0;
   SetLength(Verts, 32);
+  HashMask := 1;
+  while HashMask < Length(Cut) * 4 do HashMask := HashMask * 2;
+  Dec(HashMask);
+  SetLength(Bucket, HashMask + 1);
+  SetLength(EBucket, HashMask + 1);
   NE := 0;
   SetLength(EA, Length(Cut));
   SetLength(EB, Length(Cut));
+  SetLength(Parent, Length(Cut) * 2 + 4);
+  for I := 0 to High(Parent) do Parent[I] := I;
   for I := 0 to High(Cut) do
   begin
     J := VertexOf(Cut[I].A);
     E := VertexOf(Cut[I].B);
     if J = E then Continue;
-    { the same edge twice adds nothing }
-    Inner := False;
-    for PI2 := 0 to NE - 1 do
-      if ((EA[PI2] = J) and (EB[PI2] = E)) or
-         ((EA[PI2] = E) and (EB[PI2] = J)) then Inner := True;
-    if Inner then Continue;
+    { The same edge twice adds nothing.  Asked through a hash: looking back
+      over every edge so far turned a grid of forty lines into ten million
+      comparisons on its own. }
+    if EdgeSeen(J, E) then Continue;
     EA[NE] := J;
     EB[NE] := E;
     Inc(NE);
+    Parent[Root(J)] := Root(E);
   end;
   SetLength(Verts, NV);
   if NE < 3 then Exit;
 
-  { 3. every plane two joined edges can lie in }
+  { 3. every plane two joined edges can lie in.  Asked through the vertices:
+       only edges meeting at one can define a plane together, and looking for
+       those pairs by trying every pair of edges was the other half of why a
+       big drawing crawled. }
+  SetLength(AtVert, NV);
+  for I := 0 to NV - 1 do SetLength(AtVert[I], 0);
+  for I := 0 to NE - 1 do
+  begin
+    SetLength(AtVert[EA[I]], Length(AtVert[EA[I]]) + 1);
+    AtVert[EA[I]][High(AtVert[EA[I]])] := I;
+    SetLength(AtVert[EB[I]], Length(AtVert[EB[I]]) + 1);
+    AtVert[EB[I]][High(AtVert[EB[I]])] := I;
+  end;
   NP := 0;
   SetLength(Planes, 8);
-  for I := 0 to NE - 2 do
-    for J := I + 1 to NE - 1 do
-    begin
-      if (EA[I] <> EA[J]) and (EA[I] <> EB[J]) and
-         (EB[I] <> EA[J]) and (EB[I] <> EB[J]) then Continue;
-      Dir1 := Sub3(Verts[EB[I]], Verts[EA[I]]);
-      Dir2 := Sub3(Verts[EB[J]], Verts[EA[J]]);
-      NotePlane(Cross3(Dir1, Dir2), Verts[EA[I]]);
-    end;
+  for K := 0 to NV - 1 do
+    for I := 0 to High(AtVert[K]) - 1 do
+      for J := I + 1 to High(AtVert[K]) do
+      begin
+        Dir1 := Sub3(Verts[EB[AtVert[K][I]]], Verts[EA[AtVert[K][I]]]);
+        Dir2 := Sub3(Verts[EB[AtVert[K][J]]], Verts[EA[AtVert[K][J]]]);
+        NotePlane(Cross3(Dir1, Dir2), Verts[K]);
+      end;
 
   { 4. walk each plane }
   NLoop := 0;
@@ -575,7 +894,20 @@ begin
 
   { 5. a loop sitting inside another is a hole in it as well as a region of
        its own - which is what lets you draw a square inside a square and
-       push either one }
+       push either one.
+
+       Only loops belonging to different pieces of the drawing can nest: if
+       they are joined up to each other then the cycle walk has already put
+       the boundary between them.  On a grid, where everything is one piece,
+       that means no loop is measured against any other at all. }
+  SetLength(LoopArea_, NLoop);
+  SetLength(LoopPart, NLoop);
+  for I := 0 to NLoop - 1 do
+  begin
+    LoopArea_[I] := Abs(LoopArea(Loops[I], Planes[LoopPlane[I]].N));
+    LoopPart[I] := Root(VertexOf(Loops[I][0]));
+  end;
+
   Count := 0;
   SetLength(Result, NLoop);
   for I := 0 to NLoop - 1 do
@@ -586,9 +918,9 @@ begin
     for J := 0 to NLoop - 1 do
     begin
       if J = I then Continue;
+      if LoopPart[J] = LoopPart[I] then Continue;
       if LoopPlane[J] <> LoopPlane[I] then Continue;
-      if Abs(LoopArea(Loops[J], Planes[LoopPlane[J]].N)) >=
-         Abs(LoopArea(Loops[I], Planes[LoopPlane[I]].N)) then Continue;
+      if LoopArea_[J] >= LoopArea_[I] then Continue;
       Mid := Loops[J][0];
       for E := 1 to High(Loops[J]) do Mid := Add3(Mid, Loops[J][E]);
       Mid := Mul3(Mid, 1 / Length(Loops[J]));

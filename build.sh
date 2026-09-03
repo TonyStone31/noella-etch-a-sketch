@@ -50,29 +50,53 @@ NOZIP="${NOZIP:-0}"
 # Windows will not run a .exe out of a browser download without a fight, and
 # some setups strip the extension outright. A zip goes through untouched, and
 # it also carries the readme next to the binary.
-zip_and_upload() {
-  local exe="$1" s zipname
+# Everything in one zip: Windows and Linux, each built twice.  The fast build
+# is what you run; the checked one has the range and overflow tests compiled
+# in and prints a heap report when it closes, which is noise unless you are
+# hunting something, so it lives in a folder of its own.
+pack_all() {
   [ "$NOZIP" = "1" ] && return 0
   command -v zip >/dev/null || { say "no zip command - skipping"; return 0; }
+  local s zipname tmp
   s="$(stamp)"
   mkdir -p "$DIST"
-  zipname="$DIST/heckers-sketch-$s-win64.zip"
-  local tmp; tmp="$(mktemp -d)"
-  cp "$exe" "$tmp/heckers-sketch.exe"
+  zipname="$DIST/heckers-sketch-$s.zip"
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/checked"
+
+  [ -f "$ROOT/$APP.exe" ] && cp "$ROOT/$APP.exe" "$tmp/heckers-sketch.exe"
+  [ -f "$ROOT/$APP" ]     && cp "$ROOT/$APP"     "$tmp/heckers-sketch-linux"
+  [ -f "$DIST/dbg/$APP.exe" ] && cp "$DIST/dbg/$APP.exe" "$tmp/checked/heckers-sketch.exe"
+  [ -f "$DIST/dbg/$APP" ]     && cp "$DIST/dbg/$APP"     "$tmp/checked/heckers-sketch-linux"
+
   cat > "$tmp/README.txt" <<TXT
 Heckers Sketch - $s
 
-A drawing tool. No installer, no DLLs: unzip and run heckers-sketch.exe.
+No installer, no DLLs.  Unzip and run.
+
+  heckers-sketch.exe        Windows
+  heckers-sketch-linux      Linux
+  checked/                  the same two, built with every check switched on
+
+Run the ones in the top folder.  The checked build is slower, and prints a
+heap report to the console when it closes - that is normal for it, not a
+fault.  It is there for when something goes wrong: it turns a silent wrong
+answer into a message naming the line it came from, so if you hit a bug worth
+chasing, reproduce it with that one and send what it says.
 
 Windows will probably warn that the publisher is unknown - the binary is not
-code signed. More info -> Run anyway.
+code signed.  More info -> Run anyway.
 
-If it crashes it writes heckers-sketch-crash.txt next to the exe. Send that
-file; it names the line the crash came from.
+Either build writes heckers-sketch-crash.txt next to itself if it falls over.
 TXT
-  ( cd "$tmp" && zip -q -9 "$zipname" heckers-sketch.exe README.txt )
+  ( cd "$tmp" && zip -q -9 -r "$zipname" . )
   rm -rf "$tmp"
+  if [ ! -s "$zipname" ]; then
+    say "the zip came out empty - not uploading"
+    return 1
+  fi
   say "zipped $(du -h "$zipname" | cut -f1) -> $(basename "$zipname")"
+  say "$(unzip -l "$zipname" | tail -n +4 | head -6)"
   do_upload "$zipname"
 }
 
@@ -153,7 +177,7 @@ build_windows() {
       printf '   %s\n' $extra
     fi
   fi
-  zip_and_upload "$ROOT/$APP.exe"
+  [ "$NOZIP" = "1" ] || pack_all
 }
 
 do_clean() {
@@ -221,8 +245,18 @@ do_upload() {
   say "uploading $(basename "$f") ($(du -h "$f" | cut -f1)) to $host"
   case "$host" in
     catbox)
-      url="$(curl -sS -F reqtype=fileupload -F "fileToUpload=@$f" \
-             https://catbox.moe/user/api.php)" ;;
+      # A zip with four binaries in it is twenty megabytes, and the upload
+      # times out often enough to be worth retrying rather than failing the
+      # build over.
+      local try
+      for try in 1 2 3; do
+        url="$(curl -sS --connect-timeout 20 --max-time 900 \
+               -F reqtype=fileupload -F "fileToUpload=@$f" \
+               https://catbox.moe/user/api.php)" || url=""
+        case "$url" in http*) break ;; esac
+        say "upload attempt $try did not take - trying again"
+        sleep 3
+      done ;;
     0x0)
       url="$(curl -sS -F "file=@$f" https://0x0.st)" ;;
     *) die "unknown UPLOAD_HOST: $host   (catbox, 0x0)" ;;
@@ -238,6 +272,30 @@ do_upload() {
   echo "recorded in dist/uploads.txt"
 }
 
+# Build all four and put them in one zip: the fast pair to run, and the
+# checked pair beside them.  The checked ones are stashed under dist/dbg
+# first, because both modes write to the same place in the tree.
+do_ship() {
+  mkdir -p "$DIST/dbg"
+  rm -f "$DIST/dbg/$APP" "$DIST/dbg/$APP.exe"
+  # Both modes write to the same place in the tree, so the checked pair is
+  # built first and stashed.  NOZIP throughout - the packing happens once, at
+  # the end, when all four exist.
+  NOZIP=1 build_linux   "$MODE_DEV"
+  cp "$ROOT/$APP"     "$DIST/dbg/$APP"
+  NOZIP=1 build_windows "$MODE_DEV"
+  cp "$ROOT/$APP.exe" "$DIST/dbg/$APP.exe"
+  NOZIP=1 build_linux   "$MODE_SHIP"
+  NOZIP=1 build_windows "$MODE_SHIP"
+
+  local f miss=0
+  for f in "$ROOT/$APP" "$ROOT/$APP.exe" "$DIST/dbg/$APP" "$DIST/dbg/$APP.exe"; do
+    [ -s "$f" ] || { say "MISSING: $f"; miss=1; }
+  done
+  [ "$miss" = 0 ] || die "not all four builds came out - not packing a short zip"
+  pack_all
+}
+
 case "${1:-}" in
   nozip)          shift; NOZIP=1 exec "$0" "$@" ;;
   ""|linux|debug) build_linux "$MODE_DEV" ;;
@@ -245,6 +303,7 @@ case "${1:-}" in
   windows|win)    build_windows "$MODE_SHIP" ;;
   windbg)         build_windows "$MODE_DEV" ;;
   all)            build_linux "$MODE_DEV"; build_windows "$MODE_SHIP" ;;
+  ship)           do_ship ;;
   run)            build_linux "$MODE_DEV"; say "running"; exec "$ROOT/$APP" ;;
   clean)          do_clean ;;
   fresh)          do_clean; build_linux "$MODE_DEV"; build_windows "$MODE_SHIP" ;;
