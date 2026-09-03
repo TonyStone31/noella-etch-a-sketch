@@ -458,3 +458,42 @@ look — two rows deep, with a rule down each gap. Row height went 20 to 24.
   colour and the two would read the same, so this stays deliberate.
 * No Alt cycling of linear inferencing on the Line tool — our Alt holds the
   working plane instead.
+
+## On Edge, and the cursor — 2 September 2026
+
+Tony showed a screenshot: running the Line tool along the front edge of a slab,
+the point would not stay on the edge.  The axis guide from a distant corner won
+and dragged it off into open space.
+
+**Cause:** we had no On Edge inference at all.  The snap cache holds only
+discrete points — endpoints, crossings, centres, midpoints, sub-midpoints —
+so hovering an edge offered nothing to hold on to and the guide took over.
+SketchUp lists On Edge and On Face among its point inferences; we had neither.
+
+**Fixed:** `TWorkDoc.EdgeSnap` projects each line and arc, finds the nearest
+point along it on screen, and reads the same fraction back off the model
+segment — the projection is affine, so the two fractions are the same number.
+It sits above the axis guides in `ResolveSnapAt`, because a real piece of
+geometry under the pointer is a more definite answer than an alignment to
+something far away.  7 pixels.
+
+**Not done:** SketchUp's compound inference, where an axis guide crossing an
+edge snaps to the intersection of the two.  On Face while a shape is under way
+is also still missing — we only infer a face at stage 0, to pick the plane.
+
+## The cursor
+
+The fat ring is gone.  Two things were wrong with it: it was nine pixels of
+solid line sitting on top of the very corner you were aiming at, and — worse —
+the cursor overlay copies a square of artwork and blits it back over the
+canvas, so **every marker painted before it was being wiped out**.  All those
+endpoint squares and midpoint triangles had never once been visible in PRO.
+That is why the ring was the only thing anyone ever saw.
+
+Now: a fine four-arm target with a gap in the middle and a single dot, and the
+inference mark painted *after* the blit as one small solid diamond, coloured
+the way SketchUp colours it.  Which is what SketchUp itself draws — Tony's own
+window, open beside this, shows a blue diamond and an "On Face" label and
+nothing else.
+
+TOY mode keeps its ring; it is a pen, not a pointer.
