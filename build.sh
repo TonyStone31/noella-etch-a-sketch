@@ -97,7 +97,9 @@ TXT
   fi
   say "zipped $(du -h "$zipname" | cut -f1) -> $(basename "$zipname")"
   say "$(unzip -l "$zipname" | tail -n +4 | head -6)"
-  do_upload "$zipname"
+  # A GitHub release attaches the zip itself, so there is nothing to gain from
+  # a paste-site upload on that path.
+  [ "${NOUPLOAD:-0}" = "1" ] || do_upload "$zipname"
 }
 
 # THE WINDOWS CROSS RTL, AND WHY IT GOES STALE.
@@ -322,7 +324,7 @@ do_github() {
     done
   fi
 
-  do_ship
+  NOUPLOAD=1 do_ship
 
   local s zipfile stage
   s="$(stamp)"
