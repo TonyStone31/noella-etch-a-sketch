@@ -24,3 +24,13 @@ dist/
 # --- editor / OS ------------------------------------------------------------
 .DS_Store
 Thumbs.db
+
+# --- never publish -----------------------------------------------------------
+# Agent working directories and session state: these hold transcripts, local
+# paths and whatever was pasted into them.  None of it belongs in a public
+# repository, and none of it has ever been committed here.
+.claude/
+.codex/
+.aider*
+CLAUDE.local.md
+*-crash.txt
