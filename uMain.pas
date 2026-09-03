@@ -656,7 +656,7 @@ const
 
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
-     'ERASE', 'MEASURE', 'DIM', 'ORBIT', 'OFFSET');
+     'ERASE', 'MEASURE', 'DIMENSION', 'ORBIT', 'OFFSET');
 
   { The tools in three groups of four, laid out two rows deep, so a group
     reads as a group and every name has room to be read.  The grouping is
