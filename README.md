@@ -101,6 +101,15 @@ The same idea taken seriously.
   or type `2"`. Every edge shifts sideways and the shifted edges extend to
   meet again, so the spacing is exact at the corners too, which is the whole
   point when the number is going to a shop.
+* **Notes with leader lines.** Click what the note is about, type it —
+  **Shift+Enter** for another line — move away and press Enter. You get a
+  boxed note on the end of a line pointing at the thing. Leave the cursor
+  where you clicked and it is a plain label instead. On an isometric this is
+  most of the drawing: `8" SCH 40` floating in space is a riddle, and the
+  same words on the end of a leader are an instruction.
+* **Double-click finishes a run of lines.** A line carries on from the point
+  you just put down, which is what you want nine times in ten; a double-click
+  lands the last point and puts the pen down. Esc still works.
 * **Arcs join two loose ends.** Pick the two points, pull the middle out. No
   trimming required.
 * **Select and move.** Click picks; **Ctrl** adds, **Shift** toggles,
@@ -212,6 +221,8 @@ The same idea taken seriously.
 | Q L R A C P F M T D N E O | select, line, rect, arc, circle, push/pull, offset, move, tape, dimension, note, erase, orbit |
 | Tab | next tool |
 | Space / Enter | place a point, or commit what you typed |
+| Double-click | finish a run of lines |
+| Shift+Enter | another line in a note |
 | Arrow keys | set the direction while drawing; otherwise nudge the cursor |
 | Shift+arrow | hop to the next point on the drawing |
 | PgUp / PgDn | the ±Y axis in isometric |

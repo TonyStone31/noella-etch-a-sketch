@@ -55,6 +55,10 @@ deliberately *not* there - the draft makes it unnecessary, and a prompt you
 always say yes to teaches you to stop reading prompts.  Worth revisiting if
 the draft ever proves not to be enough.
 
+Notes got their leader lines on 3 September 2026.  Still wanted there: moving
+a note after it is placed, and a leader that stays attached to the edge it
+points at when that edge moves.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.

@@ -277,6 +277,16 @@ do_upload() {
 # Build all four and put them in one zip: the fast pair to run, and the
 # checked pair beside them.  The checked ones are stashed under dist/dbg
 # first, because both modes write to the same place in the tree.
+# Keep the debug symbols for each target, under its own name.  The project
+# writes them to etchasketch.dbg whatever it is building, so the Windows
+# build was overwriting the Linux one - and a crash report from the Linux
+# build then symbolized against Windows symbols, which is to say not at all.
+save_syms() {
+  [ -f "$ROOT/$APP.dbg" ] || return 0
+  mkdir -p "$DIST/syms"
+  cp "$ROOT/$APP.dbg" "$DIST/syms/$APP-$1.dbg"
+}
+
 do_ship() {
   mkdir -p "$DIST/dbg"
   rm -f "$DIST/dbg/$APP" "$DIST/dbg/$APP.exe"
@@ -284,11 +294,14 @@ do_ship() {
   # built first and stashed.  NOZIP throughout - the packing happens once, at
   # the end, when all four exist.
   NOZIP=1 build_linux   "$MODE_DEV"
+  save_syms linux-checked
   cp "$ROOT/$APP"     "$DIST/dbg/$APP"
   NOZIP=1 build_windows "$MODE_DEV"
   cp "$ROOT/$APP.exe" "$DIST/dbg/$APP.exe"
   NOZIP=1 build_linux   "$MODE_SHIP"
+  save_syms linux-release
   NOZIP=1 build_windows "$MODE_SHIP"
+  save_syms win64-release
 
   local f miss=0
   for f in "$ROOT/$APP" "$ROOT/$APP.exe" "$DIST/dbg/$APP" "$DIST/dbg/$APP.exe"; do
