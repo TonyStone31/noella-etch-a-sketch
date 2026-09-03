@@ -136,6 +136,17 @@ type
     function PushPull(Index: Integer; Dist: Double): Boolean;
     { Slide a face along a vector, dragging everything joined to it. }
     procedure MoveFaceWith(Index: Integer; const D: TP3);
+    { Every corner of these entities, for moving or for stretching. }
+    procedure VertsOf(const Idx: array of Integer; out Pts: TP3Array);
+    { Shift every vertex in the drawing that sits on one of these points.
+      Geometry joined to what moves comes along, which is what makes moving
+      one edge of a shape stretch the rest of it. }
+    procedure MoveVerts(const Pts: TP3Array; const D: TP3);
+    { Copy these entities, offset.  A copy stretches nothing. }
+    procedure Duplicate(const Idx: array of Integer; const D: TP3);
+    { Where an entity lands on screen, for a selection box to test against. }
+    procedure ScreenBounds(const V: TProjector; I: Integer;
+      out X0, Y0, X1, Y1: Double);
     { Cut every flat face this segment crosses in two.  Returns how many were
       split.  This is what makes a line drawn across a shape divide it. }
     function SplitFacesWith(const A, B: TP3): Integer;
@@ -245,6 +256,11 @@ function PixelsPerUnit(U: TUnitSystem; const Sc: TDrawScale; DPI: Double): Doubl
 function FormatLen(V: Double; U: TUnitSystem): string;
 function FormatArea(V: Double; U: TUnitSystem): string;
 function ParseLen(const S: string; U: TUnitSystem; out V: Double): Boolean;
+{ Reads "[3', 4', 5']" or "<3', 4', 5'>" - a point in the drawing, or an
+  offset from where you are.  Returns how many of the three were given;
+  any left out come back as zero. }
+function ParseTriple(const S: string; U: TUnitSystem;
+  out X, Y, Z: Double): Integer;
 
 { A "nice" round bar length that lands between MinPx and MaxPx on screen. }
 function NiceBarLength(Ppu: Double; MinPx, MaxPx: Double; U: TUnitSystem): Double;
@@ -545,6 +561,50 @@ begin
   if not ParseMixed(T, A) then Exit;
   V := A;
   Result := True;
+end;
+
+
+function ParseTriple(const S: string; U: TUnitSystem;
+  out X, Y, Z: Double): Integer;
+var
+  Body, Part: string;
+  I, N: Integer;
+  V: array[0..2] of Double;
+begin
+  X := 0; Y := 0; Z := 0;
+  Result := 0;
+  Body := Trim(S);
+  if Length(Body) < 2 then Exit;
+  if Body[1] in ['[', '<'] then Delete(Body, 1, 1);
+  if (Body <> '') and (Body[Length(Body)] in [']', '>']) then
+    Delete(Body, Length(Body), 1);
+
+  N := 0;
+  V[0] := 0; V[1] := 0; V[2] := 0;
+  while (Body <> '') and (N < 3) do
+  begin
+    I := Pos(',', Body);
+    if I = 0 then I := Pos(';', Body);
+    if I = 0 then
+    begin
+      Part := Body;
+      Body := '';
+    end
+    else
+    begin
+      Part := Copy(Body, 1, I - 1);
+      Delete(Body, 1, I);
+    end;
+    Part := Trim(Part);
+    if Part = '' then
+      Inc(N)                           // an empty field leaves that axis alone
+    else if ParseLen(Part, U, V[N]) then
+      Inc(N)
+    else
+      Exit;                            // a field we cannot read spoils the lot
+  end;
+  X := V[0]; Y := V[1]; Z := V[2];
+  Result := N;
 end;
 
 function NiceBarLength(Ppu: Double; MinPx, MaxPx: Double; U: TUnitSystem): Double;
@@ -892,7 +952,10 @@ begin
   Result := True;
 end;
 
-function DistToSeg2(PX, PY, AX, AY, BX, BY: Double): Double;
+{ Straight-line distance from a point to a segment.  Not squared, whatever
+  the old name suggested - taking Sqrt of this turned a 9 pixel pick radius
+  into 81. }
+function DistToSeg(PX, PY, AX, AY, BX, BY: Double): Double;
 var
   DX, DY, T, L2: Double;
 begin
@@ -1758,6 +1821,149 @@ begin
   FSnapDirty := True;
 end;
 
+procedure TWorkDoc.VertsOf(const Idx: array of Integer; out Pts: TP3Array);
+var
+  I, J, K, N: Integer;
+
+  procedure Put(const P: TP3);
+  begin
+    if N >= Length(Pts) then SetLength(Pts, Max(16, N * 2));
+    Pts[N] := P;
+    Inc(N);
+  end;
+
+begin
+  Pts := nil;
+  N := 0;
+  SetLength(Pts, 16);
+  for J := 0 to High(Idx) do
+  begin
+    I := Idx[J];
+    if (I < 0) or (I >= FLive) then Continue;
+    Put(FEnts[I].A);
+    Put(FEnts[I].B);
+    if FEnts[I].Kind = ekArc then Put(FEnts[I].C);
+    for K := 0 to High(FEnts[I].Poly) do
+      Put(FEnts[I].Poly[K]);
+  end;
+  SetLength(Pts, N);
+end;
+
+procedure TWorkDoc.MoveVerts(const Pts: TP3Array; const D: TP3);
+const
+  TOL = 1E-7;
+var
+  I, K: Integer;
+
+  function OnSet(const P: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    Result := True;
+    for J := 0 to High(Pts) do
+      if Dist(P, Pts[J]) < TOL then Exit;
+    Result := False;
+  end;
+
+  procedure Shift(var P: TP3);
+  begin
+    if OnSet(P) then P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
+  end;
+
+begin
+  if Length(Pts) = 0 then Exit;
+  for I := 0 to FLive - 1 do
+  begin
+    Shift(FEnts[I].A);
+    Shift(FEnts[I].B);
+    if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
+    for K := 0 to High(FEnts[I].Poly) do
+      Shift(FEnts[I].Poly[K]);
+  end;
+  FSnapDirty := True;
+end;
+
+procedure TWorkDoc.Duplicate(const Idx: array of Integer; const D: TP3);
+var
+  J, I, K, Base, G: Integer;
+  Src, Dst: array of Integer;    { old group id -> the new one it becomes }
+
+  { Solids are told apart by their group id.  Carrying the original's id over
+    to the copy would leave push/pull unable to tell them apart, and pulling a
+    face on one would deform the other. }
+  function Remap(Old: Integer): Integer;
+  var
+    N: Integer;
+  begin
+    if Old = 0 then Exit(0);
+    for N := 0 to High(Src) do
+      if Src[N] = Old then Exit(Dst[N]);
+    Inc(FNextGrp);
+    SetLength(Src, Length(Src) + 1);
+    SetLength(Dst, Length(Dst) + 1);
+    Src[High(Src)] := Old;
+    Dst[High(Dst)] := FNextGrp;
+    Result := FNextGrp;
+  end;
+
+begin
+  Src := nil;
+  Dst := nil;
+  Base := FLive;
+  for J := 0 to High(Idx) do
+  begin
+    I := Idx[J];
+    if (I < 0) or (I >= Base) then Continue;
+    SetLength(FEnts, FLive + 1);
+    Finalize(FEnts[FLive]);
+    FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+    FEnts[FLive] := FEnts[I];
+    SetLength(FEnts[FLive].Poly, Length(FEnts[I].Poly));
+    for K := 0 to High(FEnts[I].Poly) do
+      FEnts[FLive].Poly[K] := P3(FEnts[I].Poly[K].X + D.X,
+        FEnts[I].Poly[K].Y + D.Y, FEnts[I].Poly[K].Z + D.Z);
+    FEnts[FLive].A := P3(FEnts[I].A.X + D.X, FEnts[I].A.Y + D.Y, FEnts[I].A.Z + D.Z);
+    FEnts[FLive].B := P3(FEnts[I].B.X + D.X, FEnts[I].B.Y + D.Y, FEnts[I].B.Z + D.Z);
+    FEnts[FLive].C := P3(FEnts[I].C.X + D.X, FEnts[I].C.Y + D.Y, FEnts[I].C.Z + D.Z);
+    G := Remap(FEnts[I].Grp);
+    FEnts[FLive].Grp := G;
+    Inc(FLive);
+  end;
+  FSnapDirty := True;
+end;
+
+procedure TWorkDoc.ScreenBounds(const V: TProjector; I: Integer;
+  out X0, Y0, X1, Y1: Double);
+var
+  K: Integer;
+  P: TPointF;
+
+  procedure Grow(const Q: TP3);
+  var
+    S: TPointF;
+  begin
+    S := Project(V, Q);
+    X0 := Min(X0, S.X); X1 := Max(X1, S.X);
+    Y0 := Min(Y0, S.Y); Y1 := Max(Y1, S.Y);
+  end;
+
+begin
+  X0 := 1E30; Y0 := 1E30; X1 := -1E30; Y1 := -1E30;
+  if (I < 0) or (I >= FLive) then Exit;
+  Grow(FEnts[I].A);
+  Grow(FEnts[I].B);
+  if FEnts[I].Kind = ekArc then
+  begin
+    P := Project(V, FEnts[I].C);
+    X0 := Min(X0, P.X - FEnts[I].R * V.Ppu);
+    X1 := Max(X1, P.X + FEnts[I].R * V.Ppu);
+    Y0 := Min(Y0, P.Y - FEnts[I].R * V.Ppu);
+    Y1 := Max(Y1, P.Y + FEnts[I].R * V.Ppu);
+  end;
+  for K := 0 to High(FEnts[I].Poly) do
+    Grow(FEnts[I].Poly[K]);
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N, G: Integer;
@@ -2071,6 +2277,28 @@ end;
   points, and for a face closed along that very edge, that segment lies
   exactly on top of the line.  So the eraser looks for an edge first and
   only falls back to anything else. }
+{ How far the pointer is from an arc as it is actually drawn: walk the same
+  segments the renderer walks, over the real sweep. }
+function ArcScreenDist(const V: TProjector; const E: TWorkEnt;
+  SX, SY: Double): Double;
+const
+  STEPS = 48;
+var
+  K: Integer;
+  Ang: Double;
+  PA, PB: TPointF;
+begin
+  Result := 1E30;
+  PA := Project(V, ArcPoint(E.C, E.R, E.A0, E.Plane));
+  for K := 1 to STEPS do
+  begin
+    Ang := E.A0 + E.Sweep * K / STEPS;
+    PB := Project(V, ArcPoint(E.C, E.R, Ang, E.Plane));
+    Result := Min(Result, DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
+    PA := PB;
+  end;
+end;
+
 function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
   I: Integer;
@@ -2082,13 +2310,18 @@ begin
   for I := FLive - 1 downto 0 do
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc, ekDim]) then Continue;
-    PA := Project(V, FEnts[I].A);
-    PB := Project(V, FEnts[I].B);
     if FEnts[I].Kind = ekArc then
-      D := Abs(Sqrt(Sqr(SX - Project(V, FEnts[I].C).X) +
-                    Sqr(SY - Project(V, FEnts[I].C).Y)) - FEnts[I].R * V.Ppu)
+      { A circle in the model is an ellipse on screen once its plane is tilted
+        away from the camera, and a part arc is not a whole circle either.
+        Measuring against the drawn segments is the only test that holds up in
+        ISO and orbit. }
+      D := ArcScreenDist(V, FEnts[I], SX, SY)
     else
-      D := Sqrt(DistToSeg2(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
+    begin
+      PA := Project(V, FEnts[I].A);
+      PB := Project(V, FEnts[I].B);
+      D := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+    end;
     if D < Best then
     begin
       Best := D;
@@ -2107,19 +2340,7 @@ begin
   begin
     case FEnts[I].Kind of
       ekArc:
-        begin
-          Best := 1E30;
-          Steps := 48;
-          PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane));
-          for K := 1 to Steps do
-          begin
-            Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
-            PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane));
-            Best := Min(Best, DistToSeg2(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
-            PA := PB;
-          end;
-          D := Best;
-        end;
+        D := ArcScreenDist(V, FEnts[I], SX, SY);
       ekText:
         begin
           PA := Project(V, FEnts[I].A);
@@ -2129,7 +2350,7 @@ begin
       begin
         PA := Project(V, FEnts[I].A);
         PB := Project(V, FEnts[I].B);
-        D := DistToSeg2(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+        D := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
       end;
     end;
     if D <= TolPx then
@@ -2284,11 +2505,17 @@ begin
       if T.Count < 1 then Continue;
       Kind := T[0];
 
+      { the group id used to sit outside this block, so it ran as a statement
+        of its own and took the whole else-if chain with it: no FACE record
+        ever loaded, and the first one written wrote to FEnts[-1] }
       if (Kind = 'LINE') and (T.Count >= 10) then
+      begin
         AddLine(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                 P3(RdF(T[4]), RdF(T[5]), RdF(T[6])),
                 StrToIntDef(T[7], 0), RdF(T[8]), T[9] = '1');
-        if T.Count >= 11 then FEnts[FLive - 1].Grp := StrToIntDef(T[10], 0)
+        if (FLive > 0) and (T.Count >= 11) then
+          FEnts[FLive - 1].Grp := StrToIntDef(T[10], 0);
+      end
       else if (Kind = 'ARC') and (T.Count >= 10) then
         AddArc(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])), RdF(T[4]), RdF(T[5]),
                RdF(T[6]), TPlane(StrToIntDef(T[7], 0)),

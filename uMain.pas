@@ -55,8 +55,8 @@ uses
 type
   TAppMode = (mdToy, mdPro);
 
-  TProTool = (ptSelect, ptLine, ptRect, ptArc, ptCircle, ptPush, ptText,
-    ptErase, ptMeasure, ptDim, ptOrbit);
+  TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
+    ptText, ptErase, ptMeasure, ptDim, ptOrbit);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -232,6 +232,24 @@ type
     FErasing2: Boolean;
     FDoomed: array of Integer;
 
+    { What is picked, and the box being dragged to pick it.  Dragging left to
+      right takes only what is wholly inside; right to left takes anything it
+      touches, which is SketchUp's rule and worth keeping. }
+    FSel: array of Integer;
+    FBoxing: Boolean;
+    FBoxX, FBoxY: Integer;
+
+    { the move in progress: where it was grabbed, and every corner that will
+      travel - gathered once at the grab so the drag stays cheap }
+    FMoveVerts: TP3Array;
+    FMoveCopy: Boolean;
+
+    { how many clicks have landed in the same spot in quick succession: two
+      takes what is attached, three takes everything joined on }
+    FClickN: Integer;
+    FClickT: QWord;
+    FClickX, FClickY: Integer;
+
     { The working plane follows whatever face you are pointing at, so a shape
       drawn on top of a box lands on top of it.  Alt cycles through the three
       flat planes instead and latches, because sometimes you mean to draw in
@@ -342,6 +360,21 @@ type
     procedure ServiceHover;
     function DimOffsetPx: Double;
     procedure DoomAt(SX, SY: Integer);
+    function PickAt(SX, SY: Integer): Integer;
+    function IsSelected(I: Integer): Boolean;
+    procedure SelectOnly(I: Integer);
+    procedure SelectToggle(I: Integer);
+    procedure SelectAdd(I: Integer);
+    procedure SelectRemove(I: Integer);
+    procedure SelectNone;
+    procedure FinishSelect(X, Y: Integer; Shift: TShiftState);
+    function EntHasPoint(I: Integer; const P: TP3): Boolean;
+    procedure SelectAttached(I: Integer);
+    procedure SelectConnected(I: Integer);
+    procedure SelectInBox(X0, Y0, X1, Y1: Integer; Crossing, Add: Boolean);
+    procedure DeleteSelection;
+    function MoveDelta: TP3;
+    procedure PaintMoveGhost(C: TCanvas);
     function IsDoomed(I: Integer): Boolean;
     procedure BurnDoomed;
     procedure OpenPopup(Which: Integer);
@@ -562,15 +595,18 @@ const
 
   { one glyph per tool, for the button and for the cursor }
   TOOL_ICONS: array[TProTool] of TIconKind =
-    (ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
-     ikTErase, ikTMeasure, ikDim, ikTOrbit);
+    (ikTSelect, ikTMove, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush,
+     ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit);
 
   TOOL_NAMES: array[TProTool] of string =
-    ('POINT', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT', 'ERASE',
-     'MEASURE', 'DIM', 'ORBIT');
+    ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
+     'ERASE', 'MEASURE', 'DIM', 'ORBIT');
 
   TOOL_HINTS: array[TProTool] of string = (
-    'Point - move the cursor around and read where it is.  Nothing gets drawn.',
+    'Select - click to pick, drag a box for several.  Ctrl adds, Shift ' +
+      'toggles, Ctrl+Shift takes away.  (Space)',
+    'Move - pick a point on what is selected, then click where it goes.  ' +
+      'Hold Ctrl to leave a copy behind.  (M)',
     'Line - click a start point, then click the end or just type a length.',
     'Rectangle - click two opposite corners, or type 12''x8''.  Makes a face.',
     'Arc - pick two points, then pull the middle out.  Joins two loose ends.',
@@ -3113,6 +3149,7 @@ begin
       end
       else
         PaintFaceHint(C, FHoverFace, Theme.Accent);
+    ptMove: PaintMoveGhost(C);
     ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
   end;
 
@@ -3134,6 +3171,52 @@ begin
   S1 := CurScale.Name + IfThen(FD.Units = usImperial, ' = 1''-0"', '');
   C.TextOut(AX + Round(BarPx) + Round(12 * FUIScale), AY - Round(20 * FUIScale),
     Format('%s   (view %.0f%%)', [S1, FD.Zoom * 100]));
+
+  { --- what is selected ------------------------------------------------ }
+  for AY := 0 to High(FSel) do
+  begin
+    Hi := FD.Doc.Outline(Proj, FSel[AY]);
+    if Length(Hi) >= 2 then
+    begin
+      C.Pen.Color := PixToColor(Pix(70, 130, 240));
+      C.Pen.Width := Max(3, Round(3 * FUIScale));
+      C.Pen.Style := psSolid;
+      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
+      for AX := 1 to High(Hi) do
+        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
+      C.Pen.Width := 1;
+    end;
+  end;
+
+  { what a click would take, so a pick can be aimed before committing }
+  if (FTool in [ptSelect, ptMove]) and (FHoverEnt >= 0) and
+     not IsSelected(FHoverEnt) then
+  begin
+    Hi := FD.Doc.Outline(Proj, FHoverEnt);
+    if Length(Hi) >= 2 then
+    begin
+      C.Pen.Color := PixToColor(Pix(150, 185, 245));
+      C.Pen.Width := Max(2, Round(2 * FUIScale));
+      C.Pen.Style := psSolid;
+      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
+      for AX := 1 to High(Hi) do
+        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
+      C.Pen.Width := 1;
+    end;
+  end;
+
+  { the box itself.  Dashed for a crossing box, solid for a containing one,
+    which is the only cue telling you which rule is in force. }
+  if FBoxing then
+  begin
+    C.Brush.Style := bsClear;
+    C.Pen.Color := PixToColor(Pix(70, 130, 240));
+    C.Pen.Width := Max(1, Round(FUIScale));
+    if FMouseSX < FBoxX then C.Pen.Style := psDash else C.Pen.Style := psSolid;
+    C.Rectangle(Min(FBoxX, FMouseSX), Min(FBoxY, FMouseSY),
+                Max(FBoxX, FMouseSX), Max(FBoxY, FMouseSY));
+    C.Pen.Style := psSolid;
+  end;
 
   { --- what the eraser is about to remove ------------------------------ }
   { everything gathered so far, in red, so a sweep can be seen before it
@@ -3459,6 +3542,9 @@ begin
   FLockOn := False;
   FDirLock := -1;
   FInput := '';
+  FBoxing := False;
+  FMoveCopy := False;
+  SetLength(FMoveVerts, 0);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
 end;
@@ -3502,7 +3588,18 @@ begin
     ptOrbit:
       Result := 'drag to spin the view - Shift drags to pan';
     ptSelect:
-      Result := 'move the cursor - pick a tool to draw   (or /help)';
+      if Length(FSel) = 0 then
+        Result := 'click to pick, or drag a box   (Ctrl adds, Shift toggles)'
+      else
+        Result := Format('%d picked - M to move, Delete to remove',
+          [Length(FSel)]);
+    ptMove:
+      if FStage = 0 then
+        Result := 'grab a point on what you are moving'
+      else if FMoveCopy then
+        Result := 'where does the copy go?  a length, [x,y,z] or <x,y,z>'
+      else
+        Result := 'where does it go?  a length, [x,y,z] or <x,y,z>';
     ptErase:
       Result := 'click anything to delete it   (or /help)';
   else
@@ -3581,9 +3678,49 @@ begin
   case FTool of
     ptOrbit: ;   // the drag does the work
 
-    ptSelect:
-      FCmdMsg := 'Here: ' + FormatLen(FCur.X, FD.Units) + ', ' +
-        FormatLen(FCur.Y, FD.Units);
+    ptSelect: ;   // the press and release do the work
+
+    { Grab a point, then say where it goes.  Clicking on nothing with an
+      empty selection picks up whatever is under the cursor first, so the
+      tool works on its own without a trip to the arrow. }
+    ptMove:
+      if FStage = 0 then
+      begin
+        { Nothing picked and the cursor is sitting on a corner: take just that
+          corner.  SketchUp calls this stretching, and it is how a box is
+          pulled out of square without selecting anything first. }
+        if (Length(FSel) = 0) and (FSnapKind = snEndpoint) then
+        begin
+          SetLength(FMoveVerts, 1);
+          FMoveVerts[0] := FCur;
+          FP1 := FCur;
+          FStage := 1;
+          FDirLock := -1;
+          FInput := '';
+          FCmdMsg := 'Stretching from that corner.  ' +
+            'Click where it goes, or type a distance.';
+          Exit;
+        end;
+        if Length(FSel) = 0 then
+        begin
+          I := PickAt(FMouseSX, FMouseSY);
+          if I < 0 then
+          begin
+            FCmdMsg := 'Nothing there to move.';
+            Exit;
+          end;
+          SelectOnly(I);
+        end;
+        FP1 := FCur;
+        FD.Doc.VertsOf(FSel, FMoveVerts);
+        FStage := 1;
+        FDirLock := -1;
+        FInput := '';
+        FCmdMsg := 'Click where it goes, or type a distance.  ' +
+          'Arrows lock an axis, Ctrl leaves a copy.';
+      end
+      else
+        ProCommit;
 
     ptErase:
       begin
@@ -3607,6 +3744,7 @@ begin
             FCmdMsg := 'Deleted - the two faces either side are one now.'
           else
             FCmdMsg := 'Deleted.';
+          SelectNone;
           RenderPro;
           RecomposeAll;
         end
@@ -3870,6 +4008,36 @@ begin
         ResetTool;
       end;
 
+    ptMove:
+      begin
+        T := MoveDelta;
+        if (Abs(T.X) > 1E-9) or (Abs(T.Y) > 1E-9) or (Abs(T.Z) > 1E-9) then
+        begin
+          PushUndo;
+          if FMoveCopy then
+          begin
+            { a copy stands on its own, so nothing gets stretched to reach it }
+            FD.Doc.Duplicate(FSel, T);
+            FCmdMsg := 'Copied ' + FormatLen(
+              Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units);
+          end
+          else
+          begin
+            { every corner that sits where a moving one sat travels too, so
+              whatever was joined on stretches to follow }
+            FD.Doc.MoveVerts(FMoveVerts, T);
+            FCmdMsg := 'Moved ' + FormatLen(
+              Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units);
+          end;
+          RenderPro;
+          RecomposeAll;
+        end;
+        SetLength(FMoveVerts, 0);
+        FMoveCopy := False;
+        ResetTool;
+        FInput := '';
+      end;
+
     ptPush:
       begin
         R := PushDistance;
@@ -4044,6 +4212,17 @@ begin
     Exit;
   end;
 
+  { a coordinate is not a length, and the move tool is the only thing that
+    takes one - hand it straight over rather than trying to read it as a
+    command }
+  if (FStage > 0) and (Length(FInput) >= 2) and (FInput[1] in ['[', '<']) then
+  begin
+    ProCommit;
+    FInput := '';
+    pbCmd.Invalidate;
+    Exit;
+  end;
+
   if ParseLen(FInput, FD.Units, L) then
   begin
     if FStage > 0 then
@@ -4075,6 +4254,7 @@ begin
   FMoveX := X;
   FMoveY := Y;
   FMovePending := False;
+  FMoveShift := Shift;
 
   { Laptops without a middle button need a way in, so the tool turns a plain
     left drag into the same thing. }
@@ -4128,6 +4308,27 @@ begin
       FErasing2 := True;
       SetLength(FDoomed, 0);
       DoomAt(X, Y);
+      FScreenDirty := True;
+      Exit;
+    end;
+    { the arrow starts a box; a press that never travels is read as a click
+      when the button comes back up }
+    if (FTool = ptMove) and (FStage = 1) then
+      FMoveCopy := ssCtrl in Shift;
+
+    if FTool = ptSelect then
+    begin
+      if (GetTickCount64 - FClickT < 450) and (Abs(X - FClickX) < 5) and
+         (Abs(Y - FClickY) < 5) then
+        Inc(FClickN)
+      else
+        FClickN := 1;
+      FClickT := GetTickCount64;
+      FClickX := X;
+      FClickY := Y;
+      FBoxing := True;
+      FBoxX := X;
+      FBoxY := Y;
       FScreenDirty := True;
       Exit;
     end;
@@ -4251,6 +4452,10 @@ begin
   begin
     FMouseSX := X;
     FMouseSY := Y;
+    { holding Ctrl part way through a move turns it into a copy, and the
+      ghost changes colour to say so }
+    if (FTool = ptMove) and (FStage = 1) then
+      FMoveCopy := ssCtrl in FMoveShift;
     { Point at a face and draw on it.  Before this the plane came only from a
       key, so a square drawn on the top of a box was really being drawn on
       the ground and merely looked right - and push/pull then took the box's
@@ -4290,6 +4495,8 @@ begin
 
     if FTool = ptErase then
       FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
+    else if (FTool = ptSelect) and not FBoxing then
+      FHoverEnt := PickAt(X, Y)
     else
       FHoverEnt := -1;
     { what push/pull would pick up if you clicked now.  Without this the tool
@@ -4507,6 +4714,304 @@ begin
   C.Pen.Width := 1;
 end;
 
+function TMainForm.IsSelected(I: Integer): Boolean;
+var
+  K: Integer;
+begin
+  Result := True;
+  for K := 0 to High(FSel) do
+    if FSel[K] = I then Exit;
+  Result := False;
+end;
+
+procedure TMainForm.SelectAdd(I: Integer);
+begin
+  if (I < 0) or IsSelected(I) then Exit;
+  SetLength(FSel, Length(FSel) + 1);
+  FSel[High(FSel)] := I;
+  FScreenDirty := True;
+end;
+
+procedure TMainForm.SelectRemove(I: Integer);
+var
+  K, J: Integer;
+begin
+  for K := 0 to High(FSel) do
+    if FSel[K] = I then
+    begin
+      for J := K to High(FSel) - 1 do FSel[J] := FSel[J + 1];
+      SetLength(FSel, Length(FSel) - 1);
+      FScreenDirty := True;
+      Exit;
+    end;
+end;
+
+procedure TMainForm.SelectToggle(I: Integer);
+begin
+  if IsSelected(I) then SelectRemove(I) else SelectAdd(I);
+end;
+
+procedure TMainForm.SelectOnly(I: Integer);
+begin
+  SetLength(FSel, 0);
+  SelectAdd(I);
+end;
+
+procedure TMainForm.SelectNone;
+begin
+  if Length(FSel) = 0 then Exit;
+  SetLength(FSel, 0);
+  FScreenDirty := True;
+end;
+
+{ Does this entity have a corner at that point? }
+function TMainForm.EntHasPoint(I: Integer; const P: TP3): Boolean;
+const
+  TOL = 1E-7;
+var
+  K: Integer;
+begin
+  Result := True;
+  if Dist(FD.Doc[I].A, P) < TOL then Exit;
+  if Dist(FD.Doc[I].B, P) < TOL then Exit;
+  for K := 0 to High(FD.Doc[I].Poly) do
+    if Dist(FD.Doc[I].Poly[K], P) < TOL then Exit;
+  Result := False;
+end;
+
+{ Double click: a face takes the edges around it, an edge takes the faces it
+  bounds.  SketchUp's rule, and it saves a lot of shift-clicking. }
+procedure TMainForm.SelectAttached(I: Integer);
+var
+  J: Integer;
+begin
+  SelectOnly(I);
+  if I < 0 then Exit;
+  if FD.Doc[I].Kind = ekFace then
+  begin
+    for J := 0 to FD.Doc.Live - 1 do
+      if (J <> I) and (FD.Doc[J].Kind in [ekLine, ekArc]) and
+         EntHasPoint(I, FD.Doc[J].A) and EntHasPoint(I, FD.Doc[J].B) then
+        SelectAdd(J);
+  end
+  else
+    for J := 0 to FD.Doc.Live - 1 do
+      if (J <> I) and (FD.Doc[J].Kind = ekFace) and
+         EntHasPoint(J, FD.Doc[I].A) and EntHasPoint(J, FD.Doc[I].B) then
+        SelectAdd(J);
+end;
+
+{ Triple click: everything joined on, however far it runs.  Grows the set a
+  corner at a time until nothing new turns up. }
+procedure TMainForm.SelectConnected(I: Integer);
+var
+  J, N, Before: Integer;
+  Pts: TP3Array;
+begin
+  SelectOnly(I);
+  if I < 0 then Exit;
+  repeat
+    Before := Length(FSel);
+    FD.Doc.VertsOf(FSel, Pts);
+    for J := 0 to FD.Doc.Live - 1 do
+      if not IsSelected(J) then
+        for N := 0 to High(Pts) do
+          if EntHasPoint(J, Pts[N]) then
+          begin
+            SelectAdd(J);
+            Break;
+          end;
+  until Length(FSel) = Before;
+end;
+
+{ SketchUp's modifiers: Ctrl adds, Shift toggles, both together takes away,
+  and nothing held starts over.  Dragging right to left takes anything the
+  box touches; left to right takes only what fits inside it. }
+procedure TMainForm.FinishSelect(X, Y: Integer; Shift: TShiftState);
+var
+  I: Integer;
+  Add, Sub, Tog: Boolean;
+begin
+  Add := ssCtrl in Shift;
+  Tog := ssShift in Shift;
+  Sub := Add and Tog;
+
+  if (Abs(X - FBoxX) > 3) or (Abs(Y - FBoxY) > 3) then
+  begin
+    SelectInBox(FBoxX, FBoxY, X, Y, X < FBoxX, Add or Tog);
+  end
+  else
+  begin
+    I := PickAt(X, Y);
+    if I < 0 then
+    begin
+      if not (Add or Tog) then SelectNone;
+    end
+    else if FClickN >= 3 then SelectConnected(I)
+    else if FClickN = 2 then SelectAttached(I)
+    else if Sub then SelectRemove(I)
+    else if Tog then SelectToggle(I)
+    else if Add then SelectAdd(I)
+    else SelectOnly(I);
+  end;
+
+  if Length(FSel) = 0 then FCmdMsg := 'Nothing selected.'
+  else if Length(FSel) = 1 then FCmdMsg := '1 thing selected.'
+  else FCmdMsg := Format('%d things selected.', [Length(FSel)]);
+  FScreenDirty := True;
+  InvalidateStatus;
+end;
+
+{ Crossing takes anything the box touches, otherwise only what is wholly
+  inside it. }
+procedure TMainForm.SelectInBox(X0, Y0, X1, Y1: Integer; Crossing, Add: Boolean);
+var
+  I, T: Integer;
+  BX0, BY0, BX1, BY1: Double;
+begin
+  if X1 < X0 then begin T := X0; X0 := X1; X1 := T; end;
+  if Y1 < Y0 then begin T := Y0; Y0 := Y1; Y1 := T; end;
+  if not Add then SetLength(FSel, 0);
+  for I := 0 to FD.Doc.Live - 1 do
+  begin
+    FD.Doc.ScreenBounds(Proj, I, BX0, BY0, BX1, BY1);
+    if BX1 < BX0 then Continue;
+    if Crossing then
+    begin
+      if (BX1 >= X0) and (BX0 <= X1) and (BY1 >= Y0) and (BY0 <= Y1) then
+        SelectAdd(I);
+    end
+    else if (BX0 >= X0) and (BX1 <= X1) and (BY0 >= Y0) and (BY1 <= Y1) then
+      SelectAdd(I);
+  end;
+  FScreenDirty := True;
+end;
+
+procedure TMainForm.DeleteSelection;
+var
+  I, J, T, N: Integer;
+begin
+  N := Length(FSel);
+  if N = 0 then Exit;
+  PushUndo;
+  for I := 0 to N - 2 do
+    for J := 0 to N - 2 - I do
+      if FSel[J] < FSel[J + 1] then
+      begin
+        T := FSel[J]; FSel[J] := FSel[J + 1]; FSel[J + 1] := T;
+      end;
+  for I := 0 to N - 1 do
+    FD.Doc.Delete(FSel[I]);
+  SetLength(FSel, 0);
+  FD.Doc.DropOpenFaces;
+  FCmdMsg := Format('Deleted %d thing%s.', [N, IfThen(N = 1, '', 's')]);
+  RenderPro;
+  RecomposeAll;
+end;
+
+{ How far the move has travelled.  A typed value wins over the pointer: a
+  bare length runs along whichever direction is in force, [x,y,z] names a
+  point in the drawing outright, and <x,y,z> is an offset from the grab. }
+function TMainForm.MoveDelta: TP3;
+var
+  D: TP3;
+  L, Len: Double;
+  Txt: string;
+  Abs_, Rel: Boolean;
+  N: Integer;
+  V: array[0..2] of Double;
+begin
+  Result := P3(FCur.X - FP1.X, FCur.Y - FP1.Y, FCur.Z - FP1.Z);
+
+  Txt := Trim(FInput);
+  Abs_ := (Length(Txt) >= 2) and (Txt[1] = '[');
+  Rel := (Length(Txt) >= 2) and (Txt[1] = '<');
+  if Abs_ or Rel then
+  begin
+    N := ParseTriple(Txt, FD.Units, V[0], V[1], V[2]);
+    if N > 0 then
+    begin
+      if Abs_ then
+        Result := P3(V[0] - FP1.X, V[1] - FP1.Y, V[2] - FP1.Z)
+      else
+        Result := P3(V[0], V[1], V[2]);
+    end;
+    Exit;
+  end;
+
+  if FDirLock >= 0 then
+  begin
+    D := AxisDir(FDirLock);
+    L := Result.X * D.X + Result.Y * D.Y + Result.Z * D.Z;
+    if (Txt <> '') and ParseLen(Txt, FD.Units, Len) then
+      L := Sign(IfThen(L = 0, 1, L)) * Len;
+    Result := P3(D.X * L, D.Y * L, D.Z * L);
+    Exit;
+  end;
+
+  { Shift keeps the axis the move has already drifted onto, the way holding it
+    in SketchUp locks whichever inference is showing at the time. }
+  if ssShift in FMoveShift then
+  begin
+    if (Abs(Result.X) >= Abs(Result.Y)) and (Abs(Result.X) >= Abs(Result.Z)) then
+      Result := P3(Result.X, 0, 0)
+    else if Abs(Result.Y) >= Abs(Result.Z) then
+      Result := P3(0, Result.Y, 0)
+    else
+      Result := P3(0, 0, Result.Z);
+  end;
+
+  if (Txt <> '') and ParseLen(Txt, FD.Units, L) then
+  begin
+    Len := Sqrt(Sqr(Result.X) + Sqr(Result.Y) + Sqr(Result.Z));
+    if Len < 1E-9 then Exit;
+    Result := P3(Result.X * L / Len, Result.Y * L / Len, Result.Z * L / Len);
+  end;
+end;
+
+{ The selection drawn again where it would land, plus the line back to where
+  it was grabbed. }
+procedure TMainForm.PaintMoveGhost(C: TCanvas);
+var
+  I, K: Integer;
+  D: TP3;
+  Hi: TPointFArray;
+  PA, PB: TPointF;
+begin
+  if (FTool <> ptMove) or (FStage <> 1) then Exit;
+  D := MoveDelta;
+
+  C.Pen.Style := psSolid;
+  C.Pen.Width := Max(2, Round(2 * FUIScale));
+  if FMoveCopy then C.Pen.Color := PixToColor(Pix(60, 180, 110))
+  else C.Pen.Color := PixToColor(Pix(70, 130, 240));
+  { the projection is affine, so one world offset is one screen offset for
+    every point in the drawing - worked out once, then applied }
+  PA := ScreenOf(P3(D.X, D.Y, D.Z));
+  PB := ScreenOf(P3(0, 0, 0));
+  for I := 0 to High(FSel) do
+  begin
+    Hi := FD.Doc.Outline(Proj, FSel[I]);
+    if Length(Hi) < 2 then Continue;
+    C.MoveTo(Round(Hi[0].X + PA.X - PB.X), Round(Hi[0].Y + PA.Y - PB.Y));
+    for K := 1 to High(Hi) do
+      C.LineTo(Round(Hi[K].X + PA.X - PB.X), Round(Hi[K].Y + PA.Y - PB.Y));
+  end;
+  C.Pen.Width := 1;
+
+  { the travel line itself, in the axis colour when one is locked }
+  PA := ScreenOf(FP1);
+  PB := ScreenOf(P3(FP1.X + D.X, FP1.Y + D.Y, FP1.Z + D.Z));
+  C.Pen.Style := psDash;
+  if FDirLock in [0..2] then
+    C.Pen.Color := PixToColor(AxisPix(FDirLock))
+  else
+    C.Pen.Color := PixToColor(Theme.Accent);
+  C.MoveTo(Round(PA.X), Round(PA.Y));
+  C.LineTo(Round(PB.X), Round(PB.Y));
+  C.Pen.Style := psSolid;
+end;
+
 function TMainForm.IsDoomed(I: Integer): Boolean;
 var
   K: Integer;
@@ -4515,6 +5020,21 @@ begin
   for K := 0 to High(FDoomed) do
     if FDoomed[K] = I then Exit;
   Result := False;
+end;
+
+{ Whatever the pointer is over: an edge first, then a face, then anything
+  else within reach.  The same order the eraser picks in, so what lights up
+  under one tool is what the other would take. }
+function TMainForm.PickAt(SX, SY: Integer): Integer;
+var
+  E, F, T: Integer;
+begin
+  E := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+  F := FD.Doc.HitFace(Proj, SX, SY);
+  T := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
+  Result := E;
+  if Result < 0 then Result := F;
+  if Result < 0 then Result := T;
 end;
 
 { Add whatever is under the cursor to the list the eraser is holding. }
@@ -4579,6 +5099,7 @@ begin
     FCmdMsg := FCmdMsg + Format('  %d face%s no longer closed.',
       [J, IfThen(J = 1, '', 's')]);
   SetLength(FDoomed, 0);
+  SelectNone;
   RenderPro;
   RecomposeAll;
 end;
@@ -4663,6 +5184,13 @@ begin
   begin
     FErasing2 := False;
     BurnDoomed;
+    Exit;
+  end;
+
+  if FBoxing then
+  begin
+    FBoxing := False;
+    FinishSelect(X, Y, Shift);
     Exit;
   end;
 
@@ -5147,6 +5675,7 @@ end;
 
 procedure TMainForm.DoUndo;
 begin
+  SelectNone;   // the numbers it held mean something else now
   if not CanUndo then Exit;
   if FMode = mdPro then
   begin
@@ -5176,6 +5705,7 @@ end;
 
 procedure TMainForm.DoRedo;
 begin
+  SelectNone;
   if not CanRedo then Exit;
   if FMode = mdPro then
   begin
@@ -5364,7 +5894,10 @@ begin
     Exit;
   end;
 
-  if Key in ['0'..'9', '.', '/', '''', '"', ' ', '-'] then
+  { the brackets and commas are here for the Move tool's coordinate entry:
+    [x,y,z] is a point in the drawing, <x,y,z> an offset from where you are }
+  if Key in ['0'..'9', '.', '/', '''', '"', ' ', '-', ',', ';',
+             '[', ']', '<', '>'] then
   begin
     FInput := FInput + Key;
     FCmdMsg := '';
@@ -5406,7 +5939,7 @@ var
   var
     D: TP3;
   begin
-    if (FTool = ptLine) and (FStage = 1) then
+    if (FTool in [ptLine, ptMove]) and (FStage = 1) then
     begin
       FDirLock := ArrowAxis(K);
       FCmdMsg := '';
@@ -5464,7 +5997,13 @@ begin
   { --- keys shared by both modes -------------------------------------- }
   case Key of
     VK_F1: begin ShowAbout; Key := 0; Exit; end;
-    VK_DELETE: begin StartErase; Key := 0; Exit; end;
+    VK_DELETE:
+      begin
+        if (FMode = mdPro) and (Length(FSel) > 0) then DeleteSelection
+        else StartErase;
+        Key := 0;
+        Exit;
+      end;
   end;
 
   if FMode = mdPro then
@@ -5519,7 +6058,12 @@ begin
           PlaneByArrow(Key)
         else
           Arrow(Key);
-      VK_SPACE, VK_RETURN: CommandEnter;
+      VK_RETURN: CommandEnter;
+      { Space is SketchUp's arrow.  Mid-shape it still finishes what is being
+        drawn, because that is the older habit here and losing it would smart. }
+      VK_SPACE:
+        if (FStage = 0) and (FInput = '') then SetTool(ptSelect)
+        else CommandEnter;
       VK_ESCAPE:
         begin
           if FPopup <> POP_NONE then
@@ -5533,6 +6077,8 @@ begin
             FInput := ''
           else if FStage > 0 then
             ResetTool
+          else if Length(FSel) > 0 then
+            SelectNone
           else
             SetTool(ptSelect);
           FCmdMsg := '';
@@ -5554,7 +6100,8 @@ begin
       VK_P: SetTool(ptPush);
       VK_N: SetTool(ptText);
       VK_E: SetTool(ptErase);
-      VK_M: SetTool(ptMeasure);
+      VK_M: SetTool(ptMove);
+      VK_T: SetTool(ptMeasure);
       VK_D: SetTool(ptDim);
       VK_V:
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
@@ -5564,7 +6111,7 @@ begin
       VK_O: SetTool(ptOrbit);
       VK_G: RunCommand('grid');
       VK_U: RunCommand('units');
-      VK_T: CycleTheme(1);
+      VK_H: CycleTheme(1);
       VK_W: SetMode(mdToy);
       VK_OEM_4: SetPenSize(FPenSize - 1);
       VK_OEM_6: SetPenSize(FPenSize + 1);

@@ -40,7 +40,7 @@ type
     ikOpen, ikFit, ikExport, ikArrow,
     { one per tool, so a button and the cursor can both say which is which }
     ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
-    ikTErase, ikTMeasure, ikTOrbit, ikChevron
+    ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove
   );
 
 const
@@ -368,6 +368,27 @@ begin
       begin
         S.Ring(CX, CY, U * 0.17, LW, C, Alpha);
         S.Disc(CX, CY, LW * 0.7, C, Alpha);
+      end;
+
+    { the usual arrow, pointing up and to the left }
+    ikTSelect:
+      S.Poly([Px(0.30, 0.16), Px(0.30, 0.80), Px(0.46, 0.64), Px(0.57, 0.86),
+              Px(0.67, 0.80), Px(0.56, 0.60), Px(0.74, 0.58)],
+        LW, C, True, Alpha);
+
+    { four arrowheads on a cross - move in any direction }
+    ikTMove:
+      begin
+        S.Line(CX, Y + H * 0.18, CX, Y + H * 0.82, LW, C, Alpha);
+        S.Line(X + W * 0.18, CY, X + W * 0.82, CY, LW, C, Alpha);
+        S.Line(CX, Y + H * 0.18, CX - U * 0.11, Y + H * 0.30, LW, C, Alpha);
+        S.Line(CX, Y + H * 0.18, CX + U * 0.11, Y + H * 0.30, LW, C, Alpha);
+        S.Line(CX, Y + H * 0.82, CX - U * 0.11, Y + H * 0.70, LW, C, Alpha);
+        S.Line(CX, Y + H * 0.82, CX + U * 0.11, Y + H * 0.70, LW, C, Alpha);
+        S.Line(X + W * 0.18, CY, X + W * 0.30, CY - U * 0.11, LW, C, Alpha);
+        S.Line(X + W * 0.18, CY, X + W * 0.30, CY + U * 0.11, LW, C, Alpha);
+        S.Line(X + W * 0.82, CY, X + W * 0.70, CY - U * 0.11, LW, C, Alpha);
+        S.Line(X + W * 0.82, CY, X + W * 0.70, CY + U * 0.11, LW, C, Alpha);
       end;
 
     ikTLine:

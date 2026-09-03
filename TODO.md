@@ -21,25 +21,43 @@ area read out while you drag it.
 Still to do here: no rotated rectangles, and it only lies in the working
 plane (`K` cycles XY / XZ / YZ) - see #7.
 
-## 2. Selection and move
+## 2. ~~Selection and move~~  — done 2 September 2026
 
-The biggest hole in the program. There is no way to adjust anything - erase
-and redraw is the only edit. `ptSelect` is a stub that reads out coordinates
-and draws nothing.
+Both tools are in, built against our notes in `docs/sketchup/`.
 
-Wants a real selection model first: click to select, shift-click to add, drag
-a box. Then move: grab a point, a line, or a selection, with the same
-snapping and axis locks the line tool already has.
+**Select** (`Space` or `Q`): click picks; **Ctrl** adds, **Shift** toggles,
+**Ctrl+Shift** takes away, clicking nothing clears. Drag a box — **right to
+left** takes anything it touches, **left to right** only what fits wholly
+inside, which is SketchUp's rule and the dashed/solid box says which is in
+force. **Double-click** a face takes its bounding edges too; an edge takes the
+faces it bounds; **triple-click** takes everything joined on. **Delete** removes
+the selection, **Esc** clears it.
 
-In SketchUp this is the second most used tool after the line. Worth learning
-even if you have got by without it - most of what follows depends on it.
+**Move** (`M`): pick a reference point on the selection, then click where it
+goes. With nothing selected it picks up whatever is under the cursor, and
+resting on a bare corner grabs that corner alone — which is how you pull a box
+out of square. Arrows lock an axis, **Shift** keeps whichever axis the move has
+drifted onto, **Ctrl** leaves a copy behind (the ghost turns green to say so).
+The command bar takes a plain length, `[x,y,z]` for a point in the drawing, or
+`<x,y,z>` for an offset from where you grabbed.
+
+Geometry joined to what moves comes with it, so grabbing one edge of a shape
+stretches the rest — SketchUp calls that stretching and documents exactly the
+three cases we implement (see `docs/sketchup/02-stretching-geometry.md`).
+
+Not done: no rigid-move mode for a whole solid that happens to touch something
+else, no corner inference grips (they are a group/component feature and we have
+no groups), and no Autofold.
 
 ## 3. Copy and linear array
 
-Move with Ctrl held leaves the original behind; then type `*6` to repeat the
-step six times, or `/3` to divide it. Cheap once move exists, and it is the
-thing that makes a layout tool fast - hangers, repeated fittings, joist
-spacing.
+**Copy is done** — Move with Ctrl held. The copy gets its own solid identity, so
+push/pull on one no longer deforms the other.
+
+The array part is not: type `*6` to repeat the step six times, or `/3` to divide
+it. Note that SketchUp's own arrays page does **not** document this syntax
+(see `docs/sketchup/09-flip-rotate-arrays.md`) — we would be working from the
+app's behaviour, not from a spec.
 
 ## 4. Planar region finding  — working for what it is asked to do
 
@@ -343,3 +361,51 @@ somewhere without being pressed.
 
 Those are where this stops being a quick tool and starts being a worse copy
 of SketchUp.
+
+
+---
+
+## Fixed 2 September 2026, found while testing Move
+
+**Picking had a 9x tolerance bug.** `TWorkDoc.HitEdge` took `Sqrt` of
+`DistToSeg2`, which despite its name already returned a plain distance. A 9
+pixel pick radius was really 81, so an edge nowhere near the cursor beat the
+face you were clicking the middle of. Renamed to `DistToSeg` so nobody squares
+it again. This is why the eraser felt grabby and why a face was hard to select.
+
+**Every face was lost on save and reload.** The `LINE` branch of
+`TWorkDoc.LoadFrom` had no `begin`/`end`, so the group-id line ran as a
+statement of its own and took the whole `else if` chain with it. Any record
+with eleven or more tokens — which is every `FACE` — never reached its branch,
+and the first one written wrote to `FEnts[-1]`. Caught by the new headless test:
+before the fix it reported `faces survive = 0, wanted 6`. Reported by Codex in
+`SUGGESTIONS_TO_CLAUDE.md`.
+
+**A copied solid shared the original's group id**, so push/pull on the copy
+deformed the original. `Duplicate` now remaps each source group to a fresh one.
+Also from Codex's review.
+
+**Arc hit testing treated a projected arc as a screen circle**, which is only
+true when the arc's plane faces the camera square on. Both `HitEdge` and
+`HitTest` now walk the drawn segments over the real sweep, through one shared
+`ArcScreenDist`. Also from Codex's review.
+
+## Headless tests — new, `tests/run.sh`
+
+44 checks over parsing, save/reload, copying, moving and splitting, with no
+window involved. Codex was right that screenshots will not catch this class of
+bug: two of the four fixes above are things you would only notice days later.
+
+Still to add, from Codex's list: metric parsing, undo/redo round trips,
+hit-testing arcs in oblique views, and counts after every operation rather than
+after some of them.
+
+## Still outstanding from Codex's review
+
+* **Planar region finding proper** — the half-edge rebuild in #4. Codex puts it
+  ahead of offset and rotate, and that is the right call.
+* **`HitTest`'s `ekFace` fallback** treats a face as the segment `A`..`B`.
+  `PickAt` tries `HitFace` before falling back, so selection is fine, but the
+  fallback itself should use the polygon interior.
+* **Move connectivity rules** need writing down and testing: two solids touching
+  at one corner currently drag each other.
