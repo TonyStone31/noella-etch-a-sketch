@@ -318,6 +318,9 @@ implementation
 
 const
   MM_PER_INCH = 25.4;
+  { SketchUp's default front material, near enough.  Faces start here and
+    take only a hint of the pen colour. }
+  FACE_MATERIAL: TPix = (B: $F6; G: $FA; R: $FA; A: 255);
 
 function UnitName(U: TUnitSystem): string;
 begin
@@ -2802,9 +2805,27 @@ begin
           end;
         end;
 
-      ekText, ekDim: ;   // drawn last, so solids never hide a label
+      { Labels and dimensions are drawn here, before the faces, so that a
+        solid in front of them hides them - which is what SketchUp does and
+        what stops a base dimension floating over the top of a box.  Any
+        that lie in the plane of a face still facing us are put back after
+        the face pass. }
+      ekText:
+        begin
+          PA := Project(V, FEnts[I].A);
+          S.TextOut(Round(PA.X) + 5, Round(PA.Y) - S.TextExtent('X', AFont).cy - 3,
+            FEnts[I].Txt, AFont, Col);
+          S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
+        end;
+      ekDim:
+        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
     end;
   end;
+
+  if ShowDims then
+    for I := 0 to FLive - 1 do
+      if (FEnts[I].Kind = ekLine) and FEnts[I].Dim then
+        Dimension(FEnts[I].A, FEnts[I].B, 20);
 
   { --- solids go on top of the edges, which is what hides the lines that
         run behind them ------------------------------------------------- }
@@ -2863,16 +2884,20 @@ begin
     for J := 0 to High(FEnts[K].Poly) do
       Flat[J] := Project(V, FEnts[K].Poly[J]);
     Nm := FaceNormal(K);
-    Sh := 0.45 + 0.55 * Abs(Dot3(Nm, Lamp));
     Col := ColorToPix(FEnts[K].Ink);
-    { faces read as surfaces, not ink, so they are lightened and flat-shaded }
-    { Opaque in the 3D views, where a solid has to hide what is behind it.
-      In plan there is nothing to hide and a filled room would just bury the
-      drawing, so the fill is only a tint. }
-    if V.Kind = vkPlan then
-      S.FillPoly(Flat, ShadePix(MixPix(Col, Pix(255, 255, 255), 0.62), Sh), 0.16)
-    else
-      S.FillPoly(Flat, ShadePix(MixPix(Col, Pix(255, 255, 255), 0.62), Sh), 1.0);
+    { A face is a surface with a material on it, not a stroke of ink.  It
+      starts from SketchUp's near-white default and carries only a hint of
+      the pen colour, so a red-inked part still reads as red without the
+      drawing turning into a paint chart.  Shading comes from how the face
+      is turned relative to a fixed lamp, which is what makes a box look
+      like a box.
+
+      Opaque in every view.  It used to be a 16 percent tint in plan, on the
+      grounds that there was nothing to hide - but there is: a face laid over
+      another one, and every line and dimension underneath.  Filling it
+      properly is what stops a solid looking like glass. }
+    Sh := 0.72 + 0.28 * Abs(Dot3(Nm, Lamp));
+    S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
     S.Poly(Flat, 1.1, Col, True, 0.9);
   end;
 
@@ -2884,42 +2909,38 @@ begin
         of a face that survived the culling. }
   for I := 0 to FLive - 1 do
   begin
-    if FEnts[I].Kind <> ekLine then Continue;
+    if not (FEnts[I].Kind in [ekLine, ekDim, ekText]) then Continue;
     for J := 0 to NFace - 1 do
     begin
       K := Order[J];
       Nm := FaceNormal(K);
       Sh := Dot3(Nm, FEnts[K].Poly[0]);
-      if (Abs(Dot3(Nm, FEnts[I].A) - Sh) < 1E-6) and
-         (Abs(Dot3(Nm, FEnts[I].B) - Sh) < 1E-6) then
-      begin
-        PA := Project(V, FEnts[I].A);
-        PB := Project(V, FEnts[I].B);
-        S.Line(PA.X, PA.Y, PB.X, PB.Y, FEnts[I].Weight, ColorToPix(FEnts[I].Ink));
-        Break;
+      if (Abs(Dot3(Nm, FEnts[I].A) - Sh) >= 1E-6) or
+         (Abs(Dot3(Nm, FEnts[I].B) - Sh) >= 1E-6) then Continue;
+      Col := ColorToPix(FEnts[I].Ink);
+      case FEnts[I].Kind of
+        ekLine:
+          begin
+            PA := Project(V, FEnts[I].A);
+            PB := Project(V, FEnts[I].B);
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, FEnts[I].Weight, Col);
+            if ShowDims and FEnts[I].Dim then
+              Dimension(FEnts[I].A, FEnts[I].B, 20);
+          end;
+        ekDim:
+          Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
+        ekText:
+          begin
+            PA := Project(V, FEnts[I].A);
+            S.TextOut(Round(PA.X) + 5,
+              Round(PA.Y) - S.TextExtent('X', AFont).cy - 3,
+              FEnts[I].Txt, AFont, Col);
+            S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
+          end;
       end;
+      Break;
     end;
   end;
-
-  { --- labels, always on top ----------------------------------------- }
-  for I := 0 to FLive - 1 do
-    case FEnts[I].Kind of
-      ekText:
-        begin
-          PA := Project(V, FEnts[I].A);
-          S.TextOut(Round(PA.X) + 5, Round(PA.Y) - S.TextExtent('X', AFont).cy - 3,
-            FEnts[I].Txt, AFont, ColorToPix(FEnts[I].Ink));
-          S.Disc(PA.X, PA.Y, 2.2, ColorToPix(FEnts[I].Ink), 0.9);
-        end;
-      ekDim:
-        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].R);
-      ekLine, ekArc, ekFace: ;
-    end;
-
-  if not ShowDims then Exit;
-  for I := 0 to FLive - 1 do
-    if (FEnts[I].Kind = ekLine) and FEnts[I].Dim then
-      Dimension(FEnts[I].A, FEnts[I].B, 20);
 end;
 
 end.
