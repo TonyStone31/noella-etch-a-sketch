@@ -315,6 +315,10 @@ do_github() {
     "working tree is dirty - commit or stash before releasing"
 
   # Date-stamped tag, with a suffix if that date already went out today.
+  # The tags have to come down from the remote first: gh creates the tag on
+  # GitHub's side, so a release made from here leaves nothing local to see
+  # and the next one picks the same name and is refused.
+  git -C "$ROOT" fetch --tags --quiet origin 2>/dev/null || true
   if [ -z "$tag" ]; then
     local base n
     base="v$(date +%Y.%m.%d)"
