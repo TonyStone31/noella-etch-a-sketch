@@ -307,8 +307,13 @@ nothing to set up.
 | `heckers-sketch-linux` | Linux (`chmod +x` it first) |
 | `checked/…` | the same two with range, overflow and heap checking on — slower, but they say what went wrong |
 
+**One copy at a time.** Two would share the same draft and take turns
+overwriting each other's work, which is what corrupted it and crashed the
+program. A second launch says so and stops. `--multi` opens another anyway if
+you really want two.
+
 Command line: `heckers-sketch [file.hsk] [--maximized] [--fullscreen]
-[--size=WxH]`, and `--help`.
+[--size=WxH] [--multi]`, and `--help`.
 
 ## Building
 

@@ -11,13 +11,33 @@ uses
   {$ENDIF}
   Interfaces, // this includes the LCL widgetset
   Forms, SysUtils, printer4lazarus,
-  uSurface, uSkin, uWork, uMain;
+  {$IFDEF WINDOWS}Windows,{$ENDIF}
+  uSurface, uSkin, uWork, uSingle, uMain;
 
 {$R *.res}
 
 { --help is answered before any of the LCL starts up, so it prints and leaves
   rather than printing and then opening a window.  A GUI build on Windows has
   no console to write to, which is allowed to fail quietly. }
+{ Say so without needing the LCL to be up, since we are about to leave. }
+procedure ShowAlreadyRunning;
+begin
+  try
+    WriteLn('Heckers Sketch is already running.');
+    WriteLn('Only one copy at a time - they would share the same draft and');
+    WriteLn('overwrite each other.  Use --multi if you really want two.');
+    Flush(Output);
+  except
+  end;
+  {$IFDEF WINDOWS}
+  MessageBoxW(0,
+    'Heckers Sketch is already running.'#13#10#13#10 +
+    'Only one copy at a time - two would share the same draft and overwrite '
+    + 'each other''s work.',
+    'Heckers Sketch', MB_OK or MB_ICONINFORMATION);
+  {$ENDIF}
+end;
+
 function AskedForHelp: Boolean;
 var
   I: Integer;
@@ -39,6 +59,7 @@ begin
     WriteLn('  --maximized        open filling the screen');
     WriteLn('  --fullscreen       open with no window frame at all');
     WriteLn('  --size=1600x1000   open at a particular size, centerd');
+    WriteLn('  --multi            open a second copy anyway');
     WriteLn('  --help             this');
     WriteLn;
     WriteLn('Without a switch the window comes back the size and the place it');
@@ -49,8 +70,31 @@ begin
   end;
 end;
 
+{ Did somebody ask for a second window on purpose? }
+function WantsAnother: Boolean;
+var
+  I: Integer;
+  A: string;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+  begin
+    A := LowerCase(ParamStr(I));
+    if (A = '--multi') or (A = '--new-instance') then Result := True;
+  end;
+end;
+
 begin
   if AskedForHelp then Halt(0);
+
+  { One copy at a time, because they share the draft and would otherwise take
+    turns overwriting each other's work. }
+  if not WantsAnother and not BecomeTheOnlyCopy then
+  begin
+    ShowAlreadyRunning;
+    Halt(0);
+  end;
+
   RequireDerivedFormResource := True;
   Application.Scaled := True;
   Application.Title := 'Heckers Sketch';
