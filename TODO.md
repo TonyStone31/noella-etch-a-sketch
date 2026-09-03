@@ -69,8 +69,8 @@ Notes got their leader lines on 3 September 2026.  Still wanted there: moving
 a note after it is placed, and a leader that stays attached to the edge it
 points at when that edge moves.
 
-**Tony's idea, worth building:** letting go of a run of lines by *holding*
-the left button.  Hold it still for about a second and the rubber band draws
+~~**Tony's idea:** letting go of a run of lines by *holding* the left
+button.~~  Built 3 September 2026.  Original note:  Hold it still for about a second and the rubber band draws
 as a stick under strain - stretching, thinning, a crack running through it -
 and when it snaps you are disconnected.  Double-click does the job today and
 is invisible; this would teach itself the first time you leaned on the button
