@@ -3056,9 +3056,10 @@ var
   Ar: Double;
   Flat: array of TPointF;
   Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
-  M: Integer;
+  M, Run0: Integer;
   T0, T1: Double;
   QA, QB: TP3;
+  Vis: Boolean;
 
   { Is this model point hidden by a face drawn after the one at Slot?  Later
     in the sorted order means nearer the camera, so anything there is in
@@ -3123,8 +3124,11 @@ var
   function LineW(Ent: Integer): Single;
   begin
     Result := EdgeW;
+    { SketchUp draws edges at one pixel and profiles at two, so the profile is
+      one pixel heavier, not twice as heavy.  Doubling a four pixel pen gave
+      an eight pixel outline, which is a border rather than a drawing. }
     if VisibleFacesOnEdge(V, FEnts[Ent].A, FEnts[Ent].B) = 1 then
-      Result := EdgeW * 2;
+      Result := EdgeW + Max(1, EdgeW * 0.35);
   end;
 
 begin
@@ -3267,31 +3271,88 @@ begin
         of a face that survived the culling. }
   for I := 0 to FLive - 1 do
   begin
-    if not (FEnts[I].Kind in [ekLine, ekDim, ekText]) then Continue;
+    if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekText]) then Continue;
     for J := 0 to NFace - 1 do
     begin
       K := Order[J];
       Nm := FaceNormal(K);
       Sh := Dot3(Nm, FEnts[K].Poly[0]);
-      if (Abs(Dot3(Nm, FEnts[I].A) - Sh) >= 1E-6) or
-         (Abs(Dot3(Nm, FEnts[I].B) - Sh) >= 1E-6) then Continue;
+      if FEnts[I].Kind = ekArc then
+      begin
+        { an arc lies in a face when its middle and its rim do }
+        if Abs(Dot3(Nm, FEnts[I].C) - Sh) >= 1E-6 then Continue;
+        if Abs(Dot3(Nm, ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0,
+             FEnts[I].Plane)) - Sh) >= 1E-6 then Continue;
+      end
+      else if (Abs(Dot3(Nm, FEnts[I].A) - Sh) >= 1E-6) or
+              (Abs(Dot3(Nm, FEnts[I].B) - Sh) >= 1E-6) then Continue;
       Col := ColorToPix(FEnts[I].Ink);
       case FEnts[I].Kind of
         ekLine:
           { Only the stretches of it that nothing is standing in front of.
             Putting the whole line back is what let the lines of a flat grid
             run straight through the towers pushed up out of it - the solid
-            was opaque, and then the lines were painted back on top of it. }
-          for M := 0 to LINE_STEPS - 1 do
+            was opaque, and then the lines were painted back on top of it.
+
+            Consecutive visible pieces are drawn as one line rather than as
+            thirty-two abutting ones: each short segment has its own ends, and
+            at a heavy profile weight the joins showed as notches along it. }
           begin
-            T0 := M / LINE_STEPS;
-            T1 := (M + 1) / LINE_STEPS;
-            QA := Lerp3(FEnts[I].A, FEnts[I].B, T0);
-            QB := Lerp3(FEnts[I].A, FEnts[I].B, T1);
-            if Covered(Lerp3(QA, QB, 0.5), J) then Continue;
-            PA := Project(V, QA);
-            PB := Project(V, QB);
-            S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
+          Run0 := -1;
+          for M := 0 to LINE_STEPS do
+          begin
+            if M < LINE_STEPS then
+            begin
+              T0 := M / LINE_STEPS;
+              T1 := (M + 1) / LINE_STEPS;
+              Vis := not Covered(Lerp3(FEnts[I].A, FEnts[I].B,
+                (T0 + T1) / 2), J);
+            end
+            else
+              Vis := False;
+            if Vis and (Run0 < 0) then Run0 := M;
+            if (not Vis) and (Run0 >= 0) then
+            begin
+              PA := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, Run0 / LINE_STEPS));
+              PB := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, M / LINE_STEPS));
+              S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
+              Run0 := -1;
+            end;
+          end;
+          end;
+        ekArc:
+          { the same, walked round the curve - without this a circle drawn on
+            the side of a box was painted over by the box and looked as though
+            it had landed somewhere else entirely }
+          begin
+            Steps := Max(24, Min(180, Round(Abs(FEnts[I].Sweep) *
+              FEnts[I].R * V.Ppu / 6)));
+            Run0 := -1;
+            for M := 0 to Steps do
+            begin
+              if M < Steps then
+              begin
+                Ang := FEnts[I].A0 + FEnts[I].Sweep * (M + 0.5) / Steps;
+                Vis := not Covered(ArcPoint(FEnts[I].C, FEnts[I].R, Ang,
+                  FEnts[I].Plane), J);
+              end
+              else
+                Vis := False;
+              if Vis and (Run0 < 0) then Run0 := M;
+              if (not Vis) and (Run0 >= 0) then
+              begin
+                PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
+                  FEnts[I].A0 + FEnts[I].Sweep * Run0 / Steps, FEnts[I].Plane));
+                for K := Run0 + 1 to M do
+                begin
+                  PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
+                    FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane));
+                  S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
+                  PA := PB;
+                end;
+                Run0 := -1;
+              end;
+            end;
           end;
         ekDim:
           if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then
