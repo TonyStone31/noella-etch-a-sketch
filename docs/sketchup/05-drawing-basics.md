@@ -32,6 +32,24 @@ on face while a shape is under way, no guide points, no sections.  Each shows
 as one small solid diamond coloured the way SketchUp colours it: green a
 corner, cyan a middle, red a point lying on an edge, violet a crossing.)*
 
+### From Point — the one that matters most
+
+> **From Point** — "Linear alignment from a point; dotted line colour matches
+> axis direction."
+
+This is the feature with no obvious name: rest the cursor on a corner for a
+moment to *encourage* the inference, move away, and a dotted guide keeps you
+lined up with it.  The important half is that it **combines** with whatever
+else is in force.  Running left along the red axis from the top corner of a
+rectangle, with the bottom-left corner encouraged, the answer is where the two
+guides cross — and that is how you close the rectangle square without a corner
+to snap to.
+
+*(Built.  Resting on a point for 450 ms holds it; the guide is magenta, and it
+survives an axis lock rather than being thrown away by it.  A held point holds
+from 18 pixels either side, where one the engine merely noticed holds from 7 —
+you asked for the held one, so it should be harder to shake off.)*
+
 **Linear:** on red / green / blue axis, from point, through point, parallel,
 extend edge, perpendicular, perpendicular to face, tangent at vertex.
 
