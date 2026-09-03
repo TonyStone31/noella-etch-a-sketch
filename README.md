@@ -94,9 +94,13 @@ The same idea taken seriously.
 * **A command bar that says what it wants next**, so there is nothing to
   memorize. Type a number and it is a length; start with `/` and it is a
   command — `/iso`, `/3d`, `/plan`, `/fit`, `/scale 1/4`, `/units`, `/new`.
-* **Tools** — select, line (chained), rectangle, arc, circle, push/pull, move,
-  tape measure, dimension, text note, eraser. Clicking the lit tool puts it
-  away; **Esc** backs out one step at a time.
+* **Tools** — select, line (chained), rectangle, arc, circle, push/pull,
+  offset, move, tape measure, dimension, text note, eraser. Clicking the lit
+  tool puts it away; **Esc** backs out one step at a time.
+* **Offset** for a wall thickness. Click a face, move in or out, and click —
+  or type `2"`. Every edge shifts sideways and the shifted edges extend to
+  meet again, so the spacing is exact at the corners too, which is the whole
+  point when the number is going to a shop.
 * **Arcs join two loose ends.** Pick the two points, pull the middle out. No
   trimming required.
 * **Select and move.** Click picks; **Ctrl** adds, **Shift** toggles,
@@ -190,7 +194,7 @@ The same idea taken seriously.
 
 | Key | Action |
 | --- | --- |
-| Q L R A C P M T D N E O | select, line, rect, arc, circle, push/pull, move, tape, dimension, note, erase, orbit |
+| Q L R A C P F M T D N E O | select, line, rect, arc, circle, push/pull, offset, move, tape, dimension, note, erase, orbit |
 | Tab | next tool |
 | Space / Enter | place a point, or commit what you typed |
 | Arrow keys | set the direction while drawing; otherwise nudge the cursor |
@@ -203,7 +207,7 @@ The same idea taken seriously.
 | V | cycle plan → isometric → 3D |
 | I | isometric / plan |
 | K | cycle the working plane (XY / XZ / YZ) |
-| F | zoom to fit |
+| Shift+F | zoom to fit |
 | U | feet-and-inches / metric |
 | Ctrl+T / Ctrl+W / Ctrl+Tab | new sheet / close sheet / next sheet |
 | Right-drag | pan;  wheel = zoom |

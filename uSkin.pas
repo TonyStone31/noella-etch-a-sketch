@@ -40,7 +40,8 @@ type
     ikOpen, ikFit, ikExport, ikArrow,
     { one per tool, so a button and the cursor can both say which is which }
     ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
-    ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove
+    ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove,
+    ikTOffset
   );
 
 const
@@ -450,6 +451,16 @@ begin
     ikTRect:
       S.Poly([Px(0.20, 0.28), Px(0.80, 0.28), Px(0.80, 0.72), Px(0.20, 0.72)],
         LW, C, True, Alpha);
+
+    { Offset: the shape, and the same shape again a little way outside it -
+      which is the whole of what the tool does. }
+    ikTOffset:
+      begin
+        S.Poly([Px(0.32, 0.38), Px(0.68, 0.38), Px(0.68, 0.62), Px(0.32, 0.62)],
+          LW, C, True, Alpha);
+        S.Poly([Px(0.18, 0.26), Px(0.82, 0.26), Px(0.82, 0.74), Px(0.18, 0.74)],
+          LW * 0.8, C, True, Alpha * 0.55);
+      end;
 
     ikTArc:
       begin

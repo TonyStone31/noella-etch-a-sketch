@@ -1020,6 +1020,21 @@ begin
      'the inside corner of an L moves out of the notch, to (3,3)');
   Ok(LoopArea2D(R) < LoopArea2D(Sq), 'and the L got smaller overall');
 
+  { Taken in further than it can go, an offset turns the shape inside out.
+    That is not an offset of anything, so it must come back empty rather
+    than as a sliver that looks like geometry and measures wrong. }
+  SetLength(Sq, 4);
+  Sq[0] := P3(0, 0, 0); Sq[1] := P3(10, 0, 0);
+  Sq[2] := P3(10, 6, 0); Sq[3] := P3(0, 6, 0);
+  Ok(Length(OffsetLoop(Sq, P3(0, 0, 1), -2.9)) = 4,
+     '10x6 taken in 2.9 still has somewhere to be');
+  EqI(Length(OffsetLoop(Sq, P3(0, 0, 1), -3)), 0,
+      '10x6 taken in exactly 3 collapses to a line, so: nothing');
+  EqI(Length(OffsetLoop(Sq, P3(0, 0, 1), -4)), 0,
+      'and taken in 4 it would turn inside out');
+  Ok(Length(OffsetLoop(Sq, P3(0, 0, 1), 50)) = 4,
+     'outward has no such limit');
+
   { Nothing sensible to do with these, and it must not crash or invent. }
   SetLength(Sq, 2);
   Sq[0] := P3(0, 0, 0); Sq[1] := P3(1, 0, 0);

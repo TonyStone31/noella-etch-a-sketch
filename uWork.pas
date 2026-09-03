@@ -1072,6 +1072,7 @@ var
   PU, PV: array of Double;         // the loop, in plane coordinates
   DU, DV: array of Double;         // each edge's unit direction
   NU, NV: array of Double;         // each edge's outward normal
+  RU, RV: array of Double;         // the answer, in plane coordinates
   Area, L, Cr, T, Sgn, AU, AV: Double;
 begin
   Result := nil;
@@ -1133,6 +1134,7 @@ begin
   end;
 
   SetLength(Result, Cnt);
+  SetLength(RU, Cnt); SetLength(RV, Cnt);
   for I := 0 to Cnt - 1 do
   begin
     { corner I is where the offset of edge I-1 meets the offset of edge I }
@@ -1155,7 +1157,23 @@ begin
     end;
     Result[I] := P3(Ax.X * AU + Bx.X * AV, Ax.Y * AU + Bx.Y * AV,
                     Ax.Z * AU + Bx.Z * AV);
+    { kept apart from PU/PV, which the next corner still needs to read }
+    RU[I] := AU;
+    RV[I] := AV;
   end;
+
+  { An offset inward that goes further than the shape can take turns it
+    inside out - a 10 x 6 box taken in by 4 comes back as a line, and by 5 as
+    a box wound the other way.  Neither is an offset of anything, so say so
+    by returning nothing rather than laying down a sliver that looks like
+    geometry and measures wrong. }
+  T := 0;
+  for I := 0 to Cnt - 1 do
+  begin
+    J := (I + 1) mod Cnt;
+    T := T + (RU[I] * RV[J] - RU[J] * RV[I]);
+  end;
+  if (T * Area <= 0) or (Abs(T) < Abs(Area) * 1E-6) then Result := nil;
 end;
 
 procedure PlaneCoords(Pl: TPlane; const P: TP3; out U, W: Double);
