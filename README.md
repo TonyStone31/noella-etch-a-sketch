@@ -131,6 +131,10 @@ The same idea taken seriously.
 
 **Measuring**
 
+* **The shape you are about to draw is drawn solid and heavy**, in the color
+  of the axis it is locked to, the way SketchUp does it. A dashed hairline
+  reads as faint and provisional when it is in fact the thing you are about
+  to commit.
 * **True scale.** 1/16", 1/8", 1/4", 1/2" and 1" = 1'-0", or 1:200 through 1:10
   in metric. Printing re-renders the page from the geometry at the printer's own
   resolution, so a quarter inch on the paper really is a foot.

@@ -4042,16 +4042,21 @@ var
   begin
     PA := ScreenOf(A);
     PB := ScreenOf(B);
-    C.Pen.Style := psDash;
+    { Solid, and heavy enough to be unmistakable.  SketchUp keeps the shape
+      you are placing solid, and it is right to: a dashed hairline reads as
+      something faint and provisional when it is in fact the thing you are
+      about to commit.  Heavier again when it is locked to an axis, because
+      then the line is also telling you which way you are going. }
+    C.Pen.Style := psSolid;
     if FAxisLock in [0..2] then
     begin
       C.Pen.Color := PixToColor(AxisPix(FAxisLock));
-      C.Pen.Width := Max(2, Round(2 * FUIScale));
+      C.Pen.Width := Max(3, Round(3 * FUIScale));
     end
     else
     begin
       C.Pen.Color := PixToColor(Theme.Accent);
-      C.Pen.Width := 1;
+      C.Pen.Width := Max(2, Round(2 * FUIScale));
     end;
     C.MoveTo(Round(PA.X), Round(PA.Y));
     C.LineTo(Round(PB.X), Round(PB.Y));
