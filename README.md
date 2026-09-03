@@ -265,6 +265,31 @@ The same idea taken seriously.
 
 ---
 
+## Keeping it up to date
+
+It looks at the GitHub releases page **once a day** and says in the status bar
+if there is a newer build. `/update` fetches it, checks it against the
+checksums published with the release, puts it in place and starts again —
+your drawing is kept and comes straight back, which is what makes replacing
+the program underneath you a reasonable thing to do at all.
+
+If you would rather it did not: **`/update never`** and it stops looking.
+`/update` still works whenever you ask it to, and `/update always` turns the
+daily look back on.
+
+What it sends: nothing. It asks GitHub one question — what is the newest
+release — over the same public URL your browser would use, and no part of the
+request says anything about you, your machine or your drawing. It will not
+touch a copy running from its own source folder, because that is somebody's
+working build.
+
+If it crashes, the next launch offers to report it: your browser opens a
+GitHub issue **filled in but not sent**, so you can read exactly what is in it
+and add what you were doing. Say no and the file stays put with its name on
+screen. There is no account, key or token anywhere in the program — a token
+with write access, in a binary given to strangers, is a token given to
+strangers.
+
 ## Installing
 
 Grab the build for your machine from

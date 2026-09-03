@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uRegion;
+  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate;
 
 var
   Fails: Integer = 0;
@@ -1342,6 +1342,45 @@ begin
   end;
 end;
 
+{ Comparing release tags.  Getting this wrong means either nagging forever
+  or never offering an update at all, and both are silent. }
+procedure TestVersions;
+  procedure Later(const A, B: string; Want: Boolean);
+  begin
+    Inc(Checks);
+    if NewerThan(A, B) = Want then
+      WriteLn('  ok    ', A, Format(' %s ', [BoolToStr(Want, 'is after', 'is not after')]), B)
+    else
+    begin
+      WriteLn('  FAIL  ', A, ' vs ', B, ' - got ', NewerThan(A, B));
+      Inc(Fails);
+    end;
+  end;
+begin
+  WriteLn('comparing release tags');
+  Later('v2026.09.04',    'v2026.09.03',    True);
+  Later('v2026.09.03',    'v2026.09.04',    False);
+  Later('v2026.09.03',    'v2026.09.03',    False);   { same is not newer }
+  { the one that catches a text comparison: 13 is after 9, not before it }
+  Later('v2026.09.03.13', 'v2026.09.03.9',  True);
+  Later('v2026.09.03.9',  'v2026.09.03.13', False);
+  { a tagged build is always after a hand-built one }
+  Later('v2026.09.03.1',  'v0.0.0-dev',     True);
+  Later('v0.0.0-dev',     'v2026.09.03.1',  False);
+  { a bare tag against one with a suffix }
+  Later('v2026.09.03.1',  'v2026.09.03',    True);
+  Later('v2026.09.03',    'v2026.09.03.1',  False);
+  { a year turning over, and a month, which plain text also gets right but
+    which would break if the pieces were compared in the wrong order }
+  Later('v2027.01.01',    'v2026.12.31',    True);
+  Later('v2026.10.01',    'v2026.09.30',    True);
+  { rubbish must not read as newer, or a bad release nags forever }
+  Later('',               'v2026.09.03',    False);
+  Later('not-a-version',  'v2026.09.03',    False);
+  { and case on the v }
+  Later('V2026.09.04',    'v2026.09.03',    True);
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -1366,6 +1405,7 @@ begin
   TestPushAfterOffset; WriteLn;
   TestDimNote;      WriteLn;
   TestNotes;        WriteLn;
+  TestVersions;     WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
