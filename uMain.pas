@@ -2353,8 +2353,10 @@ begin
       GRP_POPUP, POP_COLOR, 'COLOR',
       'Line color - click for the list', ikDroplet);
     Add(dkSegment, Rect(X + 3 * SegW, RowY, X + 4 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_WIDTH, Format('WIDTH  %d px', [FPenSize]),
-      'Line thickness - click for the list', ikDroplet);
+      GRP_POPUP, POP_WIDTH, Format('LINES  %d px', [FPenSize]),
+      'How thick every edge in this drawing is drawn.  It is one setting for ' +
+      'the whole sheet, the way SketchUp does it - not a property of the ' +
+      'line you happen to be drawing.', ikDroplet);
 
     AddIconRow6(Y0,
       [ACT_UNDO, ACT_REDO, ACT_FIT, ACT_THEME, ACT_GRID, ACT_HELP],
