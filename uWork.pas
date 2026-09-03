@@ -162,6 +162,9 @@ type
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
 
     { push/pull: lift the face along its own normal and wall in the sides }
+    { Hand the edges round a face to a solid's group, so they stop counting
+      as loose lines that enclose a flat area. }
+    procedure ClaimOutline(Face, G: Integer);
     function PushPull(Index: Integer; Dist: Double): Boolean;
     { Slide a face along a vector, dragging everything joined to it. }
     procedure MoveFaceWith(Index: Integer; const D: TP3);
@@ -179,11 +182,6 @@ type
     { Cut every flat face this segment crosses in two.  Returns how many were
       split.  This is what makes a line drawn across a shape divide it. }
     function SplitFacesWith(const A, B: TP3): Integer;
-    { Join the two faces that share the edge from A to B into one.  This is
-      what rubbing out a line between two regions should do. }
-    function MergeFacesAcross(const A, B: TP3): Boolean;
-    { How many flat faces run along the edge from A to B, either way round. }
-    function FacesOnEdge(const A, B: TP3): Integer;
     { Is this face one piece of a larger flat area rather than the whole flat
       side of something?  True when another face lying in the same plane runs
       along one of its edges - which is exactly what a cut across a box top
@@ -195,8 +193,6 @@ type
       the shape against whatever is behind it - which is what SketchUp draws
       thicker and calls a profile. }
     function VisibleFacesOnEdge(const V: TProjector; const A, B: TP3): Integer;
-    { Drop flat faces whose outline is no longer closed by real edges. }
-    function DropOpenFaces: Integer;
     { The face a point lies on, or -1.  Used to work out which plane a new
       shape belongs in when the cursor has snapped to a corner. }
     function FaceThrough(const P: TP3): Integer;
@@ -208,9 +204,6 @@ type
       out Face: Integer; out Pt: TP3): Boolean;
     function FaceNormal(Index: Integer): TP3;
     function FaceArea(Index: Integer): Double;
-
-    { the closed loop of lines ending at the last entity, if there is one }
-    function ClosedChain(Tol: Double; out Pts: TP3Array): Boolean;
     procedure Delete(I: Integer);
     procedure Clear;
     procedure SetLive(N: Integer);
@@ -1801,29 +1794,6 @@ begin
   end;
 end;
 
-function TWorkDoc.FacesOnEdge(const A, B: TP3): Integer;
-const
-  TOL = 1E-6;
-var
-  I, Q, N: Integer;
-begin
-  Result := 0;
-  for I := 0 to FLive - 1 do
-  begin
-    if FEnts[I].Kind <> ekFace then Continue;
-    if FEnts[I].Solid then Continue;
-    N := Length(FEnts[I].Poly);
-    for Q := 0 to N - 1 do
-      if ((Dist(FEnts[I].Poly[Q], A) < TOL) and
-          (Dist(FEnts[I].Poly[(Q + 1) mod N], B) < TOL)) or
-         ((Dist(FEnts[I].Poly[Q], B) < TOL) and
-          (Dist(FEnts[I].Poly[(Q + 1) mod N], A) < TOL)) then
-      begin
-        Inc(Result);
-        Break;
-      end;
-  end;
-end;
 
 { A face is the inside of a closed run of edges.  Rub one of those edges out
   and there is no longer an inside, so the face should go with it - deleting
@@ -1831,152 +1801,7 @@ end;
 
   Every straight run of a flat face's outline has to be backed by a real
   line; the curved runs an arc left behind are matched against arcs. }
-function TWorkDoc.DropOpenFaces: Integer;
-const
-  TOL = 1E-6;
-var
-  I, Q, N: Integer;
-  Gone: Boolean;
 
-  function Backed(const A, B: TP3): Boolean;
-  var
-    J: Integer;
-  begin
-    Result := True;
-    for J := 0 to FLive - 1 do
-      case FEnts[J].Kind of
-        ekLine:
-          if ((Dist(FEnts[J].A, A) < TOL) and (Dist(FEnts[J].B, B) < TOL)) or
-             ((Dist(FEnts[J].A, B) < TOL) and (Dist(FEnts[J].B, A) < TOL)) then
-            Exit;
-        ekArc:
-          { an arc's own points are not lines; the whole run belongs to it }
-          if (Abs(Dist(FEnts[J].C, A) - FEnts[J].R) < 1E-4) and
-             (Abs(Dist(FEnts[J].C, B) - FEnts[J].R) < 1E-4) then
-            Exit;
-        ekText, ekDim, ekFace: ;   // not edges
-      end;
-    Result := False;
-  end;
-
-begin
-  Result := 0;
-  repeat
-    Gone := False;
-    for I := FLive - 1 downto 0 do
-    begin
-      if FEnts[I].Kind <> ekFace then Continue;
-      if FEnts[I].Solid then Continue;
-      N := Length(FEnts[I].Poly);
-      if N < 3 then Continue;
-      for Q := 0 to N - 1 do
-        if not Backed(FEnts[I].Poly[Q], FEnts[I].Poly[(Q + 1) mod N]) then
-        begin
-          Delete(I);
-          Inc(Result);
-          Gone := True;
-          Break;
-        end;
-      if Gone then Break;
-    end;
-  until not Gone;
-end;
-
-function TWorkDoc.MergeFacesAcross(const A, B: TP3): Boolean;
-const
-  TOL = 1E-6;
-var
-  F1, F2, I, J, K, N1, N2, M: Integer;
-  P1, P2, Res: TP3Array;
-
-  { Where the edge U..V starts in this polygon, or -1.  Direction matters:
-    two regions that share an edge run it opposite ways round. }
-  function EdgeAt(const Poly: TP3Array; const U, V: TP3): Integer;
-  var
-    Q, N: Integer;
-  begin
-    Result := -1;
-    N := Length(Poly);
-    for Q := 0 to N - 1 do
-      if (Dist(Poly[Q], U) < TOL) and (Dist(Poly[(Q + 1) mod N], V) < TOL) then
-        Exit(Q);
-  end;
-
-  procedure Reverse(var Poly: TP3Array);
-  var
-    Q, N: Integer;
-    T: TP3;
-  begin
-    N := Length(Poly);
-    for Q := 0 to N div 2 - 1 do
-    begin
-      T := Poly[Q];
-      Poly[Q] := Poly[N - 1 - Q];
-      Poly[N - 1 - Q] := T;
-    end;
-  end;
-
-  { The edge either way round, flipping the polygon if that is what it takes.
-    Windings are normalized when a face is made, so which way a given edge
-    runs is not something to assume. }
-  function Orient(var Poly: TP3Array; const U, V: TP3): Integer;
-  begin
-    Result := EdgeAt(Poly, U, V);
-    if Result >= 0 then Exit;
-    Reverse(Poly);
-    Result := EdgeAt(Poly, U, V);
-  end;
-
-begin
-  Result := False;
-  F1 := -1;
-  F2 := -1;
-
-  for K := 0 to FLive - 1 do
-  begin
-    if FEnts[K].Kind <> ekFace then Continue;
-    if FEnts[K].Solid then Continue;
-    if Length(FEnts[K].Poly) < 3 then Continue;
-    if (EdgeAt(FEnts[K].Poly, A, B) < 0) and
-       (EdgeAt(FEnts[K].Poly, B, A) < 0) then Continue;
-    if F1 < 0 then F1 := K else if F2 < 0 then F2 := K;
-  end;
-  if (F1 < 0) or (F2 < 0) then Exit;
-
-  SetLength(P1, Length(FEnts[F1].Poly));
-  for K := 0 to High(P1) do P1[K] := FEnts[F1].Poly[K];
-  SetLength(P2, Length(FEnts[F2].Poly));
-  for K := 0 to High(P2) do P2[K] := FEnts[F2].Poly[K];
-
-  I := Orient(P1, A, B);
-  J := Orient(P2, B, A);
-  if (I < 0) or (J < 0) then Exit;
-
-  N1 := Length(P1);
-  N2 := Length(P2);
-  SetLength(Res, N1 + N2 - 2);
-  M := 0;
-  { the first face, from B all the way round to A }
-  for K := 0 to N1 - 1 do
-  begin
-    Res[M] := P1[(I + 1 + K) mod N1];
-    Inc(M);
-  end;
-  { then the second face's own points, between A and B }
-  for K := 0 to N2 - 3 do
-  begin
-    Res[M] := P2[(J + 2 + K) mod N2];
-    Inc(M);
-  end;
-
-  SetLength(FEnts[F1].Poly, M);
-  for K := 0 to M - 1 do FEnts[F1].Poly[K] := Res[K];
-  FEnts[F1].A := Res[0];
-  FEnts[F1].B := Res[M - 1];
-  Delete(F2);
-  FSnapDirty := True;
-  Result := True;
-end;
 
 { Which flat face a point sits on.  A corner of a box belongs to three of
   them; the first found will do, since they are all planes a new shape could
@@ -2285,6 +2110,64 @@ begin
         Exit(FEnts[I].Weight);
 end;
 
+{ Hand every edge lying along this face's outline to the given group.  An
+  edge counts when every point that defines it sits on the outline - both
+  ends of a line, or a handful of samples round an arc. }
+procedure TWorkDoc.ClaimOutline(Face, G: Integer);
+const
+  TOL = 1E-6;
+  ARC_SAMPLES = 12;
+var
+  I, K, N, J: Integer;
+  Poly: TP3Array;
+
+  function OnOutline(const P: TP3): Boolean;
+  var
+    Q: Integer;
+    T, Off: Double;
+    A, B, D: TP3;
+    L2: Double;
+  begin
+    Result := True;
+    for Q := 0 to N - 1 do
+    begin
+      A := Poly[Q];
+      B := Poly[(Q + 1) mod N];
+      D := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+      L2 := D.X * D.X + D.Y * D.Y + D.Z * D.Z;
+      if L2 < 1E-18 then Continue;
+      T := ((P.X - A.X) * D.X + (P.Y - A.Y) * D.Y + (P.Z - A.Z) * D.Z) / L2;
+      T := EnsureRange(T, 0, 1);
+      Off := Dist(P, P3(A.X + D.X * T, A.Y + D.Y * T, A.Z + D.Z * T));
+      if Off < TOL then Exit;
+    end;
+    Result := False;
+  end;
+
+begin
+  Poly := FEnts[Face].Poly;
+  N := Length(Poly);
+  if N < 3 then Exit;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Grp <> 0 then Continue;
+    case FEnts[I].Kind of
+      ekLine:
+        if OnOutline(FEnts[I].A) and OnOutline(FEnts[I].B) then
+          FEnts[I].Grp := G;
+      ekArc:
+        begin
+          J := 0;
+          for K := 0 to ARC_SAMPLES do
+            if OnOutline(ArcPoint(FEnts[I].C, FEnts[I].R,
+                 FEnts[I].A0 + FEnts[I].Sweep * K / ARC_SAMPLES,
+                 FEnts[I].Plane)) then Inc(J);
+          if J = ARC_SAMPLES + 1 then FEnts[I].Grp := G;
+        end;
+    end;
+  end;
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N, G: Integer;
@@ -2347,6 +2230,12 @@ begin
   end;
   G := FEnts[Index].Grp;
 
+  { The edges round the base belong to the solid now.  Without this they stay
+    loose, and the next time the flat areas are worked out from the loose
+    edges the base would come back as a face of its own, sitting inside the
+    box it was pulled out of. }
+  ClaimOutline(Index, G);
+
   SetLength(Rev, N);
   if Dist >= 0 then
   begin
@@ -2397,22 +2286,6 @@ begin
 end;
 
 { The loop of chained lines ending at the last entity, if it closes. }
-function TWorkDoc.ClosedChain(Tol: Double; out Pts: TP3Array): Boolean;
-var
-  I, First, N: Integer;
-begin
-  Pts := nil;
-  Result := False;
-  First := FirstOfChain;
-  N := FLive - First;
-  if N < 3 then Exit;
-  if not SamePt(FEnts[FLive - 1].B, FEnts[First].A, Tol) then Exit;
-
-  SetLength(Pts, N);
-  for I := 0 to N - 1 do
-    Pts[I] := FEnts[First + I].A;
-  Result := True;
-end;
 
 { Where two segments come closest.  They are treated as crossing only if
   that gap is negligible and the meeting point is properly inside both. }

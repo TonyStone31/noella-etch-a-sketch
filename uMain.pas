@@ -387,6 +387,10 @@ type
       solid's own faces are its boundary and are not derived either. }
     function EdgeSegments: TSegArray;
     procedure ReportRegions;
+    { The one call that keeps the drawn faces right.  Everything that changes
+      an edge ends with this. }
+    function RebuildFlatFaces: Integer;
+    function FaceCount: Integer;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
@@ -4064,7 +4068,7 @@ end;
 
 procedure TMainForm.ProClick;
 var
-  I: Integer;
+  I, J: Integer;
   P: TPointF;
   WasLine: Boolean;
   EA, EB: TP3;
@@ -4132,10 +4136,12 @@ begin
           EA := FD.Doc[I].A;
           EB := FD.Doc[I].B;
           FD.Doc.Delete(I);
-          if WasLine and FD.Doc.MergeFacesAcross(EA, EB) then
-            FCmdMsg := 'Deleted - the two faces either side are one now.'
-          else if WasLine and FD.Doc.MergeFacesAcross(EB, EA) then
-            FCmdMsg := 'Deleted - the two faces either side are one now.'
+          { taking a line away can join two areas into one, or leave a shape
+            that no longer closes - both fall out of working the faces out
+            again, so neither needs a rule of its own }
+          J := FaceCount;
+          if WasLine and (RebuildFlatFaces < J) then
+            FCmdMsg := 'Deleted - the faces either side are one now.'
           else
             FCmdMsg := 'Deleted.';
           SelectNone;
@@ -4330,7 +4336,7 @@ var
   T, C: TP3;
   Loop: TP3Array;
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
-  Segs: Integer;
+  Segs, K: Integer;
   Ok: Boolean;
 begin
   case FTool of
@@ -4347,20 +4353,14 @@ begin
             FD.Doc.AddLine(FP1, T, FInkColor, FEdgeW, False);
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
           end;
-          { A line drawn across a face divides it.  Without this the face
-            stayed whole with a line lying on top of it, so push/pull could
-            only ever move the outer shape however many times you split it. }
-          I := FD.Doc.SplitFacesWith(FP1, T);
-          if I > 0 then
-            FCmdMsg := FCmdMsg + Format('   split %d face%s',
-              [I, IfThen(I = 1, '', 's')])
-          { a run of lines that closes on itself makes a face of its own -
-            but only if it did not just cut one, or the two would overlap }
-          else if FD.Doc.ClosedChain(Max(SnapStep, 1E-6) * 0.51, Loop) then
-          begin
-            FD.Doc.AddFace(Loop, FInkColor);
-            FCmdMsg := FCmdMsg + '   loop closed - face made';
-          end;
+          { Whatever this line did to the flat areas - closed a loop, cut a
+            face in two, cut one of the halves again - is worked out by asking
+            what the edges enclose, rather than by a rule per case. }
+          I := FaceCount;
+          K := RebuildFlatFaces;
+          if K > I then
+            FCmdMsg := FCmdMsg + Format('   %d face%s now',
+              [K, IfThen(K = 1, '', 's')]);
           RenderPro;
           RecomposeAll;
           FP1 := T;
@@ -4385,9 +4385,7 @@ begin
             if not FD.Doc.HasLine(Loop[I], Loop[(I + 1) mod 4]) then
               FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
                 FInkColor, FPenSize, False);
-          { closed by construction, so the face comes with it rather than
-            waiting for four separate lines to happen to meet }
-          FD.Doc.AddFace(Loop, FInkColor);
+          RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
           FCmdMsg := Format('%s x %s   area %s',
@@ -4424,19 +4422,10 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(C, R, A0, Sweep, FD.Plane, FInkColor, FEdgeW);
-          { An arc whose chord is already an edge closes a loop with it, so
-            it gets a region of its own.  It stays a separate face from
-            whatever is on the other side of that edge - lift either alone -
-            until the edge between them is rubbed out. }
           FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
-          if FD.Doc.HasLine(FP1, FP2) then
-          begin
-            SetLength(Loop, ARC_SEGS + 1);
-            for I := 0 to ARC_SEGS do
-              Loop[I] := ArcPoint(C, R, A0 + Sweep * I / ARC_SEGS, FD.Plane);
-            FD.Doc.AddFace(Loop, FInkColor);
-            FCmdMsg := FCmdMsg + '   closed a face with the edge';
-          end;
+          I := FaceCount;
+          if RebuildFlatFaces > I then
+            FCmdMsg := FCmdMsg + '   closed a face';
           RenderPro;
           RecomposeAll;
         end;
@@ -4453,20 +4442,7 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(FP1, R, 0, 2 * Pi, FD.Plane, FInkColor, FEdgeW);
-          { A circle drew a curve and nothing else, so there was never
-            anything for push/pull to take hold of - which is why drawing one
-            on a box and pulling it into a pipe did not work. It gets a face
-            of its own now, approximated as a polygon, and PushPull already
-            handles any number of sides. }
-          { The bigger the circle, the more sides it takes to stop looking
-            like a polygon - roughly one every five pixels of the rim as it is
-            drawn, between two dozen and ninety-six.  A fixed twenty-four is
-            fine for a pipe and obviously faceted on a tank. }
-          Segs := EnsureRange(Round(Pi * R * Ppu / 5), CIRCLE_SEGS, 96);
-          SetLength(Loop, Segs);
-          for I := 0 to Segs - 1 do
-            Loop[I] := ArcPoint(FP1, R, 2 * Pi * I / Segs, FD.Plane);
-          FD.Doc.AddFace(Loop, FInkColor);
+          RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
           FCmdMsg := Format('Circle radius %s   area %s',
@@ -4496,6 +4472,10 @@ begin
             FCmdMsg := 'Moved ' + FormatLen(
               Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units);
           end;
+          { moving an edge changes what the edges enclose, so the flat areas
+            are worked out again - which is also what stretches a face to
+            follow the edge that moved }
+          RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
         end;
@@ -4629,6 +4609,14 @@ begin
     pbDeck.Invalidate;
   end
   else if W = 'regions' then ReportRegions
+  else if W = 'rebuild' then
+  begin
+    PushUndo;
+    I := RebuildFlatFaces;
+    RenderPro;
+    RecomposeAll;
+    FCmdMsg := Format('Worked the faces out again: %d.', [I]);
+  end
   else if (W = 'guides') or (W = 'noguides') then
   begin
     { SketchUp's Edit > Delete Guides.  They are aids, and a drawing that has
@@ -5397,7 +5385,7 @@ begin
   for I := 0 to N - 1 do
     FD.Doc.Delete(FSel[I]);
   SetLength(FSel, 0);
-  FD.Doc.DropOpenFaces;
+  RebuildFlatFaces;
   FCmdMsg := Format('Deleted %d thing%s.', [N, IfThen(N = 1, '', 's')]);
   RenderPro;
   RecomposeAll;
@@ -5577,20 +5565,18 @@ begin
   end;
 
   PushUndo;
+  J := FaceCount;
   for I := 0 to N - 1 do
     FD.Doc.Delete(FDoomed[I]);
-  for I := 0 to N - 1 do
-    if Kinds[I] in [ekLine, ekArc] then
-      if not FD.Doc.MergeFacesAcross(EA[I], EB[I]) then
-        FD.Doc.MergeFacesAcross(EB[I], EA[I]);
-  { whatever is left with a gap in its outline is not a face any more.  A
-    face rubbed out on purpose is a different matter and is simply gone. }
-  J := FD.Doc.DropOpenFaces;
+  { Faces joining up where a line went, and faces disappearing because their
+    outline is no longer closed, both come out of working the areas out again
+    from what is left. }
+  J := J - RebuildFlatFaces;
 
   if N = 1 then FCmdMsg := 'Deleted.'
   else FCmdMsg := Format('Deleted %d things.', [N]);
   if J > 0 then
-    FCmdMsg := FCmdMsg + Format('  %d face%s no longer closed.',
+    FCmdMsg := FCmdMsg + Format('  %d face%s gone with them.',
       [J, IfThen(J = 1, '', 's')]);
   SetLength(FDoomed, 0);
   SelectNone;
@@ -5656,6 +5642,11 @@ begin
   N := 0;
   SetLength(Result, 64);
   for I := 0 to FD.Doc.Live - 1 do
+  begin
+    { A solid's own edges are part of its boundary, not lines on a sheet, so
+      they take no part in working out flat areas - otherwise every face of
+      every box would be found twice, once as itself and once as a region. }
+    if FD.Doc[I].Grp <> 0 then Continue;
     case FD.Doc[I].Kind of
       ekLine:
         begin
@@ -5678,7 +5669,96 @@ begin
           end;
         end;
     end;
+  end;
   SetLength(Result, N);
+end;
+
+{ Work the drawn faces out again from the edges.
+
+  This replaces a rule per situation - a chain that closes itself, a line that
+  cuts a face in two, two faces merging when the line between them goes, a
+  face dropped when its outline stops being backed by real edges - with one
+  question asked after every edit: given these edges, what areas do they
+  enclose?
+
+  A solid's faces are left alone.  They are the boundary of something in three
+  dimensions, not an area on a flat sheet, and a solid keeps its own topology;
+  its edges are kept out of the calculation for the same reason.  That is the
+  line Codex drew and it is the right one.
+
+  The color of a face survives because a new region inherits it from whichever
+  old face its middle fell inside. }
+{ How many flat faces there are, for saying what an edit changed. }
+function TMainForm.FaceCount: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid then Inc(Result);
+end;
+
+function TMainForm.RebuildFlatFaces: Integer;
+type
+  TWas = record
+    Mid: TP3;
+    Poly: TP3Array;
+    Nm: TP3;
+    Ink: TColor;
+  end;
+var
+  R: TRegionArray;
+  Was: array of TWas;
+  NWas, I, J, K: Integer;
+  Mid: TP3;
+  Ink: TColor;
+begin
+  R := BuildRegions(EdgeSegments);
+
+  { remember what was there, so the new faces can take their colors }
+  NWas := 0;
+  SetLength(Was, FD.Doc.Live);
+  for I := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid and
+       (Length(FD.Doc[I].Poly) >= 3) then
+    begin
+      Was[NWas].Poly := Copy(FD.Doc[I].Poly, 0, Length(FD.Doc[I].Poly));
+      Was[NWas].Nm := FD.Doc.FaceNormal(I);
+      Was[NWas].Ink := FD.Doc[I].Ink;
+      Mid := P3(0, 0, 0);
+      for K := 0 to High(Was[NWas].Poly) do
+        Mid := P3(Mid.X + Was[NWas].Poly[K].X, Mid.Y + Was[NWas].Poly[K].Y,
+                  Mid.Z + Was[NWas].Poly[K].Z);
+      K := Length(Was[NWas].Poly);
+      Was[NWas].Mid := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
+      Inc(NWas);
+    end;
+  SetLength(Was, NWas);
+
+  { out with the old, highest first so the numbers below do not shift }
+  for I := FD.Doc.Live - 1 downto 0 do
+    if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid then
+      FD.Doc.Delete(I);
+
+  for I := 0 to High(R) do
+  begin
+    Mid := P3(0, 0, 0);
+    for K := 0 to High(R[I].Outer) do
+      Mid := P3(Mid.X + R[I].Outer[K].X, Mid.Y + R[I].Outer[K].Y,
+                Mid.Z + R[I].Outer[K].Z);
+    K := Length(R[I].Outer);
+    Mid := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
+
+    Ink := FInkColor;
+    for J := 0 to NWas - 1 do
+      if PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
+      begin
+        Ink := Was[J].Ink;
+        Break;
+      end;
+    FD.Doc.AddFaceRaw(R[I].Outer, Ink, False);
+  end;
+  Result := Length(R);
 end;
 
 { A read-only look at what the region engine makes of this drawing, next to
