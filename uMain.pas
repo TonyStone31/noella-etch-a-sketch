@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork;
+  uSurface, uSkin, uWork, uRegion;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -382,6 +382,11 @@ type
     procedure ServiceHover;
     function DimOffset3: TP3;
     procedure LayGuide;
+    { Every drawn edge as a plain segment, which is what the region engine
+      eats.  Guides, dimensions and notes are not geometry and stay out; a
+      solid's own faces are its boundary and are not derived either. }
+    function EdgeSegments: TSegArray;
+    procedure ReportRegions;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
@@ -4623,6 +4628,7 @@ begin
     RecomposeAll;
     pbDeck.Invalidate;
   end
+  else if W = 'regions' then ReportRegions
   else if (W = 'guides') or (W = 'noguides') then
   begin
     { SketchUp's Edit > Delete Guides.  They are aids, and a drawing that has
@@ -5638,6 +5644,80 @@ begin
   FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   guide point';
   RenderPro;
   RecomposeAll;
+end;
+
+function TMainForm.EdgeSegments: TSegArray;
+const
+  ARC_STEPS = 48;
+var
+  I, K, N: Integer;
+  A: TP3;
+begin
+  N := 0;
+  SetLength(Result, 64);
+  for I := 0 to FD.Doc.Live - 1 do
+    case FD.Doc[I].Kind of
+      ekLine:
+        begin
+          if N >= Length(Result) then SetLength(Result, N * 2);
+          Result[N].A := FD.Doc[I].A;
+          Result[N].B := FD.Doc[I].B;
+          Inc(N);
+        end;
+      ekArc:
+        begin
+          A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R, FD.Doc[I].A0, FD.Doc[I].Plane);
+          for K := 1 to ARC_STEPS do
+          begin
+            if N >= Length(Result) then SetLength(Result, N * 2);
+            Result[N].A := A;
+            A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R,
+              FD.Doc[I].A0 + FD.Doc[I].Sweep * K / ARC_STEPS, FD.Doc[I].Plane);
+            Result[N].B := A;
+            Inc(N);
+          end;
+        end;
+    end;
+  SetLength(Result, N);
+end;
+
+{ A read-only look at what the region engine makes of this drawing, next to
+  the faces actually stored.  It changes nothing - it is here so the new way
+  can be checked against real drawings before anything depends on it. }
+procedure TMainForm.ReportRegions;
+var
+  R: TRegionArray;
+  Segs: TSegArray;
+  I, Stored, Holes: Integer;
+  Area, StoredArea, T0: Double;
+begin
+  Segs := EdgeSegments;
+  T0 := Now;
+  R := BuildRegions(Segs);
+  T0 := (Now - T0) * 24 * 60 * 60 * 1000;
+
+  Stored := 0;
+  StoredArea := 0;
+  for I := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid then
+    begin
+      Inc(Stored);
+      StoredArea := StoredArea + FD.Doc.FaceArea(I);
+    end;
+
+  Area := 0;
+  Holes := 0;
+  for I := 0 to High(R) do
+  begin
+    Area := Area + Abs(LoopArea(R[I].Outer, R[I].Normal));
+    Inc(Holes, Length(R[I].Holes));
+  end;
+
+  FCmdMsg := Format('%d edges -> %d regions (%s, %d holes) in %.0f ms.  ' +
+    'Stored flat faces: %d (%s)',
+    [Length(Segs), Length(R), FormatArea(Area, FD.Units), Holes, T0,
+     Stored, FormatArea(StoredArea, FD.Units)]);
+  pbCmd.Invalidate;
 end;
 
 function TMainForm.DimOffset3: TP3;
