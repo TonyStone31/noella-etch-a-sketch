@@ -108,11 +108,12 @@ The same idea taken seriously.
   most of the drawing: `8" SCH 40` floating in space is a riddle, and the
   same words on the end of a leader are an instruction.
 * **Lean on the button to snap the line off.** Hold the left button still
-  part way through a run and the rubber band stops being elastic: it stiffens
-  into a stick, bows, thins in the middle and cracks, and then it goes. The
-  two ends recoil. Nothing is placed — that is the whole point of it, and the
-  thing a double-click cannot do. Let go before it breaks and it was just a
-  click.
+  part way through a run and the rubber band stops being elastic: it bows,
+  goes bold and red, tells you **hold to snap the line off**, and at the end
+  starts to come apart before it goes with a burst. About a second and a half,
+  deliberately — long enough to read the warning and back out of. Nothing is
+  placed, which is the whole point and the thing a double-click cannot do.
+  Let go early, or move the mouse, and it was just a click.
 * **Double-click finishes a run of lines.** A line carries on from the point
   you just put down, which is what you want nine times in ten; a double-click
   lets go of it without placing anything. Esc does the same. (SketchUp has no
