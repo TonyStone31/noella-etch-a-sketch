@@ -377,6 +377,23 @@ function Cross3(const A, B: TP3): TP3;
 function Dot3(const A, B: TP3): Double; inline;
 function Norm3(const A: TP3): TP3;
 
+{ An equidistant copy of a closed loop, in the loop's own plane - the inside
+  and outside lines of a duct wall, a flange, the wall of a vessel.
+
+  Every edge is shifted sideways by D and the shifted edges are then extended
+  until they meet again.  That is what keeps the corners sharp and the spacing
+  exact: moving the corner *points* by D instead would pull every corner in by
+  a factor of its angle, so a mitre would come out narrower than the sides.
+
+  D is positive outward, and outward is worked out from the way the loop winds
+  about Normal, so the caller does not have to know which way its own points
+  go round.  Negative D offsets inward.
+
+  A loop that eats itself is not cleaned up here, and does not need to be: the
+  region engine splits every crossing and walks the cycles, so an offset that
+  overshoots simply comes back as smaller regions. }
+function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Array;
+
 { The two in-plane coordinates of a model point. }
 procedure PlaneCoords(Pl: TPlane; const P: TP3; out U, W: Double);
 
@@ -1017,6 +1034,101 @@ begin
     plXZ: begin AU := P3(1, 0, 0); AV := P3(0, 0, 1); end;
   else
     begin AU := P3(0, 1, 0); AV := P3(0, 0, 1); end;
+  end;
+end;
+
+function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Array;
+const
+  EPS = 1E-9;
+var
+  N, Ax, Bx: TP3;
+  Cnt, I, J, K: Integer;
+  PU, PV: array of Double;         // the loop, in plane coordinates
+  DU, DV: array of Double;         // each edge's unit direction
+  NU, NV: array of Double;         // each edge's outward normal
+  Area, L, Cr, T, Sgn, AU, AV: Double;
+begin
+  Result := nil;
+  Cnt := Length(Loop);
+  if Cnt < 3 then Exit;
+
+  N := Norm3(Normal);
+
+  { Any two perpendicular directions in the plane will do.  Start from
+    whichever axis the normal leans on least, so the cross product is never
+    taken between two nearly parallel vectors. }
+  if (Abs(N.X) <= Abs(N.Y)) and (Abs(N.X) <= Abs(N.Z)) then
+    Ax := P3(1, 0, 0)
+  else if Abs(N.Y) <= Abs(N.Z) then
+    Ax := P3(0, 1, 0)
+  else
+    Ax := P3(0, 0, 1);
+  Ax := Norm3(Cross3(N, Ax));
+  Bx := Norm3(Cross3(N, Ax));
+
+  SetLength(PU, Cnt); SetLength(PV, Cnt);
+  for I := 0 to Cnt - 1 do
+  begin
+    PU[I] := Dot3(Loop[I], Ax);
+    PV[I] := Dot3(Loop[I], Bx);
+  end;
+
+  { Which way round does it go?  The shoelace area in plane coordinates says
+    so, and that is what fixes the meaning of "outward". }
+  Area := 0;
+  for I := 0 to Cnt - 1 do
+  begin
+    J := (I + 1) mod Cnt;
+    Area := Area + (PU[I] * PV[J] - PU[J] * PV[I]);
+  end;
+  if Abs(Area) < EPS then Exit;
+  if Area > 0 then Sgn := 1 else Sgn := -1;
+
+  SetLength(DU, Cnt); SetLength(DV, Cnt);
+  SetLength(NU, Cnt); SetLength(NV, Cnt);
+  for I := 0 to Cnt - 1 do
+  begin
+    J := (I + 1) mod Cnt;
+    DU[I] := PU[J] - PU[I];
+    DV[I] := PV[J] - PV[I];
+    L := Sqrt(DU[I] * DU[I] + DV[I] * DV[I]);
+    if L < EPS then
+    begin
+      { a repeated point: the edge has no direction, so leave it flat and let
+        its neighbours span the gap }
+      DU[I] := 0; DV[I] := 0; NU[I] := 0; NV[I] := 0;
+      Continue;
+    end;
+    DU[I] := DU[I] / L;
+    DV[I] := DV[I] / L;
+    { to the right of the way it is going, for a loop wound the positive way }
+    NU[I] := DV[I] * Sgn;
+    NV[I] := -DU[I] * Sgn;
+  end;
+
+  SetLength(Result, Cnt);
+  for I := 0 to Cnt - 1 do
+  begin
+    { corner I is where the offset of edge I-1 meets the offset of edge I }
+    K := (I + Cnt - 1) mod Cnt;
+    Cr := DU[K] * DV[I] - DV[K] * DU[I];
+    if Abs(Cr) < 1E-7 then
+    begin
+      { the two edges run the same way, so there is no corner to sharpen -
+        step straight out along the normal }
+      AU := PU[I] + NU[I] * D;
+      AV := PV[I] + NV[I] * D;
+    end
+    else
+    begin
+      AU := (PU[I] + NU[I] * D) - (PU[K] + NU[K] * D);
+      AV := (PV[I] + NV[I] * D) - (PV[K] + NV[K] * D);
+      T := (AU * DV[I] - AV * DU[I]) / Cr;
+      AU := PU[K] + NU[K] * D + DU[K] * T;
+      AV := PV[K] + NV[K] * D + DV[K] * T;
+    end;
+    Result[I] := P3(Ax.X * AU + Bx.X * AV, Ax.Y * AU + Bx.Y * AV,
+                    Ax.Z * AU + Bx.Z * AV);
   end;
 end;
 

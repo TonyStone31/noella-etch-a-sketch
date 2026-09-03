@@ -54,6 +54,31 @@ export - take a run from the scaled model and emit an iso sheet with callouts
 transitions and pulls measurements.  The handful of features that have to be
 excellent are the ones he touches every day.
 
+## The part that actually matters for a pipe fitter
+
+Tony's refinement, and it is the useful one: if a welder does use the ISO
+view to lay a pipe line out, **he will not care what scale it is**.  He will
+snap the run to the paper grid, annotate every leg, and read the numbers.
+The scale being true underneath is harmless - it is simply ignored, exactly
+the way it is ignored on a real ISO sheet.
+
+So we do not need a not-to-scale mode at all.  What that person needs from
+the ISO view is only two things:
+
+1. **Snapping to the paper grid that is easy and predictable.**  The grid has
+   to be a grid you can actually land on - see the pitch/snap fix, where the
+   ruling used to be finer than the snap could reach - and the plane has to
+   stay where it was put rather than being guessed at.
+2. **Annotation that is good enough to carry the drawing.**  This is where
+   the information lives on a real ISO.  Text notes and point-to-point
+   dimensions are in; what is missing is the rest of the dimension tool -
+   radius and diameter, dragging an extension line out of the way, typing
+   over the text to write a called-out length - and leaders.
+
+That reframes the priority.  Annotation is not a nicety for the ISO view, it
+is the whole content of an ISO drawing.  Anything in TODO.md under the
+dimension tool is really ISO work.
+
 ## What follows from this
 
 * The ISO view stays a view.  All the tools stay available in it - it is one
@@ -64,3 +89,4 @@ excellent are the ones he touches every day.
   camera makes the guess meaningful.  See `PlaneByDrag` in `uWork.pas`.
 * If an iso spool sheet is ever wanted, it is an export off the model.  There
   is a line for it in TODO.md.
+* Finishing the dimension tool counts as ISO work, not as polish.

@@ -909,6 +909,132 @@ begin
   Drag(+150, 0, plXZ, plXZ, 'and does not argue with a held one');
 end;
 
+{ Offsetting a closed loop - the duct wall thickness tool.
+
+  The thing worth checking is that the *spacing* is right, not just that the
+  points moved: offsetting the corner points instead of the edges gives a
+  shape that looks plausible and is the wrong distance away at every corner. }
+procedure TestOffset;
+var
+  Sq, R, Tri: TP3Array;
+  I: Integer;
+  A0, A1: Double;
+
+  { how far a point is from the nearest edge of a loop, in the loop's plane }
+  function EdgeGap(const P: TP3; const L: TP3Array): Double;
+  var
+    J, K: Integer;
+    VX, VY, WX, WY, T, DX, DY, Len2, D: Double;
+  begin
+    Result := 1E30;
+    for J := 0 to High(L) do
+    begin
+      K := (J + 1) mod Length(L);
+      VX := L[K].X - L[J].X;  VY := L[K].Y - L[J].Y;
+      WX := P.X - L[J].X;     WY := P.Y - L[J].Y;
+      Len2 := VX * VX + VY * VY;
+      if Len2 < 1E-18 then T := 0
+      else T := EnsureRange((WX * VX + WY * VY) / Len2, 0, 1);
+      DX := WX - VX * T;      DY := WY - VY * T;
+      D := Sqrt(DX * DX + DY * DY);
+      if D < Result then Result := D;
+    end;
+  end;
+
+  function LoopArea2D(const L: TP3Array): Double;
+  var
+    J, K: Integer;
+  begin
+    Result := 0;
+    for J := 0 to High(L) do
+    begin
+      K := (J + 1) mod Length(L);
+      Result := Result + (L[J].X * L[K].Y - L[K].X * L[J].Y);
+    end;
+    Result := Abs(Result) / 2;
+  end;
+
+begin
+  WriteLn('Offsetting a loop');
+
+  { A 10 x 10 square on the ground, wound counter-clockwise. }
+  SetLength(Sq, 4);
+  Sq[0] := P3(0, 0, 0); Sq[1] := P3(10, 0, 0);
+  Sq[2] := P3(10, 10, 0); Sq[3] := P3(0, 10, 0);
+
+  R := OffsetLoop(Sq, P3(0, 0, 1), 1);
+  EqI(Length(R), 4, 'an offset square still has four corners');
+  A0 := LoopArea2D(Sq); A1 := LoopArea2D(R);
+  Ok(A1 > A0, 'a positive offset grows it');
+  Ok(Abs(A1 - 144) < 1E-6, '10x10 out by 1 is 12x12');
+  Ok(Abs(R[0].X - (-1)) < 1E-9, 'the corner went diagonally out, not sideways');
+  Ok(Abs(R[0].Y - (-1)) < 1E-9, 'in both directions at once');
+  Ok(Abs(R[0].Z) < 1E-9, 'and stayed in its plane');
+
+  R := OffsetLoop(Sq, P3(0, 0, 1), -2);
+  Ok(Abs(LoopArea2D(R) - 36) < 1E-6, 'a negative offset shrinks it: 10x10 in 2 is 6x6');
+
+  { Wound the other way round.  Outward must still mean outward - that is the
+    whole point of taking the winding from the loop rather than the caller. }
+  SetLength(Sq, 4);
+  Sq[0] := P3(0, 0, 0); Sq[1] := P3(0, 10, 0);
+  Sq[2] := P3(10, 10, 0); Sq[3] := P3(10, 0, 0);
+  R := OffsetLoop(Sq, P3(0, 0, 1), 1);
+  Ok(Abs(LoopArea2D(R) - 144) < 1E-6, 'a clockwise square grows the same way');
+
+  { The spacing has to be exactly D everywhere, including at the corners.
+    This is the check that catches offsetting the points instead of the
+    edges - that gives 1.41 at a right-angle corner, not 1. }
+  SetLength(Tri, 3);
+  Tri[0] := P3(0, 0, 0); Tri[1] := P3(12, 0, 0); Tri[2] := P3(0, 9, 0);
+  R := OffsetLoop(Tri, P3(0, 0, 1), -1.5);
+  EqI(Length(R), 3, 'an offset triangle still has three corners');
+  for I := 0 to 2 do
+    Ok(Abs(EdgeGap(R[I], Tri) - 1.5) < 1E-6,
+       Format('3-4-5 triangle corner %d sits exactly 1.5 in', [I]));
+
+  { An upright face, so the plane basis gets exercised away from the ground. }
+  SetLength(Sq, 4);
+  Sq[0] := P3(0, 0, 0); Sq[1] := P3(10, 0, 0);
+  Sq[2] := P3(10, 0, 10); Sq[3] := P3(0, 0, 10);
+  R := OffsetLoop(Sq, P3(0, 1, 0), 1);
+  Ok(Length(R) = 4, 'an upright square offsets too');
+  for I := 0 to 3 do
+    Ok(Abs(R[I].Y) < 1E-9, Format('upright corner %d stayed in the XZ plane', [I]));
+  Ok(Abs(Min(Min(R[0].X, R[1].X), Min(R[2].X, R[3].X)) - (-1)) < 1E-6,
+     'and it grew by one on the far side');
+
+  { A concave corner has to be pushed the other way, not pulled in. }
+  SetLength(Sq, 6);
+  Sq[0] := P3(0, 0, 0);  Sq[1] := P3(10, 0, 0); Sq[2] := P3(10, 4, 0);
+  Sq[3] := P3(4, 4, 0);  Sq[4] := P3(4, 10, 0); Sq[5] := P3(0, 10, 0);
+  R := OffsetLoop(Sq, P3(0, 0, 1), -1);
+  EqI(Length(R), 6, 'an L keeps its six corners');
+  { The reflex corner is the one that catches a sign error.  Shrinking the L
+    by 1 pulls the top of the horizontal arm down to y=3 and the right of the
+    vertical arm left to x=3, so the inside corner lands on (3,3) - away from
+    the notch, not into it.  Measuring it by distance-to-nearest-edge would
+    read 1.41 here and be right to: at a reflex corner the foot of the
+    perpendicular falls off the end of both segments. }
+  Ok((Abs(R[3].X - 3) < 1E-6) and (Abs(R[3].Y - 3) < 1E-6),
+     'the inside corner of an L moves out of the notch, to (3,3)');
+  Ok(LoopArea2D(R) < LoopArea2D(Sq), 'and the L got smaller overall');
+
+  { Nothing sensible to do with these, and it must not crash or invent. }
+  SetLength(Sq, 2);
+  Sq[0] := P3(0, 0, 0); Sq[1] := P3(1, 0, 0);
+  EqI(Length(OffsetLoop(Sq, P3(0, 0, 1), 1)), 0, 'two points are not a loop');
+  SetLength(Sq, 0);
+  EqI(Length(OffsetLoop(Sq, P3(0, 0, 1), 1)), 0, 'and neither is nothing');
+
+  { Zero offset is the identity. }
+  SetLength(Sq, 4);
+  Sq[0] := P3(0, 0, 0); Sq[1] := P3(10, 0, 0);
+  Sq[2] := P3(10, 10, 0); Sq[3] := P3(0, 10, 0);
+  R := OffsetLoop(Sq, P3(0, 0, 1), 0);
+  Ok(Abs(LoopArea2D(R) - 100) < 1E-9, 'no offset changes nothing');
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -929,6 +1055,7 @@ begin
   TestMoveEdgeStretches; WriteLn;
   TestSolidClaimsItsEdges; WriteLn;
   TestPlaneByDrag;  WriteLn;
+  TestOffset;       WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
