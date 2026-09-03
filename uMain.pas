@@ -293,6 +293,17 @@ type
     FEditSeq, FDraftSeq: Int64;
     FDraftAge: Integer;
     FRestored: Boolean;
+    { Letting go of a run of lines by leaning on the button.
+
+      Hold the left button still and the rubber band stops being a rubber
+      band and becomes a stick under strain: it bows, thins, and a crack
+      runs through it.  When it breaks, the run is released and no point is
+      placed.  FHoldOn is a press waiting to see what it turns out to be,
+      FHoldT how long it has been held, FSnapT the recoil afterwards. }
+    FHoldOn: Boolean;
+    FHoldT, FSnapT: Single;
+    FHoldX, FHoldY: Integer;
+    FSnapA, FSnapB: TPointF;
     { the dimension whose figure is being typed over, or -1.  While this is
       set the command bar is a text box for that label. }
     FDimEdit: Integer;
@@ -399,6 +410,8 @@ type
     procedure PaintOrbitAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
+    procedure PaintSnapRecoil(C: TCanvas);
     procedure PaintFacePoints(C: TCanvas; Face: Integer);
     procedure PaintSnapMarker(C: TCanvas; SX, SY: Integer);
     procedure PaintDimPreview(C: TCanvas);
@@ -613,6 +626,11 @@ const
   SNAP_PX         = 16.0;   // pulling onto a point on the drawing
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
   HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
+  { how long the button is leaned on before the line snaps off, and how long
+    the two ends recoil afterwards }
+  HOLD_STRAIN     = 0.22;   // before this it is just a click being made
+  HOLD_BREAK      = 0.85;
+  SNAP_RECOIL     = 0.20;
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 7.5;    // this close and the point is what you meant
   PIECE_PX        = 5.0;    // ...and this close for the middle of a piece
@@ -3652,6 +3670,102 @@ end;
   confirmation - the cursor marker still says what actually got snapped.
   The middle of a face is the one Tony asked for by name: a circle struck
   from the centre of a panel is most of what this program gets used for. }
+{ The rubber band, leaned on until it breaks.
+
+  A line under your hand is elastic - it follows you about, and letting go of
+  it needs the keyboard.  Hold the button still and it stops being elastic:
+  it stiffens into a stick, bows under the load, thins in the middle and
+  cracks, and then it goes.  The gesture teaches itself, which a keyboard
+  shortcut never does.
+
+  T runs 0 to 1 from the moment the press stops looking like a click to the
+  moment it breaks. }
+{ A point along a bent stick: the quadratic through A, the bowed middle M,
+  and B.  Straight when M is halfway, which is what makes the bow read. }
+function QuadAt(const A, M, B: TPointF; T: Double): TPointF;
+var
+  U: Double;
+begin
+  U := 1 - T;
+  Result.X := U * U * A.X + 2 * U * T * M.X + T * T * B.X;
+  Result.Y := U * U * A.Y + 2 * U * T * M.Y + T * T * B.Y;
+end;
+
+procedure TMainForm.PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
+var
+  I, N, W: Integer;
+  MX, MY, DX, DY, L, NX, NY, Bow, Sh: Double;
+  P0, P1: TPointF;
+begin
+  T := EnsureRange(T, 0, 1);
+  DX := B.X - A.X;
+  DY := B.Y - A.Y;
+  L := Sqrt(DX * DX + DY * DY);
+  if L < 2 then Exit;
+  NX := -DY / L;
+  NY := DX / L;
+
+  { it bows away from the pull, most in the middle, and trembles as it nears
+    the end }
+  Bow := 7 * FUIScale * Sin(T * Pi) * 0.9;
+  Sh := 1.6 * FUIScale * T * T;
+  MX := (A.X + B.X) / 2 + NX * Bow + (Random - 0.5) * 2 * Sh;
+  MY := (A.Y + B.Y) / 2 + NY * Bow + (Random - 0.5) * 2 * Sh;
+
+  C.Pen.Style := psSolid;
+  { from the ink color toward a strained red as it goes }
+  C.Pen.Color := PixToColor(MixPix(AnnotColor, Pix(60, 60, 220), T * 0.8));
+
+  { thick at the ends, pinched in the middle - that is what says "about to
+    give" without a word of explanation }
+  N := 10;
+  for I := 0 to N - 1 do
+  begin
+    P0 := QuadAt(A, PtF(MX, MY), B, I / N);
+    P1 := QuadAt(A, PtF(MX, MY), B, (I + 1) / N);
+    W := Max(1, Round((3.0 - 2.2 * T * Sin((I + 0.5) / N * Pi)) * FUIScale));
+    C.Pen.Width := W;
+    C.MoveTo(Round(P0.X), Round(P0.Y));
+    C.LineTo(Round(P1.X), Round(P1.Y));
+  end;
+
+  { and a crack across the middle, opening as it goes }
+  if T > 0.45 then
+  begin
+    C.Pen.Width := Max(1, Round(FUIScale));
+    C.Pen.Color := PixToColor(Theme.Screen1);
+    L := (T - 0.45) / 0.55 * 5 * FUIScale;
+    C.MoveTo(Round(MX - NX * L), Round(MY - NY * L));
+    C.LineTo(Round(MX + NX * L * 0.4), Round(MY + NY * L * 0.4));
+  end;
+  C.Pen.Width := 1;
+end;
+
+{ The two ends recoiling after it lets go - brief, and the only thing that
+  says the release was a break rather than a misclick. }
+procedure TMainForm.PaintSnapRecoil(C: TCanvas);
+var
+  T, DX, DY, L: Double;
+begin
+  if FSnapT <= 0 then Exit;
+  T := 1 - FSnapT / SNAP_RECOIL;          // 0 at the break, 1 at the end
+  DX := FSnapB.X - FSnapA.X;
+  DY := FSnapB.Y - FSnapA.Y;
+  L := Sqrt(DX * DX + DY * DY);
+  if L < 2 then Exit;
+  DX := DX / L;
+  DY := DY / L;
+  C.Pen.Style := psSolid;
+  C.Pen.Width := Max(1, Round(2 * FUIScale * (1 - T)));
+  C.Pen.Color := PixToColor(MixPix(AnnotColor, Theme.Screen1, T));
+  L := L * 0.30 * (1 - T);
+  C.MoveTo(Round(FSnapA.X), Round(FSnapA.Y));
+  C.LineTo(Round(FSnapA.X + DX * L), Round(FSnapA.Y + DY * L));
+  C.MoveTo(Round(FSnapB.X), Round(FSnapB.Y));
+  C.LineTo(Round(FSnapB.X - DX * L), Round(FSnapB.Y - DY * L));
+  C.Pen.Width := 1;
+end;
+
 procedure TMainForm.PaintFacePoints(C: TCanvas; Face: Integer);
 var
   Pts: TPointFArray;
@@ -3797,7 +3911,14 @@ begin
   { --- live preview ---------------------------------------------------- }
   case FTool of
     ptLine:
-      if FStage = 1 then Rubber(FP1, PreviewTarget);
+      if FStage = 1 then
+      begin
+        if FHoldOn and (FHoldT > HOLD_STRAIN) then
+          PaintStrain(C, ScreenOf(FP1), PtF(FMouseSX, FMouseSY),
+            (FHoldT - HOLD_STRAIN) / (HOLD_BREAK - HOLD_STRAIN))
+        else
+          Rubber(FP1, PreviewTarget);
+      end;
     ptRect:
       if FStage = 1 then
       begin
@@ -3861,6 +3982,8 @@ begin
     ptMove: PaintMoveGhost(C);
     ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
   end;
+
+  PaintSnapRecoil(C);
 
   { The face a new shape is about to land on, washed over and with its own
     points marked, so there is no doubt which surface you are drawing on.
@@ -5252,6 +5375,18 @@ begin
       Exit;
     end;
     FCur := ResolveSnapAt(X, Y);
+    { A run of lines is the one case where the press does not decide.  It
+      might be a click - another point - or it might be a hold, which lets go
+      of the run and places nothing.  Which one it was is not known until the
+      button comes up, or until it has been held long enough to break. }
+    if (FTool = ptLine) and (FStage >= 1) then
+    begin
+      FHoldOn := True;
+      FHoldT := 0;
+      FHoldX := X;
+      FHoldY := Y;
+      Exit;
+    end;
     ProClick;
     Exit;
   end;
@@ -6406,6 +6541,25 @@ begin
   FMovePending := True;
   ServiceMotion;
 
+  { A press on a run of lines that never became a hold.  Two clicks in quick
+    succession let go of the run without placing anything more - the point
+    from the first click stays where it landed, which is the bit Tony wanted
+    kept.  One click carries the line on as always. }
+  if FHoldOn and (Button = mbLeft) then
+  begin
+    FHoldOn := False;
+    FCur := ResolveSnapAt(X, Y);
+    if FClickN >= 2 then
+    begin
+      ResetTool;
+      FCmdMsg := 'Line finished.  Hold the button to snap it off instead.';
+    end
+    else
+      ProClick;
+    FScreenDirty := True;
+    Exit;
+  end;
+
   if FErasing2 then
   begin
     FErasing2 := False;
@@ -7093,6 +7247,37 @@ begin
   FollowScreenSize;
   ServiceMotion;
   ServiceHover;
+
+  { The stick under strain.  Held still, it winds up; moved, it goes slack
+    again, because a drag is someone changing their mind about where the
+    point goes rather than someone leaning on the button. }
+  if FHoldOn then
+  begin
+    if (Abs(FMouseSX - FHoldX) > 5) or (Abs(FMouseSY - FHoldY) > 5) then
+      FHoldT := 0
+    else
+    begin
+      FHoldT := FHoldT + Dt;
+      if FHoldT >= HOLD_BREAK then
+      begin
+        { It broke.  Let go of the run and place nothing - that is the whole
+          point of the gesture, and what a double-click cannot do. }
+        FSnapA := ScreenOf(FP1);
+        FSnapB := PtF(FMouseSX, FMouseSY);
+        FSnapT := SNAP_RECOIL;
+        FHoldOn := False;
+        ResetTool;
+        FCmdMsg := 'Snapped off.';
+      end;
+      FScreenDirty := True;
+    end;
+  end;
+  if FSnapT > 0 then
+  begin
+    FSnapT := FSnapT - Dt;
+    if FSnapT < 0 then FSnapT := 0;
+    FScreenDirty := True;
+  end;
 
   { A draft a couple of seconds after the drawing stops changing, so a busy
     hand is never writing files and a put-down pen always is. }
