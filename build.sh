@@ -296,6 +296,88 @@ do_ship() {
   pack_all
 }
 
+# Publish a release on GitHub.  Builds all four binaries, pushes whatever is
+# committed, tags it, and attaches the binaries and the zip to a release so
+# they can be downloaded from the repository page.
+#
+#   ./build.sh github            tag as vYYYY.MM.DD (or .1, .2 if taken)
+#   ./build.sh github v1.0       tag explicitly
+do_github() {
+  local tag="${1:-}"
+  command -v gh >/dev/null 2>&1 || die \
+    "no gh command.  Install the GitHub CLI and run 'gh auth login' first."
+  gh auth status >/dev/null 2>&1 || die \
+    "gh is not logged in.  Run 'gh auth login' first."
+
+  [ -z "$(git -C "$ROOT" status --porcelain)" ] || die \
+    "working tree is dirty - commit or stash before releasing"
+
+  # Date-stamped tag, with a suffix if that date already went out today.
+  if [ -z "$tag" ]; then
+    local base n
+    base="v$(date +%Y.%m.%d)"
+    tag="$base"; n=1
+    while git -C "$ROOT" rev-parse -q --verify "refs/tags/$tag" >/dev/null; do
+      tag="$base.$n"; n=$((n + 1))
+    done
+  fi
+
+  do_ship
+
+  local s zipfile stage
+  s="$(stamp)"
+  zipfile="$DIST/heckers-sketch-$s.zip"
+  [ -s "$zipfile" ] || die "no zip at $zipfile"
+
+  # gh uploads by basename, so stage the binaries under the names people
+  # should see on the release page.
+  stage="$(mktemp -d)"
+  cp "$ROOT/$APP.exe"         "$stage/heckers-sketch.exe"
+  cp "$ROOT/$APP"             "$stage/heckers-sketch-linux"
+  cp "$DIST/dbg/$APP.exe"     "$stage/heckers-sketch-checked.exe"
+  cp "$DIST/dbg/$APP"         "$stage/heckers-sketch-linux-checked"
+  cp "$zipfile"               "$stage/heckers-sketch-all-builds.zip"
+
+  say "pushing $(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
+  git -C "$ROOT" push origin HEAD || die "push failed"
+
+  # Release notes: the commit subjects since the last release.
+  local prev notes
+  prev="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || true)"
+  notes="$(mktemp)"
+  {
+    echo "No installer and nothing to set up - download, and run it."
+    echo
+    echo "| File | For |"
+    echo "| --- | --- |"
+    echo "| \`heckers-sketch.exe\` | Windows |"
+    echo "| \`heckers-sketch-linux\` | Linux (\`chmod +x\` it first) |"
+    echo "| \`*-checked\` | the same builds with range, overflow and heap checking on - slower, but they name the line when something goes wrong |"
+    echo "| \`heckers-sketch-all-builds.zip\` | all four together |"
+    echo
+    echo "Windows will warn that the publisher is unknown; the binary is not"
+    echo "code signed.  More info -> Run anyway."
+    echo
+    echo "## What changed"
+    echo
+    if [ -n "$prev" ]; then
+      git -C "$ROOT" log --no-merges --format='* %s' "$prev..HEAD"
+    else
+      git -C "$ROOT" log --no-merges --format='* %s' -20
+    fi
+  } > "$notes"
+
+  say "tagging $tag and creating the release"
+  gh release create "$tag" \
+    --repo "$(git -C "$ROOT" remote get-url origin | sed -E 's#.*github\.com[:/]##; s#\.git$##')" \
+    --title "Heckers Sketch $tag" \
+    --notes-file "$notes" \
+    "$stage"/* || die "gh release create failed"
+
+  rm -rf "$stage" "$notes"
+  say "released $tag"
+}
+
 case "${1:-}" in
   nozip)          shift; NOZIP=1 exec "$0" "$@" ;;
   ""|linux|debug) build_linux "$MODE_DEV" ;;
@@ -310,5 +392,6 @@ case "${1:-}" in
   dist)           do_dist ;;
   crossrtl)       do_crossrtl ;;
   upload)         do_upload "${2:-}" ;;
+  github|gh)      do_github "${2:-}" ;;
   *)              sed -n '2,20p' "$0"; exit 1 ;;
 esac
