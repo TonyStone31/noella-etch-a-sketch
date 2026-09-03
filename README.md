@@ -155,6 +155,13 @@ The same idea taken seriously.
 * **Push/pull.** Pick a face, type how far, and it lifts into a shaded solid
   with its sides walled in — including circles. Anything drawn on the face rides
   along with it. Good enough to size up a roof curb in about ten seconds.
+* **Shake the mouse to say which way you meant it.** Drawing in mid air and
+  the shape keeps standing up when you wanted it flat? Jerk the mouse side to
+  side and it lies down; jerk it up and down and it stands up. The plane
+  latches, so it is an instruction rather than a hint, and **Esc** hands it
+  back to following the faces. It needs four proper reversals inside about
+  three quarters of a second, which is not something an ordinary hand moving
+  to a point ever does.
 * **Snapping and inference** — endpoints, midpoints and arc centers beat the
   grid, each with its own marker at the cursor. Where two lines cross, the
   crossing snaps, and each line picks up fresh midpoints for the pieces it was

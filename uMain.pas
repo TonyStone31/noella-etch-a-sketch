@@ -313,6 +313,12 @@ type
       attached.  Refuse to until the hand has actually moved. }
     FNoLockUntilMoved: Boolean;
     FWasLine: Boolean;
+    { Shaking the mouse to say which way you meant.  A count of direction
+      reversals on each screen axis, and when they were, so a shake decays
+      back to nothing if you stop. }
+    FShX, FShY: Integer;
+    FShDirX, FShDirY, FShNX, FShNY: Integer;
+    FShTX, FShTY: QWord;
     { the dimension whose figure is being typed over, or -1.  While this is
       set the command bar is a text box for that label. }
     FDimEdit: Integer;
@@ -419,6 +425,7 @@ type
     procedure PaintOrbitAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure ShakeWatch(X, Y: Integer);
     procedure PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
     procedure PaintSnapRecoil(C: TCanvas);
     procedure PaintFacePoints(C: TCanvas; Face: Integer);
@@ -3704,6 +3711,99 @@ begin
   Result.Y := U * U * A.Y + 2 * U * T * M.Y + T * T * B.Y;
 end;
 
+{ Shaking the mouse to say which way you meant it.
+
+  Tony, drawing a rectangle in the 3D view that kept standing up when he
+  wanted it flat: "I was getting frustrated and did a sideways jerk back and
+  forth with the mouse and I thought, hey, that should have said I want the
+  left-right axis."
+
+  He is right, and it is a good gesture precisely because it is what people
+  already do when a program will not take the hint.  Shake sideways and the
+  shape lies down; shake up and down and it stands up.  The plane latches, so
+  the shake is an instruction rather than a suggestion, and Esc hands it back
+  to following the faces.
+
+  Four reversals of at least a dozen pixels, within about three quarters of a
+  second, on one axis more than the other.  Ordinary drawing does not do that
+  - a hand moving to a point goes one way. }
+procedure TMainForm.ShakeWatch(X, Y: Integer);
+const
+  JERK_PX  = 12;
+  JERK_N   = 4;
+  JERK_MS  = 750;
+var
+  Now64: QWord;
+  D, Sg: Integer;
+  Was: TPlane;
+begin
+  if FMode <> mdPro then Exit;
+  if not (FTool in [ptLine, ptRect, ptCircle, ptArc]) then Exit;
+  if FD.View = vkPlan then Exit;        // only one plane makes sense there
+
+  Now64 := GetTickCount64;
+  if Now64 - FShTX > JERK_MS then FShNX := 0;
+  if Now64 - FShTY > JERK_MS then FShNY := 0;
+
+  D := X - FShX;
+  if Abs(D) >= JERK_PX then
+  begin
+    if D > 0 then Sg := 1 else Sg := -1;
+    if (FShDirX <> 0) and (Sg <> FShDirX) then
+    begin
+      Inc(FShNX);
+      FShTX := Now64;
+    end;
+    FShDirX := Sg;
+    FShX := X;
+  end;
+
+  D := Y - FShY;
+  if Abs(D) >= JERK_PX then
+  begin
+    if D > 0 then Sg := 1 else Sg := -1;
+    if (FShDirY <> 0) and (Sg <> FShDirY) then
+    begin
+      Inc(FShNY);
+      FShTY := Now64;
+    end;
+    FShDirY := Sg;
+    FShY := Y;
+  end;
+
+  if (FShNX < JERK_N) and (FShNY < JERK_N) then Exit;
+
+  Was := FD.Plane;
+  if FShNY >= FShNX then
+  begin
+    { up and down: stand it up.  Which of the two upright planes is the one
+      the same rule uses for a drag straight up the screen, so the answer
+      agrees with what dragging would have done. }
+    FD.Plane := PlaneByDrag(Proj, FCur, FMouseSX, FMouseSY - 200, plXZ, 1.0);
+    if FD.Plane = plXY then FD.Plane := plXZ;
+    FCmdMsg := 'Standing it up - ' + PlaneName + '.  Shake sideways to lay ' +
+      'it flat, Esc to follow faces again.';
+  end
+  else
+  begin
+    FD.Plane := plXY;
+    FCmdMsg := 'Laying it flat.  Shake up and down to stand it up, Esc to ' +
+      'follow faces again.';
+  end;
+  FPlaneHeld := True;
+  FShNX := 0;
+  FShNY := 0;
+
+  if FD.Plane <> Was then
+  begin
+    RepaintPaper;
+    RenderPro;
+    RecomposeAll;
+  end;
+  FScreenDirty := True;
+  pbCmd.Invalidate;
+end;
+
 procedure TMainForm.PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
 var
   I, N, W: Integer;
@@ -5591,6 +5691,8 @@ begin
       paper for a pipe spool - where the plane is something you choose with
       K or the arrow keys and then keep, not something the mouse guesses at.
       Guessing there would fight the drawing rather than help it. }
+    ShakeWatch(X, Y);
+
     { a hand that has moved has let go of whatever it was resting on }
     if FNoLockUntilMoved and
        ((Abs(X - FHoldX) > 6) or (Abs(Y - FHoldY) > 6)) then
