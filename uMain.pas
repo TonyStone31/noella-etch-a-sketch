@@ -3401,6 +3401,7 @@ procedure TMainForm.PaintDimPreview(C: TCanvas);
 var
   G: TDimGeom;
   Sz: TSize;
+  TP: TPoint;
 begin
   if not DimGeometry(Proj, FP1, FP2, DimOffset3, FD.Units, G) then Exit;
   C.Pen.Style := psSolid;
@@ -3416,7 +3417,8 @@ begin
   C.Brush.Style := bsClear;
   UIFont(C, 9, False, AnnotColor);
   Sz := C.TextExtent(G.Txt);
-  C.TextOut(Round(G.Mid.X - Sz.cx / 2), Round(G.Mid.Y - Sz.cy / 2), G.Txt);
+  TP := DimTextTopLeft(G, Sz.cx, Sz.cy);
+  C.TextOut(TP.X, TP.Y, G.Txt);
 end;
 
 { The mark that says what the cursor found.
