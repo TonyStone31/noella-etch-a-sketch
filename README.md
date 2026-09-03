@@ -118,6 +118,10 @@ The same idea taken seriously.
   pull it, and can drop a **guide line** you then snap to — same as SketchUp.
 * **Dimensions you place yourself**, with the extension lines snapped square to
   an axis so they read like a drawing instead of a sketch.
+* **Right-click a dimension to write over its figure** — a nominal size, a cut
+  length that allows for a fitting, `FIELD VERIFY`. Clearing the box hands it
+  back to the measured length. The measurement underneath never changes, so
+  the drawing still knows what it really is.
 
 **Geometry**
 
@@ -210,6 +214,7 @@ The same idea taken seriously.
 | Shift+F | zoom to fit |
 | U | feet-and-inches / metric |
 | Ctrl+T / Ctrl+W / Ctrl+Tab | new sheet / close sheet / next sheet |
+| Right-click a dimension | write over its figure |
 | Right-drag | pan;  wheel = zoom |
 | Middle-drag | orbit, in the 3D view |
 

@@ -286,6 +286,8 @@ type
       decides the plane and dragging must not overrule it.  False when it
       started in mid air, which is when the drag gets to choose. }
     FPlaneFromFace: Boolean;
+    { where the right button went down, so a click can be told from a pan }
+    FRightSX, FRightSY: Integer;
     FPushSX, FPushSY: Integer;   // where the drag started, on screen
     FPanRefX, FPanRefY: Integer;
     { What the orbit turns about.  Spinning around the world origin sends
@@ -372,6 +374,7 @@ type
     function OffsetDistance: Double;
     function OffsetPreview: TP3Array;
     procedure CommitOffset;
+    procedure EditDimUnder(X, Y: Integer);
     function DeckRowH: Integer;
     function DeckRows: Integer;
     function DeckHeight: Integer;
@@ -1775,6 +1778,37 @@ begin
   FOffFace := -1;
   ResetTool;
   FInput := '';
+end;
+
+{ Right-click a dimension and write over its figure.
+
+  A dimension on a fabrication drawing often has to say something the geometry
+  does not: a nominal size, a cut length that allows for a fitting, or FIELD
+  VERIFY.  On an isometric, which is not to scale to begin with, the written
+  figure is the drawing.  Clearing the box hands it back to the measurement. }
+procedure TMainForm.EditDimUnder(X, Y: Integer);
+var
+  I: Integer;
+  Was, Now_: string;
+begin
+  if FMode <> mdPro then Exit;
+  I := FD.Doc.HitTest(Proj, X, Y, 10 * FUIScale);
+  if (I < 0) or (FD.Doc[I].Kind <> ekDim) then Exit;
+  Was := FD.Doc[I].Txt;
+  Now_ := Was;
+  if not InputQuery('Dimension text',
+       'What should this dimension say?  Leave it empty to go back to the ' +
+       'measured length.', Now_) then Exit;
+  if Trim(Now_) = Trim(Was) then Exit;
+  PushUndo;
+  FD.Doc.SetDimNote(I, Now_);
+  RenderPro;
+  RecomposeAll;
+  Invalidate;
+  if Trim(Now_) = '' then
+    FCmdMsg := 'Back to the measured length.'
+  else
+    FCmdMsg := 'Dimension reads "' + Trim(Now_) + '".';
 end;
 
 function TMainForm.PushDistance: Double;
@@ -4959,6 +4993,8 @@ begin
       FPanning := not FOrbiting;
       FPanRefX := X;
       FPanRefY := Y;
+      FRightSX := X;
+      FRightSY := Y;
       FOrbitPivot := PivotAt(X, Y);
       FMoveShift := Shift;
       pbScreen.Cursor := crSizeAll;
@@ -6180,6 +6216,13 @@ begin
     FOrbiting := False;
     if FTool = ptOrbit then pbScreen.Cursor := crSizeAll
     else pbScreen.Cursor := crCross;
+    { A right button that went down and came up in the same place was a
+      click, not a pan, and a click on a dimension edits its text.  The pan
+      still owns the right button everywhere else, which is why this has to
+      wait for the release and check that nothing moved. }
+    if (Button = mbRight) and (FMode = mdPro) and
+       (Abs(X - FRightSX) <= 3) and (Abs(Y - FRightSY) <= 3) then
+      EditDimUnder(X, Y);
     Exit;
   end;
   if Button = mbRight then FPenUp := False;

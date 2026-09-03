@@ -1179,6 +1179,84 @@ begin
   end;
 end;
 
+{ Writing over a dimension's figure, and getting it back off the disk.
+
+  A written label that does not survive a save is worse than none at all: the
+  drawing would go to the shop saying one thing and come back off the disk
+  saying another. }
+procedure TestDimNote;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  G: TDimGeom;
+  L: TStringList;
+  Idx, Dm: Integer;
+
+  function FirstDim(Doc: TWorkDoc): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to Doc.Live - 1 do
+      if Doc[J].Kind = ekDim then Exit(J);
+  end;
+
+begin
+  WriteLn('writing over a dimension');
+  V.Kind := vkPlan; V.Ppu := 20; V.OX := 0; V.OY := 400; V.Az := 0; V.El := 0;
+
+  D := TWorkDoc.Create;
+  try
+    D.AddDim(P3(0, 0, 0), P3(8, 0, 0), 0, P3(0, -1, 0));
+    Dm := FirstDim(D);
+    Ok(Dm >= 0, 'there is a dimension');
+
+    Ok(DimGeometry(V, D[Dm].A, D[Dm].B, D[Dm].C, usImperial, G, D[Dm].Txt),
+       'it lays out');
+    Ok(G.Txt = '8''-0"', 'and reads its measured length: ' + G.Txt);
+
+    Ok(D.SetDimNote(Dm, '8''-0" NOM'), 'the figure can be written over');
+    Ok(DimGeometry(V, D[Dm].A, D[Dm].B, D[Dm].C, usImperial, G, D[Dm].Txt),
+       'it still lays out');
+    Ok(G.Txt = '8''-0" NOM', 'and now reads what was written: ' + G.Txt);
+
+    { the geometry must not have moved - only the label changed }
+    Ok(Abs(Dist(D[Dm].A, D[Dm].B) - 8) < 1E-9,
+       'the dimension still measures eight feet underneath');
+
+    L := TStringList.Create;
+    D.SaveTo(L);
+  finally
+    D.Free;
+  end;
+
+  D := TWorkDoc.Create;
+  try
+    Idx := 0;
+    D.LoadFrom(L, Idx);
+    Ok(D.Live > 0, 'it saves and loads');
+    Dm := FirstDim(D);
+    Ok(Dm >= 0, 'the dimension came back');
+    if Dm >= 0 then
+    begin
+      Ok(D[Dm].Txt = '8''-0" NOM',
+         'with the written label intact, spaces and all: ' + D[Dm].Txt);
+      Ok(Abs(Dist(D[Dm].A, D[Dm].B) - 8) < 1E-9,
+         'and still measuring eight feet');
+      { and handing it back to the measurement works }
+      Ok(D.SetDimNote(Dm, ''), 'the label can be cleared');
+      Ok(DimGeometry(V, D[Dm].A, D[Dm].B, D[Dm].C, usImperial, G, D[Dm].Txt),
+         'lays out once more');
+      Ok(G.Txt = '8''-0"', 'and it is back to the measured length: ' + G.Txt);
+    end;
+    Ok(not D.SetDimNote(0, 'x') or (D[0].Kind = ekDim),
+       'writing over something that is not a dimension is refused');
+  finally
+    D.Free;
+    L.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -1201,6 +1279,7 @@ begin
   TestPlaneByDrag;  WriteLn;
   TestOffset;       WriteLn;
   TestPushAfterOffset; WriteLn;
+  TestDimNote;      WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
