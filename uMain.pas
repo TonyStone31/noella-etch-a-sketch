@@ -964,7 +964,21 @@ var
       UX := PA.X - PR.X;
       UY := PA.Y - PR.Y;
       LenSq := UX * UX + UY * UY;
-      if LenSq < 1E-9 then Continue;      // the axis points at the camera
+
+      { An axis pointing near enough at the camera projects to a stub, and a
+        stub is not something you can aim along: every cursor position is
+        "on" that line, so the off-axis error comes out near zero and it wins
+        every contest - while the distance *along* it comes out astronomical,
+        because a pixel of movement is worth a mile in the model.  The point
+        that fell out of that was somewhere past 1E12, and drawing a rubber
+        band to it is what crashed the program.
+
+        One world unit has to project to at least a fifth of what a unit
+        square-on to the screen would, so an axis more than about 78 degrees
+        out of the screen plane simply has no opinion.  In plan and isometric
+        no axis is ever that steep; only the free camera can do it, which is
+        why this only ever went wrong in the 3D view. }
+      if LenSq < Sqr(0.2 * Ppu) then Continue;
 
       VX := SX - PR.X;
       VY := SY - PR.Y;
@@ -974,11 +988,14 @@ var
       if Abs(Along) * Sqrt(LenSq) < AXIS_MIN_PX then Continue;
       if Off < AxPx then
       begin
+        { belt and braces: a point that is not a real number, or is further
+          out than any drawing could be, is not an answer }
+        T := Along;
+        if IsNan(T) or IsInfinite(T) or (Abs(T) > 1E9) then Continue;
         AxPx := Off;
         AxIdx := K;
         AxRef := R;
         { the point on the axis nearest the cursor, in the model }
-        T := Along;
         AxPt := P3(R.X + AD.X * T, R.Y + AD.Y * T, R.Z + AD.Z * T);
       end;
     end;
