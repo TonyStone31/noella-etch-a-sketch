@@ -481,6 +481,7 @@ type
     procedure PaintProOverlay(C: TCanvas);
 
     procedure LoadSettings;
+    procedure ApplyCommandLine;
     procedure SaveSettings;
     procedure ShowAbout;
   end;
@@ -1153,6 +1154,7 @@ begin
   FHint := TOY_HINT;
 
   LoadSettings;
+  ApplyCommandLine;
   SetInk(FInkColor, FInkAuto);
 
   SetLength(FUndoToy, UNDO_LEVELS);
@@ -1195,6 +1197,8 @@ begin
 end;
 
 procedure TMainForm.FormShow(Sender: TObject);
+var
+  I: Integer;
 begin
   if FBooted then Exit;
   FBooted := True;
@@ -1208,9 +1212,61 @@ begin
   FPenY := FArt.Height / 2;
   FreshScreen;
 
-  { heckers-sketch drawing.hsk opens it straight away }
-  if (ParamCount >= 1) and FileExists(ParamStr(1)) then
-    LoadDocument(ParamStr(1));
+  { heckers-sketch drawing.hsk opens it straight away.  Scan for it rather
+    than taking the first argument, so a switch in front of the filename does
+    not hide it. }
+  for I := 1 to ParamCount do
+    if (Copy(ParamStr(I), 1, 1) <> '-') and FileExists(ParamStr(I)) then
+    begin
+      LoadDocument(ParamStr(I));
+      Break;
+    end;
+end;
+
+{ The command line, for a launcher that wants the window a particular way.
+  A switch here beats whatever was saved last time, which is the point: the
+  remembered size is a convenience for a person, and a launcher is not one.
+  Anything we do not recognise is ignored rather than fatal - a program that
+  refuses to start because of a stray argument is no use to anybody. }
+procedure TMainForm.ApplyCommandLine;
+var
+  I, X: Integer;
+  A, V: string;
+  W, H: Integer;
+begin
+  for I := 1 to ParamCount do
+  begin
+    A := LowerCase(ParamStr(I));
+    if (A = '--maximized') or (A = '--maximised') or (A = '-max') then
+      WindowState := wsMaximized
+    else if (A = '--fullscreen') or (A = '-full') then
+    begin
+      { Asking for wsFullScreen and hoping is not enough - whether it lands
+        depends on the window manager, and a bare remote display may not have
+        one.  Take the whole monitor explicitly and drop the frame. }
+      BorderStyle := bsNone;
+      WindowState := wsNormal;
+      SetBounds(Monitor.Left, Monitor.Top, Monitor.Width, Monitor.Height);
+    end
+    else if Copy(A, 1, 7) = '--size=' then
+    begin
+      { --size=1600x1000 }
+      V := Copy(A, 8, MaxInt);
+      X := Pos('x', V);
+      if X > 1 then
+      begin
+        W := StrToIntDef(Copy(V, 1, X - 1), 0);
+        H := StrToIntDef(Copy(V, X + 1, MaxInt), 0);
+        if (W > 320) and (H > 240) then
+        begin
+          WindowState := wsNormal;
+          SetBounds(Left, Top, W, H);
+          Position := poScreenCenter;
+        end;
+      end;
+    end
+    { --help is answered in the program file, before any of this exists }
+  end;
 end;
 
 { ======================================================================== }
