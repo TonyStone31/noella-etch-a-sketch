@@ -89,6 +89,19 @@ The hold-to-throw-away gesture now covers lines, rectangles, circles and
 arcs.  Worth considering for push/pull and offset too, where the equivalent
 is abandoning a pull part way rather than committing a distance.
 
+Two things are in and **not confirmed on screen**, because the Xephyr test
+harness stopped delivering pointer motion to the window part way through the
+session - four wildly different cursor positions all read X 0'-0" Y 0'-0",
+so nothing that depends on hovering can be driven from here at the moment.
+Both are guarded so the worst case is that they do not fire:
+
+* the face wash and its centre target under the drawing tools
+* shaking the mouse to choose the plane
+
+Worth fixing the harness before the next round of this - probably by driving
+a real X server rather than a nested one, or by adding a scripting hook to
+the program itself for tests to poke.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.
