@@ -1918,19 +1918,72 @@ end;
   move, so nothing is moved twice. }
 procedure TWorkDoc.MoveFaceWith(Index: Integer; const D: TP3);
 const
-  TOL = 1E-7;
+  TOL = 1E-6;
 var
   Was: TP3Array;
   I, K, N, G: Integer;
+  Nm, BU, BV: TP3;
+  PlaneD: Double;
 
+  { Does this point sit on the face - anywhere on it, edges included?
+
+    It used to mean "is it one of the corners", which is why a line drawn
+    across the top of a box to the middle of an edge stayed behind when the
+    face under that edge was pushed: the line's end was on the moving face,
+    just not at a corner of it. }
   function OnFace(const P: TP3): Boolean;
   var
-    J: Integer;
+    J, M: Integer;
+    Inside: Boolean;
+    PU, PV, AU, AV, BU2, BV2, DU, DV, L2, T: Double;
+    Q: TP3;
+
+    procedure Flat(const R: TP3; out CU, CV: Double);
+    var
+      W: TP3;
+    begin
+      W := P3(R.X - Was[0].X, R.Y - Was[0].Y, R.Z - Was[0].Z);
+      CU := Dot3(W, BU);
+      CV := Dot3(W, BV);
+    end;
+
   begin
-    Result := True;
-    for J := 0 to High(Was) do
-      if Dist(P, Was[J]) < TOL then Exit;
     Result := False;
+    { in the face's plane at all? }
+    if Abs(Dot3(Nm, P) - PlaneD) > TOL then Exit;
+
+    Flat(P, PU, PV);
+    M := Length(Was);
+
+    { on the outline counts, and has to be tested for on its own - a ray cast
+      is unreliable exactly on a boundary }
+    for J := 0 to M - 1 do
+    begin
+      Flat(Was[J], AU, AV);
+      Flat(Was[(J + 1) mod M], BU2, BV2);
+      DU := BU2 - AU;
+      DV := BV2 - AV;
+      L2 := DU * DU + DV * DV;
+      if L2 < 1E-18 then Continue;
+      T := EnsureRange(((PU - AU) * DU + (PV - AV) * DV) / L2, 0, 1);
+      if Sqrt(Sqr(PU - (AU + DU * T)) + Sqr(PV - (AV + DV * T))) < TOL then
+        Exit(True);
+    end;
+
+    { otherwise, inside the outline }
+    Inside := False;
+    Flat(Was[M - 1], AU, AV);
+    for J := 0 to M - 1 do
+    begin
+      Flat(Was[J], BU2, BV2);
+      if ((BV2 > PV) <> (AV > PV)) and
+         (PU < (AU - BU2) * (PV - BV2) / (AV - BV2) + BU2) then
+        Inside := not Inside;
+      AU := BU2;
+      AV := BV2;
+    end;
+    Result := Inside;
+    if Result then Q := P;      { keeps the compiler quiet about Q }
   end;
 
   procedure Shift(var P: TP3);
@@ -1947,12 +2000,19 @@ begin
     Was[I] := FEnts[Index].Poly[I];
   G := FEnts[Index].Grp;
 
+  Nm := FaceNormal(Index);
+  PlaneD := Dot3(Nm, Was[0]);
+  BU := Norm3(P3(Was[1].X - Was[0].X, Was[1].Y - Was[0].Y, Was[1].Z - Was[0].Z));
+  BV := Cross3(Nm, BU);
+
   for I := 0 to FLive - 1 do
   begin
-    { only this solid.  Two boxes split from one rectangle share corners, and
-      moving everything that touched meant pulling a face on one of them
-      dragged the other out of shape. }
-    if (I <> Index) and (FEnts[I].Grp <> G) then Continue;
+    { This solid, and anything loose lying on it.  Two boxes split from one
+      rectangle share corners, and moving everything that touched meant
+      pulling a face on one of them dragged the other out of shape - so
+      another solid, which has a group of its own, is left alone.  A line or
+      a note drawn on this one belongs to no group and comes along. }
+    if (I <> Index) and (FEnts[I].Grp <> G) and (FEnts[I].Grp <> 0) then Continue;
     Shift(FEnts[I].A);
     Shift(FEnts[I].B);
     if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
