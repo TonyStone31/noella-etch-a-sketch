@@ -280,6 +280,10 @@ type
       flat planes instead and latches, because sometimes you mean to draw in
       mid air; Esc, or a new tool, hands it back to the face. }
     FPlaneHeld: Boolean;
+    { True when the point the shape starts from sits on a face, so that face
+      decides the plane and dragging must not overrule it.  False when it
+      started in mid air, which is when the drag gets to choose. }
+    FPlaneFromFace: Boolean;
     FPushSX, FPushSY: Integer;   // where the drag started, on screen
     FPanRefX, FPanRefY: Integer;
     { What the orbit turns about.  Spinning around the world origin sends
@@ -1761,7 +1765,15 @@ begin
         being stuck at one world unit however far you have zoomed.  At a
         working zoom that lands on a foot, which is what isometric paper is
         ruled at, and it is always a number you would snap to. }
-      GridPitch := NiceBarLength(Ppu, 14 * FUIScale, 60 * FUIScale, FD.Units) * Ppu;
+      GridPitch := NiceBarLength(Ppu, 14 * FUIScale, 60 * FUIScale, FD.Units);
+      { Never rule the paper finer than you can land on it.  The pitch is
+        picked by zoom, the snap by the SNAP box, and when the snap was the
+        coarser of the two half the crossings were places the cursor could
+        not reach - which is worse than no grid, because you aim at them.
+        Every snap on the list divides a foot exactly, so any pitch at or
+        above the snap step keeps the crossings snappable. }
+      if GridPitch < SnapStep then GridPitch := SnapStep;
+      GridPitch := GridPitch * Ppu;
       case FD.View of
         vkIso: PaintIsoGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
         vkPlan: PaintMeasuredGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
@@ -4935,6 +4947,20 @@ begin
       key, so a square drawn on the top of a box was really being drawn on
       the ground and merely looked right - and push/pull then took the box's
       whole top, because that is what was actually under the cursor. }
+    { In the 3D view a new shape started in mid air begins flat, every time.
+      The plane used to be left wherever the last shape put it, so after
+      standing one rectangle up the next one stood up too - which is the
+      "sometimes it draws flat, sometimes up and down" that made this
+      unpredictable.  Now the ground is always the default and the drag is
+      what lifts it.
+
+      Isometric is left alone deliberately.  It is a drafting view - iso
+      paper for a pipe spool - where the plane is something you choose with
+      K or the arrow keys and then keep, not something the mouse guesses at.
+      Guessing there would fight the drawing rather than help it. }
+    if FStage = 0 then FPlaneFromFace := False;
+    if (FStage = 0) and not FPlaneHeld and (FD.View = vkOrbit) then
+      FD.Plane := plXY;
     if (FStage = 0) and not FPlaneHeld and
        (FTool in [ptLine, ptRect, ptCircle, ptArc]) and
        FD.Doc.FaceUnder(Proj, X, Y, HF, HP) then
@@ -4946,6 +4972,26 @@ begin
       { the plane passes through where the cursor meets the face, so the
         shape sits on the surface rather than at the old height }
       FCur := HP;
+      FPlaneFromFace := True;
+    end;
+
+    { Drawing in mid air, with the first point already down: let the way the
+      mouse moves decide whether the shape lies flat or stands up, which is
+      what SketchUp appears to do and what makes a rectangle in space usable
+      at all.  It has to run before the snap resolves, because the plane is
+      what turns the cursor into a model point.
+
+      Three things hold it back from being annoying.  A face under the first
+      point wins outright.  An arrow-key lock wins outright.  And nothing is
+      decided until the drag is worth reading - under about a sixth of an
+      inch it is a twitch, not a direction. }
+    if (FStage >= 1) and not FPlaneHeld and not FPlaneFromFace and
+       (FD.View = vkOrbit) and
+       (FTool in [ptLine, ptRect, ptCircle, ptArc]) then
+    begin
+      OP := ScreenOf(FP1);
+      if Sqr(X - OP.X) + Sqr(Y - OP.Y) >= Sqr(14 * FUIScale) then
+        FD.Plane := PlaneByDrag(Proj, FP1, X, Y, FD.Plane);
     end;
 
     FCur := ResolveSnapAt(X, Y);
@@ -4965,6 +5011,7 @@ begin
         if Abs(HN.Z) > 0.9 then FD.Plane := plXY
         else if Abs(HN.Y) > 0.9 then FD.Plane := plXZ
         else if Abs(HN.X) > 0.9 then FD.Plane := plYZ;
+        FPlaneFromFace := True;
       end;
     end;
 
@@ -6002,7 +6049,13 @@ begin
   if (FMode = mdPro) and (FD.View <> vkPlan) then
   begin
     Result := Result + '   PLANE ' + PlaneName;
-    if FPlaneHeld then Result := Result + ' HELD';
+    { Say where the plane came from.  Without this there is no telling a
+      plane that is following the drag from one pinned by a face under the
+      first point, and the two behave completely differently. }
+    if FPlaneHeld then Result := Result + ' HELD'
+    else if FPlaneFromFace then Result := Result + ' ON FACE'
+    else if FStage >= 1 then Result := Result + ' FROM DRAG';
+
   end;
 
   { the face push/pull is offered, and how big it is - the same reading

@@ -827,6 +827,88 @@ begin
   end;
 end;
 
+
+{ The plane a shape lands on when it is drawn in mid air.
+
+  This is the rule that decides whether a rectangle dragged out in an
+  isometric view lies flat on the ground or stands up.  The whole of it is
+  "which plane explains this mouse movement with the least travel", so the
+  checks below are just directions: up the screen should stand the shape up,
+  across should lay it flat. }
+procedure TestPlaneByDrag;
+var
+  V: TProjector;
+  A: TP3;
+  Got: TPlane;
+
+  procedure Drag(DX, DY: Double; Want: TPlane; Keep: TPlane; const What: string);
+  begin
+    { screen Y grows downward, so a negative DY is up the screen }
+    Got := PlaneByDrag(V, A, 400 + DX, 300 + DY, Keep);
+    Inc(Checks);
+    if Got = Want then
+      WriteLn('  ok    ', What)
+    else
+    begin
+      WriteLn('  FAIL  ', What, ' - got ', Copy('XYXZYZ', Ord(Got) * 2 + 1, 2),
+              ', wanted ', Copy('XYXZYZ', Ord(Want) * 2 + 1, 2));
+      Inc(Fails);
+    end;
+  end;
+
+  { Drag along the screen direction that a model axis actually points in. }
+  procedure AxisDrag(const Ax: TP3; Want, Keep: TPlane; const What: string);
+  var
+    P0, P1: TPointF;
+  begin
+    P0 := Project(V, A);
+    P1 := Project(V, P3(A.X + Ax.X * 3, A.Y + Ax.Y * 3, A.Z + Ax.Z * 3));
+    Drag(P1.X - P0.X, P1.Y - P0.Y, Want, Keep, What);
+  end;
+
+begin
+  WriteLn('Choosing a plane from the way the mouse moves');
+  V.Kind := vkIso;
+  V.Ppu := 40;
+  V.OX := 400;
+  V.OY := 300;
+  V.Az := 0;
+  V.El := 0;
+  A := P3(0, 0, 0);
+
+  { Straight up the screen.  The ground can only climb by going away along
+    both X and Y, which costs 1.41 for every 1.0 an upright plane costs, so
+    the shape stands up. }
+  Drag(0, -120, plXZ, plXY, 'dragging up the screen stands the shape upright');
+  Drag(0, +120, plXZ, plXY, 'dragging down does the same');
+
+  { Straight across.  Now the ground is the cheap one. }
+  Drag(+150, 0, plXY, plXZ, 'dragging across lays it flat');
+  Drag(-150, 0, plXY, plYZ, 'and from the other upright plane too');
+
+  { Along a projected axis exactly.  Two of the three planes contain that
+    axis and answer identically, so it is a genuine tie and whichever plane
+    is in force keeps it.  The screen direction comes from Project rather
+    than from an assumption about which way the axes lean. }
+  AxisDrag(P3(1, 0, 0), plXY, plXY, 'straight along X, already flat: stays flat');
+  AxisDrag(P3(1, 0, 0), plXZ, plXZ, 'straight along X, already upright: stays upright');
+  AxisDrag(P3(0, 0, 1), plXZ, plXZ, 'straight up Z keeps an upright plane');
+  AxisDrag(P3(0, 1, 0), plXY, plXY, 'straight along Y keeps the flat one');
+
+  { Diagonally up-and-right is mostly Z with some X - upright, and it should
+    pick the plane that contains X rather than the one that does not. }
+  Drag(+60, -120, plXZ, plXY, 'up and to the right picks the XZ plane');
+  Drag(-60, -120, plYZ, plXY, 'up and to the left picks the YZ plane');
+
+  { Hysteresis: a tiny wobble must not change anything. }
+  Drag(0, -120, plXZ, plXZ, 'no wobble off the plane it is already on');
+
+  { A plan view pins the plane by itself.  Nothing should move. }
+  V.Kind := vkPlan;
+  Drag(0, -120, plXY, plXY, 'a plan view keeps the flat plane');
+  Drag(+150, 0, plXZ, plXZ, 'and does not argue with a held one');
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -846,6 +928,7 @@ begin
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;
   TestSolidClaimsItsEdges; WriteLn;
+  TestPlaneByDrag;  WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
