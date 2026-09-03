@@ -44,7 +44,17 @@ anything else.
    arrays page does not document the syntax, so we would be working from the
    app rather than a spec.
 
-Not doing, and why: a real not-to-scale field isometric mode.  Our ISO is a
+**OPEN, and Tony asked that it not be forgotten:** what ISO mode should
+actually be.  There are three different things called an isometric drawing in
+this trade - a camera on a 3D model (SketchUp's, and ours), a flat 2D drafting
+mode with isoplanes (AutoCAD's ISODRAFT, which is the one pipe fitters know),
+and a sheet generated from a model (Plant 3D).  Pushing and pulling in our ISO
+view is correct for the first and meaningless in the second, which is the
+friction he felt.  `docs/isometric-views.md` has the research and the options.
+Decide deliberately before building anything else near it.
+
+Previously written, and now only half true: a real not-to-scale field
+isometric mode.  Our ISO is a
 scaled 3D model seen at 30 degrees, which is a view rather than a kind of
 drawing - `docs/isometric-views.md` has the reasoning.  If an iso spool sheet
 is ever wanted it is an **export** off the scaled model, walking a run and
