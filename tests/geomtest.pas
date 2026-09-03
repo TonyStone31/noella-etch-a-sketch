@@ -344,6 +344,102 @@ begin
   end;
 end;
 
+{ ------------------------------------------- a circle drawn on a big face - }
+procedure TestCircleOnFace;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Loop: TP3Array;
+  I, Big, Ring, Got, Before: Integer;
+  S: TPointF;
+begin
+  WriteLn('a circle drawn on a bigger face');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan;
+    V.Ppu := 20;
+    V.OX := 400;
+    V.OY := 300;
+
+    MakeRect(D, 0, 0, 20, 16);
+    Big := 4;
+    EqI(Ord(D[Big].Kind), Ord(ekFace), 'the big face is where we think');
+
+    { the circle tool: an arc, then a polygon face over the same ground }
+    D.AddArc(P3(10, 8, 0), 3, 0, 2 * Pi, plXY, 0, 2);
+    SetLength(Loop, 48);
+    for I := 0 to 47 do
+      Loop[I] := ArcPoint(P3(10, 8, 0), 3, 2 * Pi * I / 48, plXY);
+    D.AddFace(Loop, 0);
+    Ring := D.Live - 1;
+    EqI(Ord(D[Ring].Kind), Ord(ekFace), 'the circle made a face');
+    Ok(D.FaceArea(Ring) < D.FaceArea(Big), 'and it is the smaller of the two');
+
+    S := Project(V, P3(10, 8, 0));
+    Got := D.HitFace(V, S.X, S.Y);
+    EqI(Got, Ring, 'clicking the middle of the circle picks the circle');
+
+    { the same click in the other two views - this is where it went wrong }
+    V.Kind := vkIso;
+    S := Project(V, P3(10, 8, 0));
+    Got := D.HitFace(V, S.X, S.Y);
+    EqI(Got, Ring, 'and in the isometric view');
+
+    V.Kind := vkOrbit;
+    V.Az := 0.7;
+    V.El := 0.6;
+    S := Project(V, P3(10, 8, 0));
+    Got := D.HitFace(V, S.X, S.Y);
+    EqI(Got, Ring, 'and in the 3D view');
+
+    { and pulling it should give a round tower, not a square one }
+    Before := D.Live;
+    Ok(D.PushPull(Ring, 10), 'the circle pulled');
+    Got := -1;
+    for I := Before to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 48) then Got := I;
+    Ok(Got >= 0, 'a 48-sided face came out of it - a round top, not a box');
+    EqF(D[Ring].Poly[0].Z, 10, 'the circle went up', 1E-9);
+    EqF(D[Big].Poly[0].Z, 0, 'and the rectangle stayed put', 1E-9);
+  finally
+    D.Free;
+  end;
+
+  { The one that bit us: coplanar faces whose depths differ only by rounding.
+    A circle's polygon has very short sides, so solving the cursor onto its
+    plane was less accurate than doing it on the slab, and the difference was
+    thousands of times bigger than the nudge meant to prefer the smaller
+    face.  Real numbers from the app: a 24-sided circle of radius 5 on a
+    20.8 x 16.7 slab, the whole thing sitting well away from the origin. }
+  WriteLn('the same thing at the scale the app works at');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkIso;
+    V.Ppu := 27.4;
+    V.OX := 120;
+    V.OY := 560;
+
+    MakeRect(D, 9, 2.08, 29.83, 18.75);
+    Big := 4;
+    SetLength(Loop, 24);
+    for I := 0 to 23 do
+      Loop[I] := ArcPoint(P3(19.42, 10.42, 0), 5, 2 * Pi * I / 24, plXY);
+    D.AddFace(Loop, 0);
+    Ring := D.Live - 1;
+
+    S := Project(V, P3(19.42, 10.42, 0));
+    EqI(D.HitFace(V, S.X, S.Y), Ring, 'the circle wins at the middle');
+    S := Project(V, P3(19.42 + 4.0, 10.42, 0));
+    EqI(D.HitFace(V, S.X, S.Y), Ring, 'and near its edge');
+    S := Project(V, P3(19.42 + 7.0, 10.42, 0));
+    EqI(D.HitFace(V, S.X, S.Y), Big, 'the slab wins outside it');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -354,6 +450,7 @@ begin
   TestSplitAndMerge; WriteLn;
   TestEdgeSnap;     WriteLn;
   TestSubMidpoints; WriteLn;
+  TestCircleOnFace; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

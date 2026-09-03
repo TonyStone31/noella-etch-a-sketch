@@ -71,7 +71,6 @@ type
     ScaleIdx: Integer;
     SnapIdx: Integer;
     Units: TUnitSystem;
-    ShowDims: Boolean;
     View: TViewKind;        // PLAN, ISO or free 3D
     Plane: TPlane;          // which plane new arcs and mouse picks land on
     Az, El: Double;         // 3D camera, radians
@@ -540,7 +539,6 @@ const
   ACT_MIRROR  = 9;
   ACT_PICK    = 10;
   ACT_UNITS   = 11;
-  ACT_DIM     = 12;
   ACT_ORIGIN  = 13;
   ACT_FIT     = 14;
   ACT_OPEN    = 15;
@@ -1698,7 +1696,7 @@ procedure TMainForm.RenderPro;
 begin
   FInkPro.ClearTransparent;
   if FD.Doc.Live > 0 then
-    FD.Doc.Render(FInkPro, Proj, FD.ShowDims, FD.Units, FDimFont, AnnotColor);
+    FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor);
   FInkPro.MarkAllDirty;
 end;
 
@@ -1871,10 +1869,6 @@ begin
   ScaleIdx := 2;          // 1/4" = 1'-0"
   SnapIdx := 5;           // one foot
   Units := usImperial;
-  { Off by default.  A dimension on every line you draw is a lot of ink for
-    something you mostly want on the few measurements you care about, and you
-    can put those on afterwards with the Dim tool. }
-  ShowDims := False;
   View := vkPlan;
   Plane := plXY;
   Az := -Pi / 4;
@@ -1902,7 +1896,6 @@ begin
     FDrawings[N].ScaleIdx := FD.ScaleIdx;
     FDrawings[N].SnapIdx := FD.SnapIdx;
     FDrawings[N].Units := FD.Units;
-    FDrawings[N].ShowDims := FD.ShowDims;
     FDrawings[N].View := FD.View;
   end;
   FTabIdx := N;
@@ -2279,15 +2272,6 @@ begin
       GRP_POPUP, POP_WIDTH, Format('WIDTH  %d px', [FPenSize]),
       'Line thickness - click for the list', ikDroplet);
 
-    { The settings row has the whole right-hand side to itself now that the
-      icons sit on the two rows above, so the auto-dimension switch gets a
-      button that says what it is instead of an icon you have to remember. }
-    Add(dkSegment, Rect(W - Pad - RightW6, RowY, W - Pad, RowY + RowH),
-      GRP_TOGGLE, ACT_DIM,
-      IfThen(FD.ShowDims, 'AUTO DIM  ON', 'AUTO DIM  OFF'),
-      'Put a dimension on every new line, or not.  ' +
-      'Dimensions you place yourself are not affected.', ikDim);
-
     AddIconRow6(Y0,
       [ACT_UNDO, ACT_REDO, ACT_FIT, ACT_THEME, ACT_GRID, ACT_HELP],
       [ikUndo, ikRedo, ikFit, ikTheme, ikGrid, ikHelp],
@@ -2295,12 +2279,12 @@ begin
        'Change the theme  (T)', 'Show or hide the measured grid  (G)',
        'About this program  (F1)']);
     AddIconRow6(Y0 + RowH + RowGap,
-      [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_DIM, ACT_ORIGIN],
-      [ikOpen, ikSave, ikExport, ikUnits, ikDim, ikOrigin],
+      [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_PRINT, ACT_ORIGIN],
+      [ikOpen, ikSave, ikExport, ikUnits, ikPrint, ikOrigin],
       ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
        'Export a picture - PNG or SVG  (Ctrl+E)',
        'Feet-and-inches or metric  (U)',
-       'Put a dimension on every new line, or not  (Shift+D)',
+       'Print  (Ctrl+P)',
        'Move the origin here  (/origin)']);
     Exit;
   end;
@@ -2331,7 +2315,7 @@ begin
       Max(I + 60, X + Avail - Round(56 * FUIScale)),
       RowY + RowH div 2 + Round(9 * FUIScale)), GRP_SIZE, 0, '',
       'Line weight  ( [ and ] )', ikDroplet);
-    AddIconRow(RowY, ACT_PRINT, ACT_ORIGIN, ACT_DIM, ikPrint, ikOrigin, ikDim,
+    AddIconRow(RowY, ACT_PRINT, ACT_ORIGIN, ACT_FIT, ikPrint, ikOrigin, ikFit,
       'Print at true scale  (Ctrl+P)', 'Put 0,0 under the cursor  (O)',
       'Label every line with its length  (D)');
   end
@@ -2369,7 +2353,6 @@ begin
     ACT_AUTO: Result := FAuto;
     ACT_GRID: Result := FShowGrid;
     ACT_MIRROR: Result := FMirror;
-    ACT_DIM: Result := FD.ShowDims;
     ACT_UNITS: Result := FD.Units = usMetric;
     ACT_PICK: Result := not InPalette(FInkColor);
 
@@ -2432,7 +2415,6 @@ var
     Result := ((A.Group = GRP_STYLE) and (A.Value = Ord(FStyle))) or
               ((A.Group = GRP_SYM) and (A.Value = FSym)) or
               ((A.Group = GRP_TOOL) and (A.Value = Ord(FTool))) or
-              ((A.Group = GRP_TOGGLE) and (A.Value = ACT_DIM) and FD.ShowDims) or
               ((A.Group = GRP_SCALE) and (A.Value = FD.ScaleIdx)) or
               ((A.Group = GRP_SNAP) and (A.Value = FD.SnapIdx));
   end;
@@ -2731,18 +2713,6 @@ begin
     GRP_POPUP:
       { clicking the open one shuts it, which is what a menu button does }
       if FPopup = It.Value then ClosePopup else OpenPopup(It.Value);
-    GRP_TOGGLE:
-      case It.Value of
-        ACT_DIM:
-          begin
-            FD.ShowDims := not FD.ShowDims;
-            FCmdMsg := IfThen(FD.ShowDims,
-              'New lines get a dimension.', 'New lines get no dimension.');
-            RenderPro;
-            RecomposeAll;
-            RefreshChrome;
-          end;
-      end;
     GRP_SCALE: SetScaleIdx(It.Value);
     GRP_SNAP:  begin FD.SnapIdx := It.Value; pbDeck.Invalidate; pbCmd.Invalidate; end;
     GRP_ICON:
@@ -2764,12 +2734,6 @@ begin
         ACT_MIRROR: begin FMirror := not FMirror; pbDeck.Invalidate; end;
         ACT_PICK:   DoPickColor;
         ACT_UNITS:  SetUnits(TUnitSystem(1 - Ord(FD.Units)));
-        ACT_DIM:    begin
-                      FD.ShowDims := not FD.ShowDims;
-                      RenderPro;
-                      RecomposeAll;
-                      pbDeck.Invalidate;
-                    end;
         ACT_ORIGIN: SetOriginHere;
         ACT_FIT:    FitView;
         ACT_OPEN:   DoOpen;
@@ -4208,7 +4172,7 @@ begin
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units) + '   (already an edge)'
           else
           begin
-            FD.Doc.AddLine(FP1, T, FInkColor, FPenSize, FD.ShowDims);
+            FD.Doc.AddLine(FP1, T, FInkColor, FPenSize, False);
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
           end;
           { A line drawn across a face divides it.  Without this the face
@@ -4248,7 +4212,7 @@ begin
           for I := 0 to 3 do
             if not FD.Doc.HasLine(Loop[I], Loop[(I + 1) mod 4]) then
               FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
-                FInkColor, FPenSize, FD.ShowDims);
+                FInkColor, FPenSize, False);
           { closed by construction, so the face comes with it rather than
             waiting for four separate lines to happen to meet }
           FD.Doc.AddFace(Loop, FInkColor);
@@ -4484,13 +4448,6 @@ begin
   begin
     FShowGrid := not FShowGrid;
     RepaintPaper;
-    RecomposeAll;
-    pbDeck.Invalidate;
-  end
-  else if W = 'dim' then
-  begin
-    FD.ShowDims := not FD.ShowDims;
-    RenderPro;
     RecomposeAll;
     pbDeck.Invalidate;
   end
@@ -6451,11 +6408,7 @@ begin
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMove);
       VK_T: SetTool(ptMeasure);
-      VK_D:
-        { Shift+D is the switch, plain D the tool.  The hint used to claim D
-          was the switch, which it has not been since the tool arrived. }
-        if ssShift in Shift then DeckActivate(FindDeck(GRP_TOGGLE, ACT_DIM))
-        else SetTool(ptDim);
+      VK_D: SetTool(ptDim);
       VK_V:
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
       VK_I: RunCommand(IfThen(FD.View = vkIso, 'plan', 'iso'));
@@ -6700,7 +6653,7 @@ begin
           else if Key = 'SCALE' then D.ScaleIdx := EnsureRange(StrToIntDef(Rest, 2), 0, SCALE_COUNT - 1)
           else if Key = 'SNAP' then D.SnapIdx := EnsureRange(StrToIntDef(Rest, 5), 0, SNAP_COUNT - 1)
           else if Key = 'VIEW' then D.View := TViewKind(EnsureRange(StrToIntDef(Rest, 0), 0, 2))
-          else if Key = 'DIMS' then D.ShowDims := Rest = '1'
+          else if Key = 'DIMS' then      { no longer used; older files have it }
           else Break;
           Inc(Idx);
         end;
@@ -6774,7 +6727,6 @@ begin
       L.Add('SCALE ' + IntToStr(FDrawings[I].ScaleIdx));
       L.Add('SNAP ' + IntToStr(FDrawings[I].SnapIdx));
       L.Add('VIEW ' + IntToStr(Ord(FDrawings[I].View)));
-      L.Add('DIMS ' + IntToStr(Ord(FDrawings[I].ShowDims)));
       FDrawings[I].Doc.SaveTo(L);
       L.Add('ENDSHEET');
     end;
@@ -6885,7 +6837,7 @@ begin
             V.OX := SW / 2 - P.X;
             V.OY := SH / 2 - P.Y;
           end;
-          FD.Doc.Render(Sheet, V, FD.ShowDims, FD.Units, FDimFont, Pix(20, 20, 20));
+          FD.Doc.Render(Sheet, V, FD.Units, FDimFont, Pix(20, 20, 20));
           Printer.Canvas.StretchDraw(
             Rect(0, 0, Printer.PageWidth, Printer.PageHeight), Sheet.AsBitmap);
         finally
@@ -6946,7 +6898,6 @@ begin
       FD.ScaleIdx := EnsureRange(Ini.ReadInteger('pro', 'scale', 2), 0, SCALE_COUNT - 1);
       FD.SnapIdx := EnsureRange(Ini.ReadInteger('pro', 'snap', 5), 0, SNAP_COUNT - 1);
       FD.Units := TUnitSystem(EnsureRange(Ini.ReadInteger('pro', 'units', 0), 0, 1));
-      FD.ShowDims := Ini.ReadBool('pro', 'dims', False);
       { the view is deliberately not restored - a drawing session starts
         flat, and 3D is somewhere you go on purpose }
 
@@ -7006,7 +6957,6 @@ begin
       Ini.WriteInteger('pro', 'scale', FD.ScaleIdx);
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));
-      Ini.WriteBool('pro', 'dims', FD.ShowDims);
 
       { Restored*, not Left/Width: a maximised window would otherwise
         remember the size of the screen and come back unmaximisable. }
