@@ -153,7 +153,11 @@ type
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
     { Off is the vector from what is measured to where the dimension line
       sits - a real displacement in the model, not a number of pixels. }
-    procedure AddDim(const A, B: TP3; Ink: TColor; const Off: TP3);
+    procedure AddDim(const A, B: TP3; Ink: TColor; const Off: TP3;
+      const Note: string = '');
+    { Write over a dimension's figure, or hand it back to the measurement by
+      passing an empty string.  False when that entity is not a dimension. }
+    function SetDimNote(Index: Integer; const Note: string): Boolean;
     { A construction line through A running towards B, or - when the two are
       the same point - a construction point at A. }
     procedure AddGuide(const A, B: TP3);
@@ -363,7 +367,7 @@ function AxisName(Index: Integer): string;
   orbit - a screen-space offset swings round the geometry instead.  False when
   the two points are too close together on screen to dimension. }
 function DimGeometry(const V: TProjector; const A, B, Off: TP3;
-  U: TUnitSystem; out G: TDimGeom): Boolean;
+  U: TUnitSystem; out G: TDimGeom; const Note: string = ''): Boolean;
 
 { Where the top-left of a dimension's text goes, given how big that text
   turned out to be.
@@ -980,7 +984,7 @@ end;
   here, so a locked direction says the color rather than a sign.  A lock runs
   both ways along its axis; which way is the cursor's business. }
 function DimGeometry(const V: TProjector; const A, B, Off: TP3;
-  U: TUnitSystem; out G: TDimGeom): Boolean;
+  U: TUnitSystem; out G: TDimGeom; const Note: string): Boolean;
 var
   PA, PB: TPointF;
   L, UX, UY, NX, NY, OL: Double;
@@ -1026,7 +1030,12 @@ begin
   G.S2B := PtF(G.LB.X + UX * 4 + NX * 4, G.LB.Y + UY * 4 + NY * 4);
   G.Mid := PtF((G.LA.X + G.LB.X) / 2, (G.LA.Y + G.LB.Y) / 2);
   G.Nrm := PtF(NX, NY);
-  G.Txt := FormatLen(Dist(A, B), U);
+  { A written-over label wins.  A dimension on a fabrication drawing often
+    has to say something the geometry does not - a nominal size, a cut length
+    allowing for a fitting, "FIELD VERIFY" - and on an isometric, which is not
+    to scale in the first place, the written figure *is* the drawing. }
+  if Note <> '' then G.Txt := Note
+  else G.Txt := FormatLen(Dist(A, B), U);
   Result := True;
 end;
 
@@ -1398,7 +1407,14 @@ begin
     end;
 end;
 
-procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; const Off: TP3);
+function TWorkDoc.SetDimNote(Index: Integer; const Note: string): Boolean;
+begin
+  Result := (Index >= 0) and (Index < FLive) and (FEnts[Index].Kind = ekDim);
+  if Result then FEnts[Index].Txt := Trim(Note);
+end;
+
+procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; const Off: TP3;
+  const Note: string);
 begin
   SetLength(FEnts, FLive + 1);
   Finalize(FEnts[FLive]);
@@ -1410,6 +1426,7 @@ begin
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := 1;
   FEnts[FLive].Dim := True;
+  FEnts[FLive].Txt := Note;
   Inc(FLive);
   FSnapDirty := True;
 end;
@@ -2768,7 +2785,7 @@ begin
         { the drawn line and its two witness lines, so highlighting a
           dimension marks where it actually is }
         if not DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C,
-             usImperial, DG) then Exit;
+             usImperial, DG, FEnts[I].Txt) then Exit;
         SetLength(Result, 6);
         Result[0] := DG.A;   Result[1] := DG.W1;
         Result[2] := DG.LA;  Result[3] := DG.LB;
@@ -2928,8 +2945,8 @@ begin
       { A dimension is drawn off to one side of what it measures.  Testing
         against the two measured points would mean clicking an invisible line
         through the geometry to erase it, which is not where anyone aims. }
-      if not DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG) then
-        Continue;
+      if not DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG,
+           FEnts[I].Txt) then Continue;
       D := Min(DistToSeg(SX, SY, DG.LA.X, DG.LA.Y, DG.LB.X, DG.LB.Y),
            Min(DistToSeg(SX, SY, DG.A.X, DG.A.Y, DG.W1.X, DG.W1.Y),
                DistToSeg(SX, SY, DG.B.X, DG.B.Y, DG.W2.X, DG.W2.Y)));
@@ -2970,7 +2987,8 @@ begin
       ekDim:
         { the drawn line and its witness lines, not the invisible chord
           through the geometry - that is where the eraser is aimed }
-        if DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG) then
+        if DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG,
+             FEnts[I].Txt) then
           D := Min(DistToSeg(SX, SY, DG.LA.X, DG.LA.Y, DG.LB.X, DG.LB.Y),
                Min(DistToSeg(SX, SY, DG.A.X, DG.A.Y, DG.W1.X, DG.W1.Y),
                    DistToSeg(SX, SY, DG.B.X, DG.B.Y, DG.W2.X, DG.W2.Y)))
@@ -3098,9 +3116,11 @@ begin
           [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
            Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight], FS));
       ekDim:
-        L.Add(Format('DIM %s %s %d %s',
+        { the written-over label goes last, so a file with none still reads
+          and one written by an older build still loads }
+        L.Add(TrimRight(Format('DIM %s %s %d %s %s',
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink,
-           N3(FEnts[I].C)], FS));
+           N3(FEnts[I].C), FEnts[I].Txt], FS)));
       ekGuide:
         L.Add(Format('GUIDE %s %s', [N3(FEnts[I].A), N3(FEnts[I].B)], FS));
       ekText:
@@ -3115,6 +3135,17 @@ begin
           L.Add(Line);
         end;
     end;
+end;
+
+{ Everything from token N onwards, put back together with single spaces.
+  For the tail of a line that is free text rather than numbers. }
+function JoinFrom(T: TStrings; N: Integer): string;
+var
+  I: Integer;
+begin
+  Result := '';
+  for I := N to T.Count - 1 do
+    if Result = '' then Result := T[I] else Result := Result + ' ' + T[I];
 end;
 
 procedure TWorkDoc.LoadFrom(L: TStrings; var Idx: Integer);
@@ -3166,7 +3197,10 @@ begin
         if T.Count >= 11 then
           AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                  P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),
-                 P3(RdF(T[8]), RdF(T[9]), RdF(T[10])))
+                 P3(RdF(T[8]), RdF(T[9]), RdF(T[10])),
+                 { every token past the offset is the written-over label,
+                   joined back up because it usually has spaces in it }
+                 JoinFrom(T, 11))
         else
           AddDim(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                  P3(RdF(T[4]), RdF(T[5]), RdF(T[6])), StrToIntDef(T[7], 0),

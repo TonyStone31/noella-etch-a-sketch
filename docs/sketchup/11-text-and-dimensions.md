@@ -72,3 +72,16 @@ face with the Text tool drops its area in.
 
 Not built: radius and diameter dimensions, leaders, 3D text, endpoint styles,
 dragging the extension lines, typing over the reading.)*
+
+
+## Writing over a dimension's figure
+
+Added 3 September 2026.  Right-click a dimension and type what it should say;
+leave the box empty to hand it back to the measured length.  The measurement
+underneath is untouched, so the drawing still knows what it really is even
+when the label says something else.
+
+This is not polish.  A fabrication drawing routinely has to say something the
+geometry does not - a nominal size, a cut length that allows for a fitting,
+FIELD VERIFY - and on an isometric, which is not to scale to begin with, the
+written figure *is* the drawing.  See `docs/isometric-views.md`.
