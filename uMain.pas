@@ -263,6 +263,11 @@ type
       Ctrl turns that off and it only measures. }
     FGuideMode: Boolean;
     FMeasEdge: Integer;        // the edge the tape was started on, or -1
+    { What the last rebuild worked out, so a plane whose edges have not moved
+      is not worked out again.  Safe to keep across sheets: a plane is only
+      reused when its segments hash the same, which means it is the same
+      plane with the same edges in it. }
+    FRegionCache: TRegionCache;
 
     { how many clicks have landed in the same spot in quick succession: two
       takes what is attached, three takes everything joined on }
@@ -5713,7 +5718,7 @@ var
   Mid: TP3;
   Ink: TColor;
 begin
-  R := BuildRegions(EdgeSegments);
+  R := BuildRegionsCached(EdgeSegments, FRegionCache);
 
   { remember what was there, so the new faces can take their colors }
   NWas := 0;
@@ -5773,7 +5778,7 @@ var
 begin
   Segs := EdgeSegments;
   T0 := Now;
-  R := BuildRegions(Segs);
+  R := BuildRegionsCached(Segs, FRegionCache);
   T0 := (Now - T0) * 24 * 60 * 60 * 1000;
 
   Stored := 0;

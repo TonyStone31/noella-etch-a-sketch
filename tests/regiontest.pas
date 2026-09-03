@@ -546,6 +546,148 @@ begin
   Ok(Ms < 5000, 'and it did not take all day');
 end;
 
+{ How long it takes as a drawing gets big.  Two shapes of drawing, because
+  they cost very differently: everything in one plane, which is a plan, and
+  the same amount of work spread over many planes, which is a 3D layout. }
+procedure TestScale;
+
+  function TimeGrid(N: Integer; out Regions: Integer): Double;
+  var
+    I: Integer;
+    T0: TDateTime;
+    R: TRegionArray;
+  begin
+    Clear;
+    Box(0, 0, N * 2, N * 2, 0);
+    for I := 1 to N - 1 do
+    begin
+      Seg(P3(I * 2, 0, 0), P3(I * 2, N * 2, 0));
+      Seg(P3(0, I * 2, 0), P3(N * 2, I * 2, 0));
+    end;
+    T0 := Now;
+    R := Built;
+    Result := (Now - T0) * 24 * 60 * 60 * 1000;
+    Regions := Length(R);
+  end;
+
+  function TimeStack(Planes, Per: Integer; out Regions: Integer): Double;
+  var
+    P, I: Integer;
+    T0: TDateTime;
+    R: TRegionArray;
+    Z: Double;
+  begin
+    Clear;
+    for P := 0 to Planes - 1 do
+    begin
+      Z := P * 3;
+      Box(0, 0, Per * 2, Per * 2, Z);
+      for I := 1 to Per - 1 do
+      begin
+        Seg(P3(I * 2, 0, Z), P3(I * 2, Per * 2, Z));
+        Seg(P3(0, I * 2, Z), P3(Per * 2, I * 2, Z));
+      end;
+    end;
+    T0 := Now;
+    R := Built;
+    Result := (Now - T0) * 24 * 60 * 60 * 1000;
+    Regions := Length(R);
+  end;
+
+var
+  Ms: Double;
+  N, Reg: Integer;
+begin
+  Say('what it costs as the drawing grows');
+  for N in [10, 20, 40, 60, 80] do
+  begin
+    Ms := TimeGrid(N, Reg);
+    WriteLn(Format('        one plane: %4d segments -> %5d regions  %7.0f ms',
+      [NSeg, Reg, Ms]));
+  end;
+  for N in [4, 12, 24, 40] do
+  begin
+    Ms := TimeStack(N, 8, Reg);
+    WriteLn(Format('        %2d planes: %4d segments -> %5d regions  %7.0f ms',
+      [N, NSeg, Reg, Ms]));
+  end;
+  Ok(True, 'measured');
+end;
+
+{ The cache must give the same answer as a full rebuild, and must actually
+  save the work when only one plane moved. }
+procedure TestCache;
+var
+  Cache: TRegionCache;
+  Full, Cached: TRegionArray;
+  I, P, Reg: Integer;
+  Z, Cold, Warm, Edit: Double;
+  T0: TDateTime;
+
+  procedure Stack(Planes, Per: Integer; Extra: Boolean);
+  var
+    Q, K: Integer;
+    ZZ: Double;
+  begin
+    Clear;
+    for Q := 0 to Planes - 1 do
+    begin
+      ZZ := Q * 3;
+      Box(0, 0, Per * 2, Per * 2, ZZ);
+      for K := 1 to Per - 1 do
+      begin
+        Seg(P3(K * 2, 0, ZZ), P3(K * 2, Per * 2, ZZ));
+        Seg(P3(0, K * 2, ZZ), P3(Per * 2, K * 2, ZZ));
+      end;
+    end;
+    { one more line, in the bottom plane only }
+    if Extra then Seg(P3(1, 0, 0), P3(1, Per * 2, 0));
+    SetLength(Segs, NSeg);
+  end;
+
+begin
+  Say('the cache');
+
+  { same answer as the whole thing }
+  Stack(6, 6, False);
+  Full := BuildRegions(Segs);
+  FillChar(Cache, SizeOf(Cache), 0);
+  Cached := BuildRegionsCached(Segs, Cache);
+  EqI(Length(Cached), Length(Full), 'cold, it finds what a full rebuild finds');
+
+  { warm, with nothing changed }
+  T0 := Now;
+  Cached := BuildRegionsCached(Segs, Cache);
+  Warm := (Now - T0) * 24 * 60 * 60 * 1000;
+  EqI(Length(Cached), Length(Full), 'warm, it still finds the same');
+
+  { and now with one line added to one plane }
+  Stack(6, 6, True);
+  T0 := Now;
+  Cached := BuildRegionsCached(Segs, Cache);
+  Edit := (Now - T0) * 24 * 60 * 60 * 1000;
+  Full := BuildRegions(Segs);
+  EqI(Length(Cached), Length(Full), 'after an edit, still the same as a full one');
+
+  { the cost of the whole thing cold, to compare against }
+  Stack(24, 8, False);
+  FillChar(Cache, SizeOf(Cache), 0);
+  T0 := Now;
+  Cached := BuildRegionsCached(Segs, Cache);
+  Cold := (Now - T0) * 24 * 60 * 60 * 1000;
+  Reg := Length(Cached);
+  Stack(24, 8, True);
+  T0 := Now;
+  Cached := BuildRegionsCached(Segs, Cache);
+  Edit := (Now - T0) * 24 * 60 * 60 * 1000;
+  WriteLn(Format('        24 planes, %d segments: cold %.0f ms, ' +
+    'one plane edited %.0f ms', [NSeg, Cold, Edit]));
+  Ok(Edit < Cold, 'editing one plane costs less than building the lot');
+  P := 0;
+  for I := 0 to High(Cached) do Inc(P);
+  Ok(P > Reg, 'and the edit added a region');
+end;
+
 begin
   WriteLn('Heckers Sketch - planar region engine');
   WriteLn;
@@ -573,6 +715,8 @@ begin
   TestManyCuts;         WriteLn;
   TestGrid6x6;          WriteLn;
   TestSize;             WriteLn;
+  TestScale;            WriteLn;
+  TestCache;            WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

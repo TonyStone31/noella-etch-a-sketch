@@ -1167,3 +1167,65 @@ push slides a whole side or lifts a piece out.
   deserves more, a tiny one fewer.
 * The vector types live in `uWork`, so `uRegion` has to use it.  They would sit
   better in a small unit of their own with both depending on that.
+
+## Making the region engine fast — 3 September 2026
+
+Measured first, which is just as well: the cost was not where "touched planes"
+would have helped.  A grid of forty lines - 82 segments, 1600 regions - took
+**365 ms**.  Three loops were doing it:
+
+* **welding** walked every vertex found so far, so three thousand ends were
+  compared against sixteen hundred vertices - five million distance sums.  The
+  points go into a grid of cells one tolerance across now, so anything close
+  enough to weld is in this cell or one of the twenty-six around it.
+* **plane discovery** tried every pair of edges to find the ones sharing a
+  vertex.  It asks through the vertices instead - only edges meeting at one can
+  define a plane together.
+* **the duplicate-edge check** looked back over every edge so far, on its own
+  ten million comparisons.  Hashed.
+* **hole classification** measured every loop against every other.  Two loops
+  can only nest if they are *not joined up to each other* - if they are, the
+  cycle walk has already put the boundary between them - so the vertices are
+  union-found and only loops in different pieces are compared.  On a grid,
+  where everything is one piece, nothing is compared at all.
+
+That took 365 ms to **11 ms**, thirty times faster, and it is the case that
+matters: a plan drawing is all one plane.
+
+Then the ones that do help a drawing spread over planes:
+
+* **splitting is bucketed in space.**  Only segments whose boxes share a cell
+  are tried against each other.  A grid gains nothing - its lines cross the
+  whole drawing - but a model with work in several places halves.
+* **and then split per plane**, which is what the cache needed anyway: a
+  crossing between two edges that are not coplanar cannot change the cycles in
+  either plane, so there is no reason to look for it.
+
+**The cache.**  `BuildRegionsCached` works out which planes the segments lie in
+- cheaply, from the input segments, before any splitting - hashes the segments
+in each, and keeps the regions for any plane whose hash has not moved.
+
+    one plane      82 segments   1600 regions    365 ms  ->   11 ms
+    one plane     162 segments   6400 regions       -    ->  131 ms
+    24 planes     433 segments   1536 regions     19 ms  ->    5 ms cold
+                                                          ->    1 ms editing
+                                                                one plane
+    40 planes     720 segments   2560 regions     95 ms  ->   46 ms
+
+The cache is checked three ways: cold it finds what a full rebuild finds, warm
+it still does, and after an edit it agrees with a full rebuild - and editing
+one plane costs less than building the lot.
+
+## One zip, four builds — 3 September 2026
+
+`./build.sh ship` builds Windows and Linux twice each and puts all four in one
+zip: the fast pair at the top to run, and `checked/` beside them with the range
+and overflow tests compiled in.  The checked build prints a heap report when it
+closes, which is noise unless you are hunting something - the release build has
+no heap tracing in it at all.
+
+Two things that had gone wrong: the Windows step packed a zip of its own part
+way through, before the other three builds existed, which is why one came out
+short; and the upload failed silently on a bigger file.  Every build now packs
+once at the end, after checking all four are there, and the upload is retried
+three times before it gives up.
