@@ -332,6 +332,26 @@ function Project(const V: TProjector; const P: TP3): TPointF;
 function Unproject(const V: TProjector; SX, SY: Double; Pl: TPlane;
   const Base: TP3): TP3;
 
+{ Which plane is the mouse most honestly moving across?
+
+  Draw a rectangle in mid air and something has to decide whether it lies
+  flat or stands up.  SketchUp takes it from the way the mouse moves, and
+  this is the rule that reproduces it: for the same movement on screen, a
+  plane seen edge-on needs an enormous displacement in the model and one
+  seen square-on needs a small one, so the plane that explains the drag with
+  the least travel is the plane being drawn on.
+
+  It falls out right with no view special cases.  Drag straight up in an
+  isometric view and the upright planes need one unit where the ground needs
+  1.41 - it has to go away along both X and Y to climb the screen - so the
+  rectangle stands up.  Drag across and the ground needs 0.82 against the
+  uprights' 1.29, so it lies flat.
+
+  Keep is the plane in force now.  It wins ties, and wins anything closer
+  than Bias, so a shape does not flip back and forth while the hand shakes. }
+function PlaneByDrag(const V: TProjector; const Anchor: TP3;
+  SX, SY: Double; Keep: TPlane; Bias: Double = 0.8): TPlane;
+
 { The six axis directions, and how they read on screen in the given view. }
 function AxisDir(Index: Integer): TP3;
 function AxisName(Index: Integer): string;
@@ -884,6 +904,30 @@ begin
       Result.X := Base.X;
       Result.Y := Base.X - U;
       Result.Z := W - (Base.X + Result.Y) * ISO_SIN;
+    end;
+  end;
+end;
+
+function PlaneByDrag(const V: TProjector; const Anchor: TP3;
+  SX, SY: Double; Keep: TPlane; Bias: Double): TPlane;
+var
+  Pl: TPlane;
+  D, Best: Double;
+begin
+  Result := Keep;
+  Best := Dist(Anchor, Unproject(V, SX, SY, Keep, Anchor));
+  { A plan view pins Z on its own and ignores the plane entirely, so every
+    candidate answers the same and Keep stands - which is right there. }
+  if not (Best > 0) or (Best > 1E12) then Exit;
+  for Pl := Low(TPlane) to High(TPlane) do
+  begin
+    if Pl = Keep then Continue;
+    D := Dist(Anchor, Unproject(V, SX, SY, Pl, Anchor));
+    if not (D > 0) or (D > 1E12) then Continue;   // edge-on: no opinion
+    if D < Best * Bias then
+    begin
+      Best := D;
+      Result := Pl;
     end;
   end;
 end;
