@@ -161,6 +161,15 @@ The same idea taken seriously.
   **SVG** are exports, not saves; the SVG is real vector output with the
   dimensions as text, so it opens in Inkscape or a CAD package.
   `heckers-sketch drawing.hsk` opens one straight from the shell.
+* **Nothing is ever lost.** A couple of seconds after you stop drawing, the
+  whole session — every sheet — is written to a draft beside the settings, and
+  the next launch picks it straight back up, named or not. Pull the plug and
+  it is still there. `Ctrl+S` gives it a real name when you want one; a file
+  named on the command line always wins over the draft.
+* **Delete asks** before clearing a sheet in PRO. It deletes the selection if
+  there is one, and otherwise wants a yes — it sits next to the key that
+  deletes what you picked, and there used to be nothing between it and losing
+  the lot.
 * **Zoom and pan are independent of the drawing scale**, so zooming in to place
   something does not change what prints.
 
