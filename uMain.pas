@@ -304,6 +304,11 @@ type
     FHoldT, FSnapT: Single;
     FHoldX, FHoldY: Integer;
     FSnapA, FSnapB, FSnapM: TPointF;
+    { After a run is snapped off, the cursor is still sitting on the point it
+      was joined to, and the dwell would quietly take it up again as a
+      reference - leaving its marker on screen, which reads as still being
+      attached.  Refuse to until the hand has actually moved. }
+    FNoLockUntilMoved: Boolean;
     { the dimension whose figure is being typed over, or -1.  While this is
       set the command bar is a text box for that label. }
     FDimEdit: Integer;
@@ -5561,6 +5566,11 @@ begin
       paper for a pipe spool - where the plane is something you choose with
       K or the arrow keys and then keep, not something the mouse guesses at.
       Guessing there would fight the drawing rather than help it. }
+    { a hand that has moved has let go of whatever it was resting on }
+    if FNoLockUntilMoved and
+       ((Abs(X - FHoldX) > 6) or (Abs(Y - FHoldY) > 6)) then
+      FNoLockUntilMoved := False;
+
     if FStage = 0 then FPlaneFromFace := False;
     if (FStage = 0) and not FPlaneHeld and (FD.View = vkOrbit) then
       FD.Plane := plXY;
@@ -6548,6 +6558,7 @@ begin
   Now64 := GetTickCount64;
   if Now64 - FDwellSince < DWELL_MS then Exit;
 
+  if FNoLockUntilMoved then Exit;         // just snapped off from here
   if FLockOn and (Dist(FLockPt, FCur) < 1E-9) then Exit;   // already this one
   FLockOn := True;
   FLockPt := FCur;
@@ -7304,6 +7315,9 @@ begin
         FSnapT := SNAP_RECOIL;
         FHoldOn := False;
         ResetTool;
+        FLockOn := False;
+        FNoLockUntilMoved := True;
+        FScreenDirty := True;
         FCmdMsg := 'Snapped off.';
       end;
       FScreenDirty := True;
