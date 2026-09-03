@@ -76,8 +76,11 @@ dragging the extension lines, typing over the reading.)*
 
 ## Writing over a dimension's figure
 
-Added 3 September 2026.  Right-click a dimension and type what it should say;
-leave the box empty to hand it back to the measured length.  The measurement
+Added 3 September 2026.  Right-click a dimension and type what it should say
+into the command bar - Enter commits, Esc leaves it alone, and clearing it
+hands the dimension back to the measured length.  It goes in the command bar
+rather than a dialog because everything else in PRO is typed there, and
+because a modal box covers the drawing at the one moment you want to see it.  The measurement
 underneath is untouched, so the drawing still knows what it really is even
 when the label says something else.
 

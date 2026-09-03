@@ -3139,6 +3139,16 @@ end;
 
 { Everything from token N onwards, put back together with single spaces.
   For the tail of a line that is free text rather than numbers. }
+{ Text safe to drop into SVG markup.  The label is typed by hand, and a
+  stray & or < would make the file unopenable. }
+function XmlText(const S: string): string;
+begin
+  Result := StringReplace(S, '&', '&amp;', [rfReplaceAll]);
+  Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
+end;
+
 function JoinFrom(T: TStrings; N: Integer): string;
 var
   I: Integer;
@@ -3320,10 +3330,14 @@ begin
             'stroke="%s" stroke-width="%.2f"/>',
             [PA.X, PA.Y, PB.X, PB.Y, Col(FEnts[I].Ink), EdgeW], FS));
           if FEnts[I].Dim then
+            { the written-over figure goes out too - an export that quietly
+              put the measured length back would be worse than no export,
+              because it is the file that gets sent }
             L.Add(Format('<text x="%.2f" y="%.2f" font-family="sans-serif" ' +
               'font-size="11" text-anchor="middle" fill="%s">%s</text>',
               [(PA.X + PB.X) / 2, (PA.Y + PB.Y) / 2 - 6, Col(FEnts[I].Ink),
-               FormatLen(Dist(FEnts[I].A, FEnts[I].B), U)], FS));
+               XmlText(IfThen(FEnts[I].Txt <> '', FEnts[I].Txt,
+                 FormatLen(Dist(FEnts[I].A, FEnts[I].B), U)))], FS));
         end;
     end;
 
@@ -3389,13 +3403,13 @@ var
 
   { A dimension line parallel to the projected segment, always labelled with
     the true 3D length - which is what makes an isometric readable. }
-  procedure Dimension(const A, B, Off: TP3);
+  procedure Dimension(const A, B, Off: TP3; const Note: string);
   var
     G: TDimGeom;
     Sz: TSize;
     TP: TPoint;
   begin
-    if not DimGeometry(V, A, B, Off, U, G) then Exit;
+    if not DimGeometry(V, A, B, Off, U, G, Note) then Exit;
     S.Line(G.A.X, G.A.Y, G.W1.X, G.W1.Y, 1.0, LabelCol, 0.5);
     S.Line(G.B.X, G.B.Y, G.W2.X, G.W2.Y, 1.0, LabelCol, 0.5);
     S.Line(G.LA.X, G.LA.Y, G.LB.X, G.LB.Y, 1.2, LabelCol, 0.85);
@@ -3472,7 +3486,7 @@ begin
           S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
         end;
       ekDim:
-        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C);
+        Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
 
       { Dashed, and a guide line is infinite - run out far enough each way to
         cross any view of the drawing.  Drawn with the other annotation, so a
@@ -3697,7 +3711,7 @@ begin
           end;
         ekDim:
           if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then
-            Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C);
+            Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
         ekText:
           if not Covered(FEnts[I].A, J) then
           begin
