@@ -303,7 +303,7 @@ type
     FHoldOn: Boolean;
     FHoldT, FSnapT: Single;
     FHoldX, FHoldY: Integer;
-    FSnapA, FSnapB: TPointF;
+    FSnapA, FSnapB, FSnapM: TPointF;
     { the dimension whose figure is being typed over, or -1.  While this is
       set the command bar is a text box for that label. }
     FDimEdit: Integer;
@@ -628,9 +628,11 @@ const
   HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
   { how long the button is leaned on before the line snaps off, and how long
     the two ends recoil afterwards }
-  HOLD_STRAIN     = 0.22;   // before this it is just a click being made
-  HOLD_BREAK      = 0.85;
-  SNAP_RECOIL     = 0.20;
+  HOLD_STRAIN     = 0.35;   // before this it is just a click being made
+  HOLD_BREAK      = 1.45;   // and this long to break, which is a deliberate
+                            // wait: it has to be slow enough to read as a
+                            // warning and back out of
+  SNAP_RECOIL     = 0.30;
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 7.5;    // this close and the point is what you meant
   PIECE_PX        = 5.0;    // ...and this close for the middle of a piece
@@ -3694,8 +3696,11 @@ end;
 procedure TMainForm.PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
 var
   I, N, W: Integer;
-  MX, MY, DX, DY, L, NX, NY, Bow, Sh: Double;
+  MX, MY, DX, DY, L, NX, NY, Bow, Sh, Ang, R: Double;
   P0, P1: TPointF;
+  Col: TPix;
+  Cap: string;
+  Sz: TSize;
 begin
   T := EnsureRange(T, 0, 1);
   DX := B.X - A.X;
@@ -3705,38 +3710,58 @@ begin
   NX := -DY / L;
   NY := DX / L;
 
-  { it bows away from the pull, most in the middle, and trembles as it nears
-    the end }
-  Bow := 7 * FUIScale * Sin(T * Pi) * 0.9;
-  Sh := 1.6 * FUIScale * T * T;
+  { it bows away from the pull and trembles harder the nearer it gets }
+  Bow := 8 * FUIScale * Sin(T * Pi) * 0.9;
+  Sh := 2.4 * FUIScale * T * T;
   MX := (A.X + B.X) / 2 + NX * Bow + (Random - 0.5) * 2 * Sh;
   MY := (A.Y + B.Y) / 2 + NY * Bow + (Random - 0.5) * 2 * Sh;
 
+  { From the ink color to a hot red, and there early enough to be a warning
+    rather than a surprise.  It gets *bolder* as it loads, not thinner - a
+    thing about to let go looks strained, not frail. }
+  Col := MixPix(AnnotColor, Pix(230, 38, 28), Power(T, 0.7));
   C.Pen.Style := psSolid;
-  { from the ink color toward a strained red as it goes }
-  C.Pen.Color := PixToColor(MixPix(AnnotColor, Pix(60, 60, 220), T * 0.8));
+  C.Pen.Color := PixToColor(Col);
 
-  { thick at the ends, pinched in the middle - that is what says "about to
-    give" without a word of explanation }
-  N := 10;
+  N := 12;
   for I := 0 to N - 1 do
   begin
     P0 := QuadAt(A, PtF(MX, MY), B, I / N);
     P1 := QuadAt(A, PtF(MX, MY), B, (I + 1) / N);
-    W := Max(1, Round((3.0 - 2.2 * T * Sin((I + 0.5) / N * Pi)) * FUIScale));
-    C.Pen.Width := W;
+    { bold all over, and only right at the end does the middle give }
+    W := Round((1.6 + 4.2 * T) * FUIScale);
+    if T > 0.7 then
+      W := Round(W * (1 - 0.75 * ((T - 0.7) / 0.3) * Sin((I + 0.5) / N * Pi)));
+    C.Pen.Width := Max(1, W);
     C.MoveTo(Round(P0.X), Round(P0.Y));
     C.LineTo(Round(P1.X), Round(P1.Y));
   end;
 
-  { and a crack across the middle, opening as it goes }
-  if T > 0.45 then
+  { and at the very end it starts to come apart - shards off the middle }
+  if T > 0.78 then
   begin
-    C.Pen.Width := Max(1, Round(FUIScale));
-    C.Pen.Color := PixToColor(Theme.Screen1);
-    L := (T - 0.45) / 0.55 * 5 * FUIScale;
-    C.MoveTo(Round(MX - NX * L), Round(MY - NY * L));
-    C.LineTo(Round(MX + NX * L * 0.4), Round(MY + NY * L * 0.4));
+    C.Pen.Width := Max(1, Round(2 * FUIScale));
+    R := (T - 0.78) / 0.22 * 13 * FUIScale;
+    for I := 0 to 5 do
+    begin
+      Ang := I * Pi / 3 + T * 3;
+      C.MoveTo(Round(MX + Cos(Ang) * R * 0.35), Round(MY + Sin(Ang) * R * 0.35));
+      C.LineTo(Round(MX + Cos(Ang) * R), Round(MY + Sin(Ang) * R));
+    end;
+  end;
+
+  { Say what is about to happen.  A gesture that destroys something has to
+    announce itself before it does it, or the first time you meet it is by
+    accident and it looks like a bug. }
+  if T > 0.12 then
+  begin
+    if T > 0.7 then Cap := 'LETTING GO...' else Cap := 'hold to snap the line off';
+    UIFont(C, 9, T > 0.7, Col);
+    C.Brush.Style := bsSolid;
+    C.Brush.Color := PixToColor(Theme.Screen1);
+    Sz := C.TextExtent(Cap);
+    C.TextOut(Round(MX - Sz.cx / 2), Round(MY - Sz.cy - 14 * FUIScale), Cap);
+    C.Brush.Style := bsClear;
   end;
   C.Pen.Width := 1;
 end;
@@ -3745,7 +3770,8 @@ end;
   says the release was a break rather than a misclick. }
 procedure TMainForm.PaintSnapRecoil(C: TCanvas);
 var
-  T, DX, DY, L: Double;
+  I: Integer;
+  T, DX, DY, L, Ang, R: Double;
 begin
   if FSnapT <= 0 then Exit;
   T := 1 - FSnapT / SNAP_RECOIL;          // 0 at the break, 1 at the end
@@ -3763,6 +3789,16 @@ begin
   C.LineTo(Round(FSnapA.X + DX * L), Round(FSnapA.Y + DY * L));
   C.MoveTo(Round(FSnapB.X), Round(FSnapB.Y));
   C.LineTo(Round(FSnapB.X - DX * L), Round(FSnapB.Y - DY * L));
+  { the burst where it went, thrown outward and fading }
+  C.Pen.Color := PixToColor(MixPix(Pix(230, 38, 28), Theme.Screen1, T));
+  for I := 0 to 5 do
+  begin
+    Ang := I * Pi / 3 + 0.4;
+    R := (10 + 26 * T) * FUIScale;
+    C.MoveTo(Round(FSnapM.X + Cos(Ang) * R * 0.5),
+             Round(FSnapM.Y + Sin(Ang) * R * 0.5));
+    C.LineTo(Round(FSnapM.X + Cos(Ang) * R), Round(FSnapM.Y + Sin(Ang) * R));
+  end;
   C.Pen.Width := 1;
 end;
 
@@ -7264,6 +7300,7 @@ begin
           point of the gesture, and what a double-click cannot do. }
         FSnapA := ScreenOf(FP1);
         FSnapB := PtF(FMouseSX, FMouseSY);
+        FSnapM := PtF((FSnapA.X + FSnapB.X) / 2, (FSnapA.Y + FSnapB.Y) / 2);
         FSnapT := SNAP_RECOIL;
         FHoldOn := False;
         ResetTool;
