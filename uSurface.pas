@@ -1174,6 +1174,15 @@ begin
   if not FBitmapValid then
   begin
     FBitmap.LoadFromIntfImage(FImage);
+    { Ask the image where its pixels are again, rather than trusting the
+      answer it gave before it was handed to the widgetset.
+
+      Nothing in the declarations says the buffer can move here - the raw
+      image goes in as const, and on this machine it does not move.  But this
+      is the one moment in the life of a surface when something outside this
+      unit has it, the only crash left standing is one that never happens on
+      this machine, and the cost of asking again is one call per repaint. }
+    FBits := PByte(FImage.GetDataLineStart(0));
     FBitmapValid := True;
   end;
   Result := FBitmap;
