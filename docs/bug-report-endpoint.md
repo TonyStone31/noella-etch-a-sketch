@@ -62,15 +62,14 @@ the machine unless the checkbox is ticked.
 
 ## Collecting them
 
-`tools/fetch-reports.py` does the reading end.  It asks GitHub where the bin
-is, remembers every bin it has ever been told about - a bin just rotated away
-may still hold reports nobody has collected - and files what it finds under
-`reports/<date>/`, newest first in `reports/index.md`.  Run it whenever, or
-from cron:
+Reports are collected by a script kept outside this repository.  It only ever
+accepts files named and shaped like the program's own reports, refuses
+anything else without opening it, and marks every report it saves as
+untrusted content written by a stranger.
 
-    */30 * * * * cd /path/to/repo && ./tools/fetch-reports.py >>/tmp/hsk.log 2>&1
-
-`reports/` is not committed.  Those files are other people's drawings.
+The bin is world-writable by design - that is what makes it need no
+credentials - so anything at all can be uploaded to it, and the reading end
+treats it that way.
 
 ## If the bin is missing
 
