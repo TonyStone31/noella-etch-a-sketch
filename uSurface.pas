@@ -288,9 +288,28 @@ var
 begin
   Desc.Init_BPP32_B8G8R8A8_BIO_TTB(AWidth, AHeight);
   FImage.DataDescription := Desc;
+  FBits := PByte(FImage.GetDataLineStart(0));
+  { Width and height are set from what came back, not from what was asked
+    for, and they are set after the asking rather than before it.
+
+    Everything downstream decides what is safe to touch by reading FWidth and
+    FHeight - the compositor, the blitter, every clip in this unit.  Setting
+    them first meant that if the image ever declined to hand over the memory,
+    the surface went on reporting a size it could not back, every guard built
+    on that size agreed, and the first loop to walk a row ran off the end.
+    A surface with nothing behind it now says it is one pixel, which is true
+    and which everything above copes with. }
+  if FBits = nil then
+  begin
+    FWidth := 0;
+    FHeight := 0;
+    FStride := 0;
+    FBitmapValid := False;
+    ResetDirty;
+    Exit;
+  end;
   FWidth := AWidth;
   FHeight := AHeight;
-  FBits := PByte(FImage.GetDataLineStart(0));
   { the allocation is not zeroed, and anything that only partly covers the
     surface afterwards would otherwise show whatever was in that memory }
   FillChar(FBits^, PtrUInt(FImage.GetDataLineStart(AHeight - 1)) -
@@ -496,7 +515,20 @@ var
   Cl: TRect;
   B, S, D: PPix;
 begin
-  Cl := Rect(Max(0, R.Left), Max(0, R.Top), Min(FWidth, R.Right), Min(FHeight, R.Bottom));
+  if (Base = nil) or (Ink = nil) then Exit;
+  { Clipped to all three, not only to where it is being written.
+
+    It used to trust that the paper and the ink were the same size as the
+    picture they compose into, which they are whenever they were sized
+    together - and being right whenever nothing has gone wrong is not the
+    same as being right.  One surface a row shorter than the other two and
+    this walks off the end of it, which is an access violation on the last
+    row of every frame rather than something that shows up once. }
+  Cl := Rect(Max(0, R.Left), Max(0, R.Top),
+             Min(FWidth,  Min(Base.Width,  Ink.Width)),
+             Min(FHeight, Min(Base.Height, Ink.Height)));
+  if R.Right < Cl.Right then Cl.Right := R.Right;
+  if R.Bottom < Cl.Bottom then Cl.Bottom := R.Bottom;
   if (Cl.Right <= Cl.Left) or (Cl.Bottom <= Cl.Top) then Exit;
 
   for Y := Cl.Top to Cl.Bottom - 1 do

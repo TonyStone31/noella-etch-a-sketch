@@ -1762,7 +1762,15 @@ var
 begin
   AW := Max(1, AW);
   AH := Max(1, AH);
-  if (FArt.Width = AW) and (FArt.Height = AH) then Exit;
+  { Every surface, not just the picture.  Asking only FArt meant that if the
+    four ever came apart - a resize that gave up part way through, a surface
+    built at some other size - then the one check that could have put them
+    back together again was the one that said there was nothing to do, and
+    they stayed apart for the rest of the run. }
+  if (FArt.Width = AW) and (FArt.Height = AH) and
+     (FPaper.Width = AW) and (FPaper.Height = AH) and
+     (FInkToy.Width = AW) and (FInkToy.Height = AH) and
+     (FInkPro.Width = AW) and (FInkPro.Height = AH) then Exit;
 
   Keep := TArtSurface.Create(FInkToy.Width, FInkToy.Height);
   try
