@@ -27,7 +27,7 @@ function BecomeTheOnlyCopy: Boolean;
 implementation
 
 uses
-  SysUtils, Classes
+  SysUtils, Classes, uPaths
   {$IFDEF UNIX}, BaseUnix, Unix{$ENDIF}
   {$IFDEF WINDOWS}, Windows{$ENDIF};
 
@@ -39,9 +39,7 @@ function BecomeTheOnlyCopy: Boolean;
 var
   Path: string;
 begin
-  Path := GetAppConfigDir(False);
-  ForceDirectories(Path);
-  Path := IncludeTrailingPathDelimiter(Path) + 'heckers-sketch.lock';
+  Path := AppDataDir + 'heckers-sketch.lock';
   LockFD := FpOpen(PChar(Path), O_RDWR or O_CREAT, &644);
   if LockFD < 0 then Exit(True);   { cannot lock: better to run than not }
   { A whole-file write lock.  It goes when the process does, however it goes. }

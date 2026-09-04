@@ -119,6 +119,12 @@ Two better answers if it matters later, and one to avoid:
 Never a token with write access in the binary.  It is handed out to
 strangers, so the token is handed out to strangers.
 
+Release builds now keep their symbols in dist/syms/ rather than throwing
+them away, so a crash report's addresses can be turned back into line
+numbers - `addr2line -f -C -e dist/syms/etchasketch-linux-release.dbg
+0x...`.  Keep those files for any release anybody is running.  The addresses
+only mean anything against the exact build they came from.
+
 Known rough edges: two solids that interpenetrate sort wrongly, because the
 painter's algorithm works on whole faces.  A file saved before tonight loads
 its dimensions sitting on the line they measure.
