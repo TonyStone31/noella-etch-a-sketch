@@ -119,6 +119,7 @@ type
     property Width: Integer read FWidth;
     property Height: Integer read FHeight;
     property BlendMode: TBlendMode read FMode write FMode;
+    property Stride: PtrInt read FStride;
     { An ink layer keeps its own alpha so it can be composited over any
       background; a background surface stays fully opaque. }
     property PreserveAlpha: Boolean read FKeepAlpha write FKeepAlpha;
@@ -285,7 +286,14 @@ end;
 procedure TArtSurface.Allocate(AWidth, AHeight: Integer);
 var
   Desc: TRawImageDescription;
+  RI: TRawImage;
+  Room: PtrUInt;
 begin
+  { Zeroed before it is filled in.  It is a record on the stack, the image
+    decides whether to reallocate by comparing it byte for byte against the
+    one it holds, and a comparison that includes whatever the stack happened
+    to contain is not a comparison. }
+  FillChar(Desc, SizeOf(Desc), 0);
   Desc.Init_BPP32_B8G8R8A8_BIO_TTB(AWidth, AHeight);
   FImage.DataDescription := Desc;
   FBits := PByte(FImage.GetDataLineStart(0));
@@ -308,16 +316,50 @@ begin
     ResetDirty;
     Exit;
   end;
-  FWidth := AWidth;
-  FHeight := AHeight;
-  { the allocation is not zeroed, and anything that only partly covers the
-    surface afterwards would otherwise show whatever was in that memory }
-  FillChar(FBits^, PtrUInt(FImage.GetDataLineStart(AHeight - 1)) -
-    PtrUInt(FBits) + PtrUInt(AWidth) * 4, 0);
   if AHeight > 1 then
     FStride := PByte(FImage.GetDataLineStart(1)) - FBits
   else
     FStride := AWidth * 4;
+
+  { How many rows there is really room for.
+
+    Width and height are what every clip in this unit is written in terms of
+    - the compositor, the blitter, ScanLine itself - so they had better be
+    backed by memory that exists.  Up to now they were whatever was asked
+    for, on the understanding that asking is the same as getting.  It is not:
+    the image can decline, or hand back less than the description says, and
+    nothing here would have known.  A surface that reports more rows than it
+    owns is a surface where the guards agree with each other all the way down
+    and the last row still walks off the end.
+
+    So the height is trimmed to what the buffer can hold.  A slightly short
+    surface draws a slightly short picture, which nobody will notice; the
+    alternative is an access violation on a machine we cannot get at. }
+  Room := 0;
+  try
+    FImage.GetRawImage(RI, False);
+    Room := RI.DataSize;
+  except
+    Room := 0;
+  end;
+  if (Room > 0) and (FStride > 0) and
+     (Room div PtrUInt(FStride) < PtrUInt(AHeight)) then
+    AHeight := Integer(Room div PtrUInt(FStride));
+  if AHeight < 1 then
+  begin
+    FWidth := 0;
+    FHeight := 0;
+    FStride := 0;
+    FBitmapValid := False;
+    ResetDirty;
+    Exit;
+  end;
+
+  FWidth := AWidth;
+  FHeight := AHeight;
+  { the allocation is not zeroed, and anything that only partly covers the
+    surface afterwards would otherwise show whatever was in that memory }
+  FillChar(FBits^, PtrUInt(FStride) * PtrUInt(AHeight), 0);
   FBitmapValid := False;
   ResetDirty;
 end;

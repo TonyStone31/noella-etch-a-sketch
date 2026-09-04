@@ -6524,6 +6524,15 @@ begin
        FormatFloat('0.00', FUIScale),
        specialize IfThen<string>(IsPortable, 'yes', 'no'),
        NetBackend]) + LineEnding +
+    { The surfaces, because two crashes running have been in the compositor
+      and the question both times was whether these four still agree with
+      each other and with the window.  Cheap to carry, and it turns the next
+      report of this into an answer instead of another round of guessing. }
+    Format('art=%dx%d/%d paper=%dx%d/%d inkpro=%dx%d/%d inktoy=%dx%d/%d',
+      [FArt.Width, FArt.Height, FArt.Stride,
+       FPaper.Width, FPaper.Height, FPaper.Stride,
+       FInkPro.Width, FInkPro.Height, FInkPro.Stride,
+       FInkToy.Width, FInkToy.Height, FInkToy.Stride]) + LineEnding +
     'what was happening, most recent last:' + LineEnding + TrailText;
 end;
 
