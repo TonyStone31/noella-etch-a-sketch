@@ -542,6 +542,12 @@ type
     { pro }
     function ToolName(T: TProTool): string;
     function Prompt: string;
+    { The size being pulled right now, in the same words it would be typed
+      in, or empty when nothing is being pulled. }
+    function LiveMeasure: string;
+    { The colour of a working plane: the axis its face points along, which is
+      how SketchUp names a plane - right is red, left green, up blue. }
+    function PlanePix(Pl: TPlane): TPix;
     function PreviewTarget: TP3;
     procedure SetTool(T: TProTool);
     function PlaneName: string;
@@ -2204,8 +2210,11 @@ begin
   Now64 := GetTickCount64;
   if Now64 - FLastStatus < 60 then Exit;
   FLastStatus := Now64;
-  R := Rect(ClientWidth div 3, Round(38 * FUIScale), ClientWidth,
-    Round(84 * FUIScale));
+  { The whole title strip, whichever mode is up.  This used to be a fixed
+    38..84, which is where TOY's tall header keeps its readout - PRO's is 34
+    pixels high altogether, so the rectangle sat entirely below the numbers
+    it was meant to refresh and they simply stopped moving. }
+  R := Rect(ClientWidth div 3, 0, ClientWidth, TitleHeight + Round(2 * FUIScale));
   LCLIntf.InvalidateRect(Handle, @R, False);
   if FMode = mdPro then
     pbCmd.Invalidate;
@@ -3576,8 +3585,31 @@ begin
   Inc(X, pbCmd.Canvas.TextWidth(S) + Round(10 * FUIScale));
 
   if (GetTickCount64 div 500) mod 2 = 0 then Caret := '_' else Caret := ' ';
-  UIFont(pbCmd.Canvas, 12, True, Theme.Accent, True);
-  S := FInput + Caret;
+  { What SketchUp's measurements box does: while you drag, it shows the size
+    you are pulling, and the moment you type anything your figure takes its
+    place.  Two readings in two corners is one too many - the number belongs
+    where the typing goes, because they are the same number. }
+  if FInput <> '' then
+  begin
+    UIFont(pbCmd.Canvas, 12, True, Theme.Accent, True);
+    S := FInput + Caret;
+  end
+  else
+  begin
+    S := LiveMeasure;
+    if S = '' then
+    begin
+      UIFont(pbCmd.Canvas, 12, True, Theme.Accent, True);
+      S := Caret;
+    end
+    else
+    begin
+      { dimmer than typed text, because it is a reading rather than a
+        decision - it says what you would get, not what you have asked for }
+      UIFont(pbCmd.Canvas, 12, False, Theme.TextDim, True);
+      S := S + Caret;
+    end;
+  end;
   pbCmd.Canvas.TextOut(X, (H - pbCmd.Canvas.TextHeight(S)) div 2, S);
 
   { right hand side: the last message, then the live readout }
@@ -4467,7 +4499,9 @@ end;
 procedure TMainForm.PaintProOverlay(C: TCanvas);
 var
   HintFace: Integer;
-  P: TPointF;
+  CircI: Integer;
+  CircR: Double;
+  P, PPrev: TPointF;
   SX, SY, AX, AY: Integer;
   BarLen, BarPx: Double;
   R: TRect;
@@ -4495,7 +4529,16 @@ var
     C.Pen.Style := psSolid;
     if FAxisLock in [0..2] then
     begin
+      { going along an axis - that axis's colour }
       C.Pen.Color := PixToColor(AxisPix(FAxisLock));
+      C.Pen.Width := Max(3, Round(3 * FUIScale));
+    end
+    else if FPlaneHeld then
+    begin
+      { lying in a held plane - that plane's colour.  A line got this and a
+        rectangle did not, which made the rectangle the one shape that never
+        said which way it was going to land. }
+      C.Pen.Color := PixToColor(PlanePix(FD.Plane));
       C.Pen.Width := Max(3, Round(3 * FUIScale));
     end
     else
@@ -4557,16 +4600,36 @@ begin
     ptCircle:
       if FStage = 1 then
       begin
-        C.Pen.Style := psDash;
-        C.Pen.Color := PixToColor(Theme.Accent);
-        C.Brush.Style := bsClear;
-        AX := Round(Dist(FP1, FCur) * Ppu);
-        P := ScreenOf(FP1);
-        { in ISO a circle projects to an ellipse; the preview stays round,
-          which is close enough for a rubber band }
-        C.Ellipse(Round(P.X) - AX, Round(P.Y) - AX,
-                  Round(P.X) + AX, Round(P.Y) + AX);
+        { Drawn in the plane it is going to land in, rather than as a round
+          ring on the glass.  It used to be a screen circle - "close enough
+          for a rubber band" - and the cost of that was the one thing you
+          most need to see: change the plane under a circle and nothing on
+          screen moved, so it looked as though the plane had not changed. }
         C.Pen.Style := psSolid;
+        if FPlaneHeld then
+        begin
+          C.Pen.Color := PixToColor(PlanePix(FD.Plane));
+          C.Pen.Width := Max(3, Round(3 * FUIScale));
+        end
+        else
+        begin
+          C.Pen.Color := PixToColor(Theme.Accent);
+          C.Pen.Width := Max(2, Round(2 * FUIScale));
+        end;
+        C.Brush.Style := bsClear;
+        CircR := Dist(FP1, FCur);
+        if CircR > 1E-9 then
+        begin
+          PPrev := ScreenOf(ArcPoint(FP1, CircR, 0, FD.Plane));
+          for CircI := 1 to 48 do
+          begin
+            P := ScreenOf(ArcPoint(FP1, CircR, CircI * 2 * Pi / 48, FD.Plane));
+            C.MoveTo(Round(PPrev.X), Round(PPrev.Y));
+            C.LineTo(Round(P.X), Round(P.Y));
+            PPrev := P;
+          end;
+        end;
+        C.Pen.Width := 1;
       end;
     ptMeasure:
       if FStage >= 1 then
@@ -5045,6 +5108,58 @@ begin
   SetLength(FMoveVerts, 0);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
+end;
+
+function TMainForm.PlanePix(Pl: TPlane): TPix;
+begin
+  case Pl of
+    plXZ: Result := AxisPix(1);      { faces along Y, green }
+    plYZ: Result := AxisPix(0);      { faces along X, red }
+  else
+    Result := AxisPix(2);            { flat, faces up Z, blue }
+  end;
+end;
+
+function TMainForm.LiveMeasure: string;
+var
+  T: TP3;
+  W, H, L: Double;
+begin
+  Result := '';
+  if FMode <> mdPro then Exit;
+  case FTool of
+    ptLine:
+      if FStage = 1 then
+        Result := FormatLen(Dist(FP1, PreviewTarget), FD.Units);
+    ptRect:
+      if FStage = 1 then
+      begin
+        RectSides(FP1, RectTarget, FD.Plane, W, H);
+        { the comma is how SketchUp takes two sides, and how we take them }
+        Result := FormatLen(W, FD.Units) + ', ' + FormatLen(H, FD.Units);
+      end;
+    ptCircle:
+      if FStage = 1 then
+        Result := FormatLen(Dist(FP1, FCur), FD.Units);
+    ptPush:
+      if (FStage = 1) and (FPushFace >= 0) then
+      begin
+        L := PushDistance;
+        if Abs(L) > 1E-9 then Result := FormatLen(Abs(L), FD.Units);
+      end;
+    ptOffset:
+      if FStage = 1 then
+      begin
+        L := OffsetDistance;
+        if Abs(L) > 1E-9 then Result := FormatLen(Abs(L), FD.Units);
+      end;
+    ptMeasure, ptDim:
+      if FStage >= 1 then
+      begin
+        T := PreviewTarget;
+        if Dist(FP1, T) > 1E-9 then Result := FormatLen(Dist(FP1, T), FD.Units);
+      end;
+  end;
 end;
 
 function TMainForm.Prompt: string;
