@@ -43,10 +43,34 @@ What the program was doing: version, tool, view, plane, cursor, counts of
 each kind of thing on the sheet, and the last few dozen actions with their
 world coordinates.  Nothing about the person or the machine.
 
-The drawing itself is **offered, never assumed**.  It is the single most
+A picture of the drawing area is **asked for after the form closes**, so the
+question is about a picture that has been taken and the form is not sitting
+in front of the thing being photographed.  The program draws it out of what
+it has already rendered - no screen grabber, nothing else on the screen in
+it.  It is encouraged, because a report with a picture is worth several
+without, and it is never forced: somebody may be drawing something they would
+rather not send.
+
+For a crash the picture is taken **when the crash happens** and kept next to
+the report, because by the next launch whatever caused it is long gone.  It
+is sent only if the person says so.
+
+The drawing file itself is **offered, never assumed**.  It is the single most
 useful thing for finding a fault - it is what found the last one - but it is
 somebody's work, possibly with a customer's name on it, and it does not leave
 the machine unless the checkbox is ticked.
+
+## Collecting them
+
+`tools/fetch-reports.py` does the reading end.  It asks GitHub where the bin
+is, remembers every bin it has ever been told about - a bin just rotated away
+may still hold reports nobody has collected - and files what it finds under
+`reports/<date>/`, newest first in `reports/index.md`.  Run it whenever, or
+from cron:
+
+    */30 * * * * cd /path/to/repo && ./tools/fetch-reports.py >>/tmp/hsk.log 2>&1
+
+`reports/` is not committed.  Those files are other people's drawings.
 
 ## If the bin is missing
 

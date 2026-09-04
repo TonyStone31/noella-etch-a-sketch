@@ -106,6 +106,10 @@ type
     procedure Restore(const Buf: TBytes);
     procedure DrawTo(ACanvas: TCanvas; X, Y: Integer);
     procedure SaveToPNG(const AFileName: string);
+    { The same picture, into memory.  A bug report wants to carry what the
+      screen looked like, and going out to a file and back to do it would
+      mean writing somebody's drawing to disk on the way to sending it. }
+    procedure SaveToPNGStream(St: TStream);
     function TextExtent(const S: string; AFont: TFont): TSize;
     procedure TextOut(X, Y: Integer; const S: string; AFont: TFont; const C: TPix;
       Alpha: Single = 1.0);
@@ -1170,6 +1174,19 @@ begin
       if Cov > 0.004 then
         BlendPixel(X + IX - 1, Y + IY - 1, C, Cov * Alpha);
     end;
+end;
+
+procedure TArtSurface.SaveToPNGStream(St: TStream);
+var
+  Png: TPortableNetworkGraphic;
+begin
+  Png := TPortableNetworkGraphic.Create;
+  try
+    Png.Assign(AsBitmap);
+    Png.SaveToStream(St);
+  finally
+    Png.Free;
+  end;
 end;
 
 procedure TArtSurface.SaveToPNG(const AFileName: string);

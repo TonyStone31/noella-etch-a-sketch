@@ -58,6 +58,10 @@ procedure RememberEndpoint(const E: TEndpoint);
   arrangement exists to handle.  Anything else is taken at its word. }
 function SendReport(const FileName, Body: string; out Err: string): Boolean;
 
+{ The same, for something that is not text - a picture of the screen. }
+function SendBinary(const FileName: string; Data: TStream;
+  const ContentType: string; out Err: string): Boolean;
+
 { A name no other report will have. }
 function UniqueReportName(const Prefix, Version: string): string;
 
@@ -190,25 +194,25 @@ begin
   end;
 end;
 
-function PostTo(const Base, FileName, Body: string;
-  out Status: Integer; out Err: string): Boolean;
+function PostStream(const Base, FileName: string; Data: TStream;
+  const ContentType: string; out Status: Integer; out Err: string): Boolean;
 var
   C: TFPHTTPClient;
-  Src, Dst: TStringStream;
+  Dst: TStringStream;
 begin
   Result := False;
   Status := 0;
   Err := '';
   C := TFPHTTPClient.Create(nil);
-  Src := TStringStream.Create(Body);
   Dst := TStringStream.Create('');
   try
+    Data.Position := 0;
     C.AllowRedirect := True;
     C.ConnectTimeout := 10000;
     C.IOTimeout := 60000;
     C.AddHeader('User-Agent', 'heckers-sketch');
-    C.AddHeader('Content-Type', 'text/plain; charset=utf-8');
-    C.RequestBody := Src;
+    C.AddHeader('Content-Type', ContentType);
+    C.RequestBody := Data;
     try
       C.Post(Base + '/' + FileName, Dst);
       Status := C.ResponseStatusCode;
@@ -224,8 +228,21 @@ begin
     end;
   finally
     Dst.Free;
-    Src.Free;
     C.Free;
+  end;
+end;
+
+function PostTo(const Base, FileName, Body: string;
+  out Status: Integer; out Err: string): Boolean;
+var
+  Src: TStringStream;
+begin
+  Src := TStringStream.Create(Body);
+  try
+    Result := PostStream(Base, FileName, Src, 'text/plain; charset=utf-8',
+      Status, Err);
+  finally
+    Src.Free;
   end;
 end;
 
@@ -259,6 +276,39 @@ begin
     end;
     RememberEndpoint(E2);
     Result := PostTo(E2.UploadBase, FileName, Body, Status, Err);
+  except
+    on Ex: Exception do
+    begin
+      Result := False;
+      Err := Ex.Message;
+    end;
+  end;
+end;
+
+function SendBinary(const FileName: string; Data: TStream;
+  const ContentType: string; out Err: string): Boolean;
+var
+  E, E2: TEndpoint;
+  Status: Integer;
+  Err2: string;
+begin
+  Result := False;
+  Err := '';
+  try
+    if CachedEndpoint(E) then
+    begin
+      if PostStream(E.UploadBase, FileName, Data, ContentType, Status, Err) then
+        Exit(True);
+      if not BinIsGone(Status) and (Status <> 0) then Exit;
+    end;
+    if not FetchEndpoint(E2, Err2) then
+    begin
+      if Err = '' then Err := Err2 else Err := Err + '; ' + Err2;
+      Exit;
+    end;
+    RememberEndpoint(E2);
+    Result := PostStream(E2.UploadBase, FileName, Data, ContentType,
+      Status, Err);
   except
     on Ex: Exception do
     begin
