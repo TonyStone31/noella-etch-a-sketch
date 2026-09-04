@@ -7592,7 +7592,7 @@ begin
 
   UIFont(Canvas, 9, False, Theme.TextDim);
   Canvas.TextOut(M + Round(5 * FUIScale), Y + Round(28 * FUIScale),
-    'Noella Stone Software, Ltd.  -  est. 2021  -  ' + CurrentVersion);
+    'NozelFab Incorporated  -  est. 2021  -  ' + CurrentVersion);
 
   UIFont(Canvas, 10, False, Theme.TextDim);
   S := FHint;
@@ -9345,7 +9345,7 @@ begin
   Canvas.Font.Height := -Round(12 * FScale);
   Canvas.Font.Style := [];
   Canvas.Font.Color := PixToColor(FTheme.Accent);
-  Canvas.TextOut(Pad, Round(76 * FScale), 'Noella Stone Software, Ltd.');
+  Canvas.TextOut(Pad, Round(76 * FScale), 'NozelFab Incorporated');
 
   Canvas.Font.Height := -Round(13 * FScale);
   Canvas.Font.Color := PixToColor(FTheme.Text);
