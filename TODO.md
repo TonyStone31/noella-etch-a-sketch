@@ -102,23 +102,6 @@ Worth fixing the harness before the next round of this - probably by driving
 a real X server rather than a nested one, or by adding a scripting hook to
 the program itself for tests to poke.
 
-Crash reporting goes through a filled-in GitHub issue in the browser, which
-wants a GitHub account the people this is built for have no reason to have.
-Two better answers if it matters later, and one to avoid:
-
-* **Avoid:** an unauthenticated public drop - a paste site or open directory.
-  Anyone can spam it, anyone can read everybody else's reports, and those
-  reports carry file paths and job names.  It is free until it is a liability.
-* **A small endpoint of Tony's own** - a Cloudflare Worker on the free tier -
-  is the real answer for zero-click reporting: no account for the sender, a
-  size cap and a rate limit, and nothing readable by strangers.  It is about
-  thirty lines and needs a domain he controls.
-* **mailto:** costs nothing and needs no account, but puts an address in the
-  binary and needs a mail client set up.
-
-Never a token with write access in the binary.  It is handed out to
-strangers, so the token is handed out to strangers.
-
 Release builds now keep their symbols in dist/syms/ rather than throwing
 them away, so a crash report's addresses can be turned back into line
 numbers - `addr2line -f -C -e dist/syms/etchasketch-linux-release.dbg

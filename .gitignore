@@ -50,7 +50,11 @@ reports/
 CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
+SUGGESTIONS_TO_CLAUDE.md
 docs/bug-report-endpoint.md
+
+# a compiled binary that got in here once under a mistyped name
+etchasketcdhjsd
 
 # --- the program's own runtime files -----------------------------------------
 # It keeps its settings, draft, lock and crash reports next to the executable
