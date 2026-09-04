@@ -110,7 +110,10 @@ type
     pbScreen: TPaintBox;
     tmrTick: TTimer;
     procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormDestroy(Sender: TObject);
+    procedure RememberWindow;
+    function OnAScreen(L, T, W, H: Integer): Boolean;
     procedure FormKeyDown(Sender: TObject; var Key: word; Shift: TShiftState);
     procedure FormKeyPress(Sender: TObject; var Key: char);
     procedure FormKeyUp(Sender: TObject; var Key: word; Shift: TShiftState);
@@ -282,6 +285,9 @@ type
       flat planes instead and latches, because sometimes you mean to draw in
       mid air; Esc, or a new tool, hands it back to the face. }
     FPlaneHeld: Boolean;
+    { where the window was, taken while it still existed }
+    FWinSaved, FWinMax: Boolean;
+    FWinL, FWinT, FWinW, FWinH: Integer;
     { True when the point the shape starts from sits on a face, so that face
       decides the plane and dragging must not overrule it.  False when it
       started in mid air, which is when the drag gets to choose. }
@@ -1381,6 +1387,49 @@ FPushFace := -1;
 
   tmrTick.Interval := TICK_MS;
   tmrTick.Enabled := True;
+end;
+
+{ Where the window is, written down while there is still a window to ask.
+
+  This used to be read in OnDestroy along with everything else, which works
+  on GTK and does not work on Windows: by the time the form is being
+  destroyed there the handle is gone, and RestoredLeft and the rest answer
+  with whatever they have left rather than with where the window was.  So the
+  position was saved faithfully on Linux and saved as rubbish on Windows,
+  which is exactly the shape of the complaint - it remembers here, it never
+  remembers there. }
+procedure TMainForm.RememberWindow;
+begin
+  if not HandleAllocated then Exit;
+  FWinMax := WindowState = wsMaximized;
+  if WindowState = wsNormal then
+  begin
+    { An ordinary window knows where it is.  Restored* is the LCL's memory of
+      where it was before it got maximised, and it is a beat behind after the
+      window has just been moved - which showed up here as one save in three
+      writing down the position the window had opened at rather than the one
+      it was closed at. }
+    FWinL := Left;
+    FWinT := Top;
+    FWinW := Width;
+    FWinH := Height;
+  end
+  else
+  begin
+    { Maximised or full screen, ask what it will go back to.  Left and Width
+      here would be the size of the screen, and it would come back filling it
+      with no way to make it smaller. }
+    FWinL := RestoredLeft;
+    FWinT := RestoredTop;
+    FWinW := RestoredWidth;
+    FWinH := RestoredHeight;
+  end;
+  FWinSaved := (FWinW > 200) and (FWinH > 200);
+end;
+
+procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
+begin
+  RememberWindow;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -9412,6 +9461,32 @@ begin
     FCmdMsg := 'Picked up where you left off.  Ctrl+S to give it a name.';
 end;
 
+{ Is a window at this place actually reachable?
+
+  The old test asked whether the corner was inside the primary screen, with
+  the top at or below zero - which is right for one monitor and wrong the
+  moment there are two.  Windows numbers a monitor placed above or to the
+  left of the primary one with negative coordinates, so a window docked on
+  the left-hand screen saved a perfectly good position that failed this test
+  on the way back in and got recentred every single time.  On a work laptop
+  that lives in a docking station that is the normal case, not the odd one.
+
+  So: ask every monitor, and accept the position if a usable piece of the
+  window lands on one of them.  Enough of it to grab and drag - a sliver
+  hanging off an edge is the case this is here to prevent. }
+function TMainForm.OnAScreen(L, T, W, H: Integer): Boolean;
+var
+  I: Integer;
+  R, X: TRect;
+begin
+  Result := False;
+  R := Rect(L, T, L + W, T + H);
+  for I := 0 to Screen.MonitorCount - 1 do
+    if IntersectRect(X, R, Screen.Monitors[I].WorkareaRect) and
+       (X.Right - X.Left >= 160) and (X.Bottom - X.Top >= 80) then
+      Exit(True);
+end;
+
 procedure TMainForm.LoadSettings;
 var
   Ini: TIniFile;
@@ -9462,17 +9537,21 @@ begin
       WT := Ini.ReadInteger('win', 'y', MaxInt);
       if (WW > 200) and (WH > 200) then
       begin
-        WW := Min(WW, Screen.WorkAreaWidth);
-        WH := Min(WH, Screen.WorkAreaHeight);
-        SetBounds(Left, Top, WW, WH);
-      end;
-      if (WL <> MaxInt) and (WT <> MaxInt) and
-         (WL > -Width + 120) and (WT >= 0) and
-         (WL < Screen.DesktopWidth - 120) and
-         (WT < Screen.DesktopHeight - 80) then
-        SetBounds(WL, WT, Width, Height)
+        WW := Min(WW, Screen.DesktopWidth);
+        WH := Min(WH, Screen.DesktopHeight);
+      end
       else
+      begin
+        WW := Width;
+        WH := Height;
+      end;
+      if (WL <> MaxInt) and (WT <> MaxInt) and OnAScreen(WL, WT, WW, WH) then
+        SetBounds(WL, WT, WW, WH)
+      else
+      begin
+        SetBounds(Left, Top, WW, WH);
         Position := poScreenCenter;
+      end;
       if Ini.ReadBool('win', 'max', False) then
         WindowState := wsMaximized;
     finally
@@ -9508,13 +9587,20 @@ begin
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));
 
-      { Restored*, not Left/Width: a maximised window would otherwise
-        remember the size of the screen and come back unmaximisable. }
-      Ini.WriteBool('win', 'max', WindowState = wsMaximized);
-      Ini.WriteInteger('win', 'x', RestoredLeft);
-      Ini.WriteInteger('win', 'y', RestoredTop);
-      Ini.WriteInteger('win', 'w', RestoredWidth);
-      Ini.WriteInteger('win', 'h', RestoredHeight);
+      { Taken in OnClose, while the window was still a window.  If the
+        program came down some way that never closed the form, this is the
+        last chance to ask and it may well answer with nothing - in which
+        case the previous position stays in the file rather than being
+        overwritten with rubbish. }
+      if not FWinSaved then RememberWindow;
+      if FWinSaved then
+      begin
+        Ini.WriteBool('win', 'max', FWinMax);
+        Ini.WriteInteger('win', 'x', FWinL);
+        Ini.WriteInteger('win', 'y', FWinT);
+        Ini.WriteInteger('win', 'w', FWinW);
+        Ini.WriteInteger('win', 'h', FWinH);
+      end;
       Ini.UpdateFile;
     finally
       Ini.Free;

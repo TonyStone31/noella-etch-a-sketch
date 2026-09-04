@@ -12,6 +12,7 @@ object MainForm: TMainForm
   DesignTimePPI = 96
   DoubleBuffered = True
   KeyPreview = True
+  OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
