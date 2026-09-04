@@ -452,7 +452,7 @@ type
     procedure DoUpdate;
     procedure OfferCrashReport;
     procedure ReportBug(const Preamble: string = '';
-      const ShotFile: string = '');
+      const ShotFile: string = ''; const DocFile: string = '');
     { Note something worth knowing if this run ends badly. }
     procedure Trail(const S: string);
     function TrailText: string;
@@ -4076,7 +4076,7 @@ end;
   for finding a fault - it is what found the last one - but it is also
   somebody's work, possibly with a customer's name on it, and it does not
   leave the machine without being asked for. }
-procedure TMainForm.ReportBug(const Preamble, ShotFile: string);
+procedure TMainForm.ReportBug(const Preamble, ShotFile, DocFile: string);
 var
   Dlg: TForm;
   Memo: TMemo;
@@ -4182,7 +4182,23 @@ begin
     begin
       L := TStringList.Create;
       try
-        BuildSession(L);
+        { For a crash, the drawing that matters is the one saved when it
+          happened - the same reasoning as the picture.  By the time anyone
+          is looking at this dialog the program has restarted, and what is on
+          screen is an empty sheet or a draft read back off the disk, neither
+          of which is the thing that went wrong.  Ticking the box and sending
+          an empty drawing is worse than not offering it. }
+        if (DocFile <> '') and FileExists(DocFile) then
+        begin
+          try
+            L.LoadFromFile(DocFile);
+          except
+            L.Clear;
+            BuildSession(L);
+          end;
+        end
+        else
+          BuildSession(L);
         Body := Body + LineEnding + 'the drawing, sent on purpose:' +
           LineEnding + L.Text;
       finally
@@ -4282,7 +4298,7 @@ begin
       mrYes:
         begin
           RenameFile(Fn, Fn + '.sent');
-          ReportBug(L.Text, Fn + '.png');
+          ReportBug(L.Text, Fn + '.png', Fn + '.hsk');
         end;
     else
       RenameFile(Fn, Fn + '.kept');
@@ -6480,6 +6496,21 @@ begin
       whether any of it is sent is asked next time the program starts. }
     try
       FArt.SaveToPNG(Path + '.png');
+    except
+    end;
+    { One more than last time.  A single crash says nothing about the drawing
+      - it can be anything - but a second one straight after it, having
+      opened the same drawing again, says the drawing is at least involved,
+      and a third says stop.  Cleared on any clean exit, so this only ever
+      counts crashes with nothing good in between. }
+    try
+      with TIniFile.Create(ConfigFile) do
+      try
+        WriteInteger('startup', 'crashes',
+          ReadInteger('startup', 'crashes', 0) + 1);
+      finally
+        Free;
+      end;
     except
     end;
   except
@@ -9551,8 +9582,35 @@ begin
       if FileExists(Aside) then DeleteFile(Aside);
       RenameFile(DraftFile, Aside);
       Ini.WriteBool('startup', 'restoring', False);
+      Ini.WriteInteger('startup', 'crashes', 0);
       FCmdMsg := 'The last drawing would not open - it is kept beside the ' +
         'settings as heckers-sketch-draft.hsk.would-not-open.';
+      Exit;
+    end;
+
+    { Two crashes in a row with this drawing opening each time.
+
+      The test above only catches a draft that kills the program while it is
+      being read, which is the loud case and the rare one.  The quiet one is
+      a drawing that opens perfectly and then goes down five minutes later
+      when you do the thing that breaks it - and since it opened, nothing
+      stopped it opening again next time, and again after that.  That is the
+      loop: the program comes back up holding the very thing that just killed
+      it, waits for you to do the same thing, and dies.
+
+      So the drawing is stood down after the second one rather than reloaded
+      a third time.  It is kept, and named on screen, and it is one file
+      open away.  Deciding that for somebody is worth it here: the state they
+      are in is a program that will not stay running. }
+    if Ini.ReadInteger('startup', 'crashes', 0) >= 2 then
+    begin
+      Aside := DraftFile + '.crashed';
+      if FileExists(Aside) then DeleteFile(Aside);
+      RenameFile(DraftFile, Aside);
+      Ini.WriteInteger('startup', 'crashes', 0);
+      FCmdMsg := 'It crashed twice with the last drawing open, so this run ' +
+        'starts empty.  The drawing is kept as ' +
+        ExtractFileName(DraftFile) + '.crashed - open it when you want it.';
       Exit;
     end;
     Ini.WriteBool('startup', 'restoring', True);
@@ -9720,6 +9778,10 @@ begin
         last chance to ask and it may well answer with nothing - in which
         case the previous position stays in the file rather than being
         overwritten with rubbish. }
+      { A run that got as far as writing its settings out is a run that did
+        not crash, so the tally starts again. }
+      Ini.WriteInteger('startup', 'crashes', 0);
+
       if not FWinSaved then RememberWindow;
       if FWinSaved then
       begin
