@@ -3,7 +3,7 @@ unit uMain;
 {
   Heckers Sketch - an Etch A Sketch that grew up.
 
-  19 October 2021.  Noella Hazel Stone, age 7, decided she wanted to write a
+  19 October 2021.  Noella Stone, age 7, decided she wanted to write a
   program.  She drew the screen, the two dials and the shake button on paper,
   picked the colors, and told her dad what each part had to do.  He typed
   while she directed.
@@ -9282,7 +9282,7 @@ type
 
 const
   ABOUT_LINES: array[0..12] of string = (
-    'Noella Hazel Stone was seven years old when she decided she wanted to',
+    'Noella Stone was seven years old when she decided she wanted to',
     'write a program.  She drew the screen, the two dials and the shake',
     'button on paper, picked the colors, and told her dad what each part',
     'was supposed to do.  He typed while she directed.  19 October 2021.',

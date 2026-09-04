@@ -1,7 +1,7 @@
 unit uSurface;
 
 {
-  uSurface - a small software rasteriser for Noella Hazel Sketch.
+  uSurface - a small software rasteriser for Heckers Sketch.
 
   Everything the program draws (the sketch itself, the chassis, the knobs,
   the icons) is rendered into a 32 bit BGRA pixel buffer with analytic

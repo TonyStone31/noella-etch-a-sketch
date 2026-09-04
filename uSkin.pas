@@ -1,7 +1,7 @@
 unit uSkin;
 
 {
-  uSkin - the look of Noella Hazel Sketch.
+  uSkin - the look of Heckers Sketch.
 
   Color themes plus the chassis parts (panels, knobs, buttons, line icons).
   Everything here paints into a TArtSurface so the edges come out smooth;

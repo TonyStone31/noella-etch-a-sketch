@@ -10,7 +10,7 @@ no installer, single file.
 
 ## The story
 
-**19 October 2021.** Noella Hazel Stone was seven years old and decided she
+**19 October 2021.** Noella Stone was seven years old and decided she
 wanted to write a program. She drew the screen, the two dials and the shake
 button on paper, picked the colors, and told her dad what each part was
 supposed to do. He typed while she directed.
