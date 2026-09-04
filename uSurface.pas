@@ -60,6 +60,7 @@ type
     FKeepAlpha: Boolean;
     FDirty: TRect;
     procedure Allocate(AWidth, AHeight: Integer);
+    procedure Verify;
     procedure Invalidate; inline;
   public
     constructor Create(AWidth, AHeight: Integer);
@@ -120,6 +121,7 @@ type
     property Height: Integer read FHeight;
     property BlendMode: TBlendMode read FMode write FMode;
     property Stride: PtrInt read FStride;
+    class function Repairs: Integer;
     { An ink layer keeps its own alpha so it can be composited over any
       background; a background surface stays fully opaque. }
     property PreserveAlpha: Boolean read FKeepAlpha write FKeepAlpha;
@@ -281,6 +283,50 @@ begin
   FBitmap.Free;
   FImage.Free;
   inherited Destroy;
+end;
+
+var
+  GRepairs: Integer = 0;
+
+class function TArtSurface.Repairs: Integer;
+begin
+  Result := GRepairs;
+end;
+
+{ Take the buffer and its stride from the image again, rather than from what
+  we wrote down when it was made.
+
+  Both are written once, in Allocate, and nothing here ever touches them
+  again - so finding one of them changed means something outside this object
+  wrote through it, and a report from Tony's machine says exactly that: three
+  surfaces carrying a stride of 7440, and the fourth carrying the bit pattern
+  of the drawing's zoom.  A stride is what turns a row number into an
+  address, so a wrong one is not a wrong picture, it is a wild pointer, and
+  the crash lands in whichever loop touches it first.
+
+  Asking the image again costs two calls per composite and cannot be wrong,
+  because the image is where the memory actually is.  The count of how often
+  the answer differed goes into the crash report: nought means this is not
+  happening and the theory is wrong, anything else says how bad it is. }
+procedure TArtSurface.Verify;
+var
+  P: PByte;
+  St: PtrInt;
+begin
+  if (FWidth <= 0) or (FHeight <= 0) then Exit;
+  P := PByte(FImage.GetDataLineStart(0));
+  if P = nil then Exit;
+  if FHeight > 1 then
+    St := PByte(FImage.GetDataLineStart(1)) - P
+  else
+    St := FWidth * 4;
+  if St < FWidth * 4 then Exit;      { the image is talking nonsense too }
+  if (P <> FBits) or (St <> FStride) then
+  begin
+    Inc(GRepairs);
+    FBits := P;
+    FStride := St;
+  end;
 end;
 
 procedure TArtSurface.Allocate(AWidth, AHeight: Integer);
@@ -558,6 +604,9 @@ var
   B, S, D: PPix;
 begin
   if (Base = nil) or (Ink = nil) then Exit;
+  Verify;
+  Base.Verify;
+  Ink.Verify;
   { Clipped to all three, not only to where it is being written.
 
     It used to trust that the paper and the ink were the same size as the
@@ -1115,6 +1164,8 @@ var
   S, D: PPix;
 begin
   if Src = nil then Exit;
+  Verify;
+  Src.Verify;
   if (W <= 0) or (H <= 0) then Exit;
   if (FWidth <= 0) or (FHeight <= 0) then Exit;
   if (Src.Width <= 0) or (Src.Height <= 0) then Exit;
