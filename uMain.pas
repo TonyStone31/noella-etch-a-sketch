@@ -313,6 +313,13 @@ type
       attached.  Refuse to until the hand has actually moved. }
     FNoLockUntilMoved: Boolean;
     FWasLine: Boolean;
+    { latched when drawing the document threw, so it is not retried forty
+      times a second }
+    FRenderBroken: Boolean;
+    { how long this run has been up, and whether it has been up long enough
+      to say the startup worked }
+    FUpTime: Single;
+    FStartupDone, FAskedAboutCrash: Boolean;
     { Shaking the mouse to say which way you meant.  A count of direction
       reversals on each screen axis, and when they were, so a shake decays
       back to nothing if you stop. }
@@ -1399,9 +1406,13 @@ begin
     is only a safety net. }
   if not Opened then RestoreDraft;
 
-  { housekeeping from last time, then a quiet look for a newer build }
+  { Housekeeping from last time.  Nothing here may put a dialog on screen:
+    this runs before the window has painted, so a dialog would sit in front
+    of a black rectangle with nothing behind it - which is a program that
+    looks like it has hung, and gets force-quit, which writes another crash
+    report, which shows another dialog next time.  Offering the report waits
+    for the tick, once the window is actually up. }
   ForgetPreviousBuild;
-  OfferCrashReport;
   CheckForUpdate(False);
 end;
 
@@ -2127,8 +2138,25 @@ end;
 procedure TMainForm.RenderPro;
 begin
   FInkPro.ClearTransparent;
-  if FD.Doc.Live > 0 then
-    FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW);
+  { A fault while drawing used to take the program down, and since the
+    drawing is drawn again every frame it took it down again the moment it
+    came back - which is a program that cannot be started, not a program with
+    a bug in it.  Now the picture stops and says so, and everything else
+    still works: the drawing can be saved, undone, or picked apart to find
+    what is wrong with it. }
+  if FRenderBroken then Exit;
+  try
+    if FD.Doc.Live > 0 then
+      FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW);
+  except
+    on E: Exception do
+    begin
+      FRenderBroken := True;
+      FCmdMsg := 'Something in this drawing will not draw (' + E.ClassName +
+        ').  Ctrl+Z, or save it and send it in - nothing is lost.';
+      FHint := 'Drawing stopped - the document is still here and still saves.';
+    end;
+  end;
   FInkPro.MarkAllDirty;
 end;
 
@@ -7472,6 +7500,8 @@ procedure TMainForm.PushUndo;
 var
   I: Integer;
 begin
+  { the drawing changed, so whatever would not draw may be gone now }
+  FRenderBroken := False;
   { Everything that changes the drawing comes through here, which makes it
     the one honest place to notice that there is something worth keeping. }
   Inc(FEditSeq);
@@ -7684,6 +7714,31 @@ begin
   FollowScreenSize;
   ServiceMotion;
   ServiceHover;
+
+  { Survived long enough to call the startup a success, so the draft that was
+    restored is not the thing that kills it.  Four seconds is well past every
+    load, render and first paint. }
+  if not FStartupDone then
+  begin
+    FUpTime := FUpTime + Dt;
+    { and once there is a window to put it in front of, last time's crash can
+      be offered - not before }
+    if (FUpTime > 1.5) and not FAskedAboutCrash then
+    begin
+      FAskedAboutCrash := True;
+      OfferCrashReport;
+    end;
+    if FUpTime > 4.0 then
+    begin
+      FStartupDone := True;
+      with TIniFile.Create(GetAppConfigFile(False)) do
+      try
+        WriteBool('startup', 'restoring', False);
+      finally
+        Free;
+      end;
+    end;
+  end;
 
   { The stick under strain.  Held still, it winds up; moved, it goes slack
     again, because a drag is someone changing their mind about where the
@@ -8650,7 +8705,8 @@ end;
 procedure TMainForm.RestoreDraft;
 var
   L: TStringList;
-  Was: string;
+  Was, Aside: string;
+  Ini: TIniFile;
 begin
   if not FileExists(DraftFile) then Exit;
   { an empty draft is not worth restoring }
@@ -8667,6 +8723,28 @@ begin
       Was := Trim(Copy(L[0], 8, MaxInt));
   finally
     L.Free;
+  end;
+
+  { Did the last run die while doing exactly this?  If the flag is still set
+    from last time, the draft took the program down with it, and restoring it
+    again would do the same forever - which is what a crash loop is.  Put it
+    aside, keep it, and start clean.  Nobody's work is thrown away; it just
+    stops being the thing that runs on startup. }
+  Ini := TIniFile.Create(GetAppConfigFile(False));
+  try
+    if Ini.ReadBool('startup', 'restoring', False) then
+    begin
+      Aside := DraftFile + '.would-not-open';
+      if FileExists(Aside) then DeleteFile(Aside);
+      RenameFile(DraftFile, Aside);
+      Ini.WriteBool('startup', 'restoring', False);
+      FCmdMsg := 'The last drawing would not open - it is kept beside the ' +
+        'settings as heckers-sketch-draft.hsk.would-not-open.';
+      Exit;
+    end;
+    Ini.WriteBool('startup', 'restoring', True);
+  finally
+    Ini.Free;
   end;
 
   { A draft is read before anything else has happened, so a bad one would
