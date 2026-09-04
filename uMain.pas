@@ -545,9 +545,10 @@ type
     { The size being pulled right now, in the same words it would be typed
       in, or empty when nothing is being pulled. }
     function LiveMeasure: string;
-    { The colour of a working plane: the axis its face points along, which is
+    { The color of a working plane: the axis its face points along, which is
       how SketchUp names a plane - right is red, left green, up blue. }
     function PlanePix(Pl: TPlane): TPix;
+    function AxisAlong(const A, B: TP3): Integer;
     function PreviewTarget: TP3;
     procedure SetTool(T: TProTool);
     function PlaneName: string;
@@ -4518,6 +4519,7 @@ var
   procedure Rubber(const A, B: TP3);
   var
     PA, PB: TPointF;
+    Ax: Integer;
   begin
     PA := ScreenOf(A);
     PB := ScreenOf(B);
@@ -4527,22 +4529,19 @@ var
       about to commit.  Heavier again when it is locked to an axis, because
       then the line is also telling you which way you are going. }
     C.Pen.Style := psSolid;
-    if FAxisLock in [0..2] then
-    begin
-      { going along an axis - that axis's colour }
-      C.Pen.Color := PixToColor(AxisPix(FAxisLock));
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-    end
+    C.Pen.Width := Max(3, Round(3 * FUIScale));
+    { A line's color is the direction it runs in.  It was briefly the color
+      of the plane it lay in, which sounds close and is not: a plane's color
+      names the axis it *faces*, and that is the one axis a shape lying in it
+      can have no edge along.  Stood up on XZ a rectangle came out green,
+      when its four sides run red and blue - the one color it had no claim
+      to.  An edge that runs off on its own gets no axis color, the same way
+      it gets none once it is drawn. }
+    if FAxisLock in [0..2] then Ax := FAxisLock else Ax := AxisAlong(A, B);
+    if Ax >= 0 then
+      C.Pen.Color := PixToColor(AxisPix(Ax))
     else
-    begin
-      { Otherwise the plane it is lying in, always - not only when the plane
-        has been pinned.  Held or inferred or taken from the face under the
-        cursor, the question a shape has to answer while you drag it is the
-        same one: which way am I about to land?  Colouring it only when
-        pinned meant a rectangle dragged out normally never answered. }
-      C.Pen.Color := PixToColor(PlanePix(FD.Plane));
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-    end;
+      C.Pen.Color := PixToColor(Theme.Accent);
     C.MoveTo(Round(PA.X), Round(PA.Y));
     C.LineTo(Round(PB.X), Round(PB.Y));
     C.Pen.Style := psSolid;
@@ -4601,7 +4600,12 @@ begin
           ring on the glass.  It used to be a screen circle - "close enough
           for a rubber band" - and the cost of that was the one thing you
           most need to see: change the plane under a circle and nothing on
-          screen moved, so it looked as though the plane had not changed. }
+          screen moved, so it looked as though the plane had not changed.
+
+          A circle is the one shape that keeps the plane's color, and it is
+          the one shape entitled to it: it runs in every direction at once,
+          so there is no direction of its own for it to be colored by, and
+          the axis its plane faces is the only thing left to say. }
         C.Pen.Style := psSolid;
         C.Pen.Color := PixToColor(PlanePix(FD.Plane));
         C.Pen.Width := Max(3, Round(3 * FUIScale));
@@ -5107,6 +5111,25 @@ begin
   else
     Result := AxisPix(2);            { flat, faces up Z, blue }
   end;
+end;
+
+{ Which axis a segment runs along, or -1 for one that runs off on its own.
+  Nearly exact, because an edge either lies on an axis or it does not - a
+  rectangle's sides are dead on two of them and a line you dragged out by
+  hand is dead on none. }
+function TMainForm.AxisAlong(const A, B: TP3): Integer;
+var
+  DX, DY, DZ, L: Double;
+begin
+  Result := -1;
+  DX := B.X - A.X;
+  DY := B.Y - A.Y;
+  DZ := B.Z - A.Z;
+  L := Sqrt(DX * DX + DY * DY + DZ * DZ);
+  if L < 1E-9 then Exit;
+  if Abs(DX) / L > 0.9999 then Result := 0
+  else if Abs(DY) / L > 0.9999 then Result := 1
+  else if Abs(DZ) / L > 0.9999 then Result := 2;
 end;
 
 function TMainForm.LiveMeasure: string;
