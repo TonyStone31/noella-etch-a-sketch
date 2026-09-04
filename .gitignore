@@ -34,4 +34,11 @@ Thumbs.db
 .aider*
 CLAUDE.local.md
 *-crash.txt
+
+# --- ours, not the world's ---------------------------------------------------
+# The report collector and what it collects stay off GitHub.  The script is
+# the operator's side of the arrangement, and the reports are other people's
+# drawings and words.
+tools/
+reports/
 reports/
