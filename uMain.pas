@@ -6392,17 +6392,41 @@ end;
 { What an orbit should turn about: whatever is under the cursor.  A face if
   there is one, otherwise the working plane, and failing that the middle of
   the drawing so an empty view still behaves. }
+{ What the view should turn about.
+
+  A face under the cursor is the thing you grabbed, and the middle of the
+  drawing is the next best answer.  With an empty sheet there is neither, and
+  the fallback is wherever the cursor lands on the working plane - which is
+  fine looking down at it and meaningless looking along it, because there is
+  no crossing point to find.
+
+  That is the crash Tony reported: orbiting an empty drawing swings the
+  camera through level, the pivot came back a billion feet away, and
+  everything drawn afterwards was drawn relative to it.  An empty sheet turns
+  about the origin instead, which is the only point on it that means
+  anything. }
 function TMainForm.PivotAt(SX, SY: Integer): TP3;
 var
   F: Integer;
   P, Lo, Hi: TP3;
+
+  function Sane(const Q: TP3): Boolean;
+  begin
+    Result := not (IsNan(Q.X) or IsNan(Q.Y) or IsNan(Q.Z) or
+                   IsInfinite(Q.X) or IsInfinite(Q.Y) or IsInfinite(Q.Z)) and
+              (Abs(Q.X) < 1E7) and (Abs(Q.Y) < 1E7) and (Abs(Q.Z) < 1E7);
+  end;
+
 begin
-  if FD.Doc.FaceUnder(Proj, SX, SY, F, P) then
+  if FD.Doc.FaceUnder(Proj, SX, SY, F, P) and Sane(P) then
     Exit(P);
   if FD.Doc.Bounds(Lo, Hi) then
-    Result := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2)
-  else
-    Result := WorldAt(SX, SY);
+  begin
+    Result := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
+    if Sane(Result) then Exit;
+  end;
+  Result := WorldAt(SX, SY);
+  if not Sane(Result) then Result := P3(0, 0, 0);
 end;
 
 { --- the settings lists -------------------------------------------------

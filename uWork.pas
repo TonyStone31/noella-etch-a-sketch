@@ -861,7 +861,7 @@ procedure UnprojectOrbit(const V: TProjector; SX, SY: Double; Pl: TPlane;
   const Base: TP3; out Res: TP3);
 var
   R, U: TP3;
-  A11, A12, A21, A22, B1, B2, Det, S, T: Double;
+  A11, A12, A21, A22, B1, B2, Det, S, T, Scale: Double;
 begin
   Res := Base;
   R := ViewRight(V);
@@ -887,8 +887,20 @@ begin
     end;
   end;
 
+  { How nearly edge-on is too nearly edge-on?
+
+    The old test was against a fixed 1E-9, which only ever catches a camera
+    exactly in the plane.  A degree off exactly is not exact, but it is still
+    hopeless: the answer then comes out a billion feet away, which is worse
+    than no answer because it looks like one.
+
+    So the determinant is judged against the size of the matrix it came from.
+    Below a thousandth of that, the two directions are for practical purposes
+    the same direction, there is no honest crossing point, and Base - the
+    point we were told to fall back to - stands. }
   Det := A11 * A22 - A12 * A21;
-  if Abs(Det) < 1E-9 then Exit;      // looking edge-on at the plane
+  Scale := Max(Abs(A11), Max(Abs(A12), Max(Abs(A21), Abs(A22))));
+  if Abs(Det) < 1E-3 * Max(Scale * Scale, 1E-12) then Exit;
   S := (B1 * A22 - A12 * B2) / Det;
   T := (A11 * B2 - B1 * A21) / Det;
 
