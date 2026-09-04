@@ -285,6 +285,12 @@ type
       flat planes instead and latches, because sometimes you mean to draw in
       mid air; Esc, or a new tool, hands it back to the face. }
     FPlaneHeld: Boolean;
+    { true while a push is lining itself up with another face }
+    FPushFlush: Boolean;
+    { the point the cursor is holding on to, and whether it has one }
+    FStickOn: Boolean;
+    FStickPt: TP3;
+    FStickKind: TSnapKind;
     { how many times it has fallen over lately, and when the last one was }
     FWoundCount: Integer;
     FWoundAt: QWord;
@@ -705,8 +711,8 @@ const
   HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
   { how long the button is leaned on before the line snaps off, and how long
     the two ends recoil afterwards }
-  HOLD_STRAIN     = 0.35;   // before this it is just a click being made
-  HOLD_BREAK      = 1.10;   // and this long to break.  It was 1.45, set by
+  HOLD_STRAIN     = 0.25;   // before this it is just a click being made
+  HOLD_BREAK      = 0.85;   // and this long to break.  It was 1.45, set by
                             // guessing at how long a warning needs to be
                             // readable; with the gesture in daily use the
                             // answer came back that it is the wait, not the
@@ -716,6 +722,10 @@ const
   SNAP_RECOIL     = 0.30;
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 7.5;    // this close and the point is what you meant
+  { and once it has been taken, this far before it is let go again.  Coming
+    onto a point is a decision; sliding a couple of pixels off it is not, and
+    a snap that lets go the moment you twitch is one you have to fight. }
+  STICK_PX        = 20.0;
   PIECE_PX        = 5.0;    // ...and this close for the middle of a piece
   EDGE_PX         = 11.0;   // hovering a line means a point on that line
   { the face under the cursor, tinted the way SketchUp tints one }
@@ -782,10 +792,16 @@ const
     reads as a group and every name has room to be read.  The grouping is
     SketchUp's: what you pick and change with, what you draw with, and what
     you measure and look with. }
-  TOOL_GROUPS: array[0..2, 0..3] of TProTool =
-    ((ptSelect, ptMove, ptErase, ptPush),
-     (ptLine, ptRect, ptCircle, ptArc),
-     (ptMeasure, ptDim, ptText, ptOffset));
+  { Three groups: working on what is there, drawing new things, saying what
+    they are.  The first has three across because it has five in it - orbit
+    belongs with getting about rather than with drawing, and the deck is the
+    only place a tool is discoverable at all. }
+  GRP_COLS: array[0..2] of Integer = (3, 2, 2);
+  GRP_N:    array[0..2] of Integer = (5, 4, 4);
+  TOOL_GROUPS: array[0..2, 0..5] of TProTool =
+    ((ptSelect, ptMove, ptOrbit, ptErase, ptPush, ptSelect),
+     (ptLine, ptRect, ptCircle, ptArc, ptSelect, ptSelect),
+     (ptMeasure, ptDim, ptText, ptOffset, ptSelect, ptSelect));
 
   TOOL_HINTS: array[TProTool] of string = (
     'Select - click to pick, drag a box for several.  Ctrl adds, Shift ' +
@@ -1131,6 +1147,30 @@ begin
   end;
 
   Wf := WorldAt(SX, SY);
+
+  { Still holding the point it took last time?
+
+    Coming onto a point is a decision.  Sliding two pixels off it is not, and
+    letting go that easily makes a snap something you fight rather than
+    something you use - which is what Tony noticed against SketchUp, where a
+    point holds until you clearly mean to leave.  So it is taken from close
+    in and released from much further out, and the gap between the two is the
+    whole feel of it.
+
+    Only for points that are really there.  A grid intersection is everywhere
+    and has nothing to stick to. }
+  if FStickOn and (FStickKind in [snEndpoint, snMidpoint, snCenter, snCross,
+                                  snSubMid]) then
+  begin
+    SP := ScreenOf(FStickPt);
+    if Sqr(SX - SP.X) + Sqr(SY - SP.Y) <= Sqr(STICK_PX * FUIScale) then
+    begin
+      FSnapKind := FStickKind;
+      Exit(FStickPt);
+    end;
+    FStickOn := False;
+  end;
+
   PtOK := FD.Doc.BestSnap(Proj, SX, SY, SNAP_PX, Hit);
   PtPx := 1E30;
   if PtOK then
@@ -1147,6 +1187,9 @@ begin
      (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint]) then
   begin
     FSnapKind := Hit.Kind;
+    FStickOn := True;
+    FStickPt := Hit.P;
+    FStickKind := Hit.Kind;
     Exit(Hit.P);
   end;
 
@@ -2051,9 +2094,10 @@ end;
 
 function TMainForm.PushDistance: Double;
 var
-  L, Move, Len2, DirX, DirY: Double;
-  Nm: TP3;
+  L, Move, Len2, DirX, DirY, Flush: Double;
+  Nm, Other, A, B: TP3;
   PA, PN: TPointF;
+  HF: Integer;
 begin
   Result := 0;
   if FPushFace < 0 then Exit;
@@ -2084,6 +2128,41 @@ begin
     if Move < 0 then Result := -L else Result := L;
     Exit;
   end;
+
+  { Rest on another face that is parallel to this one and the pull goes
+    exactly as far as it needs to to line the two of them up.
+
+    This is the one that makes a row of windows possible.  Pull the first one
+    out however far looks right; for the second, start the pull and then put
+    the cursor on the face of the first, and it comes out to meet it.  No
+    number to read off and type in, and no way to be an eighth of an inch
+    out.  SketchUp infers to whatever is under the cursor; this is the part
+    of that which earns its keep on a fabrication drawing, where things being
+    flush matters and being nearly flush is a fault. }
+  HF := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+  if (HF >= 0) and (HF <> FPushFace) and (Length(FD.Doc[HF].Poly) > 0) and
+     (Length(FD.Doc[FPushFace].Poly) > 0) then
+  begin
+    Other := FD.Doc.FaceNormal(HF);
+    if Abs(Nm.X * Other.X + Nm.Y * Other.Y + Nm.Z * Other.Z) > 0.9995 then
+    begin
+      A := FD.Doc[FPushFace].Poly[0];
+      B := FD.Doc[HF].Poly[0];
+      Flush := (B.X - A.X) * Nm.X + (B.Y - A.Y) * Nm.Y + (B.Z - A.Z) * Nm.Z;
+      { Either way along the normal.  Requiring it to agree with the way the
+        drag was already going sounds tidy and is wrong: half the time you
+        come at the face you are aiming for from the other side, and SketchUp
+        lets you.  What is still refused is a face already in the same plane
+        as the one being pushed - the distance there is nothing, and snapping
+        a pull shut because the cursor wandered over the floor is not help. }
+      if Abs(Flush) > 1E-6 then
+      begin
+        FPushFlush := True;
+        Exit(Flush);
+      end;
+    end;
+  end;
+  FPushFlush := False;
   Result := Move;
 end;
 
@@ -2699,7 +2778,7 @@ procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
   Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N, G, GX, GrpGap: Integer;
-  HalfW, SnapX, RightW6: Integer;
+  HalfW, SnapX, RightW6, GrpX: Integer;
   Blank: TPix;
 
   procedure Add(K: TDeckKind; const B: TRect; G, V: Integer;
@@ -2815,21 +2894,25 @@ begin
       groups wide enough to read as a break rather than as spacing. }
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
     GrpGap := Round(20 * FUIScale);
-    SegW := (Avail - 2 * GrpGap) div 6;
+    { seven columns across the three groups now, not six }
+    SegW := (Avail - 2 * GrpGap) div 7;
     FGrpDivY0 := Y0 + Round(2 * FUIScale);
     FGrpDivY1 := Y0 + 2 * RowH + RowGap - Round(2 * FUIScale);
-    for G := 0 to 1 do
-      FGrpDivX[G] := X + (G + 1) * (2 * SegW + GrpGap) - GrpGap div 2;
+    GrpX := X;
     for G := 0 to 2 do
-      for I := 0 to 3 do
+    begin
+      for I := 0 to GRP_N[G] - 1 do
       begin
-        GX := X + G * (2 * SegW + GrpGap) + (I mod 2) * SegW;
-        RowY := Y0 + (I div 2) * (RowH + RowGap);
+        GX := GrpX + (I mod GRP_COLS[G]) * SegW;
+        RowY := Y0 + (I div GRP_COLS[G]) * (RowH + RowGap);
         Add(dkSegment, Rect(GX + 2, RowY, GX + SegW - 2, RowY + RowH),
           GRP_TOOL, Ord(TOOL_GROUPS[G, I]),
           TOOL_NAMES[TOOL_GROUPS[G, I]], TOOL_HINTS[TOOL_GROUPS[G, I]],
           TOOL_ICONS[TOOL_GROUPS[G, I]]);
       end;
+      Inc(GrpX, GRP_COLS[G] * SegW + GrpGap);
+      if G < 2 then FGrpDivX[G] := GrpX - GrpGap div 2;
+    end;
 
     { --- row 2: the settings, as buttons that open a list -----------------
       Scale, snap and the pen get set once and then left alone, so a row of
@@ -5298,6 +5381,7 @@ end;
 procedure TMainForm.ResetTool;
 begin
   FStage := 0;
+  FStickOn := False;
   { Minus one is "no dimension being edited", and it has to be said out loud.
     A field starts at zero, zero is a valid entity index, and the test for
     whether a label is being typed is FDimEdit >= 0 - so a fresh program
@@ -5447,6 +5531,7 @@ begin
       begin
         L := PushDistance;
         if Abs(L) > 1E-9 then Result := FormatLen(Abs(L), FD.Units);
+        if FPushFlush then Result := Result + '  flush';
       end;
     ptOffset:
       if FStage = 1 then
