@@ -42,6 +42,16 @@ CLAUDE.local.md
 tools/
 reports/
 
+# --- how the work is done, as opposed to what the work is --------------------
+# Agent instructions, the report-collector's operating notes and anything else
+# describing the process rather than the program.  A public repository should
+# say what the program does; it has no business explaining how the people and
+# tools behind it are told to behave.
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+docs/bug-report-endpoint.md
+
 # --- the program's own runtime files -----------------------------------------
 # It keeps its settings, draft, lock and crash reports next to the executable
 # now that it is portable - and during development the executable is right
