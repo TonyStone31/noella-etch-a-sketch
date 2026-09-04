@@ -455,8 +455,8 @@ type
     procedure DoUpdate;
     procedure OfferCrashReport;
     procedure Quiesce;
-    procedure ReportBug(const Preamble: string = '';
-      const ShotFile: string = ''; const DocFile: string = '');
+    function ReportBug(const Preamble: string = '';
+      const ShotFile: string = ''; const DocFile: string = ''): Boolean;
     { Note something worth knowing if this run ends badly. }
     procedure Trail(const S: string);
     function TrailText: string;
@@ -1318,6 +1318,10 @@ begin
   Application.HintPause := 450;
   Application.HintHidePause := 6000;
   Randomize;
+  { Said before anything can be typed.  Zero is a real entity index, so a
+    field left at its default reads as "editing the label on the first
+    thing in the drawing". }
+  FDimEdit := -1;
   Caption := APP_NAME + '  ' + CurrentVersion;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
   DoubleBuffered := True;
@@ -2370,7 +2374,7 @@ procedure TMainForm.FitView;
 var
   Lo, Hi, Mid: TP3;
   P: TPointF;
-  BaseP, W, H, Z: Double;
+  BaseP, W, H, Z, NewZoom: Double;
 begin
   if not FD.Doc.Bounds(Lo, Hi) then
   begin
@@ -2401,7 +2405,15 @@ begin
       end;
     end;
     Z := Min((FArt.Width * 0.80) / (W * BaseP), (FArt.Height * 0.80) / (H * BaseP));
-    FD.Zoom := EnsureRange(Z, 0.05, 40.0);
+    { Through a local and clamped by hand, for the same reason FD.El is - see
+      the note in ServiceMotion.  This is the other Double field on FD
+      assigned straight out of EnsureRange, which is the shape that got
+      miscompiled at -O3.  This one reads correctly in the build in front of
+      me; it is written this way so that stays true. }
+    NewZoom := Z;
+    if NewZoom < 0.05 then NewZoom := 0.05;
+    if NewZoom > 40.0 then NewZoom := 40.0;
+    FD.Zoom := NewZoom;
     Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
     FD.ViewX := 0;
     FD.ViewY := 0;
@@ -4080,7 +4092,7 @@ end;
   for finding a fault - it is what found the last one - but it is also
   somebody's work, possibly with a customer's name on it, and it does not
   leave the machine without being asked for. }
-procedure TMainForm.ReportBug(const Preamble, ShotFile, DocFile: string);
+function TMainForm.ReportBug(const Preamble, ShotFile, DocFile: string): Boolean;
 var
   Dlg: TForm;
   Memo: TMemo;
@@ -4092,6 +4104,7 @@ var
   Shot: TMemoryStream;
   L: TStringList;
 begin
+  Result := False;
   Dlg := TForm.CreateNew(nil);
   try
     Dlg.Caption := 'Report a problem';
@@ -4233,6 +4246,7 @@ begin
   Application.ProcessMessages;
   if SendReport(Name_, Body, Err) then
   begin
+    Result := True;
     FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
     { The picture goes as its own file beside the report, sharing its name,
       so the two are obviously a pair.  If it will not go, the report has
@@ -4277,6 +4291,30 @@ procedure TMainForm.OfferCrashReport;
 var
   Fn: string;
   L: TStringList;
+
+  { Put a crash report away under a name that cannot already be taken.
+
+    A fixed name works once.  The second time, on Windows, the rename fails
+    because the name is in use, the report stays where it was, and it gets
+    offered again on every single start until somebody deletes it by hand.
+    A timestamp cannot collide with the one before it. }
+  procedure KeepAside(const Base: string);
+  var
+    Dst: string;
+  begin
+    Dst := Base + '.' + FormatDateTime('yyyymmdd-hhnnss', Now) + '.kept';
+    if FileExists(Dst) then DeleteFile(Dst);
+    if RenameFile(Base, Dst) then
+      FCmdMsg := 'Kept it: ' + ExtractFileName(Dst)
+    else
+    begin
+      { Could not even be moved aside.  Rather than ask about it forever,
+        let it go - it has already been offered once and turned down. }
+      DeleteFile(Base);
+      FCmdMsg := 'That crash report could not be kept, so it was cleared.';
+    end;
+  end;
+
 begin
   Fn := ExtractFilePath(ExpandFileName(ParamStr(0))) + 'heckers-sketch-crash.txt';
   if not FileExists(Fn) then Exit;
@@ -4300,13 +4338,27 @@ begin
            'what is being sent.  Nothing goes anywhere until you press Send.',
            mtConfirmation, [mbYes, mbNo], 0) of
       mrYes:
+        { Sent, so the copies here have done their job and go.  This used to
+          rename the file aside first and send afterwards, which had it
+          backwards twice over: it threw away the chance to try again if the
+          sending failed, and the rename itself does not do what it looks
+          like it does.  Windows will not rename a file onto a name that is
+          already taken - so the second crash found heckers-sketch-crash.txt
+          .sent already sitting there, the rename quietly failed, the report
+          stayed where it was, and every start after that asked about the
+          same crash again.  Which is exactly what Tony saw, and only ever on
+          Windows. }
+        if ReportBug(L.Text, Fn + '.png', Fn + '.hsk') then
         begin
-          RenameFile(Fn, Fn + '.sent');
-          ReportBug(L.Text, Fn + '.png', Fn + '.hsk');
-        end;
+          DeleteFile(Fn);
+          DeleteFile(Fn + '.png');
+          DeleteFile(Fn + '.hsk');
+          FCmdMsg := FCmdMsg + '  It will not ask about this one again.';
+        end
+        else
+          KeepAside(Fn);
     else
-      RenameFile(Fn, Fn + '.kept');
-      FCmdMsg := 'Kept it: ' + Fn + '.kept';
+      KeepAside(Fn);
     end;
   finally
     L.Free;
@@ -5202,6 +5254,13 @@ end;
 procedure TMainForm.ResetTool;
 begin
   FStage := 0;
+  { Minus one is "no dimension being edited", and it has to be said out loud.
+    A field starts at zero, zero is a valid entity index, and the test for
+    whether a label is being typed is FDimEdit >= 0 - so a fresh program
+    believed you were editing the label on entity nought and put every letter
+    you pressed into the command bar instead of treating it as a shortcut.
+    Every run, from the first keystroke. }
+  FDimEdit := -1;
   FHoverEnt := -1;
   FHoverFace := -1;
   FPlaneHeld := False;
