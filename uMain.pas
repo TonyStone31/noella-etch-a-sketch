@@ -445,7 +445,8 @@ type
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure OfferCrashReport;
-    procedure ReportBug(const Preamble: string = '');
+    procedure ReportBug(const Preamble: string = '';
+      const ShotFile: string = '');
     { Note something worth knowing if this run ends badly. }
     procedure Trail(const S: string);
     function TrailText: string;
@@ -3954,14 +3955,16 @@ end;
   for finding a fault - it is what found the last one - but it is also
   somebody's work, possibly with a customer's name on it, and it does not
   leave the machine without being asked for. }
-procedure TMainForm.ReportBug(const Preamble: string);
+procedure TMainForm.ReportBug(const Preamble, ShotFile: string);
 var
   Dlg: TForm;
   Memo: TMemo;
   Lbl: TLabel;
   WithDoc: TCheckBox;
   BtnOK, BtnNo: TButton;
-  Body, Name_, Err, Note: string;
+  Body, Name_, Err, Note, ShotErr: string;
+  WantShot: Boolean;
+  Shot: TMemoryStream;
   L: TStringList;
 begin
   Dlg := TForm.CreateNew(nil);
@@ -3993,12 +3996,16 @@ begin
     Memo.ScrollBars := ssAutoVertical;
     Memo.WordWrap := True;
 
+    { The drawing file stays off, and the picture is not asked about here at
+      all - it is asked about after this closes, so the question is about a
+      picture that has actually been taken and so that the form is not in
+      front of the thing being photographed. }
     WithDoc := TCheckBox.Create(Dlg);
     WithDoc.Parent := Dlg;
-    WithDoc.SetBounds(Round(12 * FUIScale), Round(262 * FUIScale),
-      Dlg.ClientWidth - Round(24 * FUIScale), Round(24 * FUIScale));
-    WithDoc.Caption := Format('Send the drawing too (%d things) - it is ' +
-      'much the fastest way to find a fault', [FD.Doc.Live]);
+    WithDoc.SetBounds(Round(12 * FUIScale), Round(268 * FUIScale),
+      Dlg.ClientWidth - Round(24 * FUIScale), Round(22 * FUIScale));
+    WithDoc.Caption := Format('Send the drawing file too (%d things) - the ' +
+      'surest way to find a fault, but it is your work', [FD.Doc.Live]);
     WithDoc.Checked := False;
 
     BtnOK := TButton.Create(Dlg);
@@ -4051,11 +4058,53 @@ begin
     Dlg.Free;
   end;
 
+  { Now that the form has gone and the drawing is on screen again, ask about
+    the picture.  Encouraged, because a report with one is worth several
+    without; never assumed, because somebody may be drawing something they
+    would rather not send a picture of. }
+  Application.ProcessMessages;
+  WantShot := MessageDlg('Include a picture?',
+    'A picture of your drawing area helps enormously - it usually shows in ' +
+    'one glance what a page of description cannot.'#13#10#13#10 +
+    'It is taken by the program from what it has already drawn, so it is ' +
+    'only this window: nothing else on your screen is in it.'#13#10#13#10 +
+    'Working on something you would rather not send?  Say no - the report ' +
+    'still goes, and it is still useful.',
+    mtConfirmation, [mbYes, mbNo], 0) = mrYes;
+
   FCmdMsg := 'Sending...';
   pbCmd.Invalidate;
   Application.ProcessMessages;
   if SendReport(Name_, Body, Err) then
-    FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')'
+  begin
+    FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
+    { The picture goes as its own file beside the report, sharing its name,
+      so the two are obviously a pair.  If it will not go, the report has
+      already gone and that is the part that mattered. }
+    if WantShot then
+    begin
+      Shot := TMemoryStream.Create;
+      try
+        try
+          { For a crash, the picture that matters was taken when it
+            happened; a fresh one now would only show whatever is on screen
+            after a restart, which is nothing to do with it. }
+          if (ShotFile <> '') and FileExists(ShotFile) then
+            Shot.LoadFromFile(ShotFile)
+          else
+            FArt.SaveToPNGStream(Shot);
+          if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
+               ShotErr) then
+            FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
+        except
+          on Ex: Exception do
+            FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
+        end;
+      finally
+        Shot.Free;
+      end;
+    end;
+  end
   else
   begin
     FCmdMsg := 'The report could not be sent - ' + Err;
@@ -4097,7 +4146,7 @@ begin
       mrYes:
         begin
           RenameFile(Fn, Fn + '.sent');
-          ReportBug(L.Text);
+          ReportBug(L.Text, Fn + '.png');
         end;
     else
       RenameFile(Fn, Fn + '.kept');
@@ -6111,6 +6160,12 @@ begin
       as fast as having the thing that does it.  Written under its own name
       so one crash does not overwrite the last one's evidence. }
       SaveCrashDoc(Path);
+    { and what the drawing area looked like when it went.  Kept here only -
+      whether any of it is sent is asked next time the program starts. }
+    try
+      FArt.SaveToPNG(Path + '.png');
+    except
+    end;
   except
     { a crash reporter that crashes helps nobody }
   end;
