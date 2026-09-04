@@ -285,6 +285,9 @@ type
       flat planes instead and latches, because sometimes you mean to draw in
       mid air; Esc, or a new tool, hands it back to the face. }
     FPlaneHeld: Boolean;
+    { how many times it has fallen over lately, and when the last one was }
+    FWoundCount: Integer;
+    FWoundAt: QWord;
     { where the window was, taken while it still existed }
     FWinSaved, FWinMax: Boolean;
     FWinL, FWinT, FWinW, FWinH: Integer;
@@ -451,6 +454,7 @@ type
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure OfferCrashReport;
+    procedure Quiesce;
     procedure ReportBug(const Preamble: string = '';
       const ShotFile: string = ''; const DocFile: string = '');
     { Note something worth knowing if this run ends badly. }
@@ -6464,12 +6468,67 @@ begin
     'what was happening, most recent last:' + LineEnding + TrailText;
 end;
 
+{ Put everything down.
+
+  Whatever threw was almost certainly reached from a tool part way through
+  something, or from a hover index pointing at something that is no longer
+  there.  Reporting the fault and then leaving all of that exactly as it was
+  is why one exception turned into a wall of them: the box is dismissed,
+  control goes back to the message loop, the mouse moves a pixel, and the
+  very same code runs again on the very same state.  You could dismiss it all
+  afternoon.
+
+  So the tool is put down, the run in progress abandoned, and everything
+  transient cleared, before anybody is asked anything.  The drawing is not
+  touched - only the business of the moment, which is the part that has just
+  been shown not to work. }
+procedure TMainForm.Quiesce;
+begin
+  try
+    FMovePending := False;
+    FOrbiting := False;
+    FPanning := False;
+    FErasing2 := False;
+    FFreehand := False;
+    FHoldOn := False;
+    FHoldT := 0;
+    FPushFace := -1;
+    FOffFace := -1;
+    SetLength(FSel, 0);
+    SetLength(FDoomed, 0);
+    ResetTool;
+    if pbScreen <> nil then pbScreen.Cursor := crCross;
+  except
+    { it is already having a bad day }
+  end;
+end;
+
 procedure TMainForm.ReportCrash(Sender: TObject; E: Exception);
 var
   F: TextFile;
   Path: string;
   I: Integer;
+  Now64: QWord;
 begin
+  Quiesce;
+
+  { Three in half a minute and it is not an incident, it is a state.  Past
+    that, stop writing files and stop putting a box in the way: each report
+    costs a screenshot and a disk write, and each box is one more thing
+    between the person and the Ctrl+S they actually need.  The count forgets
+    itself after a quiet half minute. }
+  Now64 := GetTickCount64;
+  if (FWoundCount > 0) and (Now64 - FWoundAt > 30000) then FWoundCount := 0;
+  FWoundAt := Now64;
+  Inc(FWoundCount);
+  if FWoundCount > 3 then
+  begin
+    FCmdMsg := 'Still failing.  Save with Ctrl+S and restart - the reports ' +
+      'are already written.';
+    if pbCmd <> nil then pbCmd.Invalidate;
+    Exit;
+  end;
+
   Path := ExtractFilePath(ParamStr(0)) + CRASH_LOG;
   try
     AssignFile(F, Path);
@@ -6516,15 +6575,26 @@ begin
   except
     { a crash reporter that crashes helps nobody }
   end;
-  MessageDlg(APP_NAME,
-    E.ClassName + ': ' + E.Message + LineEnding + LineEnding +
-    'Written next to the program:' + LineEnding +
-    '  ' + ExtractFileName(Path) + '   - what happened' + LineEnding +
-    '  ' + ExtractFileName(Path) + '.hsk   - the drawing it happened to' +
-    LineEnding + LineEnding +
-    'Both together say exactly where this went wrong.  The drawing is your ' +
-    'own work, so have a look before sending it anywhere.',
-    mtError, [mbOK], 0);
+  if FWoundCount >= 3 then
+    MessageDlg(APP_NAME,
+      'That is the third time in a minute.' + LineEnding + LineEnding +
+      'Something is wrong that dismissing this will not fix.  Save what you ' +
+      'have with Ctrl+S and start the program again - it will offer to send ' +
+      'the reports, and they are what gets this mended.' + LineEnding +
+      LineEnding +
+      'It will stop interrupting you now.  Everything it has been asked to ' +
+      'write is already written.',
+      mtError, [mbOK], 0)
+  else
+    MessageDlg(APP_NAME,
+      E.ClassName + ': ' + E.Message + LineEnding + LineEnding +
+      'Written next to the program:' + LineEnding +
+      '  ' + ExtractFileName(Path) + '   - what happened' + LineEnding +
+      '  ' + ExtractFileName(Path) + '.hsk   - the drawing it happened to' +
+      LineEnding + LineEnding +
+      'Both together say exactly where this went wrong.  The drawing is ' +
+      'your own work, so have a look before sending it anywhere.',
+      mtError, [mbOK], 0);
 end;
 
 { Motion handler: record and return.  Nothing here may paint, allocate,
