@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -6277,10 +6277,11 @@ begin
       [FPushFace, FOffFace, FHoverEnt, FHoverFace, Ord(FLockOn),
        Ord(FHoldOn), CurScale.Name, FormatLen(SnapStep, FD.Units),
        FormatFloat('0.00', FD.Zoom)]) + LineEnding +
-    Format('units=%s screen=%dx%d scaling=%s portable=%s',
+    Format('units=%s screen=%dx%d scaling=%s portable=%s net=%s',
       [uWork.UnitName(FD.Units), pbScreen.Width, pbScreen.Height,
        FormatFloat('0.00', FUIScale),
-       specialize IfThen<string>(IsPortable, 'yes', 'no')]) + LineEnding +
+       specialize IfThen<string>(IsPortable, 'yes', 'no'),
+       NetBackend]) + LineEnding +
     'what was happening, most recent last:' + LineEnding + TrailText;
 end;
 

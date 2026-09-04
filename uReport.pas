@@ -68,30 +68,11 @@ function UniqueReportName(const Prefix, Version: string): string;
 implementation
 
 uses
-  fphttpclient, opensslsockets, fpjson, jsonparser, IniFiles, uPaths;
+  uNet, fpjson, jsonparser, IniFiles, uPaths;
 
 function HttpGet(const URL: string; out Body, Err: string): Boolean;
-var
-  C: TFPHTTPClient;
 begin
-  Result := False;
-  Body := '';
-  Err := '';
-  C := TFPHTTPClient.Create(nil);
-  try
-    C.AllowRedirect := True;
-    C.ConnectTimeout := 8000;
-    C.IOTimeout := 20000;
-    C.AddHeader('User-Agent', 'heckers-sketch');
-    try
-      Body := C.Get(URL);
-      Result := True;
-    except
-      on Ex: Exception do Err := Ex.Message;
-    end;
-  finally
-    C.Free;
-  end;
+  Result := NetGetText(URL, '', Body, Err);
 end;
 
 function FetchEndpoint(out E: TEndpoint; out Err: string): Boolean;
@@ -196,40 +177,10 @@ end;
 
 function PostStream(const Base, FileName: string; Data: TStream;
   const ContentType: string; out Status: Integer; out Err: string): Boolean;
-var
-  C: TFPHTTPClient;
-  Dst: TStringStream;
 begin
-  Result := False;
-  Status := 0;
-  Err := '';
-  C := TFPHTTPClient.Create(nil);
-  Dst := TStringStream.Create('');
-  try
-    Data.Position := 0;
-    C.AllowRedirect := True;
-    C.ConnectTimeout := 10000;
-    C.IOTimeout := 60000;
-    C.AddHeader('User-Agent', 'heckers-sketch');
-    C.AddHeader('Content-Type', ContentType);
-    C.RequestBody := Data;
-    try
-      C.Post(Base + '/' + FileName, Dst);
-      Status := C.ResponseStatusCode;
-      Result := (Status >= 200) and (Status < 300);
-      if not Result then
-        Err := 'the postbox answered ' + IntToStr(Status);
-    except
-      on Ex: Exception do
-      begin
-        Status := C.ResponseStatusCode;
-        Err := Ex.Message;
-      end;
-    end;
-  finally
-    Dst.Free;
-    C.Free;
-  end;
+  Result := NetPost(Base + '/' + FileName, Data, ContentType, Status, Err);
+  if (not Result) and (Status > 0) then
+    Err := 'the postbox answered ' + IntToStr(Status);
 end;
 
 function PostTo(const Base, FileName, Body: string;

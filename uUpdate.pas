@@ -21,7 +21,7 @@ unit uUpdate;
 interface
 
 uses
-  Classes, SysUtils, fphttpclient, opensslsockets, fpjson, jsonparser,
+  Classes, SysUtils, uNet, fpjson, jsonparser,
   fpsha256, Process
   {$IFDEF UNIX}, BaseUnix{$ENDIF};
 
@@ -103,28 +103,8 @@ begin
 end;
 
 function GetText(const URL: string; out Body: string; out Err: string): Boolean;
-var
-  C: TFPHTTPClient;
 begin
-  Result := False;
-  Body := '';
-  Err := '';
-  C := TFPHTTPClient.Create(nil);
-  try
-    C.AllowRedirect := True;
-    C.ConnectTimeout := 8000;
-    C.IOTimeout := 20000;
-    C.AddHeader('User-Agent', 'heckers-sketch');
-    C.AddHeader('Accept', 'application/vnd.github+json');
-    try
-      Body := C.Get(URL);
-      Result := True;
-    except
-      on E: Exception do Err := E.Message;
-    end;
-  finally
-    C.Free;
-  end;
+  Result := NetGetText(URL, 'application/vnd.github+json', Body, Err);
 end;
 
 function FetchLatest(out Info: TUpdateInfo; out Err: string): Boolean;
@@ -199,29 +179,26 @@ end;
 
 function Download(const URL, Path: string; out Err: string): Boolean;
 var
-  C: TFPHTTPClient;
   F: TFileStream;
+  Status: Integer;
 begin
   Result := False;
   Err := '';
-  C := TFPHTTPClient.Create(nil);
   F := nil;
   try
-    C.AllowRedirect := True;
-    C.ConnectTimeout := 8000;
-    C.IOTimeout := 60000;
-    C.AddHeader('User-Agent', 'heckers-sketch');
     try
       F := TFileStream.Create(Path, fmCreate);
-      C.Get(URL, F);
-      Result := F.Size > 0;
-      if not Result then Err := 'the download came back empty';
+      Result := NetGet(URL, '', F, Status, Err);
+      if Result and (F.Size <= 0) then
+      begin
+        Result := False;
+        Err := 'the download came back empty';
+      end;
     except
       on E: Exception do Err := E.Message;
     end;
   finally
     F.Free;
-    C.Free;
   end;
   if not Result then DeleteFile(Path);
 end;
