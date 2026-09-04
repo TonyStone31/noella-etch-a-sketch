@@ -359,6 +359,9 @@ do_github() {
 
   # Stamp the version into the binary so it knows what it is, then put the
   # file back afterwards - the tree has to stay clean for the next release.
+  # On a trap as well as on the way out, or a release that falls over half
+  # way leaves the tree dirty and the next one refuses to start.
+  trap 'git -C "$ROOT" checkout -- version.inc 2>/dev/null || true' RETURN
   printf '%s\n' \
     '{ Written by build.sh at release time.  A hand-built copy keeps the' \
     '  dev value, which is older than any real tag so it never claims to be' \
