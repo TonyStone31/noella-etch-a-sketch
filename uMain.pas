@@ -7188,10 +7188,18 @@ begin
   SetLength(Result, 64);
   for I := 0 to FD.Doc.Live - 1 do
   begin
-    { A solid's own edges are part of its boundary, not lines on a sheet, so
-      they take no part in working out flat areas - otherwise every face of
-      every box would be found twice, once as itself and once as a region. }
-    if FD.Doc[I].Grp <> 0 then Continue;
+    { A solid's own edges used to be left out entirely, so that every face of
+      every box was not found twice - once as itself and once as a region.
+
+      But leaving them out means they cannot close anything either, and that
+      is exactly what a roof needs them for: draw a ridge and two rafters on
+      top of a box and the fourth side of each slope is the top of a wall,
+      which belongs to the box.  The loop was never closed because one of its
+      four sides had been hidden from the search.
+
+      So they go in, and the duplicates are dealt with afterwards, where the
+      question can actually be asked: a region that lands exactly on a face
+      the solid already has is that face, and is dropped. }
     case FD.Doc[I].Kind of
       ekLine:
         begin
@@ -7254,11 +7262,13 @@ type
 var
   R: TRegionArray;
   Was: array of TWas;
-  NWas, I, J, K: Integer;
-  Mid: TP3;
+  NWas, I, J, K, Made: Integer;
+  Mid, Other: TP3;
   Ink: TColor;
+  Dup: Boolean;
 begin
   R := BuildRegionsCached(EdgeSegments, FRegionCache);
+  Made := 0;
 
   { remember what was there, so the new faces can take their colors }
   NWas := 0;
@@ -7294,6 +7304,40 @@ begin
     K := Length(R[I].Outer);
     Mid := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
 
+    { Is this one a face the solid already has?  Same middle, same size, so
+      it is the same face arrived at from the other direction.  Drawing it
+      again would put a second face in the same place, and two faces in one
+      place is how a drawing starts flickering. }
+    { Same plane, same size, and a point of one lands inside the other.
+
+      Not the average of the corners, which was the first thing I tried and
+      is not a property of the shape at all: a gable post standing on a wall
+      splits that wall's top edge and gives it a fifth corner, and the
+      average moves even though the wall has not.  Those two walls came back
+      twice.  Area and containment do not care how many corners a shape has
+      been divided into. }
+    Dup := False;
+    for J := 0 to FD.Doc.Live - 1 do
+      if (FD.Doc[J].Kind = ekFace) and FD.Doc[J].Solid and
+         (Length(FD.Doc[J].Poly) >= 3) then
+      begin
+        Other := FD.Doc.FaceNormal(J);
+        if Abs(Abs(Dot3(Other, R[I].Normal)) - 1) > 1E-6 then Continue;
+        { the same plane, not merely a parallel one }
+        if Abs(Dot3(Other, P3(FD.Doc[J].Poly[0].X - R[I].Outer[0].X,
+                              FD.Doc[J].Poly[0].Y - R[I].Outer[0].Y,
+                              FD.Doc[J].Poly[0].Z - R[I].Outer[0].Z))) > 1E-4
+          then Continue;
+        if Abs(Abs(LoopArea(R[I].Outer, R[I].Normal)) -
+               FD.Doc.FaceArea(J)) > 1E-3 then Continue;
+        if PointInLoop(Mid, FD.Doc[J].Poly, Other) then
+        begin
+          Dup := True;
+          Break;
+        end;
+      end;
+    if Dup then Continue;
+
     Ink := FInkColor;
     for J := 0 to NWas - 1 do
       if PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
@@ -7302,8 +7346,9 @@ begin
         Break;
       end;
     FD.Doc.AddFaceRaw(R[I].Outer, Ink, False);
+    Inc(Made);
   end;
-  Result := Length(R);
+  Result := Made;
 end;
 
 { A read-only look at what the region engine makes of this drawing, next to
@@ -8912,6 +8957,18 @@ begin
     FTabIdx := 0;
     FD := FDrawings[0];
     FMode := mdPro;
+    { Work the flat areas out for every sheet as it comes in.  A file holds
+      the lines and the solids; the areas those lines close between them are
+      derived, and nothing had been deriving them on the way in - so a roof
+      drawn in one session opened as bare lines in the next, and stayed that
+      way until something else happened to trigger a rebuild. }
+    for I := 0 to High(FDrawings) do
+    begin
+      D := FD;
+      FD := FDrawings[I];
+      RebuildFlatFaces;
+      FD := D;
+    end;
     ResetTool;
     Relayout;
     FitView;
