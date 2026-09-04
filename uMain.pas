@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -445,12 +445,17 @@ type
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure OfferCrashReport;
+    procedure ReportBug(const Preamble: string = '');
     { Note something worth knowing if this run ends badly. }
     procedure Trail(const S: string);
     function TrailText: string;
     { How many of each kind are on the sheet - a crash that only happens with
       a face, or only with a note, says so here. }
     function KindCounts: string;
+    { Everything worth knowing about the state of the program right now, as
+      text.  One place, so a crash report and a report somebody writes by
+      hand say the same things about the same program. }
+    function DiagnosticText: string;
     { The drawing as it stood, beside the report, so it can be opened here. }
     procedure SaveCrashDoc(const ReportPath: string);
     procedure ShakeWatch(X, Y: Integer);
@@ -3939,6 +3944,130 @@ end;
 { A crash last time leaves a note behind.  Offer to send it, and open it
   filled in so it can be read first - it carries file paths, and nobody
   should have those leave their machine without seeing them go. }
+{ Tell us what went wrong, in your own words.
+
+  Built here rather than as a designed form because it is one box and three
+  buttons, and because the state it sends has to be gathered at the moment
+  the person presses the button rather than whenever a form was made.
+
+  The drawing is offered, not assumed.  It is the single most useful thing
+  for finding a fault - it is what found the last one - but it is also
+  somebody's work, possibly with a customer's name on it, and it does not
+  leave the machine without being asked for. }
+procedure TMainForm.ReportBug(const Preamble: string);
+var
+  Dlg: TForm;
+  Memo: TMemo;
+  Lbl: TLabel;
+  WithDoc: TCheckBox;
+  BtnOK, BtnNo: TButton;
+  Body, Name_, Err, Note: string;
+  L: TStringList;
+begin
+  Dlg := TForm.CreateNew(nil);
+  try
+    Dlg.Caption := 'Report a problem';
+    Dlg.Position := poMainFormCenter;
+    Dlg.BorderStyle := bsDialog;
+    Dlg.ClientWidth := Round(560 * FUIScale);
+    Dlg.ClientHeight := Round(340 * FUIScale);
+
+    Lbl := TLabel.Create(Dlg);
+    Lbl.Parent := Dlg;
+    Lbl.SetBounds(Round(12 * FUIScale), Round(10 * FUIScale),
+      Dlg.ClientWidth - Round(24 * FUIScale), Round(46 * FUIScale));
+    Lbl.WordWrap := True;
+    if Preamble <> '' then
+      Lbl.Caption := 'It crashed last time.  What were you doing when it ' +
+        'went?  A line or two is plenty - the crash report itself is ' +
+        'attached automatically, along with what the program was doing.'
+    else
+      Lbl.Caption := 'What were you doing, and what happened?  A line or ' +
+        'two is plenty.  What the program was doing is added automatically ' +
+        '- the tool, the view, and the last few dozen things that happened.';
+
+    Memo := TMemo.Create(Dlg);
+    Memo.Parent := Dlg;
+    Memo.SetBounds(Round(12 * FUIScale), Round(62 * FUIScale),
+      Dlg.ClientWidth - Round(24 * FUIScale), Round(190 * FUIScale));
+    Memo.ScrollBars := ssAutoVertical;
+    Memo.WordWrap := True;
+
+    WithDoc := TCheckBox.Create(Dlg);
+    WithDoc.Parent := Dlg;
+    WithDoc.SetBounds(Round(12 * FUIScale), Round(262 * FUIScale),
+      Dlg.ClientWidth - Round(24 * FUIScale), Round(24 * FUIScale));
+    WithDoc.Caption := Format('Send the drawing too (%d things) - it is ' +
+      'much the fastest way to find a fault', [FD.Doc.Live]);
+    WithDoc.Checked := False;
+
+    BtnOK := TButton.Create(Dlg);
+    BtnOK.Parent := Dlg;
+    BtnOK.Caption := 'Send';
+    BtnOK.ModalResult := mrOK;
+    BtnOK.Default := True;
+    BtnOK.SetBounds(Dlg.ClientWidth - Round(224 * FUIScale),
+      Round(296 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+
+    BtnNo := TButton.Create(Dlg);
+    BtnNo.Parent := Dlg;
+    BtnNo.Caption := 'Cancel';
+    BtnNo.ModalResult := mrCancel;
+    BtnNo.Cancel := True;
+    BtnNo.SetBounds(Dlg.ClientWidth - Round(112 * FUIScale),
+      Round(296 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+
+    if Dlg.ShowModal <> mrOK then
+    begin
+      FCmdMsg := 'Report cancelled.';
+      Exit;
+    end;
+    Note := Trim(Memo.Text);
+    Body := 'Heckers Sketch report' + LineEnding +
+      specialize IfThen<string>(Preamble = '', '',
+        'this one followed a crash' + LineEnding) +
+      'version: ' + CurrentVersion + '  built ' + BUILD_STAMP + LineEnding +
+      'when: ' + DateTimeToStr(Now) + LineEnding + LineEnding +
+      'what they said:' + LineEnding +
+      specialize IfThen<string>(Note = '', '(nothing written)', Note) +
+      LineEnding + LineEnding +
+      'state:' + LineEnding + DiagnosticText;
+    if Preamble <> '' then
+      Body := Body + LineEnding + 'the crash it left behind:' + LineEnding +
+        Preamble;
+    if WithDoc.Checked then
+    begin
+      L := TStringList.Create;
+      try
+        BuildSession(L);
+        Body := Body + LineEnding + 'the drawing, sent on purpose:' +
+          LineEnding + L.Text;
+      finally
+        L.Free;
+      end;
+    end;
+    Name_ := UniqueReportName('bug', CurrentVersion);
+  finally
+    Dlg.Free;
+  end;
+
+  FCmdMsg := 'Sending...';
+  pbCmd.Invalidate;
+  Application.ProcessMessages;
+  if SendReport(Name_, Body, Err) then
+    FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')'
+  else
+  begin
+    FCmdMsg := 'The report could not be sent - ' + Err;
+    MessageDlg('Could not send it',
+      'The report did not go: ' + Err + LineEnding + LineEnding +
+      'Nothing is lost and nothing is broken - it just did not send.  ' +
+      'The help button has the project page if you would rather say it ' +
+      'there.', mtInformation, [mbOK], 0);
+  end;
+  pbCmd.Invalidate;
+end;
+
 procedure TMainForm.OfferCrashReport;
 var
   Fn: string;
@@ -3958,19 +4087,17 @@ begin
       built for have no reason to have.  So it is offered rather than assumed,
       and saying no still leaves the report sitting there with its path on
       screen, which is enough to send it on however suits. }
+    { The same door as a report written by hand - one transport, one shape of
+      report, and no GitHub account needed to use it. }
     case MessageDlg('It crashed last time',
            'There is a crash report from a previous run.'#13#10#13#10 +
-           'Report it on GitHub?  It opens in your browser, filled in, so ' +
-           'you can read it and say what you were doing before sending - or ' +
-           'close the tab and nothing goes anywhere.'#13#10#13#10 +
-           'No GitHub account?  Choose No and the file stays put; its ' +
-           'name is below and it can go by mail or any other way.',
+           'Send it?  You get to say what you were doing first, and to see ' +
+           'what is being sent.  Nothing goes anywhere until you press Send.',
            mtConfirmation, [mbYes, mbNo], 0) of
       mrYes:
         begin
-          OpenInBrowser(CrashIssueURL(L.Text));
           RenameFile(Fn, Fn + '.sent');
-          FCmdMsg := 'Opened a report in your browser.';
+          ReportBug(L.Text);
         end;
     else
       RenameFile(Fn, Fn + '.kept');
@@ -5928,6 +6055,34 @@ begin
   end;
 end;
 
+function TMainForm.DiagnosticText: string;
+begin
+  { Names, not numbers.  A report that says tool=8 needs the source open to
+    read it; one that says ERASE does not.  Nothing here is about the person
+    or the machine - it is what the program was doing. }
+  Result :=
+    Format('tool=%s stage=%d view=%s plane=%s mode=%s', [TOOL_NAMES[FTool],
+      FStage, VIEW_NAMES[FD.View], PlaneName,
+      specialize IfThen<string>(FMode = mdPro, 'PRO', 'TOY')]) + LineEnding +
+    Format('mouse=%d,%d  cursor=%s,%s,%s  snap=%d axislock=%d held=%d',
+      [FMouseSX, FMouseSY, FormatLen(FCur.X, FD.Units),
+       FormatLen(FCur.Y, FD.Units), FormatLen(FCur.Z, FD.Units),
+       Ord(FSnapKind), FAxisLock, Ord(FPlaneHeld)]) + LineEnding +
+    Format('entities=%d (%s)  sheets=%d tab=%d  selected=%d doomed=%d',
+      [FD.Doc.Live, KindCounts, Length(FDrawings), FTabIdx,
+       Length(FSel), Length(FDoomed)]) + LineEnding +
+    Format('pushface=%d offface=%d hoverent=%d hoverface=%d lock=%d ' +
+      'holding=%d scale=%s snapstep=%s zoom=%s',
+      [FPushFace, FOffFace, FHoverEnt, FHoverFace, Ord(FLockOn),
+       Ord(FHoldOn), CurScale.Name, FormatLen(SnapStep, FD.Units),
+       FormatFloat('0.00', FD.Zoom)]) + LineEnding +
+    Format('units=%s screen=%dx%d scaling=%s portable=%s',
+      [uWork.UnitName(FD.Units), pbScreen.Width, pbScreen.Height,
+       FormatFloat('0.00', FUIScale),
+       specialize IfThen<string>(IsPortable, 'yes', 'no')]) + LineEnding +
+    'what was happening, most recent last:' + LineEnding + TrailText;
+end;
+
 procedure TMainForm.ReportCrash(Sender: TObject; E: Exception);
 var
   F: TextFile;
@@ -5942,26 +6097,7 @@ begin
       WriteLn(F, '---- ', DateTimeToStr(Now), ' ', APP_NAME, ' ',
     CurrentVersion, ' built ', BUILD_STAMP);
       WriteLn(F, E.ClassName, ': ', E.Message);
-      { Names, not numbers.  A report that says tool=8 needs the source
-        open to read; one that says ERASE does not. }
-      WriteLn(F, 'tool=', TOOL_NAMES[FTool], ' stage=', FStage,
-        ' view=', VIEW_NAMES[FD.View], ' plane=', PlaneName,
-        ' mode=', IfThen(FMode = mdPro, 'PRO', 'TOY'));
-      WriteLn(F, 'mouse=', FMouseSX, ',', FMouseSY,
-        '  cursor=', FormatLen(FCur.X, FD.Units), ',',
-        FormatLen(FCur.Y, FD.Units), ',', FormatLen(FCur.Z, FD.Units),
-        '  snap=', Ord(FSnapKind), ' axislock=', FAxisLock,
-        ' held=', Ord(FPlaneHeld));
-      WriteLn(F, 'entities=', FD.Doc.Live, ' (', KindCounts, ')',
-        '  sheets=', Length(FDrawings), ' tab=', FTabIdx,
-        '  selected=', Length(FSel), ' doomed=', Length(FDoomed));
-      WriteLn(F, 'pushface=', FPushFace, ' offface=', FOffFace,
-        ' hoverent=', FHoverEnt, ' hoverface=', FHoverFace,
-        ' lock=', Ord(FLockOn), ' holding=', Ord(FHoldOn),
-        ' scale=', CurScale.Name, ' snapstep=', FormatLen(SnapStep, FD.Units),
-        ' zoom=', FormatFloat('0.00', FD.Zoom));
-      WriteLn(F, 'what was happening, most recent last:');
-      Write(F, TrailText);
+      Write(F, DiagnosticText);
       WriteLn(F, BackTraceStrFunc(ExceptAddr));
       if ExceptFrameCount > 0 then
         for I := 0 to ExceptFrameCount - 1 do
@@ -6257,7 +6393,7 @@ begin
         1: begin CheckForUpdate(True); DoUpdate; end;
         2: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/releases/latest');
         3: OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
-        4: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/issues/new');
+        4: ReportBug;
       else
         OpenInBrowser('https://github.com/' + UPDATE_REPO);
       end;
