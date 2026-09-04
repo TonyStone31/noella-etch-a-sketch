@@ -48,7 +48,11 @@ type
   TViewKind = (vkPlan, vkIso, vkOrbit);
 
   { The plane an arc or circle lies in. }
-  TPlane = (plXY, plXZ, plYZ);
+  { The three flat planes, and a fourth that is whatever face you are
+    pointing at.  Without the fourth there is no way to say "the roof": a
+    circle can only go on something square to an axis, which rules out every
+    slope in the trade. }
+  TPlane = (plXY, plXZ, plYZ, plFree);
 
   TProjector = record
     Kind: TViewKind;
@@ -82,6 +86,11 @@ type
     A, B, C: TP3;
     R, A0, Sweep: Double;
     Plane: TPlane;
+    { For an arc in plFree, the way its plane faces.  The plane itself is a
+      name, and a name is only good while nothing has renamed it - so a circle
+      on a roof has to carry its own or it lies back down flat the moment the
+      cursor moves on to something else. }
+    Nm: TP3;
     Poly: array of TP3;   // ekFace: the closed outline, in order
     Solid: Boolean;       // ekFace: part of a solid, so its back is hidden
     { Which solid this belongs to, or 0 for loose drawing.  Push/pull drags
@@ -385,8 +394,17 @@ function DimGeometry(const V: TProjector; const A, B, Off: TP3;
 function DimTextTopLeft(const G: TDimGeom; TW, TH: Integer;
   Gap: Double = 8): TPoint;
 
-{ A point on a circle of radius R about C, at Ang radians, in plane Pl. }
+{ Where plFree lies: a point on it and the way it faces.  Set from the face
+  under the cursor, read back by everything that draws in a plane. }
+procedure SetFreePlane(const Org, Normal: TP3);
+procedure GetFreePlane(out Org, U, V, N: TP3);
+
+{ A point on a circle of radius R about C, at Ang radians, in plane Pl.  The
+  second form is for a stored shape, which carries the way its plane faces
+  rather than relying on whatever the working plane happens to be now. }
 function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane): TP3;
+function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane;
+  const Nm: TP3): TP3;
 
 { Unit vectors of the view: screen right, screen up, and the direction the
   camera looks along (used to sort faces back to front). }
@@ -912,12 +930,78 @@ begin
   end;
 end;
 
+{ The free plane.  Held here rather than passed about, because TPlane goes
+  through a dozen calls by value and every one of them would have had to grow
+  three more arguments to carry a plane there is only ever one of. }
+var
+  GFreeOrg: TP3 = (X: 0; Y: 0; Z: 0);
+  GFreeN: TP3 = (X: 0; Y: 0; Z: 1);
+  GFreeU: TP3 = (X: 1; Y: 0; Z: 0);
+  GFreeV: TP3 = (X: 0; Y: 1; Z: 0);
+
+{ Where the cursor meets an arbitrary plane, for any view.
+
+  The three flat planes each get their own arithmetic above, which is quick
+  and unreadable and only works because one coordinate is known in advance.
+  A sloped face knows none of them, so this does it the general way: the
+  projection is linear, whatever the view, so measuring where the origin and
+  the three unit vectors land on screen gives the two rows of it.  Add the
+  plane itself as a third equation and there are three equations in three
+  unknowns.
+
+  Slower than the special cases, and it runs once per mouse move. }
+function UnprojectPlane(const V: TProjector; SX, SY: Double;
+  const Org, N: TP3; const Base: TP3): TP3;
+var
+  P0, PX, PY, PZ: TPointF;
+  A: array[0..2, 0..2] of Double;
+  B: array[0..2] of Double;
+  Det, D0, D1, D2, Scale: Double;
+begin
+  Result := Base;
+  P0 := Project(V, P3(0, 0, 0));
+  PX := Project(V, P3(1, 0, 0));
+  PY := Project(V, P3(0, 1, 0));
+  PZ := Project(V, P3(0, 0, 1));
+
+  A[0, 0] := PX.X - P0.X;  A[0, 1] := PY.X - P0.X;  A[0, 2] := PZ.X - P0.X;
+  A[1, 0] := PX.Y - P0.Y;  A[1, 1] := PY.Y - P0.Y;  A[1, 2] := PZ.Y - P0.Y;
+  A[2, 0] := N.X;          A[2, 1] := N.Y;          A[2, 2] := N.Z;
+
+  B[0] := SX - P0.X;
+  B[1] := SY - P0.Y;
+  B[2] := N.X * Org.X + N.Y * Org.Y + N.Z * Org.Z;
+
+  Det := A[0,0] * (A[1,1] * A[2,2] - A[1,2] * A[2,1])
+       - A[0,1] * (A[1,0] * A[2,2] - A[1,2] * A[2,0])
+       + A[0,2] * (A[1,0] * A[2,1] - A[1,1] * A[2,0]);
+
+  { Edge-on to the camera there is no crossing worth having - the same
+    judgement the orbit unproject makes, and for the same reason. }
+  Scale := Max(Abs(A[0,0]), Max(Abs(A[0,1]), Max(Abs(A[0,2]), 1E-12)));
+  if Abs(Det) < 1E-6 * Scale * Scale then Exit;
+
+  D0 := B[0]    * (A[1,1] * A[2,2] - A[1,2] * A[2,1])
+      - A[0,1]  * (B[1]   * A[2,2] - A[1,2] * B[2])
+      + A[0,2]  * (B[1]   * A[2,1] - A[1,1] * B[2]);
+  D1 := A[0,0]  * (B[1]   * A[2,2] - A[1,2] * B[2])
+      - B[0]    * (A[1,0] * A[2,2] - A[1,2] * A[2,0])
+      + A[0,2]  * (A[1,0] * B[2]   - B[1]   * A[2,0]);
+  D2 := A[0,0]  * (A[1,1] * B[2]   - B[1]   * A[2,1])
+      - A[0,1]  * (A[1,0] * B[2]   - B[1]   * A[2,0])
+      + B[0]    * (A[1,0] * A[2,1] - A[1,1] * A[2,0]);
+
+  Result := P3(D0 / Det, D1 / Det, D2 / Det);
+end;
+
 function Unproject(const V: TProjector; SX, SY: Double; Pl: TPlane;
   const Base: TP3): TP3;
 var
   U, W: Double;
 begin
   Result := Base;
+  if Pl = plFree then
+    Exit(UnprojectPlane(V, SX, SY, GFreeOrg, GFreeN, Base));
   if V.Kind = vkPlan then
   begin
     Result.X := (SX - V.OX) / V.Ppu;
@@ -1076,12 +1160,58 @@ begin
   end;
 end;
 
+{ The two directions of a plane that faces Nm, chosen the same way every
+  time so a shape does not twist as the cursor moves. }
+procedure AxesFromNormal(const Nm: TP3; out AU, AV: TP3);
+var
+  N, T: TP3;
+  L: Double;
+begin
+  L := Sqrt(Sqr(Nm.X) + Sqr(Nm.Y) + Sqr(Nm.Z));
+  if L < 1E-12 then
+  begin
+    AU := P3(1, 0, 0);
+    AV := P3(0, 1, 0);
+    Exit;
+  end;
+  N := P3(Nm.X / L, Nm.Y / L, Nm.Z / L);
+  if (Abs(N.Z) <= Abs(N.X)) and (Abs(N.Z) <= Abs(N.Y)) then T := P3(0, 0, 1)
+  else if Abs(N.Y) <= Abs(N.X) then T := P3(0, 1, 0)
+  else T := P3(1, 0, 0);
+  AU := Norm3(Cross3(T, N));
+  AV := Norm3(Cross3(N, AU));
+end;
+
+procedure SetFreePlane(const Org, Normal: TP3);
+var
+  L: Double;
+begin
+  L := Sqrt(Sqr(Normal.X) + Sqr(Normal.Y) + Sqr(Normal.Z));
+  if L < 1E-12 then Exit;
+  GFreeOrg := Org;
+  GFreeN := P3(Normal.X / L, Normal.Y / L, Normal.Z / L);
+  { Any two directions in the plane would do, but they must not wander as the
+    cursor moves or a rectangle would twist while it was being dragged.
+    Taking the world axis least like the normal gives the same pair every
+    time for a given face. }
+  AxesFromNormal(GFreeN, GFreeU, GFreeV);
+end;
+
+procedure GetFreePlane(out Org, U, V, N: TP3);
+begin
+  Org := GFreeOrg;
+  U := GFreeU;
+  V := GFreeV;
+  N := GFreeN;
+end;
+
 { In-plane coordinates for an arc: (u, v) are the two axes of Pl. }
 procedure PlaneAxes(Pl: TPlane; out AU, AV: TP3);
 begin
   case Pl of
     plXY: begin AU := P3(1, 0, 0); AV := P3(0, 1, 0); end;
     plXZ: begin AU := P3(1, 0, 0); AV := P3(0, 0, 1); end;
+    plFree: begin AU := GFreeU; AV := GFreeV; end;
   else
     begin AU := P3(0, 1, 0); AV := P3(0, 0, 1); end;
   end;
@@ -1207,6 +1337,20 @@ begin
   PlaneAxes(Pl, AU, AV);
   U := P.X * AU.X + P.Y * AU.Y + P.Z * AU.Z;
   W := P.X * AV.X + P.Y * AV.Y + P.Z * AV.Z;
+end;
+
+function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane;
+  const Nm: TP3): TP3;
+var
+  AU, AV: TP3;
+begin
+  if Pl = plFree then
+    AxesFromNormal(Nm, AU, AV)
+  else
+    PlaneAxes(Pl, AU, AV);
+  Result := P3(C.X + (AU.X * Cos(Ang) + AV.X * Sin(Ang)) * R,
+               C.Y + (AU.Y * Cos(Ang) + AV.Y * Sin(Ang)) * R,
+               C.Z + (AU.Z * Cos(Ang) + AV.Z * Sin(Ang)) * R);
 end;
 
 function ArcPoint(const C: TP3; R, Ang: Double; Pl: TPlane): TP3;
@@ -1354,6 +1498,8 @@ end;
 
 procedure TWorkDoc.AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
   Ink: TColor; Weight: Single);
+var
+  FreeO, FreeU, FreeV: TP3;
 begin
   SetLength(FEnts, FLive + 1);
   Finalize(FEnts[FLive]);
@@ -1364,8 +1510,12 @@ begin
   FEnts[FLive].A0 := A0;
   FEnts[FLive].Sweep := Sweep;
   FEnts[FLive].Plane := Pl;
-  FEnts[FLive].A := ArcPoint(C, R, A0, Pl);
-  FEnts[FLive].B := ArcPoint(C, R, A0 + Sweep, Pl);
+  { A free plane is only a name until the shape carries the direction with
+    it.  Taken here, while the plane it was drawn in is still the current
+    one. }
+  if Pl = plFree then GetFreePlane(FreeO, FreeU, FreeV, FEnts[FLive].Nm);
+  FEnts[FLive].A := ArcPoint(C, R, A0, Pl, FEnts[FLive].Nm);
+  FEnts[FLive].B := ArcPoint(C, R, A0 + Sweep, Pl, FEnts[FLive].Nm);
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := Weight;
   Inc(FLive);
@@ -2398,7 +2548,7 @@ begin
           for K := 0 to ARC_SAMPLES do
             if OnOutline(ArcPoint(FEnts[I].C, FEnts[I].R,
                  FEnts[I].A0 + FEnts[I].Sweep * K / ARC_SAMPLES,
-                 FEnts[I].Plane)) then Inc(J);
+                 FEnts[I].Plane, FEnts[I].Nm)) then Inc(J);
           if J = ARC_SAMPLES + 1 then FEnts[I].Grp := G;
         end;
     end;
@@ -2774,7 +2924,7 @@ begin
         for K := 0 to Steps do
         begin
           Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
-          Result[K] := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane));
+          Result[K] := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane, FEnts[I].Nm));
         end;
       end;
     ekFace:
@@ -2842,11 +2992,11 @@ var
   PA, PB: TPointF;
 begin
   Result := 1E30;
-  PA := Project(V, ArcPoint(E.C, E.R, E.A0, E.Plane));
+  PA := Project(V, ArcPoint(E.C, E.R, E.A0, E.Plane, E.Nm));
   for K := 1 to STEPS do
   begin
     Ang := E.A0 + E.Sweep * K / STEPS;
-    PB := Project(V, ArcPoint(E.C, E.R, Ang, E.Plane));
+    PB := Project(V, ArcPoint(E.C, E.R, Ang, E.Plane, E.Nm));
     Result := Min(Result, DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
     PA := PB;
   end;
@@ -2902,11 +3052,11 @@ begin
                   FEnts[I].B.Z + (FEnts[I].B.Z - FEnts[I].A.Z) * 2000));
       ekArc:
         begin
-          QA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane);
+          QA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm);
           for K := 1 to 24 do
           begin
             QB := ArcPoint(FEnts[I].C, FEnts[I].R,
-                    FEnts[I].A0 + FEnts[I].Sweep * K / 24, FEnts[I].Plane);
+                    FEnts[I].A0 + FEnts[I].Sweep * K / 24, FEnts[I].Plane, FEnts[I].Nm);
             Try_(QA, QB);
             QA := QB;
           end;
@@ -3180,9 +3330,13 @@ begin
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].Weight,
            Ord(FEnts[I].Dim), FEnts[I].Grp, Ord(FEnts[I].Soft)], FS));
       ekArc:
-        L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f',
+        { The normal goes on the end, so a file written before free planes
+          existed still reads and one written now still opens in a build that
+          has never heard of them. }
+        L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f %s',
           [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
-           Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight], FS));
+           Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight,
+           N3(FEnts[I].Nm)], FS));
       ekDim:
         { the written-over label goes last, so a file with none still reads
           and one written by an older build still loads }
@@ -3269,9 +3423,22 @@ begin
           FEnts[FLive - 1].Soft := T[11] = '1';
       end
       else if (Kind = 'ARC') and (T.Count >= 10) then
+      begin
         AddArc(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])), RdF(T[4]), RdF(T[5]),
                RdF(T[6]), TPlane(StrToIntDef(T[7], 0)),
-               StrToIntDef(T[8], 0), RdF(T[9]))
+               StrToIntDef(T[8], 0), RdF(T[9]));
+        if (T.Count >= 13) and (FLive > 0) then
+        begin
+          FEnts[FLive - 1].Nm := P3(RdF(T[10]), RdF(T[11]), RdF(T[12]));
+          { the two end points were worked out from the wrong plane a moment
+            ago, when the normal was not yet known }
+          FEnts[FLive - 1].A := ArcPoint(FEnts[FLive - 1].C, FEnts[FLive - 1].R,
+            FEnts[FLive - 1].A0, FEnts[FLive - 1].Plane, FEnts[FLive - 1].Nm);
+          FEnts[FLive - 1].B := ArcPoint(FEnts[FLive - 1].C, FEnts[FLive - 1].R,
+            FEnts[FLive - 1].A0 + FEnts[FLive - 1].Sweep,
+            FEnts[FLive - 1].Plane, FEnts[FLive - 1].Nm);
+        end;
+      end
       else if (Kind = 'DIM') and (T.Count >= 8) then
         { A file written before the offset became a vector has one number
           where three should be.  There is no view to turn it back into a
@@ -3393,7 +3560,7 @@ begin
           for K := 0 to Steps do
           begin
             Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
-            PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane));
+            PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane, FEnts[I].Nm));
             D := D + Format('%.2f,%.2f ', [PA.X, PA.Y], FS);
           end;
           L.Add(Format('<polyline points="%s" fill="none" stroke="%s" ' +
@@ -3613,11 +3780,11 @@ begin
         begin
           Steps := Max(10, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 4));
           Steps := Min(Steps, 1500);
-          PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane));
+          PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm));
           for K := 1 to Steps do
           begin
             Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
-            PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane));
+            PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane, FEnts[I].Nm));
             S.Line(PA.X, PA.Y, PB.X, PB.Y, EdgeW, Col);
             PA := PB;
           end;
@@ -3779,7 +3946,7 @@ begin
         { an arc lies in a face when its middle and its rim do }
         if Abs(Dot3(Nm, FEnts[I].C) - Sh) >= 1E-6 then Continue;
         if Abs(Dot3(Nm, ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0,
-             FEnts[I].Plane)) - Sh) >= 1E-6 then Continue;
+             FEnts[I].Plane, FEnts[I].Nm)) - Sh) >= 1E-6 then Continue;
       end
       else if (Abs(Dot3(Nm, FEnts[I].A) - Sh) >= 1E-6) or
               (Abs(Dot3(Nm, FEnts[I].B) - Sh) >= 1E-6) then Continue;
@@ -3834,7 +4001,7 @@ begin
               begin
                 Ang := FEnts[I].A0 + FEnts[I].Sweep * (M + 0.5) / Steps;
                 Vis := not Covered(ArcPoint(FEnts[I].C, FEnts[I].R, Ang,
-                  FEnts[I].Plane), J);
+                  FEnts[I].Plane, FEnts[I].Nm), J);
               end
               else
                 Vis := False;
@@ -3842,11 +4009,11 @@ begin
               if (not Vis) and (Run0 >= 0) then
               begin
                 PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
-                  FEnts[I].A0 + FEnts[I].Sweep * Run0 / Steps, FEnts[I].Plane));
+                  FEnts[I].A0 + FEnts[I].Sweep * Run0 / Steps, FEnts[I].Plane, FEnts[I].Nm));
                 for K := Run0 + 1 to M do
                 begin
                   PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
-                    FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane));
+                    FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane, FEnts[I].Nm));
                   S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
                   PA := PB;
                 end;

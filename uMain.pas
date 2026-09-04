@@ -886,9 +886,28 @@ end;
   third stays at A's, which is what keeps the rectangle flat and gives the
   face it makes a normal worth pushing along. }
 function RectCorners(const A, B: TP3; Pl: TPlane): TP3Array;
+var
+  FO, FU, FV, FN, D: TP3;
+  Du, Dv: Double;
 begin
   Result := nil;
   SetLength(Result, 4);
+  if Pl = plFree then
+  begin
+    { The corners are laid out along the plane's own two directions rather
+      than along a pair of world axes, which is the whole of what makes a
+      rectangle possible on a roof. }
+    GetFreePlane(FO, FU, FV, FN);
+    D := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+    Du := D.X * FU.X + D.Y * FU.Y + D.Z * FU.Z;
+    Dv := D.X * FV.X + D.Y * FV.Y + D.Z * FV.Z;
+    Result[0] := A;
+    Result[1] := P3(A.X + FU.X * Du, A.Y + FU.Y * Du, A.Z + FU.Z * Du);
+    Result[2] := P3(Result[1].X + FV.X * Dv, Result[1].Y + FV.Y * Dv,
+                    Result[1].Z + FV.Z * Dv);
+    Result[3] := P3(A.X + FV.X * Dv, A.Y + FV.Y * Dv, A.Z + FV.Z * Dv);
+    Exit;
+  end;
   case Pl of
     plXZ:
       begin
@@ -916,7 +935,17 @@ end;
 
 { The two side lengths of that rectangle, in the plane's own order. }
 procedure RectSides(const A, B: TP3; Pl: TPlane; out W, H: Double);
+var
+  FO, FU, FV, FN, D: TP3;
 begin
+  if Pl = plFree then
+  begin
+    GetFreePlane(FO, FU, FV, FN);
+    D := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+    W := Abs(D.X * FU.X + D.Y * FU.Y + D.Z * FU.Z);
+    H := Abs(D.X * FV.X + D.Y * FV.Y + D.Z * FV.Z);
+    Exit;
+  end;
   case Pl of
     plXZ: begin W := Abs(B.X - A.X); H := Abs(B.Z - A.Z); end;
     plYZ: begin W := Abs(B.Y - A.Y); H := Abs(B.Z - A.Z); end;
@@ -5303,6 +5332,7 @@ end;
 
 function TMainForm.PlaneName: string;
 begin
+  if FD.Plane = plFree then Exit('on the face');
   Result := Copy('XYXZYZ', Ord(FD.Plane) * 2 + 1, 2);
 end;
 
@@ -5409,6 +5439,10 @@ begin
   case Pl of
     plXZ: Result := AxisPix(1);      { faces along Y, green }
     plYZ: Result := AxisPix(0);      { faces along X, red }
+    { A sloped face points along no axis, so it gets no axis colour.  Saying
+      "some of red and some of blue" with a blend would read as a third axis
+      that does not exist. }
+    plFree: Result := Theme.Accent;
   else
     Result := AxisPix(2);            { flat, faces up Z, blue }
   end;
@@ -6938,9 +6972,20 @@ begin
        FD.Doc.FaceUnder(Proj, X, Y, HF, HP) then
     begin
       HN := FD.Doc.FaceNormal(HF);
-      if Abs(HN.Z) > 0.9 then FD.Plane := plXY
-      else if Abs(HN.Y) > 0.9 then FD.Plane := plXZ
-      else if Abs(HN.X) > 0.9 then FD.Plane := plYZ;
+      { A face square to an axis gets the matching flat plane, because those
+        have their own quick arithmetic and their own colour.  Anything else -
+        a roof, a hopper side, a transition - gets a plane of its own, taken
+        from the face itself.  Without that last line a circle could only be
+        put on something square to an axis, and every slope in the trade was
+        out of reach. }
+      if Abs(HN.Z) > 0.999 then FD.Plane := plXY
+      else if Abs(HN.Y) > 0.999 then FD.Plane := plXZ
+      else if Abs(HN.X) > 0.999 then FD.Plane := plYZ
+      else
+      begin
+        SetFreePlane(HP, HN);
+        FD.Plane := plFree;
+      end;
       { the plane passes through where the cursor meets the face, so the
         shape sits on the surface rather than at the old height }
       FCur := HP;
@@ -6980,9 +7025,14 @@ begin
       if HF >= 0 then
       begin
         HN := FD.Doc.FaceNormal(HF);
-        if Abs(HN.Z) > 0.9 then FD.Plane := plXY
-        else if Abs(HN.Y) > 0.9 then FD.Plane := plXZ
-        else if Abs(HN.X) > 0.9 then FD.Plane := plYZ;
+        if Abs(HN.Z) > 0.999 then FD.Plane := plXY
+        else if Abs(HN.Y) > 0.999 then FD.Plane := plXZ
+        else if Abs(HN.X) > 0.999 then FD.Plane := plYZ
+        else
+        begin
+          SetFreePlane(FCur, HN);
+          FD.Plane := plFree;
+        end;
         FPlaneFromFace := True;
       end;
     end;
@@ -7774,13 +7824,13 @@ begin
         end;
       ekArc:
         begin
-          A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R, FD.Doc[I].A0, FD.Doc[I].Plane);
+          A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R, FD.Doc[I].A0, FD.Doc[I].Plane, FD.Doc[I].Nm);
           for K := 1 to ARC_STEPS do
           begin
             if N >= Length(Result) then SetLength(Result, N * 2);
             Result[N].A := A;
             A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R,
-              FD.Doc[I].A0 + FD.Doc[I].Sweep * K / ARC_STEPS, FD.Doc[I].Plane);
+              FD.Doc[I].A0 + FD.Doc[I].Sweep * K / ARC_STEPS, FD.Doc[I].Plane, FD.Doc[I].Nm);
             Result[N].B := A;
             Inc(N);
           end;
