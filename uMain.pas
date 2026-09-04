@@ -4676,8 +4676,16 @@ begin
   if FMode = mdPro then
   begin
     CP := ScreenOf(FCur);
-    SX := Round(CP.X);
-    SY := Round(CP.Y);
+    { And the same at this end.  A cursor that projects to somewhere absurd -
+      an orbit camera looking almost along an axis will do it - used to be
+      rounded into an integer that had wrapped, and the overlay then asked
+      for a square of artwork starting there. }
+    if IsNan(CP.X) or IsNan(CP.Y) or IsInfinite(CP.X) or IsInfinite(CP.Y) then
+      CP := PtF(FMouseSX, FMouseSY);
+    SX := EnsureRange(Round(EnsureRange(CP.X, -1E6, 1E6)),
+      -20000, pbScreen.Width + 20000);
+    SY := EnsureRange(Round(EnsureRange(CP.Y, -1E6, 1E6)),
+      -20000, pbScreen.Height + 20000);
     PaintProOverlay(pbScreen.Canvas);
   end
   else

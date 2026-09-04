@@ -1037,10 +1037,23 @@ var
   S, D: PPix;
 begin
   if Src = nil then Exit;
+  if (W <= 0) or (H <= 0) then Exit;
+  if (FWidth <= 0) or (FHeight <= 0) then Exit;
+  if (Src.Width <= 0) or (Src.Height <= 0) then Exit;
+  { A copy that starts a very long way outside either surface has nothing in
+    it to copy, and the arithmetic that works that out overflows long before
+    it can say so.  Anything further out than any real window turns into
+    nothing at all, which is what it would have come to anyway.  This is the
+    guard the cursor overlay needed: it asks for a square of artwork around
+    the pointer, and one bad projected coordinate made that square start at
+    a place no clamp could bring back. }
+  if (Abs(SrcX) > 1000000) or (Abs(SrcY) > 1000000) or
+     (Abs(DX) > 1000000) or (Abs(DY) > 1000000) then Exit;
   X0 := Max(0, Max(-SrcX, -DX));
   Y0 := Max(0, Max(-SrcY, -DY));
   X1 := Min(W, Min(Src.Width - SrcX, FWidth - DX));
   Y1 := Min(H, Min(Src.Height - SrcY, FHeight - DY));
+  if (X1 <= X0) or (Y1 <= Y0) then Exit;
   for Y := Y0 to Y1 - 1 do
   begin
     S := Src.ScanLine(SrcY + Y);
