@@ -454,6 +454,7 @@ type
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure OfferCrashReport;
+    function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
     function ReportBug(const Preamble: string = '';
       const ShotFile: string = ''; const DocFile: string = ''): Boolean;
@@ -1305,6 +1306,13 @@ end;
 { lifecycle                                                                 }
 { ======================================================================== }
 
+{ Handed to uSurface so a repair lands in the trail beside the tool that was
+  in hand when it happened. }
+procedure SurfaceRepaired(const What: string);
+begin
+  if MainForm <> nil then MainForm.Trail(What);
+end;
+
 procedure TMainForm.FormCreate(Sender: TObject);
 var
   I: Integer;
@@ -1318,6 +1326,7 @@ begin
   Application.HintPause := 450;
   Application.HintHidePause := 6000;
   Randomize;
+  uSurface.OnSurfaceRepair := @SurfaceRepaired;
   { Said before anything can be typed.  Zero is a real entity index, so a
     field left at its default reads as "editing the label on the first
     thing in the drawing". }
@@ -4148,9 +4157,18 @@ begin
       rest of the thought goes underneath it. }
     WithDoc.SetBounds(Round(12 * FUIScale), Round(268 * FUIScale),
       Dlg.ClientWidth - Round(24 * FUIScale), Round(22 * FUIScale));
+    { The count is of the drawing that will actually go, which for a crash is
+      the one saved when it happened rather than whatever is on screen now -
+      the two are rarely the same, since the program has restarted in
+      between, and quoting the wrong one is how you end up sending an empty
+      sheet believing you sent your work. }
     WithDoc.Caption := Format('Send the drawing file too (%d things)',
-      [FD.Doc.Live]);
-    WithDoc.Checked := False;
+      [DocThings(DocFile)]);
+    { On by default.  Tony's, and he is right: it is the single most useful
+      thing in a report and it was going unticked simply because it was
+      unticked.  It stays a tick box, and it stays easy to see, because it is
+      somebody's work and they get to say. }
+    WithDoc.Checked := True;
 
     Fine := TLabel.Create(Dlg);
     Fine.Parent := Dlg;
@@ -4285,6 +4303,32 @@ begin
       'there.', mtInformation, [mbOK], 0);
   end;
   pbCmd.Invalidate;
+end;
+
+{ How many things are in the drawing that a report would actually carry. }
+function TMainForm.DocThings(const DocFile: string): Integer;
+var
+  L: TStringList;
+  I: Integer;
+begin
+  Result := FD.Doc.Live;
+  if (DocFile = '') or not FileExists(DocFile) then Exit;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(DocFile);
+      Result := 0;
+      for I := 0 to L.Count - 1 do
+        if (Copy(L[I], 1, 5) = 'LINE ') or (Copy(L[I], 1, 5) = 'FACE ') or
+           (Copy(L[I], 1, 4) = 'ARC ') or (Copy(L[I], 1, 5) = 'TEXT ') or
+           (Copy(L[I], 1, 4) = 'DIM ') or (Copy(L[I], 1, 6) = 'GUIDE ') then
+          Inc(Result);
+    except
+      Result := FD.Doc.Live;
+    end;
+  finally
+    L.Free;
+  end;
 end;
 
 procedure TMainForm.OfferCrashReport;

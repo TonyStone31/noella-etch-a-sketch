@@ -28,7 +28,8 @@ unit uSurface;
 interface
 
 uses
-  Classes, SysUtils, Types, Math, FPImage, Graphics, GraphType, IntfGraphics;
+  Classes, SysUtils, Types, Math, StrUtils, FPImage, Graphics, GraphType,
+  IntfGraphics;
 
 type
   { One pixel, laid out exactly as Init_BPP32_B8G8R8A8_BIO_TTB stores it. }
@@ -136,6 +137,13 @@ function MixPix(const A, B: TPix; T: Single): TPix;
 function ShadePix(const C: TPix; F: Single): TPix;
 function HSVPix(H, S, V: Single): TPix;
 function PtF(X, Y: Single): TPointF; inline;
+
+{ Told whenever a surface finds its own buffer details changed under it, so
+  the trail in a crash report can say which action was in progress when it
+  happened.  Knowing that it happens is worth little; knowing that it always
+  happens straight after a push, or a view change, is the whole answer. }
+var
+  OnSurfaceRepair: procedure(const What: string) = nil;
 
 implementation
 
@@ -324,6 +332,9 @@ begin
   if (P <> FBits) or (St <> FStride) then
   begin
     Inc(GRepairs);
+    if Assigned(OnSurfaceRepair) then
+      OnSurfaceRepair(Format('surface repaired: stride %d -> %d, bits %s',
+        [FStride, St, specialize IfThen<string>(P = FBits, 'same', 'moved')]));
     FBits := P;
     FStride := St;
   end;
