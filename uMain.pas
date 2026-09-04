@@ -3959,7 +3959,7 @@ procedure TMainForm.ReportBug(const Preamble, ShotFile: string);
 var
   Dlg: TForm;
   Memo: TMemo;
-  Lbl: TLabel;
+  Lbl, Fine: TLabel;
   WithDoc: TCheckBox;
   BtnOK, BtnNo: TButton;
   Body, Name_, Err, Note, ShotErr: string;
@@ -3972,14 +3972,18 @@ begin
     Dlg.Caption := 'Report a problem';
     Dlg.Position := poMainFormCenter;
     Dlg.BorderStyle := bsDialog;
-    Dlg.ClientWidth := Round(560 * FUIScale);
-    Dlg.ClientHeight := Round(340 * FUIScale);
+    Dlg.ClientWidth := Round(600 * FUIScale);
+    Dlg.ClientHeight := Round(384 * FUIScale);
 
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
+    { Wrapped, and given the room to wrap into.  It was running off the
+      right-hand side, which is what happens to a fixed height with a
+      variable amount of text in it. }
     Lbl.SetBounds(Round(12 * FUIScale), Round(10 * FUIScale),
-      Dlg.ClientWidth - Round(24 * FUIScale), Round(46 * FUIScale));
+      Dlg.ClientWidth - Round(24 * FUIScale), Round(62 * FUIScale));
     Lbl.WordWrap := True;
+    Lbl.AutoSize := False;
     if Preamble <> '' then
       Lbl.Caption := 'It crashed last time.  What were you doing when it ' +
         'went?  A line or two is plenty - the crash report itself is ' +
@@ -3991,8 +3995,8 @@ begin
 
     Memo := TMemo.Create(Dlg);
     Memo.Parent := Dlg;
-    Memo.SetBounds(Round(12 * FUIScale), Round(62 * FUIScale),
-      Dlg.ClientWidth - Round(24 * FUIScale), Round(190 * FUIScale));
+    Memo.SetBounds(Round(12 * FUIScale), Round(78 * FUIScale),
+      Dlg.ClientWidth - Round(24 * FUIScale), Round(180 * FUIScale));
     Memo.ScrollBars := ssAutoVertical;
     Memo.WordWrap := True;
 
@@ -4002,11 +4006,22 @@ begin
       front of the thing being photographed. }
     WithDoc := TCheckBox.Create(Dlg);
     WithDoc.Parent := Dlg;
+    { A check box will not wrap, so its words have to fit on one line and the
+      rest of the thought goes underneath it. }
     WithDoc.SetBounds(Round(12 * FUIScale), Round(268 * FUIScale),
       Dlg.ClientWidth - Round(24 * FUIScale), Round(22 * FUIScale));
-    WithDoc.Caption := Format('Send the drawing file too (%d things) - the ' +
-      'surest way to find a fault, but it is your work', [FD.Doc.Live]);
+    WithDoc.Caption := Format('Send the drawing file too (%d things)',
+      [FD.Doc.Live]);
     WithDoc.Checked := False;
+
+    Fine := TLabel.Create(Dlg);
+    Fine.Parent := Dlg;
+    Fine.SetBounds(Round(30 * FUIScale), Round(290 * FUIScale),
+      Dlg.ClientWidth - Round(42 * FUIScale), Round(40 * FUIScale));
+    Fine.WordWrap := True;
+    Fine.AutoSize := False;
+    Fine.Caption := 'The surest way to find a fault - but it is your work, ' +
+      'so it is off unless you say otherwise.  A picture is asked about next.';
 
     BtnOK := TButton.Create(Dlg);
     BtnOK.Parent := Dlg;
@@ -4014,7 +4029,7 @@ begin
     BtnOK.ModalResult := mrOK;
     BtnOK.Default := True;
     BtnOK.SetBounds(Dlg.ClientWidth - Round(224 * FUIScale),
-      Round(296 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+      Round(342 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
 
     BtnNo := TButton.Create(Dlg);
     BtnNo.Parent := Dlg;
@@ -4022,7 +4037,7 @@ begin
     BtnNo.ModalResult := mrCancel;
     BtnNo.Cancel := True;
     BtnNo.SetBounds(Dlg.ClientWidth - Round(112 * FUIScale),
-      Round(296 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+      Round(342 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
 
     if Dlg.ShowModal <> mrOK then
     begin
@@ -9127,7 +9142,11 @@ begin
         0, THEME_PRO_LIGHT - 1);
       FProTheme := EnsureRange(Ini.ReadInteger('look', 'protheme', THEME_PRO_DARK),
         THEME_PRO_LIGHT, THEME_COUNT - 1);
-      FShowGrid := Ini.ReadBool('look', 'grid', False);
+      { On unless it has been turned off.  Asked for in the first report that
+        came through the new postbox, and right: this is a program for
+        measuring things, and a measured grid is how a drawing says how big
+        it is before anything has been drawn on it. }
+      FShowGrid := Ini.ReadBool('look', 'grid', True);
       FMode := TAppMode(EnsureRange(Ini.ReadInteger('look', 'mode', 0), 0, 1));
       FStyle := TPenStyle(EnsureRange(Ini.ReadInteger('pen', 'style', 0), 0, 4));
       FPenSize := EnsureRange(Ini.ReadInteger('pen', 'size', 4), MIN_PEN, MAX_PEN);
