@@ -555,7 +555,7 @@ type
       how SketchUp names a plane - right is red, left green, up blue. }
     function PlanePix(Pl: TPlane): TPix;
     function AxisAlong(const A, B: TP3): Integer;
-    function IsoRunAxis(const From: TP3): Integer;
+    function IsoRunAxis(const From: TP3; out Along: Double): Integer;
     function PreviewTarget: TP3;
     procedure SetTool(T: TProTool);
     function PlaneName: string;
@@ -3772,6 +3772,7 @@ var
   D: TP3;
   Txt: string;
   K: Integer;
+  AlongL: Double;
 begin
   Result := FCur;
   if FStage <> 1 then Exit;
@@ -3816,13 +3817,11 @@ begin
   if (FD.View = vkIso) and (FTool = ptLine) and
      not (ssShift in FMoveShift) then
   begin
-    K := IsoRunAxis(FP1);
+    K := IsoRunAxis(FP1, AlongL);
     if K >= 0 then
     begin
       D := AxisDir(K);
-      if not Typed then
-        L := (FCur.X - FP1.X) * D.X + (FCur.Y - FP1.Y) * D.Y +
-             (FCur.Z - FP1.Z) * D.Z;
+      if not Typed then L := AlongL;
       Result := P3(FP1.X + D.X * L, FP1.Y + D.Y * L, FP1.Z + D.Z * L);
       Exit;
     end;
@@ -5227,14 +5226,15 @@ end;
   Measured on screen and not in the model, for the same reason the snap
   inference is - see AxisTry.  What "nearest" means to a person drawing is
   nearest on the paper in front of them. }
-function TMainForm.IsoRunAxis(const From: TP3): Integer;
+function TMainForm.IsoRunAxis(const From: TP3; out Along: Double): Integer;
 var
   K: Integer;
   PR, PA: TPointF;
-  UX, UY, VX, VY, LenSq, Off, Best: Double;
+  UX, UY, VX, VY, LenSq, Off, Best, Step: Double;
   AD: TP3;
 begin
   Result := -1;
+  Along := 0;
   PR := ScreenOf(From);
   VX := FMouseSX - PR.X;
   VY := FMouseSY - PR.Y;
@@ -5256,8 +5256,27 @@ begin
     begin
       Best := Off;
       Result := K * 2;
+      { And how far along it, from the same screen measurement that chose it.
+
+        This has to come from here rather than from the snapped cursor, and
+        that is not tidiness.  The axis is picked from where the mouse is;
+        the cursor has by then been pulled onto whatever the snapping thought
+        best, which can be a different axis entirely.  Reading the length off
+        that gave a leg that agreed with the mouse about its direction and
+        with the snap about its length - two hundred and fifty pixels along
+        the red axis came out as two inches.  One source for both, and they
+        cannot disagree.
+
+        PA is one world unit away, so this is already in world units. }
+      Along := (VX * UX + VY * UY) / LenSq;
     end;
   end;
+  if Result < 0 then Exit;
+  { Land on the ruling.  A leg off a grid multiple is not what anyone drawing
+    on squared paper means, and the length is now ours to round rather than
+    something inherited from an already-snapped point. }
+  Step := SnapStep;
+  if Step > 1E-9 then Along := Round(Along / Step) * Step;
 end;
 
 { Which axis a segment runs along, or -1 for one that runs off on its own.
@@ -5322,6 +5341,8 @@ begin
 end;
 
 function TMainForm.Prompt: string;
+var
+  PromptAlong: Double;
 begin
   case FTool of
     ptLine:
@@ -5331,8 +5352,8 @@ begin
         Result := 'going ' + AxisName(FDirLock) + ' - length?'
       else if (FD.View = vkIso) and (ssShift in FMoveShift) then
         Result := 'off the grid - Shift held.  Let go to snap back to it'
-      else if (FD.View = vkIso) and (IsoRunAxis(FP1) >= 0) then
-        Result := 'going ' + AxisName(IsoRunAxis(FP1)) +
+      else if (FD.View = vkIso) and (IsoRunAxis(FP1, PromptAlong) >= 0) then
+        Result := 'going ' + AxisName(IsoRunAxis(FP1, PromptAlong)) +
           ' on the grid - length?  Shift to come off it'
       else
         Result := 'to the next point, or type a length  -  double-click to finish';
