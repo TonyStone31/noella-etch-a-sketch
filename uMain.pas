@@ -4937,8 +4937,14 @@ begin
   end
   else
   begin
-    SX := Round(FPenX);
-    SY := Round(FPenY);
+    { The same clamp the PRO side has.  The toy's pen is driven by two knobs
+      and has never gone anywhere strange, but Round of a number that is not
+      one produces an integer that has wrapped rather than an error, and
+      every guard downstream is written in terms of how big that integer is. }
+    SX := EnsureRange(Round(EnsureRange(FPenX, -1E6, 1E6)),
+      -20000, pbScreen.Width + 20000);
+    SY := EnsureRange(Round(EnsureRange(FPenY, -1E6, 1E6)),
+      -20000, pbScreen.Height + 20000);
   end;
 
   { The pen cursor is composited through a scratch surface so it can be
@@ -6370,11 +6376,25 @@ begin
       FD.Az := FD.Az - (X - FPanRefX) * 0.010;
       FD.El := EnsureRange(FD.El + (Y - FPanRefY) * 0.010, -1.45, 1.45);
       FViewPreset := -1;
-      { hold the grabbed point still, so the view turns about it rather than
-        about the origin }
+      { Hold the grabbed point still, so the view turns about it rather than
+        about the origin.
+
+        The pivot was worked out when the button went down, at the old angle,
+        and it is asked for its screen position here at the new one - so a
+        point that was reasonable a moment ago can project anywhere once the
+        camera has moved.  If it comes back as something that is not a screen
+        position, the view keeps the offset it had and turns about the origin
+        for that frame, which is a worse orbit and a perfectly good one.  The
+        alternative is adding a few million to where the drawing is held, and
+        every rounding from there to the screen inherits it. }
       OP := ScreenOf(FOrbitPivot);
-      FD.ViewX := FD.ViewX + (FPanRefX - OP.X);
-      FD.ViewY := FD.ViewY + (FPanRefY - OP.Y);
+      if (not (IsNan(OP.X) or IsNan(OP.Y) or
+               IsInfinite(OP.X) or IsInfinite(OP.Y))) and
+         (Abs(OP.X) < 1E6) and (Abs(OP.Y) < 1E6) then
+      begin
+        FD.ViewX := FD.ViewX + (FPanRefX - OP.X);
+        FD.ViewY := FD.ViewY + (FPanRefY - OP.Y);
+      end;
       RepaintPaper;
       RenderPro;
       RecomposeAll;
@@ -6544,16 +6564,44 @@ var
               (Abs(Q.X) < 1E7) and (Abs(Q.Y) < 1E7) and (Abs(Q.Z) < 1E7);
   end;
 
+  { A number that is not absurd is not the same as a point you could have
+    grabbed, and only the second one is any use as a pivot.
+
+    Whatever it came from, the point has to be somewhere near the glass: it
+    is meant to be the thing under the cursor, and the view is about to be
+    held still against it.  A crossing that comes back a few million feet
+    away passes every test for being a number and is still not a place on
+    the drawing - it is the working plane running away from a camera nearly
+    edge-on to it, and the arithmetic reporting that with a straight face.
+
+    Empty drawings are where this bites, because they are the only ones with
+    nothing better to offer.  With a face under the cursor the pivot is that
+    face; with anything drawn at all it is the middle of it; with nothing, it
+    is this crossing and nothing else, so this is the one case where a bad
+    answer had no competition. }
+  function Grabbable(const Q: TP3): Boolean;
+  var
+    S: TPointF;
+  begin
+    Result := False;
+    if not Sane(Q) then Exit;
+    S := ScreenOf(Q);
+    if IsNan(S.X) or IsNan(S.Y) or IsInfinite(S.X) or IsInfinite(S.Y) then
+      Exit;
+    Result := (Abs(S.X) < 8 * pbScreen.Width) and
+              (Abs(S.Y) < 8 * pbScreen.Height);
+  end;
+
 begin
-  if FD.Doc.FaceUnder(Proj, SX, SY, F, P) and Sane(P) then
+  if FD.Doc.FaceUnder(Proj, SX, SY, F, P) and Grabbable(P) then
     Exit(P);
   if FD.Doc.Bounds(Lo, Hi) then
   begin
     Result := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
-    if Sane(Result) then Exit;
+    if Grabbable(Result) then Exit;
   end;
   Result := WorldAt(SX, SY);
-  if not Sane(Result) then Result := P3(0, 0, 0);
+  if not Grabbable(Result) then Result := P3(0, 0, 0);
 end;
 
 { --- the settings lists -------------------------------------------------
