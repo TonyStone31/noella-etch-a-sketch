@@ -694,9 +694,13 @@ const
   { how long the button is leaned on before the line snaps off, and how long
     the two ends recoil afterwards }
   HOLD_STRAIN     = 0.35;   // before this it is just a click being made
-  HOLD_BREAK      = 1.45;   // and this long to break, which is a deliberate
-                            // wait: it has to be slow enough to read as a
-                            // warning and back out of
+  HOLD_BREAK      = 1.10;   // and this long to break.  It was 1.45, set by
+                            // guessing at how long a warning needs to be
+                            // readable; with the gesture in daily use the
+                            // answer came back that it is the wait, not the
+                            // warning, that gets noticed.  Three quarters of
+                            // a second of strain still says plainly what is
+                            // about to happen and still leaves room to let go
   SNAP_RECOIL     = 0.30;
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
   LOCK_PX         = 7.5;    // this close and the point is what you meant
