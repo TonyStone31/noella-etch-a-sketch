@@ -320,6 +320,16 @@ type
       to say the startup worked }
     FUpTime: Single;
     FStartupDone, FAskedAboutCrash: Boolean;
+    { The last few dozen things that happened, so a crash report says what
+      was being done and not only where it landed.  A ring, so it costs
+      nothing and never grows. }
+    FTrail: array[0..63] of string;
+    FTrailN: Integer;
+    { The newer version there is, if there is one.  Kept rather than
+      announced: a line in the status bar is written over by the next thing
+      that happens - the offer to report a crash did exactly that - and then
+      nobody ever hears about it again. }
+    FUpdateTag: string;
     { Shaking the mouse to say which way you meant.  A count of direction
       reversals on each screen axis, and when they were, so a shake decays
       back to nothing if you stop. }
@@ -435,6 +445,14 @@ type
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure OfferCrashReport;
+    { Note something worth knowing if this run ends badly. }
+    procedure Trail(const S: string);
+    function TrailText: string;
+    { How many of each kind are on the sheet - a crash that only happens with
+      a face, or only with a note, says so here. }
+    function KindCounts: string;
+    { The drawing as it stood, beside the report, so it can be opened here. }
+    procedure SaveCrashDoc(const ReportPath: string);
     procedure ShakeWatch(X, Y: Integer);
     procedure PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
     procedure PaintSnapRecoil(C: TCanvas);
@@ -599,6 +617,7 @@ end;
 
 const
   APP_NAME = 'Heckers Sketch';
+  VIEW_NAMES: array[TViewKind] of string = ('PLAN', 'ISO', '3D');
   CRASH_LOG = 'heckers-sketch-crash.txt';
   { so a crash report says which build it came from }
   BUILD_STAMP = {$I %DATE%} + ' ' + {$I %TIME%};
@@ -1412,7 +1431,6 @@ begin
     report, which shows another dialog next time.  Offering the report waits
     for the tick, once the window is actually up. }
   ForgetPreviousBuild;
-  CheckForUpdate(False);
 end;
 
 { The command line, for a launcher that wants the window a particular way.
@@ -3367,6 +3385,7 @@ procedure TMainForm.SetView(V: TViewKind);
 begin
   FViewPreset := -1;
   if V = FD.View then Exit;
+  Trail('view ' + VIEW_NAMES[V]);
   FD.View := V;
   if V <> vkOrbit then FD.Plane := plXY;
   FitView;
@@ -3782,7 +3801,6 @@ var
   Ini: TIniFile;
   Today: string;
 begin
-  Today := FormatDateTime('yyyy-mm-dd', Now);
   if not Loud then
   begin
     Ini := TIniFile.Create(ConfigFile);
@@ -3797,7 +3815,11 @@ begin
     finally
       Ini.Free;
     end;
-    if Last = Today then Exit;
+    { Six hours, not once a calendar day.  A day's throttle means that having
+      looked once you hear nothing more until tomorrow however many builds go
+      out - which is exactly what happened to Nikki's copy sitting one version
+      behind and saying nothing about it. }
+    if (Last <> '') and (Now - StrToFloatDef(Last, 0) < 0.25) then Exit;
   end;
 
   if not FetchLatest(Info, Err) then
@@ -3808,17 +3830,24 @@ begin
 
   Ini := TIniFile.Create(ConfigFile);
   try
-    Ini.WriteString('update', 'checked', Today);
+    Ini.WriteString('update', 'checked', FloatToStr(Now));
     Ini.WriteString('update', 'latest', Info.Tag);
   finally
     Ini.Free;
   end;
 
   if NewerThan(Info.Tag, CurrentVersion) then
+  begin
+    FUpdateTag := Info.Tag;
     FCmdMsg := Info.Tag + ' is out - you have ' + CurrentVersion +
-      '.  Type /update to fetch it.'
-  else if Loud then
-    FCmdMsg := 'Up to date - ' + CurrentVersion + '.';
+      '.  Type /update, or use the help button.';
+    Invalidate;
+  end
+  else
+  begin
+    FUpdateTag := '';
+    if Loud then FCmdMsg := 'Up to date - ' + CurrentVersion + '.';
+  end;
   pbCmd.Invalidate;
 end;
 
@@ -4776,6 +4805,7 @@ end;
 
 procedure TMainForm.SetTool(T: TProTool);
 begin
+  Trail('tool ' + TOOL_NAMES[T]);
   { Push/pull along a face normal that points at the camera can only move the
     face away from you, which plan cannot draw and you cannot judge. Rather
     than leave a tool that appears to do nothing, go and get a view where it
@@ -5254,6 +5284,7 @@ var
   Segs, K: Integer;
   Ok: Boolean;
 begin
+  Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
   case FTool of
     ptOffset:
       begin
@@ -5309,6 +5340,7 @@ begin
           RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
+          Trail('rect made, ' + IntToStr(FaceCount) + ' faces now');
           FCmdMsg := Format('%s x %s   area %s',
             [FormatLen(U1, FD.Units), FormatLen(V1, FD.Units),
              FormatArea(U1 * V1, FD.Units)]);
@@ -5798,6 +5830,10 @@ begin
       Exit;
     end;
     FCur := ResolveSnapAt(X, Y);
+    Trail(Format('press %s stage=%d at %d,%d  world %s,%s,%s  snap=%d',
+      [TOOL_NAMES[FTool], FStage, X, Y,
+       FormatLen(FCur.X, FD.Units), FormatLen(FCur.Y, FD.Units),
+       FormatLen(FCur.Z, FD.Units), Ord(FSnapKind)]));
     { A run of lines is the one case where the press does not decide.  It
       might be a click - another point - or it might be a hold, which lets go
       of the run and places nothing.  Which one it was is not known until the
@@ -5826,6 +5862,64 @@ end;
   class, the message and the call stack go next to the executable instead, so
   a crash can be reported by sending one small text file.  Written before the
   dialog is shown, in case the dialog is what fails. }
+procedure TMainForm.Trail(const S: string);
+begin
+  FTrail[FTrailN mod Length(FTrail)] :=
+    FormatDateTime('hh:nn:ss.zzz', Now) + '  ' + S;
+  Inc(FTrailN);
+end;
+
+function TMainForm.TrailText: string;
+var
+  I, First, N: Integer;
+begin
+  Result := '';
+  N := FTrailN;
+  if N > Length(FTrail) then N := Length(FTrail);
+  First := FTrailN - N;
+  for I := First to FTrailN - 1 do
+    Result := Result + '  ' + FTrail[I mod Length(FTrail)] + LineEnding;
+end;
+
+function TMainForm.KindCounts: string;
+const
+  NAMES: array[TEntKind] of string =
+    ('lines', 'arcs', 'notes', 'dims', 'faces', 'guides');
+var
+  N: array[TEntKind] of Integer;
+  K: TEntKind;
+  I: Integer;
+begin
+  for K := Low(TEntKind) to High(TEntKind) do N[K] := 0;
+  for I := 0 to FD.Doc.Live - 1 do
+    Inc(N[FD.Doc[I].Kind]);
+  Result := '';
+  for K := Low(TEntKind) to High(TEntKind) do
+    if N[K] > 0 then
+    begin
+      if Result <> '' then Result := Result + ', ';
+      Result := Result + IntToStr(N[K]) + ' ' + NAMES[K];
+    end;
+  if Result = '' then Result := 'empty';
+end;
+
+procedure TMainForm.SaveCrashDoc(const ReportPath: string);
+var
+  L: TStringList;
+begin
+  try
+    L := TStringList.Create;
+    try
+      BuildSession(L);
+      L.SaveToFile(ReportPath + '.hsk');
+    finally
+      L.Free;
+    end;
+  except
+    { the drawing could not be written out; the report still stands }
+  end;
+end;
+
 procedure TMainForm.ReportCrash(Sender: TObject; E: Exception);
 var
   F: TextFile;
@@ -5840,9 +5934,26 @@ begin
       WriteLn(F, '---- ', DateTimeToStr(Now), ' ', APP_NAME, ' ',
     CurrentVersion, ' built ', BUILD_STAMP);
       WriteLn(F, E.ClassName, ': ', E.Message);
-      WriteLn(F, 'mode=', Ord(FMode), ' view=', Ord(FD.View), ' plane=', Ord(FD.Plane),
-        ' tool=', Ord(FTool), ' stage=', FStage, ' entities=', FD.Doc.Live,
-        ' pushface=', FPushFace, ' hover=', FHoverEnt, ' lock=', Ord(FLockOn));
+      { Names, not numbers.  A report that says tool=8 needs the source
+        open to read; one that says ERASE does not. }
+      WriteLn(F, 'tool=', TOOL_NAMES[FTool], ' stage=', FStage,
+        ' view=', VIEW_NAMES[FD.View], ' plane=', PlaneName,
+        ' mode=', IfThen(FMode = mdPro, 'PRO', 'TOY'));
+      WriteLn(F, 'mouse=', FMouseSX, ',', FMouseSY,
+        '  cursor=', FormatLen(FCur.X, FD.Units), ',',
+        FormatLen(FCur.Y, FD.Units), ',', FormatLen(FCur.Z, FD.Units),
+        '  snap=', Ord(FSnapKind), ' axislock=', FAxisLock,
+        ' held=', Ord(FPlaneHeld));
+      WriteLn(F, 'entities=', FD.Doc.Live, ' (', KindCounts, ')',
+        '  sheets=', Length(FDrawings), ' tab=', FTabIdx,
+        '  selected=', Length(FSel), ' doomed=', Length(FDoomed));
+      WriteLn(F, 'pushface=', FPushFace, ' offface=', FOffFace,
+        ' hoverent=', FHoverEnt, ' hoverface=', FHoverFace,
+        ' lock=', Ord(FLockOn), ' holding=', Ord(FHoldOn),
+        ' scale=', CurScale.Name, ' snapstep=', FormatLen(SnapStep, FD.Units),
+        ' zoom=', FormatFloat('0.00', FD.Zoom));
+      WriteLn(F, 'what was happening, most recent last:');
+      Write(F, TrailText);
       WriteLn(F, BackTraceStrFunc(ExceptAddr));
       if ExceptFrameCount > 0 then
         for I := 0 to ExceptFrameCount - 1 do
@@ -5851,13 +5962,22 @@ begin
     finally
       CloseFile(F);
     end;
+    { And the drawing itself, beside the report.  Nikki's crash is the same
+      drawing every time, and no amount of addresses and state will find it
+      as fast as having the thing that does it.  Written under its own name
+      so one crash does not overwrite the last one's evidence. }
+      SaveCrashDoc(Path);
   except
     { a crash reporter that crashes helps nobody }
   end;
   MessageDlg(APP_NAME,
     E.ClassName + ': ' + E.Message + LineEnding + LineEnding +
-    'Details were written to:' + LineEnding + Path + LineEnding + LineEnding +
-    'Please send that file - it says exactly where this went wrong.',
+    'Written next to the program:' + LineEnding +
+    '  ' + ExtractFileName(Path) + '   - what happened' + LineEnding +
+    '  ' + ExtractFileName(Path) + '.hsk   - the drawing it happened to' +
+    LineEnding + LineEnding +
+    'Both together say exactly where this went wrong.  The drawing is your ' +
+    'own work, so have a look before sending it anywhere.',
     mtError, [mbOK], 0);
 end;
 
@@ -7194,7 +7314,20 @@ begin
     UIFont(Canvas, 9, False, Theme.TextDim);
     VerX := M + Round(2 * FUIScale) + TW + Round(9 * FUIScale);
     Canvas.TextOut(VerX, Y + Round(4 * FUIScale), CurrentVersion);
-    VerX := VerX + Canvas.TextWidth(CurrentVersion) + Round(14 * FUIScale);
+    VerX := VerX + Canvas.TextWidth(CurrentVersion) + Round(8 * FUIScale);
+    { A newer build, said where it cannot be written over.  It stays until
+      the update is taken, which is the point: an announcement that vanishes
+      when the next thing happens has not announced anything. }
+    if FUpdateTag <> '' then
+    begin
+      UIFont(Canvas, 9, True, Pix(90, 190, 255));
+      S := '* ' + FUpdateTag + ' available - /update';
+      Canvas.TextOut(VerX, Y + Round(4 * FUIScale), S);
+      VerX := VerX + Canvas.TextWidth(S) + Round(14 * FUIScale);
+      UIFont(Canvas, 9, False, Theme.TextDim);
+    end
+    else
+      VerX := VerX + Round(6 * FUIScale);
 
     { the TOY/PRO switch lives at the right of this same line, so the reading
       stops short of it rather than running underneath }
@@ -7559,6 +7692,7 @@ end;
 
 procedure TMainForm.DoUndo;
 begin
+  Trail('undo');
   SelectNone;   // the numbers it held mean something else now
   if not CanUndo then Exit;
   if FMode = mdPro then
@@ -7589,6 +7723,7 @@ end;
 
 procedure TMainForm.DoRedo;
 begin
+  Trail('redo');
   SelectNone;
   if not CanRedo then Exit;
   if FMode = mdPro then
@@ -7729,6 +7864,11 @@ begin
     begin
       FAskedAboutCrash := True;
       OfferCrashReport;
+      { And only then look for a newer build.  Asking the network during
+        startup meant the window could not appear until the answer came
+        back, or the connection gave up - which on a bad line is a program
+        that takes half a minute to start for no reason the user can see. }
+      CheckForUpdate(False);
     end;
     if FUpTime > 4.0 then
     begin
@@ -8764,6 +8904,7 @@ begin
   else FHint := 'Not saved to a file yet  -  Ctrl+S';
   FRestored := True;
   FDraftSeq := FEditSeq;
+  Trail(Format('restored a draft: %d things (%s)', [FD.Doc.Live, KindCounts]));
   if Was <> '' then
     FCmdMsg := 'Picked up where you left off in ' + ExtractFileName(Was) +
       '.  Ctrl+S to write it back.'
