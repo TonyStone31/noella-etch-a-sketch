@@ -1,0 +1,70 @@
+name: Rotate Bug Report Bin
+
+on:
+  schedule:
+    # Every 3 days at 03:17 UTC.
+    # Filebin expires bins after ~6 days, so this gives plenty of overlap.
+    - cron: '17 3 */3 * *'
+
+  # Lets you test/rotate it manually from the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Generate new Filebin
+        shell: bash
+        run: |
+          set -e
+
+          CONFIG="docs/bug-report-endpoint.json"
+          mkdir -p docs
+
+          NEW_BIN="noella-bugs-$(openssl rand -hex 16)"
+          NEW_URL="https://filebin.net/${NEW_BIN}"
+
+          OLD_BIN=""
+          if [ -f "$CONFIG" ]; then
+            OLD_BIN=$(python3 -c \
+              'import json; print(json.load(open("docs/bug-report-endpoint.json")).get("current_bin",""))' \
+              2>/dev/null || true)
+          fi
+
+          # Actually create/initialize the new bin now.
+          curl --fail \
+            --data-binary "Noella Etch A Sketch bug-report bin initialized by GitHub Actions." \
+            "${NEW_URL}/_initialized.txt"
+
+          cat > "$CONFIG" <<EOF
+          {
+            "version": 1,
+            "service": "filebin",
+            "current_bin": "${NEW_BIN}",
+            "upload_base": "${NEW_URL}",
+            "previous_bin": "${OLD_BIN}",
+            "updated_utc": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          }
+          EOF
+
+      - name: Commit new endpoint
+        shell: bash
+        run: |
+          git config user.name "Noella Bug Bin Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/bug-report-endpoint.json
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "Rotate bug report Filebin"
+          git push
