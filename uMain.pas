@@ -4533,18 +4533,15 @@ var
       C.Pen.Color := PixToColor(AxisPix(FAxisLock));
       C.Pen.Width := Max(3, Round(3 * FUIScale));
     end
-    else if FPlaneHeld then
-    begin
-      { lying in a held plane - that plane's colour.  A line got this and a
-        rectangle did not, which made the rectangle the one shape that never
-        said which way it was going to land. }
-      C.Pen.Color := PixToColor(PlanePix(FD.Plane));
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-    end
     else
     begin
-      C.Pen.Color := PixToColor(Theme.Accent);
-      C.Pen.Width := Max(2, Round(2 * FUIScale));
+      { Otherwise the plane it is lying in, always - not only when the plane
+        has been pinned.  Held or inferred or taken from the face under the
+        cursor, the question a shape has to answer while you drag it is the
+        same one: which way am I about to land?  Colouring it only when
+        pinned meant a rectangle dragged out normally never answered. }
+      C.Pen.Color := PixToColor(PlanePix(FD.Plane));
+      C.Pen.Width := Max(3, Round(3 * FUIScale));
     end;
     C.MoveTo(Round(PA.X), Round(PA.Y));
     C.LineTo(Round(PB.X), Round(PB.Y));
@@ -4606,16 +4603,8 @@ begin
           most need to see: change the plane under a circle and nothing on
           screen moved, so it looked as though the plane had not changed. }
         C.Pen.Style := psSolid;
-        if FPlaneHeld then
-        begin
-          C.Pen.Color := PixToColor(PlanePix(FD.Plane));
-          C.Pen.Width := Max(3, Round(3 * FUIScale));
-        end
-        else
-        begin
-          C.Pen.Color := PixToColor(Theme.Accent);
-          C.Pen.Width := Max(2, Round(2 * FUIScale));
-        end;
+        C.Pen.Color := PixToColor(PlanePix(FD.Plane));
+        C.Pen.Width := Max(3, Round(3 * FUIScale));
         C.Brush.Style := bsClear;
         CircR := Dist(FP1, FCur);
         if CircR > 1E-9 then

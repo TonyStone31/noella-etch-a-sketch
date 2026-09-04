@@ -1381,6 +1381,110 @@ begin
   Later('V2026.09.04',    'v2026.09.03',    True);
 end;
 
+{ Tony's house.
+
+  A rectangle, pulled up eight feet.  A gable post straight up from the
+  middle of each end wall's top edge.  A ridge joining their tops.  Then a
+  rafter from each apex down to each corner of its end.
+
+  That closes four shapes: two gable triangles standing upright, and two
+  sloping roof planes.  SketchUp fills all four in.  This asks whether we do.
+
+  20 x 30 on plan, walls to 8, apex at 16. }
+procedure TestHouse;
+var
+  D: TWorkDoc;
+  Segs: TSegArray;
+  Regs: TRegionArray;
+  I, Gables, Slopes: Integer;
+  A: Double;
+
+  procedure Ln(const P, Q: TP3);
+  begin
+    D.AddLine(P, Q, 0, 1, False);
+  end;
+
+  { how many regions have this area, to within a hand's width }
+  function CountArea(Want: Double): Integer;
+  var
+    J: Integer;
+  begin
+    Result := 0;
+    for J := 0 to High(Regs) do
+      if Abs(Abs(LoopArea(Regs[J].Outer, Regs[J].Normal)) - Want) < 0.5 then
+        Inc(Result);
+  end;
+
+var
+  W, L, Wall, Apex: Double;
+  C1, C2, C3, C4, T1, T2, T3, T4, AP1, AP2: TP3;
+begin
+  WriteLn('a house: walls, two gables, a ridge and four rafters');
+  W := 20; L := 30; Wall := 8; Apex := 16;
+  D := TWorkDoc.Create;
+  try
+    { the four walls' top edges, as a box already pulled up }
+    C1 := P3(0, 0, 0);      C2 := P3(W, 0, 0);
+    C3 := P3(W, L, 0);      C4 := P3(0, L, 0);
+    T1 := P3(0, 0, Wall);   T2 := P3(W, 0, Wall);
+    T3 := P3(W, L, Wall);   T4 := P3(0, L, Wall);
+    Ln(C1, C2); Ln(C2, C3); Ln(C3, C4); Ln(C4, C1);
+    Ln(T1, T2); Ln(T2, T3); Ln(T3, T4); Ln(T4, T1);
+    Ln(C1, T1); Ln(C2, T2); Ln(C3, T3); Ln(C4, T4);
+
+    { a post up the middle of each end wall, and the ridge between them }
+    AP1 := P3(W / 2, 0, Apex);
+    AP2 := P3(W / 2, L, Apex);
+    Ln(P3(W / 2, 0, Wall), AP1);
+    Ln(P3(W / 2, L, Wall), AP2);
+    Ln(AP1, AP2);
+
+    { and a rafter from each apex down to each corner of its own end }
+    Ln(AP1, T1); Ln(AP1, T2);
+    Ln(AP2, T4); Ln(AP2, T3);
+
+    SetLength(Segs, 0);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        SetLength(Segs, Length(Segs) + 1);
+        Segs[High(Segs)].A := D[I].A;
+        Segs[High(Segs)].B := D[I].B;
+      end;
+    EqI(Length(Segs), 19, 'nineteen lines drawn');
+
+    Regs := BuildRegions(Segs);
+    WriteLn('     -> ', Length(Regs), ' regions found');
+    for I := 0 to High(Regs) do
+      WriteLn(Format('        area %7.1f   normal %5.2f %5.2f %5.2f',
+        [Abs(LoopArea(Regs[I].Outer, Regs[I].Normal)),
+         Regs[I].Normal.X, Regs[I].Normal.Y, Regs[I].Normal.Z]));
+
+    { Each gable is a triangle 20 wide and 8 tall = 80, but the post that
+      holds the apex up runs straight through the middle of it, so it closes
+      as two right triangles of 40.  That is not a shortcoming - it is the
+      line being there.  SketchUp splits it the same way, and rubbing the
+      post out afterwards would leave one triangle in both programs. }
+    Gables := CountArea(40);
+    EqI(Gables, 4, 'both gables closed, in halves either side of their post');
+
+    { each roof slope is 30 long by the rafter length.  The rafter spans 10
+      across and 8 up, so sqrt(164) - and the slope is that times 30. }
+    A := 30 * Sqrt(10 * 10 + 8 * 8);
+    Slopes := CountArea(A);
+    EqI(Slopes, 2, 'both roof slopes closed');
+
+    { and the whole house: floor, the top of the walls, two long walls, two
+      end walls, four half gables, two roof slopes }
+    EqI(Length(Regs), 12, 'the whole house closed itself in');
+    EqI(CountArea(600), 2, 'floor and the top of the walls');
+    EqI(CountArea(240), 2, 'the two long walls');
+    EqI(CountArea(160), 2, 'the two end walls');
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -1406,6 +1510,7 @@ begin
   TestDimNote;      WriteLn;
   TestNotes;        WriteLn;
   TestVersions;     WriteLn;
+  TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
