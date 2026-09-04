@@ -6350,6 +6350,7 @@ var
   X, Y, HF: Integer;
   HP, HN: TP3;
   OP: TPointF;
+  NewAz, NewEl: Double;
 begin
   if not FMovePending then Exit;
   FMovePending := False;
@@ -6377,8 +6378,32 @@ begin
         when you push something on a turntable - the azimuth goes the other
         way to the drag.  It used to follow the drag, which reads as the
         model running away from you. }
-      FD.Az := FD.Az - (X - FPanRefX) * 0.010;
-      FD.El := EnsureRange(FD.El + (Y - FPanRefY) * 0.010, -1.45, 1.45);
+      { DO NOT fold these back into
+          FD.El := EnsureRange(FD.El + (Y - FPanRefY) * 0.010, -1.45, 1.45);
+        however much it wants to be written that way.
+
+        At -O3 this compiler generates that statement with the read of FD.El
+        through the register holding the drawing and the write through the
+        register holding (Y - FPanRefY), so the new angle is stored at an
+        address near zero and the program faults.  Every time, on any orbit
+        at all.  The debug build does not optimize and never showed it, which
+        is what said compiler rather than program.
+
+        The store went out through the register holding (Y - FPanRefY)
+        while the read came in through the register holding the drawing, so
+        the angle was written to an address near zero.  Correct at -O2 and
+        below, wrong at -O3 and -O4, on 3.3.1-20630-gd1530435e2.  Reported
+        upstream with a reproducer.
+
+        Working the angles out into locals first is the workaround.  It costs
+        nothing and it is the only thing standing between this line and the
+        fault. }
+      NewAz := FD.Az - (X - FPanRefX) * 0.010;
+      NewEl := FD.El + (Y - FPanRefY) * 0.010;
+      if NewEl < -1.45 then NewEl := -1.45;
+      if NewEl > 1.45 then NewEl := 1.45;
+      FD.Az := NewAz;
+      FD.El := NewEl;
       FViewPreset := -1;
       { Hold the grabbed point still, so the view turns about it rather than
         about the origin.
