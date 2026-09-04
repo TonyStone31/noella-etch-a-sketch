@@ -395,6 +395,13 @@ do_github() {
 
   git -C "$ROOT" checkout -- version.inc 2>/dev/null || true
 
+  # The bin-rotating Action commits to main on its own schedule, so origin
+  # can easily have moved since this branch was last level with it.  Catch up
+  # first rather than failing the release over somebody else's commit.
+  say "catching up with origin"
+  git -C "$ROOT" pull --rebase --quiet origin main || \
+    die "could not rebase onto origin/main - sort that out and try again"
+
   say "pushing $(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
   git -C "$ROOT" push origin HEAD || die "push failed"
 
