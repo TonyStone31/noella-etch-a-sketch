@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -575,7 +575,6 @@ type
     function StatusLine: string;
     procedure PaintProOverlay(C: TCanvas);
 
-    function DraftFile: string;
     procedure BuildSession(L: TStrings);
     procedure SaveDraft;
     procedure RestoreDraft;
@@ -3786,7 +3785,7 @@ begin
   Today := FormatDateTime('yyyy-mm-dd', Now);
   if not Loud then
   begin
-    Ini := TIniFile.Create(GetAppConfigFile(False));
+    Ini := TIniFile.Create(ConfigFile);
     try
       { Some people rightly dislike software that talks to the internet
         without being asked.  This asks GitHub one question - what is the
@@ -3807,7 +3806,7 @@ begin
     Exit;
   end;
 
-  Ini := TIniFile.Create(GetAppConfigFile(False));
+  Ini := TIniFile.Create(ConfigFile);
   try
     Ini.WriteString('update', 'checked', Today);
     Ini.WriteString('update', 'latest', Info.Tag);
@@ -3869,7 +3868,10 @@ begin
   pbCmd.Invalidate;
   Application.ProcessMessages;
 
-  Tmp := GetTempDir + 'heckers-sketch-' + Info.Tag + '.download';
+  { beside the program, not in the system temp - a portable copy keeps its
+    scratch with it, and the download has to land on the same volume as the
+    file it is about to replace or the rename cannot be atomic }
+  Tmp := AppDataDir + 'heckers-sketch-' + Info.Tag + '.download';
   if not Download(Info.AssetURL, Tmp, Err) then
   begin
     FCmdMsg := 'The download failed - ' + Err;
@@ -5508,7 +5510,7 @@ begin
   begin
     if Rest = 'never' then
     begin
-      with TIniFile.Create(GetAppConfigFile(False)) do
+      with TIniFile.Create(ConfigFile) do
       try
         WriteBool('update', 'check', False);
       finally
@@ -5519,7 +5521,7 @@ begin
     end
     else if Rest = 'always' then
     begin
-      with TIniFile.Create(GetAppConfigFile(False)) do
+      with TIniFile.Create(ConfigFile) do
       try
         WriteBool('update', 'check', True);
       finally
@@ -7731,7 +7733,7 @@ begin
     if FUpTime > 4.0 then
     begin
       FStartupDone := True;
-      with TIniFile.Create(GetAppConfigFile(False)) do
+      with TIniFile.Create(ConfigFile) do
       try
         WriteBool('startup', 'restoring', False);
       finally
@@ -8618,12 +8620,6 @@ end;
 { ======================================================================== }
 
 { Beside the settings, so it travels with them and needs no permission. }
-function TMainForm.DraftFile: string;
-begin
-  Result := ExtractFilePath(GetAppConfigFile(False)) +
-    'heckers-sketch-draft.hsk';
-end;
-
 { The whole session - every sheet, with its own units, scale, snap and view -
   as the lines of a .hsk file.  Saving to a real file and writing the draft
   are then the same job done twice to different places. }
@@ -8730,7 +8726,7 @@ begin
     again would do the same forever - which is what a crash loop is.  Put it
     aside, keep it, and start clean.  Nobody's work is thrown away; it just
     stops being the thing that runs on startup. }
-  Ini := TIniFile.Create(GetAppConfigFile(False));
+  Ini := TIniFile.Create(ConfigFile);
   try
     if Ini.ReadBool('startup', 'restoring', False) then
     begin
@@ -8783,7 +8779,7 @@ begin
   FInkColor := PALETTE[0];
   FInkAuto := True;
   try
-    Ini := TIniFile.Create(GetAppConfigFile(False));
+    Ini := TIniFile.Create(ConfigFile);
     try
       FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
         0, THEME_COUNT - 1);
@@ -8847,8 +8843,8 @@ var
   Ini: TIniFile;
 begin
   try
-    ForceDirectories(ExtractFilePath(GetAppConfigFile(False)));
-    Ini := TIniFile.Create(GetAppConfigFile(False));
+    ForceDirectories(ExtractFilePath(ConfigFile));
+    Ini := TIniFile.Create(ConfigFile);
     try
       Ini.WriteInteger('look', 'theme', FThemeIdx);
       Ini.WriteInteger('look', 'toytheme', FToyTheme);

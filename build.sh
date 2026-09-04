@@ -285,6 +285,19 @@ save_syms() {
   [ -f "$ROOT/$APP.dbg" ] || return 0
   mkdir -p "$DIST/syms"
   cp "$ROOT/$APP.dbg" "$DIST/syms/$APP-$1.dbg"
+  # Then take the symbols out of the binary people download.  They are kept
+  # here, which is what lets a crash report's addresses be turned back into
+  # line numbers later - but they double the size of the file and nobody
+  # downloading it has any use for them.
+  case "$1" in
+    *release)
+      case "$2" in
+        win)  command -v x86_64-w64-mingw32-strip >/dev/null 2>&1 &&
+                x86_64-w64-mingw32-strip --strip-debug "$ROOT/$APP.exe" 2>/dev/null ;;
+        *)    strip --strip-debug "$ROOT/$APP" 2>/dev/null ;;
+      esac
+      ;;
+  esac
 }
 
 do_ship() {
@@ -299,9 +312,9 @@ do_ship() {
   NOZIP=1 build_windows "$MODE_DEV"
   cp "$ROOT/$APP.exe" "$DIST/dbg/$APP.exe"
   NOZIP=1 build_linux   "$MODE_SHIP"
-  save_syms linux-release
+  save_syms linux-release lin
   NOZIP=1 build_windows "$MODE_SHIP"
-  save_syms win64-release
+  save_syms win64-release win
 
   local f miss=0
   for f in "$ROOT/$APP" "$ROOT/$APP.exe" "$DIST/dbg/$APP" "$DIST/dbg/$APP.exe"; do

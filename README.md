@@ -313,6 +313,12 @@ nothing to set up.
 | `heckers-sketch-linux` | Linux (`chmod +x` it first) |
 | `checked/…` | the same two with range, overflow and heap checking on — slower, but they say what went wrong |
 
+**It is portable.** Settings, the draft and any scratch file live in the same
+folder as the program, not in your home directory — put it on a stick and it
+carries its work with it, and two copies in two folders know nothing about
+each other. Only when the program's own folder cannot be written to (installed
+under `/usr/bin`, say) does it fall back to the usual per-user place.
+
 **One copy at a time.** Two would share the same draft and take turns
 overwriting each other's work, which is what corrupted it and crashed the
 program. A second launch says so and stops. `--multi` opens another anyway if
