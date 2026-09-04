@@ -288,6 +288,12 @@ request says anything about you, your machine or your drawing. It will not
 touch a copy running from its own source folder, because that is somebody's
 working build.
 
+If a drawing ever manages to take the program down as it opens, the next
+launch will not open it again — it is kept beside the settings as
+`heckers-sketch-draft.hsk.would-not-open` and you start clean. Nothing is
+thrown away; it just stops being the thing that runs on startup, so one bad
+drawing cannot make the program impossible to start.
+
 If it crashes, the next launch offers to report it: your browser opens a
 GitHub issue **filled in but not sent**, so you can read exactly what is in it
 and add what you were doing. Say no and the file stays put with its name on
