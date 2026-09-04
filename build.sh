@@ -292,15 +292,20 @@ save_syms() {
   # here, which is what lets a crash report's addresses be turned back into
   # line numbers later - but they double the size of the file and nobody
   # downloading it has any use for them.
+  # Every branch ends in "or nothing", because the script runs under set -e
+  # and a stripper that is not installed must not take the release down with
+  # it - the symbols are already saved by this point, which was the part
+  # that mattered.
   case "$1" in
     *release)
       case "$2" in
-        win)  command -v x86_64-w64-mingw32-strip >/dev/null 2>&1 &&
-                x86_64-w64-mingw32-strip --strip-debug "$ROOT/$APP.exe" 2>/dev/null ;;
-        *)    strip --strip-debug "$ROOT/$APP" 2>/dev/null ;;
+        win)  x86_64-w64-mingw32-strip --strip-debug "$ROOT/$APP.exe" \
+                2>/dev/null || true ;;
+        *)    strip --strip-debug "$ROOT/$APP" 2>/dev/null || true ;;
       esac
       ;;
   esac
+  return 0
 }
 
 do_ship() {
