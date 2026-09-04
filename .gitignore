@@ -41,4 +41,16 @@ CLAUDE.local.md
 # drawings and words.
 tools/
 reports/
+
+# --- the program's own runtime files -----------------------------------------
+# It keeps its settings, draft, lock and crash reports next to the executable
+# now that it is portable - and during development the executable is right
+# here, so all of that lands in the working copy.  None of it belongs in the
+# repository: it is one developer's window position and one machine's state.
+heckers-sketch.cfg
+heckers-sketch.lock
+heckers-sketch-draft.hsk*
+heckers-sketch-crash.txt*
+heckers-sketch-*.download
+*.hsk.would-not-open
 reports/
