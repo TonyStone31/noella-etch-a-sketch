@@ -555,6 +555,7 @@ type
       how SketchUp names a plane - right is red, left green, up blue. }
     function PlanePix(Pl: TPlane): TPix;
     function AxisAlong(const A, B: TP3): Integer;
+    function IsoRunAxis(const From: TP3): Integer;
     function PreviewTarget: TP3;
     procedure SetTool(T: TProTool);
     function PlaneName: string;
@@ -3762,6 +3763,7 @@ var
   Typed: Boolean;
   D: TP3;
   Txt: string;
+  K: Integer;
 begin
   Result := FCur;
   if FStage <> 1 then Exit;
@@ -3790,6 +3792,32 @@ begin
       L := (FCur.X - FP1.X) * D.X + (FCur.Y - FP1.Y) * D.Y + (FCur.Z - FP1.Z) * D.Z;
     Result := P3(FP1.X + D.X * L, FP1.Y + D.Y * L, FP1.Z + D.Z * L);
     Exit;
+  end;
+
+  { On the paper grid, unless Alt says otherwise.
+
+    A leg drawn at some angle that is not one of the three is not a diagonal
+    on an iso sheet, it is a slip of the hand, so the lock is hard rather than
+    a nudge.  Shift lets go of it for the case that is not a slip: a forty-five
+    in a principal plane, or a rolling offset, both of which really are drawn
+    off the grid and called out with an angle.
+
+    Shift rather than Alt, which would have been the nicer key, because Alt
+    already cycles the working plane and holding it to draw a forty-five
+    would have quietly changed the plane underneath the line. }
+  if (FD.View = vkIso) and (FTool = ptLine) and
+     not (ssShift in FMoveShift) then
+  begin
+    K := IsoRunAxis(FP1);
+    if K >= 0 then
+    begin
+      D := AxisDir(K);
+      if not Typed then
+        L := (FCur.X - FP1.X) * D.X + (FCur.Y - FP1.Y) * D.Y +
+             (FCur.Z - FP1.Z) * D.Z;
+      Result := P3(FP1.X + D.X * L, FP1.Y + D.Y * L, FP1.Z + D.Z * L);
+      Exit;
+    end;
   end;
 
   if Typed then
@@ -5172,6 +5200,58 @@ begin
   end;
 end;
 
+{ Which of the three paper axes a line being drawn in ISO is meant to run
+  along, as an index into AxisDir - or -1 before the drag says anything.
+
+  This is what drawing on iso paper *is*.  The three directions on the sheet
+  are the three model axes, and a fitter sketching a run puts every leg on one
+  of them; a leg at some other angle on iso paper does not mean a diagonal, it
+  means a mistake.  So the line is locked to the nearest of the three rather
+  than merely nudged towards it, and the plane the working plane happens to be
+  on does not come into it.
+
+  All three, deliberately, not the two in the current isoplane.  A run chains:
+  twelve feet across, then a drop.  Making that a keystroke between legs would
+  be exactly the friction the whole exercise is meant to remove.  The isoplane
+  still decides where a rectangle or a circle lies, because those need a
+  plane; a line only needs a direction.
+
+  Measured on screen and not in the model, for the same reason the snap
+  inference is - see AxisTry.  What "nearest" means to a person drawing is
+  nearest on the paper in front of them. }
+function TMainForm.IsoRunAxis(const From: TP3): Integer;
+var
+  K: Integer;
+  PR, PA: TPointF;
+  UX, UY, VX, VY, LenSq, Off, Best: Double;
+  AD: TP3;
+begin
+  Result := -1;
+  PR := ScreenOf(From);
+  VX := FMouseSX - PR.X;
+  VY := FMouseSY - PR.Y;
+  { Nothing to read yet.  Under a few pixels the drag has no direction in it
+    and picking one would make the line jump about under the cursor. }
+  if VX * VX + VY * VY < Sqr(6 * FUIScale) then Exit;
+  Best := 1E30;
+  for K := 0 to 2 do
+  begin
+    AD := AxisDir(K * 2);
+    PA := ScreenOf(P3(From.X + AD.X, From.Y + AD.Y, From.Z + AD.Z));
+    UX := PA.X - PR.X;
+    UY := PA.Y - PR.Y;
+    LenSq := UX * UX + UY * UY;
+    if LenSq < Sqr(0.2 * Ppu) then Continue;
+    { how far off this axis the cursor sits, in pixels }
+    Off := Abs(VX * UY - VY * UX) / Sqrt(LenSq);
+    if Off < Best then
+    begin
+      Best := Off;
+      Result := K * 2;
+    end;
+  end;
+end;
+
 { Which axis a segment runs along, or -1 for one that runs off on its own.
   Nearly exact, because an edge either lies on an axis or it does not - a
   rectangle's sides are dead on two of them and a line you dragged out by
@@ -5241,6 +5321,11 @@ begin
         Result := 'pick a start point'
       else if FDirLock >= 0 then
         Result := 'going ' + AxisName(FDirLock) + ' - length?'
+      else if (FD.View = vkIso) and (ssShift in FMoveShift) then
+        Result := 'off the grid - Shift held.  Let go to snap back to it'
+      else if (FD.View = vkIso) and (IsoRunAxis(FP1) >= 0) then
+        Result := 'going ' + AxisName(IsoRunAxis(FP1)) +
+          ' on the grid - length?  Shift to come off it'
       else
         Result := 'to the next point, or type a length  -  double-click to finish';
     ptArc:
@@ -8719,6 +8804,20 @@ begin
       { Alt steps through the flat planes and latches, so you can draw in mid
         air.  It used to only suspend snapping, which it still does while
         held. }
+      if FD.View = vkPlan then
+      begin
+        { Straight down, the two upright planes are edge-on: a rectangle
+          drawn in either is a line and a circle is a line, so the plane can
+          be changed but nothing can be seen to have changed.  Plan draws on
+          the ground, and says so rather than letting you wander off it and
+          wonder where the shape went. }
+        FD.Plane := plXY;
+        FPlaneHeld := False;
+        FCmdMsg := 'Plan draws flat on the ground.  ISO or 3D to work upright.';
+        pbCmd.Invalidate;
+        Key := 0;
+        Exit;
+      end;
       FD.Plane := TPlane((Ord(FD.Plane) + 1) mod 3);
       FPlaneHeld := True;
       case FD.Plane of
