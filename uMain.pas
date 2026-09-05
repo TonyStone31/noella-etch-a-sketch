@@ -74,6 +74,10 @@ type
     View: TViewKind;        // PLAN, ISO or free 3D
     Plane: TPlane;          // which plane new arcs and mouse picks land on
     Az, El: Double;         // 3D camera, radians
+    { Whether the camera above was read from a file or is just where a new
+      sheet starts.  A drawing that remembers where it was looked at from
+      must not then be framed over the top of it. }
+    CamKnown: Boolean;
     Undo, Redo: array of TWorkEntArray;
     UndoTop, RedoTop: Integer;
     constructor Create(const AName: string);
@@ -371,6 +375,10 @@ type
       whatever you were looking at off the screen; SketchUp turns about the
       thing under the cursor, so that is what this holds. }
     FOrbitPivot: TP3;
+    { Where the pivot sat on the glass when the drag began.  The orbit holds
+      it at this spot, not under the cursor - see ServiceMotion. }
+    FOrbitAnchor: TPointF;
+    FOrbitAnchored: Boolean;
     FMouseSX, FMouseSY: Integer;   // raw pointer, before snapping
 
     { Motion is recorded here and nowhere else.  Under a virtual display
@@ -464,7 +472,7 @@ type
     procedure RefreshChrome;
     procedure ResizeSurfaces(AW, AH: Integer);
     procedure RepaintPaper;
-    procedure PaintOrbitAxes;
+    procedure PaintAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
     procedure CheckForUpdate(Loud: Boolean);
@@ -541,6 +549,7 @@ type
     procedure PaintPopup(C: TCanvas);
     procedure PaintToolGlyph(C: TCanvas; AX, AY: Integer);
     function PivotAt(SX, SY: Integer): TP3;
+    procedure AnchorOrbit(SX, SY: Integer);
     function RectTarget: TP3;
     procedure ReportCrash(Sender: TObject; E: Exception);
     function GuideColor: TPix;
@@ -622,6 +631,7 @@ type
     procedure SetUnits(U: TUnitSystem);
     procedure SetView(V: TViewKind);
     procedure ApplyViewPreset(I: Integer);
+    procedure EnterFreeCamera(AtCorner: Boolean = False);
     procedure CycleViewPreset(Step: Integer);
 
     { deck }
@@ -2279,19 +2289,35 @@ begin
   C.Pen.Width := 1;
 end;
 
-procedure TMainForm.PaintOrbitAxes;
+{ The model axes: X red, Y green, Z blue, solid the way the numbers grow and
+  dashed the way they shrink.
+
+  The dashes are the half of this that carries information.  A solid line and
+  a fainter line of the same color say "one of these is more important"; a
+  solid line and a dashed one say which way is positive, and that is a thing
+  you need to know before you draw rather than after you have measured
+  something and found it negative.  It is what SketchUp does and it is worth
+  copying exactly.
+
+  Drawn in every PRO view now.  They used to appear only in 3D, so the two
+  views where you do most of the drawing had no color telling you which way
+  was which - and PLAN in particular is where you first put something down. }
+procedure TMainForm.PaintAxes;
 var
-  K: Integer;
-  L: Double;
+  K, N: Integer;
+  L, Len: Double;
   B: TP3;
-  PO, PB: TPointF;
+  PO, PB, D: TPointF;
   Col: TPix;
 begin
   L := (FPaper.Width + FPaper.Height) / Max(1E-9, Ppu);
   PO := ScreenOf(P3(0, 0, 0));
+  if IsNan(PO.X) or IsNan(PO.Y) or IsInfinite(PO.X) or IsInfinite(PO.Y) then
+    Exit;
   for K := 0 to 2 do
   begin
     Col := AxisPix(K);
+
     B := P3(0, 0, 0);
     case K of
       0: B.X := L;
@@ -2299,16 +2325,23 @@ begin
     else B.Z := L;
     end;
     PB := ScreenOf(B);
+    Len := Sqrt(Sqr(PB.X - PO.X) + Sqr(PB.Y - PO.Y));
+    { An axis pointing straight at the camera has no length on the glass -
+      PLAN looks down Z - and drawing it puts a dot of color on the origin
+      that means nothing.  Left out instead. }
+    if Len < 1 then Continue;
     FPaper.Line(PO.X, PO.Y, PB.X, PB.Y, 1.8, Col, 0.55);
 
-    B := P3(0, 0, 0);
-    case K of
-      0: B.X := -L;
-      1: B.Y := -L;
-    else B.Z := -L;
+    { the negative half, dashed away from the origin }
+    D := PtF((PO.X - PB.X) / Len, (PO.Y - PB.Y) / Len);
+    N := 0;
+    while N * 11 < Len do
+    begin
+      FPaper.Line(PO.X + D.X * (N * 11), PO.Y + D.Y * (N * 11),
+                  PO.X + D.X * (N * 11 + 6), PO.Y + D.Y * (N * 11 + 6),
+                  1.4, Col, 0.42);
+      Inc(N);
     end;
-    PB := ScreenOf(B);
-    FPaper.Line(PO.X, PO.Y, PB.X, PB.Y, 1.4, Col, 0.22);
   end;
   FPaper.Touch;
 end;
@@ -2343,8 +2376,7 @@ begin
         vkOrbit: ;   // handled below - the axes show whether the grid is on
       end;
     end;
-    if FD.View = vkOrbit then
-      PaintOrbitAxes;
+    PaintAxes;
   end
   else
     PaintScreenPaper(FPaper, Theme, FShowGrid);
@@ -5535,6 +5567,44 @@ begin
   FScreenDirty := True;
 end;
 
+{ Leave a standard view for the free camera, aimed where you were already
+  looking.
+
+  The zoom and the pan are kept.  Picking the orbit tool used to park on the
+  corner preset, which frames the whole drawing - so reaching for orbit while
+  zoomed into one fitting threw the drawing away and gave you the lot from a
+  standard angle.  A middle-drag out of the same view has always kept its
+  place; there is no reason the tool button should not. }
+procedure TMainForm.EnterFreeCamera(AtCorner: Boolean);
+begin
+  if FD.View = vkOrbit then Exit;
+  if AtCorner then
+  begin
+    { asked for by push/pull, which needs to see the face it is about to
+      move and cannot from straight above }
+    FD.Az := -Pi / 4;
+    FD.El := ISO_EL;
+  end
+  else if FD.View = vkIso then
+  begin
+    FD.Az := -Pi / 4;
+    FD.El := ISO_EL;
+  end
+  else
+  begin
+    FD.Az := 0;
+    FD.El := 1.45;                  // as near straight down as it tilts
+  end;
+  FD.View := vkOrbit;
+  FViewPreset := -1;
+  RebuildDeck;
+  pbDeck.Invalidate;
+  pbView.Invalidate;
+  RepaintPaper;
+  RenderPro;
+  RecomposeAll;
+end;
+
 procedure TMainForm.SetTool(T: TProTool);
 begin
   Trail('tool ' + TOOL_NAMES[T]);
@@ -5544,12 +5614,12 @@ begin
     means something. }
   if (T = ptPush) and (FD.View = vkPlan) then
   begin
-    ApplyViewPreset(2);
+    EnterFreeCamera(True);
     FCmdMsg := 'Push/pull needs to see the face - switched to the corner view.';
   end;
   if (T = ptOrbit) and (FD.View <> vkOrbit) then
   begin
-    ApplyViewPreset(2);
+    EnterFreeCamera;
     FCmdMsg := 'Orbit - drag to spin.  Shift drags to pan.';
   end;
   if T = ptOrbit then pbScreen.Cursor := crSizeAll
@@ -6680,6 +6750,7 @@ begin
     FPanRefX := X;
     FPanRefY := Y;
     FOrbitPivot := PivotAt(X, Y);
+    AnchorOrbit(X, Y);
     FMoveShift := Shift;
     pbScreen.Cursor := crSizeAll;
     Exit;
@@ -6697,27 +6768,10 @@ begin
         From PLAN or ISO it drops into the free camera first, aimed where you
         were already looking so the model does not jump.  That is SketchUp's
         behavior too: orbiting out of a standard view leaves it. }
-      if (Button = mbMiddle) and (FD.View <> vkOrbit) then
+      if Button = mbMiddle then
       begin
-        if FD.View = vkIso then
-        begin
-          FD.Az := -Pi / 4;
-          FD.El := 0.6155;              // 35.26 degrees - a true isometric
-        end
-        else
-        begin
-          FD.Az := 0;
-          FD.El := 1.45;                // as near straight down as it tilts
-        end;
-        FD.View := vkOrbit;
-        FViewPreset := -1;
+        EnterFreeCamera;
         FCmdMsg := '3D view - drag to spin.  V goes back.';
-        RebuildDeck;
-        pbDeck.Invalidate;
-        pbView.Invalidate;
-        RepaintPaper;
-        RenderPro;
-        RecomposeAll;
       end;
       FOrbiting := (Button = mbMiddle) and (FD.View = vkOrbit);
       FPanning := not FOrbiting;
@@ -6726,6 +6780,7 @@ begin
       FRightSX := X;
       FRightSY := Y;
       FOrbitPivot := PivotAt(X, Y);
+      AnchorOrbit(X, Y);
       FMoveShift := Shift;
       pbScreen.Cursor := crSizeAll;
     end
@@ -7172,13 +7227,16 @@ begin
         for that frame, which is a worse orbit and a perfectly good one.  The
         alternative is adding a few million to where the drawing is held, and
         every rounding from there to the screen inherits it. }
-      OP := ScreenOf(FOrbitPivot);
-      if (not (IsNan(OP.X) or IsNan(OP.Y) or
-               IsInfinite(OP.X) or IsInfinite(OP.Y))) and
-         (Abs(OP.X) < 1E6) and (Abs(OP.Y) < 1E6) then
+      if FOrbitAnchored then
       begin
-        FD.ViewX := FD.ViewX + (FPanRefX - OP.X);
-        FD.ViewY := FD.ViewY + (FPanRefY - OP.Y);
+        OP := ScreenOf(FOrbitPivot);
+        if (not (IsNan(OP.X) or IsNan(OP.Y) or
+                 IsInfinite(OP.X) or IsInfinite(OP.Y))) and
+           (Abs(OP.X) < 1E6) and (Abs(OP.Y) < 1E6) then
+        begin
+          FD.ViewX := FD.ViewX + (FOrbitAnchor.X - OP.X);
+          FD.ViewY := FD.ViewY + (FOrbitAnchor.Y - OP.Y);
+        end;
       end;
       RepaintPaper;
       RenderPro;
@@ -7377,6 +7435,33 @@ end;
   everything drawn afterwards was drawn relative to it.  An empty sheet turns
   about the origin instead, which is the only point on it that means
   anything. }
+{ Note where the pivot is on screen, so the orbit can hold it there.
+
+  This is the whole of what was wrong with orbiting.  The turn is about
+  FOrbitPivot, and each frame the view is nudged so that point stays put -
+  but it was being held under the *cursor* rather than at its own place on
+  the glass.  Grab a face and the two are the same thing, so that case looked
+  right and hid the rest.  Grab empty space and they are not: the pivot falls
+  back to the middle of the drawing, and holding the middle of the drawing
+  under the cursor drags the whole model across the screen to meet the mouse.
+  The further away you started the drag, the further it had to jump - which
+  is exactly what it looked like.
+
+  Held at its own screen position instead, a grabbed face still turns under
+  the finger that grabbed it, and an orbit started out in space turns the
+  model where it already is. }
+procedure TMainForm.AnchorOrbit(SX, SY: Integer);
+var
+  P: TPointF;
+begin
+  P := ScreenOf(FOrbitPivot);
+  FOrbitAnchored := not (IsNan(P.X) or IsNan(P.Y) or
+                         IsInfinite(P.X) or IsInfinite(P.Y)) and
+                    (Abs(P.X) < 1E6) and (Abs(P.Y) < 1E6);
+  if FOrbitAnchored then FOrbitAnchor := P
+  else FOrbitAnchor := PtF(SX, SY);
+end;
+
 function TMainForm.PivotAt(SX, SY: Integer): TP3;
 var
   F: Integer;
@@ -9945,6 +10030,7 @@ begin
                 D.Zoom := CamZ;
                 D.ViewX := RdF(CamT[3]);
                 D.ViewY := RdF(CamT[4]);
+                D.CamKnown := True;
               end;
             finally
               CamT.Free;
@@ -9982,7 +10068,24 @@ begin
     end;
     ResetTool;
     Relayout;
-    FitView;
+    { Frame the drawing only when the file could not say where the camera
+      was.  It used to fit every time, which read the camera out of the file
+      with some care and then immediately overwrote the zoom and the pan with
+      a fresh fit - so a drawing always opened framed rather than where it
+      was left, and the next save wrote the fit back as though that had been
+      the view all along.  Older files carry no CAMERA line and still get
+      framed, which is the right thing for them. }
+    if FD.CamKnown then
+    begin
+      { the drawing still has to be put on the paper - framing it was doing
+        that as a side effect, and skipping the framing skipped the render }
+      RepaintPaper;
+      RenderPro;
+      RecomposeAll;
+      Invalidate;
+    end
+    else
+      FitView;
     LayoutTabs;
     RefreshChrome;
     FCmdMsg := 'Opened ' + ExtractFileName(FDocPath) +

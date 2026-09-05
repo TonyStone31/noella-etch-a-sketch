@@ -298,3 +298,48 @@ This is the workflow being agreed, not a plan of work.  The smallest first
 step, when there is one, is locking the ISO cursor to the two paper axes of
 the current isoplane and drawing circles as isocircles.  That is small, and it
 is what makes ISO stop feeling wrong.
+
+## Which corner ISO is seen from
+
+Decided 5 September 2026, after Tony sent a photo of a new SketchUp document
+and said our axes deviated from it.
+
+SketchUp opens on the corner **(+X, -Y, +Z)**.  From there:
+
+* **red +X** runs right and *down* the screen, toward you
+* **green +Y** runs right and *up*, away from you
+* **blue +Z** runs straight up
+
+and each axis is drawn solid the way its numbers grow and **dashed** the way
+they shrink.  Stand at the origin facing the bisector of the two solid axes
+and green is 45 degrees to your left, red 45 degrees to your right.  That is
+the arrangement to match.
+
+Our 3D view already did.  `Az = -Pi/4`, `El = 35.264 degrees` puts the free
+camera at `(0.577, -0.577, 0.577)`, which is that corner exactly.
+
+**ISO did not.**  It was projected from `(-1, -1, 1)` - the opposite ground
+corner, with both ground axes rising from the origin.  That is the layout a
+pipe spool sheet uses and it was a defensible thing to have written, but it
+left ISO ninety degrees round from 3D.  Two views of one model disagreed
+about which way was which, so flipping between them spun the drawing, and
+anything either of us said about which way red ran was only true in one of
+them.  Since this document already says ISO is *a camera angle on the same
+document*, that was a contradiction in our own terms.
+
+**ISO now uses the same corner as 3D and as SketchUp.**  It is still a true
+30 degree isometric - any of the eight corners gives one - so nothing about
+snapping to the paper grid or measuring true lengths changes.  What changes
+is that the model stays put when you switch views.
+
+The axes are also drawn in *every* PRO view now, not only 3D.  PLAN is where
+you first put something down, and it had no color telling you which way was
+which.
+
+### Why this is worth being fussy about
+
+It is the shared vocabulary.  When Tony says "the green one" or "pull it
+along the red", that has to mean one thing in every view and the same thing
+SketchUp means, or every future description of a tool has to be re-checked
+against which view he was looking at.  Getting the underlying frame right is
+cheaper than translating forever.

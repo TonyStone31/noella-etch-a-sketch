@@ -849,7 +849,7 @@ function ViewRight(const V: TProjector): TP3;
 begin
   case V.Kind of
     vkOrbit: Result := P3(-Sin(V.Az), Cos(V.Az), 0);
-    vkIso:   Result := P3(ISO_COS, -ISO_COS, 0);
+    vkIso:   Result := P3(ISO_COS, ISO_COS, 0);
   else
     Result := P3(1, 0, 0);
   end;
@@ -859,7 +859,7 @@ function ViewUp(const V: TProjector): TP3;
 begin
   case V.Kind of
     vkOrbit: Result := P3(-Sin(V.El) * Cos(V.Az), -Sin(V.El) * Sin(V.Az), Cos(V.El));
-    vkIso:   Result := P3(ISO_SIN, ISO_SIN, 1);
+    vkIso:   Result := P3(-ISO_SIN, ISO_SIN, 1);
   else
     Result := P3(0, 1, 0);
   end;
@@ -867,20 +867,29 @@ end;
 
 { The direction out of the screen, toward the viewer.  For the drafting
   isometric this follows from the projection itself: right x up works out to
-  (-1,-1,1), so +X and +Y run away from the camera while +Z comes toward it. }
+  (1,-1,1) - the same corner the free camera starts on, and the same corner
+  SketchUp opens a new document on. }
 function ViewDir(const V: TProjector): TP3;
 begin
   case V.Kind of
     vkOrbit: Result := P3(Cos(V.El) * Cos(V.Az), Cos(V.El) * Sin(V.Az), Sin(V.El));
-    vkIso:   Result := Norm3(P3(-1, -1, 1));
+    vkIso:   Result := Norm3(P3(1, -1, 1));
   else
     Result := P3(0, 0, 1);
   end;
 end;
 
 { PLAN looks straight down the Z axis.  ISO is the standard 30 degree
-  isometric: +X runs down-right, +Y down-left, +Z straight up - which is
-  exactly how a pipe spool drawing is laid out. }
+  isometric seen from the same corner as the free camera: +X runs down-right
+  toward you, +Y up-right away from you, +Z straight up.
+
+  It used to be taken from the opposite corner, with both ground axes rising
+  from the origin.  That is the layout a pipe spool sheet uses and it was not
+  wrong, but it left ISO ninety degrees round from our own 3D view - so
+  flipping between two views of the same model spun the model, and anything
+  said about which way red or green ran was only true in one of them.  They
+  are one document seen three ways; they had better agree about which way is
+  which. }
 function Project(const V: TProjector; const P: TP3): TPointF;
 var
   R, U: TP3;
@@ -895,8 +904,8 @@ begin
   end;
   if V.Kind = vkIso then
   begin
-    Result.X := V.OX + (P.X - P.Y) * ISO_COS * V.Ppu;
-    Result.Y := V.OY - ((P.X + P.Y) * ISO_SIN + P.Z) * V.Ppu;
+    Result.X := V.OX + (P.X + P.Y) * ISO_COS * V.Ppu;
+    Result.Y := V.OY - ((P.Y - P.X) * ISO_SIN + P.Z) * V.Ppu;
   end
   else
   begin
@@ -1061,27 +1070,27 @@ begin
 
   { ISO.  Two screen equations, so one of the three model axes has to be
     pinned - that is what the working plane is for. }
-  U := (SX - V.OX) / (V.Ppu * ISO_COS);          // = X - Y  (XY plane)
-  W := (V.OY - SY) / V.Ppu;                      // = (X+Y)*sin + Z
+  U := (SX - V.OX) / (V.Ppu * ISO_COS);          // = X + Y
+  W := (V.OY - SY) / V.Ppu;                      // = (Y-X)*sin + Z
 
   case Pl of
     plXY:
       begin
         Result.Z := Base.Z;
-        Result.X := (U + (W - Base.Z) / ISO_SIN) / 2;
-        Result.Y := ((W - Base.Z) / ISO_SIN - U) / 2;
+        Result.Y := (U + (W - Base.Z) / ISO_SIN) / 2;
+        Result.X := (U - (W - Base.Z) / ISO_SIN) / 2;
       end;
     plXZ:
       begin
         Result.Y := Base.Y;
-        Result.X := U + Base.Y;
-        Result.Z := W - (Result.X + Base.Y) * ISO_SIN;
+        Result.X := U - Base.Y;
+        Result.Z := W - (Base.Y - Result.X) * ISO_SIN;
       end;
   else
     begin
       Result.X := Base.X;
-      Result.Y := Base.X - U;
-      Result.Z := W - (Base.X + Result.Y) * ISO_SIN;
+      Result.Y := U - Base.X;
+      Result.Z := W - (Result.Y - Base.X) * ISO_SIN;
     end;
   end;
 end;

@@ -835,6 +835,60 @@ end;
   "which plane explains this mouse movement with the least travel", so the
   checks below are just directions: up the screen should stand the shape up,
   across should lay it flat. }
+{ Screen and back again.
+
+  Unproject is hand-derived from Project - two screen equations and a plane
+  pinning the third unknown - so the two are only as consistent as the
+  algebra, and nothing until now checked that they were.  When the isometric
+  moved to the other corner the forward formula changed and the inverse was
+  re-derived by hand; a sliver of a rectangle from a small drag was the first
+  anybody knew of it being wrong.  Round-tripping a point through both is the
+  check that would have said so immediately, so it lives here now. }
+procedure TestProjectRoundTrip;
+var
+  V: TProjector;
+  P, Q, B: TP3;
+  S: TPointF;
+  Pl: TPlane;
+  K: Integer;
+  Kind: TViewKind;
+  Nm: array[plXY..plYZ] of string = ('XY', 'XZ', 'YZ');
+  VN: array[vkPlan..vkOrbit] of string = ('PLAN', 'ISO', '3D');
+begin
+  WriteLn('A point survives the trip to the screen and back');
+  for Kind := vkPlan to vkOrbit do
+    for K := 0 to 1 do
+      for Pl := plXY to plYZ do
+      begin
+        FillChar(V, SizeOf(V), 0);
+        V.Kind := Kind;
+        V.OX := 400; V.OY := 300; V.Ppu := 25;
+        V.Az := -Pi / 4; V.El := 0.6155;
+        if K = 1 then begin V.Az := 1.1; V.El := 0.4; end;
+        { PLAN can only answer on the ground, and only the ground is asked of
+          it anywhere in the program }
+        if (Kind = vkPlan) and (Pl <> plXY) then Continue;
+
+        { a base on the pinned axis, and a point off it in the other two }
+        case Pl of
+          plXY: begin B := P3(0, 0, 2.5);  P := P3(3.25, -7.5, 2.5); end;
+          plXZ: begin B := P3(0, 1.75, 0); P := P3(3.25, 1.75, -6.0); end;
+        else    begin B := P3(-2.5, 0, 0); P := P3(-2.5, 4.5, 6.25); end;
+        end;
+
+        S := Project(V, P);
+        Q := Unproject(V, S.X, S.Y, Pl, B);
+        { Judged in pixels, because that is the only unit in which the
+          answer matters - a thousandth of a pixel is exact for anything
+          anyone can point at, and a fixed tolerance in feet would be a
+          different standard at every zoom.  The 2x2 solve behind the free
+          camera loses a few digits, so a tolerance tight enough to catch
+          that noise would only ever catch that noise. }
+        Ok(Dist(P, Q) * V.Ppu < 1E-3,
+           VN[Kind] + ' ' + Nm[Pl] + ' round-trips');
+      end;
+end;
+
 procedure TestPlaneByDrag;
 var
   V: TProjector;
@@ -895,10 +949,12 @@ begin
   AxisDrag(P3(0, 0, 1), plXZ, plXZ, 'straight up Z keeps an upright plane');
   AxisDrag(P3(0, 1, 0), plXY, plXY, 'straight along Y keeps the flat one');
 
-  { Diagonally up-and-right is mostly Z with some X - upright, and it should
-    pick the plane that contains X rather than the one that does not. }
-  Drag(+60, -120, plXZ, plXY, 'up and to the right picks the XZ plane');
-  Drag(-60, -120, plYZ, plXY, 'up and to the left picks the YZ plane');
+  { Diagonally is mostly Z with some ground axis - upright either way, and it
+    should pick the plane containing the axis it leans along rather than the
+    one that does not.  In this isometric +X runs down-right and +Y up-right,
+    so up-and-right leans along +Y and up-and-left along -X. }
+  Drag(+60, -120, plYZ, plXY, 'up and to the right leans along Y, so YZ');
+  Drag(-60, -120, plXZ, plXY, 'up and to the left leans along X, so XZ');
 
   { Hysteresis: a tiny wobble must not change anything. }
   Drag(0, -120, plXZ, plXZ, 'no wobble off the plane it is already on');
@@ -1651,6 +1707,7 @@ begin
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;
   TestSolidClaimsItsEdges; WriteLn;
+  TestProjectRoundTrip;  WriteLn;
   TestPlaneByDrag;  WriteLn;
   TestOffset;       WriteLn;
   TestPushAfterOffset; WriteLn;

@@ -361,6 +361,7 @@ var
   Desc: TRawImageDescription;
   RI: TRawImage;
   Room: PtrUInt;
+  St: PtrInt;
 begin
   { Zeroed before it is filled in.  It is a record on the stack, the image
     decides whether to reallocate by comparing it byte for byte against the
@@ -389,10 +390,28 @@ begin
     ResetDirty;
     Exit;
   end;
+  { The distance between two rows, measured rather than assumed, because a
+    backing store is free to pad them.
+
+    Measured is not the same as believed.  The subtraction is between two
+    pointers the widget set handed over, and if the second one is not really
+    a row start yet - the backing not built, the image not realized - the
+    difference is not a stride, it is the gap between two unrelated addresses,
+    and one report came back carrying a stride of four and a half quintillion.
+    Everything downstream indexes rows by it.
+
+    So it has to be a number a stride could be: at least a row wide, and not
+    so far past one that it is obviously not padding.  Anything else and the
+    packed width is used, which is what the surface would have had if nobody
+    had asked.  Verify still stands behind this and still repairs a surface
+    that drifts later; this stops it being wrong to begin with. }
+  FStride := AWidth * 4;
   if AHeight > 1 then
-    FStride := PByte(FImage.GetDataLineStart(1)) - FBits
-  else
-    FStride := AWidth * 4;
+  begin
+    St := PByte(FImage.GetDataLineStart(1)) - FBits;
+    if (St >= AWidth * 4) and (St <= PtrInt(AWidth) * 4 + 4096) then
+      FStride := St;
+  end;
 
   { How many rows there is really room for.
 
