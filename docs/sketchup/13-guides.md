@@ -70,13 +70,20 @@ A guide can be **selected and erased** individually like anything else, and
 
 *Differ, on purpose or not yet decided:*
 
-* **A guide line is taken parallel to the edge the measurement started from.**
-  SketchUp's is perpendicular to the direction dragged from the point clicked.
-  Started away from any edge ours follows the run just measured, since that is
-  the only direction the gesture named.
+* **A guide line is taken across the measurement** - perpendicular to the
+  drag, in the working plane.  For SketchUp's own gesture, clicking an edge
+  and dragging away from it, that is the same answer as their rule of
+  parallel-to-the-edge, since dragging away from an edge means dragging
+  across it.  It also gives a sensible answer from a corner, where there is
+  no single edge to be parallel to.
+* **A guide point is drawn to be found** - amber, filled, and on top of the
+  geometry rather than under it.  SketchUp's are nearly invisible, which is
+  not a thing to copy.
+* **Hide and show is a button in the corner of the drawing**, with the count
+  on it, beside one that clears them.  Neither is there when the drawing has
+  no guides in it.  SketchUp uses Edit > Hide and Edit > Delete Guides.
 * **No protractor**, so no angled guides.  This is the one that matters for
   45s, and it is the largest thing missing here.
-* **No hide and unhide** - a guide is kept or cleared, not put away.
 * **A guide cannot be moved** once laid.  Erasing and laying another is the
   way round it.
 

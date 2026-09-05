@@ -638,6 +638,10 @@ type
     function InPalette(C: TColor): Boolean;
 
     function StatusLine: string;
+    { The little pair of buttons in the corner of the drawing that appear
+      only when there are guides to act on. }
+    function GuideBar(out RHide, RClear: TRect): Boolean;
+    procedure PaintGuideBar(C: TCanvas);
     procedure WashFace(C: TCanvas; const Poly: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
@@ -4896,6 +4900,59 @@ end;
   it, which is the opposite of helpful when the question being asked is "am I
   about to delete the right thing".  A diagonal hatch reads as marked out
   from across the room and leaves the drawing legible underneath. }
+{ Where the guide buttons sit, and whether there are any.
+
+  Bottom right of the drawing, and only there at all when the drawing has
+  guides in it - a button for something that does not exist is one more thing
+  to read past every time you look at the screen.  They appear the moment the
+  tape leaves the first one and are gone again when the last is cleared. }
+function TMainForm.GuideBar(out RHide, RClear: TRect): Boolean;
+var
+  W, H, Pad, Gap, Right, Bottom: Integer;
+begin
+  Result := (FMode = mdPro) and (FD.Doc.GuideCount > 0);
+  RHide := Rect(0, 0, 0, 0);
+  RClear := Rect(0, 0, 0, 0);
+  if not Result then Exit;
+  W := Round(74 * FUIScale);
+  H := Round(22 * FUIScale);
+  Pad := Round(10 * FUIScale);
+  Gap := Round(6 * FUIScale);
+  Right := pbScreen.Width - Pad;
+  Bottom := pbScreen.Height - Pad;
+  RClear := Rect(Right - W, Bottom - H, Right, Bottom);
+  RHide := Rect(RClear.Left - Gap - W, Bottom - H, RClear.Left - Gap, Bottom);
+end;
+
+procedure TMainForm.PaintGuideBar(C: TCanvas);
+var
+  RHide, RClear: TRect;
+  N: Integer;
+
+  procedure Pill(const R: TRect; const S: string; Lit: Boolean);
+  begin
+    C.Brush.Style := bsSolid;
+    if Lit then C.Brush.Color := PixToColor(ShadePix(Theme.Accent, 0.9))
+    else C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.15));
+    C.Pen.Style := psSolid;
+    C.Pen.Color := PixToColor(MixPix(Theme.Panel, Pix(255, 255, 255), 0.25));
+    C.Rectangle(R);
+    UIFont(C, 8, False, Theme.Text);
+    C.Brush.Style := bsClear;
+    C.TextOut(R.Left + (R.Right - R.Left - C.TextWidth(S)) div 2,
+              R.Top + (R.Bottom - R.Top - C.TextHeight(S)) div 2, S);
+  end;
+
+begin
+  if not GuideBar(RHide, RClear) then Exit;
+  N := FD.Doc.GuideCount;
+  if FD.Doc.GuidesHidden then
+    Pill(RHide, Format('show %d', [N]), True)
+  else
+    Pill(RHide, Format('hide %d', [N]), False);
+  Pill(RClear, 'clear', False);
+end;
+
 procedure TMainForm.WashFace(C: TCanvas; const Poly: TPointFArray;
   const Col: TPix);
 var
@@ -5382,9 +5439,11 @@ begin
     plainly. }
   if FPopup <> POP_NONE then
   begin
+    PaintGuideBar(pbScreen.Canvas);
     PaintPopup(pbScreen.Canvas);
     Exit;
   end;
+  PaintGuideBar(pbScreen.Canvas);
 
   { The pen cursor is composited through a scratch surface so it can be
     anti-aliased and still sit on top of the artwork. }
@@ -6633,6 +6692,7 @@ procedure TMainForm.pbScreenMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
   I: Integer;
+  RHide, RClear: TRect;
 begin
   { a press supersedes whatever motion has not been serviced yet }
   FMoveX := X;
@@ -6718,6 +6778,31 @@ begin
   begin
     FMouseSX := X;
     FMouseSY := Y;
+    { the guide buttons sit on the drawing, so they answer before it does }
+    if GuideBar(RHide, RClear) then
+    begin
+      if PtInRect(RHide, Point(X, Y)) then
+      begin
+        FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
+        FCmdMsg := IfThen(FD.Doc.GuidesHidden,
+          'Guides put away.  They are still there.', 'Guides back.');
+        RenderPro;
+        RecomposeAll;
+        pbScreen.Invalidate;
+        pbCmd.Invalidate;
+        Exit;
+      end;
+      if PtInRect(RClear, Point(X, Y)) then
+      begin
+        PushUndo;
+        FCmdMsg := Format('Cleared %d guides.', [FD.Doc.ClearGuides]);
+        RenderPro;
+        RecomposeAll;
+        pbScreen.Invalidate;
+        pbCmd.Invalidate;
+        Exit;
+      end;
+    end;
     { waiting to be told which piece to lay out - that click, and no other }
     if FUnfoldPick then
     begin
@@ -8039,7 +8124,7 @@ end;
   the run just measured, which is the only direction the gesture named. }
 procedure TMainForm.LayGuide;
 var
-  D: TP3;
+  D, Nm, AU, AV: TP3;
   L: Double;
 begin
   if FGuideMode = gmNone then Exit;
@@ -8055,22 +8140,38 @@ begin
     Exit;
   end;
 
-  if FMeasEdge >= 0 then
-    D := P3(FD.Doc[FMeasEdge].B.X - FD.Doc[FMeasEdge].A.X,
-            FD.Doc[FMeasEdge].B.Y - FD.Doc[FMeasEdge].A.Y,
-            FD.Doc[FMeasEdge].B.Z - FD.Doc[FMeasEdge].A.Z)
-  else
-    D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
+  { A guide runs across the measurement, not along it.
+
+    The point of one is to mark a distance: measure three feet off a wall and
+    the guide is the line three feet out, running crosswise, so it can be
+    snapped to anywhere along its length.  A guide laid along the direction
+    measured marks nothing - it lies on top of the run and is no use as a
+    reference anywhere else, which is what six of them all pointing the same
+    way looked like.
+
+    SketchUp reaches the same place from the other side: you click an edge and
+    drag away from it, and the guide comes out parallel to that edge - which
+    is perpendicular to the drag, since dragging away from an edge means
+    dragging across it.  Taking it from the drag rather than from the edge
+    gives the same answer for that gesture and a sensible one from a corner,
+    where there is no single edge to be parallel to. }
+  PlaneAxes(FD.Plane, AU, AV);
+  Nm := Cross3(AU, AV);
+  D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
+  D := Cross3(Nm, D);
   L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
-  if L < 1E-9 then Exit;
+  if L < 1E-9 then
+  begin
+    { measured straight out of the working plane, so there is no crosswise
+      direction in it - fall back to the run itself rather than nothing }
+    D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
+    L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
+    if L < 1E-9 then Exit;
+  end;
   FD.Doc.AddGuide(FP2,
     P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
-  if FMeasEdge >= 0 then
-    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
-      '   guide line, parallel to that edge'
-  else
-    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
-      '   guide line, along the run';
+  FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
+    '   guide line, across the run';
   RenderPro;
   RecomposeAll;
 end;

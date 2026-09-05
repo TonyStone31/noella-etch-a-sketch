@@ -155,6 +155,7 @@ type
     FLive: Integer;      // entities in play; anything past this is redo space
     FSnapCache: array of TSnapHit;
     FSnapDirty: Boolean;
+    FGuidesHidden: Boolean;
     FNextGrp: Integer;
     function GetEnt(I: Integer): TWorkEnt;
     procedure RebuildSnapCache;
@@ -179,6 +180,11 @@ type
       the same point - a construction point at A. }
     procedure AddGuide(const A, B: TP3);
     function GuideCount: Integer;
+    { Guides can be put away without being thrown away - they are aids, and a
+      drawing being looked at rather than laid out does not want them.  Held
+      the negative way round so that a document with nothing said about it
+      shows them, which is what a field left alone gives. }
+    property GuidesHidden: Boolean read FGuidesHidden write FGuidesHidden;
     function ClearGuides: Integer;
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
@@ -413,6 +419,8 @@ procedure SetFreePlane(const Org, Normal: TP3);
 procedure GetFreePlane(out Org, U, V, N: TP3);
 { The two directions of a plane facing Nm, chosen the same way every time. }
 procedure AxesFromNormal(const Nm: TP3; out AU, AV: TP3);
+{ The two directions of one of the working planes. }
+procedure PlaneAxes(Pl: TPlane; out AU, AV: TP3);
 
 { A point on a circle of radius R about C, at Ang radians, in plane Pl.  The
   second form is for a stored shape, which carries the way its plane faces
@@ -469,6 +477,8 @@ const
     why their models read better than a drawing where every face is the same
     white. }
   FACE_BACK: TPix = (B: $DC; G: $C4; R: $A8; A: 255);
+  { A guide point, in amber.  Deliberately placed and deliberately findable. }
+  GUIDE_POINT: TPix = (B: $10; G: $B0; R: $F0; A: 255);
   { how finely a line lying on a face is chopped up when working out which
     stretches of it are hidden }
   LINE_STEPS = 32;
@@ -3971,12 +3981,16 @@ begin
         cross any view of the drawing.  Drawn with the other annotation, so a
         solid standing in front of one hides it. }
       ekGuide:
+        if not FGuidesHidden then
         begin
           PA := Project(V, FEnts[I].A);
           if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then
           begin
-            S.Line(PA.X - 5, PA.Y, PA.X + 5, PA.Y, 1.2, GuideCol, 0.95);
-            S.Line(PA.X, PA.Y - 5, PA.X, PA.Y + 5, 1.2, GuideCol, 0.95);
+            { A guide point is something somebody put there deliberately and
+              will want to find again, so it is drawn to be found: amber,
+              filled, and larger than the snap marks it sits among.
+              SketchUp's are almost invisible, which is not a thing to copy. }
+            { drawn again at the end, on top - see the last pass }
           end
           else
           begin
@@ -4209,6 +4223,29 @@ begin
       Break;
     end;
   end;
+
+  { --- guide points, last of all ---------------------------------------
+
+    A guide point is put down deliberately, to be come back to, so it is no
+    use buried under the panel it was placed on.  Everything else about a
+    guide is drawn with the annotation before the faces, so that a solid
+    standing in front of one hides it - and that is right for a line, which
+    runs on past the geometry and can be seen either side of it.  A point has
+    no length to be seen by.
+
+    Still hidden when something really is in front of it, which is now a
+    question that can be asked of every face rather than of the sort order. }
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekGuide) and not FGuidesHidden and
+       (Dist(FEnts[I].A, FEnts[I].B) < 1E-9) then
+    begin
+      if Covered(FEnts[I].A, -1) then Continue;
+      PA := Project(V, FEnts[I].A);
+      S.Disc(PA.X, PA.Y, 4.5, Pix(20, 20, 24), 0.55);
+      S.Disc(PA.X, PA.Y, 3.4, GUIDE_POINT, 1.0);
+      S.Line(PA.X - 8, PA.Y, PA.X + 8, PA.Y, 1.4, GUIDE_POINT, 0.95);
+      S.Line(PA.X, PA.Y - 8, PA.X, PA.Y + 8, 1.4, GUIDE_POINT, 0.95);
+    end;
 end;
 
 end.
