@@ -3744,7 +3744,8 @@ end;
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
-  I, J, K, N, Steps, NFace: Integer;
+  ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet: Double;
+  ZOK: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
   Ang, Sh: Double;
   Col: TPix;
@@ -3763,62 +3764,47 @@ var
   { Is this model point hidden by a face drawn after the one at Slot?  Later
     in the sorted order means nearer the camera, so anything there is in
     front of it. }
+  { Is this point of the drawing hidden behind something?
+
+    One lookup.  The faces have already been drawn, each writing a depth for
+    every pixel it covered, so the question "is something in front of this"
+    is answered by the pixel rather than by walking the faces and reasoning
+    about their order.
+
+    This replaces two things that were both wrong in their own way: walking
+    the faces sorted after this one, which assumes an order that a wide flat
+    panel beside a small object does not have, and then walking all of them
+    with a plane test, which was right but is a loop per sample per edge.
+
+    A point sitting exactly on the surface it belongs to reads its own depth
+    back, so the tolerance has to be loose enough to call that visible. }
   function Covered(const P: TP3; Slot: Integer): Boolean;
   var
-    F, A, B: Integer;
     SP: TPointF;
-    Inside: Boolean;
-    Nm: TP3;
-    Den, T: Double;
+    D, Zb, Zx, Zy, Grad: Double;
   begin
-    Result := True;
-    SP := Project(V, P);
-    { Every face, and each one asked whether it is actually in front.
-
-      This used to walk only the faces sorted after this one, on the grounds
-      that those are the nearer ones - which is what a painter's algorithm
-      assumes and is not always true.  Faces are sorted by one depth each,
-      and a large flat panel can sort behind a small object that it in fact
-      covers.  Then the panel was never asked, and everything under it was
-      drawn straight through: exactly what a plate with legs pushed down out
-      of it showed.
-
-      Asking every face costs a loop over faces already projected, and gives
-      an answer that does not depend on the sort being right. }
-    for F := 0 to NFace - 1 do
-    begin
-      if F = Slot then Continue;
-      if Length(Shape[F]) < 3 then Continue;
-      { A face the point lies in cannot be in front of it.  Without this test
-        every edge of a solid was chopped to a dotted line: the edge lies in
-        the plane of the faces either side of it, they are drawn later, and
-        the point-in-polygon test on their shared boundary went either way
-        from sample to sample. }
-      Nm := FaceNormal(Order[F]);
-      if Abs(Dot3(Nm, P) - Dot3(Nm, FEnts[Order[F]].Poly[0])) < 1E-6 then
-        Continue;
-      { and it has to be between the point and the eye, not behind it.
-        ViewDir points from the drawing towards the camera - which is the
-        sense the face culling already uses, where a face turned towards you
-        has a positive dot with it - so a face in front of P is at a positive
-        step along it. }
-      Den := Dot3(Nm, Look);
-      if Abs(Den) < 1E-12 then Continue;
-      T := (Dot3(Nm, FEnts[Order[F]].Poly[0]) - Dot3(Nm, P)) / Den;
-      if T <= 1E-9 then Continue;
-      Inside := False;
-      B := High(Shape[F]);
-      for A := 0 to High(Shape[F]) do
-      begin
-        if ((Shape[F][A].Y > SP.Y) <> (Shape[F][B].Y > SP.Y)) and
-           (SP.X < (Shape[F][B].X - Shape[F][A].X) * (SP.Y - Shape[F][A].Y) /
-                   (Shape[F][B].Y - Shape[F][A].Y) + Shape[F][A].X) then
-          Inside := not Inside;
-        B := A;
-      end;
-      if Inside then Exit;
-    end;
     Result := False;
+    if not S.DepthOn then Exit;
+    SP := Project(V, P);
+    Zb := S.DepthAt(Round(SP.X), Round(SP.Y));
+    if Zb < -1E29 then Exit;             { nothing was drawn there }
+    D := Dot3(P, Look);
+
+    { How much depth changes across one pixel here.
+
+      The buffer is sampled at pixel centres and the point being asked about
+      is not at one, so the two disagree by up to half a step of whatever the
+      depth is doing locally.  Seen edge-on that step is large, and a line
+      lying exactly on the surface it belongs to then loses to its own face by
+      a hair and comes out dashed.  Measuring the step from the neighbours
+      makes the tolerance follow the angle instead of being a guess. }
+    Zx := S.DepthAt(Round(SP.X) + 1, Round(SP.Y));
+    Zy := S.DepthAt(Round(SP.X), Round(SP.Y) + 1);
+    Grad := 0;
+    if Zx > -1E29 then Grad := Max(Grad, Abs(Zx - Zb));
+    if Zy > -1E29 then Grad := Max(Grad, Abs(Zy - Zb));
+
+    Result := Zb > D + Grad + 1E-3 * (1 + Abs(D));
   end;
 
   { A note, with a box round it and a leader out to whatever it is about.
@@ -4074,6 +4060,7 @@ begin
   end;
 
   SetLength(Shape, NFace);
+  S.DepthBegin;
   for I := 0 to NFace - 1 do
   begin
     K := Order[I];
@@ -4100,6 +4087,30 @@ begin
       the work, which is why a box looked like it had been outlined in marker.
       Top, front and side now land near 1.0, 0.90 and 0.80 of the material -
       close to SketchUp's own default style. }
+    { The plane this face lies in, in screen terms: depth as a flat function
+      of x and y, which is all a parallel projection ever gives.  Three
+      projected corners and their depths solve it. }
+    ZOK := False;
+    if Length(Flat) >= 3 then
+    begin
+      ZD1 := Dot3(FEnts[K].Poly[0], Look);
+      ZD2 := Dot3(FEnts[K].Poly[1], Look);
+      ZD3 := Dot3(FEnts[K].Poly[2], Look);
+      ZDet := (Flat[1].X - Flat[0].X) * (Flat[2].Y - Flat[0].Y) -
+              (Flat[2].X - Flat[0].X) * (Flat[1].Y - Flat[0].Y);
+      if Abs(ZDet) > 1E-9 then
+      begin
+        ZA := ((ZD2 - ZD1) * (Flat[2].Y - Flat[0].Y) -
+               (ZD3 - ZD1) * (Flat[1].Y - Flat[0].Y)) / ZDet;
+        ZB := ((ZD3 - ZD1) * (Flat[1].X - Flat[0].X) -
+               (ZD2 - ZD1) * (Flat[2].X - Flat[0].X)) / ZDet;
+        ZC := ZD1 - ZA * Flat[0].X - ZB * Flat[0].Y;
+        ZOK := True;
+      end;
+    end;
+    if ZOK then S.DepthPlane(ZA, ZB, ZC)
+    else S.DepthPlane(0, 0, -1E30);
+
     Sh := Min(1, 0.62 + 0.50 * Abs(Dot3(Nm, Lamp)));
     { Which side of it are we looking at?  The back of a face gets its own
       colour rather than the material.  A closed solid never shows one - its

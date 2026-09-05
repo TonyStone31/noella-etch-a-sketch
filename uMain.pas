@@ -5320,7 +5320,7 @@ begin
       ptText:  S2 := 'space or click - the note points here';
       ptMeasure:
         case FGuideMode of
-          gmLine: S2 := 'measure from here - Ctrl for a guide point';
+          gmLine: S2 := 'measure from here - Ctrl for a point only';
           gmPoint: S2 := 'measure from here - Ctrl for no guide';
         else
           S2 := 'measure from here - Ctrl to leave a guide line';
@@ -8086,6 +8086,14 @@ begin
   if Dist(FP1, FP2) < 1E-9 then Exit;
   PushUndo;
 
+  { A guide line gets a point at the end of it as well, and that is on
+    purpose rather than by imitation.  SketchUp leaves a line and nothing to
+    say where along it the measurement actually landed, so the one place you
+    measured to is the one place you cannot see.  The point costs nothing,
+    marks the spot, and can be snapped to.  Ctrl still gets a point on its
+    own, or neither. }
+  if FGuideMode = gmLine then FD.Doc.AddGuide(FP2, FP2);
+
   if FGuideMode = gmPoint then
   begin
     FD.Doc.AddGuide(FP2, FP2);
@@ -8128,7 +8136,7 @@ begin
   FD.Doc.AddGuide(FP2,
     P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
   FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
-    '   guide line, across the run';
+    '   guide line across the run, and a point where it landed';
   RenderPro;
   RecomposeAll;
   { the row grows a pair of buttons the moment there is a guide to act on }

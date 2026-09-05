@@ -59,6 +59,14 @@ type
     FBits: PByte;
     FMode: TBlendMode;
     FKeepAlpha: Boolean;
+    { A depth for every pixel, so what is in front is decided per pixel
+      instead of per shape.  Sorting shapes back to front works until two of
+      them cannot be ordered - a wide flat panel and a small object beside it
+      have no correct order at all - and then whichever is drawn last wins the
+      whole overlap.  With a depth per pixel the question never arises. }
+    FZ: array of Single;
+    FZOn: Boolean;
+    FZa, FZb, FZc: Double;
     FDirty: TRect;
     procedure Allocate(AWidth, AHeight: Integer);
     procedure Verify;
@@ -92,6 +100,14 @@ type
       Closed: Boolean = False; Alpha: Single = 1.0);
     procedure Triangle(const P1, P2, P3: TPointF; const C: TPix; Alpha: Single = 1.0);
     procedure FillPoly(const Pts: array of TPointF; const C: TPix; Alpha: Single = 1.0);
+
+    { Depth: start a pass, say what plane the next shape lies in, ask what
+      depth a pixel ended up at.  Depth counts up towards the eye. }
+    procedure DepthBegin;
+    procedure DepthOff;
+    procedure DepthPlane(A, B, C: Double);
+    function DepthAt(X, Y: Integer): Single;
+    function DepthOn: Boolean;
 
     { --- whole-surface effects ------------------------------------------- }
     procedure ClearTransparent;
@@ -978,6 +994,42 @@ end;
 { Scanline fill of any simple polygon, convex or not.  Four vertical
   subsamples per row plus exact horizontal span ends gives edges that are
   smooth enough to sit beside the anti-aliased strokes. }
+procedure TArtSurface.DepthBegin;
+var
+  I: Integer;
+begin
+  if (FWidth <= 0) or (FHeight <= 0) then Exit;
+  if Length(FZ) <> FWidth * FHeight then SetLength(FZ, FWidth * FHeight);
+  for I := 0 to High(FZ) do FZ[I] := -1E30;
+  FZOn := True;
+  FZa := 0; FZb := 0; FZc := -1E30;
+end;
+
+procedure TArtSurface.DepthOff;
+begin
+  FZOn := False;
+end;
+
+function TArtSurface.DepthOn: Boolean;
+begin
+  Result := FZOn;
+end;
+
+procedure TArtSurface.DepthPlane(A, B, C: Double);
+begin
+  FZa := A;
+  FZb := B;
+  FZc := C;
+end;
+
+function TArtSurface.DepthAt(X, Y: Integer): Single;
+begin
+  Result := -1E30;
+  if Length(FZ) <> FWidth * FHeight then Exit;
+  if (X < 0) or (Y < 0) or (X >= FWidth) or (Y >= FHeight) then Exit;
+  Result := FZ[Y * FWidth + X];
+end;
+
 procedure TArtSurface.FillPoly(const Pts: array of TPointF; const C: TPix;
   Alpha: Single);
 const
@@ -988,6 +1040,7 @@ var
   Xs: array of Single;
   Cov: array of Single;
   T: Single;
+  Z: Double;
 begin
   N := Length(Pts);
   if N < 3 then Exit;
@@ -1069,7 +1122,19 @@ begin
 
     for X := X0 to X1 do
       if Cov[X - X0] > 0.002 then
+      begin
+        if FZOn then
+        begin
+          Z := FZa * X + FZb * Y + FZc;
+          { behind what is already there, so it does not get drawn }
+          if Z < FZ[Y * FWidth + X] - 1E-6 then Continue;
+          { and only a pixel the shape genuinely covers claims the depth - a
+            sliver along an edge would otherwise write a depth for ground it
+            barely touches }
+          if Cov[X - X0] > 0.5 then FZ[Y * FWidth + X] := Z;
+        end;
         BlendPixel(X, Y, C, Cov[X - X0] * Alpha);
+      end;
   end;
   Invalidate;
 end;
