@@ -111,6 +111,12 @@ begin
      '12-6 is still twelve foot six');
   Ok(ParseLen('3 1/2', usImperial, V) and (Abs(V - 3.5) < 1E-12),
      'and a fraction is still a fraction');
+  Ok(ParseLen('6-8 1/2', usImperial, V) and (Abs(V - (6 + 17 / 24)) < 1E-12),
+     '6-8 1/2 is six foot eight and a half');
+  Ok(ParseLen('6-8.5', usImperial, V) and (Abs(V - (6 + 17 / 24)) < 1E-12),
+     'and so is 6-8.5');
+  Ok(not ParseLen('2.5.5', usImperial, V),
+     'two decimal points in one number is a typo, not a notation');
 
   { A third field above fifteen is not sixteenths, so it is not read as
     sixteenths - the drawing is in some other fraction and a quiet guess

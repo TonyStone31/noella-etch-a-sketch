@@ -297,6 +297,8 @@ type
     { which side of the cursor the chip is sitting on, kept so it does not
       swap sides every time the mouse twitches }
     FTipCorner: Integer;
+    { what the precision list is showing as chosen }
+    FLenDenom: Integer;
     { Taking the picture for a report.  FShotCount is the seconds left and is
       drawn on the canvas; FShotFlash whites the screen for a moment at the
       instant it is taken; FShotBusy keeps a second capture from starting
@@ -643,6 +645,7 @@ type
     procedure CycleTheme(Step: Integer);
     procedure ApplyModeTheme;
     procedure SetMode(M: TAppMode);
+    procedure SetLenPrecision(D: Integer);
     procedure SetPenSize(V: Integer);
     procedure SetStyle(V: TPenStyle);
     procedure SetInk(C: TColor; Auto: Boolean = False);
@@ -724,6 +727,12 @@ const
     drawing it.  Laying a piece out flat is the first; the fitting builders
     go here beside it. }
   POP_SHOP   = 5;
+  POP_PREC   = 6;
+
+  { How finely a length is written down, and what the last field of a dashed
+    entry counts in.  A truss shop works in sixteenths, which is the default;
+    the rest are here because other trades do not. }
+  PREC_DENOMS: array[0..6] of Integer = (2, 4, 8, 16, 32, 64, 100);
 
   { the pen widths the list offers - a few honest steps rather than a slider
     nobody can land on a number with }
@@ -1504,6 +1513,7 @@ begin
     field left at its default reads as "editing the label on the first
     thing in the drawing". }
   FDimEdit := -1;
+  FLenDenom := LenDenom;
   FNoteDrag := -1;
   FCursorWas := crCross;
   Caption := APP_NAME + '  ' + CurrentVersion;
@@ -3079,22 +3089,28 @@ begin
       one more thing to read past every time you look at the screen, so they
       are not there until the tape leaves the first guide and are gone again
       when the last one is cleared. }
-    if (FMode = mdPro) and (FD.Doc.GuideCount > 0) then NSet := 7 else NSet := 5;
+    if (FMode = mdPro) and (FD.Doc.GuideCount > 0) then NSet := 8 else NSet := 6;
     SegW := (Avail - (NSet - 1) * RowGap) div NSet;
-    if NSet = 7 then
+    if NSet = 8 then
     begin
-      Add(dkSegment, Rect(X + 5 * SegW, RowY, X + 6 * SegW - RowGap,
+      Add(dkSegment, Rect(X + 6 * SegW, RowY, X + 7 * SegW - RowGap,
         RowY + RowH), GRP_ICON, ACT_GUIDES,
         IfThen(FD.Doc.GuidesHidden,
           Format('SHOW %d', [FD.Doc.GuideCount]),
           Format('HIDE %d', [FD.Doc.GuideCount])),
         'Put the guides away, or bring them back.  They stay in the drawing '
         + 'either way.', ikDroplet);
-      Add(dkSegment, Rect(X + 6 * SegW, RowY, X + 7 * SegW - RowGap,
+      Add(dkSegment, Rect(X + 7 * SegW, RowY, X + 8 * SegW - RowGap,
         RowY + RowH), GRP_ICON, ACT_NOGUIDE, 'CLEAR GUIDES',
         'Throw all the guides away.  Undo brings them back.', ikDroplet);
     end;
     Add(dkSegment, Rect(X + 4 * SegW, RowY, X + 5 * SegW - RowGap,
+      RowY + RowH), GRP_POPUP, POP_PREC,
+      IfThen(FLenDenom = 100, 'PREC  .01"', Format('PREC  1/%d"', [FLenDenom])),
+      'How finely a length is written down, and what the last field of a ' +
+      'dashed entry counts in - 6-8-15 is feet, inches and sixteenths.  ' +
+      'It never changes what the drawing holds.', ikDroplet);
+    Add(dkSegment, Rect(X + 5 * SegW, RowY, X + 6 * SegW - RowGap,
       RowY + RowH), GRP_POPUP, POP_SHOP, 'SHOP',
       'Shop tools - laying a piece out flat, and the fittings', ikDroplet);
     Add(dkSegment, Rect(X, RowY, X + SegW - RowGap, RowY + RowH),
@@ -7993,6 +8009,7 @@ begin
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 6;
     POP_SHOP: Result := 1;
+    POP_PREC: Result := Length(PREC_DENOMS);
   else
     Result := 0;
   end;
@@ -8008,6 +8025,9 @@ begin
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
     POP_SHOP:
       Result := 'Lay a piece out flat';
+    POP_PREC:
+      if PREC_DENOMS[I] = 100 then Result := 'hundredths of an inch'
+      else Result := Format('1/%d"', [PREC_DENOMS[I]]);
     POP_HELP:
       case I of
         0: Result := 'About  (F1)';
@@ -8035,6 +8055,7 @@ begin
     POP_COLOR: SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
     POP_SHOP: StartUnfold;
+    POP_PREC: SetLenPrecision(PREC_DENOMS[EnsureRange(I, 0, High(PREC_DENOMS))]);
     POP_HELP:
       case I of
         0: ShowAbout;
@@ -9289,6 +9310,30 @@ procedure TMainForm.SetSymmetry(V: Integer);
 begin
   FSym := V;
   pbDeck.Invalidate;
+end;
+
+{ How finely lengths are written, and read.
+
+  One setting for both, because a drawing that prints sixteenths while
+  accepting sixty-fourths would take a number and show a different one - the
+  sort of thing you find out after cutting.  It never changes what the model
+  holds: a length typed finer than the display keeps every digit and is only
+  written down rounded, which is what precision means in SketchUp too. }
+procedure TMainForm.SetLenPrecision(D: Integer);
+begin
+  SetLenDenom(D);
+  FLenDenom := LenDenom;
+  if FLenDenom = 100 then
+    FCmdMsg := 'Lengths to hundredths of an inch.'
+  else
+    FCmdMsg := Format('Lengths to the nearest 1/%d of an inch.', [FLenDenom]);
+  SaveSettings;
+  RebuildDeck;
+  pbDeck.Invalidate;
+  RenderPro;
+  RecomposeAll;
+  InvalidateStatus;
+  pbCmd.Invalidate;
 end;
 
 procedure TMainForm.SetPenSize(V: Integer);
@@ -11032,6 +11077,8 @@ begin
       FProDials := Ini.ReadBool('pro', 'dials', False);
       FD.ScaleIdx := EnsureRange(Ini.ReadInteger('pro', 'scale', 2), 0, SCALE_COUNT - 1);
       FD.SnapIdx := EnsureRange(Ini.ReadInteger('pro', 'snap', 5), 0, SNAP_COUNT - 1);
+      SetLenDenom(Ini.ReadInteger('pro', 'precision', 16));
+      FLenDenom := LenDenom;
       FD.Units := TUnitSystem(EnsureRange(Ini.ReadInteger('pro', 'units', 0), 0, 1));
       { the view is deliberately not restored - a drawing session starts
         flat, and 3D is somewhere you go on purpose }
@@ -11109,6 +11156,7 @@ begin
       Ini.WriteBool('pro', 'dials', FProDials);
       Ini.WriteInteger('pro', 'scale', FD.ScaleIdx);
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
+      Ini.WriteInteger('pro', 'precision', FLenDenom);
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));
 
       { Taken in OnClose, while the window was still a window.  If the

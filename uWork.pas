@@ -354,6 +354,11 @@ function SnapName(U: TUnitSystem; I: Integer): string;
   per paper inch. }
 function PixelsPerUnit(U: TUnitSystem; const Sc: TDrawScale; DPI: Double): Double;
 
+{ How finely an imperial length is written, and what the last field of a
+  dashed entry counts in.  A sixteenth unless the drawing says otherwise. }
+procedure SetLenDenom(D: Integer);
+function LenDenom: Integer;
+
 function FormatLen(V: Double; U: TUnitSystem): string;
 function FormatArea(V: Double; U: TUnitSystem): string;
 function ParseLen(const S: string; U: TUnitSystem; out V: Double): Boolean;
@@ -556,14 +561,38 @@ end;
 { formatting                                                              }
 { ---------------------------------------------------------------------- }
 
-{ Reduce SIXTEENTHS/16 to the tidiest fraction, e.g. 8/16 -> 1/2. }
-function FractionText(Sixteenths: Integer): string;
+{ How finely an imperial length is written down, and what the last field of
+  a dashed entry counts in.
+
+  One setting for both on purpose.  A drawing that prints sixteenths and
+  accepts sixty-fourths would take a number and then show you a different
+  one, which is the sort of thing you only notice after cutting.  SketchUp
+  calls this Precision and uses it the same way - it governs how a length is
+  written, never what the model holds, so typing finer than the display is
+  allowed and the exact number survives. }
+var
+  GLenDenom: Integer = 16;
+
+procedure SetLenDenom(D: Integer);
+begin
+  { powers of two up to a sixty-fourth, or hundredths for the shops that
+    work that way }
+  if D in [2, 4, 8, 16, 32, 64, 100] then GLenDenom := D;
+end;
+
+function LenDenom: Integer;
+begin
+  Result := GLenDenom;
+end;
+
+{ Reduce PARTS/LenDenom to the tidiest fraction, e.g. 8/16 -> 1/2. }
+function FractionText(Parts: Integer): string;
 var
   N, D: Integer;
 begin
-  N := Sixteenths;
-  D := 16;
-  while (N > 0) and (N mod 2 = 0) do
+  N := Parts;
+  D := GLenDenom;
+  while (N > 0) and (N mod 2 = 0) and (D mod 2 = 0) do
   begin
     N := N div 2;
     D := D div 2;
@@ -592,12 +621,15 @@ begin
   end
   else
   begin
-    { round to the nearest sixteenth of an inch }
-    TotalSix := Round(V * 12 * 16);
-    Ft := TotalSix div (12 * 16);
-    TotalSix := TotalSix - Ft * 12 * 16;
-    Inch := TotalSix div 16;
-    Six := TotalSix - Inch * 16;
+    { Rounded to whatever the drawing's precision is - a sixteenth unless
+      somebody said otherwise.  The model keeps the exact number either way;
+      this only decides how it is written down, which is what precision means
+      in SketchUp too and is the reason you may type finer than you display. }
+    TotalSix := Round(V * 12 * GLenDenom);
+    Ft := TotalSix div (12 * GLenDenom);
+    TotalSix := TotalSix - Ft * 12 * GLenDenom;
+    Inch := TotalSix div GLenDenom;
+    Six := TotalSix - Inch * GLenDenom;
     Frac := FractionText(Six);
 
     if Frac <> '' then
@@ -753,11 +785,11 @@ begin
     slash anywhere in it, and the whole thing goes in from the number pad
     with the minus key.
 
-    Sixteenths because that is what a truss shop works in, so the third field
-    never needs a denominator written beside it.  If a field ever came in
-    above fifteen it would mean the drawing was in some other fraction and
-    this reading would be wrong - but it would be wrong quietly, so the check
-    below refuses that rather than guessing.
+    Sixteenths unless the drawing's precision says otherwise, so the third
+    field never needs a denominator written beside it.  A field at or above
+    the denominator means the drawing is in some other fraction, and this
+    reading would then be wrong - quietly wrong, by a hair, on a length
+    somebody cuts metal from.  So it is refused rather than guessed at.
 
     Purely additional: 6-8-15 did not parse at all before, so nothing that
     already worked reads differently now. }
@@ -780,18 +812,33 @@ begin
     if (NDash = 2) and (Parts[0] <> '') and (Parts[1] <> '') and
        (Parts[2] <> '') and ParseMixed(Parts[0], A) and
        ParseMixed(Parts[1], B) and ParseMixed(Parts[2], C) and
-       (B >= 0) and (B < 12) and (C >= 0) and (C <= 15) then
+       (B >= 0) and (B < 12) and (C >= 0) and (C < GLenDenom) then
     begin
-      V := Abs(A) + B / 12 + C / (16 * 12);
+      V := Abs(A) + B / 12 + C / (GLenDenom * 12);
       if Neg then V := -V;
       Result := True;
       Exit;
     end;
   end;
 
-  { "12-6" and "12 6" mean twelve foot six }
+  { "12-6" and "12 6" mean twelve foot six.
+
+    A dash may carry a fraction after it - 6-8 1/2 is six foot eight and a
+    half - because a dash says plainly where the feet stop.  A space cannot:
+    "3 1/2" is three and a half feet, and splitting it at the space would
+    make it three foot and half an inch.  So the slash only rules out the
+    space form, which is the one that is ambiguous. }
   P := Pos('-', T);
-  if P = 0 then P := Pos(' ', T);
+  if P > 1 then
+  begin
+    if not ParseMixed(Copy(T, 1, P - 1), A) then Exit;
+    if not ParseMixed(Copy(T, P + 1, MaxInt), B) then Exit;
+    V := A + B / 12;
+    Result := True;
+    Exit;
+  end;
+
+  P := Pos(' ', T);
   if (P > 1) and (Pos('/', T) = 0) then
   begin
     if not ParseMixed(Copy(T, 1, P - 1), A) then Exit;
