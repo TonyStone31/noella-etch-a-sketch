@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold;
 
 type
   TAppMode = (mdToy, mdPro);

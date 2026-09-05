@@ -398,6 +398,8 @@ function DimTextTopLeft(const G: TDimGeom; TW, TH: Integer;
   under the cursor, read back by everything that draws in a plane. }
 procedure SetFreePlane(const Org, Normal: TP3);
 procedure GetFreePlane(out Org, U, V, N: TP3);
+{ The two directions of a plane facing Nm, chosen the same way every time. }
+procedure AxesFromNormal(const Nm: TP3; out AU, AV: TP3);
 
 { A point on a circle of radius R about C, at Ang radians, in plane Pl.  The
   second form is for a stored shape, which carries the way its plane faces

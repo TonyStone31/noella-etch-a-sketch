@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate;
+  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold;
 
 var
   Fails: Integer = 0;
@@ -1485,6 +1485,153 @@ begin
   end;
 end;
 
+
+{ ---------------------------------------------------------------------- }
+
+{ Laying a box out flat.
+
+  A closed box cannot be unfolded without cutting it somewhere - which is the
+  point: the pattern that comes out has bends where the metal folds and cuts
+  where the seam falls, and the two together account for every edge.  The
+  measure of a correct unfold is that no metal was created or destroyed, so
+  the area of the pattern has to equal the area of the box. }
+procedure TestUnfold;
+var
+  D: TWorkDoc;
+  P: TFlatPattern;
+  Faces: array of Integer;
+  I, J, K, Bends, Cuts: Integer;
+  Area, Want, EL: Double;
+
+  { A rectangular transition, flat on top and on the left. }
+  procedure Trans(W1, H1, W2, H2, L: Double);
+  var
+    Q: TP3Array;
+    procedure F(const A, B, C, E: TP3);
+    begin
+      SetLength(Q, 4);
+      Q[0] := A; Q[1] := B; Q[2] := C; Q[3] := E;
+      D.AddFace(Q, 0, True);
+    end;
+  begin
+    { big end at y=0, small end at y=L, tops level and left sides level }
+    F(P3(0,0,0),  P3(W1,0,0),  P3(W2,L,0),  P3(0,L,0));           // bottom
+    F(P3(0,0,H1), P3(W1,0,H1), P3(W2,L,H2), P3(0,L,H2));          // top
+    F(P3(0,0,0),  P3(0,L,0),   P3(0,L,H2),  P3(0,0,H1));          // left
+    F(P3(W1,0,0), P3(W2,L,0),  P3(W2,L,H2), P3(W1,0,H1));         // right
+  end;
+
+  procedure Box(W, H, T: Double);
+  var
+    Q: TP3Array;
+    procedure F(const A, B, C, E: TP3);
+    begin
+      SetLength(Q, 4);
+      Q[0] := A; Q[1] := B; Q[2] := C; Q[3] := E;
+      D.AddFace(Q, 0, True);
+    end;
+  begin
+    F(P3(0,0,0), P3(W,0,0), P3(W,H,0), P3(0,H,0));           // bottom
+    F(P3(0,0,T), P3(W,0,T), P3(W,H,T), P3(0,H,T));           // top
+    F(P3(0,0,0), P3(W,0,0), P3(W,0,T), P3(0,0,T));           // front
+    F(P3(0,H,0), P3(W,H,0), P3(W,H,T), P3(0,H,T));           // back
+    F(P3(0,0,0), P3(0,H,0), P3(0,H,T), P3(0,0,T));           // left
+    F(P3(W,0,0), P3(W,H,0), P3(W,H,T), P3(W,0,T));           // right
+  end;
+
+begin
+  WriteLn('unfolding a piece flat');
+  D := TWorkDoc.Create;
+  try
+    Box(10, 6, 4);
+    SetLength(Faces, D.Live);
+    for I := 0 to D.Live - 1 do Faces[I] := I;
+
+    P := Unfold(D, Faces);
+    Ok(P.Ok, 'a box can be laid out at all');
+    Ok(P.Laid = 6, 'all six panels were laid out');
+
+    { no metal made or lost }
+    Area := 0;
+    for I := 0 to High(P.Faces) do
+    begin
+      EL := 0;
+      for J := 0 to High(P.Faces[I].P) do
+      begin
+        K := (J + 1) mod Length(P.Faces[I].P);
+        EL := EL + P.Faces[I].P[J].X * P.Faces[I].P[K].Y -
+                   P.Faces[I].P[K].X * P.Faces[I].P[J].Y;
+      end;
+      Area := Area + Abs(EL) / 2;
+    end;
+    Want := 2 * (10 * 6) + 2 * (10 * 4) + 2 * (6 * 4);
+    Ok(Abs(Area - Want) < 1E-6,
+       Format('the pattern is the same area as the box (%.1f vs %.1f)',
+              [Area, Want]));
+
+    Bends := 0; Cuts := 0;
+    for I := 0 to High(P.Edges) do
+      if P.Edges[I].Kind = fkBend then Inc(Bends) else Inc(Cuts);
+    Ok(Bends = 5, Format('five folds join the six panels (%d)', [Bends]));
+    Ok(Cuts = 7, Format('and the other seven edges are cut (%d)', [Cuts]));
+    Ok(not P.Overlaps, 'the pattern does not fold back over itself');
+
+    { every bend on a box turns a right angle }
+    for I := 0 to High(P.Edges) do
+      if P.Edges[I].Kind = fkBend then
+        if Abs(Abs(P.Edges[I].Angle) - Pi / 2) > 1E-6 then
+        begin
+          Ok(False, 'a bend on a box is ninety degrees');
+          Break;
+        end;
+    Ok(True, 'every bend on a box is ninety degrees');
+
+    { the sheet it needs is at least as big as the biggest face }
+    Ok((P.MaxX - P.MinX) >= 10 - 1E-9, 'the sheet is wide enough for it');
+    Ok((P.MaxY - P.MinY) >= 4 - 1E-9, 'and tall enough');
+  finally
+    D.Free;
+  end;
+
+  { A transition: 24x12 down to 18x10 over 18 inches, flat on top and one
+    side, which is how one gets called out on a ticket.  Four trapezoids, no
+    two of them alike, and it has to come out as one piece with three folds
+    and no overlap - which is the whole job. }
+  D := TWorkDoc.Create;
+  try
+    Trans(24/12, 12/12, 18/12, 10/12, 18/12);
+    SetLength(Faces, D.Live);
+    for I := 0 to D.Live - 1 do Faces[I] := I;
+    P := Unfold(D, Faces);
+    Ok(P.Ok and (P.Laid = 4), Format('a transition lays out in one piece (%d of %d)',
+       [P.Laid, P.Total]));
+    Bends := 0; Cuts := 0;
+    for I := 0 to High(P.Edges) do
+      if P.Edges[I].Kind = fkBend then Inc(Bends) else Inc(Cuts);
+    Ok(Bends = 3, Format('three folds and one seam (%d folds)', [Bends]));
+    Ok(not P.Overlaps, 'and it does not fold back over itself');
+    Area := 0;
+    for I := 0 to High(P.Faces) do
+    begin
+      EL := 0;
+      for J := 0 to High(P.Faces[I].P) do
+      begin
+        K := (J + 1) mod Length(P.Faces[I].P);
+        EL := EL + P.Faces[I].P[J].X * P.Faces[I].P[K].Y -
+                   P.Faces[I].P[K].X * P.Faces[I].P[J].Y;
+      end;
+      Area := Area + Abs(EL) / 2;
+    end;
+    Want := 0;
+    for I := 0 to D.Live - 1 do Want := Want + D.FaceArea(I);
+    Ok(Abs(Area - Want) < 1E-9,
+       Format('the sheet is the same area as the four sides (%.4f vs %.4f)',
+              [Area, Want]));
+  finally
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -1509,7 +1656,8 @@ begin
   TestPushAfterOffset; WriteLn;
   TestDimNote;      WriteLn;
   TestNotes;        WriteLn;
-  TestVersions;     WriteLn;
+  TestVersions;
+  TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
