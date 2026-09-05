@@ -462,6 +462,13 @@ const
   { SketchUp's default front material, near enough.  Faces start here and
     take only a hint of the pen color. }
   FACE_MATERIAL: TPix = (B: $F6; G: $FA; R: $FA; A: 255);
+  { The back of a face, in SketchUp's pale blue.  A face has a front and a
+    back, and which you are looking at is not otherwise visible - so a solid
+    built inside out looks perfectly ordinary until something behaves oddly
+    much later.  Colouring the back is how that is caught on sight, and it is
+    why their models read better than a drawing where every face is the same
+    white. }
+  FACE_BACK: TPix = (B: $DC; G: $C4; R: $A8; A: 255);
   { how finely a line lying on a face is chopped up when working out which
     stretches of it are hidden }
   LINE_STEPS = 32;
@@ -4055,7 +4062,18 @@ begin
       Top, front and side now land near 1.0, 0.90 and 0.80 of the material -
       close to SketchUp's own default style. }
     Sh := Min(1, 0.62 + 0.50 * Abs(Dot3(Nm, Lamp)));
-    S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
+    { Which side of it are we looking at?  The back of a face gets its own
+      colour rather than the material.  A closed solid never shows one - its
+      backs are culled - so this only ever appears on loose geometry, which is
+      exactly where being inside out matters and cannot otherwise be seen.
+
+      The sense of the test is the one FaceUnder already uses to decide what
+      can be clicked: a face turned towards the camera has a positive dot with
+      the view direction. }
+    if Dot3(Nm, ViewDir(V)) < 0 then
+      S.FillPoly(Flat, ShadePix(FACE_BACK, Sh), 1.0)
+    else
+      S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
     { No outline.  Every boundary of a face is a real edge and gets drawn as
       one, so stroking the polygon as well laid a second line over the first -
       which is most of why the edges of a solid looked heavier than the lines

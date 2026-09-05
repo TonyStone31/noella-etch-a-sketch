@@ -524,6 +524,7 @@ type
     procedure SelectInBox(X0, Y0, X1, Y1: Integer; Crossing, Add: Boolean);
     procedure DeleteSelection;
     function MoveDelta: TP3;
+    function RunReading(const A, B: TP3): string;
     procedure PaintMoveGhost(C: TCanvas);
     function IsDoomed(I: Integer): Boolean;
     procedure BurnDoomed;
@@ -5010,6 +5011,9 @@ begin
       if FStage >= 1 then
       begin
         if FStage = 1 then Rubber(FP1, FCur) else Rubber(FP1, FP2);
+        { the whole reading follows the cursor, angles and all, so a run can
+          be checked for level without letting go of it }
+        if FStage = 1 then FCmdMsg := RunReading(FP1, FCur);
         { the running length beside the cursor, far enough off it to read
           while you are dragging - a tape you have to look away from to read
           is no use for a quick check }
@@ -6066,11 +6070,7 @@ begin
         FP2 := FCur;
         FStage := 2;
         LayGuide;
-        FCmdMsg := Format('%s   (dX %s  dY %s  dZ %s)',
-          [FormatLen(Dist(FP1, FP2), FD.Units),
-           FormatLen(Abs(FP2.X - FP1.X), FD.Units),
-           FormatLen(Abs(FP2.Y - FP1.Y), FD.Units),
-           FormatLen(Abs(FP2.Z - FP1.Z), FD.Units)]);
+        FCmdMsg := RunReading(FP1, FP2);
       end
       else
       begin
@@ -6333,6 +6333,50 @@ begin
   pbDeck.Invalidate;
   FLastStatus := 0;
   InvalidateStatus;
+end;
+
+{ What a run measures, in the terms the trade uses.
+
+  Length and the three components were already there.  The two angles are the
+  ones a fitter needs and neither can be read off the components in the head:
+
+  * the **fall** - how far off horizontal the run is.  Nought is dead level,
+    ninety is a riser.  This is the one that says whether a run is truly
+    level, and reading 44.98 rather than 45 is the difference between a
+    fitting that goes in and one that comes back.
+  * the **swing** - which way it heads in plan, measured round from the red
+    axis.  For a rolling offset the two together are the whole description.
+
+  Both to two decimals, because 45 and 22.5 are the numbers the trade is cut
+  to and rounding to the nearest degree hides exactly the error worth seeing. }
+function TMainForm.RunReading(const A, B: TP3): string;
+var
+  DX, DY, DZ, Flat, Fall, Swing: Double;
+begin
+  DX := B.X - A.X;
+  DY := B.Y - A.Y;
+  DZ := B.Z - A.Z;
+  Result := Format('%s   (dX %s  dY %s  dZ %s)',
+    [FormatLen(Dist(A, B), FD.Units), FormatLen(Abs(DX), FD.Units),
+     FormatLen(Abs(DY), FD.Units), FormatLen(Abs(DZ), FD.Units)]);
+
+  Flat := Sqrt(DX * DX + DY * DY);
+  if (Flat < 1E-9) and (Abs(DZ) < 1E-9) then Exit;
+
+  if Flat < 1E-9 then
+    Result := Result + '   straight up'
+  else
+  begin
+    Fall := RadToDeg(ArcTan2(DZ, Flat));
+    Swing := RadToDeg(ArcTan2(DY, DX));
+    if Swing < 0 then Swing := Swing + 360;
+    if Abs(Fall) < 1E-4 then
+      Result := Result + '   level'
+    else
+      Result := Result + Format('   %.2f' + #176 + ' off level',
+        [Abs(Fall)]);
+    Result := Result + Format(',  %.2f' + #176 + ' round', [Swing]);
+  end;
 end;
 
 { A handful of typed words, so the command bar is useful and not decorative. }
