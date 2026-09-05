@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold, uFlatView;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold, uFlatView, uShotView;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -292,6 +292,14 @@ type
     FPushFlush: Boolean;
     { waiting for a click to say which piece to lay out }
     FUnfoldPick: Boolean;
+    { Taking the picture for a report.  FShotCount is the seconds left and is
+      drawn on the canvas; FShotFlash whites the screen for a moment at the
+      instant it is taken; FShotBusy keeps a second capture from starting
+      inside the first, because the countdown deliberately leaves the program
+      usable and the help menu is one of the things it leaves usable. }
+    FShotCount: Integer;
+    FShotFlash: Boolean;
+    FShotBusy: Boolean;
     { what the settings row was last built believing, so the guide buttons
       appear and vanish however the count changed - laid, cleared, erased,
       undone }
@@ -482,6 +490,10 @@ type
     procedure OfferCrashReport;
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
+    function WindowShot(out B: TBitmap): Boolean;
+    function TakeReportShot(St: TStream): Boolean;
+    procedure ShotCountdown(Seconds: Integer);
+    procedure PaintShotOverlay(C: TCanvas);
     function ReportBug(const Preamble: string = '';
       const ShotFile: string = ''; const DocFile: string = ''): Boolean;
     { Note something worth knowing if this run ends badly. }
@@ -4308,6 +4320,223 @@ end;
   for finding a fault - it is what found the last one - but it is also
   somebody's work, possibly with a customer's name on it, and it does not
   leave the machine without being asked for. }
+{ --- the picture that goes with a report --------------------------------
+
+  It used to be the drawing surface on its own, taken the moment the person
+  finished typing their description.  That is the wrong picture twice over.
+  It leaves out the tool row, the settings and the command bar, which is
+  where a good deal of what goes wrong actually shows - "the eraser was
+  selected and the snap was off" is in the window, not in the drawing.  And
+  it is taken at the one moment the fault is guaranteed not to be on screen,
+  because they had to stop and open a form to describe it.
+
+  So the whole window, and not until they say the screen looks the way it did
+  when it went wrong.  The countdown is what gives them their hands back:
+  ten seconds is enough to pick a tool, open a menu, and get the thing back
+  in front of them.  The flash is what a camera does, and it is there for the
+  same reason - so there is no doubt afterwards about which moment was
+  taken. }
+
+{ The window as it stands.  The caller owns what comes back.
+
+  Handed over as a bitmap rather than as PNG bytes because the next thing
+  that happens to it is being shown to somebody, and a picture that has been
+  encoded has to be decoded again to be looked at.  Going through PNG in
+  between is how the first version of this managed to hand a PNG to
+  TBitmap.LoadFromStream, which reads BMP, and take the program down inside
+  the bug reporter. }
+function TMainForm.WindowShot(out B: TBitmap): Boolean;
+begin
+  B := GetFormImage;
+  Result := (B <> nil) and (B.Width >= 8) and (B.Height >= 8);
+  if not Result then
+  begin
+    B.Free;
+    B := nil;
+  end;
+end;
+
+{ Ten down to one, with the program still usable throughout.
+
+  Deliberately not a dialog.  The whole point is that they can work the
+  program while it runs - pick the tool, open the menu, put the drawing back
+  the way it was - and a modal box would be the one thing that stopped them.
+  So the wait is spent pumping messages rather than blocking, and the number
+  is painted on the canvas by the ordinary paint path. }
+procedure TMainForm.ShotCountdown(Seconds: Integer);
+var
+  Until_: QWord;
+begin
+  FShotCount := Seconds;
+  while FShotCount > 0 do
+  begin
+    FCmdMsg := Format(
+      'Set the screen up the way it went wrong - picture in %d.', [FShotCount]);
+    FScreenDirty := True;
+    pbScreen.Invalidate;
+    pbCmd.Invalidate;
+    Until_ := GetTickCount64 + 1000;
+    while GetTickCount64 < Until_ do
+    begin
+      Application.ProcessMessages;
+      if Application.Terminated then
+      begin
+        FShotCount := 0;
+        Exit;
+      end;
+      Sleep(15);
+    end;
+    Dec(FShotCount);
+  end;
+end;
+
+{ The countdown number, and the flash. }
+procedure TMainForm.PaintShotOverlay(C: TCanvas);
+var
+  R: TRect;
+  S: string;
+  Sz: TSize;
+  Pad: Integer;
+begin
+  if FShotFlash then
+  begin
+    C.Brush.Style := bsSolid;
+    C.Brush.Color := clWhite;
+    C.FillRect(0, 0, pbScreen.Width, pbScreen.Height);
+    Exit;
+  end;
+  if FShotCount <= 0 then Exit;
+
+  Pad := Round(14 * FUIScale);
+  C.Font.Name := 'Sans';
+  C.Font.Size := Round(30 * FUIScale);
+  C.Font.Style := [fsBold];
+  S := IntToStr(FShotCount);
+  Sz := C.TextExtent(S);
+
+  R := Rect(pbScreen.Width - Sz.cx - Pad * 3, Pad,
+            pbScreen.Width - Pad, Pad * 2 + Sz.cy);
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := $001A1A1A;
+  C.Pen.Color := $0060C0FF;
+  C.Pen.Width := Max(1, Round(2 * FUIScale));
+  C.RoundRect(R.Left, R.Top, R.Right, R.Bottom, Pad, Pad);
+
+  C.Brush.Style := bsClear;
+  C.Font.Color := $00FFFFFF;
+  C.TextOut(R.Left + (R.Right - R.Left - Sz.cx) div 2,
+            R.Top + (R.Bottom - R.Top - Sz.cy) div 2, S);
+
+  C.Font.Size := Round(9 * FUIScale);
+  C.Font.Style := [];
+  C.Font.Color := $00D0D0D0;
+  S := 'set the screen up - picture in';
+  Sz := C.TextExtent(S);
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := $001A1A1A;
+  C.TextOut(R.Left - Sz.cx - Pad, R.Top + (R.Bottom - R.Top - Sz.cy) div 2, S);
+end;
+
+{ Ask, count down, take it, show them, and take it again for as long as they
+  want it taken again.  True when there is a picture in St to send. }
+function TMainForm.TakeReportShot(St: TStream): Boolean;
+var
+  B: TBitmap;
+  Png: TPortableNetworkGraphic;
+  Wait: Boolean;
+  V: TShotVerdict;
+  WasMsg: string;
+begin
+  Result := False;
+  if FShotBusy then Exit;
+  FShotBusy := True;
+  WasMsg := FCmdMsg;
+  try
+    Wait := MessageDlg('Set the picture up first?',
+      'The picture is of this whole window, so it can show which tool was ' +
+      'in hand and what the settings were.'#13#10#13#10 +
+      'Say yes and you get ten seconds to put the screen back the way it ' +
+      'was - pick the tool, open the menu, whatever it takes. The screen ' +
+      'flashes when the picture is taken, and you get to look at it before ' +
+      'anything is sent.'#13#10#13#10 +
+      'Say no to take it as it is now.',
+      mtConfirmation, [mbYes, mbNo], 0) = mrYes;
+
+    repeat
+      Application.ProcessMessages;
+      if Wait then
+      begin
+        FCmdMsg := 'Setting up the picture - it is taken when this reaches zero.';
+        ShotCountdown(10);
+        if Application.Terminated then Exit;
+      end;
+
+      { Nothing about the taking of the picture may be in the picture.  The
+        number goes, and so does the line in the command bar that was
+        counting it down - that bar is one of the most useful things in the
+        shot and it should say what it would have said. }
+      FShotCount := 0;
+      FShotFlash := False;
+      FCmdMsg := WasMsg;
+      FScreenDirty := True;
+      pbScreen.Invalidate;
+      pbCmd.Invalidate;
+      Application.ProcessMessages;
+
+      St.Size := 0;
+      if not WindowShot(B) then
+      begin
+        FCmdMsg := 'The picture could not be taken - sending without one.';
+        Exit;
+      end;
+
+      { and the flash after it, not before }
+      FShotFlash := True;
+      pbScreen.Invalidate;
+      Application.ProcessMessages;
+      Sleep(110);
+      FShotFlash := False;
+      FScreenDirty := True;
+      pbScreen.Invalidate;
+      Application.ProcessMessages;
+
+      try
+        V := ConfirmShot(B);
+        { encoded only once it is wanted - the picture nobody keeps costs
+          nothing }
+        if V = svUse then
+        begin
+          Png := TPortableNetworkGraphic.Create;
+          try
+            Png.Assign(B);
+            Png.SaveToStream(St);
+          finally
+            Png.Free;
+          end;
+        end;
+      finally
+        FreeAndNil(B);
+      end;
+
+      { They have seen it and want it done again.  Second time round they get
+        the countdown whether or not they took it the first time - asking for
+        another go almost always means the first one caught the wrong moment. }
+      if V = svRetry then Wait := True;
+    until V <> svRetry;
+
+    Result := (V = svUse) and (St.Size > 0);
+    if not Result then St.Size := 0;
+  finally
+    FShotBusy := False;
+    FShotCount := 0;
+    FShotFlash := False;
+    FCmdMsg := WasMsg;
+    FScreenDirty := True;
+    pbScreen.Invalidate;
+    pbCmd.Invalidate;
+  end;
+end;
+
 function TMainForm.ReportBug(const Preamble, ShotFile, DocFile: string): Boolean;
 var
   Dlg: TForm;
@@ -4458,15 +4687,35 @@ begin
     would rather not send a picture of. }
   Application.ProcessMessages;
   WantShot := MessageDlg('Include a picture?',
-    'A picture of your drawing area helps enormously - it usually shows in ' +
-    'one glance what a page of description cannot.'#13#10#13#10 +
-    'It is taken by the program from what it has already drawn, so it is ' +
-    'only this window: nothing else on your screen is in it.'#13#10#13#10 +
+    'A picture of this window helps enormously - it usually shows in ' +
+    'one glance what a page of description cannot, including which tool was ' +
+    'in hand and what the settings were.'#13#10#13#10 +
+    'It is taken by the program from its own window, so nothing else on ' +
+    'your screen is in it, and you get to look at it before it goes.'#13#10#13#10 +
     'Working on something you would rather not send?  Say no - the report ' +
     'still goes, and it is still useful.',
     mtConfirmation, [mbYes, mbNo], 0) = mrYes;
 
-  FCmdMsg := 'Sending...';
+  { Taken now, before the report is sent, because taking it needs the window
+    to itself and the person reporting has to be able to look at it and say
+    no.  A crash brings its own picture, from when it happened - a fresh one
+    then would only show whatever is on screen after the restart. }
+  Shot := TMemoryStream.Create;
+  try
+    if (ShotFile <> '') and FileExists(ShotFile) then
+    begin
+      if WantShot then
+        try
+          Shot.LoadFromFile(ShotFile);
+        except
+          Shot.Size := 0;
+        end;
+    end
+    else if WantShot then
+      WantShot := TakeReportShot(Shot);
+    if Shot.Size = 0 then WantShot := False;
+
+    FCmdMsg := 'Sending...';
   pbCmd.Invalidate;
   Application.ProcessMessages;
   if SendReport(Name_, Body, Err) then
@@ -4477,28 +4726,15 @@ begin
       so the two are obviously a pair.  If it will not go, the report has
       already gone and that is the part that mattered. }
     if WantShot then
-    begin
-      Shot := TMemoryStream.Create;
       try
-        try
-          { For a crash, the picture that matters was taken when it
-            happened; a fresh one now would only show whatever is on screen
-            after a restart, which is nothing to do with it. }
-          if (ShotFile <> '') and FileExists(ShotFile) then
-            Shot.LoadFromFile(ShotFile)
-          else
-            FArt.SaveToPNGStream(Shot);
-          if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
-               ShotErr) then
-            FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
-        except
-          on Ex: Exception do
-            FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
-        end;
-      finally
-        Shot.Free;
+        Shot.Position := 0;
+        if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
+             ShotErr) then
+          FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
+      except
+        on Ex: Exception do
+          FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
       end;
-    end;
   end
   else
   begin
@@ -4507,7 +4743,10 @@ begin
       'The report did not go: ' + Err + LineEnding + LineEnding +
       'Nothing is lost and nothing is broken - it just did not send.  ' +
       'The help button has the project page if you would rather say it ' +
-      'there.', mtInformation, [mbOK], 0);
+        'there.', mtInformation, [mbOK], 0);
+    end;
+  finally
+    Shot.Free;
   end;
   pbCmd.Invalidate;
 end;
@@ -5446,6 +5685,9 @@ begin
   if FPopup <> POP_NONE then
   begin
     PaintPopup(pbScreen.Canvas);
+    { and whatever else belongs on top of everything - a list being open is
+      no reason for the shutter countdown to disappear, and it did }
+    PaintShotOverlay(pbScreen.Canvas);
     Exit;
   end;
 
@@ -5510,6 +5752,7 @@ begin
       SY - CR - Round(2 * FUIScale));
 
   PaintPopup(pbScreen.Canvas);
+  PaintShotOverlay(pbScreen.Canvas);
 end;
 
 { ======================================================================== }
@@ -6733,13 +6976,43 @@ end;
 procedure TMainForm.pbScreenMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
-  I: Integer;
+  I, Which: Integer;
 begin
   { a press supersedes whatever motion has not been serviced yet }
   FMoveX := X;
   FMoveY := Y;
   FMovePending := False;
   FMoveShift := Shift;
+
+  { An open list has the canvas, and has it before anything else does.
+
+    A list is drawn over the drawing, so a press on one of its rows arrives
+    here as a press on the drawing, and whichever branch below claimed it
+    first got it.  The orbit tool claims a plain left press so that laptops
+    without a middle button can still spin the model - and it claimed it
+    ahead of this, so with orbit in hand every row of the help list started
+    an orbit instead: About, the manual, report a problem, none of them could
+    be clicked at all.  Middle and right did the same.
+
+    The rule is the one the motion handler already follows - while a list is
+    open the canvas is not the canvas - and it belongs at the top where no
+    tool can get in front of it.  Any button dismisses the list; only a left
+    press on a row chooses it, so a right-click to get out cannot pick
+    something on the way. }
+  if FPopup <> POP_NONE then
+  begin
+    Which := FPopup;
+    I := -1;
+    if Button = mbLeft then I := PopupItemAt(X, Y);
+    { Shut before acting, not after.  Some of these rows put a panel up and
+      do not return until it is dismissed, and the list was still open the
+      whole time it was showing - so About came up with the help menu still
+      painted over the corner of it.  A list has done its job the moment a
+      row is picked. }
+    ClosePopup;
+    if I >= 0 then PopupChoose(Which, I);
+    Exit;
+  end;
 
   { Laptops without a middle button need a way in, so the tool turns a plain
     left drag into the same thing. }
@@ -6792,14 +7065,6 @@ begin
 
   { a click on the drawing dismisses an open list, and is taken by it if it
     landed on one of the rows }
-  if FPopup <> POP_NONE then
-  begin
-    I := PopupItemAt(X, Y);
-    if I >= 0 then PopupChoose(FPopup, I);
-    ClosePopup;
-    Exit;
-  end;
-
   if FMode = mdPro then
   begin
     FMouseSX := X;
@@ -9935,7 +10200,7 @@ end;
 function TMainForm.LoadDocument(const FileName: string): Boolean;
 var
   L, CamT: TStringList;
-  I, Idx, NSheet: Integer;
+  I, Idx, NSheet, Head: Integer;
   CamV, CamZ: Double;
   Line, Key, Rest: string;
   D: TDrawing;
@@ -9964,7 +10229,27 @@ begin
       end;
     end;
 
-    if (L.Count = 0) or (Copy(Trim(L[0]), 1, Length(DOC_MAGIC)) <> DOC_MAGIC) then
+    { The magic line, which is not always the first line.
+
+      A draft saved from a file that had a name is written with a '# from
+      <path>' comment on top, so the restore can say what it was.  The magic
+      was then looked for on line zero, found a comment, and declared the
+      file not to be a drawing - so opening a named file, letting it save a
+      draft and starting again told you your own work was not a drawing and
+      dropped it.  Only named files had the comment, which is why an
+      unsaved sketch always came back and a saved one did not.
+
+      Skipping comments and blank lines here rather than teaching the draft
+      writer not to write them: a leading comment is a reasonable thing for a
+      text format to carry, and a reader that trips over one is the thing
+      that is wrong. }
+    Head := 0;
+    while (Head < L.Count) and
+          ((Trim(L[Head]) = '') or (Copy(Trim(L[Head]), 1, 1) = '#')) do
+      Inc(Head);
+
+    if (Head >= L.Count) or
+       (Copy(Trim(L[Head]), 1, Length(DOC_MAGIC)) <> DOC_MAGIC) then
     begin
       MessageDlg('Could not open',
         'That does not look like a Heckers Sketch drawing.', mtError, [mbOK], 0);
@@ -9977,12 +10262,12 @@ begin
     SetLength(FDrawings, 0);
     NSheet := 0;
 
-    Idx := 1;
+    Idx := Head + 1;
     while Idx < L.Count do
     begin
       Line := Trim(L[Idx]);
       Inc(Idx);
-      if Line = '' then Continue;
+      if (Line = '') or (Copy(Line, 1, 1) = '#') then Continue;
       I := Pos(' ', Line);
       if I > 0 then
       begin
