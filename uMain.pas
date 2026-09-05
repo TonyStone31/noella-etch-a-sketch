@@ -6713,6 +6713,17 @@ begin
           FCmdMsg := 'No face there.  Close a loop of lines to make one.'
         else
         begin
+          { Offsetting is working on one face, so the cursor belongs to that
+            face's plane until it is done.
+
+            Without this the inferences are free to take it somewhere else -
+            the model axes are infinite lines and the green one runs right
+            through most drawings, so the cursor locked to it and went twenty
+            feet below the square being offset.  The face was still the right
+            face; the point being measured from it was in another county. }
+          FFacePt := FD.Doc[FOffFace].Poly[0];
+          FFaceNm := Norm3(FD.Doc.FaceNormal(FOffFace));
+          FPlaneFromFace := True;
           FStage := 1;
           FInput := '';
           FCmdMsg := 'Move in or out, or type a wall thickness.';
