@@ -198,12 +198,11 @@ var
   Edges: array of TEdgeRef;
   NP, NV, NE: Integer;
   Order, Parent: TIntArray;
-  I, J, K, M, F, Head, Tail, T, O, E, Ai, Bi: Integer;
+  I, J, K, F, Head, Tail, T, O, E, Ai, Bi: Integer;
   U, V, Nm, D3: TP3;
   Poly: TP3Array;
   Dot, Ang, Sx, Sy, Cs, Sn, LenL, LenP: Double;
   PA, PB, LA, LB, Inside: TFlatPt;
-  Flip: Boolean;
 
   function WeldVertex(const Q: TP3): Integer;
   var

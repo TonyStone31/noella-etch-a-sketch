@@ -1060,7 +1060,7 @@ var
   Hit: TSnapHit;
   Pts: TP3Array;
   I, BestAxis: Integer;
-  Tol, D, Best: Double;
+  Tol, Best: Double;
   W, Wf, AxRef, AxPt, EdgeP, AxSnapP: TP3;
   SP: TPointF;
   PtOK: Boolean;
@@ -2247,7 +2247,6 @@ end;
 procedure TMainForm.EditDimUnder(X, Y: Integer);
 var
   I: Integer;
-  Was, Now_: string;
 begin
   if FMode <> mdPro then Exit;
   I := FD.Doc.HitTest(Proj, X, Y, 10 * FUIScale);
@@ -2996,8 +2995,8 @@ end;
 procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
-  Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N, G, GX, GrpGap: Integer;
-  HalfW, SnapX, RightW6, GrpX, NSet: Integer;
+  Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, G, GX, GrpGap: Integer;
+  RightW6, GrpX, NSet: Integer;
   Blank: TPix;
 
   procedure Add(K: TDeckKind; const B: TRect; G, V: Integer;
@@ -4396,7 +4395,6 @@ var
   Info: TUpdateInfo;
   Err, Last: string;
   Ini: TIniFile;
-  Today: string;
 begin
   if not Loud then
   begin
@@ -6480,7 +6478,6 @@ var
   I, J: Integer;
   P: TPointF;
   WasLine: Boolean;
-  EA, EB: TP3;
 begin
   case FTool of
     ptOrbit: ;   // the drag does the work
@@ -6542,8 +6539,6 @@ begin
           { a line between two regions was holding them apart, so taking it
             away should leave one region rather than two that happen to touch }
           WasLine := FD.Doc[I].Kind in [ekLine, ekArc];
-          EA := FD.Doc[I].A;
-          EB := FD.Doc[I].B;
           FD.Doc.Delete(I);
           { taking a line away can join two areas into one, or leave a shape
             that no longer closes - both fall out of working the faces out
@@ -6864,7 +6859,7 @@ var
   T, C: TP3;
   Loop: TP3Array;
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
-  Segs, K: Integer;
+  K: Integer;
   Ok: Boolean;
 begin
   Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
@@ -10956,7 +10951,6 @@ end;
 procedure TMainForm.DoSave;
 var
   L: TStringList;
-  I: Integer;
 begin
   if FMode <> mdPro then
   begin

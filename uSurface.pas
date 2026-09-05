@@ -768,7 +768,7 @@ end;
 procedure TArtSurface.RoundFrame(const R: TRect; Radius, LineW: Single; const C: TPix;
   Alpha: Single);
 var
-  X, Y, Pad, Band: Integer;
+  Y, Pad, Band: Integer;
   CX, CY, HX, HY: Single;
   Cl: TRect;
 

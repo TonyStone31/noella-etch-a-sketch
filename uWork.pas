@@ -2475,7 +2475,6 @@ var
     J, M: Integer;
     Inside: Boolean;
     PU, PV, AU, AV, BU2, BV2, DU, DV, L2, T: Double;
-    Q: TP3;
 
     procedure Flat(const R: TP3; out CU, CV: Double);
     var
@@ -2522,7 +2521,6 @@ var
       AV := BV2;
     end;
     Result := Inside;
-    if Result then Q := P;      { keeps the compiler quiet about Q }
   end;
 
   procedure Shift(var P: TP3);
@@ -3581,8 +3579,8 @@ end;
 
 function TWorkDoc.HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
-  I, K, H, Steps: Integer;
-  D, Best, Ang: Double;
+  I: Integer;
+  D: Double;
   PA, PB: TPointF;
   DG: TDimGeom;
 begin
@@ -3622,9 +3620,9 @@ begin
         pickable wherever they are. }
       if FEnts[I].Kind in [ekLine, ekArc] then
       begin
-        PA := Project(V, FEnts[I].A);
-        PB := Project(V, FEnts[I].B);
-        Ang := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+        { the distance was worked out above; it was being worked out again
+          here into a variable nothing read, on every entity of every hit
+          test - which is every time the mouse moves }
         if HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.5)) and
            HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.25)) and
            HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.75)) then
@@ -4145,7 +4143,6 @@ var
   GuideCol: TPix;
   M, Run0: Integer;
   T0, T1: Double;
-  QA, QB: TP3;
   Vis: Boolean;
 
   { Is this model point hidden by a face drawn after the one at Slot?  Later

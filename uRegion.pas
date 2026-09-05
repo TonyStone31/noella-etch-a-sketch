@@ -816,10 +816,9 @@ var
   end;
 
 var
-  I, J, K, E, PI2, Count: Integer;
+  I, J, K, E, Count: Integer;
   Dir1, Dir2: TP3;
   Mid: TP3;
-  Inner: Boolean;
   AtVert: array of TIntArray;
   LoopArea_: array of Double;
   LoopPart: TIntArray;
