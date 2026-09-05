@@ -631,6 +631,8 @@ type
     function InPalette(C: TColor): Boolean;
 
     function StatusLine: string;
+    procedure WashFace(C: TCanvas; const Poly: TPointFArray;
+      const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
 
     procedure BuildSession(L: TStrings);
@@ -4880,6 +4882,30 @@ begin
   C.Pen.Width := 1;
 end;
 
+{ Wash a face in a colour without hiding what is on it.
+
+  A solid fill over a panel would cover the lines and the notes that live on
+  it, which is the opposite of helpful when the question being asked is "am I
+  about to delete the right thing".  A diagonal hatch reads as marked out
+  from across the room and leaves the drawing legible underneath. }
+procedure TMainForm.WashFace(C: TCanvas; const Poly: TPointFArray;
+  const Col: TPix);
+var
+  Pts: array of TPoint;
+  I: Integer;
+begin
+  if Length(Poly) < 3 then Exit;
+  SetLength(Pts, Length(Poly));
+  for I := 0 to High(Poly) do
+    Pts[I] := Point(Round(Poly[I].X), Round(Poly[I].Y));
+  C.Brush.Style := bsDiagCross;
+  C.Brush.Color := PixToColor(Col);
+  C.Pen.Style := psClear;
+  C.Polygon(Pts);
+  C.Brush.Style := bsClear;
+  C.Pen.Style := psSolid;
+end;
+
 procedure TMainForm.PaintProOverlay(C: TCanvas);
 var
   HintFace: Integer;
@@ -5150,6 +5176,8 @@ begin
   for AY := 0 to High(FDoomed) do
   begin
     Hi := FD.Doc.Outline(Proj, FDoomed[AY]);
+    if (Length(Hi) >= 3) and (FD.Doc[FDoomed[AY]].Kind = ekFace) then
+      WashFace(C, Hi, Pix(240, 60, 60));
     if Length(Hi) >= 2 then
     begin
       C.Pen.Color := PixToColor(Pix(240, 60, 60));
@@ -5165,6 +5193,10 @@ begin
   if (FTool = ptErase) and (FHoverEnt >= 0) and not FErasing2 then
   begin
     Hi := FD.Doc.Outline(Proj, FHoverEnt);
+    { A whole panel is a lot to lose to a click, so when the eraser has locked
+      onto one it says so across the face rather than round its edge. }
+    if (Length(Hi) >= 3) and (FD.Doc[FHoverEnt].Kind = ekFace) then
+      WashFace(C, Hi, Pix(230, 70, 70));
     if Length(Hi) >= 2 then
     begin
       C.Pen.Color := PixToColor(Pix(230, 70, 70));
@@ -7197,7 +7229,18 @@ begin
     end;
 
     if FTool = ptErase then
-      FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale)
+    begin
+      { The same order the click uses, so what lights up is what goes.  It
+        used to hover by HitTest alone, which cannot find the inside of a
+        face - so sweeping across a panel showed nothing and then deleted it
+        anyway, which is the wrong way round for a tool that destroys things. }
+      FHoverEnt := FD.Doc.HitNote(X, Y);
+      if FHoverEnt < 0 then
+        FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
+      if FHoverEnt < 0 then FHoverEnt := FD.Doc.HitFace(Proj, X, Y);
+      if FHoverEnt < 0 then
+        FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale);
+    end
     else if (FTool = ptSelect) and not FBoxing then
       FHoverEnt := PickAt(X, Y)
     else if (FTool = ptDim) and (FStage = 0) then
