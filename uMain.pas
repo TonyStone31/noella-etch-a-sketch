@@ -493,7 +493,7 @@ type
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
     function WindowShot(out B: TBitmap): Boolean;
-    function TakeReportShot(St: TStream): Boolean;
+    function TakeReportShot(St: TStream; Wait: Boolean): Boolean;
     procedure ShotCountdown(Seconds: Integer);
     procedure PaintShotOverlay(C: TCanvas);
     function ReportBug(const Preamble: string = '';
@@ -3960,7 +3960,11 @@ end;
 
 function TMainForm.SnapLabel: string;
 const
-  AXIS_LABEL: array[0..2] of string = ('ON X', 'ON Y', 'ON Z');
+  { Named by color, like everything else about the axes.  It said ON X while
+    the inference beside it said ON RED AXIS, which is two names for one
+    thing in the same corner of the screen. }
+  AXIS_LABEL: array[0..2] of string =
+    ('LOCKED TO RED', 'LOCKED TO GREEN', 'LOCKED TO BLUE');
 begin
   if FAxisLock in [0..2] then Exit(AXIS_LABEL[FAxisLock]);
   case FSnapKind of
@@ -4470,11 +4474,10 @@ end;
 
 { Ask, count down, take it, show them, and take it again for as long as they
   want it taken again.  True when there is a picture in St to send. }
-function TMainForm.TakeReportShot(St: TStream): Boolean;
+function TMainForm.TakeReportShot(St: TStream; Wait: Boolean): Boolean;
 var
   B: TBitmap;
   Png: TPortableNetworkGraphic;
-  Wait: Boolean;
   V: TShotVerdict;
   WasMsg: string;
 begin
@@ -4483,16 +4486,6 @@ begin
   FShotBusy := True;
   WasMsg := FCmdMsg;
   try
-    Wait := MessageDlg('Set the picture up first?',
-      'The picture is of this whole window, so it can show which tool was ' +
-      'in hand and what the settings were.'#13#10#13#10 +
-      'Say yes and you get ten seconds to put the screen back the way it ' +
-      'was - pick the tool, open the menu, whatever it takes. The screen ' +
-      'flashes when the picture is taken, and you get to look at it before ' +
-      'anything is sent.'#13#10#13#10 +
-      'Say no to take it as it is now.',
-      mtConfirmation, [mbYes, mbNo], 0) = mrYes;
-
     repeat
       Application.ProcessMessages;
       if Wait then
@@ -4577,6 +4570,7 @@ var
   BtnOK, BtnNo: TButton;
   Body, Name_, Err, Note, ShotErr: string;
   WantShot: Boolean;
+  ShotWay: Integer;
   Shot: TMemoryStream;
   L: TStringList;
 begin
@@ -4643,8 +4637,10 @@ begin
       Dlg.ClientWidth - Round(42 * FUIScale), Round(40 * FUIScale));
     Fine.WordWrap := True;
     Fine.AutoSize := False;
-    Fine.Caption := 'The surest way to find a fault - but it is your work, ' +
-      'so it is off unless you say otherwise.  A picture is asked about next.';
+    { It said "off unless you say otherwise" while sitting ticked, which is
+      the box contradicting the sentence under it. }
+    Fine.Caption := 'The surest way to find a fault.  Untick it if you would ' +
+      'rather not send your work.';
 
     BtnOK := TButton.Create(Dlg);
     BtnOK.Parent := Dlg;
@@ -4716,16 +4712,25 @@ begin
     the picture.  Encouraged, because a report with one is worth several
     without; never assumed, because somebody may be drawing something they
     would rather not send a picture of. }
+  { One question, and the buttons say what they do.
+
+    This was two - include a picture, then set it up first - each with three
+    paragraphs under a Yes and a No.  Two questions to answer one, and by the
+    second one neither Yes nor No obviously meant what it did.  Naming the
+    buttons says the whole thing without a paragraph explaining which word
+    means what, and folds the two into one.
+
+    There is no need to ask whether to keep it either: the picture is shown
+    before anything is sent, and dropping it is one of the buttons there. }
   Application.ProcessMessages;
-  WantShot := MessageDlg('Include a picture?',
-    'A picture of this window helps enormously - it usually shows in ' +
-    'one glance what a page of description cannot, including which tool was ' +
-    'in hand and what the settings were.'#13#10#13#10 +
-    'It is taken by the program from its own window, so nothing else on ' +
-    'your screen is in it, and you get to look at it before it goes.'#13#10#13#10 +
-    'Working on something you would rather not send?  Say no - the report ' +
-    'still goes, and it is still useful.',
-    mtConfirmation, [mbYes, mbNo], 0) = mrYes;
+  ShotWay := QuestionDlg('A picture?',
+    'A picture of this window shows which tool was in hand and what the ' +
+    'settings were.  You see it before it is sent.',
+    mtConfirmation,
+    [mrYes, 'Give me 10 seconds', 'IsDefault',
+     mrAll, 'Take it now',
+     mrNo,  'No picture'], 0);
+  WantShot := ShotWay in [mrYes, mrAll];
 
   { Taken now, before the report is sent, because taking it needs the window
     to itself and the person reporting has to be able to look at it and say
@@ -4743,7 +4748,7 @@ begin
         end;
     end
     else if WantShot then
-      WantShot := TakeReportShot(Shot);
+      WantShot := TakeReportShot(Shot, ShotWay = mrYes);
     if Shot.Size = 0 then WantShot := False;
 
     FCmdMsg := 'Sending...';
