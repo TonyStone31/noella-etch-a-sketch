@@ -4216,11 +4216,21 @@ begin
   for I := 0 to FLive - 1 do
     if (FEnts[I].Kind = ekFace) and (Length(FEnts[I].Poly) >= 3) then
     begin
-      { A solid hides its own back faces.  The test is the winding of the
-        projected outline rather than the world normal, because that cannot
-        disagree with whatever projection is in use.  A lone flat face is
-        double-sided and always drawn. }
-      if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
+      { Every face is drawn, and the depth buffer decides what shows.
+
+        A solid used to hide its own back faces by the sign of the normal.
+        On a closed box that gives the right answer, and it gives it for the
+        wrong reason: the far wall is not hidden because it faces away, it is
+        hidden because the near wall is in front of it.  The two only agree
+        while the box is closed.  Rub a face out to make a window and you
+        should see the inside of the far wall through the hole - and instead
+        the hole showed the background, because the far wall was still being
+        skipped for facing away.
+
+        The fill already tests depth per pixel, so this needs nothing in its
+        place: a fragment behind what is already drawn is dropped, whatever
+        order the faces came in.  What comes back is the inside of the solid,
+        in the back-face color, which is the whole reason that color exists. }
 
       Cen := P3(0, 0, 0);
       for K := 0 to High(FEnts[I].Poly) do

@@ -62,6 +62,20 @@ type
 
   { One pro-mode sheet.  Everything that belongs to a drawing rather than to
     the program lives here, so tabs are just a list of these. }
+  { Enough of a flat area to recognise it again at the next rebuild.
+
+    Plane and area rather than the corners, because the corners are not a
+    property of the shape: standing a post on a wall splits that wall's top
+    edge and gives it another corner without the wall having changed.  The
+    middle is carried too, so two identical windows in one wall are told
+    apart. }
+  TRegionSig = record
+    Nm: TP3;
+    D: Double;
+    Area: Double;
+    Mid: TP3;
+  end;
+
   TDrawing = class
     Doc: TWorkDoc;
     Name: string;
@@ -78,6 +92,14 @@ type
       sheet starts.  A drawing that remembers where it was looked at from
       must not then be framed over the top of it. }
     CamKnown: Boolean;
+    { The flat areas this sheet had at the last rebuild.
+
+      What it is for: an area that was there before and has no face now is one
+      whose face was rubbed out on purpose, and it must not be handed a new
+      one.  Without this, erasing a face put it straight back - the four edges
+      still closed a loop, the loop was still an area, and the area was still
+      given a face.  You could not make a window in anything. }
+    Seen: array of TRegionSig;
     Undo, Redo: array of TWorkEntArray;
     UndoTop, RedoTop: Integer;
     constructor Create(const AName: string);
@@ -542,6 +564,7 @@ type
     procedure ReportRegions;
     { The one call that keeps the drawn faces right.  Everything that changes
       an edge ends with this. }
+    procedure SeedRegions;
     function RebuildFlatFaces: Integer;
     function FaceCount: Integer;
     procedure DoomAt(SX, SY: Integer);
@@ -8897,6 +8920,54 @@ begin
     if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid then Inc(Result);
 end;
 
+{ A flat area boiled down to something that can be matched next time. }
+function RegionSig(const R: TRegion): TRegionSig;
+var
+  K, N: Integer;
+begin
+  Result.Nm := Norm3(R.Normal);
+  { one of the two normals, chosen the same way every time, so a loop wound
+    the other way is still recognised as the same area }
+  if (Result.Nm.X < -1E-9) or
+     ((Abs(Result.Nm.X) <= 1E-9) and (Result.Nm.Y < -1E-9)) or
+     ((Abs(Result.Nm.X) <= 1E-9) and (Abs(Result.Nm.Y) <= 1E-9) and
+      (Result.Nm.Z < 0)) then
+    Result.Nm := P3(-Result.Nm.X, -Result.Nm.Y, -Result.Nm.Z);
+  N := Length(R.Outer);
+  Result.Mid := P3(0, 0, 0);
+  for K := 0 to N - 1 do
+    Result.Mid := P3(Result.Mid.X + R.Outer[K].X, Result.Mid.Y + R.Outer[K].Y,
+                     Result.Mid.Z + R.Outer[K].Z);
+  if N > 0 then
+    Result.Mid := P3(Result.Mid.X / N, Result.Mid.Y / N, Result.Mid.Z / N);
+  Result.D := Dot3(Result.Mid, Result.Nm);
+  Result.Area := Abs(LoopArea(R.Outer, R.Normal));
+end;
+
+function SameRegion(const A, B: TRegionSig): Boolean;
+begin
+  Result := (Abs(A.Nm.X - B.Nm.X) < 1E-6) and (Abs(A.Nm.Y - B.Nm.Y) < 1E-6) and
+            (Abs(A.Nm.Z - B.Nm.Z) < 1E-6) and (Abs(A.D - B.D) < 1E-4) and
+            (Abs(A.Area - B.Area) < 1E-3) and (Dist(A.Mid, B.Mid) < 1E-4);
+end;
+
+{ The flat areas as they stand, taken as read rather than acted on.
+
+  Used on the way in from a file that already carries its faces: everything
+  in it is then something this sheet has seen, so nothing counts as newly
+  closed and no face is invented over the top of what was saved - including
+  the ones somebody had rubbed out. }
+procedure TMainForm.SeedRegions;
+var
+  R: TRegionArray;
+  I: Integer;
+begin
+  R := BuildRegionsCached(EdgeSegments, FRegionCache);
+  SetLength(FD.Seen, Length(R));
+  for I := 0 to High(R) do
+    FD.Seen[I] := RegionSig(R[I]);
+end;
+
 function TMainForm.RebuildFlatFaces: Integer;
 type
   TWas = record
@@ -8911,7 +8982,8 @@ var
   NWas, I, J, K, Made: Integer;
   Mid, Other: TP3;
   Ink: TColor;
-  Dup: Boolean;
+  Dup, HadFace, Known: Boolean;
+  Sig: TRegionSig;
 begin
   R := BuildRegionsCached(EdgeSegments, FRegionCache);
   Made := 0;
@@ -8984,6 +9056,38 @@ begin
       end;
     if Dup then Continue;
 
+    { Did this area have a face a moment ago, and had this sheet seen it
+      before?
+
+      An area that was here before and has no face now is one whose face was
+      rubbed out on purpose, and it does not get another.  That is the whole
+      of what "delete a face and see through it" needs: without it the four
+      edges still closed a loop, the loop was still an area, and the area was
+      handed a fresh face on the next rebuild - so a window could not be made
+      in anything.
+
+      An area nobody has seen before has just been closed by whatever edge
+      was drawn, and that is exactly when a face should appear. }
+    HadFace := False;
+    for J := 0 to NWas - 1 do
+      if PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
+      begin
+        HadFace := True;
+        Break;
+      end;
+    if not HadFace then
+    begin
+      Sig := RegionSig(R[I]);
+      Known := False;
+      for J := 0 to High(FD.Seen) do
+        if SameRegion(Sig, FD.Seen[J]) then
+        begin
+          Known := True;
+          Break;
+        end;
+      if Known then Continue;
+    end;
+
     Ink := FInkColor;
     for J := 0 to NWas - 1 do
       if PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
@@ -8994,6 +9098,12 @@ begin
     FD.Doc.AddFaceRaw(R[I].Outer, Ink, False);
     Inc(Made);
   end;
+  { and this is what the sheet has seen, for the next rebuild to compare
+    against }
+  SetLength(FD.Seen, Length(R));
+  for I := 0 to High(R) do
+    FD.Seen[I] := RegionSig(R[I]);
+
   Result := Made;
 end;
 
@@ -10729,7 +10839,15 @@ begin
     begin
       D := FD;
       FD := FDrawings[I];
-      RebuildFlatFaces;
+      { A file that carries faces is telling us which areas are filled, and
+        that includes the ones somebody emptied on purpose.  Taking its areas
+        as already seen means nothing counts as newly closed, so no face is
+        invented over the top of what was saved - a window rubbed out before
+        saving is still a window on the way back in.
+
+        A file with no faces in it at all predates their being written down,
+        and still gets them worked out, which is what this loop was for. }
+      if FaceCount > 0 then SeedRegions else RebuildFlatFaces;
       FD := D;
     end;
     ResetTool;
