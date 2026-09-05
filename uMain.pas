@@ -9641,15 +9641,7 @@ begin
       CheckForUpdate(False);
     end;
     if FUpTime > 4.0 then
-    begin
       FStartupDone := True;
-      with TIniFile.Create(ConfigFile) do
-      try
-        WriteBool('startup', 'restoring', False);
-      finally
-        Free;
-      end;
-    end;
   end;
 
   { The stick under strain.  Held still, it winds up; moved, it goes slack
@@ -10745,13 +10737,17 @@ begin
   try
     if Ini.ReadBool('startup', 'restoring', False) then
     begin
-      Aside := DraftFile + '.would-not-open';
+      { Kept under a name that can actually be opened again.  It used to end
+        in .would-not-open, which the Open dialog filters out - so the file
+        was there, and named on screen, and could not be reached by the one
+        obvious means of reaching it. }
+      Aside := ChangeFileExt(DraftFile, '') + '-would-not-open.hsk';
       if FileExists(Aside) then DeleteFile(Aside);
       RenameFile(DraftFile, Aside);
       Ini.WriteBool('startup', 'restoring', False);
       Ini.WriteInteger('startup', 'crashes', 0);
       FCmdMsg := 'The last drawing would not open - it is kept beside the ' +
-        'settings as heckers-sketch-draft.hsk.would-not-open.';
+        'settings as ' + ExtractFileName(Aside) + ' and can be opened.';
       Exit;
     end;
 
@@ -10771,13 +10767,13 @@ begin
       are in is a program that will not stay running. }
     if Ini.ReadInteger('startup', 'crashes', 0) >= 2 then
     begin
-      Aside := DraftFile + '.crashed';
+      Aside := ChangeFileExt(DraftFile, '') + '-crashed.hsk';
       if FileExists(Aside) then DeleteFile(Aside);
       RenameFile(DraftFile, Aside);
       Ini.WriteInteger('startup', 'crashes', 0);
       FCmdMsg := 'It crashed twice with the last drawing open, so this run ' +
-        'starts empty.  The drawing is kept as ' +
-        ExtractFileName(DraftFile) + '.crashed - open it when you want it.';
+        'starts empty.  The drawing is kept as ' + ExtractFileName(Aside) +
+        ' - open it when you want it.';
       Exit;
     end;
     Ini.WriteBool('startup', 'restoring', True);
@@ -10789,13 +10785,30 @@ begin
     take the program down on the way up - which is the worst possible time
     and looks like the program simply being broken. }
   try
-    if not LoadDocument(DraftFile) then Exit;
-  except
-    on E: Exception do
-    begin
-      FCmdMsg := 'The last draft would not load (' + E.ClassName +
-        ') - starting empty.';
-      Exit;
+    try
+      if not LoadDocument(DraftFile) then Exit;
+    except
+      on E: Exception do
+      begin
+        FCmdMsg := 'The last draft would not load (' + E.ClassName +
+          ') - starting empty.';
+        Exit;
+      end;
+    end;
+  finally
+    { The flag says "in the middle of reading a draft", and that stops being
+      true the moment the read returns - whether it worked, failed politely,
+      or threw.  It used to be cleared four seconds after startup instead,
+      which made closing the program inside four seconds indistinguishable
+      from dying while reading: the next run would set a perfectly good draft
+      aside and open empty.  Anything that goes wrong *after* the read is
+      what the crash counter below is for, and it is the right instrument
+      for it. }
+    with TIniFile.Create(ConfigFile) do
+    try
+      WriteBool('startup', 'restoring', False);
+    finally
+      Free;
     end;
   end;
   { LoadDocument quite reasonably puts the file it read in the title.  This
@@ -10895,8 +10908,21 @@ begin
       end
       else
       begin
-        WW := Width;
-        WH := Height;
+        { No size remembered, so this is the first run on this machine and
+          the design size is in 96 dpi pixels.  Scaled up here, once, because
+          the chrome scales itself - a deck drawn at 125% inside a window
+          sized at 100% does not fit.
+
+          Once, and only here.  The widget set used to do this on every
+          create, which multiplied the *saved* size by the same factor every
+          time: open, close, open, and the window was 25% wider again.  That
+          is the window that kept growing.  Scaled is off on the form now, so
+          a size that was written down comes back meaning exactly what it
+          said. }
+        WW := Round(Width * FUIScale);
+        WH := Round(Height * FUIScale);
+        WW := Min(WW, Screen.DesktopWidth);
+        WH := Min(WH, Screen.DesktopHeight);
       end;
       if (WL <> MaxInt) and (WT <> MaxInt) and OnAScreen(WL, WT, WW, WH) then
         SetBounds(WL, WT, WW, WH)

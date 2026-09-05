@@ -13,7 +13,18 @@
   left behind by the crash it was supposed to help with.
 
   --multi opens another anyway, for anyone who wants two and knows what they
-  are choosing. }
+  are choosing.
+
+  An update is the one time a second copy is started on purpose while the
+  first is still alive: the running program puts the new file in place, starts
+  it, and then exits.  The new one arrived, found the lock held by the copy
+  that had just launched it, and refused - so every update stopped the program
+  and never started it again.
+
+  It waits instead of refusing, which is not the same as ignoring the lock.
+  Two copies sharing a draft is the thing this unit exists to prevent, and it
+  still cannot happen: the new copy runs only once the old one has actually
+  let go. }
 unit uSingle;
 
 {$mode objfpc}{$H+}
@@ -21,8 +32,14 @@ unit uSingle;
 interface
 
 { True when this process now holds the lock.  False when another copy has it,
-  in which case the caller should say so and leave. }
-function BecomeTheOnlyCopy: Boolean;
+  in which case the caller should say so and leave.
+
+  WaitSecs is how long to keep trying for.  Zero - the default - is the
+  ordinary case: somebody has double clicked the icon twice and should be told
+  so at once rather than made to watch a window that might never come.  An
+  update passes a few seconds, because there a copy is known to be on its way
+  out. }
+function BecomeTheOnlyCopy(WaitSecs: Integer = 0): Boolean;
 
 implementation
 
@@ -35,15 +52,21 @@ uses
 var
   LockFD: cint = -1;
 
-function BecomeTheOnlyCopy: Boolean;
+function BecomeTheOnlyCopy(WaitSecs: Integer): Boolean;
 var
   Path: string;
+  Give: QWord;
 begin
   Path := AppDataDir + 'heckers-sketch.lock';
   LockFD := FpOpen(PChar(Path), O_RDWR or O_CREAT, &644);
   if LockFD < 0 then Exit(True);   { cannot lock: better to run than not }
   { A whole-file write lock.  It goes when the process does, however it goes. }
-  Result := FpFlock(LockFD, LOCK_EX or LOCK_NB) = 0;
+  Give := GetTickCount64 + QWord(WaitSecs) * 1000;
+  repeat
+    Result := FpFlock(LockFD, LOCK_EX or LOCK_NB) = 0;
+    if Result or (GetTickCount64 >= Give) then Break;
+    Sleep(100);
+  until False;
   if not Result then
   begin
     FpClose(LockFD);
@@ -56,13 +79,28 @@ end;
 var
   Mutex: HANDLE = 0;
 
-function BecomeTheOnlyCopy: Boolean;
+function BecomeTheOnlyCopy(WaitSecs: Integer): Boolean;
+var
+  R: DWORD;
 begin
   { Local\ rather than Global\ - one copy per signed-in user, not one per
     machine, because two people on the same computer are two people. }
-  Mutex := CreateMutex(nil, True, 'Local\HeckersSketchSingleInstance');
-  if Mutex = 0 then Exit(True);
-  Result := GetLastError <> ERROR_ALREADY_EXISTS;
+  { Created without asking to own it, then owned by waiting.  Asking at
+    creation and reading ERROR_ALREADY_EXISTS can only ever answer "somebody
+    has it"; waiting can also answer "somebody had it and has now gone", which
+    is exactly what happens when the copy being replaced exits. }
+  Mutex := CreateMutex(nil, False, 'Local\HeckersSketchSingleInstance');
+  if Mutex = 0 then Exit(True);   { cannot lock: better to run than not }
+  R := WaitForSingleObject(Mutex, DWORD(WaitSecs) * 1000);
+  { WAIT_ABANDONED is the owner having died or exited without releasing it.
+    That is the normal way this program lets go - there is nothing to tidy up
+    behind it, so it counts as ours. }
+  Result := (R = WAIT_OBJECT_0) or (R = WAIT_ABANDONED);
+  if not Result then
+  begin
+    CloseHandle(Mutex);
+    Mutex := 0;
+  end;
 end;
 {$ENDIF}
 

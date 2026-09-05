@@ -322,6 +322,11 @@ begin
   P := TProcess.Create(nil);
   try
     P.Executable := Me;
+    { Tells the new copy that the lock it is about to find held belongs to the
+      copy that started it, and will be let go in a moment.  Without this it
+      found the lock, quite correctly refused to be a second instance, and the
+      update stopped the program without ever starting it again. }
+    P.Parameters.Add('--updated');
     P.InheritHandles := False;
     try
       P.Execute;

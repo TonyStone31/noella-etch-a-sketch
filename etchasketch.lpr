@@ -60,6 +60,7 @@ begin
     WriteLn('  --fullscreen       open with no window frame at all');
     WriteLn('  --size=1600x1000   open at a particular size, centerd');
     WriteLn('  --multi            open a second copy anyway');
+    WriteLn('  --updated          wait for the copy being replaced to go');
     WriteLn('  --help             this');
     WriteLn;
     WriteLn('Without a switch the window comes back the size and the place it');
@@ -84,12 +85,27 @@ begin
   end;
 end;
 
+{ Started by the copy it is replacing, which is still shutting down.
+
+  Worth waiting for rather than waving through: the reason for one copy at a
+  time is that two share a draft, and that is just as true during an update.
+  Fifteen seconds is far longer than a close takes and still short enough that
+  a genuinely stuck old copy does not leave somebody staring at nothing. }
+function AfterAnUpdate: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 1 to ParamCount do
+    if LowerCase(ParamStr(I)) = '--updated' then Result := 15;
+end;
+
 begin
   if AskedForHelp then Halt(0);
 
   { One copy at a time, because they share the draft and would otherwise take
     turns overwriting each other's work. }
-  if not WantsAnother and not BecomeTheOnlyCopy then
+  if not WantsAnother and not BecomeTheOnlyCopy(AfterAnUpdate) then
   begin
     ShowAlreadyRunning;
     Halt(0);

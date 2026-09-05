@@ -1958,8 +1958,21 @@ begin
     if FEnts[I].Kind <> ekFace then Continue;
     N := Length(FEnts[I].Poly);
     if N < 3 then Continue;
-    { the back of a solid is not drawn, so it cannot be clicked either }
-    if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
+    { A face is pickable from either side.
+
+      This used to skip a solid's face whose normal pointed away, on the
+      grounds that the back of a solid is not drawn.  That stopped being true
+      when back faces got a color of their own, and it was always the wrong
+      rule for the shape people actually build: a duct transition has an end
+      at each end, their normals point opposite ways, so from any one place
+      to stand one end could be erased and the other could not be touched at
+      all - not even hovered.  Which end depended on where the camera was,
+      which is why it read as the program being arbitrary.
+
+      Nothing is needed in its place.  Every candidate is already compared by
+      depth below and the nearest wins, so on a closed box the near face
+      still takes the click and the far one still loses - on the strength of
+      being further away, which is the honest reason. }
 
     SetLength(P, N);
     for K := 0 to N - 1 do
