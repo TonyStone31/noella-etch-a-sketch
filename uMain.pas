@@ -55,9 +55,6 @@ uses
 type
   TAppMode = (mdToy, mdPro);
 
-  { measure only, leave a guide line, leave a guide point }
-  TGuideMode = (gmNone, gmLine, gmPoint);
-
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
     ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset);
 
@@ -269,10 +266,6 @@ type
     FLastPush: Double;         // what a double-click repeats
     { The tape measure lays down a guide by default, the way SketchUp's does;
       Ctrl turns that off and it only measures. }
-    { What the tape leaves behind.  SketchUp cycles the tape through three
-      states with Ctrl and says which by the icon on the cursor; ours says it
-      in the prompt. }
-    FGuideMode: TGuideMode;
     FMeasEdge: Integer;        // the edge the tape was started on, or -1
     { What the last rebuild worked out, so a plane whose edges have not moved
       is not worked out again.  Safe to keep across sheets: a plane is only
@@ -295,6 +288,10 @@ type
     FPushFlush: Boolean;
     { waiting for a click to say which piece to lay out }
     FUnfoldPick: Boolean;
+    { what the settings row was last built believing, so the guide buttons
+      appear and vanish however the count changed - laid, cleared, erased,
+      undone }
+    FDeckGuides: Integer;
     { the note being dragged by its box, where it started, and where it was
       taken hold of }
     FNoteDrag: Integer;
@@ -1471,7 +1468,6 @@ begin
   FStyle := psClassic;
   FPenSize := 4;
   FEdgeW := 1;
-  FGuideMode := gmLine;
   FMeasEdge := -1;
   FSym := 1;
   FHotItem := -1;
@@ -5319,12 +5315,7 @@ begin
       ptErase: S2 := 'click a line to delete it';
       ptText:  S2 := 'space or click - the note points here';
       ptMeasure:
-        case FGuideMode of
-          gmLine: S2 := 'measure from here - Ctrl for a point only';
-          gmPoint: S2 := 'measure from here - Ctrl for no guide';
-        else
-          S2 := 'measure from here - Ctrl to leave a guide line';
-        end;
+        S2 := 'measure from here - it leaves a guide and a point';
     else
       S2 := 'space or click - start here';
     end;
@@ -8082,44 +8073,31 @@ var
   D, Nm, AU, AV: TP3;
   L: Double;
 begin
-  if FGuideMode = gmNone then Exit;
   if Dist(FP1, FP2) < 1E-9 then Exit;
   PushUndo;
 
-  { A guide line gets a point at the end of it as well, and that is on
-    purpose rather than by imitation.  SketchUp leaves a line and nothing to
-    say where along it the measurement actually landed, so the one place you
-    measured to is the one place you cannot see.  The point costs nothing,
-    marks the spot, and can be snapped to.  Ctrl still gets a point on its
-    own, or neither. }
-  if FGuideMode = gmLine then FD.Doc.AddGuide(FP2, FP2);
+  { Both, every time.
 
-  if FGuideMode = gmPoint then
-  begin
-    FD.Doc.AddGuide(FP2, FP2);
-    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   guide point';
-    RenderPro;
-    RecomposeAll;
-    RebuildDeck;
-    pbDeck.Invalidate;
-    Exit;
-  end;
+    A dashed line says where the offset is and a point says where along it
+    the measurement actually landed.  They answer different questions and
+    neither is much use alone: a line with no point leaves the one place you
+    measured to as the one place you cannot see, and a point with no line
+    marks a spot you cannot line anything else up with.
 
-  { A guide runs across the measurement, not along it.
+    There was a Ctrl that cycled between them.  Choosing is not the useful
+    part - having both is - so it is gone until there is a reason for it. }
 
-    The point of one is to mark a distance: measure three feet off a wall and
-    the guide is the line three feet out, running crosswise, so it can be
-    snapped to anywhere along its length.  A guide laid along the direction
-    measured marks nothing - it lies on top of the run and is no use as a
-    reference anywhere else, which is what six of them all pointing the same
-    way looked like.
+  { The line runs across the measurement, not along it.  The point of a guide
+    is to mark a distance: measure three feet off a wall and the useful line
+    is the one three feet out, running crosswise, snappable anywhere along
+    its length.  A guide laid along the run lies on top of it and marks
+    nothing.
 
-    SketchUp reaches the same place from the other side: you click an edge and
-    drag away from it, and the guide comes out parallel to that edge - which
-    is perpendicular to the drag, since dragging away from an edge means
-    dragging across it.  Taking it from the drag rather than from the edge
-    gives the same answer for that gesture and a sensible one from a corner,
-    where there is no single edge to be parallel to. }
+    SketchUp reaches the same place from the other side - click an edge, drag
+    away from it, get a line parallel to that edge - because dragging away
+    from an edge is dragging across it.  Taken from the drag it also answers
+    sensibly from a corner, where there is no single edge to be parallel
+    to. }
   PlaneAxes(FD.Plane, AU, AV);
   Nm := Cross3(AU, AV);
   D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
@@ -8128,20 +8106,20 @@ begin
   if L < 1E-9 then
   begin
     { measured straight out of the working plane, so there is no crosswise
-      direction in it - fall back to the run itself rather than nothing }
+      direction in it - fall back to the run itself rather than to nothing }
     D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
     L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
-    if L < 1E-9 then Exit;
   end;
-  FD.Doc.AddGuide(FP2,
-    P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
+
+  if L > 1E-9 then
+    FD.Doc.AddGuide(FP2,
+      P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
+  FD.Doc.AddGuide(FP2, FP2);
+
   FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
-    '   guide line across the run, and a point where it landed';
+    '   guide across the run, and a point where it landed';
   RenderPro;
   RecomposeAll;
-  { the row grows a pair of buttons the moment there is a guide to act on }
-  RebuildDeck;
-  pbDeck.Invalidate;
 end;
 
 function TMainForm.EdgeSegments: TSegArray;
@@ -9214,6 +9192,17 @@ begin
   ServiceMotion;
   ServiceHover;
 
+  { The guide buttons come and go with the guides.  Watched here rather than
+    poked at from each place that adds or removes one - laying, clearing,
+    erasing and undoing all change the count, and one of them is always the
+    one that gets forgotten. }
+  if (FMode = mdPro) and (FD.Doc.GuideCount <> FDeckGuides) then
+  begin
+    FDeckGuides := FD.Doc.GuideCount;
+    RebuildDeck;
+    pbDeck.Invalidate;
+  end;
+
   { Survived long enough to call the startup a success, so the draft that was
     restored is not the thing that kills it.  Four seconds is well past every
     load, render and first paint. }
@@ -9668,25 +9657,6 @@ begin
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMove);
       VK_T: SetTool(ptMeasure);
-      VK_CONTROL:
-        { SketchUp toggles the tape between leaving a guide and only
-          measuring, and says which by putting a + on the cursor.  Ours says
-          it in the prompt. }
-        if FTool = ptMeasure then
-        begin
-          { Round the three, the way SketchUp's Ctrl does: a guide line, a
-            guide point, then neither. }
-          if FGuideMode = gmPoint then FGuideMode := gmNone
-          else FGuideMode := Succ(FGuideMode);
-          case FGuideMode of
-            gmLine: FCmdMsg := 'Tape will leave a guide line.';
-            gmPoint: FCmdMsg := 'Tape will leave a guide point.';
-          else
-            FCmdMsg := 'Tape will only measure.';
-          end;
-          pbCmd.Invalidate;
-          pbScreen.Invalidate;
-        end;
       VK_D: SetTool(ptDim);
       VK_V:
         if ssShift in Shift then CycleViewPreset(-1) else CycleViewPreset(1);
@@ -9870,6 +9840,7 @@ function TMainForm.LoadDocument(const FileName: string): Boolean;
 var
   L, CamT: TStringList;
   I, Idx, NSheet: Integer;
+  CamV, CamZ: Double;
   Line, Key, Rest: string;
   D: TDrawing;
 
@@ -9956,9 +9927,22 @@ begin
               CamT.DelimitedText := Rest;
               if CamT.Count >= 5 then
               begin
+                { Clamped through locals, and written out by hand.  Assigning
+                  EnsureRange straight into a Double field of an object is the
+                  shape this compiler miscompiles at -O3 - the read goes
+                  through the register holding the object and the write
+                  through one holding something else - and El on a drawing is
+                  the very field it was found on the first time.  See the note
+                  in ServiceMotion.  It cost a draft that would not open. }
+                CamV := RdF(CamT[1]);
+                if CamV < -1.45 then CamV := -1.45;
+                if CamV > 1.45 then CamV := 1.45;
+                CamZ := RdF(CamT[2]);
+                if CamZ < 0.05 then CamZ := 0.05;
+                if CamZ > 40.0 then CamZ := 40.0;
                 D.Az := RdF(CamT[0]);
-                D.El := EnsureRange(RdF(CamT[1]), -1.45, 1.45);
-                D.Zoom := EnsureRange(RdF(CamT[2]), 0.05, 40.0);
+                D.El := CamV;
+                D.Zoom := CamZ;
                 D.ViewX := RdF(CamT[3]);
                 D.ViewY := RdF(CamT[4]);
               end;
