@@ -675,8 +675,10 @@ end;
 function ParseLen(const S: string; U: TUnitSystem; out V: Double): Boolean;
 var
   T, FtPart, InPart: string;
-  P: Integer;
-  A, B: Double;
+  Parts: array[0..2] of string;
+  P, NDash: Integer;
+  Neg: Boolean;
+  A, B, C: Double;
 begin
   Result := False;
   V := 0;
@@ -739,6 +741,52 @@ begin
     V := A / 12;
     Result := True;
     Exit;
+  end;
+
+  { Feet, inches and sixteenths: the way a truss drawing writes a length.
+
+    6-8-15 is six foot eight and fifteen sixteenths; 0-8-8 is eight and a
+    half inches, and that leading nought for the feet is how a truss sheet
+    writes anything under a foot.  It comes off the component design software
+    the shops run, and the reason it exists is the reason it is worth having
+    here: every field is a whole number, there is no foot mark, inch mark or
+    slash anywhere in it, and the whole thing goes in from the number pad
+    with the minus key.
+
+    Sixteenths because that is what a truss shop works in, so the third field
+    never needs a denominator written beside it.  If a field ever came in
+    above fifteen it would mean the drawing was in some other fraction and
+    this reading would be wrong - but it would be wrong quietly, so the check
+    below refuses that rather than guessing.
+
+    Purely additional: 6-8-15 did not parse at all before, so nothing that
+    already worked reads differently now. }
+  if (Pos('/', T) = 0) and (Pos('''', T) = 0) then
+  begin
+    NDash := 0;
+    Parts[0] := '';
+    Parts[1] := '';
+    Parts[2] := '';
+    Neg := (T[1] = '-');
+    for P := 1 + Ord(Neg) to Length(T) do
+      if T[P] = '-' then
+      begin
+        Inc(NDash);
+        if NDash > 2 then Break;
+      end
+      else
+        Parts[NDash] := Parts[NDash] + T[P];
+
+    if (NDash = 2) and (Parts[0] <> '') and (Parts[1] <> '') and
+       (Parts[2] <> '') and ParseMixed(Parts[0], A) and
+       ParseMixed(Parts[1], B) and ParseMixed(Parts[2], C) and
+       (B >= 0) and (B < 12) and (C >= 0) and (C <= 15) then
+    begin
+      V := Abs(A) + B / 12 + C / (16 * 12);
+      if Neg then V := -V;
+      Result := True;
+      Exit;
+    end;
   end;
 
   { "12-6" and "12 6" mean twelve foot six }

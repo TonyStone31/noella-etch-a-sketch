@@ -89,6 +89,36 @@ begin
   Ok(ParseLen('12''6"', usImperial, V) and (Abs(V - 12.5) < 1E-9), '12''6" is 12.5 ft');
   Ok(ParseLen('6"', usImperial, V) and (Abs(V - 0.5) < 1E-9), '6" is half a foot');
   Ok(ParseLen('150', usImperial, V), 'a bare number parses');
+
+  { Feet, inches and sixteenths, off a truss drawing and off a number pad. }
+  Ok(ParseLen('6-8-15', usImperial, V) and
+     (Abs(V - (6 + 8 / 12 + 15 / 192)) < 1E-12),
+     '6-8-15 is 6 ft 8 and fifteen sixteenths');
+  { 17/24 rather than 8.5/12: a real literal in a constant expression is
+    folded at single precision here, so the "expected" value came out less
+    exact than the answer being checked and failed a test the parser had
+    passed.  Whole numbers all the way down avoids the question. }
+  Ok(ParseLen('0-8-8', usImperial, V) and (Abs(V - 17 / 24) < 1E-12),
+     '0-8-8 is eight and a half inches');
+  Ok(ParseLen('0-0-1', usImperial, V) and (Abs(V - (1 / 192)) < 1E-12),
+     '0-0-1 is one sixteenth');
+  Ok(ParseLen('-6-8-15', usImperial, V) and
+     (Abs(V + (6 + 8 / 12 + 15 / 192)) < 1E-12),
+     'and it can be negative');
+
+  { Still the old readings, which is the point of it being additional. }
+  Ok(ParseLen('12-6', usImperial, V) and (Abs(V - 12.5) < 1E-12),
+     '12-6 is still twelve foot six');
+  Ok(ParseLen('3 1/2', usImperial, V) and (Abs(V - 3.5) < 1E-12),
+     'and a fraction is still a fraction');
+
+  { A third field above fifteen is not sixteenths, so it is not read as
+    sixteenths - the drawing is in some other fraction and a quiet guess
+    would be off by a hair on something that gets cut. }
+  Ok(not ParseLen('0-8-20', usImperial, V),
+     '0-8-20 is refused rather than guessed at');
+  Ok(not ParseLen('0-14-8', usImperial, V),
+     'and so is fourteen inches');
   Ok(not ParseLen('banana', usImperial, V), 'nonsense does not');
 
   EqI(ParseTriple('<3'', 4'', 5''>', usImperial, X, Y, Z), 3, 'relative triple fields');
