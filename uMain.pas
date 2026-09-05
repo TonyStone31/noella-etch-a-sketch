@@ -4570,7 +4570,7 @@ var
   BtnOK, BtnNo: TButton;
   Body, Name_, Err, Note, ShotErr: string;
   WantShot: Boolean;
-  ShotWay: Integer;
+  ShotWay, NThings: Integer;
   Shot: TMemoryStream;
   L: TStringList;
 begin
@@ -4623,13 +4623,28 @@ begin
       the two are rarely the same, since the program has restarted in
       between, and quoting the wrong one is how you end up sending an empty
       sheet believing you sent your work. }
-    WithDoc.Caption := Format('Send the drawing file too (%d things)',
-      [DocThings(DocFile)]);
+    { What the number counts, said in the label.
+
+      It read "(0 things)" next to the word "file", which invites reading it
+      as a count of files - nought files, or nought of something else, and no
+      way to tell which from the box.  The number is there to say how much of
+      somebody's work they are about to send, so it says that.
+
+      And with nothing drawn there is nothing to decide: the box goes off and
+      greys out rather than offering to send an empty sheet. }
+    NThings := DocThings(DocFile);
+    if NThings = 0 then
+      WithDoc.Caption := 'Send the drawing too - nothing drawn yet'
+    else
+      WithDoc.Caption := Format('Send the drawing too - %d %s drawn so far',
+        [NThings, specialize IfThen<string>(NThings = 1, 'thing', 'things')]);
+
     { On by default.  Tony's, and he is right: it is the single most useful
       thing in a report and it was going unticked simply because it was
       unticked.  It stays a tick box, and it stays easy to see, because it is
       somebody's work and they get to say. }
-    WithDoc.Checked := True;
+    WithDoc.Checked := NThings > 0;
+    WithDoc.Enabled := NThings > 0;
 
     Fine := TLabel.Create(Dlg);
     Fine.Parent := Dlg;
@@ -4639,8 +4654,11 @@ begin
     Fine.AutoSize := False;
     { It said "off unless you say otherwise" while sitting ticked, which is
       the box contradicting the sentence under it. }
-    Fine.Caption := 'The surest way to find a fault.  Untick it if you would ' +
-      'rather not send your work.';
+    if NThings = 0 then
+      Fine.Caption := ''
+    else
+      Fine.Caption := 'The surest way to find a fault.  Untick it if you ' +
+        'would rather not send your work.';
 
     BtnOK := TButton.Create(Dlg);
     BtnOK.Parent := Dlg;
