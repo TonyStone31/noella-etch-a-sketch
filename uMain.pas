@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold, uFlatView;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -287,6 +287,8 @@ type
     FPlaneHeld: Boolean;
     { true while a push is lining itself up with another face }
     FPushFlush: Boolean;
+    { waiting for a click to say which piece to lay out }
+    FUnfoldPick: Boolean;
     { the point the cursor is holding on to, and whether it has one }
     FStickOn: Boolean;
     FStickPt: TP3;
@@ -459,6 +461,8 @@ type
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
+    procedure StartUnfold;
+    procedure UnfoldAt(SX, SY: Integer);
     procedure OfferCrashReport;
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
@@ -676,6 +680,10 @@ const
     report a problem - had no way in from the program at all, and neither did
     the update check unless you knew to type /update. }
   POP_HELP   = 4;
+  { The shop tools: the things that are about making the thing rather than
+    drawing it.  Laying a piece out flat is the first; the fitting builders
+    go here beside it. }
+  POP_SHOP   = 5;
 
   { the pen widths the list offers - a few honest steps rather than a slider
     nobody can land on a number with }
@@ -711,8 +719,8 @@ const
   HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
   { how long the button is leaned on before the line snaps off, and how long
     the two ends recoil afterwards }
-  HOLD_STRAIN     = 0.25;   // before this it is just a click being made
-  HOLD_BREAK      = 0.85;   // and this long to break.  It was 1.45, set by
+  HOLD_STRAIN     = 0.20;   // before this it is just a click being made
+  HOLD_BREAK      = 0.70;   // and this long to break.  It was 1.45, set by
                             // guessing at how long a warning needs to be
                             // readable; with the gesture in daily use the
                             // answer came back that it is the wait, not the
@@ -2950,7 +2958,10 @@ begin
       which also means a list can be longer than a row ever was. }
     RowY := Y0 + 2 * (RowH + RowGap);
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
-    SegW := (Avail - 3 * RowGap) div 4;
+    SegW := (Avail - 4 * RowGap) div 5;
+    Add(dkSegment, Rect(X + 4 * SegW, RowY, X + 5 * SegW - RowGap,
+      RowY + RowH), GRP_POPUP, POP_SHOP, 'SHOP',
+      'Shop tools - laying a piece out flat, and the fittings', ikDroplet);
     Add(dkSegment, Rect(X, RowY, X + SegW - RowGap, RowY + RowH),
       GRP_POPUP, POP_SCALE, 'SCALE  ' + ScaleTable(FD.Units, FD.ScaleIdx).Name,
       'Print scale - click for the list', ikDroplet);
@@ -4443,6 +4454,56 @@ begin
   end;
 end;
 
+{ Laying a piece out flat.
+
+  It takes a click rather than the selection, because a piece is a lot of
+  faces and nobody wants to select them all first: click any part of it and
+  the whole solid goes. }
+procedure TMainForm.StartUnfold;
+begin
+  if FMode <> mdPro then Exit;
+  FUnfoldPick := True;
+  pbScreen.Cursor := crCross;
+  FCmdMsg := 'Click any face of the piece to lay it out flat.  Esc to stop.';
+  pbCmd.Invalidate;
+end;
+
+procedure TMainForm.UnfoldAt(SX, SY: Integer);
+var
+  F: Integer;
+  Faces: TIntArray;
+  Pat: TFlatPattern;
+begin
+  FUnfoldPick := False;
+  F := FD.Doc.HitFace(Proj, SX, SY);
+  if F < 0 then
+  begin
+    FCmdMsg := 'Nothing there to lay out - click a face of the piece.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
+  Faces := SolidFaces(FD.Doc, F);
+  if Length(Faces) = 0 then
+  begin
+    FCmdMsg := 'That face is not part of anything to lay out.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
+  Pat := Unfold(FD.Doc, Faces);
+  if not Pat.Ok then
+  begin
+    FCmdMsg := 'It could not be laid out - ' + Pat.Why;
+    pbCmd.Invalidate;
+    Exit;
+  end;
+  Trail(Format('unfolded %d panels', [Pat.Laid]));
+  FCmdMsg := Format('Laid out: %d panels, sheet %s x %s',
+    [Pat.Laid, FormatLen(Pat.MaxX - Pat.MinX, FD.Units),
+     FormatLen(Pat.MaxY - Pat.MinY, FD.Units)]);
+  pbCmd.Invalidate;
+  ShowFlatPattern(Pat, FD.Units, 'Flat pattern');
+end;
+
 procedure TMainForm.OfferCrashReport;
 var
   Fn: string;
@@ -5411,6 +5472,7 @@ end;
 procedure TMainForm.ResetTool;
 begin
   FStage := 0;
+  FUnfoldPick := False;
   FStickOn := False;
   { Minus one is "no dimension being edited", and it has to be said out loud.
     A field starts at zero, zero is a valid entity index, and the test for
@@ -6553,6 +6615,12 @@ begin
   begin
     FMouseSX := X;
     FMouseSY := Y;
+    { waiting to be told which piece to lay out - that click, and no other }
+    if FUnfoldPick then
+    begin
+      UnfoldAt(X, Y);
+      Exit;
+    end;
     { the eraser gathers while the button is held and deletes on release }
     if FTool = ptErase then
     begin
@@ -7174,6 +7242,7 @@ begin
     POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 6;
+    POP_SHOP: Result := 1;
   else
     Result := 0;
   end;
@@ -7187,6 +7256,8 @@ begin
     POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
     POP_COLOR: Result := '';
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
+    POP_SHOP:
+      Result := 'Lay a piece out flat';
     POP_HELP:
       case I of
         0: Result := 'About  (F1)';
@@ -7213,6 +7284,7 @@ begin
       end;
     POP_COLOR: SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
+    POP_SHOP: StartUnfold;
     POP_HELP:
       case I of
         0: ShowAbout;
