@@ -294,6 +294,9 @@ type
     FPushFlush: Boolean;
     { waiting for a click to say which piece to lay out }
     FUnfoldPick: Boolean;
+    { which side of the cursor the chip is sitting on, kept so it does not
+      swap sides every time the mouse twitches }
+    FTipCorner: Integer;
     { Taking the picture for a report.  FShotCount is the seconds left and is
       drawn on the canvas; FShotFlash whites the screen for a moment at the
       instant it is taken; FShotBusy keeps a second capture from starting
@@ -615,6 +618,8 @@ type
     procedure NudgeCursor(DX, DY: Double);
     procedure JumpSnap(DX, DY: Integer);
     function SnapLabel: string;
+    function InkUnder(const R: TRect): Integer;
+    function TipSpot(SX, SY, BoxW, BoxH: Integer): TRect;
     procedure SetOriginHere;
     procedure ZoomAt(Factor: Double; AnchorSX, AnchorSY: Double);
     procedure SetScaleIdx(I: Integer);
@@ -1338,6 +1343,31 @@ begin
     if FStage > 0 then AxisTry(FP1);
     if FLockOn then AxisTry(FLockPt);
   end;
+
+  { A corner beats a guide it is nearer than.
+
+    The guide was put in front of every other point because a stray one
+    within snapping distance could steal a deliberate axis run.  That is
+    true of the strays - a piece-midpoint, a point somewhere along an edge -
+    and it is not true of a corner.  A corner is a place somebody built, it
+    is drawn on the screen, and it is almost always the thing being aimed
+    at: dimensioning the corner of one building to the corner of another,
+    the guide running out of the first corner lies near the second one
+    practically by construction, and it took the point every time.  The
+    corner could not be had at all.
+
+    So a definite point within snapping distance takes it from the guide.
+    Everything else still loses to the guide, which is what the rule was
+    protecting in the first place.
+
+    Not by comparing the two distances, which was the first thing tried and
+    is not a fair contest: a guide is a line, so its distance is small
+    whenever you are anywhere near it, and a corner eight pixels off could
+    never beat a line one pixel off.  A point is a stronger statement than a
+    line and wins on being one. }
+  if PtOK and (AxIdx >= 0) and
+     (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint, snOrigin]) then
+    AxIdx := -1;
 
   if AxIdx >= 0 then
   begin
@@ -3958,6 +3988,102 @@ end;
 { the screen                                                                }
 { ======================================================================== }
 
+{ How much of the drawing a rectangle would hide.
+
+  Sampled every fourth pixel each way rather than counted.  This runs on
+  every mouse move and a sixteenth of the work is plenty to tell a box lying
+  over a wall from one lying on empty paper.
+
+  The ink surface rather than the finished picture, deliberately: ink is only
+  what has been drawn, so the paper's grid does not count as something worth
+  avoiding.  It would score the same everywhere and drown the signal. }
+function TMainForm.InkUnder(const R: TRect): Integer;
+var
+  X, Y, X0, X1, Y1: Integer;
+  P: PPix;
+  Ink: TArtSurface;
+begin
+  Result := 0;
+  Ink := ActiveInk;
+  if Ink = nil then Exit;
+  X0 := Max(0, R.Left);
+  X1 := Min(R.Right, Ink.Width);
+  Y1 := Min(R.Bottom, Ink.Height);
+  Y := Max(0, R.Top);
+  while Y < Y1 do
+  begin
+    P := Ink.ScanLine(Y);
+    X := X0;
+    while X < X1 do
+    begin
+      if (P + X)^.A > 8 then Inc(Result);
+      Inc(X, 4);
+    end;
+    Inc(Y, 4);
+  end;
+end;
+
+{ Where to put the chip beside the cursor.
+
+  It used to hang down and to the right always, flipping only when it would
+  have gone off the edge - so on a drawing where the work is down and to the
+  right, which is most of them, it sat squarely on the thing being worked on
+  and hid the reading you were setting.
+
+  Now all four corners are tried and the one covering least of the drawing
+  wins.  Every candidate is pushed inside the canvas before it is judged, so
+  none of them can be off screen - the clamping is not a fallback, it is what
+  makes the choice fair.
+
+  The corner it is already in has to be beaten by a clear margin to lose.
+  Without that it swaps sides on a one pixel move whenever two corners are
+  close, which is worse than any placement. }
+function TMainForm.TipSpot(SX, SY, BoxW, BoxH: Integer): TRect;
+var
+  K, Gap, AX, AY, Sc, Best, BestK, Cur: Integer;
+  Cand: array[0..7] of TRect;
+begin
+  { Four corners at arm's length, and the same four further out.
+
+    Close is right when there is nothing in the way - the chip belongs to the
+    cursor and should look like it.  But when the work is crowded every near
+    corner is on top of something, and then what is wanted is distance: the
+    far ring is there so it has somewhere to go rather than picking the least
+    bad of four placements that are all in the way.
+
+    Near first, and a strictly-better test, so a far corner only wins by
+    actually covering less. }
+  for K := 0 to 7 do
+  begin
+    if K < 4 then Gap := Round(16 * FUIScale)
+    else Gap := Round(96 * FUIScale);
+    if (K and 1) = 0 then AX := SX + Gap else AX := SX - Gap - BoxW;
+    if (K and 2) = 0 then AY := SY + Gap else AY := SY - Gap - BoxH;
+    AX := EnsureRange(AX, 4, Max(4, pbScreen.Width - BoxW - 4));
+    AY := EnsureRange(AY, 4, Max(4, pbScreen.Height - BoxH - 4));
+    Cand[K] := Rect(AX, AY, AX + BoxW, AY + BoxH);
+  end;
+
+  FTipCorner := EnsureRange(FTipCorner, 0, 7);
+  Cur := InkUnder(Cand[FTipCorner]);
+  Best := Cur;
+  BestK := FTipCorner;
+  for K := 0 to 7 do
+  begin
+    if K = FTipCorner then Continue;
+    Sc := InkUnder(Cand[K]);
+    if Sc < Best then
+    begin
+      Best := Sc;
+      BestK := K;
+    end;
+  end;
+  { a third less covered, and enough of a difference to be worth the jump }
+  if (BestK <> FTipCorner) and (Best * 3 < Cur * 2) and (Cur - Best > 12) then
+    FTipCorner := BestK;
+  Result := Cand[FTipCorner];
+end;
+
 function TMainForm.SnapLabel: string;
 const
   { Named by color, like everything else about the axes.  It said ON X while
@@ -4970,7 +5096,14 @@ var
   Was: TPlane;
 begin
   if FMode <> mdPro then Exit;
-  if not (FTool in [ptLine, ptRect, ptCircle, ptArc]) then Exit;
+  { The dimension tool is in this list because placing a dimension is the
+    same question as drawing one: which plane is the thing going in.  Its
+    offset comes from the cursor on the working plane, so on the flat plane a
+    dimension can only be pushed in and out - and on the corner of a tall
+    roof what you want is to push it down the face, or up clear of it.
+    Standing the plane up is what allows that, and the shake is already how
+    this program stands a plane up. }
+  if not (FTool in [ptLine, ptRect, ptCircle, ptArc, ptDim]) then Exit;
   if FD.View = vkPlan then Exit;        // only one plane makes sense there
 
   Now64 := GetTickCount64;
@@ -5657,7 +5790,9 @@ begin
       ptCircle: S2 := 'type a radius, or click';
       ptArc:    S2 := 'pull the middle out, or type the bulge';
       ptText:   S2 := 'type it, move away, then Enter';
+      ptDim:    S2 := 'move away to place it - shake up and down to stand it up';
       ptMeasure: S2 := 'click the second point';
+    ptRect:   S2 := 'drag it, or type 8x10 - the pad''s slash works too';
     else
       S2 := 'arrows set direction - type a length - Enter';
     end;
@@ -5671,11 +5806,7 @@ begin
   BoxW := Max(W1, W2) + Round(18 * FUIScale);
   BoxH := 2 * LnH + Round(14 * FUIScale);
 
-  AX := SX + Round(16 * FUIScale);
-  AY := SY + Round(14 * FUIScale);
-  if AX + BoxW > pbScreen.Width - 4 then AX := SX - BoxW - Round(16 * FUIScale);
-  if AY + BoxH > pbScreen.Height - 4 then AY := SY - BoxH - Round(14 * FUIScale);
-  R := Rect(AX, AY, AX + BoxW, AY + BoxH);
+  R := TipSpot(SX, SY, BoxW, BoxH);
 
   C.Brush.Style := bsSolid;
   C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.15));
@@ -9773,8 +9904,22 @@ begin
   end;
 
   { 'x' is only text while a rectangle is waiting for its size - everywhere
-    else letters stay as tool shortcuts }
-  if (Key in ['x', 'X', ',']) and (FTool = ptRect) and (FStage = 1) then
+    else letters stay as tool shortcuts.
+
+    The slash is there for the number pad.  Typing a rectangle should not
+    mean reaching across the keyboard for an x or a comma, and the pad has a
+    slash on it - so 2/2 is a two foot square, the way SketchUp's semicolon
+    would be if a semicolon were somewhere useful.
+
+    It is only the *first* slash, because the second one is a fraction:
+    2/2 1/2 is two foot by two and a half.  Taking the first and leaving the
+    rest is a rule you can hold in your head, which matters more here than
+    cleverness would.  And it has to look like a measurement already - a
+    slash with nothing typed is the start of /help, not a rectangle. }
+  if ((Key in ['x', 'X', ',', ';']) or
+      ((Key = '/') and (FInput <> '') and (FInput[1] in ['0'..'9']) and
+       (Pos('x', FInput) = 0))) and
+     (FTool = ptRect) and (FStage = 1) then
   begin
     FInput := FInput + 'x';
     FCmdMsg := '';
