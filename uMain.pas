@@ -695,6 +695,8 @@ type
     function StatusLine: string;
     procedure WashFace(C: TCanvas; const Poly: TPointFArray;
       const Col: TPix);
+    procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
+      const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
 
     procedure BuildSession(L: TStrings);
@@ -5512,6 +5514,28 @@ begin
   C.Pen.Style := psSolid;
 end;
 
+{ An entity's outline, traced heavily in one color.
+
+  Said four times over: the selection in blue, the edge the dimension tool
+  would take, what the eraser has gathered, and what it is hovering.  They are
+  the same drawing with a different color, and each copy carried its own pen
+  width and its own loop - so a change to how a highlight looks meant finding
+  all four. }
+procedure TMainForm.TraceOutline(C: TCanvas; const Hi: TPointFArray;
+  const Col: TPix);
+var
+  I: Integer;
+begin
+  if Length(Hi) < 2 then Exit;
+  C.Pen.Color := PixToColor(Col);
+  C.Pen.Width := Max(3, Round(3 * FUIScale));
+  C.Pen.Style := psSolid;
+  C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
+  for I := 1 to High(Hi) do
+    C.LineTo(Round(Hi[I].X), Round(Hi[I].Y));
+  C.Pen.Width := 1;
+end;
+
 procedure TMainForm.PaintProOverlay(C: TCanvas);
 var
   HintFace: Integer;
@@ -5720,13 +5744,7 @@ begin
     Hi := FD.Doc.Outline(Proj, FSel[AY]);
     if Length(Hi) >= 2 then
     begin
-      C.Pen.Color := PixToColor(Pix(70, 130, 240));
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-      C.Pen.Style := psSolid;
-      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
-      for AX := 1 to High(Hi) do
-        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
-      C.Pen.Width := 1;
+      TraceOutline(C, Hi, Pix(70, 130, 240));
     end;
   end;
 
@@ -5736,13 +5754,7 @@ begin
     Hi := FD.Doc.Outline(Proj, FHoverEnt);
     if Length(Hi) >= 2 then
     begin
-      C.Pen.Color := PixToColor(HINT_BLUE);
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-      C.Pen.Style := psSolid;
-      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
-      for AX := 1 to High(Hi) do
-        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
-      C.Pen.Width := 1;
+      TraceOutline(C, Hi, HINT_BLUE);
     end;
   end;
 
@@ -5786,13 +5798,7 @@ begin
       WashFace(C, Hi, Pix(240, 60, 60));
     if Length(Hi) >= 2 then
     begin
-      C.Pen.Color := PixToColor(Pix(240, 60, 60));
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-      C.Pen.Style := psSolid;
-      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
-      for AX := 1 to High(Hi) do
-        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
-      C.Pen.Width := 1;
+      TraceOutline(C, Hi, Pix(240, 60, 60));
     end;
   end;
 
@@ -5805,13 +5811,7 @@ begin
       WashFace(C, Hi, Pix(230, 70, 70));
     if Length(Hi) >= 2 then
     begin
-      C.Pen.Color := PixToColor(Pix(230, 70, 70));
-      C.Pen.Width := Max(3, Round(3 * FUIScale));
-      C.Pen.Style := psSolid;
-      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
-      for AY := 1 to High(Hi) do
-        C.LineTo(Round(Hi[AY].X), Round(Hi[AY].Y));
-      C.Pen.Width := 1;
+      TraceOutline(C, Hi, Pix(230, 70, 70));
     end
     else if Length(Hi) = 1 then
     begin
