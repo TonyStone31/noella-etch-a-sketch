@@ -218,6 +218,8 @@ type
     FHotTab: Integer;
     FCur: TP3;                   // snapped cursor, world units
     FSnapKind: TSnapKind;
+    { which of the three the cursor is on, when FSnapKind is snOnAxis }
+    FSnapAxis: Integer;
     FStage: Integer;             // where we are in the current tool
     FP1, FP2: TP3;
     FDirLock: Integer;           // -1 none, else an index into AxisDir
@@ -1019,11 +1021,11 @@ var
   Pts: TP3Array;
   I, BestAxis: Integer;
   Tol, D, Best: Double;
-  W, Wf, AxRef, AxPt, EdgeP: TP3;
+  W, Wf, AxRef, AxPt, EdgeP, AxSnapP: TP3;
   SP: TPointF;
   PtOK: Boolean;
   PtPx, AxPx: Double;
-  AxIdx, EdgeI: Integer;
+  AxIdx, EdgeI, AxSnapK: Integer;
 
   { An alignment is only worth showing when the point is off in exactly one
     direction - then the guide is a clean line parallel to an axis.  If it
@@ -1259,7 +1261,7 @@ begin
     those are the ones that turn up at the quarter points of everything you
     have already split, and they are exactly what used to steal the cursor. }
   if PtOK and (PtPx <= LOCK_PX) and
-     (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint]) then
+     (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint, snOrigin]) then
   begin
     FSnapKind := Hit.Kind;
     FStickOn := True;
@@ -1296,6 +1298,29 @@ begin
   begin
     FSnapKind := snOnEdge;
     Exit(EdgeP);
+  end;
+
+  { And the same for the three axes, which are lines like any other as far as
+    the cursor is concerned - SketchUp's On Red Axis and its two friends.
+
+    Under real geometry, because a line somebody drew is a more definite
+    answer than one the program is offering; over the alignment guides,
+    because "on the red axis" is a statement about where the point is and a
+    guide is a statement about some other point.  It is also all a brand new
+    sheet has: before this an empty drawing snapped to nothing whatever, so
+    the tape could not be started off an axis and the origin - the one point
+    in any model whose coordinates everybody knows - could not be landed on.
+
+    It is what makes the Z readout move, too.  The cursor is unprojected onto
+    the working plane, which pins Z to that plane's height, so Z could only
+    ever read the same number.  A point on the blue axis is a point with a
+    real Z, and the readout follows it up. }
+  if (not PtOK) and
+     AxisSnap(Proj, SX, SY, EDGE_PX * FUIScale, AxSnapP, AxSnapK) then
+  begin
+    FSnapKind := snOnAxis;
+    FSnapAxis := AxSnapK;
+    Exit(AxSnapP);
   end;
 
   { Otherwise a 90 degree relationship to a point you chose - the start of
@@ -3945,6 +3970,12 @@ begin
     snCenter:   Result := 'CENTER';
     snCross:    Result := 'CROSSING';
     snOnEdge:   Result := 'ON EDGE';
+    snOrigin:   Result := 'ORIGIN';
+    snOnAxis:   case FSnapAxis of
+                  0: Result := 'ON RED AXIS';
+                  1: Result := 'ON GREEN AXIS';
+                else Result := 'ON BLUE AXIS';
+                end;
     snGrid:     Result := 'GRID';
   else
     Result := '';
@@ -5161,6 +5192,10 @@ begin
     snEndpoint, snCenter: MarkPix := Pix(60, 210, 90);
     snMidpoint, snSubMid: MarkPix := Pix(90, 220, 235);
     snOnEdge:             MarkPix := Pix(235, 70, 70);
+    { the mark takes the color of the axis it is on, which is the whole point
+      of the axes being colored }
+    snOnAxis:             MarkPix := AxisPix(FSnapAxis);
+    snOrigin:             MarkPix := Pix(250, 210, 60);
     snCross:              MarkPix := Pix(215, 120, 240);
   else
     MarkPix := Theme.Accent;

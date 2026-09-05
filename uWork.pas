@@ -126,8 +126,14 @@ type
     than the point you actually aimed at. }
   { snOnEdge is a free point anywhere along a line or an arc - SketchUp's
     "On Edge" - as opposed to one of the named points along it. }
+  { snOnAxis is a free point anywhere along one of the three model axes, and
+    snOrigin is where they meet.  They are inference, not geometry, but they
+    are the only thing an empty drawing has to offer - without them a new
+    sheet snaps to nothing at all, the tape cannot be started off the red
+    line, and the one point in the model everybody knows the coordinates of
+    cannot be landed on. }
   TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCenter, snCross,
-    snSubMid, snOnEdge);
+    snSubMid, snOnEdge, snOnAxis, snOrigin);
 
   { Everything a dimension is drawn out of, in screen coordinates.  One
     routine works it out so that the preview you drag around and the thing
@@ -269,6 +275,16 @@ type
     function EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
       out P: TP3; out Ent: Integer): Boolean;
 
+    { A new drawing has a snap cache to build like any other.
+
+      There was no constructor at all, so the dirty flag started false and
+      the cache was not built until the first edit marked it dirty.  That was
+      invisible for as long as the cache only held things the drawing
+      contained - an empty drawing has no corners to miss - and stopped being
+      invisible the moment the origin went in, because the origin is there
+      before anything is drawn. }
+    constructor Create;
+
     { Every point worth snapping or aligning to, including the places lines
       cross each other and the midpoints those crossings create. }
     procedure SnapPoints(out Pts: TP3Array);
@@ -387,6 +403,14 @@ function Unproject(const V: TProjector; SX, SY: Double; Pl: TPlane;
   than Bias, so a shape does not flip back and forth while the hand shakes. }
 function PlaneByDrag(const V: TProjector; const Anchor: TP3;
   SX, SY: Double; Keep: TPlane; Bias: Double = 0.8): TPlane;
+
+{ A point on one of the three model axes, if the cursor is near one.
+
+  The axes are infinite lines through the origin, so this is the same
+  question EdgeSnap asks of a segment, without the ends.  Axis comes back as
+  0, 1 or 2 - X, Y or Z - and P is the point on it under the cursor. }
+function AxisSnap(const V: TProjector; SX, SY, TolPx: Double;
+  out P: TP3; out Axis: Integer): Boolean;
 
 { The six axis directions, and how they read on screen in the given view. }
 function AxisDir(Index: Integer): TP3;
@@ -2836,6 +2860,11 @@ begin
   N := 0;
   SetLength(FSnapCache, 128);
 
+  { The origin is always there, drawing or no drawing.  Put in with everything
+    else rather than tested for separately, so it wins and loses contests by
+    the same rules as any other definite point. }
+  Put(P3(0, 0, 0), snOrigin);
+
   for I := 0 to FLive - 1 do
     case FEnts[I].Kind of
       ekLine:
@@ -2951,6 +2980,12 @@ begin
   FSnapDirty := False;
 end;
 
+constructor TWorkDoc.Create;
+begin
+  inherited Create;
+  FSnapDirty := True;
+end;
+
 procedure TWorkDoc.SnapPoints(out Pts: TP3Array);
 var
   I: Integer;
@@ -3052,6 +3087,50 @@ begin
     PB := Project(V, ArcPoint(E.C, E.R, Ang, E.Plane, E.Nm));
     Result := Min(Result, DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
     PA := PB;
+  end;
+end;
+
+function AxisSnap(const V: TProjector; SX, SY, TolPx: Double;
+  out P: TP3; out Axis: Integer): Boolean;
+var
+  K: Integer;
+  O, U: TPointF;
+  D, T, Len, Best: Double;
+  Dir, Q: TP3;
+begin
+  Result := False;
+  Axis := -1;
+  P := P3(0, 0, 0);
+  O := Project(V, P3(0, 0, 0));
+  if IsNan(O.X) or IsNan(O.Y) or IsInfinite(O.X) or IsInfinite(O.Y) then Exit;
+  Best := TolPx;
+
+  for K := 0 to 2 do
+  begin
+    case K of
+      0: Dir := P3(1, 0, 0);
+      1: Dir := P3(0, 1, 0);
+    else Dir := P3(0, 0, 1);
+    end;
+    U := Project(V, Dir);
+    U := PtF(U.X - O.X, U.Y - O.Y);
+    Len := Sqrt(U.X * U.X + U.Y * U.Y);
+    { An axis pointing at the camera is a dot on the glass, and every point
+      on it is under the cursor at once - PLAN looks down Z.  There is no
+      honest answer, so it is not offered. }
+    if Len < 1E-6 then Continue;
+
+    { how far along it the cursor is, and how far off it - the projection is
+      parallel, so one world unit is Len pixels wherever you are on the line }
+    T := ((SX - O.X) * U.X + (SY - O.Y) * U.Y) / (Len * Len);
+    D := Abs((SX - O.X) * U.Y - (SY - O.Y) * U.X) / Len;
+    if D >= Best then Continue;
+
+    Q := P3(Dir.X * T, Dir.Y * T, Dir.Z * T);
+    Best := D;
+    Axis := K;
+    P := Q;
+    Result := True;
   end;
 end;
 
@@ -3340,7 +3419,12 @@ function TWorkDoc.BestSnap(const V: TProjector; SX, SY, TolPx: Double;
 const
   { snOnEdge never comes out of this list - the cursor finds it separately -
     so its bias is only here to keep the array the right length }
-  BIAS: array[TSnapKind] of Double = (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0);
+  { The origin sits just under an endpoint.  It is a landmark and it should
+    beat a midpoint or a centre, but a corner somebody actually drew is more
+    likely to be the thing being aimed at than the place the model happens to
+    start - and near the origin is exactly where people draw corners. }
+  BIAS: array[TSnapKind] of Double =
+    (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0, 0, 3.0);
 var
   I: Integer;
   P: TPointF;
