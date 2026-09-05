@@ -86,6 +86,11 @@ type
     A, B, C: TP3;
     R, A0, Sweep: Double;
     Plane: TPlane;
+    { Where the note's box last landed on screen.  Not saved and not part of
+      the drawing - it is written down as the note is drawn so that clicking
+      the box can find it, which guessing at font metrics somewhere else
+      could only ever approximate. }
+    BoxL, BoxT, BoxR, BoxB: Single;
     { For an arc in plFree, the way its plane faces.  The plane itself is a
       name, and a name is only good while nothing has renamed it - so a circle
       on a roof has to carry its own or it lies back down flat the moment the
@@ -239,6 +244,12 @@ type
     function HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
     { Is this point of the model hidden behind a face, from where we look? }
     function HiddenAt(const V: TProjector; const P: TP3): Boolean;
+    { The note whose box is under this point, or -1.  Uses where the box was
+      last drawn, so it is exact rather than estimated. }
+    function HitNote(SX, SY: Double): Integer;
+    { Carry a note's box to a new place.  Only the box - what it points at is
+      left where it is. }
+    procedure MoveNote(Index: Integer; const From, ToPt, Grab: TP3);
     { The same search but only over edges - lines, arcs and dimensions.
       Erasing means erasing an edge; a face is what is left behind. }
     function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
@@ -3213,6 +3224,29 @@ begin
   end;
 end;
 
+procedure TWorkDoc.MoveNote(Index: Integer; const From, ToPt, Grab: TP3);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekText then Exit;
+  FEnts[Index].A := P3(From.X + (ToPt.X - Grab.X),
+                       From.Y + (ToPt.Y - Grab.Y),
+                       From.Z + (ToPt.Z - Grab.Z));
+  FSnapDirty := True;
+end;
+
+function TWorkDoc.HitNote(SX, SY: Double): Integer;
+var
+  I: Integer;
+begin
+  { Last drawn wins, which is the one on top. }
+  for I := FLive - 1 downto 0 do
+    if (FEnts[I].Kind = ekText) and (FEnts[I].BoxR > FEnts[I].BoxL) and
+       (SX >= FEnts[I].BoxL) and (SX <= FEnts[I].BoxR) and
+       (SY >= FEnts[I].BoxT) and (SY <= FEnts[I].BoxB) then
+      Exit(I);
+  Result := -1;
+end;
+
 function TWorkDoc.HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
   I, K, Steps: Integer;
@@ -3752,7 +3786,8 @@ var
     a riddle, and the same words on the end of a line pointing at a run are a
     drawing.  A note whose anchor and target are the same point has no leader
     and is a plain label, which is what every note made before this was. }
-  procedure Note(const At, Target: TP3; const Txt: string; const Col: TPix);
+  procedure Note(Which: Integer; const At, Target: TP3; const Txt: string;
+    const Col: TPix);
   const
     PADX = 5;
     PADY = 3;
@@ -3785,6 +3820,13 @@ var
       BX := Round(PA.X) + 5;
       BY := Round(PA.Y) - H - 2 * PADY - 3;
 
+      if (Which >= 0) and (Which < FLive) then
+      begin
+        FEnts[Which].BoxL := BX;
+        FEnts[Which].BoxT := BY;
+        FEnts[Which].BoxR := BX + W + 2 * PADX;
+        FEnts[Which].BoxB := BY + H + 2 * PADY;
+      end;
       S.FillRect(Rect(BX, BY, BX + W + 2 * PADX, BY + H + 2 * PADY),
         Pix(255, 255, 255), 0.82);
       S.Poly([PtF(BX, BY), PtF(BX + W + 2 * PADX, BY),
@@ -3889,7 +3931,7 @@ begin
         that lie in the plane of a face still facing us are put back after
         the face pass. }
       ekText:
-        Note(FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
+        Note(I, FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
       ekDim:
         Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
 
@@ -4119,7 +4161,7 @@ begin
             Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
         ekText:
           if not Covered(FEnts[I].A, J) then
-            Note(FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
+            Note(I, FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
       end;
       Break;
     end;

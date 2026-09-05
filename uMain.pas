@@ -289,6 +289,10 @@ type
     FPushFlush: Boolean;
     { waiting for a click to say which piece to lay out }
     FUnfoldPick: Boolean;
+    { the note being dragged by its box, where it started, and where it was
+      taken hold of }
+    FNoteDrag: Integer;
+    FNoteFrom, FNoteGrab: TP3;
     { the point the cursor is holding on to, and whether it has one }
     FStickOn: Boolean;
     FStickPt: TP3;
@@ -1411,6 +1415,7 @@ begin
     field left at its default reads as "editing the label on the first
     thing in the drawing". }
   FDimEdit := -1;
+  FNoteDrag := -1;
   Caption := APP_NAME + '  ' + CurrentVersion;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
   DoubleBuffered := True;
@@ -5473,6 +5478,7 @@ procedure TMainForm.ResetTool;
 begin
   FStage := 0;
   FUnfoldPick := False;
+  FNoteDrag := -1;
   FStickOn := False;
   { Minus one is "no dimension being edited", and it has to be said out loud.
     A field starts at zero, zero is a valid entity index, and the test for
@@ -6646,6 +6652,20 @@ begin
 
     if FTool = ptSelect then
     begin
+      { Press on a note's box and you are moving the note, not starting a
+        box-select.  Only the box moves; what it points at stays where it is,
+        which is the whole use of a leader - you drag the words out of the
+        way of the drawing without losing what they are about. }
+      FNoteDrag := FD.Doc.HitNote(X, Y);
+      if FNoteDrag >= 0 then
+      begin
+        PushUndo;
+        FNoteFrom := FD.Doc[FNoteDrag].A;
+        FNoteGrab := WorldAt(X, Y);
+        FCmdMsg := 'Moving the note.  Let go to drop it.';
+        pbCmd.Invalidate;
+        Exit;
+      end;
       FBoxing := True;
       FBoxX := X;
       FBoxY := Y;
@@ -7040,6 +7060,19 @@ begin
       K or the arrow keys and then keep, not something the mouse guesses at.
       Guessing there would fight the drawing rather than help it. }
     ShakeWatch(X, Y);
+
+    { carrying a note by its box }
+    if FNoteDrag >= 0 then
+    begin
+      FMouseSX := X;
+      FMouseSY := Y;
+      FD.Doc.MoveNote(FNoteDrag, FNoteFrom, WorldAt(X, Y), FNoteGrab);
+      RenderPro;
+      RecomposeAll;
+      FScreenDirty := True;
+      InvalidateStatus;
+      Exit;
+    end;
 
     { a hand that has moved has let go of whatever it was resting on }
     if FNoLockUntilMoved and
@@ -7756,6 +7789,11 @@ function TMainForm.PickAt(SX, SY: Integer): Integer;
 var
   E, F, T: Integer;
 begin
+  { A note is drawn over the top of everything, so it is picked before
+    everything - otherwise a note sitting on a panel could not be got at,
+    because the panel underneath answered first. }
+  Result := FD.Doc.HitNote(SX, SY);
+  if Result >= 0 then Exit;
   E := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
   F := FD.Doc.HitFace(Proj, SX, SY);
   T := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
@@ -7771,7 +7809,11 @@ var
 begin
   { An edge under the cursor is what you meant; away from any edge, the face
     itself is - which is how a box is hollowed out, leaving its wireframe. }
-  I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+  { The note first, for the same reason the selection takes it first: it is
+    drawn over the top, so it is what the cursor is on.  Rubbing out a note
+    used to take the panel behind it instead, which is a poor trade. }
+  I := FD.Doc.HitNote(SX, SY);
+  if I < 0 then I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
   if I < 0 then I := FD.Doc.HitFace(Proj, SX, SY);
   if I < 0 then I := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
   if (I < 0) or IsDoomed(I) then Exit;
@@ -8198,6 +8240,14 @@ end;
 procedure TMainForm.pbScreenMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
+  { let go of a note being carried }
+  if FNoteDrag >= 0 then
+  begin
+    FNoteDrag := -1;
+    FCmdMsg := 'Note moved.  What it points at has not.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
   { the release position is the last thing the stroke saw }
   FMoveX := X;
   FMoveY := Y;
