@@ -48,21 +48,83 @@ height treatment as a word.  The flow arrow drawn because it is drawn.
 Then it builds the four sides in 3D, and from there it can be unfolded and
 cut, which is the whole point of putting it in here rather than on paper.
 
+## The rule that ties it together
+
+**Everything is measured from the entry opening, and only one edge per axis
+is ever called out.  The opposite edge falls out of the exit size.**
+
+That is why the arrow matters: it says which edge is being dimensioned and
+which way it goes.  The rest is arithmetic and does not need writing down.
+
+* `top up 7`, with 20x20 at both ends, means the top of the duct is seven
+  inches higher at the exit than at the entry.  The bottom follows, because
+  the exit is 20 high.  Nothing tapers; the whole fitting rises.
+* `FB` - flat bottom - means the bottom does not move.  On a reduction the
+  top then drops by whatever the change in height is, and nobody writes that
+  number because it is not a choice.
+* An arrow on a side with a number says that side moves in by that much.  The
+  other side follows from the exit width.
+
+So the inputs are: two opening sizes, the length of the gap, and for each
+axis one named edge and how far it moves.  Six numbers and two choices, and
+that is the whole fitting.
+
+## Where the fitting comes from on a job
+
+Duct gets run through a building, and where the size changes the crews leave
+a **gap** and carry on with the next size.  Somebody comes behind and
+measures that gap.  So the fitting is defined by the hole it has to fill:
+
+* the size of the opening at each end,
+* the distance between them,
+* how the two openings sit relative to each other.
+
+Which is exactly the list above.  The tool should read like measuring a gap,
+because that is what the person doing it is doing.
+
+## The ends matter as much as the shape
+
+A pattern that is the right shape and the wrong size at the edges is scrap.
+Each end - and sometimes each edge of an end - carries a treatment, and each
+treatment eats or adds material:
+
+* **TDF** - a rolled flange, needs its stock allowance
+* **Flange out**, half an inch and so on
+* **Flange in**, with the addition bent down or inward
+* **Slip**, and **slip all the way round**
+* **Drive** - often drive on the bottom and slip on the sides, so the
+  treatment is per edge and not per end
+* **Raw** - nothing added
+* **Corners notched**
+
+This is the same thing as seam and bend allowance and it is not optional:
+it decides the size the sheet gets cut.  It belongs beside the fitting as a
+per-edge choice with the shop's own numbers behind each name.
+
+## Fittings wanted, in order
+
+1. **Transition** - the one above.
+2. **Offset**, or jog: same size both ends, shifted.  The same six numbers
+   with no change of size, so it is the same tool.
+3. **Ninety, and forty-five, with offsets.**  Square elbows are the next
+   family and they are asked for.
+4. **Square to round.**  Tony has never made one, so there is no house style
+   to follow: use the standard triangulation development the layout books
+   give, and expect to iterate on it.
+
 ## What is not yet settled
 
-1. **`top up` and `bottom down` - up or down by how much, and measured from
-   what?**  The reading here is that they say where a change in height is
-   taken: flat bottom puts all of it in the top, flat top puts all of it in
-   the bottom, and `top up 2` raises the top of the small end two inches
-   above where flat-bottom would put it.  That may be wrong.
-2. **Which way round is the page?**  Assumed flow goes up the page, big end
-   at the bottom, small end at the top.
-3. **Left and right of what?**  Assumed as drawn on the page, looking down
-   with the flow going away from you - so "left" is the left of the sketch.
-   Whether that matches how it is called out on the shop floor, when the
-   fitter may be standing the other way round, is worth knowing.
-4. **Does the same ticket cover an offset with no reduction** - a jog, same
-   size both ends, shifted across - or is that a different fitting with its
-   own notation?
-5. **Square to round.**  A different animal, and it is the one where the
-   unfolding earns its keep.  Worth knowing how those get called out too.
+
+1. **Which side does the arrow name?**  Tony: "the left side with an arrow
+   pointing right with the number 3 means that the right side would be set in
+   3 inches to the right."  Read strictly that names one side and moves the
+   other; read by the rule above it names the side it sits against.  Taken as
+   the second, since the rule is stated plainly everywhere else - but this is
+   the one to check first on a real ticket.
+2. **Which way round is the page?**  Big end at the bottom.  Tony's view is
+   that it should not matter once the two opening sizes are typed in, and he
+   is right - the page is how it gets written, not what it means.
+3. **What each end treatment is worth in material.**  TDF, flange out half an
+   inch, flange in, slip, drive, raw.  Every one of them is a number this
+   program does not have, and they are the shop's numbers rather than
+   anybody's guess.
