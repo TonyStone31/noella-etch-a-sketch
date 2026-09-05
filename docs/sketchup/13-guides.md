@@ -62,24 +62,22 @@ sit with tags - so neither does this note.
 
 ## Where we stand
 
-*Have:* a guide entity that feeds the snap cache and prints as nothing.  The
-tape leaves a **guide line parallel to an edge** when the measurement starts on
-one, and a **guide point** when it does not.  `/guides` clears them all, which
-is `Edit > Delete Guides`.
+*Have:* a guide entity that feeds the snap cache and prints as nothing.
+**Ctrl cycles the tape through all three** - guide line, guide point, measure
+only - and the prompt says which, where SketchUp puts an icon on the cursor.
+A guide can be **selected and erased** individually like anything else, and
+`/guides` clears them all, which is `Edit > Delete Guides`.
 
 *Differ, on purpose or not yet decided:*
 
-* **Ctrl is two-way here, not three.**  Ours defaults to leaving a guide and
-  Ctrl suppresses it; SketchUp starts from measuring and Ctrl cycles on to
-  guide line and guide point.  Ours cannot be asked for a guide point on an
-  edge, or a guide line off one.
-* **A guide line is drawn from the edge it copies**, so it is parallel to that
-  edge.  SketchUp's is perpendicular to the direction you drag from the point
-  you clicked, which is a different gesture reaching a similar place.
+* **A guide line is taken parallel to the edge the measurement started from.**
+  SketchUp's is perpendicular to the direction dragged from the point clicked.
+  Started away from any edge ours follows the run just measured, since that is
+  the only direction the gesture named.
 * **No protractor**, so no angled guides.  This is the one that matters for
-  45s.
-* **No hide and unhide** - only clear the lot.
-* **A guide cannot be selected or moved** once laid.  The eraser does not take
-  one either.
+  45s, and it is the largest thing missing here.
+* **No hide and unhide** - a guide is kept or cleared, not put away.
+* **A guide cannot be moved** once laid.  Erasing and laying another is the
+  way round it.
 
 *Not planned:* tags, and the context menu they hang off.

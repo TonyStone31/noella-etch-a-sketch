@@ -60,8 +60,8 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
    changes the text size, which is the thing worth having.  Wants a size on
    the note and a renderer that honours it.
 6. **Rotate.**  Never built.  45s are the job.
-7. **Back faces in their own colour**, the way SketchUp shows them pale blue.
-   It is how you spot a solid built inside out.
+7. **A protractor, and angled guides.**  The largest thing missing from
+   guides, and the same 45s are why.  `docs/sketchup/13-guides.md`.
 8. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
 9. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  SketchUp's own docs do
@@ -74,12 +74,6 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
 
 ## Smaller things, roughly in order
 
-* **An angle on the tape measure.**  It reads distance and dX/dY/dZ already.
-  The angle from the last segment, and from horizontal, costs almost nothing,
-  and 45s and 22.5s are what pipe work is measured in.
-* **Erasing a face** from its middle.  `HitTest` falls through to the A..B
-  segment test for a face, so only the eraser's own path finds the interior.
-  It should use the same point-in-polygon test `HitFace` does.
 * **Dimension labels can land inside a closed shape.**  They should be pushed
   to the outside of the run they belong to.
 * **Edges that partly overlap.**  An edge landing exactly on one already there

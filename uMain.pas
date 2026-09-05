@@ -55,6 +55,9 @@ uses
 type
   TAppMode = (mdToy, mdPro);
 
+  { measure only, leave a guide line, leave a guide point }
+  TGuideMode = (gmNone, gmLine, gmPoint);
+
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
     ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset);
 
@@ -266,7 +269,10 @@ type
     FLastPush: Double;         // what a double-click repeats
     { The tape measure lays down a guide by default, the way SketchUp's does;
       Ctrl turns that off and it only measures. }
-    FGuideMode: Boolean;
+    { What the tape leaves behind.  SketchUp cycles the tape through three
+      states with Ctrl and says which by the icon on the cursor; ours says it
+      in the prompt. }
+    FGuideMode: TGuideMode;
     FMeasEdge: Integer;        // the edge the tape was started on, or -1
     { What the last rebuild worked out, so a plane whose edges have not moved
       is not worked out again.  Safe to keep across sheets: a plane is only
@@ -416,6 +422,7 @@ type
     FPopupR: TRect;
     FPopupN: Integer;
     FPopupHot: Integer;
+    FCursorWas: TCursor;
     FSliderGrab: Boolean;
 
     { --- history -------------------------------------------------------- }
@@ -1419,6 +1426,7 @@ begin
     thing in the drawing". }
   FDimEdit := -1;
   FNoteDrag := -1;
+  FCursorWas := crCross;
   Caption := APP_NAME + '  ' + CurrentVersion;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
   DoubleBuffered := True;
@@ -1458,7 +1466,7 @@ begin
   FStyle := psClassic;
   FPenSize := 4;
   FEdgeW := 1;
-  FGuideMode := True;
+  FGuideMode := gmLine;
   FMeasEdge := -1;
   FSym := 1;
   FHotItem := -1;
@@ -5271,10 +5279,12 @@ begin
       ptErase: S2 := 'click a line to delete it';
       ptText:  S2 := 'space or click - the note points here';
       ptMeasure:
-        if FGuideMode then
-          S2 := 'measure from here - Ctrl for no guide'
+        case FGuideMode of
+          gmLine: S2 := 'measure from here - Ctrl for a guide point';
+          gmPoint: S2 := 'measure from here - Ctrl for no guide';
         else
-          S2 := 'measure from here - Ctrl to leave a guide';
+          S2 := 'measure from here - Ctrl to leave a guide line';
+        end;
     else
       S2 := 'space or click - start here';
     end;
@@ -5363,6 +5373,17 @@ begin
       -20000, pbScreen.Width + 20000);
     SY := EnsureRange(Round(EnsureRange(FPenY, -1E6, 1E6)),
       -20000, pbScreen.Height + 20000);
+  end;
+
+  { While a list is open the drawing's cursor is not drawn at all.  It is
+    tracking a point on the paper that the mouse is no longer choosing, so it
+    sits somewhere unrelated to the pointer and reads as a second cursor
+    disagreeing with the first.  The list has the mouse; let it have it
+    plainly. }
+  if FPopup <> POP_NONE then
+  begin
+    PaintPopup(pbScreen.Canvas);
+    Exit;
   end;
 
   { The pen cursor is composited through a scratch surface so it can be
@@ -7033,6 +7054,28 @@ begin
   X := FMoveX;
   Y := FMoveY;
 
+  { An open list takes the mouse, and nothing else gets it.
+
+    The row under the cursor was never worked out - the field for it existed
+    and the paint code knew how to light a row, but nothing ever set it, so
+    no row ever lit.  Meanwhile the drawing carried on snapping and inferring
+    underneath, which is what made a list opened over the drawing feel like
+    two things fighting for the pointer.  A menu that will not say which row
+    you are about to press is a menu you have to aim at twice. }
+  if FPopup <> POP_NONE then
+  begin
+    FMouseSX := X;
+    FMouseSY := Y;
+    HF := PopupItemAt(X, Y);
+    if HF <> FPopupHot then
+    begin
+      FPopupHot := HF;
+      FScreenDirty := True;
+      pbScreen.Invalidate;
+    end;
+    Exit;
+  end;
+
   { a held eraser collects whatever it is dragged across }
   if FErasing2 then
   begin
@@ -7430,6 +7473,10 @@ begin
   FPopup := Which;
   FPopupN := N;
   FPopupHot := -1;
+  { An arrow over a menu, not a drawing crosshair.  The pointer is choosing a
+    row, not a point on the paper. }
+  FCursorWas := pbScreen.Cursor;
+  pbScreen.Cursor := crDefault;
 
   { find the button it belongs to, and hang the list off its left edge }
   LeftX := Round(20 * FUIScale);
@@ -7460,7 +7507,9 @@ begin
   if FPopup = POP_NONE then Exit;
   FPopup := POP_NONE;
   FPopupHot := -1;
+  pbScreen.Cursor := FCursorWas;
   FScreenDirty := True;
+  pbScreen.Invalidate;
 end;
 
 function TMainForm.PopupItemAt(SX, SY: Integer): Integer;
@@ -7971,37 +8020,51 @@ end;
   It used to be a signed screen distance, and the sign disagreed with the one
   the renderer worked out, which is why pulling the line down put it above the
   edge - inside the shape it was measuring. }
-{ What the tape measure leaves behind.  Starting on an edge and pulling away
-  from it gives a guide line parallel to that edge, which is how you set out a
-  wall thickness or a row of hangers; starting anywhere else gives a guide
-  point at the far end.  Ctrl turns it off and the tape only measures. }
+{ What the tape measure leaves behind.
+
+  Which of the three it is comes from the mode rather than from what happened
+  to be under the first click, which is SketchUp's arrangement and the better
+  one: a guide point on an edge and a guide line off one are both things
+  somebody wants, and deciding for them means one of the two cannot be had.
+
+  A guide line runs parallel to the edge the measurement started on - that is
+  how a wall thickness or a row of hangers gets set out.  Started away from
+  any edge there is nothing to be parallel to, so it takes the direction of
+  the run just measured, which is the only direction the gesture named. }
 procedure TMainForm.LayGuide;
 var
   D: TP3;
   L: Double;
 begin
-  if not FGuideMode then Exit;
+  if FGuideMode = gmNone then Exit;
   if Dist(FP1, FP2) < 1E-9 then Exit;
   PushUndo;
-  if FMeasEdge >= 0 then
+
+  if FGuideMode = gmPoint then
   begin
+    FD.Doc.AddGuide(FP2, FP2);
+    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   guide point';
+    RenderPro;
+    RecomposeAll;
+    Exit;
+  end;
+
+  if FMeasEdge >= 0 then
     D := P3(FD.Doc[FMeasEdge].B.X - FD.Doc[FMeasEdge].A.X,
             FD.Doc[FMeasEdge].B.Y - FD.Doc[FMeasEdge].A.Y,
-            FD.Doc[FMeasEdge].B.Z - FD.Doc[FMeasEdge].A.Z);
-    L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
-    if L > 1E-9 then
-    begin
-      FD.Doc.AddGuide(FP2,
-        P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
-      FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
-        '   guide line, parallel to that edge';
-      RenderPro;
-      RecomposeAll;
-      Exit;
-    end;
-  end;
-  FD.Doc.AddGuide(FP2, FP2);
-  FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   guide point';
+            FD.Doc[FMeasEdge].B.Z - FD.Doc[FMeasEdge].A.Z)
+  else
+    D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
+  L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
+  if L < 1E-9 then Exit;
+  FD.Doc.AddGuide(FP2,
+    P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
+  if FMeasEdge >= 0 then
+    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
+      '   guide line, parallel to that edge'
+  else
+    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
+      '   guide line, along the run';
   RenderPro;
   RecomposeAll;
 end;
@@ -9536,9 +9599,16 @@ begin
           it in the prompt. }
         if FTool = ptMeasure then
         begin
-          FGuideMode := not FGuideMode;
-          FCmdMsg := IfThen(FGuideMode,
-            'Tape will leave a guide.', 'Tape will only measure.');
+          { Round the three, the way SketchUp's Ctrl does: a guide line, a
+            guide point, then neither. }
+          if FGuideMode = gmPoint then FGuideMode := gmNone
+          else FGuideMode := Succ(FGuideMode);
+          case FGuideMode of
+            gmLine: FCmdMsg := 'Tape will leave a guide line.';
+            gmPoint: FCmdMsg := 'Tape will leave a guide point.';
+          else
+            FCmdMsg := 'Tape will only measure.';
+          end;
           pbCmd.Invalidate;
           pbScreen.Invalidate;
         end;
