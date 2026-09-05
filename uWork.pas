@@ -2794,6 +2794,8 @@ var
   I, J, N, G: Integer;
   Nm: TP3;
   Base, Top, Rev: TP3Array;
+  HBase, HTop, RevH: array of TP3Array;
+  H, M: Integer;
   Quad: array[0..3] of TP3;
   Ink: TColor;
   Wt: Single;
@@ -2838,6 +2840,30 @@ begin
                  Base[I].Z + Nm.Z * Dist);
   end;
 
+  { Anything cut out of the face travels with it and gets walls of its own.
+
+    A ring pushed up is a wall with a hole through the middle, and the hole
+    needs a lining the same way the outside needs a face - otherwise you have
+    a solid whose inside is open to the air, which reads as the push having
+    swallowed the opening.  This is the offset-then-push case: draw a
+    rectangle, offset it, push the border, and what should come up is a
+    foundation wall rather than a filled block. }
+  SetLength(HBase, Length(FEnts[Index].Holes));
+  SetLength(HTop, Length(FEnts[Index].Holes));
+  for H := 0 to High(FEnts[Index].Holes) do
+  begin
+    M := Length(FEnts[Index].Holes[H]);
+    SetLength(HBase[H], M);
+    SetLength(HTop[H], M);
+    for I := 0 to M - 1 do
+    begin
+      HBase[H][I] := FEnts[Index].Holes[H][I];
+      HTop[H][I] := P3(HBase[H][I].X + Nm.X * Dist,
+                       HBase[H][I].Y + Nm.Y * Dist,
+                       HBase[H][I].Z + Nm.Z * Dist);
+    end;
+  end;
+
   { The picked face travels to the new position and a copy stays behind, so
     the result is a closed solid rather than an open shell.  The copy is
     wound the other way round so its normal points out of the solid, which is
@@ -2872,8 +2898,34 @@ begin
     for I := 0 to N - 1 do Rev[I] := Base[I];
   end;
   FEnts[Index].Solid := True;
+  { the face that travelled takes its openings with it }
+  for H := 0 to High(HTop) do
+  begin
+    M := Length(HTop[H]);
+    SetLength(FEnts[Index].Holes[H], M);
+    if Dist >= 0 then
+      for I := 0 to M - 1 do FEnts[Index].Holes[H][I] := HTop[H][I]
+    else
+      for I := 0 to M - 1 do FEnts[Index].Holes[H][I] := HTop[H][M - 1 - I];
+  end;
+
   AddFaceRaw(Rev, Ink, True);
   FEnts[FLive - 1].Grp := G;
+  { and so does the one left behind, wound to match its own outline }
+  if Length(HBase) > 0 then
+  begin
+    SetLength(RevH, Length(HBase));
+    for H := 0 to High(HBase) do
+    begin
+      M := Length(HBase[H]);
+      SetLength(RevH[H], M);
+      if Dist >= 0 then
+        for I := 0 to M - 1 do RevH[H][I] := HBase[H][M - 1 - I]
+      else
+        for I := 0 to M - 1 do RevH[H][I] := HBase[H][I];
+    end;
+    SetFaceHoles(FLive - 1, RevH);
+  end;
 
   { walls, plus the edges so it reads as a solid in wireframe too }
   for I := 0 to N - 1 do
@@ -2900,6 +2952,35 @@ begin
     FEnts[FLive - 1].Soft := N >= 9;
     AddLine(Top[I], Top[J], Ink, Wt, False);
     FEnts[FLive - 1].Grp := G;
+  end;
+
+  { The lining of each opening.  Same walls, wound the other way round,
+    because the material is outside a hole rather than inside it - so its
+    faces have to look inward, at the space the hole leaves. }
+  for H := 0 to High(HBase) do
+  begin
+    M := Length(HBase[H]);
+    for I := 0 to M - 1 do
+    begin
+      J := (I + 1) mod M;
+      if Dist >= 0 then
+      begin
+        Quad[0] := HBase[H][J]; Quad[1] := HBase[H][I];
+        Quad[2] := HTop[H][I];  Quad[3] := HTop[H][J];
+      end
+      else
+      begin
+        Quad[0] := HBase[H][I]; Quad[1] := HBase[H][J];
+        Quad[2] := HTop[H][J];  Quad[3] := HTop[H][I];
+      end;
+      AddFaceRaw(Quad, Ink, True);
+      FEnts[FLive - 1].Grp := G;
+      AddLine(HBase[H][I], HTop[H][I], Ink, Wt, False);
+      FEnts[FLive - 1].Grp := G;
+      FEnts[FLive - 1].Soft := M >= 9;
+      AddLine(HTop[H][I], HTop[H][J], Ink, Wt, False);
+      FEnts[FLive - 1].Grp := G;
+    end;
   end;
 
   FSnapDirty := True;
