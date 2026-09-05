@@ -3211,10 +3211,12 @@ begin
     if Abs(Dot3(Nm, P) - Dot3(Nm, FEnts[I].Poly[0])) < 1E-6 then Continue;
     Den := Dot3(Nm, Look);
     if Abs(Den) < 1E-12 then Continue;      { edge-on, hides nothing }
-    { where the line of sight through P meets this face's plane.  Negative is
-      towards the camera, so that is a face in front. }
+    { Where the line of sight through P meets this face's plane.  ViewDir
+      points from the drawing towards the camera - the sense the face culling
+      uses, where a face turned towards you has a positive dot with it - so a
+      face in front of P is at a positive step along it. }
     T := (Dot3(Nm, FEnts[I].Poly[0]) - Dot3(Nm, P)) / Den;
-    if T >= -1E-9 then Continue;
+    if T <= 1E-9 then Continue;
     SetLength(Poly, N);
     for A := 0 to N - 1 do Poly[A] := Project(V, FEnts[I].Poly[A]);
     Inside := False;
@@ -3757,11 +3759,25 @@ var
     SP: TPointF;
     Inside: Boolean;
     Nm: TP3;
+    Den, T: Double;
   begin
     Result := True;
     SP := Project(V, P);
-    for F := Slot + 1 to NFace - 1 do
+    { Every face, and each one asked whether it is actually in front.
+
+      This used to walk only the faces sorted after this one, on the grounds
+      that those are the nearer ones - which is what a painter's algorithm
+      assumes and is not always true.  Faces are sorted by one depth each,
+      and a large flat panel can sort behind a small object that it in fact
+      covers.  Then the panel was never asked, and everything under it was
+      drawn straight through: exactly what a plate with legs pushed down out
+      of it showed.
+
+      Asking every face costs a loop over faces already projected, and gives
+      an answer that does not depend on the sort being right. }
+    for F := 0 to NFace - 1 do
     begin
+      if F = Slot then Continue;
       if Length(Shape[F]) < 3 then Continue;
       { A face the point lies in cannot be in front of it.  Without this test
         every edge of a solid was chopped to a dotted line: the edge lies in
@@ -3771,6 +3787,15 @@ var
       Nm := FaceNormal(Order[F]);
       if Abs(Dot3(Nm, P) - Dot3(Nm, FEnts[Order[F]].Poly[0])) < 1E-6 then
         Continue;
+      { and it has to be between the point and the eye, not behind it.
+        ViewDir points from the drawing towards the camera - which is the
+        sense the face culling already uses, where a face turned towards you
+        has a positive dot with it - so a face in front of P is at a positive
+        step along it. }
+      Den := Dot3(Nm, Look);
+      if Abs(Den) < 1E-12 then Continue;
+      T := (Dot3(Nm, FEnts[Order[F]].Poly[0]) - Dot3(Nm, P)) / Den;
+      if T <= 1E-9 then Continue;
       Inside := False;
       B := High(Shape[F]);
       for A := 0 to High(Shape[F]) do

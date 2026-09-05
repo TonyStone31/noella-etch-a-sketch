@@ -6886,6 +6886,12 @@ begin
        FormatFloat('0.00', FUIScale),
        specialize IfThen<string>(IsPortable, 'yes', 'no'),
        NetBackend]) + LineEnding +
+    { Where the camera was standing.  A report that says a drawing looks wrong
+      at this angle is only reproducible if the angle comes with it - and
+      several have now turned on exactly that. }
+    Format('camera az=%.2f el=%.2f zoom=%.3f at %.1f,%.1f',
+      [RadToDeg(FD.Az), RadToDeg(FD.El), FD.Zoom, FD.ViewX, FD.ViewY]) +
+      LineEnding +
     { The surfaces, because two crashes running have been in the compositor
       and the question both times was whether these four still agree with
       each other and with the window.  Cheap to carry, and it turns the next
