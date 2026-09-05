@@ -53,8 +53,6 @@ function ExpectedSum(const SumsURL, AName: string): string;
 function WhyNotUpdate: string;
 function SwapInAndRestart(const NewFile: string; out Err: string): Boolean;
 procedure ForgetPreviousBuild;
-{ A github issue, filled in and ready for a person to look over and send. }
-function CrashIssueURL(const Report: string): string;
 procedure OpenInBrowser(const URL: string);
 
 implementation
@@ -347,32 +345,6 @@ begin
   if FileExists(Old) then DeleteFile(Old);
 end;
 
-function UrlEncode(const S: string): string;
-var
-  I: Integer;
-begin
-  Result := '';
-  for I := 1 to Length(S) do
-    if S[I] in ['A'..'Z', 'a'..'z', '0'..'9', '-', '_', '.', '~'] then
-      Result := Result + S[I]
-    else
-      Result := Result + '%' + IntToHex(Ord(S[I]), 2);
-end;
-
-function CrashIssueURL(const Report: string): string;
-var
-  Body: string;
-begin
-  Body := 'This crash report was written by Heckers Sketch.  Have a read' +
-    ' before sending it - it says which version, which view and which tool' +
-    ' were in play, and nothing else about you.' + #10#10 +
-    'What I was doing at the time:' + #10#10 + '(a line or two here is worth' +
-    ' more than the whole report)' + #10#10 +
-    'Version: ' + CurrentVersion + #10#10 +
-    '```' + #10 + Copy(Report, 1, 4000) + #10 + '```' + #10;
-  Result := 'https://github.com/' + UPDATE_REPO + '/issues/new?title=' +
-    UrlEncode('Crash: ' + CurrentVersion) + '&body=' + UrlEncode(Body);
-end;
 
 procedure OpenInBrowser(const URL: string);
 var

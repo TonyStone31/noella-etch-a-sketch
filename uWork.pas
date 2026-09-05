@@ -247,7 +247,6 @@ type
     function FaceArea(Index: Integer): Double;
     procedure Delete(I: Integer);
     procedure Clear;
-    procedure SetLive(N: Integer);
     function Snapshot: TWorkEntArray;
     procedure RestoreSnap(const A: TWorkEntArray);
     function Stored: Integer;
@@ -352,7 +351,6 @@ const
     ('OFF', '1mm', '2mm', '5mm', '10mm', '25mm', '50mm', '100mm', '250mm', '1m');
 
 function UnitName(U: TUnitSystem): string;
-function UnitShort(U: TUnitSystem): string;
 function ScaleTable(U: TUnitSystem; I: Integer): TDrawScale;
 function SnapValue(U: TUnitSystem; I: Integer): Double;
 function SnapName(U: TUnitSystem; I: Integer): string;
@@ -522,11 +520,6 @@ const
 function UnitName(U: TUnitSystem): string;
 begin
   if U = usImperial then Result := 'FEET' else Result := 'METRIC';
-end;
-
-function UnitShort(U: TUnitSystem): string;
-begin
-  if U = usImperial then Result := 'ft' else Result := 'm';
 end;
 
 function ScaleTable(U: TUnitSystem; I: Integer): TDrawScale;
@@ -1810,11 +1803,6 @@ begin
   FSnapDirty := True;
 end;
 
-procedure TWorkDoc.SetLive(N: Integer);
-begin
-  FLive := EnsureRange(N, 0, Length(FEnts));
-  FSnapDirty := True;
-end;
 
 { A face carries its outline in a dynamic array, and plain record assignment
   would only share the reference - so a later push/pull that rewrites those

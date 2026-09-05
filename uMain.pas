@@ -615,7 +615,6 @@ type
     procedure DoRedo;
     function CanUndo: Boolean;
     function CanRedo: Boolean;
-    procedure ClearHistory;
 
     { toy }
     procedure StampSegment(X0, Y0, X1, Y1: Single);
@@ -687,7 +686,6 @@ type
     { deck }
     function DeckHit(X, Y: Integer): Integer;
     procedure DeckActivate(Index: Integer);
-    function FindDeck(Group, Value: Integer): Integer;
     function IconLit(Value: Integer): Boolean;
     function IconEnabled(Value: Integer): Boolean;
     function SliderValueAt(const Item: TDeckItem; X: Integer): Integer;
@@ -3601,13 +3599,6 @@ begin
   FSliderGrab := False;
 end;
 
-{ Where a given control ended up in the deck, so a key can press it. }
-function TMainForm.FindDeck(Group, Value: Integer): Integer;
-begin
-  for Result := 0 to High(FDeck) do
-    if (FDeck[Result].Group = Group) and (FDeck[Result].Value = Value) then Exit;
-  Result := -1;
-end;
 
 procedure TMainForm.DeckActivate(Index: Integer);
 var
@@ -9872,14 +9863,6 @@ end;
 { history                                                                   }
 { ======================================================================== }
 
-procedure TMainForm.ClearHistory;
-begin
-  FUndoToyTop := 0;
-  FRedoToyTop := 0;
-  FD.UndoTop := 0;
-  FD.RedoTop := 0;
-  pbDeck.Invalidate;
-end;
 
 procedure TMainForm.PushUndo;
 var

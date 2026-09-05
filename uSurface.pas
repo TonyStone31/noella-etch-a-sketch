@@ -92,7 +92,6 @@ type
     procedure BlendPixel(X, Y: Integer; const C: TPix; Cover: Single); inline;
     procedure Clear(const C: TPix);
     procedure FillRect(const R: TRect; const C: TPix; Alpha: Single = 1.0);
-    procedure VGradient(const R: TRect; const C1, C2: TPix);
     procedure RoundRect(const R: TRect; Radius: Single; const C: TPix; Alpha: Single = 1.0);
     procedure RoundRectV(const R: TRect; Radius: Single; const C1, C2: TPix; Alpha: Single = 1.0);
     procedure RoundFrame(const R: TRect; Radius, LineW: Single; const C: TPix; Alpha: Single = 1.0);
@@ -106,19 +105,16 @@ type
     procedure Triangle(const P1, P2, P3: TPointF; const C: TPix; Alpha: Single = 1.0);
     procedure FillLoops(const Loops: array of TPtFLoop; const C: TPix;
       Alpha: Single);
-    procedure FillPoly(const Pts: array of TPointF; const C: TPix; Alpha: Single = 1.0);
 
     { Depth: start a pass, say what plane the next shape lies in, ask what
       depth a pixel ended up at.  Depth counts up towards the eye. }
     procedure DepthBegin;
-    procedure DepthOff;
     procedure DepthPlane(A, B, C: Double);
     function DepthAt(X, Y: Integer): Single;
     function DepthOn: Boolean;
 
     { --- whole-surface effects ------------------------------------------- }
     procedure ClearTransparent;
-    procedure FadeToward(const C: TPix; Amount: Single);
     procedure FadeAlpha(Amount: Single);
     procedure CompositeOver(Base, Ink: TArtSurface; const R: TRect);
     procedure Grain(Amount, Density: Single);
@@ -131,10 +127,6 @@ type
     procedure Restore(const Buf: TBytes);
     procedure DrawTo(ACanvas: TCanvas; X, Y: Integer);
     procedure SaveToPNG(const AFileName: string);
-    { The same picture, into memory.  A bug report wants to carry what the
-      screen looked like, and going out to a file and back to do it would
-      mean writing somebody's drawing to disk on the way to sending it. }
-    procedure SaveToPNGStream(St: TStream);
     function TextExtent(const S: string; AFont: TFont): TSize;
     procedure TextOut(X, Y: Integer; const S: string; AFont: TFont; const C: TPix;
       Alpha: Single = 1.0);
@@ -740,23 +732,6 @@ begin
   Invalidate;
 end;
 
-procedure TArtSurface.VGradient(const R: TRect; const C1, C2: TPix);
-var
-  X, Y, H: Integer;
-  C: TPix;
-  Cl: TRect;
-begin
-  Cl := Rect(Max(0, R.Left), Max(0, R.Top), Min(FWidth, R.Right), Min(FHeight, R.Bottom));
-  H := R.Bottom - R.Top;
-  if H <= 0 then Exit;
-  for Y := Cl.Top to Cl.Bottom - 1 do
-  begin
-    C := MixPix(C1, C2, (Y - R.Top) / H);
-    for X := Cl.Left to Cl.Right - 1 do
-      BlendPixel(X, Y, C, 1.0);
-  end;
-  Invalidate;
-end;
 
 procedure TArtSurface.RoundRectV(const R: TRect; Radius: Single; const C1, C2: TPix;
   Alpha: Single);
@@ -1031,10 +1006,6 @@ begin
   FZa := 0; FZb := 0; FZc := -1E30;
 end;
 
-procedure TArtSurface.DepthOff;
-begin
-  FZOn := False;
-end;
 
 function TArtSurface.DepthOn: Boolean;
 begin
@@ -1191,38 +1162,7 @@ begin
   Invalidate;
 end;
 
-procedure TArtSurface.FillPoly(const Pts: array of TPointF; const C: TPix;
-  Alpha: Single);
-var
-  One: array[0..0] of TPtFLoop;
-  I: Integer;
-begin
-  SetLength(One[0], Length(Pts));
-  for I := 0 to High(Pts) do One[0][I] := Pts[I];
-  FillLoops(One, C, Alpha);
-end;
 
-procedure TArtSurface.FadeToward(const C: TPix; Amount: Single);
-var
-  X, Y, A: Integer;
-  P: PPix;
-begin
-  A := EnsureRange(Round(Amount * 255), 0, 255);
-  if A = 0 then Exit;
-  for Y := 0 to FHeight - 1 do
-  begin
-    P := ScanLine(Y);
-    for X := 0 to FWidth - 1 do
-    begin
-      P^.R := P^.R + ((C.R - P^.R) * A) div 255;
-      P^.G := P^.G + ((C.G - P^.G) * A) div 255;
-      P^.B := P^.B + ((C.B - P^.B) * A) div 255;
-      Inc(P);
-    end;
-  end;
-  MarkAllDirty;
-  Invalidate;
-end;
 
 { Sprinkle bright/dark specks - the aluminium powder look while erasing. }
 procedure TArtSurface.Grain(Amount, Density: Single);
@@ -1449,18 +1389,6 @@ begin
     end;
 end;
 
-procedure TArtSurface.SaveToPNGStream(St: TStream);
-var
-  Png: TPortableNetworkGraphic;
-begin
-  Png := TPortableNetworkGraphic.Create;
-  try
-    Png.Assign(AsBitmap);
-    Png.SaveToStream(St);
-  finally
-    Png.Free;
-  end;
-end;
 
 procedure TArtSurface.SaveToPNG(const AFileName: string);
 var
