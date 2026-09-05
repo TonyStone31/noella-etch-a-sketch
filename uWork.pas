@@ -237,6 +237,8 @@ type
     { Hit testing and snapping are done in screen space so they behave the
       same in every view. }
     function HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
+    { Is this point of the model hidden behind a face, from where we look? }
+    function HiddenAt(const V: TProjector; const P: TP3): Boolean;
     { The same search but only over edges - lines, arcs and dimensions.
       Erasing means erasing an edge; a face is what is left behind. }
     function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
@@ -958,7 +960,7 @@ var
   P0, PX, PY, PZ: TPointF;
   A: array[0..2, 0..2] of Double;
   B: array[0..2] of Double;
-  Det, D0, D1, D2, Scale: Double;
+  Det, D0, D1, D2, Scale, R0, R1, R2: Double;
 begin
   Result := Base;
   P0 := Project(V, P3(0, 0, 0));
@@ -979,9 +981,21 @@ begin
        + A[0,2] * (A[1,0] * A[2,1] - A[1,1] * A[2,0]);
 
   { Edge-on to the camera there is no crossing worth having - the same
-    judgement the orbit unproject makes, and for the same reason. }
-  Scale := Max(Abs(A[0,0]), Max(Abs(A[0,1]), Max(Abs(A[0,2]), 1E-12)));
-  if Abs(Det) < 1E-6 * Scale * Scale then Exit;
+    judgement the orbit unproject makes, and for the same reason.
+
+    Judged against all three rows, not one of them.  The first two are in
+    pixels per foot and the third is a unit normal, so measuring a
+    three-row determinant against the first row squared compares it with
+    something a thousand times too big and lets through a solve that is
+    hopeless.  That is what made a circle on a roof leap to an absurd size
+    from a pixel of movement, and leap worse the more the roof leaned away:
+    the answer was the plane running off towards the horizon, faithfully
+    computed. }
+  R0 := Sqrt(Sqr(A[0,0]) + Sqr(A[0,1]) + Sqr(A[0,2]));
+  R1 := Sqrt(Sqr(A[1,0]) + Sqr(A[1,1]) + Sqr(A[1,2]));
+  R2 := Sqrt(Sqr(A[2,0]) + Sqr(A[2,1]) + Sqr(A[2,2]));
+  Scale := R0 * R1 * R2;
+  if (Scale < 1E-12) or (Abs(Det) < 1E-3 * Scale) then Exit;
 
   D0 := B[0]    * (A[1,1] * A[2,2] - A[1,2] * A[2,1])
       - A[0,1]  * (B[1]   * A[2,2] - A[1,2] * B[2])
@@ -3131,9 +3145,71 @@ begin
     end;
     if D < Best then
     begin
+      { Out of sight behind a panel is not what anybody meant to click.
+        Sampled at three places along it rather than one, so an edge that
+        comes out from behind something is still there to be had by the part
+        of it you can see. }
+      if (FEnts[I].Kind in [ekLine, ekArc]) and
+         HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.5)) and
+         HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.2)) and
+         HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.8)) then Continue;
       Best := D;
       Result := I;
     end;
+  end;
+end;
+
+{ Is this point of the model hidden behind a face?
+
+  A filled panel is opaque.  You cannot see the back wall through the roof,
+  so you should not be able to pick it through the roof either - and being
+  able to was making it hard to put anything on a sloped face at all, because
+  the thing under the cursor kept turning out to be something behind it.
+
+  The renderer has known this all along and has its own version, working off
+  the depth sort it has already done.  This is the same test standing on its
+  own, for the times something needs asking outside a repaint. }
+function TWorkDoc.HiddenAt(const V: TProjector; const P: TP3): Boolean;
+var
+  I, A, B, N: Integer;
+  SP: TPointF;
+  Inside: Boolean;
+  Nm, Look: TP3;
+  Den, T: Double;
+  Poly: array of TPointF;
+begin
+  Result := False;
+  SP := Project(V, P);
+  Look := ViewDir(V);
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    N := Length(FEnts[I].Poly);
+    if N < 3 then Continue;
+    Nm := FaceNormal(I);
+    { A face the point lies in cannot hide it.  Every edge of a solid lies in
+      the plane of the faces either side of it, and without this each one
+      would hide itself. }
+    if Abs(Dot3(Nm, P) - Dot3(Nm, FEnts[I].Poly[0])) < 1E-6 then Continue;
+    Den := Dot3(Nm, Look);
+    if Abs(Den) < 1E-12 then Continue;      { edge-on, hides nothing }
+    { where the line of sight through P meets this face's plane.  Negative is
+      towards the camera, so that is a face in front. }
+    T := (Dot3(Nm, FEnts[I].Poly[0]) - Dot3(Nm, P)) / Den;
+    if T >= -1E-9 then Continue;
+    SetLength(Poly, N);
+    for A := 0 to N - 1 do Poly[A] := Project(V, FEnts[I].Poly[A]);
+    Inside := False;
+    B := N - 1;
+    for A := 0 to N - 1 do
+    begin
+      if ((Poly[A].Y > SP.Y) <> (Poly[B].Y > SP.Y)) and
+         (SP.X < (Poly[B].X - Poly[A].X) * (SP.Y - Poly[A].Y) /
+                 (Poly[B].Y - Poly[A].Y) + Poly[A].X) then
+        Inside := not Inside;
+      B := A;
+    end;
+    if Inside then Exit(True);
   end;
 end;
 
@@ -3174,7 +3250,22 @@ begin
       end;
     end;
     if D <= TolPx then
+    begin
+      { An edge behind a panel is out of sight, so it is not what was meant.
+        Notes and dimensions are drawn over the top of everything and stay
+        pickable wherever they are. }
+      if FEnts[I].Kind in [ekLine, ekArc] then
+      begin
+        PA := Project(V, FEnts[I].A);
+        PB := Project(V, FEnts[I].B);
+        Ang := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+        if HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.5)) and
+           HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.25)) and
+           HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.75)) then
+          Continue;
+      end;
       Exit(I);
+    end;
   end;
   Result := -1;
 end;
