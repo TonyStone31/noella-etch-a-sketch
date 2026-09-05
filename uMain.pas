@@ -638,10 +638,6 @@ type
     function InPalette(C: TColor): Boolean;
 
     function StatusLine: string;
-    { The little pair of buttons in the corner of the drawing that appear
-      only when there are guides to act on. }
-    function GuideBar(out RHide, RClear: TRect): Boolean;
-    procedure PaintGuideBar(C: TCanvas);
     procedure WashFace(C: TCanvas; const Poly: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
@@ -725,6 +721,11 @@ const
   ACT_FIT     = 14;
   ACT_OPEN    = 15;
   ACT_EXPORT  = 16;
+  { Buttons that come and go with the drawing rather than sitting there
+    always.  They live on the settings row so that nothing is ever painted
+    over the drawing itself. }
+  ACT_GUIDES  = 17;
+  ACT_NOGUIDE = 18;
 
   UNDO_LEVELS     = 16;
   KNOB_PX_PER_RAD = 58.0;
@@ -2835,7 +2836,7 @@ procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
   Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, N, G, GX, GrpGap: Integer;
-  HalfW, SnapX, RightW6, GrpX: Integer;
+  HalfW, SnapX, RightW6, GrpX, NSet: Integer;
   Blank: TPix;
 
   procedure Add(K: TDeckKind; const B: TRect; G, V: Integer;
@@ -2978,7 +2979,26 @@ begin
       which also means a list can be longer than a row ever was. }
     RowY := Y0 + 2 * (RowH + RowGap);
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
-    SegW := (Avail - 4 * RowGap) div 5;
+    { Two more slots when the drawing has guides in it, and the row divides
+      by seven instead of five.  A button for something that does not exist is
+      one more thing to read past every time you look at the screen, so they
+      are not there until the tape leaves the first guide and are gone again
+      when the last one is cleared. }
+    if (FMode = mdPro) and (FD.Doc.GuideCount > 0) then NSet := 7 else NSet := 5;
+    SegW := (Avail - (NSet - 1) * RowGap) div NSet;
+    if NSet = 7 then
+    begin
+      Add(dkSegment, Rect(X + 5 * SegW, RowY, X + 6 * SegW - RowGap,
+        RowY + RowH), GRP_ICON, ACT_GUIDES,
+        IfThen(FD.Doc.GuidesHidden,
+          Format('SHOW %d', [FD.Doc.GuideCount]),
+          Format('HIDE %d', [FD.Doc.GuideCount])),
+        'Put the guides away, or bring them back.  They stay in the drawing '
+        + 'either way.', ikDroplet);
+      Add(dkSegment, Rect(X + 6 * SegW, RowY, X + 7 * SegW - RowGap,
+        RowY + RowH), GRP_ICON, ACT_NOGUIDE, 'CLEAR GUIDES',
+        'Throw all the guides away.  Undo brings them back.', ikDroplet);
+    end;
     Add(dkSegment, Rect(X + 4 * SegW, RowY, X + 5 * SegW - RowGap,
       RowY + RowH), GRP_POPUP, POP_SHOP, 'SHOP',
       'Shop tools - laying a piece out flat, and the fittings', ikDroplet);
@@ -3463,6 +3483,22 @@ begin
         ACT_FIT:    FitView;
         ACT_OPEN:   DoOpen;
         ACT_EXPORT: DoExport;
+        ACT_GUIDES:
+          begin
+            FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
+            FCmdMsg := IfThen(FD.Doc.GuidesHidden,
+              'Guides put away.  They are still in the drawing.',
+              'Guides back.');
+            RenderPro;
+            RecomposeAll;
+          end;
+        ACT_NOGUIDE:
+          begin
+            PushUndo;
+            FCmdMsg := Format('Cleared %d guides.', [FD.Doc.ClearGuides]);
+            RenderPro;
+            RecomposeAll;
+          end;
       end;
   end;
 end;
@@ -4900,59 +4936,6 @@ end;
   it, which is the opposite of helpful when the question being asked is "am I
   about to delete the right thing".  A diagonal hatch reads as marked out
   from across the room and leaves the drawing legible underneath. }
-{ Where the guide buttons sit, and whether there are any.
-
-  Bottom right of the drawing, and only there at all when the drawing has
-  guides in it - a button for something that does not exist is one more thing
-  to read past every time you look at the screen.  They appear the moment the
-  tape leaves the first one and are gone again when the last is cleared. }
-function TMainForm.GuideBar(out RHide, RClear: TRect): Boolean;
-var
-  W, H, Pad, Gap, Right, Bottom: Integer;
-begin
-  Result := (FMode = mdPro) and (FD.Doc.GuideCount > 0);
-  RHide := Rect(0, 0, 0, 0);
-  RClear := Rect(0, 0, 0, 0);
-  if not Result then Exit;
-  W := Round(74 * FUIScale);
-  H := Round(22 * FUIScale);
-  Pad := Round(10 * FUIScale);
-  Gap := Round(6 * FUIScale);
-  Right := pbScreen.Width - Pad;
-  Bottom := pbScreen.Height - Pad;
-  RClear := Rect(Right - W, Bottom - H, Right, Bottom);
-  RHide := Rect(RClear.Left - Gap - W, Bottom - H, RClear.Left - Gap, Bottom);
-end;
-
-procedure TMainForm.PaintGuideBar(C: TCanvas);
-var
-  RHide, RClear: TRect;
-  N: Integer;
-
-  procedure Pill(const R: TRect; const S: string; Lit: Boolean);
-  begin
-    C.Brush.Style := bsSolid;
-    if Lit then C.Brush.Color := PixToColor(ShadePix(Theme.Accent, 0.9))
-    else C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.15));
-    C.Pen.Style := psSolid;
-    C.Pen.Color := PixToColor(MixPix(Theme.Panel, Pix(255, 255, 255), 0.25));
-    C.Rectangle(R);
-    UIFont(C, 8, False, Theme.Text);
-    C.Brush.Style := bsClear;
-    C.TextOut(R.Left + (R.Right - R.Left - C.TextWidth(S)) div 2,
-              R.Top + (R.Bottom - R.Top - C.TextHeight(S)) div 2, S);
-  end;
-
-begin
-  if not GuideBar(RHide, RClear) then Exit;
-  N := FD.Doc.GuideCount;
-  if FD.Doc.GuidesHidden then
-    Pill(RHide, Format('show %d', [N]), True)
-  else
-    Pill(RHide, Format('hide %d', [N]), False);
-  Pill(RClear, 'clear', False);
-end;
-
 procedure TMainForm.WashFace(C: TCanvas; const Poly: TPointFArray;
   const Col: TPix);
 var
@@ -5439,11 +5422,9 @@ begin
     plainly. }
   if FPopup <> POP_NONE then
   begin
-    PaintGuideBar(pbScreen.Canvas);
     PaintPopup(pbScreen.Canvas);
     Exit;
   end;
-  PaintGuideBar(pbScreen.Canvas);
 
   { The pen cursor is composited through a scratch surface so it can be
     anti-aliased and still sit on top of the artwork. }
@@ -6692,7 +6673,6 @@ procedure TMainForm.pbScreenMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
   I: Integer;
-  RHide, RClear: TRect;
 begin
   { a press supersedes whatever motion has not been serviced yet }
   FMoveX := X;
@@ -6778,31 +6758,6 @@ begin
   begin
     FMouseSX := X;
     FMouseSY := Y;
-    { the guide buttons sit on the drawing, so they answer before it does }
-    if GuideBar(RHide, RClear) then
-    begin
-      if PtInRect(RHide, Point(X, Y)) then
-      begin
-        FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
-        FCmdMsg := IfThen(FD.Doc.GuidesHidden,
-          'Guides put away.  They are still there.', 'Guides back.');
-        RenderPro;
-        RecomposeAll;
-        pbScreen.Invalidate;
-        pbCmd.Invalidate;
-        Exit;
-      end;
-      if PtInRect(RClear, Point(X, Y)) then
-      begin
-        PushUndo;
-        FCmdMsg := Format('Cleared %d guides.', [FD.Doc.ClearGuides]);
-        RenderPro;
-        RecomposeAll;
-        pbScreen.Invalidate;
-        pbCmd.Invalidate;
-        Exit;
-      end;
-    end;
     { waiting to be told which piece to lay out - that click, and no other }
     if FUnfoldPick then
     begin
@@ -8137,6 +8092,8 @@ begin
     FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   guide point';
     RenderPro;
     RecomposeAll;
+    RebuildDeck;
+    pbDeck.Invalidate;
     Exit;
   end;
 
@@ -8174,6 +8131,9 @@ begin
     '   guide line, across the run';
   RenderPro;
   RecomposeAll;
+  { the row grows a pair of buttons the moment there is a guide to act on }
+  RebuildDeck;
+  pbDeck.Invalidate;
 end;
 
 function TMainForm.EdgeSegments: TSegArray;
@@ -9900,10 +9860,21 @@ end;
 
 function TMainForm.LoadDocument(const FileName: string): Boolean;
 var
-  L: TStringList;
+  L, CamT: TStringList;
   I, Idx, NSheet: Integer;
   Line, Key, Rest: string;
   D: TDrawing;
+
+  { the file's own decimal point, whatever the machine's happens to be }
+  function RdF(const T: string): Double;
+  var
+    FS2: TFormatSettings;
+  begin
+    FS2 := DefaultFormatSettings;
+    FS2.DecimalSeparator := '.';
+    Result := StrToFloatDef(Trim(T), 0, FS2);
+  end;
+
 begin
   Result := False;
   L := TStringList.Create;
@@ -9967,6 +9938,26 @@ begin
           else if Key = 'SCALE' then D.ScaleIdx := EnsureRange(StrToIntDef(Rest, 2), 0, SCALE_COUNT - 1)
           else if Key = 'SNAP' then D.SnapIdx := EnsureRange(StrToIntDef(Rest, 5), 0, SNAP_COUNT - 1)
           else if Key = 'VIEW' then D.View := TViewKind(EnsureRange(StrToIntDef(Rest, 0), 0, 2))
+          else if Key = 'CAMERA' then
+          begin
+            { A file written before this has no camera line and keeps
+              whatever the view would have given it. }
+            CamT := TStringList.Create;
+            try
+              CamT.Delimiter := ' ';
+              CamT.DelimitedText := Rest;
+              if CamT.Count >= 5 then
+              begin
+                D.Az := RdF(CamT[0]);
+                D.El := EnsureRange(RdF(CamT[1]), -1.45, 1.45);
+                D.Zoom := EnsureRange(RdF(CamT[2]), 0.05, 40.0);
+                D.ViewX := RdF(CamT[3]);
+                D.ViewY := RdF(CamT[4]);
+              end;
+            finally
+              CamT.Free;
+            end;
+          end
           else if Key = 'DIMS' then      { no longer used; older files have it }
           else Break;
           Inc(Idx);
@@ -10202,6 +10193,14 @@ begin
     L.Add('SCALE ' + IntToStr(FDrawings[I].ScaleIdx));
     L.Add('SNAP ' + IntToStr(FDrawings[I].SnapIdx));
     L.Add('VIEW ' + IntToStr(Ord(FDrawings[I].View)));
+    { Where the camera was standing.  A drawing that opens at some other angle
+      than the one it was left at is a drawing you have to find your way back
+      into, and it also means a drawing attached to a report cannot be looked
+      at from where the person reporting it was looking. }
+    L.Add(StringReplace(Format('CAMERA %.6f %.6f %.6f %.3f %.3f',
+      [FDrawings[I].Az, FDrawings[I].El, FDrawings[I].Zoom,
+       FDrawings[I].ViewX, FDrawings[I].ViewY]),
+      DefaultFormatSettings.DecimalSeparator, '.', [rfReplaceAll]));
     FDrawings[I].Doc.SaveTo(L);
     L.Add('ENDSHEET');
   end;
