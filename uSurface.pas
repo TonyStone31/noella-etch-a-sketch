@@ -32,6 +32,11 @@ uses
   IntfGraphics;
 
 type
+  { one closed loop in screen coordinates - an outline, or something cut out
+    of one }
+  TPtFLoop = array of TPointF;
+
+type
   { One pixel, laid out exactly as Init_BPP32_B8G8R8A8_BIO_TTB stores it. }
   TPix = packed record
     B, G, R, A: Byte;
@@ -99,6 +104,8 @@ type
     procedure Poly(const Pts: array of TPointF; LineW: Single; const C: TPix;
       Closed: Boolean = False; Alpha: Single = 1.0);
     procedure Triangle(const P1, P2, P3: TPointF; const C: TPix; Alpha: Single = 1.0);
+    procedure FillLoops(const Loops: array of TPtFLoop; const C: TPix;
+      Alpha: Single);
     procedure FillPoly(const Pts: array of TPointF; const C: TPix; Alpha: Single = 1.0);
 
     { Depth: start a pass, say what plane the next shape lies in, ask what
@@ -1049,32 +1056,53 @@ begin
   Result := FZ[Y * FWidth + X];
 end;
 
-procedure TArtSurface.FillPoly(const Pts: array of TPointF; const C: TPix;
+{ One shape, however many loops it takes to say what it is.
+
+  The outline and anything cut out of it go in together and the crossings are
+  counted the same way for all of them, so a hole is not a special case in
+  here: the scanline already fills between alternate crossings, which is the
+  even-odd rule, and an inner loop simply contributes two more crossings that
+  turn the fill off and on again.  A window in a wall costs nothing that a
+  wall did not already cost. }
+procedure TArtSurface.FillLoops(const Loops: array of TPtFLoop; const C: TPix;
   Alpha: Single);
 const
   SAMPLES = 4;
 var
-  N, I, J, Y, X, K, Cnt, X0, X1, Y0, Y1: Integer;
+  N, I, J, Y, X, K, L, Cnt, X0, X1, Y0, Y1, Total: Integer;
   MinX, MaxX, MinY, MaxY, SY, XA, XB: Single;
   Xs: array of Single;
   Cov: array of Single;
   T: Single;
   Z: Double;
+  Any: Boolean;
 begin
-  N := Length(Pts);
-  if N < 3 then Exit;
-
-  MinY := Pts[0].Y;
-  MaxY := Pts[0].Y;
-  MinX := Pts[0].X;
-  MaxX := Pts[0].X;
-  for I := 1 to N - 1 do
+  Any := False;
+  Total := 0;
+  MinY := 0; MaxY := 0; MinX := 0; MaxX := 0;
+  for L := 0 to High(Loops) do
   begin
-    MinY := Min(MinY, Pts[I].Y);
-    MaxY := Max(MaxY, Pts[I].Y);
-    MinX := Min(MinX, Pts[I].X);
-    MaxX := Max(MaxX, Pts[I].X);
+    N := Length(Loops[L]);
+    if N < 3 then Continue;
+    Inc(Total, N);
+    for I := 0 to N - 1 do
+    begin
+      if not Any then
+      begin
+        MinY := Loops[L][I].Y; MaxY := MinY;
+        MinX := Loops[L][I].X; MaxX := MinX;
+        Any := True;
+      end
+      else
+      begin
+        MinY := Min(MinY, Loops[L][I].Y);
+        MaxY := Max(MaxY, Loops[L][I].Y);
+        MinX := Min(MinX, Loops[L][I].X);
+        MaxX := Max(MaxX, Loops[L][I].X);
+      end;
+    end;
   end;
+  if not Any then Exit;
 
   Y0 := LoBound(MinY, FHeight);
   Y1 := HiBound(MaxY, FHeight);
@@ -1082,7 +1110,7 @@ begin
   X1 := HiBound(MaxX + 1, FWidth);
   if (Y1 < Y0) or (X1 < X0) then Exit;
 
-  SetLength(Xs, N + 1);
+  SetLength(Xs, Total + 2);
   SetLength(Cov, X1 - X0 + 2);
 
   for Y := Y0 to Y1 do
@@ -1094,13 +1122,18 @@ begin
     begin
       SY := Y + (K + 0.5) / SAMPLES;
       Cnt := 0;
-      for I := 0 to N - 1 do
+      for L := 0 to High(Loops) do
       begin
-        J := (I + 1) mod N;
-        if (Pts[I].Y <= SY) = (Pts[J].Y <= SY) then Continue;
-        T := (SY - Pts[I].Y) / (Pts[J].Y - Pts[I].Y);
-        Xs[Cnt] := Pts[I].X + (Pts[J].X - Pts[I].X) * T;
-        Inc(Cnt);
+        N := Length(Loops[L]);
+        if N < 3 then Continue;
+        for I := 0 to N - 1 do
+        begin
+          J := (I + 1) mod N;
+          if (Loops[L][I].Y <= SY) = (Loops[L][J].Y <= SY) then Continue;
+          T := (SY - Loops[L][I].Y) / (Loops[L][J].Y - Loops[L][I].Y);
+          Xs[Cnt] := Loops[L][I].X + (Loops[L][J].X - Loops[L][I].X) * T;
+          Inc(Cnt);
+        end;
       end;
       if Cnt < 2 then Continue;
 
@@ -1156,6 +1189,17 @@ begin
       end;
   end;
   Invalidate;
+end;
+
+procedure TArtSurface.FillPoly(const Pts: array of TPointF; const C: TPix;
+  Alpha: Single);
+var
+  One: array[0..0] of TPtFLoop;
+  I: Integer;
+begin
+  SetLength(One[0], Length(Pts));
+  for I := 0 to High(Pts) do One[0][I] := Pts[I];
+  FillLoops(One, C, Alpha);
 end;
 
 procedure TArtSurface.FadeToward(const C: TPix; Amount: Single);

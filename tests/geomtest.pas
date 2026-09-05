@@ -880,6 +880,56 @@ end;
   re-derived by hand; a sliver of a rectangle from a small drag was the first
   anybody knew of it being wrong.  Round-tripping a point through both is the
   check that would have said so immediately, so it lives here now. }
+{ A window is a place the wall is not.
+
+  The region finder has always worked holes out; nothing read them, so a wall
+  with a window in it was filled solid and the window could only be seen by
+  its edges - and the cursor found wall in the middle of the opening, which is
+  what stopped anything behind it being reached. }
+procedure TestFaceHoles;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Ring, Win: TP3Array;
+  H: array of TP3Array;
+  Face: Integer;
+  Pt: TP3;
+  S: TPointF;
+begin
+  WriteLn('A face with something cut out of it');
+  D := TWorkDoc.Create;
+  try
+    SetLength(Ring, 4);
+    Ring[0] := P3(0, 0, 0); Ring[1] := P3(10, 0, 0);
+    Ring[2] := P3(10, 10, 0); Ring[3] := P3(0, 10, 0);
+    D.AddFace(Ring, 0, False);
+
+    SetLength(Win, 4);
+    Win[0] := P3(3, 3, 0); Win[1] := P3(7, 3, 0);
+    Win[2] := P3(7, 7, 0); Win[3] := P3(3, 7, 0);
+    SetLength(H, 1);
+    H[0] := Win;
+    D.SetFaceHoles(D.Live - 1, H);
+    Ok(True, 'a hole can be given to a face');
+
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan;
+    V.OX := 0; V.OY := 0; V.Ppu := 10;
+
+    { in the ring, so the face is there }
+    S := Project(V, P3(1, 1, 0));
+    Ok(D.FaceUnder(V, S.X, S.Y, Face, Pt) and (Face = 0),
+       'the cursor finds the face where the wall is');
+
+    { in the window, so it is not }
+    S := Project(V, P3(5, 5, 0));
+    Ok(not D.FaceUnder(V, S.X, S.Y, Face, Pt),
+       'and finds nothing where the window is');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestProjectRoundTrip;
 var
   V: TProjector;
@@ -1743,6 +1793,7 @@ begin
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;
   TestSolidClaimsItsEdges; WriteLn;
+  TestFaceHoles;  WriteLn;
   TestProjectRoundTrip;  WriteLn;
   TestPlaneByDrag;  WriteLn;
   TestOffset;       WriteLn;

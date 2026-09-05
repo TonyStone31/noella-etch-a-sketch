@@ -97,6 +97,15 @@ type
       cursor moves on to something else. }
     Nm: TP3;
     Poly: array of TP3;   // ekFace: the closed outline, in order
+    { What is cut out of it.  A window in a wall, the opening a duct passes
+      through, the inside of a ring left by an offset - all the same thing:
+      an area whose outline is this face's and which is not filled where
+      these loops say it is not.
+
+      Empty for nearly every face, and everything that reads a face treats an
+      empty list as the shape it always was, so this costs nothing where it
+      is not used. }
+    Holes: array of array of TP3;
     Solid: Boolean;       // ekFace: part of a solid, so its back is hidden
     { Which solid this belongs to, or 0 for loose drawing.  Push/pull drags
       the geometry attached to the face it moves, and without this it dragged
@@ -194,6 +203,9 @@ type
     function ClearGuides: Integer;
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
+    { Give a face the loops cut out of it - a window in a wall, the middle of
+      a ring left by an offset. }
+    procedure SetFaceHoles(Index: Integer; const H: array of TP3Array);
 
     { push/pull: lift the face along its own normal and wall in the sides }
     { Hand the edges round a face to a solid's group, so they stop counting
@@ -1964,6 +1976,22 @@ begin
   AddFaceRaw(Fixed, Ink, Solid);
 end;
 
+{ Give the face just added the loops cut out of it. }
+procedure TWorkDoc.SetFaceHoles(Index: Integer; const H: array of TP3Array);
+var
+  I, K: Integer;
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
+  SetLength(FEnts[Index].Holes, Length(H));
+  for I := 0 to High(H) do
+  begin
+    SetLength(FEnts[Index].Holes[I], Length(H[I]));
+    for K := 0 to High(H[I]) do
+      FEnts[Index].Holes[I][K] := H[I][K];
+  end;
+  FSnapDirty := True;
+end;
+
 { Newell's method, which copes with slightly non-planar loops. }
 function TWorkDoc.FaceNormal(Index: Integer): TP3;
 var
@@ -2035,9 +2063,9 @@ end;
 function TWorkDoc.FaceUnder(const V: TProjector; SX, SY: Double;
   out Face: Integer; out Pt: TP3): Boolean;
 var
-  I, J, K, N: Integer;
+  I, J, K, N, M, HK: Integer;
   Inside: Boolean;
-  P: array of TPointF;
+  P, HP: array of TPointF;
   Look, Org, U, W, Hit: TP3;
   P0, P1, P2: TPointF;
   AX, AY, BX, BY, Det, SS, TT, D, Best, Eps: Double;
@@ -2082,6 +2110,27 @@ begin
         Inside := not Inside;
       J := K;
     end;
+    { and out again through anything cut out of it.  A window is a hole in
+      the wall, so the cursor in a window is not on the wall - which is what
+      lets you reach whatever is behind it, and what stops the eraser
+      offering you a wall you are looking through. }
+    if Inside then
+      for HK := 0 to High(FEnts[I].Holes) do
+      begin
+        M := Length(FEnts[I].Holes[HK]);
+        if M < 3 then Continue;
+        SetLength(HP, M);
+        for K := 0 to M - 1 do HP[K] := Project(V, FEnts[I].Holes[HK][K]);
+        J := M - 1;
+        for K := 0 to M - 1 do
+        begin
+          if ((HP[K].Y > SY) <> (HP[J].Y > SY)) and
+             (SX < (HP[J].X - HP[K].X) * (SY - HP[K].Y) /
+                   (HP[J].Y - HP[K].Y) + HP[K].X) then
+            Inside := not Inside;
+          J := K;
+        end;
+      end;
     if not Inside then Continue;
 
     { Where the cursor meets this face's plane.  The basis is normalized
@@ -3667,7 +3716,7 @@ end;
 
 procedure TWorkDoc.SaveTo(L: TStrings);
 var
-  I, K: Integer;
+  I, J, K: Integer;
   Line: string;
 begin
   for I := 0 to FLive - 1 do
@@ -3707,6 +3756,18 @@ begin
             Line := Line + ' ' + N3(FEnts[I].Poly[K]);
           Line := Line + ' ' + IntToStr(FEnts[I].Grp);
           L.Add(Line);
+          { What is cut out of it, one line each, straight after the face
+            they belong to.  Their own keyword rather than more fields on the
+            end, so a reader that has never heard of a hole skips them and
+            gets the face it would have got before. }
+          for K := 0 to High(FEnts[I].Holes) do
+            if Length(FEnts[I].Holes[K]) >= 3 then
+            begin
+              Line := Format('HOLE %d', [Length(FEnts[I].Holes[K])]);
+              for J := 0 to High(FEnts[I].Holes[K]) do
+                Line := Line + ' ' + N3(FEnts[I].Holes[K][J]);
+              L.Add(Line);
+            end;
         end;
     end;
 end;
@@ -3736,11 +3797,13 @@ procedure TWorkDoc.LoadFrom(L: TStrings; var Idx: Integer);
 var
   T: TStringList;
   Line, Kind: string;
-  I, N: Integer;
+  I, N, K, LastFace: Integer;
   Pts: TP3Array;
   P: Integer;
 begin
   Clear;
+  { which face a HOLE line belongs to - the one just before it }
+  LastFace := -1;
   T := TStringList.Create;
   try
     T.Delimiter := ' ';
@@ -3829,6 +3892,21 @@ begin
                     Copy(Line, P + 1, MaxInt), StrToIntDef(T[4], 0));
         end;
       end
+      else if (Kind = 'HOLE') and (T.Count >= 2) and (LastFace >= 0) then
+      begin
+        N := StrToIntDef(T[1], 0);
+        if (N >= 3) and (T.Count >= 2 + N * 3) and (LastFace < FLive) then
+        begin
+          SetLength(Pts, N);
+          for I := 0 to N - 1 do
+            Pts[I] := P3(RdF(T[2 + I * 3]), RdF(T[3 + I * 3]),
+                         RdF(T[4 + I * 3]));
+          K := Length(FEnts[LastFace].Holes);
+          SetLength(FEnts[LastFace].Holes, K + 1);
+          SetLength(FEnts[LastFace].Holes[K], N);
+          for I := 0 to N - 1 do FEnts[LastFace].Holes[K][I] := Pts[I];
+        end;
+      end
       else if (Kind = 'FACE') and (T.Count >= 4) then
       begin
         N := StrToIntDef(T[3], 0);
@@ -3841,6 +3919,7 @@ begin
           { the solid it belongs to, when the file records one }
           if (FLive > 0) and (T.Count >= 5 + N * 3) then
             FEnts[FLive - 1].Grp := StrToIntDef(T[4 + N * 3], 0);
+          LastFace := FLive - 1;
         end;
       end;
     end;
@@ -3955,6 +4034,8 @@ var
   Depth, Area: array of Double;
   Ar: Double;
   Flat: array of TPointF;
+  Loops: array of TPtFLoop;
+  HK, HJ: Integer;
   Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
   GuideCol: TPix;
   M, Run0: Integer;
@@ -4331,10 +4412,23 @@ begin
       The sense of the test is the one FaceUnder already uses to decide what
       can be clicked: a face turned towards the camera has a positive dot with
       the view direction. }
+    { The outline and anything cut out of it go to the fill together, so a
+      window is a place the wall is not rather than a place something else is
+      drawn over it.  That distinction is the whole difference between a
+      window you can see through and a window that is a picture of one. }
+    SetLength(Loops, 1 + Length(FEnts[K].Holes));
+    SetLength(Loops[0], Length(Flat));
+    for HJ := 0 to High(Flat) do Loops[0][HJ] := Flat[HJ];
+    for HK := 0 to High(FEnts[K].Holes) do
+    begin
+      SetLength(Loops[HK + 1], Length(FEnts[K].Holes[HK]));
+      for HJ := 0 to High(FEnts[K].Holes[HK]) do
+        Loops[HK + 1][HJ] := Project(V, FEnts[K].Holes[HK][HJ]);
+    end;
     if Dot3(Nm, ViewDir(V)) < 0 then
-      S.FillPoly(Flat, ShadePix(FACE_BACK, Sh), 1.0)
+      S.FillLoops(Loops, ShadePix(FACE_BACK, Sh), 1.0)
     else
-      S.FillPoly(Flat, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
+      S.FillLoops(Loops, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
     { No outline.  Every boundary of a face is a real edge and gets drawn as
       one, so stroking the polygon as well laid a second line over the first -
       which is most of why the edges of a solid looked heavier than the lines

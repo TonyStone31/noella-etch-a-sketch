@@ -8979,7 +8979,7 @@ type
 var
   R: TRegionArray;
   Was: array of TWas;
-  NWas, I, J, K, Made: Integer;
+  NWas, I, J, K, Made, DupAt: Integer;
   Mid, Other: TP3;
   Ink: TColor;
   Dup, HadFace, Known: Boolean;
@@ -9035,6 +9035,7 @@ begin
       twice.  Area and containment do not care how many corners a shape has
       been divided into. }
     Dup := False;
+    DupAt := -1;
     for J := 0 to FD.Doc.Live - 1 do
       if (FD.Doc[J].Kind = ekFace) and FD.Doc[J].Solid and
          (Length(FD.Doc[J].Poly) >= 3) then
@@ -9051,10 +9052,26 @@ begin
         if PointInLoop(Mid, FD.Doc[J].Poly, Other) then
         begin
           Dup := True;
+          DupAt := J;
           Break;
         end;
       end;
-    if Dup then Continue;
+    if Dup then
+    begin
+      { The solid already has this face, so no second one is made - but the
+        area may have gained a hole since, and the solid's own face is the
+        thing that has to know about it.
+
+        This is what a window in a column is.  Drawing a rectangle on the
+        side of a solid does not cut that side in two, because the rectangle
+        is wholly inside it and crosses nothing.  The region finder sees the
+        side as a shape with a hole in it, and that answer used to be thrown
+        away in favour of the solid's own face - which had no hole, and so
+        went on covering the window.  Handing the holes over keeps the
+        solid's face and gives it the opening. }
+      if DupAt >= 0 then FD.Doc.SetFaceHoles(DupAt, R[I].Holes);
+      Continue;
+    end;
 
     { Did this area have a face a moment ago, and had this sheet seen it
       before?
@@ -9096,6 +9113,11 @@ begin
         Break;
       end;
     FD.Doc.AddFaceRaw(R[I].Outer, Ink, False);
+    { and whatever is cut out of it.  The region finder has worked these out
+      all along; nothing was asking for them, so a wall with a window in it
+      was filled in solid and the window could only be seen by its edges. }
+    if Length(R[I].Holes) > 0 then
+      FD.Doc.SetFaceHoles(FD.Doc.Live - 1, R[I].Holes);
     Inc(Made);
   end;
   { and this is what the sheet has seen, for the next rebuild to compare
