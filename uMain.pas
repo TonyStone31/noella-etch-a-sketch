@@ -290,6 +290,8 @@ type
       flat planes instead and latches, because sometimes you mean to draw in
       mid air; Esc, or a new tool, hands it back to the face. }
     FPlaneHeld: Boolean;
+    { the face the shape is being drawn on, so a point can be held to it }
+    FFacePt, FFaceNm: TP3;
     { true while a push is lining itself up with another face }
     FPushFlush: Boolean;
     { waiting for a click to say which piece to lay out }
@@ -465,7 +467,9 @@ type
     function ScreenOf(const P: TP3): TPointF;
     function WorldAt(SX, SY: Double): TP3;
     function SnapToGrid(const P: TP3): TP3;
+    function ResolveSnapRaw(SX, SY: Double): TP3;
     function ResolveSnapAt(SX, SY: Double): TP3;
+    function HeldToFace(const P: TP3): TP3;
     function AnnotColor: TPix;
     function DialsVisible: Boolean;
 
@@ -1030,7 +1034,7 @@ end;
 { Points on the drawing beat the grid, the way they do in SketchUp.  Failing
   a direct hit, the cursor is pulled onto line with any point that shares one
   of its coordinates, and a guide is shown back to whatever it lined up with. }
-function TMainForm.ResolveSnapAt(SX, SY: Double): TP3;
+function TMainForm.ResolveSnapRaw(SX, SY: Double): TP3;
 var
   Hit: TSnapHit;
   Pts: TP3Array;
@@ -1431,6 +1435,36 @@ begin
   end;
 
   Result := W;
+end;
+
+{ A point pulled back onto the face it is being drawn on.
+
+  Drawing on a face means every point of the shape is on that face - that is
+  what drawing on it means.  Not every inference knows it.  The model axes
+  are infinite lines through the origin, so they run along the base of
+  anything standing on the ground: drawing a window low on a column, the
+  green axis lies right along the bottom of the face and takes the cursor
+  straight off it, sideways into open space.  The reading said ON FACE while
+  the point was somewhere else, and the shape went where the point was.
+
+  Held to the plane instead.  It costs nothing when the snap was already in
+  the plane, which is nearly always, and the rest of the time it is the
+  difference between an inference that helps and one that quietly moves your
+  work somewhere you did not ask for. }
+function TMainForm.HeldToFace(const P: TP3): TP3;
+var
+  D: Double;
+begin
+  Result := P;
+  if not FPlaneFromFace then Exit;
+  D := (P.X - FFacePt.X) * FFaceNm.X + (P.Y - FFacePt.Y) * FFaceNm.Y +
+       (P.Z - FFacePt.Z) * FFaceNm.Z;
+  Result := P3(P.X - FFaceNm.X * D, P.Y - FFaceNm.Y * D, P.Z - FFaceNm.Z * D);
+end;
+
+function TMainForm.ResolveSnapAt(SX, SY: Double): TP3;
+begin
+  Result := HeldToFace(ResolveSnapRaw(SX, SY));
 end;
 
 function TMainForm.AnnotColor: TPix;
@@ -7882,6 +7916,8 @@ begin
       { the plane passes through where the cursor meets the face, so the
         shape sits on the surface rather than at the old height }
       FCur := HP;
+      FFacePt := HP;
+      FFaceNm := Norm3(HN);
       FPlaneFromFace := True;
     end;
 
