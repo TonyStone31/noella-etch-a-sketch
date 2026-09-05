@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold, uFlatView, uShotView;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold, uFlatView;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -524,7 +524,7 @@ type
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
     function WindowShot(out B: TBitmap): Boolean;
-    function TakeReportShot(St: TStream; Wait: Boolean): Boolean;
+    function CaptureShot(Wait: Boolean; out Bmp: TBitmap): Boolean;
     procedure ShotCountdown(Seconds: Integer);
     procedure PaintShotOverlay(C: TCanvas);
     function ReportBug(const Preamble: string = '';
@@ -4674,82 +4674,55 @@ end;
 
 { Ask, count down, take it, show them, and take it again for as long as they
   want it taken again.  True when there is a picture in St to send. }
-function TMainForm.TakeReportShot(St: TStream; Wait: Boolean): Boolean;
+{ Take the picture.  The countdown, the flash, and the shutter.
+
+  No longer asks anything and no longer shows the result: the form the report
+  is typed into shows it, which is where it belongs.  Somebody photographing a
+  fault has the fault in their head, and being asked to approve a picture
+  before writing a word about it means writing the word afterwards, from
+  memory - which is exactly the complaint that led here. }
+function TMainForm.CaptureShot(Wait: Boolean; out Bmp: TBitmap): Boolean;
 var
-  B: TBitmap;
-  Png: TPortableNetworkGraphic;
-  V: TShotVerdict;
   WasMsg: string;
 begin
   Result := False;
+  Bmp := nil;
   if FShotBusy then Exit;
   FShotBusy := True;
   WasMsg := FCmdMsg;
   try
-    repeat
-      Application.ProcessMessages;
-      if Wait then
-      begin
-        FCmdMsg := 'Setting up the picture - it is taken when this reaches zero.';
-        ShotCountdown(10);
-        if Application.Terminated then Exit;
-      end;
+    Application.ProcessMessages;
+    if Wait then
+    begin
+      FCmdMsg := 'Setting up the picture - it is taken when this reaches zero.';
+      ShotCountdown(10);
+      if Application.Terminated then Exit;
+    end;
 
-      { Nothing about the taking of the picture may be in the picture.  The
-        number goes, and so does the line in the command bar that was
-        counting it down - that bar is one of the most useful things in the
-        shot and it should say what it would have said. }
-      FShotCount := 0;
-      FShotFlash := False;
-      FCmdMsg := WasMsg;
-      FScreenDirty := True;
-      pbScreen.Invalidate;
-      pbCmd.Invalidate;
-      Application.ProcessMessages;
+    { Nothing about the taking of the picture may be in the picture.  The
+      number goes, and so does the line in the command bar that was counting
+      it down - that bar is one of the most useful things in the shot and it
+      should say what it would have said. }
+    FShotCount := 0;
+    FShotFlash := False;
+    FCmdMsg := WasMsg;
+    FScreenDirty := True;
+    pbScreen.Invalidate;
+    pbCmd.Invalidate;
+    Application.ProcessMessages;
 
-      St.Size := 0;
-      if not WindowShot(B) then
-      begin
-        FCmdMsg := 'The picture could not be taken - sending without one.';
-        Exit;
-      end;
+    if not WindowShot(Bmp) then Exit;
 
-      { and the flash after it, not before }
-      FShotFlash := True;
-      pbScreen.Invalidate;
-      Application.ProcessMessages;
-      Sleep(110);
-      FShotFlash := False;
-      FScreenDirty := True;
-      pbScreen.Invalidate;
-      Application.ProcessMessages;
-
-      try
-        V := ConfirmShot(B);
-        { encoded only once it is wanted - the picture nobody keeps costs
-          nothing }
-        if V = svUse then
-        begin
-          Png := TPortableNetworkGraphic.Create;
-          try
-            Png.Assign(B);
-            Png.SaveToStream(St);
-          finally
-            Png.Free;
-          end;
-        end;
-      finally
-        FreeAndNil(B);
-      end;
-
-      { They have seen it and want it done again.  Second time round they get
-        the countdown whether or not they took it the first time - asking for
-        another go almost always means the first one caught the wrong moment. }
-      if V = svRetry then Wait := True;
-    until V <> svRetry;
-
-    Result := (V = svUse) and (St.Size > 0);
-    if not Result then St.Size := 0;
+    { and the flash after it, not before }
+    FShotFlash := True;
+    pbScreen.Invalidate;
+    Application.ProcessMessages;
+    Sleep(110);
+    FShotFlash := False;
+    FScreenDirty := True;
+    pbScreen.Invalidate;
+    Application.ProcessMessages;
+    Result := True;
   finally
     FShotBusy := False;
     FShotCount := 0;
@@ -4767,7 +4740,12 @@ var
   Memo: TMemo;
   Lbl, Fine: TLabel;
   WithDoc: TCheckBox;
-  BtnOK, BtnNo: TButton;
+  BtnOK, BtnNo, BtnAgain: TButton;
+  Shown: TImage;
+  ShotBmp: TBitmap;
+  Png: TPortableNetworkGraphic;
+  DocOn: Boolean;
+  Res: Integer;
   Body, Name_, Err, Note, ShotErr: string;
   WantShot: Boolean;
   ShotWay, NThings: Integer;
@@ -4775,13 +4753,58 @@ var
   L: TStringList;
 begin
   Result := False;
+
+  { The picture comes first, and the form that the report is typed into shows
+    it.
+
+    It used to be the other way round: type the report, then be asked about a
+    picture, then approve the picture.  Which meant writing the description
+    of a fault before photographing it, and then photographing it from
+    memory - and if the picture came out wrong there was no way back to it
+    without losing what had been written.  Taking it first, and putting it in
+    front of somebody while they write, means the words and the picture are
+    about the same thing.  Taking another is a button on the form and costs
+    nothing that was typed. }
+  Application.ProcessMessages;
+  ShotWay := QuestionDlg('A picture first?',
+    'A picture of this window shows which tool was in hand and what the ' +
+    'settings were.  You write the report next, with the picture in front ' +
+    'of you, and you can take another from there.',
+    mtConfirmation,
+    [mrYes, 'Give me 10 seconds', 'IsDefault',
+     mrAll, 'Take it now',
+     mrNo,  'No picture'], 0);
+  WantShot := ShotWay in [mrYes, mrAll];
+
+  ShotBmp := nil;
+  if WantShot then
+  begin
+    { A crash brings its own picture, from when it happened - a fresh one now
+      would only show whatever is on screen after the restart. }
+    if (ShotFile <> '') and FileExists(ShotFile) then
+      try
+        ShotBmp := TBitmap.Create;
+        ShotBmp.LoadFromFile(ShotFile);
+      except
+        FreeAndNil(ShotBmp);
+      end
+    else
+      CaptureShot(ShotWay = mrYes, ShotBmp);
+    WantShot := ShotBmp <> nil;
+  end;
+
+  Note := '';
+  DocOn := True;
+  try
+  repeat
   Dlg := TForm.CreateNew(nil);
   try
     Dlg.Caption := 'Report a problem';
     Dlg.Position := poMainFormCenter;
     Dlg.BorderStyle := bsDialog;
     Dlg.ClientWidth := Round(600 * FUIScale);
-    Dlg.ClientHeight := Round(384 * FUIScale);
+    if WantShot then Dlg.ClientHeight := Round(560 * FUIScale)
+    else Dlg.ClientHeight := Round(384 * FUIScale);
 
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
@@ -4807,6 +4830,8 @@ begin
       Dlg.ClientWidth - Round(24 * FUIScale), Round(180 * FUIScale));
     Memo.ScrollBars := ssAutoVertical;
     Memo.WordWrap := True;
+    { whatever was typed before the picture was taken again }
+    Memo.Text := Note;
 
     { The drawing file stays off, and the picture is not asked about here at
       all - it is asked about after this closes, so the question is about a
@@ -4860,13 +4885,34 @@ begin
       Fine.Caption := 'The surest way to find a fault.  Untick it if you ' +
         'would rather not send your work.';
 
+    { The picture, where it can be looked at while the words are written. }
+    if WantShot then
+    begin
+      Shown := TImage.Create(Dlg);
+      Shown.Parent := Dlg;
+      Shown.SetBounds(Round(12 * FUIScale), Round(336 * FUIScale),
+        Dlg.ClientWidth - Round(24 * FUIScale), Round(170 * FUIScale));
+      Shown.Stretch := True;
+      Shown.Proportional := True;
+      Shown.Center := True;
+      Shown.Picture.Assign(ShotBmp);
+
+      BtnAgain := TButton.Create(Dlg);
+      BtnAgain.Parent := Dlg;
+      BtnAgain.Caption := 'Take another';
+      BtnAgain.ModalResult := mrRetry;
+      BtnAgain.SetBounds(Round(12 * FUIScale), Dlg.ClientHeight -
+        Round(42 * FUIScale), Round(140 * FUIScale), Round(30 * FUIScale));
+    end;
+
     BtnOK := TButton.Create(Dlg);
     BtnOK.Parent := Dlg;
     BtnOK.Caption := 'Send';
     BtnOK.ModalResult := mrOK;
     BtnOK.Default := True;
     BtnOK.SetBounds(Dlg.ClientWidth - Round(224 * FUIScale),
-      Round(342 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+      Dlg.ClientHeight - Round(42 * FUIScale),
+      Round(100 * FUIScale), Round(30 * FUIScale));
 
     BtnNo := TButton.Create(Dlg);
     BtnNo.Parent := Dlg;
@@ -4874,14 +4920,32 @@ begin
     BtnNo.ModalResult := mrCancel;
     BtnNo.Cancel := True;
     BtnNo.SetBounds(Dlg.ClientWidth - Round(112 * FUIScale),
-      Round(342 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+      Dlg.ClientHeight - Round(42 * FUIScale),
+      Round(100 * FUIScale), Round(30 * FUIScale));
 
-    if Dlg.ShowModal <> mrOK then
-    begin
-      FCmdMsg := 'Report cancelled.';
-      Exit;
-    end;
+    Res := Dlg.ShowModal;
+    { kept whatever happens, so taking another picture costs nothing that was
+      typed - which is the whole point of the button }
     Note := Trim(Memo.Text);
+    DocOn := WithDoc.Checked and WithDoc.Enabled;
+  finally
+    Dlg.Free;
+  end;
+
+  if Res = mrRetry then
+  begin
+    FreeAndNil(ShotBmp);
+    CaptureShot(True, ShotBmp);
+    WantShot := ShotBmp <> nil;
+  end;
+  until Res <> mrRetry;
+
+  if Res <> mrOK then
+  begin
+    FCmdMsg := 'Report cancelled.';
+    Exit;
+  end;
+
     Body := 'Heckers Sketch report' + LineEnding +
       specialize IfThen<string>(Preamble = '', '',
         'this one followed a crash' + LineEnding) +
@@ -4894,7 +4958,7 @@ begin
     if Preamble <> '' then
       Body := Body + LineEnding + 'the crash it left behind:' + LineEnding +
         Preamble;
-    if WithDoc.Checked then
+    if DocOn then
     begin
       L := TStringList.Create;
       try
@@ -4922,51 +4986,21 @@ begin
       end;
     end;
     Name_ := UniqueReportName('bug', CurrentVersion);
-  finally
-    Dlg.Free;
-  end;
 
-  { Now that the form has gone and the drawing is on screen again, ask about
-    the picture.  Encouraged, because a report with one is worth several
-    without; never assumed, because somebody may be drawing something they
-    would rather not send a picture of. }
-  { One question, and the buttons say what they do.
-
-    This was two - include a picture, then set it up first - each with three
-    paragraphs under a Yes and a No.  Two questions to answer one, and by the
-    second one neither Yes nor No obviously meant what it did.  Naming the
-    buttons says the whole thing without a paragraph explaining which word
-    means what, and folds the two into one.
-
-    There is no need to ask whether to keep it either: the picture is shown
-    before anything is sent, and dropping it is one of the buttons there. }
-  Application.ProcessMessages;
-  ShotWay := QuestionDlg('A picture?',
-    'A picture of this window shows which tool was in hand and what the ' +
-    'settings were.  You see it before it is sent.',
-    mtConfirmation,
-    [mrYes, 'Give me 10 seconds', 'IsDefault',
-     mrAll, 'Take it now',
-     mrNo,  'No picture'], 0);
-  WantShot := ShotWay in [mrYes, mrAll];
-
-  { Taken now, before the report is sent, because taking it needs the window
-    to itself and the person reporting has to be able to look at it and say
-    no.  A crash brings its own picture, from when it happened - a fresh one
-    then would only show whatever is on screen after the restart. }
+  { The picture goes as PNG bytes only now that it is being sent - the one
+    nobody kept was never encoded. }
   Shot := TMemoryStream.Create;
   try
-    if (ShotFile <> '') and FileExists(ShotFile) then
+    if WantShot and (ShotBmp <> nil) then
     begin
-      if WantShot then
-        try
-          Shot.LoadFromFile(ShotFile);
-        except
-          Shot.Size := 0;
-        end;
-    end
-    else if WantShot then
-      WantShot := TakeReportShot(Shot, ShotWay = mrYes);
+      Png := TPortableNetworkGraphic.Create;
+      try
+        Png.Assign(ShotBmp);
+        Png.SaveToStream(Shot);
+      finally
+        Png.Free;
+      end;
+    end;
     if Shot.Size = 0 then WantShot := False;
 
     FCmdMsg := 'Sending...';
@@ -5001,6 +5035,9 @@ begin
     end;
   finally
     Shot.Free;
+  end;
+  finally
+    ShotBmp.Free;
   end;
   pbCmd.Invalidate;
 end;
