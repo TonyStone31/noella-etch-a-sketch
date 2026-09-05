@@ -234,11 +234,6 @@ type
       leaves behind.  Push decides what to do from this: a whole side slides
       and resizes the solid, a patch is lifted out of it. }
     function IsPatch(Index: Integer): Boolean;
-    { How many faces you can actually see run along that edge, solids and all.
-      One means the edge is on the silhouette of something - the outline of
-      the shape against whatever is behind it - which is what SketchUp draws
-      thicker and calls a profile. }
-    function VisibleFacesOnEdge(const V: TProjector; const A, B: TP3): Integer;
     { The face a point lies on, or -1.  Used to work out which plane a new
       shape belongs in when the cursor has snapped to a corner. }
     function FaceThrough(const P: TP3): Integer;
@@ -1553,7 +1548,7 @@ end;
 function ArcFromChord(const A, B: TP3; Bulge: Double; Pl: TPlane;
   out C: TP3; out R, A0, Sweep: Double): Boolean;
 var
-  AU, AV: TP3;
+  AU, AV, Nm: TP3;
   AUx, AUy, BUx, BUy, Ch, H, NX, NY, MX, MY, D, AngA, AngB: Double;
 
   procedure ToPlane(const P: TP3; out U, W: Double);
@@ -1594,15 +1589,26 @@ begin
     MY := MY + NY * D;
   end;
 
-  { back out of the plane into model space }
-  C.X := AU.X * MX + AV.X * MY;
-  C.Y := AU.Y * MX + AV.Y * MY;
-  C.Z := AU.Z * MX + AV.Z * MY;
-  case Pl of
-    plXY: C.Z := A.Z;
-    plXZ: C.Y := A.Y;
-    plYZ: C.X := A.X;
-  end;
+  { Back out of the plane into model space.
+
+    The two in-plane axes put the centre on a plane through the origin, so it
+    has to be moved out to the one the chord is actually on - which is what
+    the third coordinate did for the axis-square planes: pin Z for a flat
+    one, Y for XZ, X for YZ.
+
+    Said once instead of three times, because there is a fourth.  A free
+    plane - a roof, the sloping side of a transition - has no third
+    coordinate to pin, and it was falling through the case with none of them
+    applied: the centre came out on a plane through the origin parallel to
+    the one the arc was drawn on, so an arc on a slope had its middle
+    somewhere under the ground.  Sliding along the normal by however far the
+    chord is along it is the same answer for all four, and it cannot miss one
+    out. }
+  Nm := Norm3(Cross3(AU, AV));
+  D := Dot3(A, Nm);
+  C.X := AU.X * MX + AV.X * MY + Nm.X * D;
+  C.Y := AU.Y * MX + AV.Y * MY + Nm.Y * D;
+  C.Z := AU.Z * MX + AV.Z * MY + Nm.Z * D;
 
   AngA := ArcTan2(AUy - MY, AUx - MX);
   AngB := ArcTan2(BUy - MY, BUx - MX);
@@ -2018,7 +2024,7 @@ end;
 
 function TWorkDoc.FaceArea(Index: Integer): Double;
 var
-  I, J, N: Integer;
+  I, J, N, H: Integer;
   Acc: TP3;
 begin
   Result := 0;
@@ -2037,6 +2043,28 @@ begin
                      FEnts[Index].Poly[I].Y * FEnts[Index].Poly[J].X;
   end;
   Result := Sqrt(Acc.X * Acc.X + Acc.Y * Acc.Y + Acc.Z * Acc.Z) / 2;
+
+  { less whatever is cut out of it - the area of a ring is the ring, not the
+    rectangle it was cut from, and the number this returns is the number
+    somebody is shown when they click on it }
+  for H := 0 to High(FEnts[Index].Holes) do
+  begin
+    N := Length(FEnts[Index].Holes[H]);
+    if N < 3 then Continue;
+    Acc := P3(0, 0, 0);
+    for I := 0 to N - 1 do
+    begin
+      J := (I + 1) mod N;
+      Acc.X := Acc.X + FEnts[Index].Holes[H][I].Y * FEnts[Index].Holes[H][J].Z -
+                       FEnts[Index].Holes[H][I].Z * FEnts[Index].Holes[H][J].Y;
+      Acc.Y := Acc.Y + FEnts[Index].Holes[H][I].Z * FEnts[Index].Holes[H][J].X -
+                       FEnts[Index].Holes[H][I].X * FEnts[Index].Holes[H][J].Z;
+      Acc.Z := Acc.Z + FEnts[Index].Holes[H][I].X * FEnts[Index].Holes[H][J].Y -
+                       FEnts[Index].Holes[H][I].Y * FEnts[Index].Holes[H][J].X;
+    end;
+    Result := Result - Sqrt(Acc.X * Acc.X + Acc.Y * Acc.Y + Acc.Z * Acc.Z) / 2;
+  end;
+  if Result < 0 then Result := 0;
 end;
 
 { Topmost first, so a small face sitting on a big one wins the click. }
@@ -2350,35 +2378,6 @@ end;
   The shared edge runs one way round in each face, which is what makes them
   separate regions rather than one folded over. Walk the first from B round
   to A, then the second from A round to B, and the seam is gone. }
-function TWorkDoc.VisibleFacesOnEdge(const V: TProjector;
-  const A, B: TP3): Integer;
-const
-  TOL = 1E-6;
-var
-  I, Q, N: Integer;
-  Look: TP3;
-begin
-  Result := 0;
-  Look := ViewDir(V);
-  for I := 0 to FLive - 1 do
-  begin
-    if FEnts[I].Kind <> ekFace then Continue;
-    { the back of a solid is not drawn, so it does not count towards whether
-      this edge is on the outline }
-    if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
-    N := Length(FEnts[I].Poly);
-    for Q := 0 to N - 1 do
-      if ((Dist(FEnts[I].Poly[Q], A) < TOL) and
-          (Dist(FEnts[I].Poly[(Q + 1) mod N], B) < TOL)) or
-         ((Dist(FEnts[I].Poly[Q], B) < TOL) and
-          (Dist(FEnts[I].Poly[(Q + 1) mod N], A) < TOL)) then
-      begin
-        Inc(Result);
-        Break;
-      end;
-  end;
-end;
-
 function TWorkDoc.IsPatch(Index: Integer): Boolean;
 const
   TOL = 1E-6;
@@ -3594,7 +3593,7 @@ end;
 
 function TWorkDoc.HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
-  I, K, Steps: Integer;
+  I, K, H, Steps: Integer;
   D, Best, Ang: Double;
   PA, PB: TPointF;
   DG: TDimGeom;
@@ -4014,7 +4013,7 @@ end;
 procedure TWorkDoc.WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
   EdgeW: Single);
 var
-  I, K, Steps: Integer;
+  I, K, H, Steps: Integer;
   PA, PB: TPointF;
   Ang, MinX, MinY, MaxX, MaxY: Double;
   D: string;
@@ -4051,14 +4050,32 @@ begin
     case FEnts[I].Kind of
       ekFace:
         begin
+          { A path rather than a polygon, because a polygon cannot have a
+            hole in it and a face can.  Each loop is one subpath and the
+            even-odd rule fills between them, which is the same rule the
+            screen uses - so a wall exported with a window in it arrives with
+            the window, and the sheet somebody cuts from this has the opening
+            the drawing had. }
           D := '';
           for K := 0 to High(FEnts[I].Poly) do
           begin
             PA := Project(V, FEnts[I].Poly[K]);
-            D := D + Format('%.2f,%.2f ', [PA.X, PA.Y], FS);
+            if K = 0 then D := D + 'M ' else D := D + 'L ';
+            D := D + Format('%.2f %.2f ', [PA.X, PA.Y], FS);
           end;
-          L.Add(Format('<polygon points="%s" fill="#d8d8d8" stroke="%s" ' +
-            'stroke-width="1"/>', [Trim(D), Col(FEnts[I].Ink)]));
+          D := D + 'Z ';
+          for H := 0 to High(FEnts[I].Holes) do
+          begin
+            for K := 0 to High(FEnts[I].Holes[H]) do
+            begin
+              PA := Project(V, FEnts[I].Holes[H][K]);
+              if K = 0 then D := D + 'M ' else D := D + 'L ';
+              D := D + Format('%.2f %.2f ', [PA.X, PA.Y], FS);
+            end;
+            D := D + 'Z ';
+          end;
+          L.Add(Format('<path d="%s" fill="#d8d8d8" fill-rule="evenodd" ' +
+            'stroke="%s" stroke-width="1"/>', [Trim(D), Col(FEnts[I].Ink)]));
         end;
       ekArc:
         begin
@@ -4102,6 +4119,23 @@ begin
   L.Add('</svg>');
 end;
 
+{ A name for an edge that both ends agree on.
+
+  Quantised, so two corners that arrived at the same place by different
+  arithmetic still name the same edge, and put in a fixed order so an edge
+  walked one way round one face and the other way round its neighbour is
+  recognised as the one edge it is. }
+function EdgeKey(const A, B: TP3): string;
+var
+  P, Q: string;
+begin
+  P := Format('%d,%d,%d', [Round(A.X * 1E6), Round(A.Y * 1E6),
+                           Round(A.Z * 1E6)]);
+  Q := Format('%d,%d,%d', [Round(B.X * 1E6), Round(B.Y * 1E6),
+                           Round(B.Z * 1E6)]);
+  if P <= Q then Result := P + '|' + Q else Result := Q + '|' + P;
+end;
+
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
@@ -4116,6 +4150,8 @@ var
   Ar: Double;
   Flat: array of TPointF;
   Loops: array of TPtFLoop;
+  EdgeIx: TStringList;
+  EK: string;
   HK, HJ: Integer;
   Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
   GuideCol: TPix;
@@ -4267,12 +4303,34 @@ var
     edges inside it, and that one difference is most of why a model reads as
     solid rather than as a wireframe with fill.  An edge is on the outline
     when only one of the faces you can see runs along it. }
+  { How many faces you can see run along this edge - looked up rather than
+    counted.
+
+    It used to be counted, per line, by walking every face in the drawing and
+    every corner of it, and working out each face's normal on the way past.
+    That is the number of lines times the number of faces, every frame: on a
+    drawing with six hundred lines and three hundred faces it is the better
+    part of a million distance checks before anything is drawn, which is
+    exactly the drawing that was reported as making orbiting sluggish.
+
+    The answer only depends on the faces and which way the camera points, so
+    it is worked out once for the whole render and read off.  Same number,
+    same rule - a face turned away from us still does not count, because the
+    silhouette of a solid is where a face you can see meets one you cannot. }
+  function EdgeFaces(const A, B: TP3): Integer;
+  var
+    Ix: Integer;
+  begin
+    Ix := EdgeIx.IndexOf(EdgeKey(A, B));
+    if Ix < 0 then Result := 0 else Result := PtrInt(EdgeIx.Objects[Ix]);
+  end;
+
   { A soft crease shows only where it is the outline of the surface; anywhere
     else it is hidden, and the shading alone says the surface is curved. }
   function Hidden(Ent: Integer): Boolean;
   begin
     Result := FEnts[Ent].Soft and
-      (VisibleFacesOnEdge(V, FEnts[Ent].A, FEnts[Ent].B) <> 1);
+      (EdgeFaces(FEnts[Ent].A, FEnts[Ent].B) <> 1);
   end;
 
   function LineW(Ent: Integer): Single;
@@ -4281,13 +4339,33 @@ var
     { SketchUp draws edges at one pixel and profiles at two, so the profile is
       one pixel heavier, not twice as heavy.  Doubling a four pixel pen gave
       an eight pixel outline, which is a border rather than a drawing. }
-    if VisibleFacesOnEdge(V, FEnts[Ent].A, FEnts[Ent].B) = 1 then
+    if EdgeFaces(FEnts[Ent].A, FEnts[Ent].B) = 1 then
       Result := EdgeW + Max(1, EdgeW * 0.35);
   end;
 
 begin
   S.BlendMode := bmNormal;
   GuideCol := MixPix(LabelCol, Pix(120, 90, 190), 0.55);
+
+  { the edge index, once, before anything asks it a question }
+  EdgeIx := TStringList.Create;
+  try
+    EdgeIx.Sorted := True;
+    EdgeIx.CaseSensitive := True;
+    Look := ViewDir(V);
+    for I := 0 to FLive - 1 do
+    begin
+      if FEnts[I].Kind <> ekFace then Continue;
+      if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
+      N := Length(FEnts[I].Poly);
+      for J := 0 to N - 1 do
+      begin
+        EK := EdgeKey(FEnts[I].Poly[J], FEnts[I].Poly[(J + 1) mod N]);
+        K := EdgeIx.IndexOf(EK);
+        if K < 0 then EdgeIx.AddObject(EK, TObject(PtrInt(1)))
+        else EdgeIx.Objects[K] := TObject(PtrInt(EdgeIx.Objects[K]) + 1);
+      end;
+    end;
 
   for I := 0 to FLive - 1 do
   begin
@@ -4643,6 +4721,9 @@ begin
       S.Line(PA.X - 8, PA.Y, PA.X + 8, PA.Y, 1.4, GUIDE_POINT, 0.95);
       S.Line(PA.X, PA.Y - 8, PA.X, PA.Y + 8, 1.4, GUIDE_POINT, 0.95);
     end;
+  finally
+    EdgeIx.Free;
+  end;
 end;
 
 end.

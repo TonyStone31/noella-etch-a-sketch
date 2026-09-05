@@ -9027,7 +9027,8 @@ type
 var
   R: TRegionArray;
   Was: array of TWas;
-  NWas, I, J, K, Made, DupAt: Integer;
+  NWas, I, J, K, Made, DupAt, HK: Integer;
+  RegArea: Double;
   Mid, Other: TP3;
   Ink: TColor;
   Dup, HadFace, Known: Boolean;
@@ -9095,8 +9096,12 @@ begin
                               FD.Doc[J].Poly[0].Y - R[I].Outer[0].Y,
                               FD.Doc[J].Poly[0].Z - R[I].Outer[0].Z))) > 1E-4
           then Continue;
-        if Abs(Abs(LoopArea(R[I].Outer, R[I].Normal)) -
-               FD.Doc.FaceArea(J)) > 1E-3 then Continue;
+        { both sides net of their openings, now that a face knows about its
+          own - comparing a ring against a whole rectangle never matches }
+        RegArea := Abs(LoopArea(R[I].Outer, R[I].Normal));
+        for HK := 0 to High(R[I].Holes) do
+          RegArea := RegArea - Abs(LoopArea(R[I].Holes[HK], R[I].Normal));
+        if Abs(RegArea - FD.Doc.FaceArea(J)) > 1E-3 then Continue;
         if PointInLoop(Mid, FD.Doc[J].Poly, Other) then
         begin
           Dup := True;
