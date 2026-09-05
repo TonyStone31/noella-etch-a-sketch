@@ -25,7 +25,17 @@ Anywhere a length is wanted - a line, a push, a radius, a side of a rectangle
 | `6-8-15` | **feet, inches, sixteenths** - see below |
 | `2m`, `40cm`, `600mm` | metric, when the drawing is metric |
 
-Negative runs the other way.
+### Negative
+
+Negative runs the other way, and it is worth knowing about because SketchUp
+leans on it too: a negative push or pull goes the opposite way from the one
+you dragged, a negative offset works inward instead of outward, and a negative
+length runs back along the direction you were inferring rather than forward.
+SketchUp's other well-known use of it - scaling by -1 to mirror something - we
+have no equivalent for, because we have no scale tool.
+
+So `-6-8-15` is a run of six foot eight and fifteen sixteenths, the other
+way.
 
 ### How many numbers you type is what they mean
 
@@ -104,6 +114,22 @@ The move and line tools take a place as well as a length:
 |---|---|
 | `[4,0,8]` | that point in the drawing |
 | `<4,0,8>` | that far from where you are |
+
+## When something will not read
+
+A number that cannot be read is not treated as no number.  It used to be:
+an entry that would not parse left the cursor where it was and the tool
+committed there, so a mistyped length quietly became a shape of the wrong
+size.  Now the command bar says what is wrong and keeps what you typed so you
+can fix it, and it names the forms - which is also the one moment the dashed
+truss form gets explained to somebody who has never met it.
+
+The two worth recognising:
+
+* *The last number counts in 1/16 of an inch, so it has to be under 16 - you
+  typed 20.*  The dashed form with a fraction field the drawing's precision
+  cannot hold.  Either write it in sixteenths or change PREC.
+* *I cannot read "12..5" as a length.*  Followed by the forms that do work.
 
 ## What SketchUp has that we do not
 

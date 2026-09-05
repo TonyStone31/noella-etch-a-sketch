@@ -614,6 +614,7 @@ type
     procedure PlaneByArrow(Key: Word);
     procedure ResetTool;
     procedure ProClick;
+    function WhyNotAMeasurement(const S: string): string;
     procedure ProCommit;
     procedure CommandEnter;
     function RunCommand(const S: string): Boolean;
@@ -5808,7 +5809,7 @@ begin
       ptText:   S2 := 'type it, move away, then Enter';
       ptDim:    S2 := 'move away to place it - shake up and down to stand it up';
       ptMeasure: S2 := 'click the second point';
-    ptRect:   S2 := 'drag it, or type 8x10 - the pad''s slash works too';
+      ptRect:   S2 := 'drag it, or type 8x10 - the pad''s slash works too';
     else
       S2 := 'arrows set direction - type a length - Enter';
     end;
@@ -6686,6 +6687,81 @@ begin
   InvalidateStatus;
 end;
 
+{ Why a typed measurement was not taken, in words worth reading, or '' when
+  there is nothing wrong with it. }
+function TMainForm.WhyNotAMeasurement(const S: string): string;
+var
+  T, LW, LH: string;
+  P, NDash, Ix: Integer;
+  D, CX, CY, CZ: Double;
+  Fields: array[0..2] of string;
+begin
+  Result := '';
+  T := Trim(S);
+  if T = '' then Exit;
+
+  { a place or an offset - the move and line tools read these }
+  if (T[1] = '[') or (T[1] = '<') then
+  begin
+    if ParseTriple(T, FD.Units, CX, CY, CZ) > 0 then Exit;
+    Result := 'That is not a place.  [4,0,8] is a point in the drawing, ' +
+      '<4,0,8> is that far from here.';
+    Exit;
+  end;
+
+  { two sides at once, which only the rectangle asks for }
+  P := Pos('x', LowerCase(T));
+  if P = 0 then P := Pos(',', T);
+  if (P > 0) and (FTool = ptRect) then
+  begin
+    LW := Trim(Copy(T, 1, P - 1));
+    LH := Trim(Copy(T, P + 1, MaxInt));
+    if ((LW = '') or ParseLen(LW, FD.Units, D)) and
+       ((LH = '') or ParseLen(LH, FD.Units, D)) and
+       ((LW <> '') or (LH <> '')) then Exit;
+    Result := 'Two sides, like 8x10 - or 8/10 from the number pad.';
+    Exit;
+  end;
+
+  if ParseLen(T, FD.Units, D) then Exit;
+
+  { The dashed form, wrong in the one way it is usually wrong: a last field
+    that does not fit the precision the drawing is set to.  Saying which
+    number is out of range, and what the drawing is counting in, is the
+    difference between a refusal somebody can act on and one they cannot. }
+  NDash := 0;
+  Fields[0] := '';
+  Fields[1] := '';
+  Fields[2] := '';
+  for Ix := 1 + Ord(T[1] = '-') to Length(T) do
+    if T[Ix] = '-' then
+    begin
+      Inc(NDash);
+      if NDash > 2 then Break;
+    end
+    else
+      Fields[NDash] := Fields[NDash] + T[Ix];
+
+  if (NDash = 2) and (Fields[2] <> '') and TryStrToFloat(Fields[2], D) and
+     (D >= LenDenom) then
+  begin
+    Result := Format('The last number counts in 1/%d of an inch, so it has ' +
+      'to be under %d - you typed %s.  Change PREC if this drawing is in ' +
+      'something else.', [LenDenom, LenDenom, Fields[2]]);
+    Exit;
+  end;
+  if (NDash = 2) and (Fields[1] <> '') and TryStrToFloat(Fields[1], D) and
+     (D >= 12) then
+  begin
+    Result := 'The middle number is inches, so it has to be under 12.';
+    Exit;
+  end;
+
+  Result := Format('I cannot read "%s" as a length.  Try 12, or 12''6", or ' +
+    '3 1/2 - or feet-inches-1/%d like 6-8-15, which is six foot eight and ' +
+    'fifteen %dths.', [T, LenDenom, LenDenom]);
+end;
+
 procedure TMainForm.ProCommit;
 var
   I: Integer;
@@ -7114,6 +7190,7 @@ end;
 procedure TMainForm.CommandEnter;
 var
   L: Double;
+  Why: string;
 begin
   if FDimEdit >= 0 then
   begin
@@ -7150,6 +7227,23 @@ begin
   if (FStage > 0) and (FInput <> '') and
      (FInput[1] in ['0'..'9', '-', '.', '[', '<', ',', 'x', 'X']) then
   begin
+    { A number that could not be read is not the same as no number.
+
+      It used to be the same: an entry that would not parse simply left the
+      cursor where it was and the tool committed there, so a mistyped length
+      quietly became a shape of the wrong size and nothing was said about it.
+
+      It is also the one moment where the dashed form can explain itself.
+      Most people have never met truss notation, and the place to learn that
+      6-8-15 exists is when your own number has just been turned down. }
+    Why := WhyNotAMeasurement(FInput);
+    if Why <> '' then
+    begin
+      FCmdMsg := Why;
+      pbCmd.Invalidate;
+      pbScreen.Invalidate;
+      Exit;
+    end;
     ProCommit;
     FInput := '';
     pbCmd.Invalidate;
