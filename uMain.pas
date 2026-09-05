@@ -7449,7 +7449,18 @@ end;
 
   Held at its own screen position instead, a grabbed face still turns under
   the finger that grabbed it, and an orbit started out in space turns the
-  model where it already is. }
+  model where it already is.
+
+  Tried against SketchUp on 5 September 2026 and kept.  SketchUp does it a
+  different way underneath - its camera has a target, orbit swings the eye
+  about that target, and the target sits at the middle of the canvas, so
+  what stays put there is the canvas centre rather than the thing you
+  grabbed.  The two only disagree once the drawing has been panned off
+  centre.  Pinning what you grabbed felt right in use and it is the smaller
+  idea, so it stands; do not quietly convert this to a camera target because
+  it is what SketchUp does internally.  If the canvas centre is ever seen to
+  drift, that is the change to make, and it replaces this rather than being
+  added to it. }
 procedure TMainForm.AnchorOrbit(SX, SY: Integer);
 var
   P: TPointF;
