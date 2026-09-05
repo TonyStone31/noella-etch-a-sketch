@@ -6200,7 +6200,21 @@ begin
 
     ptText:
       begin
-        if Trim(FInput) <> '' then
+        { Nothing typed yet is not a note to add, and it is not a reason to
+          put the tool away either.
+
+          It used to reset regardless, and resetting goes back to stage nought
+          - where the tool is waiting to be told what the note is about, and
+          every letter is a tool shortcut again.  So one stray second click,
+          or a mouse that bounced, or Enter pressed a moment early, and typing
+          the note started picking tools instead.  Which is exactly what it
+          looked like: the keyboard had gone mad, when in fact the note had
+          been quietly finished before it began. }
+        if Trim(FInput) = '' then
+        begin
+          FCmdMsg := 'Type the note first, then move away and press Enter.';
+          Exit;
+        end;
         begin
           PushUndo;
           { FP1 is what the note is about; the cursor is where the note goes.
