@@ -50,7 +50,8 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uPaths, uReport, uNet, uUnfold, uFlatView;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uPaths, uReport, uNet,
+  uUnfold, uFlatView;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -2767,7 +2768,11 @@ begin
   ScaleIdx := 2;          // 1/4" = 1'-0"
   SnapIdx := 5;           // one foot
   Units := usImperial;
-  View := vkPlan;
+  { A new sheet opens on the 3D corner view.  It began in PLAN, which is the
+    right view for a floor plan and the wrong one for a duct: nothing drawn
+    there has a height until you leave it, and the first thing everybody did
+    was leave it. }
+  View := vkOrbit;
   Plane := plXY;
   Az := -Pi / 4;
   El := 35.264 * Pi / 180;   // start on the isometric corner
@@ -4473,7 +4478,8 @@ end;
 procedure TMainForm.DoUpdate;
 var
   Info: TUpdateInfo;
-  Err, Why, Tmp, Want, Got: string;
+  Err, Why, Tmp: string;
+  UpdateForm: TUpdateForm;
 begin
   Why := WhyNotUpdate;
   if Why <> '' then
@@ -4509,47 +4515,18 @@ begin
   end;
 
   SaveDraft;                          { whatever happens next, this survives }
-  FCmdMsg := 'Fetching ' + Info.Tag + '...';
-  pbCmd.Invalidate;
-  Application.ProcessMessages;
 
   { beside the program, not in the system temp - a portable copy keeps its
     scratch with it, and the download has to land on the same volume as the
     file it is about to replace or the rename cannot be atomic }
   Tmp := AppDataDir + 'heckers-sketch-' + Info.Tag + '.download';
-  if not Download(Info.AssetURL, Tmp, Err) then
-  begin
-    FCmdMsg := 'The download failed - ' + Err;
-    Exit;
+  UpdateForm := TUpdateForm.Create(Self);
+  try
+    if UpdateForm.Run(Info, Tmp) then Close
+    else FCmdMsg := 'The update was not installed.';
+  finally
+    UpdateForm.Free;
   end;
-
-  { If the release published hashes, the download has to match one.  It does
-    not protect against a bad release, only against a bad download - but a
-    half-fetched binary put in place of a working one is exactly the failure
-    worth ruling out. }
-  Want := ExpectedSum(Info.SumsURL, ASSET_NAME);
-  if Want <> '' then
-  begin
-    Got := Sha256Of(Tmp);
-    if Got <> Want then
-    begin
-      DeleteFile(Tmp);
-      FCmdMsg := 'That download did not match its checksum - nothing changed.';
-      MessageDlg('Update stopped',
-        'What came down does not match what the release says it should be, ' +
-        'so it has been thrown away and nothing was changed.',
-        mtWarning, [mbOK], 0);
-      Exit;
-    end;
-  end;
-
-  if not SwapInAndRestart(Tmp, Err) then
-  begin
-    DeleteFile(Tmp);
-    FCmdMsg := 'Could not install it - ' + Err;
-    Exit;
-  end;
-  Close;
 end;
 
 { A crash last time leaves a note behind.  Offer to send it, and open it
@@ -7370,6 +7347,31 @@ begin
 
     ptMeasure:
       begin
+        if FStage = 1 then
+        begin
+          { A typed distance is the second click.  Enter here used to put the
+            tool away and lose the measurement, so a guide could only be laid
+            by pointing at the spot - which is the one thing a typed distance
+            is for.  The point lands the typed length along the direction
+            the run had, the same reading as the line tool takes, and the
+            guide and its point go down exactly as a click leaves them. }
+          FP2 := PreviewTarget;
+          if Dist(FP1, FP2) < 1E-9 then
+          begin
+            FCmdMsg := 'Type how far, or click the second point.';
+            Exit;
+          end;
+          FStage := 2;
+          FInput := '';
+          LayGuide;
+          FCmdMsg := RunReading(FP1, FP2);
+          RenderPro;
+          RecomposeAll;
+          pbScreen.Invalidate;
+          pbCmd.Invalidate;
+          InvalidateStatus;
+          Exit;
+        end;
         if FStage = 2 then
         begin
           PushUndo;
@@ -11975,7 +11977,9 @@ begin
         measuring things, and a measured grid is how a drawing says how big
         it is before anything has been drawn on it. }
       FShowGrid := Ini.ReadBool('look', 'grid', True);
-      FMode := TAppMode(EnsureRange(Ini.ReadInteger('look', 'mode', 0), 0, 1));
+      { PRO unless the toy was the last thing used - the drawing side is
+        what the program is for; the toy is where it came from }
+      FMode := TAppMode(EnsureRange(Ini.ReadInteger('look', 'mode', 1), 0, 1));
       FStyle := TPenStyle(EnsureRange(Ini.ReadInteger('pen', 'style', 0), 0, 4));
       FPenSize := EnsureRange(Ini.ReadInteger('pen', 'size', 4), MIN_PEN, MAX_PEN);
       { a new key, so a pen size saved when the two were one thing does not
