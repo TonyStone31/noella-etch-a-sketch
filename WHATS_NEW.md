@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- The dimension tool takes a corner as a point.  A corner is always on an
+  edge, and a click near an edge took the whole edge, so a dimension from
+  one corner to another - across the drawing, between things that are not
+  connected - could not be started.  A point the cursor has snapped to is
+  the point meant; the body of an edge still takes all of it.
+
 ## v2026.09.06.10
 
 ### New

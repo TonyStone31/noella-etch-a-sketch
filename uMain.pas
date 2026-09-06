@@ -6276,7 +6276,7 @@ begin
       ptOffset: S2 := 'click a face - then type the offset, negative goes inward';
       ptMeasure:
         S2 := 'measure from here - type a distance to lay a guide';
-      ptDim:    S2 := 'click any two points - a corner here, a roof over there - or a lit edge';
+      ptDim:    S2 := 'click a corner, then another - anywhere - or the body of an edge for all of it';
       ptRotate: S2 := 'click the center - arrows pick the plane by color';
       ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
       ptOrbit:  S2 := 'drag to spin - Shift drags to pan';
@@ -7210,7 +7210,16 @@ begin
             { "To take a dimension of a single line, simply click the line and
               move the cursor." - straight from their docs, and the thing you
               want nine times out of ten. }
-            I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
+            { A corner is always on an edge, so "near an edge" alone made a
+              point-to-point dimension impossible from any corner: the
+              click took the whole edge every time.  A point the cursor has
+              snapped to - a corner, a midpoint, a centre - is the point
+              meant; only a free cursor on the body of an edge takes the
+              edge. }
+            I := -1;
+            if not (FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross,
+                                  snSubMid, snOrigin]) then
+              I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
             if (I >= 0) and (FD.Doc[I].Kind in [ekLine, ekArc]) then
             begin
               FP1 := FD.Doc[I].A;
@@ -8687,10 +8696,17 @@ begin
         of it.  This is the half of SketchUp's dimension tool that makes the
         rest of it make sense - without it there is no way to tell whether
         the click is going to take the edge or start a point-to-point. }
-      FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
-      if (FHoverEnt >= 0) and
-         not (FD.Doc[FHoverEnt].Kind in [ekLine, ekArc]) then
-        FHoverEnt := -1;
+      { and it does not light up when the cursor is on a point of it: that
+        click takes the point, not the edge }
+      if FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross, snSubMid, snOrigin] then
+        FHoverEnt := -1
+      else
+      begin
+        FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
+        if (FHoverEnt >= 0) and
+           not (FD.Doc[FHoverEnt].Kind in [ekLine, ekArc]) then
+          FHoverEnt := -1;
+      end;
     end
     else
       FHoverEnt := -1;

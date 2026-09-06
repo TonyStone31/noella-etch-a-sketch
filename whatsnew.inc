@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- The dimension tool takes a corner as a point.  A corner is always on an' + LineEnding +
+    '  edge, and a click near an edge took the whole edge, so a dimension from' + LineEnding +
+    '  one corner to another - across the drawing, between things that are not' + LineEnding +
+    '  connected - could not be started.  A point the cursor has snapped to is' + LineEnding +
+    '  the point meant; the body of an edge still takes all of it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.10' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
