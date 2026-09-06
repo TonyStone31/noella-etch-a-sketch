@@ -343,3 +343,22 @@ along the red", that has to mean one thing in every view and the same thing
 SketchUp means, or every future description of a tool has to be re-checked
 against which view he was looking at.  Getting the underlying frame right is
 cheaper than translating forever.
+
+
+## Where this landed, 6 September 2026
+
+The three-way PLAN / ISO / 3D switch is gone.  Tony's reading, and it is the
+right one: PLAN and ISO were built as *drawing modes* when they are two
+different things - a **camera preset** and a **document type**.
+
+* There is one drawing and one camera.  The button at the top parks the
+  camera on a named view - the four corners, the top, the four sides - and
+  reads that name; orbit off it and it reads 3D.  Looking straight down is
+  the plan view; it is not a mode.
+* The paper grid - the ISO mode with its locked directions and not-to-scale
+  runs - is the engine for a **field sketch**: draw the run on graph paper
+  the way a fitter does on a tailgate, write the dimensions on it, and a
+  build step makes the real 3D drawing from the numbers.  That is a wizard
+  that produces a drawing, like the transition wizard, and both live under
+  Create rather than on the view switch.  The paper modes are reachable from
+  there (and by /iso and /plan) until the wizard is built on them.

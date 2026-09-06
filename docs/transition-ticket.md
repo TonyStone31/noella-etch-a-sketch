@@ -128,3 +128,18 @@ per-edge choice with the shop's own numbers behind each name.
    inch, flange in, slip, drive, raw.  Every one of them is a number this
    program does not have, and they are the shop's numbers rather than
    anybody's guess.
+
+
+## Built, 6 September 2026
+
+SHOP > Build a transition... (or /transition) is the wizard: the two openings,
+the length, and for each axis the one edge called out - the ticket's numbers,
+with the plan-view sketch drawn beside them as they are typed.  Sizes are
+inches unless marked.  Build puts the four sides in the drawing as one solid,
+open at the ends, with its entry corner on the cursor, and the next click
+places it - the move tool, so it snaps to whatever it is being put against.
+
+The arrow question is taken the second way: a side named with an amount is
+the side that comes in by that amount, and the other side follows from the
+exit width.  End treatments and their allowances are not built; the fitting
+is the shape, not yet the cut size.

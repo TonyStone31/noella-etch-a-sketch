@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold, uBore;
+  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold, uBore, uFittings;
 
 var
   Fails: Integer = 0;
@@ -2120,6 +2120,59 @@ begin
   end;
 end;
 
+procedure TestTransition;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  E, X: array[0..3] of TP3;
+  I, J, First, Faces, Lines, G: Integer;
+  N: TP3;
+  Flat: Boolean;
+begin
+  WriteLn('A transition from its ticket');
+  { 20x20 in to 12x8, 24 long, right side in 4, flat bottom - in feet }
+  FillChar(T, SizeOf(T), 0);
+  T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 8 / 12; T.Len := 2;
+  T.Side := srRightIn; T.SideAmount := 4 / 12;
+  T.Height := hrFlatBottom;
+  Ok(TransitionProblem(T) = '', 'the ticket reads');
+  TransitionCorners(T, E, X);
+  Ok(Abs(X[1].X - (20 - 4) / 12) < 1E-9, 'the right side came in by 4');
+  Ok(Abs(X[0].X - (20 - 4 - 12) / 12) < 1E-9, 'and the left side followed from the exit width');
+  Ok(Abs(X[0].Z) < 1E-9, 'flat bottom stays on the floor');
+  Ok(Abs(X[2].Z - 8 / 12) < 1E-9, 'the exit is 8 high');
+  T.Height := hrTopUp; T.HeightAmount := 7 / 12;
+  TransitionCorners(T, E, X);
+  Ok(Abs(X[2].Z - (20 + 7) / 12) < 1E-9, 'top up 7 lifts the ceiling by 7');
+  T.Height := hrFlatTop;
+  TransitionCorners(T, E, X);
+  Ok(Abs(X[2].Z - 20 / 12) < 1E-9, 'flat top keeps the ceiling');
+  D := TWorkDoc.Create;
+  try
+    First := BuildTransition(D, T, 0, 1);
+    Faces := 0; Lines := 0; G := -1; Flat := True;
+    for I := First to D.Live - 1 do
+      case D[I].Kind of
+        ekFace:
+          begin
+            Inc(Faces);
+            if G < 0 then G := D[I].Grp;
+            if D[I].Grp <> G then Flat := False;
+            N := D.FaceNormal(I);
+            for J := 0 to 3 do
+              if Abs(Dot3(N, P3(D[I].Poly[J].X - D[I].Poly[0].X, D[I].Poly[J].Y - D[I].Poly[0].Y,
+                                D[I].Poly[J].Z - D[I].Poly[0].Z))) > 1E-9 then Flat := False;
+          end;
+        ekLine: Inc(Lines);
+      end;
+    Ok(Faces = 4, 'four sides');
+    Ok(Lines = 12, 'twelve edges');
+    Ok(Flat, 'every side is a true plane, of one solid');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArcOnFreePlane;
 var
   C, A, B, P, N: TP3;
@@ -2521,6 +2574,7 @@ begin
   TestPushStopsAtTunnel;  WriteLn;
   TestArcSides;  WriteLn;
   TestRoundCrossing;  WriteLn;
+  TestTransition;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

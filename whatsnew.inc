@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- Build a transition.  SHOP > Build a transition... (or /transition) takes' + LineEnding +
+    '  the ticket - the two openings, the length, which side comes in and by how' + LineEnding +
+    '  much, flat bottom or flat top or top up - draws the sketch beside the' + LineEnding +
+    '  numbers as you type, and builds the four sides as one piece with its' + LineEnding +
+    '  entry corner on the cursor; click to put it where it goes.  Sizes are' + LineEnding +
+    '  inches unless you write a foot mark.' + LineEnding +
+    '- One view button in place of PLAN / ISO / 3D.  It parks the camera on a' + LineEnding +
+    '  named view - the four corners, the top, the four sides - left click steps' + LineEnding +
+    '  forward, right click back, and it reads 3D as soon as you orbit off.  The' + LineEnding +
+    '  paper modes are under SHOP as the field sketch, for the wizard that will' + LineEnding +
+    '  be built on them.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.11' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

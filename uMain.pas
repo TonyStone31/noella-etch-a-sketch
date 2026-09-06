@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
   uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm;
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -159,6 +159,7 @@ type
     procedure pbViewMouseLeave(Sender: TObject);
     procedure pbViewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbViewPaint(Sender: TObject);
+    function ViewButtonName: string;
     procedure pbDeckMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure pbDeckMouseLeave(Sender: TObject);
@@ -446,6 +447,8 @@ type
       tick instead, off the back of the newest position. }
     FMoveX, FMoveY: Integer;
     FMoveShift: TShiftState;
+    { a built part being placed moves whole, on its own; nothing stretches }
+    FMoveRigid: Boolean;
     { Rotate and the protractor.  FP1 is the center; the axis is the plane's
       normal - an arrow key's axis, else the face under the cursor, else
       blue - and the reference arm is the second click. }
@@ -546,6 +549,9 @@ type
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure ShowWhatsNew;
+    procedure BuildTransitionWizard;
+    { hand something just built to the move tool, so the next click places it }
+    procedure PlaceBuilt(First: Integer; const Ref: TP3);
     procedure StartUnfold;
     procedure UnfoldAt(SX, SY: Integer);
     procedure OfferCrashReport(JustNow: Boolean);
@@ -880,6 +886,8 @@ type
 
 const
   ISO_EL = 35.264 * Pi / 180;   // the true isometric tilt
+  { the first two presets are the paper modes; the button cycles from here }
+  FIRST_CAMERA_PRESET = 2;
 
   { One key steps through the views worth having.  The four corners come
     first because that is what you actually draw from; the flat elevations
@@ -3938,13 +3946,17 @@ begin
 end;
 
 procedure TMainForm.CycleViewPreset(Step: Integer);
+var
+  N, I: Integer;
 begin
-  if FViewPreset < 0 then
-  begin
-    if FD.View = vkOrbit then ApplyViewPreset(2) else ApplyViewPreset(0);
-    Exit;
-  end;
-  ApplyViewPreset(FViewPreset + Step);
+  { Off the rails - a paper mode, or orbited free - either direction goes to
+    the first corner.  On them, step round the camera presets only. }
+  N := High(VIEW_PRESETS) - FIRST_CAMERA_PRESET + 1;
+  if (FViewPreset < FIRST_CAMERA_PRESET) or (FD.View <> vkOrbit) then
+    I := FIRST_CAMERA_PRESET
+  else
+    I := FIRST_CAMERA_PRESET + (((FViewPreset - FIRST_CAMERA_PRESET + Step) mod N) + N) mod N;
+  ApplyViewPreset(I);
 end;
 
 procedure TMainForm.SetView(V: TViewKind);
@@ -3967,17 +3979,24 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ One button, not three modes.
+
+  PLAN and ISO were built as drawing modes with rules of their own, and the
+  three-way switch at the top made them look like three views of the same
+  drawing.  They are not: there is one drawing and one camera, and what the
+  button offers is where to park that camera - the four corners, the top,
+  the four sides.  It reads the name of the view it is parked on, and the
+  moment the view is orbited off it, it reads 3D.  The paper modes are still
+  in the program, reached from the Create menu, for the field sketch that is
+  going to be built on them. }
 procedure TMainForm.pbViewPaint(Sender: TObject);
-const
-  NAMES: array[TViewKind] of string = ('PLAN', 'ISO', '3D');
 var
-  W, H, I, SW: Integer;
+  W, H: Integer;
   R: TRect;
   S: string;
 begin
   W := pbView.Width;
   H := pbView.Height;
-  SW := W div 3;
   FViewSkin.SetSize(W, H);
   FViewSkin.Clear(Pix(0, 0, 0));
   FViewSkin.CopyRegion(FShell, pbView.Left, pbView.Top, 0, 0, W, H);
@@ -3985,39 +4004,35 @@ begin
     MixPix(Theme.Panel, Pix(0, 0, 0), 0.20), MixPix(Theme.Panel, Pix(0, 0, 0), 0.42));
   FViewSkin.RoundFrame(Rect(0, 0, W, H), H / 2, 1.0,
     MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.14));
-
-  for I := 0 to 2 do
-  begin
-    R := Rect(I * SW + 3, 3, (I + 1) * SW - 3, H - 3);
-    if Ord(FD.View) = I then
-      FViewSkin.RoundRectV(R, (R.Bottom - R.Top) / 2,
-        ShadePix(Theme.Accent, 1.10), ShadePix(Theme.Accent, 0.80))
-    else if FHotView = I then
-      FViewSkin.RoundRect(R, (R.Bottom - R.Top) / 2,
-        MixPix(Theme.Panel, Pix(255, 255, 255), 0.10));
-  end;
+  R := Rect(3, 3, W - 3, H - 3);
+  if FHotView >= 0 then
+    FViewSkin.RoundRect(R, (R.Bottom - R.Top) / 2,
+      MixPix(Theme.Panel, Pix(255, 255, 255), 0.10));
   FViewSkin.DrawTo(pbView.Canvas, 0, 0);
 
-  for I := 0 to 2 do
-  begin
-    S := NAMES[TViewKind(I)];
-    if Ord(FD.View) = I then
-      UIFont(pbView.Canvas, 10, True, Pix(22, 22, 26))
-    else
-      UIFont(pbView.Canvas, 10, True, Theme.TextDim);
-    pbView.Canvas.TextOut(I * SW + (SW - pbView.Canvas.TextWidth(S)) div 2,
-      (H - pbView.Canvas.TextHeight(S)) div 2, S);
-  end;
+  S := ViewButtonName;
+  UIFont(pbView.Canvas, 10, True, Theme.Text);
+  pbView.Canvas.TextOut((W - pbView.Canvas.TextWidth(S)) div 2,
+    (H - pbView.Canvas.TextHeight(S)) div 2, S);
+end;
+
+{ What the button says: the paper mode when one is on, the preset the
+  camera is parked on, or 3D once it has been orbited anywhere else. }
+function TMainForm.ViewButtonName: string;
+begin
+  if FD.View = vkPlan then Exit('PLAN PAPER');
+  if FD.View = vkIso then Exit('ISO PAPER');
+  if (FViewPreset >= FIRST_CAMERA_PRESET) and (FViewPreset <= High(VIEW_PRESETS)) then
+    Result := 'VIEW: ' + VIEW_PRESETS[FViewPreset].Name
+  else
+    Result := 'VIEW: 3D';
 end;
 
 procedure TMainForm.pbViewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
-var
-  H: Integer;
 begin
-  H := EnsureRange(X div Max(1, pbView.Width div 3), 0, 2);
-  if H <> FHotView then
+  if FHotView <> 0 then
   begin
-    FHotView := H;
+    FHotView := 0;
     pbView.Invalidate;
   end;
 end;
@@ -4031,8 +4046,10 @@ end;
 procedure TMainForm.pbViewMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  if Button <> mbLeft then Exit;
-  SetView(TViewKind(EnsureRange(X div Max(1, pbView.Width div 3), 0, 2)));
+  { left steps forward through the camera presets, right steps back; from a
+    paper mode or a free 3D view either goes to the first corner }
+  if Button = mbLeft then CycleViewPreset(1)
+  else if Button = mbRight then CycleViewPreset(-1);
 end;
 
 procedure TMainForm.pbModePaint(Sender: TObject);
@@ -4569,6 +4586,44 @@ begin
     FUpdateTag := '';
     if Loud then FCmdMsg := 'Up to date - ' + CurrentVersion + '.';
   end;
+  pbCmd.Invalidate;
+end;
+
+{ The wizards.  Each builds a real piece from numbers, at the origin, and
+  then hands it to the move tool so the next click puts it where it goes -
+  the same move anything else gets, with the same snaps. }
+procedure TMainForm.BuildTransitionWizard;
+var
+  Spec: TTransitionSpec;
+  First: Integer;
+begin
+  if not TTransitionForm.Ask(FD.Units, Spec) then Exit;
+  if FD.View = vkPlan then EnterFreeCamera(True);
+  PushUndo;
+  First := BuildTransition(FD.Doc, Spec, FInkColor, FEdgeW);
+  SeedRegions;
+  RenderPro;
+  RecomposeAll;
+  PlaceBuilt(First, P3(0, 0, 0));
+end;
+
+procedure TMainForm.PlaceBuilt(First: Integer; const Ref: TP3);
+var
+  I: Integer;
+begin
+  SetTool(ptMove);
+  SelectNone;
+  for I := First to FD.Doc.Live - 1 do SelectAdd(I);
+  FP1 := Ref;
+  FD.Doc.VertsOf(FSel, FMoveVerts);
+  FStage := 1;
+  FDirLock := -1;
+  FMoveCopy := False;
+  FMoveRigid := True;
+  FInput := '';
+  FCmdMsg := 'Built.  Its entry corner is on the cursor - click where it goes, ' +
+    'or type a point [x,y,z].';
+  pbScreen.Invalidate;
   pbCmd.Invalidate;
 end;
 
@@ -6597,6 +6652,7 @@ begin
   FInput := '';
   FBoxing := False;
   FMoveCopy := False;
+  FMoveRigid := False;
   SetLength(FMoveVerts, 0);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
@@ -7536,6 +7592,13 @@ begin
             FCmdMsg := 'Copied ' + FormatLen(
               Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units);
           end
+          else if FMoveRigid then
+          begin
+            { a part just built: it goes as one piece and nothing else comes
+              along, however many corners it was sharing where it was made }
+            FD.Doc.TranslateEnts(FSel, T);
+            FCmdMsg := 'Placed.';
+          end
           else
           begin
             { every corner that sits where a moving one sat travels too, so
@@ -7771,6 +7834,7 @@ begin
   else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
   else if (W = 'drill') or (W = 'bore') or (W = 'punch') then SetTool(ptDrill)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
+  else if (W = 'transition') or (W = 'trans') then BuildTransitionWizard
   else if (W = 'update') or (W = 'upgrade') then
   begin
     if Rest = 'never' then
@@ -8854,7 +8918,7 @@ begin
     POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 7;
-    POP_SHOP: Result := 1;
+    POP_SHOP: Result := 3;
     POP_PREC: Result := Length(PREC_DENOMS);
   else
     Result := 0;
@@ -8870,7 +8934,12 @@ begin
     POP_COLOR: Result := '';
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
     POP_SHOP:
-      Result := 'Lay a piece out flat';
+      case I of
+        0: Result := 'Lay a piece out flat';
+        1: Result := 'Build a transition...';
+      else
+        Result := 'Field sketch, on iso paper';
+      end;
     POP_PREC:
       if PREC_DENOMS[I] = 100 then Result := 'hundredths of an inch'
       else Result := Format('1/%d"', [PREC_DENOMS[I]]);
@@ -8901,7 +8970,19 @@ begin
       end;
     POP_COLOR: SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
-    POP_SHOP: StartUnfold;
+    POP_SHOP:
+      case I of
+        0: StartUnfold;
+        1: BuildTransitionWizard;
+      else
+        begin
+          { The paper-grid sketch, kept for the day it becomes a wizard of
+            its own: draw the run not to scale, dimension it, build it. }
+          SetView(vkIso);
+          FCmdMsg := 'Iso paper.  Draw the run, put dimensions on it.  ' +
+            'Building the 3D drawing from it is coming; /3d goes back.';
+        end;
+      end;
     POP_PREC: SetLenPrecision(PREC_DENOMS[EnsureRange(I, 0, High(PREC_DENOMS))]);
     POP_HELP:
       case I of

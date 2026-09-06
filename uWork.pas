@@ -227,6 +227,8 @@ type
     procedure SetFaceGroup(Index, G: Integer);
     { the same for anything - a line that belongs to a solid, say }
     procedure SetGroup(Index, G: Integer);
+    { a fresh solid identity, for something built rather than pulled }
+    function NewGroup: Integer;
     procedure SetSoft(Index: Integer; Soft: Boolean);
     { Turn a face over: its outline and its openings run the other way round,
       so its normal points the other way. }
@@ -262,6 +264,9 @@ type
     procedure RotateVerts(const Pts: TP3Array; const C, Axis: TP3; Ang: Double);
     { These entities turn whole, whatever they touch - for a copy. }
     procedure RotateEnts(const Idx: array of Integer; const C, Axis: TP3; Ang: Double);
+    { These entities shift whole, whatever they touch - a built part being
+      put down, which must not drag the corner it happened to be built on. }
+    procedure TranslateEnts(const Idx: array of Integer; const D: TP3);
     { The points Outline projects, before projection - for drawing a ghost
       of the thing somewhere other than where it is. }
     function OutlineWorld(I: Integer): TP3Array;
@@ -2215,6 +2220,12 @@ begin
   FSnapDirty := True;
 end;
 
+function TWorkDoc.NewGroup: Integer;
+begin
+  Inc(FNextGrp);
+  Result := FNextGrp;
+end;
+
 procedure TWorkDoc.SetGroup(Index, G: Integer);
 begin
   if (Index < 0) or (Index >= FLive) then Exit;
@@ -2955,6 +2966,30 @@ begin
   if (Length(Pts) = 0) or (Abs(Ang) < 1E-12) then Exit;
   for I := 0 to FLive - 1 do
     RotateEnt(I, Pts, C, Axis, Ang, False);
+  FSnapDirty := True;
+end;
+
+procedure TWorkDoc.TranslateEnts(const Idx: array of Integer; const D: TP3);
+var
+  J, I, K, H: Integer;
+
+  function Sh(const P: TP3): TP3;
+  begin
+    Result := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
+  end;
+
+begin
+  for J := 0 to High(Idx) do
+  begin
+    I := Idx[J];
+    if (I < 0) or (I >= FLive) then Continue;
+    FEnts[I].A := Sh(FEnts[I].A);
+    FEnts[I].B := Sh(FEnts[I].B);
+    if FEnts[I].Kind in [ekArc, ekDim] then FEnts[I].C := Sh(FEnts[I].C);
+    for K := 0 to High(FEnts[I].Poly) do FEnts[I].Poly[K] := Sh(FEnts[I].Poly[K]);
+    for H := 0 to High(FEnts[I].Holes) do
+      for K := 0 to High(FEnts[I].Holes[H]) do FEnts[I].Holes[H][K] := Sh(FEnts[I].Holes[H][K]);
+  end;
   FSnapDirty := True;
 end;
 

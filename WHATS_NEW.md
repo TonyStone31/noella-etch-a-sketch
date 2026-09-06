@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- Build a transition.  SHOP > Build a transition... (or /transition) takes
+  the ticket - the two openings, the length, which side comes in and by how
+  much, flat bottom or flat top or top up - draws the sketch beside the
+  numbers as you type, and builds the four sides as one piece with its
+  entry corner on the cursor; click to put it where it goes.  Sizes are
+  inches unless you write a foot mark.
+- One view button in place of PLAN / ISO / 3D.  It parks the camera on a
+  named view - the four corners, the top, the four sides - left click steps
+  forward, right click back, and it reads 3D as soon as you orbit off.  The
+  paper modes are under SHOP as the field sketch, for the wizard that will
+  be built on them.
+
 ## v2026.09.06.11
 
 ### Fixed

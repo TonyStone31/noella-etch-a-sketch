@@ -44,29 +44,29 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
-1. **The transition builder.**  Two opening sizes, the length of the gap, and
-   for each axis one named edge and how far it moves.  Six numbers and two
-   choices - `docs/transition-ticket.md` has the notation it has to match.
-2. **Seam and bend allowance, and end treatments.**  TDF, flange out, flange
-   in, slip, drive, raw, corners notched - per edge, not per end, each worth
-   a different amount of material.  The shop's numbers, not guessed ones.
-3. **The rest of the dimension tool**: radius and diameter, dragging an
+The direction, settled 6 September: one drawing, one camera; the things that
+build a model from numbers are wizards under Create that drop the result
+into the drawing; hammer the general tools before the generators.
+
+1. **Copy and move arrays** - `*6` and `/3` after a Ctrl-move, and after a
+   rotate.  SketchUp's own docs do not give the syntax, so this is worked out
+   from the app.
+2. **The field-sketch wizard.**  The paper grid as an input: draw the run not
+   to scale, dimension it, build the 3D drawing from the numbers and place
+   it.  The ISO and PLAN paper modes are its engine; they come off the
+   Create menu and on to the wizard when it exists.
+3. **The transition wizard's ends**: TDF, flange out, flange in, slip, drive,
+   raw, corners notched - per edge, each worth the shop's own number of
+   material.  Then the offset (same size both ends) and the elbows as more
+   wizards.
+4. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
-4. **Copy arrays** - `*6` and `/3` after a Ctrl-move, and after a rotate.
-   SketchUp's own docs do not give the syntax, so this is worked out from
-   the app.
-5. **Elbows and 45s with offsets**, then square-to-round.  There is no house
-   style for square-to-round to follow, so it takes a standard from the
-   layout books and expects to be argued with.
-6. **Drill, the hard cases.**  A tunnel crossing a tunnel that was itself
+5. **Drill, the hard cases.**  A tunnel crossing a tunnel that was itself
    already crossed; two tunnels that share a wall plane (coplanar floors -
    left overlapping today); a tunnel that grazes another.
-7. **Sliding a wall of a block with a tunnel through it** tears the block:
-   the tunnel's lining is not attached to the wall that moves.  Rare, and
-   the fix is for the lining to stretch with it or the move to be refused.
-8. **Rotate's Shift and Alt.**  Shift to hold the plane the cursor inferred,
-   Alt to move the protractor off it.  The arrows do the job outright for
-   now; SketchUp hands do it by feel.
+6. **Sliding a wall of a block with a tunnel through it** tears the block:
+   the tunnel's lining is not attached to the wall that moves.
+7. **Rotate's Shift and Alt.**
 
 ---
 
