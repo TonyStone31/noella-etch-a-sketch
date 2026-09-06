@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Circles have points to aim at.**  The four quadrant points of a circle' + LineEnding +
+    '  - where it crosses its own plane''s axes - snap, marked QUADRANT.  Where' + LineEnding +
+    '  two arcs cross, in one plane or on two different planes, the crossing' + LineEnding +
+    '  snaps, and the pieces either side of it get middles, as cut lines do.  An' + LineEnding +
+    '  arc nothing crosses has a middle.  Building a ball or a pipe crossing out' + LineEnding +
+    '  of circles now has something to land on.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.27' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

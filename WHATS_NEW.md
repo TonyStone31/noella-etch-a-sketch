@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Circles have points to aim at.**  The four quadrant points of a circle
+  - where it crosses its own plane's axes - snap, marked QUADRANT.  Where
+  two arcs cross, in one plane or on two different planes, the crossing
+  snaps, and the pieces either side of it get middles, as cut lines do.  An
+  arc nothing crosses has a middle.  Building a ball or a pipe crossing out
+  of circles now has something to land on.
+
 ## v2026.09.06.27
 
 ### Fixed

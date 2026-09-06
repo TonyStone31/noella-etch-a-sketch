@@ -2527,6 +2527,54 @@ begin
   end;
 end;
 
+{ ------------------------------------------------ what a circle snaps to - }
+procedure TestArcSnaps;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Hit: TSnapHit;
+
+  function Find(const P: TP3; out Kind: TSnapKind): Boolean;
+  var
+    Q: TPointF;
+  begin
+    Q := Project(V, P);
+    Result := D.BestSnap(V, Q.X, Q.Y, 6, Hit) and (Dist(Hit.P, P) < 1E-6);
+    Kind := Hit.Kind;
+  end;
+
+var
+  K: TSnapKind;
+begin
+  WriteLn('What a circle snaps to');
+  D := TWorkDoc.Create;
+  try
+    V.Kind := vkPlan;
+    V.Ppu := 20;
+    V.OX := 400;
+    V.OY := 300;
+    { a circle at the origin, 2 across }
+    D.AddArc(P3(0, 0, 0), 2, 0, 2 * Pi, plXY, 0, 1);
+    Ok(Find(P3(0, 2, 0), K) and (K = snQuadrant), 'the top of a circle is a quadrant point');
+    Ok(Find(P3(-2, 0, 0), K) and (K = snQuadrant), 'and so is its left');
+    { a second circle in the same plane, overlapping }
+    D.AddArc(P3(3, 0, 0), 2, 0, 2 * Pi, plXY, 0, 1);
+    Ok(Find(P3(1.5, Sqrt(4 - 2.25), 0), K) and (K = snCross), 'two circles cross at a point');
+    Ok(Find(P3(1.5, -Sqrt(4 - 2.25), 0), K) and (K = snCross), 'twice');
+    { a third, standing up in XZ, through the first two }
+    D.AddArc(P3(0, 0, 0), 2, 0, 2 * Pi, plXZ, 0, 1);
+    Ok(Find(P3(2, 0, 0), K), 'a circle standing on another meets it where both cross the axis');
+    { the pieces between crossings get middles: the first circle's far side,
+      from one crossing round to the other through 180 degrees }
+    Ok(Find(P3(-2, 0, 0), K), 'the far middle of the cut circle is a point');
+    { an open arc that nothing crosses has a middle }
+    D.AddArc(P3(20, 0, 0), 1, 0, Pi / 2, plXY, 0, 1);
+    Ok(Find(P3(20 + Cos(Pi / 4), Sin(Pi / 4), 0), K) and (K = snMidpoint), 'a lone arc has a middle');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArrays;
 var
   D: TWorkDoc;
@@ -2972,6 +3020,7 @@ begin
   TestDuctEnds;  WriteLn;
   TestElbowTee;  WriteLn;
   TestFacingOut;  WriteLn;
+  TestArcSnaps;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;

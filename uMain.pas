@@ -4415,6 +4415,7 @@ begin
     snCross:    Result := 'CROSSING';
     snOnEdge:   Result := 'ON EDGE';
     snOnFace:   Result := 'ON FACE';
+    snQuadrant: Result := 'QUADRANT';
     snOrigin:   Result := 'ORIGIN';
     snOnAxis:   case FSnapAxis of
                   0: Result := 'ON RED AXIS';
@@ -5851,6 +5852,8 @@ begin
     snOnEdge:             MarkPix := Pix(235, 70, 70);
     { SketchUp's On Face is blue, and the point sits on the surface }
     snOnFace:             MarkPix := Pix(70, 130, 240);
+    { a circle's quadrant, in the endpoint's family }
+    snQuadrant:           MarkPix := Pix(90, 235, 120);
     { the mark takes the color of the axis it is on, which is the whole point
       of the axes being colored }
     snOnAxis:             MarkPix := AxisPix(FSnapAxis);

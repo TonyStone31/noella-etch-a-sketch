@@ -156,7 +156,7 @@ type
     line, and the one point in the model everybody knows the coordinates of
     cannot be landed on. }
   TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCenter, snCross,
-    snSubMid, snOnEdge, snOnAxis, snOrigin, snOnFace);
+    snSubMid, snOnEdge, snOnAxis, snOrigin, snOnFace, snQuadrant);
 
   { Everything a dimension is drawn out of, in screen coordinates.  One
     routine works it out so that the preview you drag around and the thing
@@ -189,6 +189,7 @@ type
     FLastBore: Integer;
     function GetEnt(I: Integer): TWorkEnt;
     procedure RebuildSnapCache;
+    procedure ArcSnaps(var N: Integer);
   public
     procedure AddLine(const A, B: TP3; Ink: TColor; Weight: Single; Dim: Boolean);
     { True when a line with these ends is already there, either way round. }
@@ -3874,8 +3875,245 @@ begin
     end;
   end;
 
+  { Circles and arcs.  A circle's quadrant points - where it crosses the two
+    axes of its own plane through its centre - are where the next circle is
+    started from when a ball or a pipe crossing is built up out of circles,
+    so they are points.  Where two arcs cross, in one plane or across two,
+    the crossing is a point and the pieces either side of it get middles,
+    as the pieces of a cut line do.  An open arc that nothing crosses has a
+    middle of its own. }
+  ArcSnaps(N);
   SetLength(FSnapCache, N);
   FSnapDirty := False;
+end;
+
+{ Everything about an arc's own geometry that the snap cache wants: its
+  quadrant points, its crossings with other arcs, and the middles of the
+  pieces those crossings leave.  Angles are measured the arc's own way, from
+  A0 along its sweep, so a clockwise arc reads the same as an anticlockwise
+  one. }
+procedure TWorkDoc.ArcSnaps(var N: Integer);
+const
+  MAX_ARCS = 300;
+var
+  I, J, K, Q, ArcCount: Integer;
+  Idx: array of Integer;
+  Cuts: array of array of Double;
+  AU, AV, Nm, P, U, Wv: TP3;
+  Ang, Tmp: Double;
+
+  procedure Put(const Pt: TP3; Kind: TSnapKind);
+  begin
+    if N >= Length(FSnapCache) then SetLength(FSnapCache, Max(32, N * 2));
+    FSnapCache[N].P := Pt;
+    FSnapCache[N].Kind := Kind;
+    Inc(N);
+  end;
+
+  procedure Axes(const E: TWorkEnt; out U, V, Nrm: TP3);
+  begin
+    if E.Plane = plFree then
+    begin
+      Nrm := Norm3(E.Nm);
+      AxesFromNormal(Nrm, U, V);
+    end
+    else
+    begin
+      PlaneAxes(E.Plane, U, V);
+      Nrm := Norm3(Cross3(U, V));
+    end;
+  end;
+
+  { the point at absolute angle A on the arc's circle }
+  function At(const E: TWorkEnt; A: Double): TP3;
+  begin
+    if E.Plane = plFree then Result := ArcPoint(E.C, E.R, A, E.Plane, E.Nm)
+    else Result := ArcPoint(E.C, E.R, A, E.Plane);
+  end;
+
+  { how far along the arc, from A0 in the direction of the sweep, an
+    absolute angle sits: 0 .. 2pi }
+  function Along(const E: TWorkEnt; A: Double): Double;
+  begin
+    if E.Sweep >= 0 then Result := A - E.A0 else Result := E.A0 - A;
+    Result := Result - 2 * Pi * Floor(Result / (2 * Pi));
+  end;
+
+  function OnArc(const E: TWorkEnt; A: Double): Boolean;
+  var
+    L: Double;
+  begin
+    if Abs(E.Sweep) >= 2 * Pi - 1E-9 then Exit(True);
+    L := Along(E, A);
+    Result := (L <= Abs(E.Sweep) + 1E-7) or (L >= 2 * Pi - 1E-7);
+  end;
+
+  { the absolute angle of a point on (or near) the arc's circle }
+  function AngleOf(const E: TWorkEnt; const Pt: TP3): Double;
+  var
+    U, V, Nrm, D: TP3;
+  begin
+    Axes(E, U, V, Nrm);
+    D := P3(Pt.X - E.C.X, Pt.Y - E.C.Y, Pt.Z - E.C.Z);
+    Result := ArcTan2(Dot3(D, V), Dot3(D, U));
+  end;
+
+  procedure AddCut(Which: Integer; Rel: Double);
+  var
+    M: Integer;
+  begin
+    for M := 0 to High(Cuts[Which]) do
+      if Abs(Cuts[Which][M] - Rel) < 1E-7 then Exit;
+    SetLength(Cuts[Which], Length(Cuts[Which]) + 1);
+    Cuts[Which][High(Cuts[Which])] := Rel;
+  end;
+
+  { a point that is on both arcs is a crossing: noted once, cut into both }
+  procedure Crossing(const Pt: TP3; AI, AJ: Integer);
+  var
+    A1, A2: Double;
+  begin
+    A1 := AngleOf(FEnts[Idx[AI]], Pt);
+    A2 := AngleOf(FEnts[Idx[AJ]], Pt);
+    if not (OnArc(FEnts[Idx[AI]], A1) and OnArc(FEnts[Idx[AJ]], A2)) then Exit;
+    Put(Pt, snCross);
+    AddCut(AI, Along(FEnts[Idx[AI]], A1));
+    AddCut(AJ, Along(FEnts[Idx[AJ]], A2));
+  end;
+
+  { where the circle of arc J meets the plane of arc I: solve for the angles
+    on J where the point lies in I's plane, then keep those on I's circle }
+  procedure CrossPlane(AI, AJ: Integer);
+  var
+    UI, VI, NI, UJ, VJ, NJ, Pt: TP3;
+    A, B, Cc, Rr, Phi, Th: Double;
+    S: Integer;
+  begin
+    Axes(FEnts[Idx[AI]], UI, VI, NI);
+    Axes(FEnts[Idx[AJ]], UJ, VJ, NJ);
+    A := FEnts[Idx[AJ]].R * Dot3(NI, UJ);
+    B := FEnts[Idx[AJ]].R * Dot3(NI, VJ);
+    Cc := Dot3(NI, P3(FEnts[Idx[AI]].C.X - FEnts[Idx[AJ]].C.X,
+                      FEnts[Idx[AI]].C.Y - FEnts[Idx[AJ]].C.Y,
+                      FEnts[Idx[AI]].C.Z - FEnts[Idx[AJ]].C.Z));
+    Rr := Sqrt(A * A + B * B);
+    if (Rr < 1E-12) or (Abs(Cc) > Rr) then Exit;
+    Phi := ArcTan2(B, A);
+    for S := -1 to 1 do
+    begin
+      if S = 0 then Continue;
+      Th := Phi + S * ArcCos(Max(-1, Min(1, Cc / Rr)));
+      Pt := At(FEnts[Idx[AJ]], Th);
+      if Abs(Dist(Pt, FEnts[Idx[AI]].C) - FEnts[Idx[AI]].R) > 1E-6 then Continue;
+      Crossing(Pt, AI, AJ);
+    end;
+  end;
+
+  { two arcs in one plane: the two points where their circles meet }
+  procedure CrossCoplanar(AI, AJ: Integer);
+  var
+    UI, VI, NI, Pt: TP3;
+    D, A, H, RI, RJ: Double;
+    S: Integer;
+  begin
+    Axes(FEnts[Idx[AI]], UI, VI, NI);
+    RI := FEnts[Idx[AI]].R; RJ := FEnts[Idx[AJ]].R;
+    D := Dist(FEnts[Idx[AI]].C, FEnts[Idx[AJ]].C);
+    if (D < 1E-9) or (D > RI + RJ + 1E-9) or (D < Abs(RI - RJ) - 1E-9) then Exit;
+    U := Norm3(P3(FEnts[Idx[AJ]].C.X - FEnts[Idx[AI]].C.X,
+                  FEnts[Idx[AJ]].C.Y - FEnts[Idx[AI]].C.Y,
+                  FEnts[Idx[AJ]].C.Z - FEnts[Idx[AI]].C.Z));
+    Wv := Norm3(Cross3(NI, U));
+    A := (RI * RI - RJ * RJ + D * D) / (2 * D);
+    H := Sqrt(Max(0, RI * RI - A * A));
+    for S := -1 to 1 do
+    begin
+      if (S = 0) and (H > 1E-9) then Continue;
+      if (S <> 0) and (H <= 1E-9) then Continue;
+      Pt := P3(FEnts[Idx[AI]].C.X + U.X * A + Wv.X * H * S,
+               FEnts[Idx[AI]].C.Y + U.Y * A + Wv.Y * H * S,
+               FEnts[Idx[AI]].C.Z + U.Z * A + Wv.Z * H * S);
+      Crossing(Pt, AI, AJ);
+    end;
+  end;
+
+  function Coplanar(AI, AJ: Integer): Boolean;
+  var
+    UI, VI, NI, UJ, VJ, NJ: TP3;
+  begin
+    Axes(FEnts[Idx[AI]], UI, VI, NI);
+    Axes(FEnts[Idx[AJ]], UJ, VJ, NJ);
+    Result := (Abs(Abs(Dot3(NI, NJ)) - 1) < 1E-9) and
+      (Abs(Dot3(NI, P3(FEnts[Idx[AJ]].C.X - FEnts[Idx[AI]].C.X,
+                       FEnts[Idx[AJ]].C.Y - FEnts[Idx[AI]].C.Y,
+                       FEnts[Idx[AJ]].C.Z - FEnts[Idx[AI]].C.Z))) < 1E-9);
+  end;
+
+begin
+  SetLength(Idx, FLive);
+  ArcCount := 0;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekArc) and (FEnts[I].R > 1E-9) then
+    begin
+      Idx[ArcCount] := I;
+      Inc(ArcCount);
+    end;
+  if ArcCount = 0 then Exit;
+  SetLength(Cuts, ArcCount);
+  { the quadrant points }
+  for I := 0 to ArcCount - 1 do
+    for Q := 0 to 3 do
+    begin
+      Ang := Q * Pi / 2;
+      if OnArc(FEnts[Idx[I]], Ang) then Put(At(FEnts[Idx[I]], Ang), snQuadrant);
+    end;
+  { the crossings }
+  if ArcCount <= MAX_ARCS then
+    for I := 0 to ArcCount - 2 do
+      for J := I + 1 to ArcCount - 1 do
+        if Coplanar(I, J) then CrossCoplanar(I, J)
+        else
+        begin
+          CrossPlane(I, J);
+          CrossPlane(J, I);
+        end;
+  { the middles of the pieces }
+  for I := 0 to ArcCount - 1 do
+  begin
+    if Length(Cuts[I]) = 0 then
+    begin
+      { an open arc nothing crosses still has a middle; a whole circle does
+        not have one anywhere in particular }
+      if Abs(FEnts[Idx[I]].Sweep) < 2 * Pi - 1E-9 then
+        Put(At(FEnts[Idx[I]], FEnts[Idx[I]].A0 + FEnts[Idx[I]].Sweep / 2), snMidpoint);
+      Continue;
+    end;
+    { the ends are cuts too, unless it is a whole circle, where the pieces
+      run round from the last cut to the first }
+    if Abs(FEnts[Idx[I]].Sweep) < 2 * Pi - 1E-9 then
+    begin
+      AddCut(I, 0);
+      AddCut(I, Abs(FEnts[Idx[I]].Sweep));
+    end;
+    for K := 0 to High(Cuts[I]) - 1 do
+      for Q := 0 to High(Cuts[I]) - 1 - K do
+        if Cuts[I][Q] > Cuts[I][Q + 1] then
+        begin
+          Tmp := Cuts[I][Q]; Cuts[I][Q] := Cuts[I][Q + 1]; Cuts[I][Q + 1] := Tmp;
+        end;
+    for K := 0 to High(Cuts[I]) do
+    begin
+      if K < High(Cuts[I]) then Tmp := (Cuts[I][K] + Cuts[I][K + 1]) / 2
+      else if Abs(FEnts[Idx[I]].Sweep) >= 2 * Pi - 1E-9 then
+        Tmp := (Cuts[I][K] + Cuts[I][0] + 2 * Pi) / 2
+      else
+        Continue;
+      if Tmp >= 2 * Pi then Tmp := Tmp - 2 * Pi;
+      if FEnts[Idx[I]].Sweep >= 0 then Ang := FEnts[Idx[I]].A0 + Tmp
+      else Ang := FEnts[Idx[I]].A0 - Tmp;
+      Put(At(FEnts[Idx[I]], Ang), snSubMid);
+    end;
+  end;
 end;
 
 constructor TWorkDoc.Create;
@@ -4357,7 +4595,7 @@ const
     likely to be the thing being aimed at than the place the model happens to
     start - and near the origin is exactly where people draw corners. }
   BIAS: array[TSnapKind] of Double =
-    (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0, 0, 3.0, 0);   { snOnFace: found separately too }
+    (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0, 0, 3.0, 0, 2.0);   { snOnFace: found separately too }
 var
   I: Integer;
   P: TPointF;
