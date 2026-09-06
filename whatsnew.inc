@@ -13,6 +13,34 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- Pushing or pulling a face stops at whatever point or edge the cursor is' + LineEnding +
+    '  resting on - hover the far edge of a box and the push goes exactly that' + LineEnding +
+    '  deep.  Faces already did this; points and edges do now.' + LineEnding +
+    '- Push a shape on the side of a solid straight through to the far side and' + LineEnding +
+    '  it makes a hole: both faces open, the tunnel walled, nothing to erase.' + LineEnding +
+    '' + LineEnding +
+    '## v2026.09.05.28' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- The arc tool shows what it is doing: the two ends marked, the chord, the' + LineEnding +
+    '  pull from the chord''s middle in the color of the axis it runs along - blue' + LineEnding +
+    '  when it goes straight up a wall - and the arc itself where it will land.' + LineEnding +
+    '  The bulge reads live in the bar.' + LineEnding +
+    '- ON FACE: a point resting on a face says so, with a blue mark, the way' + LineEnding +
+    '  SketchUp''s does.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- An arc drawn up the end of a box stands on the end of the box.  It used' + LineEnding +
+    '  to drop onto the ground when the first click landed on an edge, because' + LineEnding +
+    '  the arc was built in the working plane whatever the three points said.' + LineEnding +
+    '  Three points make a plane, and the arc is built in theirs.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.05.27' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

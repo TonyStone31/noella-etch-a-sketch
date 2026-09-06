@@ -1817,6 +1817,72 @@ begin
 end;
 
 { A note's text size survives the file, and a normal note writes nothing new. }
+procedure TestTunnel;
+var
+  D: TWorkDoc;
+  Sq, Disc: TP3Array;
+  I, Wall, Patch, FarWall, Lining, Caps, G: Integer;
+  N: TP3;
+  Holes1: array of TP3Array;
+begin
+  WriteLn('Push through to the far side');
+  D := TWorkDoc.Create;
+  try
+    { a 6 x 6 x 4 box }
+    SetLength(Sq, 4);
+    Sq[0] := P3(0, 0, 0); Sq[1] := P3(6, 0, 0); Sq[2] := P3(6, 6, 0); Sq[3] := P3(0, 6, 0);
+    D.AddFaceRaw(Sq, 0, False);
+    Ok(D.PushPull(0, 4), 'the box is pulled up');
+    { the wall at x = 6 and the one at x = 0 }
+    Wall := -1; FarWall := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) then
+      begin
+        N := D.FaceNormal(I);
+        if Abs(Abs(N.X) - 1) < 1E-9 then
+          if Abs(D[I].Poly[0].X - 6) < 1E-9 then Wall := I
+          else FarWall := I;
+      end;
+    Ok((Wall >= 0) and (FarWall >= 0), 'both end walls are there');
+    G := D[Wall].Grp;
+    { a window in the middle of the near wall, as the rebuild leaves it: the
+      wall has the opening as a hole and a loose face lies in it.  2 x 2. }
+    SetLength(Disc, 4);
+    Disc[0] := P3(6, 2, 1); Disc[1] := P3(6, 4, 1); Disc[2] := P3(6, 4, 3); Disc[3] := P3(6, 2, 3);
+    SetLength(Holes1, 1);
+    Holes1[0] := Disc;
+    D.SetFaceHoles(Wall, Holes1);
+    D.AddFaceRaw(Disc, 0, False);
+    Patch := D.Live - 1;
+    Ok(G <> 0, 'the wall belongs to a solid');
+    { push it 6 in - onto the far wall }
+    N := D.FaceNormal(Patch);
+    Ok(D.PushPull(Patch, -6 * Sign(N.X)), 'the push goes through');
+    { the far wall has the opening }
+    FarWall := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].X) < 1E-9) and (Abs(D[I].Poly[2].X) < 1E-9) and
+         (Abs(D.FaceArea(I) + 4 - 24) < 1E-6) then FarWall := I;
+    Ok(FarWall >= 0, 'the far wall is 24 less the 4 of the opening');
+    if FarWall >= 0 then
+      Ok(Length(D[FarWall].Holes) = 1, 'and it has one hole');
+    { no cap is left filling either end, and the tunnel is lined }
+    Caps := 0; Lining := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        N := D.FaceNormal(I);
+        if (Abs(Abs(N.X) - 1) < 1E-9) and (Abs(D.FaceArea(I) - 4) < 1E-6) then Inc(Caps);
+        if (Abs(N.X) < 1E-9) and (Abs(D.FaceArea(I) - 12) < 1E-6) then Inc(Lining);
+      end;
+    Ok(Caps = 0, 'nothing fills the opening at either end');
+    Ok(Lining = 4, 'four walls line the tunnel');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArcOnFreePlane;
 var
   C, A, B, P, N: TP3;
@@ -2213,6 +2279,7 @@ begin
   TestRotate;  WriteLn;
   TestInnerPoint;  WriteLn;
   TestArcOnFreePlane;  WriteLn;
+  TestTunnel;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

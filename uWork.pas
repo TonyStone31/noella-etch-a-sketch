@@ -225,6 +225,11 @@ type
     function PushPull(Index: Integer; Dist: Double): Boolean;
     { Slide a face along a vector, dragging everything joined to it. }
     procedure MoveFaceWith(Index: Integer; const D: TP3);
+    { A pushed patch whose far end lands on another face of the same solid
+      that contains it.  Opens that face, walls the tunnel, removes the patch
+      and its edges' claim.  False when the push lands anywhere else. }
+    function TunnelThrough(Index: Integer; const Top: TP3Array;
+      const Nm: TP3; Dist: Double): Boolean;
     { Every corner of these entities, for moving or for stretching. }
     procedure VertsOf(const Idx: array of Integer; out Pts: TP3Array);
     { Shift every vertex in the drawing that sits on one of these points.
@@ -3038,6 +3043,148 @@ begin
   end;
 end;
 
+{ Is P inside the flat loop, both taken in the loop's plane?  Even-odd, on
+  the loop's own two axes.  uRegion has the general one; this unit cannot
+  use uRegion, which uses it. }
+function LoopContains(const P: TP3; const Loop: TP3Array; const N: TP3): Boolean;
+var
+  AU, AV: TP3;
+  I, J: Integer;
+  PX, PY, AX, AY, BX, BY: Double;
+begin
+  Result := False;
+  AxesFromNormal(N, AU, AV);
+  PX := Dot3(P, AU);
+  PY := Dot3(P, AV);
+  J := High(Loop);
+  for I := 0 to High(Loop) do
+  begin
+    AX := Dot3(Loop[I], AU); AY := Dot3(Loop[I], AV);
+    BX := Dot3(Loop[J], AU); BY := Dot3(Loop[J], AV);
+    if ((AY > PY) <> (BY > PY)) and
+       (PX < (BX - AX) * (PY - AY) / (BY - AY) + AX) then
+      Result := not Result;
+    J := I;
+  end;
+end;
+
+function TWorkDoc.TunnelThrough(Index: Integer; const Top: TP3Array;
+  const Nm: TP3; Dist: Double): Boolean;
+var
+  F, I, J, K, N, G, Far: Integer;
+  FN, Mid: TP3;
+  Size, Tol: Double;
+  Quad: array[0..3] of TP3;
+  Ink: TColor;
+  Wt: Single;
+  Holes: array of TP3Array;
+begin
+  Result := False;
+  N := Length(Top);
+  if N < 3 then Exit;
+  { Whose solid is being pushed through?  A piece cut out of a wall carries
+    the wall's group.  A window drawn in the middle of a wall is a loose face
+    lying in the wall's opening, so the wall it lies on says. }
+  G := 0;
+  if FEnts[Index].Solid then G := FEnts[Index].Grp;
+  if G = 0 then
+  begin
+    Mid := P3(0, 0, 0);
+    for I := 0 to High(FEnts[Index].Poly) do
+      Mid := P3(Mid.X + FEnts[Index].Poly[I].X, Mid.Y + FEnts[Index].Poly[I].Y,
+                Mid.Z + FEnts[Index].Poly[I].Z);
+    I := Length(FEnts[Index].Poly);
+    Mid := P3(Mid.X / I, Mid.Y / I, Mid.Z / I);
+    for F := 0 to FLive - 1 do
+    begin
+      if (F = Index) or (FEnts[F].Kind <> ekFace) or not FEnts[F].Solid or
+         (FEnts[F].Grp = 0) or (Length(FEnts[F].Poly) < 3) then Continue;
+      FN := FaceNormal(F);
+      if Abs(Abs(Dot3(FN, Nm)) - 1) > 1E-6 then Continue;
+      if Abs(Dot3(FN, P3(Mid.X - FEnts[F].Poly[0].X, Mid.Y - FEnts[F].Poly[0].Y,
+                         Mid.Z - FEnts[F].Poly[0].Z))) > 1E-6 then Continue;
+      if LoopContains(Mid, FEnts[F].Poly, FN) then
+      begin
+        G := FEnts[F].Grp;
+        Break;
+      end;
+    end;
+  end;
+  if G = 0 then Exit;
+  Size := 0;
+  { Dist is the push here, so the spread is worked out by hand }
+  for I := 0 to N - 1 do
+    Size := Max(Size, Sqrt(Sqr(Top[I].X - Top[0].X) + Sqr(Top[I].Y - Top[0].Y) +
+                           Sqr(Top[I].Z - Top[0].Z)));
+  Tol := 1E-6 * (1 + Size + Abs(Dist));
+
+  { the face the push lands on: same solid, parallel, in the plane the far
+    end has reached, and big enough to hold the whole opening }
+  Mid := P3(0, 0, 0);
+  for I := 0 to N - 1 do Mid := P3(Mid.X + Top[I].X, Mid.Y + Top[I].Y, Mid.Z + Top[I].Z);
+  Mid := P3(Mid.X / N, Mid.Y / N, Mid.Z / N);
+  Far := -1;
+  for F := 0 to FLive - 1 do
+  begin
+    if (F = Index) or (FEnts[F].Kind <> ekFace) or (FEnts[F].Grp <> G) then Continue;
+    if Length(FEnts[F].Poly) < 3 then Continue;
+    FN := FaceNormal(F);
+    if Abs(Abs(Dot3(FN, Nm)) - 1) > 1E-6 then Continue;
+    if Abs(Dot3(FN, P3(Top[0].X - FEnts[F].Poly[0].X, Top[0].Y - FEnts[F].Poly[0].Y,
+                       Top[0].Z - FEnts[F].Poly[0].Z))) > Tol then Continue;
+    K := 0;
+    for I := 0 to N - 1 do
+      if LoopContains(Top[I], FEnts[F].Poly, FN) then Inc(K);
+    if (K = N) and LoopContains(Mid, FEnts[F].Poly, FN) then
+    begin
+      Far := F;
+      Break;
+    end;
+  end;
+  if Far < 0 then Exit;
+
+  Ink := FEnts[Index].Ink;
+  Wt := EdgeWeight(FEnts[Index].Poly[0], FEnts[Index].Poly[1]);
+  if Wt <= 0 then Wt := FEnts[Index].Weight;
+  if Wt <= 0 then Wt := 1;
+
+  { the far face gets the opening }
+  SetLength(Holes, Length(FEnts[Far].Holes) + 1);
+  for I := 0 to High(FEnts[Far].Holes) do Holes[I] := FEnts[Far].Holes[I];
+  Holes[High(Holes)] := Copy(Top, 0, N);
+  SetFaceHoles(Far, Holes);
+
+  { the walls line the tunnel, looking inward at the space it leaves; the
+    edges at the far end and the creases along it are drawn, and a curved
+    opening has its creases softened as an extrusion's are }
+  for I := 0 to N - 1 do
+  begin
+    J := (I + 1) mod N;
+    if Dist >= 0 then
+    begin
+      Quad[0] := FEnts[Index].Poly[J]; Quad[1] := FEnts[Index].Poly[I];
+      Quad[2] := Top[I];              Quad[3] := Top[J];
+    end
+    else
+    begin
+      Quad[0] := FEnts[Index].Poly[I]; Quad[1] := FEnts[Index].Poly[J];
+      Quad[2] := Top[J];              Quad[3] := Top[I];
+    end;
+    AddFaceRaw(Quad, Ink, True);
+    FEnts[FLive - 1].Grp := G;
+    AddLine(FEnts[Index].Poly[I], Top[I], Ink, Wt, False);
+    FEnts[FLive - 1].Grp := G;
+    FEnts[FLive - 1].Soft := N >= 9;
+    AddLine(Top[I], Top[J], Ink, Wt, False);
+    FEnts[FLive - 1].Grp := G;
+  end;
+
+  { and the pushed face is the hole now }
+  Delete(Index);
+  FSnapDirty := True;
+  Result := True;
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N, G: Integer;
@@ -3088,6 +3235,14 @@ begin
                  Base[I].Y + Nm.Y * Dist,
                  Base[I].Z + Nm.Z * Dist);
   end;
+
+  { Pushed clean through to the far side of its own solid, the shape is a
+    hole, not a block: the far face gets the opening, the walls line the
+    tunnel, and the pushed face itself is gone.  SketchUp does this when the
+    push lands exactly on the opposite face, and it is the whole of how a
+    duct gets a hole through a wall without drawing the hole twice and
+    erasing two faces. }
+  if TunnelThrough(Index, Top, Nm, Dist) then Exit(True);
 
   { Anything cut out of the face travels with it and gets walls of its own.
 

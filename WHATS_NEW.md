@@ -10,6 +10,34 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- Pushing or pulling a face stops at whatever point or edge the cursor is
+  resting on - hover the far edge of a box and the push goes exactly that
+  deep.  Faces already did this; points and edges do now.
+- Push a shape on the side of a solid straight through to the far side and
+  it makes a hole: both faces open, the tunnel walled, nothing to erase.
+
+## v2026.09.05.28
+
+### New
+
+- The arc tool shows what it is doing: the two ends marked, the chord, the
+  pull from the chord's middle in the color of the axis it runs along - blue
+  when it goes straight up a wall - and the arc itself where it will land.
+  The bulge reads live in the bar.
+- ON FACE: a point resting on a face says so, with a blue mark, the way
+  SketchUp's does.
+
+### Fixed
+
+- An arc drawn up the end of a box stands on the end of the box.  It used
+  to drop onto the ground when the first click landed on an edge, because
+  the arc was built in the working plane whatever the three points said.
+  Three points make a plane, and the arc is built in theirs.
+
 ## v2026.09.05.27
 
 ### Fixed

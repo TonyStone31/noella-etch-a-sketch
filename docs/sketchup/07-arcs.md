@@ -40,3 +40,13 @@ non-uniformly stops being an arc.
 *(We have the 2-point-plus-bulge arc only, with the bulge typed as a length.
 No radius or segment syntax, no tangency lock, no arc/pie/3-point tools, no
 double-click repeat.)*
+
+## Where ours stands, 5 September 2026
+
+The two-point arc is the one we have: two ends, then pull the middle out or
+type the bulge.  It draws the way SketchUp's does now - the ends marked, the
+chord, the pull from the chord's middle in its axis color, the arc live, the
+bulge in the bar - and it is built in the plane the three points are in, so an
+arc drawn up the end of a box stands on the end of the box.  A point resting
+on a face reads ON FACE.  The centre-point arc, the three-point arc and the
+pie are not built, and neither is tangency.

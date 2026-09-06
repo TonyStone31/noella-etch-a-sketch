@@ -34,3 +34,11 @@ on the far side, and no lines may divide that far face — erase them first.
 *(Built: preselect a face with the arrow then push it, and double-click
 another face to repeat the last pull.  Not built: the parallel inference,
 Ctrl double-click to stack, the "offset is limited" message.)*
+
+## Where ours stands, 5 September 2026
+
+Push/pull infers to what the cursor rests on: a parallel face, and now any
+point or edge - hover the far edge of a box and the push stops flush with the
+far side.  A shape pushed clean through to the far face of its own solid is a
+hole: the far face gets the opening, the tunnel is walled, the pushed face is
+gone, the same as SketchUp.  Double-click repeats the last push.

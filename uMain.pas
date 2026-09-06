@@ -2376,6 +2376,22 @@ begin
     Exit;
   end;
 
+  { Rest on a point or an edge and the pull goes exactly as far as that
+    point is from the face, measured along the normal.  This is the far edge
+    of a box: hover it and the push stops flush with the far side, which is
+    what SketchUp's inference does and what makes a tunnel possible without
+    a number.  A point in the face's own plane says nothing and is ignored. }
+  if FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross, snSubMid,
+                   snOnEdge, snOrigin] then
+  begin
+    Flush := (FCur.X - FP1.X) * Nm.X + (FCur.Y - FP1.Y) * Nm.Y + (FCur.Z - FP1.Z) * Nm.Z;
+    if Abs(Flush) > 1E-6 then
+    begin
+      FPushFlush := True;
+      Exit(Flush);
+    end;
+  end;
+
   { Rest on another face that is parallel to this one and the pull goes
     exactly as far as it needs to to line the two of them up.
 
