@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  uWork, uFittings;
+  ComCtrls, Dialogs, uWork, uFittings;
 
 type
   TTransitionForm = class(TForm)
@@ -32,6 +32,13 @@ type
     lblEndUnit1: TLabel;
     lblEndUnit2: TLabel;
     pbIso: TPaintBox;
+    pcViews: TPageControl;
+    tsPlan: TTabSheet;
+    tsIso: TTabSheet;
+    lblTag: TLabel;
+    lblTagHint: TLabel;
+    edTag: TEdit;
+    btnEmail: TButton;
     edEntryW: TEdit;
     edEntryH: TEdit;
     edExitW: TEdit;
@@ -59,8 +66,15 @@ type
     procedure EndKindChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure pbIsoPaint(Sender: TObject);
+    procedure btnEmailClick(Sender: TObject);
   private
     FUnits: TUnitSystem;
+    { the two drawings, at any size: the paint boxes and the pictures for
+      an email both come from these }
+    procedure PaintPlan(C: TCanvas; W, H: Integer);
+    procedure PaintIso(C: TCanvas; W, H: Integer);
+    { the pictures and the ticket written to disk; the files made, and where }
+    function ExportFiles(out Dir: string; out Files: TStringArray): Boolean;
     function Read(out T: TTransitionSpec): Boolean;
     function InchesOf(const S: string; out V: Double): Boolean;
   public
@@ -73,7 +87,7 @@ implementation
 {$R *.lfm}
 
 uses
-  uMain;
+  uMain, uMailOut;
 
 { A problem with the wizard is reported from the wizard, with the wizard in
   the picture and what was typed into it in the words.  From the main window
@@ -89,6 +103,7 @@ begin
     'entry end: ' + cbEntryEnd.Text + ' ' + edEntryEndAmt.Text + LineEnding +
     'exit end: ' + cbExitEnd.Text + ' ' + edExitEndAmt.Text + LineEnding +
     'dimensions: ' + BoolToStr(cbDims.Checked, True) + LineEnding +
+    'tag: ' + edTag.Text + LineEnding +
     'problem shown: ' + lblProblem.Caption);
 end;
 
@@ -113,7 +128,7 @@ end;
 
 function TTransitionForm.Read(out T: TTransitionSpec): Boolean;
 begin
-  FillChar(T, SizeOf(T), 0);
+  T := Default(TTransitionSpec);
   Result := InchesOf(edEntryW.Text, T.W0) and InchesOf(edEntryH.Text, T.H0) and
             InchesOf(edExitW.Text, T.W1) and InchesOf(edExitH.Text, T.H1) and
             InchesOf(edLen.Text, T.Len);
@@ -131,6 +146,7 @@ begin
     Result := Result and InchesOf(edExitEndAmt.Text, T.Ends[1].Amount);
   if not InchesOf('1', T.Inch) then T.Inch := 1 / 12;
   T.Dims := cbDims.Checked;
+  T.Tag := Trim(edTag.Text);
 end;
 
 procedure TTransitionForm.FormCreate(Sender: TObject);
@@ -166,14 +182,13 @@ end;
   all, seen from in front of the entry, to the right and above.  Built with
   the same code that builds it for real, so what is shown is what is
   made. }
-procedure TTransitionForm.pbIsoPaint(Sender: TObject);
+procedure TTransitionForm.PaintIso(C: TCanvas; W, H: Integer);
 const
   CX = 0.866;
 var
-  C: TCanvas;
   T: TTransitionSpec;
   D: TWorkDoc;
-  I, J, W, H, Margin, N: Integer;
+  I, J, Margin, N: Integer;
   MinX, MaxX, MinY, MaxY, Sc: Double;
   Order: array of Integer;
   Depth: array of Double;
@@ -188,8 +203,6 @@ var
   function Near(const P: TP3): Double; begin Result := P.X - P.Y + P.Z; end;
 
 begin
-  C := pbIso.Canvas;
-  W := pbIso.Width; H := pbIso.Height;
   C.Brush.Color := clWhite;
   C.FillRect(0, 0, W, H);
   C.Pen.Color := clSilver;
@@ -256,6 +269,13 @@ begin
         C.Line(SX(D[I].A), SY(D[I].A), SX(D[I].B), SY(D[I].B));
     C.Font.Color := clGray;
     C.TextOut(8, H - 20, 'entry at the front left');
+    if T.Tag <> '' then
+    begin
+      C.Font.Color := clBlack;
+      C.Font.Style := [fsBold];
+      C.TextOut(8, 6, T.Tag);
+      C.Font.Style := [];
+    end;
   finally
     D.Free;
   end;
@@ -289,11 +309,20 @@ end;
   the top, the sides between them, the flow arrow, and the height rule
   written on it because a plan view cannot show height. }
 procedure TTransitionForm.pbSketchPaint(Sender: TObject);
+begin
+  PaintPlan(pbSketch.Canvas, pbSketch.Width, pbSketch.Height);
+end;
+
+procedure TTransitionForm.pbIsoPaint(Sender: TObject);
+begin
+  PaintIso(pbIso.Canvas, pbIso.Width, pbIso.Height);
+end;
+
+procedure TTransitionForm.PaintPlan(C: TCanvas; W, H: Integer);
 var
-  C: TCanvas;
   T: TTransitionSpec;
   E, X: array[0..3] of TP3;
-  W, H, Margin: Integer;
+  Margin: Integer;
   Sc, Wmax, OX: Double;
   S: string;
 
@@ -301,8 +330,6 @@ var
   function SY(V: Double): Integer; begin Result := Round(H - Margin - V * Sc); end;
 
 begin
-  C := pbSketch.Canvas;
-  W := pbSketch.Width; H := pbSketch.Height;
   C.Brush.Color := clWhite;
   C.FillRect(0, 0, W, H);
   C.Pen.Color := clSilver;
@@ -367,6 +394,91 @@ begin
   finally
     F.Free;
   end;
+end;
+
+
+{ The pictures at a size worth printing, and the ticket as words, into a
+  folder under the home directory that can be found again. }
+function TTransitionForm.ExportFiles(out Dir: string; out Files: TStringArray): Boolean;
+var
+  T: TTransitionSpec;
+  Bmp: TBitmap;
+  Png: TPortableNetworkGraphic;
+  Base, Name_: string;
+  L: TStringList;
+  I: Integer;
+
+  procedure Picture(const Path: string; Iso: Boolean);
+  begin
+    Bmp := TBitmap.Create;
+    Png := TPortableNetworkGraphic.Create;
+    try
+      Bmp.SetSize(1200, 900);
+      if Iso then PaintIso(Bmp.Canvas, Bmp.Width, Bmp.Height)
+      else PaintPlan(Bmp.Canvas, Bmp.Width, Bmp.Height);
+      Png.Assign(Bmp);
+      Png.SaveToFile(Path);
+    finally
+      Png.Free;
+      Bmp.Free;
+    end;
+  end;
+
+begin
+  Result := False;
+  Files := nil;
+  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
+  Dir := IncludeTrailingPathDelimiter(GetUserDir) + 'Heckers Sketch' + PathDelim +
+    'fittings' + PathDelim;
+  if not ForceDirectories(Dir) then Exit;
+  Name_ := T.Tag;
+  for I := 1 to Length(Name_) do
+    if not (Name_[I] in ['A'..'Z', 'a'..'z', '0'..'9', '-', '_']) then Name_[I] := '_';
+  if Name_ = '' then Name_ := 'transition';
+  Base := Dir + Name_ + '-' + FormatDateTime('yyyymmdd-hhnnss', Now);
+  SetLength(Files, 3);
+  Files[0] := Base + '-plan.png';
+  Files[1] := Base + '-3d.png';
+  Files[2] := Base + '.txt';
+  Picture(Files[0], False);
+  Picture(Files[1], True);
+  L := TStringList.Create;
+  try
+    L.Text := TicketText(T) + LineEnding + 'Drawn with Heckers Sketch, ' +
+      FormatDateTime('yyyy-mm-dd hh:nn', Now);
+    L.SaveToFile(Files[2]);
+  finally
+    L.Free;
+  end;
+  Result := True;
+end;
+
+{ The ticket to the office, from here: the plan, the corner view and the
+  words, on a new message in the mail program.  The files stay in the
+  folder either way, so when no mail program answers they can still be
+  sent by hand. }
+procedure TTransitionForm.btnEmailClick(Sender: TObject);
+var
+  T: TTransitionSpec;
+  Dir, Err, Subject: string;
+  Files: TStringArray;
+begin
+  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
+  if not ExportFiles(Dir, Files) then
+  begin
+    ShowMessage('The pictures could not be written under ' + Dir);
+    Exit;
+  end;
+  Subject := 'Transition';
+  if T.Tag <> '' then Subject := Subject + ' ' + T.Tag;
+  Subject := Subject + ': ' + FormatFloat('0.###', T.W0 / T.Inch) + ' x ' +
+    FormatFloat('0.###', T.H0 / T.Inch) + ' to ' + FormatFloat('0.###', T.W1 / T.Inch) +
+    ' x ' + FormatFloat('0.###', T.H1 / T.Inch);
+  if SendByEmail(Subject, TicketText(T), Files, Err) then
+    lblProblem.Caption := 'Handed to your mail program.  The files are in ' + Dir
+  else
+    ShowMessage(Err + LineEnding + LineEnding + 'The plan, the corner view and the ticket ' +
+      'are in ' + Dir + ' - attach them by hand.');
 end;
 
 end.

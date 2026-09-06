@@ -192,3 +192,14 @@ a side comes in).  A tick box in the wizard leaves them off.
 Beside the plan sketch the wizard draws the fitting as it will stand, built
 by the same code that builds it for real and projected from in front of the
 entry, to the right and above.  What is shown is what is made.
+
+### The tag, and the email
+
+A tag typed in the wizard is the fitting's name on the job.  It is written
+on the part above the entry, on both pictures, and in the subject of the
+email.  Email it... writes the plan and the corner view as pictures and the
+ticket as words to `Heckers Sketch/fittings` under the home folder, then
+hands them to the mail program as a new message with the files attached -
+xdg-email on Linux, Simple MAPI on Windows.  The program sends nothing
+itself; the person addresses it and presses send.  When no mail program
+answers, the files are still there to attach by hand.

@@ -1,12 +1,12 @@
 object TransitionForm: TTransitionForm
   Left = 360
-  Height = 700
+  Height = 716
   Top = 160
-  Width = 1064
+  Width = 800
   BorderStyle = bsDialog
   Caption = 'Build a transition'
-  ClientHeight = 700
-  ClientWidth = 1064
+  ClientHeight = 716
+  ClientWidth = 800
   Position = poMainFormCenter
   OnCreate = FormCreate
   OnShow = FormShow
@@ -191,47 +191,40 @@ object TransitionForm: TTransitionForm
     Text = '0'
     OnChange = AnyChange
   end
-  object pbSketch: TPaintBox
-    Left = 440
-    Height = 380
-    Top = 80
-    Width = 296
-    OnPaint = pbSketchPaint
-  end
   object btnReport: TButton
     Left = 24
     Height = 32
-    Top = 656
+    Top = 676
     Width = 150
     Caption = 'Report a problem...'
     OnClick = btnReportClick
     TabOrder = 11
   end
   object lblProblem: TLabel
-    Left = 184
+    Left = 24
     Height = 18
-    Top = 664
-    Width = 560
+    Top = 652
+    Width = 760
     AutoSize = False
     Caption = ''
     Font.Color = clRed
     ParentFont = False
   end
   object btnBuild: TButton
-    Left = 924
+    Left = 690
     Height = 32
-    Top = 656
-    Width = 116
+    Top = 676
+    Width = 90
     Caption = 'Build it'
     Default = True
     ModalResult = 1
     TabOrder = 9
   end
   object btnCancel: TButton
-    Left = 804
+    Left = 584
     Height = 32
-    Top = 656
-    Width = 110
+    Top = 676
+    Width = 96
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
@@ -321,11 +314,72 @@ object TransitionForm: TTransitionForm
     OnChange = AnyChange
     TabOrder = 16
   end
-  object pbIso: TPaintBox
-    Left = 750
-    Height = 380
+  object pcViews: TPageControl
+    Left = 440
+    Height = 400
     Top = 80
-    Width = 290
-    OnPaint = pbIsoPaint
+    Width = 340
+    ActivePage = tsPlan
+    TabIndex = 0
+    TabOrder = 17
+    object tsPlan: TTabSheet
+      Caption = 'Plan'
+      ClientHeight = 366
+      ClientWidth = 332
+      object pbSketch: TPaintBox
+        Left = 0
+        Height = 366
+        Top = 0
+        Width = 332
+        Align = alClient
+        OnPaint = pbSketchPaint
+      end
+    end
+    object tsIso: TTabSheet
+      Caption = '3D'
+      ClientHeight = 366
+      ClientWidth = 332
+      object pbIso: TPaintBox
+        Left = 0
+        Height = 366
+        Top = 0
+        Width = 332
+        Align = alClient
+        OnPaint = pbIsoPaint
+      end
+    end
+  end
+  object lblTag: TLabel
+    Left = 440
+    Height = 18
+    Top = 494
+    Width = 30
+    Caption = 'Tag'
+  end
+  object edTag: TEdit
+    Left = 480
+    Height = 28
+    Top = 488
+    Width = 300
+    OnChange = AnyChange
+    TabOrder = 18
+  end
+  object lblTagHint: TLabel
+    Left = 440
+    Height = 18
+    Top = 522
+    Width = 340
+    Caption = 'the name on the ticket - T-3, kitchen supply'
+    Font.Color = clGray
+    ParentFont = False
+  end
+  object btnEmail: TButton
+    Left = 440
+    Height = 32
+    Top = 676
+    Width = 130
+    Caption = 'Email it...'
+    OnClick = btnEmailClick
+    TabOrder = 19
   end
 end

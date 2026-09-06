@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Email the ticket from the builder.**  An "Email it..." button in the
+  transition wizard opens a new message in your mail program with the plan,
+  the corner view and every input as words, attached and ready to send to
+  the office.  The files are also kept under Heckers Sketch/fittings in your
+  home folder.  Nothing is sent by the program itself.
+- **A tag on the fitting.**  Name it on the ticket - T-3, kitchen supply -
+  and the name is written on the part when it drops into the drawing, on
+  both pictures, and in the email subject.
+- **Plan and 3D on tabs.**  The wizard's two views sit on tabs, so the form
+  takes less room and either can be watched while the numbers go in.
+
 ## v2026.09.06.18
 
 ### New

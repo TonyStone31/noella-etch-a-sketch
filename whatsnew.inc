@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Email the ticket from the builder.**  An "Email it..." button in the' + LineEnding +
+    '  transition wizard opens a new message in your mail program with the plan,' + LineEnding +
+    '  the corner view and every input as words, attached and ready to send to' + LineEnding +
+    '  the office.  The files are also kept under Heckers Sketch/fittings in your' + LineEnding +
+    '  home folder.  Nothing is sent by the program itself.' + LineEnding +
+    '- **A tag on the fitting.**  Name it on the ticket - T-3, kitchen supply -' + LineEnding +
+    '  and the name is written on the part when it drops into the drawing, on' + LineEnding +
+    '  both pictures, and in the email subject.' + LineEnding +
+    '- **Plan and 3D on tabs.**  The wizard''s two views sit on tabs, so the form' + LineEnding +
+    '  takes less room and either can be watched while the numbers go in.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.18' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

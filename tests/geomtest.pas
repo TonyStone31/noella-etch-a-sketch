@@ -2131,7 +2131,7 @@ var
 begin
   WriteLn('A transition from its ticket');
   { 20x20 in to 12x8, 24 long, right side in 4, flat bottom - in feet }
-  FillChar(T, SizeOf(T), 0);
+  T := Default(TTransitionSpec);
   T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 8 / 12; T.Len := 2;
   T.Side := srRightIn; T.SideAmount := 4 / 12;
   T.Height := hrFlatBottom;
@@ -2207,7 +2207,7 @@ var
   C0: TP3;
 begin
   WriteLn('The ends of a duct');
-  FillChar(T, SizeOf(T), 0);
+  T := Default(TTransitionSpec);
   T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 8 / 12; T.Len := 2;
   T.Inch := 1 / 12;
   D := TWorkDoc.Create;
@@ -2282,6 +2282,16 @@ begin
          (Abs(D[I].Poly[0].Y) < 1E-9) and (Abs(D[I].Poly[1].Y) < 1E-9) and
          (Abs(D[I].Poly[0].Z - D[I].Poly[1].Z) < 1E-9) then Inc(Eight);
     Ok(Eight = 2, 'drive and slip puts them top and bottom');
+    { the ticket in words, and the name on the part }
+    T.Tag := 'T-3';
+    Ok(Pos('TDF', TicketText(T)) = 0, 'the ticket says what the ends are');
+    Ok(Pos('Drive and slip', TicketText(T)) > 0, 'this one drive and slip');
+    Ok(Pos('T-3', TicketText(T)) > 0, 'and carries the tag');
+    First := BuildTransition(D, T, 0, 1);
+    Eight := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekText) and (D[I].Txt = 'T-3') then Inc(Eight);
+    Ok(Eight = 1, 'the tag is written on the part');
     { too big a notch is refused }
     T.Ends[0].Amount := 11 / 12;
     Ok(TransitionProblem(T) <> '', 'a notch bigger than the opening is refused');

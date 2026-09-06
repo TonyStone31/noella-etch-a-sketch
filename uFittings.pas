@@ -52,6 +52,7 @@ type
     Ends: array[0..1] of TEndSpec;  { entry, exit }
     Inch: Double;           { one inch in drawing units, for the fixed sizes }
     Dims: Boolean;          { put the sizes on it as dimensions }
+    Tag: string;            { the name on the ticket, written on the part }
   end;
 
 const
@@ -81,6 +82,10 @@ function BuildTransition(D: TWorkDoc; const T: TTransitionSpec; Ink: TColor;
 
 { What is wrong with the spec, or '' when it can be built. }
 function TransitionProblem(const T: TTransitionSpec): string;
+
+{ The ticket, as words: every input, in inches, one to a line.  What goes
+  in the email and in the text file beside the pictures. }
+function TicketText(const T: TTransitionSpec): string;
 
 implementation
 
@@ -146,6 +151,41 @@ begin
       if T.Ends[K].Amount * 2 >= Small then
         Exit('The notch or flange on an end is bigger than the opening.');
     end;
+end;
+
+function TicketText(const T: TTransitionSpec): string;
+const
+  SideWords: array[TSideRule] of string = ('Centred', 'Left side in by', 'Right side in by');
+  HeightWords: array[THeightRule] of string = ('Flat bottom (FB)', 'Flat top (FT)',
+    'Centred', 'Top up by', 'Top down by', 'Bottom up by', 'Bottom down by');
+var
+  Inch: Double;
+  function Ins(V: Double): string;
+  begin
+    Result := FormatFloat('0.###', V / Inch) + '"';
+  end;
+  function EndWords(const E: TEndSpec): string;
+  begin
+    Result := DUCT_END_NAMES[E.Kind];
+    if E.Kind <> deRaw then Result := Result + ', ' + Ins(E.Amount);
+  end;
+begin
+  Inch := T.Inch;
+  if Inch <= 0 then Inch := 1 / 12;
+  Result := 'Transition';
+  if T.Tag <> '' then Result := Result + ': ' + T.Tag;
+  Result := Result + LineEnding +
+    'Entry opening: ' + Ins(T.W0) + ' x ' + Ins(T.H0) + ' (width x height)' + LineEnding +
+    'Exit opening: ' + Ins(T.W1) + ' x ' + Ins(T.H1) + LineEnding +
+    'Length, entry to exit: ' + Ins(T.Len) + LineEnding +
+    'Width: ' + SideWords[T.Side];
+  if T.Side <> srCentred then Result := Result + ' ' + Ins(T.SideAmount);
+  Result := Result + LineEnding + 'Height: ' + HeightWords[T.Height];
+  if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
+    Result := Result + ' ' + Ins(T.HeightAmount);
+  Result := Result + LineEnding +
+    'Entry end: ' + EndWords(T.Ends[0]) + LineEnding +
+    'Exit end: ' + EndWords(T.Ends[1]) + LineEnding;
 end;
 
 function BuildTransition(D: TWorkDoc; const T: TTransitionSpec; Ink: TColor;
@@ -349,10 +389,16 @@ begin
   for EndIx := 0 to 1 do
     for K := 0 to 3 do
       FinishEnd(EndIx, K);
+  Off := Max(4 * Inch, 0.15 * Max(Max(T.W0, T.H0), Max(T.W1, T.H1)));
+  { its name, above the entry, so ten of them on a job can be told apart }
+  if T.Tag <> '' then
+  begin
+    D.AddText(P3(C[0][3].X, C[0][3].Y, C[0][3].Z + Off), T.Tag, Ink);
+    D.SetGroup(D.Live - 1, G);
+  end;
   { the sizes a ticket carries: both openings, and the run }
   if T.Dims then
   begin
-    Off := Max(4 * Inch, 0.15 * Max(Max(T.W0, T.H0), Max(T.W1, T.H1)));
     D.AddDim(C[0][0], C[0][1], Ink, P3(0, 0, -Off)); D.SetGroup(D.Live - 1, G);
     D.AddDim(C[0][1], C[0][2], Ink, P3(Off, 0, 0));  D.SetGroup(D.Live - 1, G);
     D.AddDim(C[1][3], C[1][2], Ink, P3(0, 0, Off));  D.SetGroup(D.Live - 1, G);

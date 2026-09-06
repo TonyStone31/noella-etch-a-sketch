@@ -63,7 +63,8 @@ into the drawing; hammer the general tools before the generators.
    type radio buttons at the top, building a tee and a 90 / 45 / any-angle
    elbow.  Done so far: hollow ends, the report button, the end types (raw,
    notch, flange out / in, TDF, slip and drive both ways), all four height
-   moves, the dimensions on the part, the corner view.  Left: fitting-type
+   moves, the dimensions on the part, the corner view on a tab, the tag
+   written on the part, and Email it... to the office.  Left: fitting-type
    radio buttons at the top of the wizard with the elbow (size, angle,
    throat radius or square throat) and the tee (run size, branch size,
    where the branch sits); TDF corner pieces if wanted; the flat pattern
