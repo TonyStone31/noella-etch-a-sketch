@@ -1951,6 +1951,9 @@ begin
         if InsideBore(D, BoreA, Mid, 1E-6) or InsideBore(D, BoreB, Mid, 1E-6) then Inc(Stray);
       end;
     Ok(Stray = 0, Format('no edge is left running through a bore (%d)', [Stray]));
+    { both tunnels are still on record, whole, after all the deleting }
+    Ok((D[BoreA].Kind = ekBore) and (Length(D[BoreA].Poly) = 4) and
+       (D[BoreB].Kind = ekBore) and (Length(D[BoreB].Poly) = 4), 'both bores survive the cutting intact');
     { A's two side walls and B's two side walls each got a notch: U shapes }
     Ok(Eight = 4, Format('four U-shaped walls (%d)', [Eight]));
     { A's ceiling (z = 3) was split by B into two 2 x 2 pieces; A's floor

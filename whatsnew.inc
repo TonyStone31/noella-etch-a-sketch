@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- Sending a report shows what is going, stage by stage, in a window like' + LineEnding +
+    '  the update''s - the text and its size, the report''s name, the picture -' + LineEnding +
+    '  with a moment on each so it can be read.  If it does not go, the window' + LineEnding +
+    '  says why and waits.' + LineEnding +
+    '- When something goes wrong inside the program and it keeps running, it' + LineEnding +
+    '  offers to send the report right then, not at the next start.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- Drilling a tunnel through another one could bring the program down after' + LineEnding +
+    '  the cut, while it was trimming the edges: a bookkeeping slip after the' + LineEnding +
+    '  walls were removed.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

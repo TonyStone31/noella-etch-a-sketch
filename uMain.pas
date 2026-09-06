@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
   uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore;
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -391,6 +391,9 @@ type
       to say the startup worked }
     FUpTime: Single;
     FStartupDone, FAskedAboutCrash: Boolean;
+    { an exception has been written up and the program is still standing:
+      offer to send it on the next tick, not next start }
+    FCrashToOffer: Boolean;
     FUpdatedFrom: string;
     FWhatsNewShown: Boolean;
     { The last few dozen things that happened, so a crash report says what
@@ -536,7 +539,7 @@ type
     procedure ShowWhatsNew;
     procedure StartUnfold;
     procedure UnfoldAt(SX, SY: Integer);
-    procedure OfferCrashReport;
+    procedure OfferCrashReport(JustNow: Boolean);
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
     function WindowShot(out B: TBitmap): Boolean;
@@ -4789,6 +4792,7 @@ end;
 
 function TMainForm.ReportBug(const Preamble, ShotFile, DocFile: string): Boolean;
 var
+  Sending: TSendForm;
   Dlg: TForm;
   Memo: TMemo;
   Lbl, Fine: TLabel;
@@ -5058,34 +5062,49 @@ begin
 
     FCmdMsg := 'Sending...';
   pbCmd.Invalidate;
-  Application.ProcessMessages;
-  if SendReport(Name_, Body, Err) then
-  begin
-    Result := True;
-    FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
-    { The picture goes as its own file beside the report, sharing its name,
-      so the two are obviously a pair.  If it will not go, the report has
-      already gone and that is the part that mattered. }
-    if WantShot then
-      try
-        Shot.Position := 0;
-        if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
-             ShotErr) then
-          FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
-      except
-        on Ex: Exception do
-          FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
-      end;
-  end
-  else
-  begin
-    FCmdMsg := 'The report could not be sent - ' + Err;
-    MessageDlg('Could not send it',
-      'The report did not go: ' + Err + LineEnding + LineEnding +
-      'Nothing is lost and nothing is broken - it just did not send.  ' +
-      'The help button has the project page if you would rather say it ' +
-        'there.', mtInformation, [mbOK], 0);
+  { Shown going out, stage by stage, the way an update is shown coming in -
+    what is being sent and how big it is, with a moment on each so it can be
+    read.  Tony's ask: a report that vanishes in a blink is a report you
+    cannot vouch for. }
+  Sending := TSendForm.CreateSending(Self, 'Sending your report');
+  try
+    Sending.Stage('Preparing the report',
+      Format('%s of text: what you wrote, the state of the program%s.',
+        [FormatFloat('0.0', Length(Body) / 1024) + ' KB',
+         IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', and the drawing', '')]), 15);
+    Sending.Stage('Sending the report', Name_, 40);
+    if SendReport(Name_, Body, Err) then
+    begin
+      Result := True;
+      FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
+      { The picture goes as its own file beside the report, sharing its name,
+        so the two are obviously a pair.  If it will not go, the report has
+        already gone and that is the part that mattered. }
+      if WantShot then
+        try
+          Sending.Stage('Sending the picture',
+            Format('%s KB of screenshot, as %s', [FormatFloat('0', Shot.Size / 1024),
+              ChangeFileExt(Name_, '.png')]), 75);
+          Shot.Position := 0;
+          if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
+               ShotErr) then
+            FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
+        except
+          on Ex: Exception do
+            FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
+        end;
+      Sending.Finish('Sent - thank you', Name_, True);
+    end
+    else
+    begin
+      FCmdMsg := 'The report could not be sent - ' + Err;
+      Sending.Finish('The report did not go',
+        Err + LineEnding + 'Nothing is lost and nothing is broken - it just did not ' +
+        'send.  The help button has the project page if you would rather say it there.', False);
     end;
+  finally
+    Sending.Free;
+  end;
   finally
     Shot.Free;
   end;
@@ -5171,7 +5190,7 @@ begin
   ShowFlatPattern(Pat, FD.Units, 'Flat pattern');
 end;
 
-procedure TMainForm.OfferCrashReport;
+procedure TMainForm.OfferCrashReport(JustNow: Boolean);
 var
   Fn: string;
   L: TStringList;
@@ -5216,8 +5235,11 @@ begin
       screen, which is enough to send it on however suits. }
     { The same door as a report written by hand - one transport, one shape of
       report, and no GitHub account needed to use it. }
-    case MessageDlg('It crashed last time',
-           'There is a crash report from a previous run.'#13#10#13#10 +
+    case MessageDlg(IfThen(JustNow, 'Something went wrong', 'It crashed last time'),
+           IfThen(JustNow,
+             'Something just went wrong inside the program.  It is still ' +
+             'running, and a report has been written.',
+             'There is a crash report from a previous run.') + #13#10#13#10 +
            'Send it?  You get to say what you were doing first, and to see ' +
            'what is being sent.  Nothing goes anywhere until you press Send.',
            mtConfirmation, [mbYes, mbNo], 0) of
@@ -8241,6 +8263,11 @@ begin
   except
     { a crash reporter that crashes helps nobody }
   end;
+  { Most exceptions do not take the program down - the handler catches them
+    and the window carries on.  So the report used to sit unmentioned until
+    the next start, by which time nobody remembered what they had been
+    doing.  Offer it now, from the tick, once this handler has returned. }
+  if FWoundCount < 3 then FCrashToOffer := True;
   if FWoundCount >= 3 then
     MessageDlg(APP_NAME,
       'That is the third time in a minute.' + LineEnding + LineEnding +
@@ -10937,6 +10964,12 @@ var
 begin
   Dt := TICK_MS / 1000;
 
+  if FCrashToOffer and (FPopup = POP_NONE) then
+  begin
+    FCrashToOffer := False;
+    OfferCrashReport(True);
+  end;
+
   FollowScreenSize;
   ServiceMotion;
   ServiceHover;
@@ -10973,7 +11006,7 @@ begin
     if (FUpTime > 1.5) and not FAskedAboutCrash then
     begin
       FAskedAboutCrash := True;
-      OfferCrashReport;
+      OfferCrashReport(False);
       { And only then look for a newer build.  Asking the network during
         startup meant the window could not appear until the answer came
         back, or the connection gave up - which on a bad line is a program

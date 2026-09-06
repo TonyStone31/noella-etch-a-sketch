@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- Sending a report shows what is going, stage by stage, in a window like
+  the update's - the text and its size, the report's name, the picture -
+  with a moment on each so it can be read.  If it does not go, the window
+  says why and waits.
+- When something goes wrong inside the program and it keeps running, it
+  offers to send the report right then, not at the next start.
+
+### Fixed
+
+- Drilling a tunnel through another one could bring the program down after
+  the cut, while it was trimming the edges: a bookkeeping slip after the
+  walls were removed.
+
 ## v2026.09.06.3
 
 ### Fixed

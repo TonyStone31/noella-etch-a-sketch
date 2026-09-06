@@ -395,19 +395,22 @@ end;
 { Every edge of the solid that runs through the bore loses the part inside
   it: the creases along one tunnel's walls no longer cross the other's
   space, which is what was left hanging in the air after the walls went. }
-procedure TrimLinesInBore(D: TWorkDoc; Bore, G: Integer; Tol: Double);
+procedure TrimLinesInBore(D: TWorkDoc; const Loop: TP3Array; const Far: TP3;
+  G: Integer; Tol: Double);
 var
   I, N: Integer;
-  A, B, PA, PB, Far: TP3;
+  A, B, PA, PB: TP3;
   TA, TB: Double;
   Ink: TColor;
   Wt: Single;
   Soft: Boolean;
-  Loop: TP3Array;
 begin
-  { the bore by value - deleting lines below it would move its index }
-  Loop := Copy(D[Bore].Poly, 0, Length(D[Bore].Poly));
-  Far := D[Bore].B;
+  { The bore comes by value.  Deleting a line below it in the list moves
+    every index above, its own included - the first version took the index,
+    trimmed one tunnel's lines, and then read the other tunnel's bore from
+    where it used to be.  That was a line by then, with no polygon, and the
+    program went down. }
+  if Length(Loop) < 3 then Exit;
   N := D.Live;
   for I := N - 1 downto 0 do
   begin
@@ -451,6 +454,8 @@ var
   Tmp: TReplace;
   Crossed, CrossedOrd: array of Integer;
   BoreA, BoreB, NewBoreOrd: Integer;
+  LoopA, LoopB: TP3Array;
+  FarA, FarB: TP3;
   FN: TP3;
   Ink: TColor;
 
@@ -662,8 +667,11 @@ begin
             Inc(K);
           end;
         if BoreA < 0 then Continue;
-        TrimLinesInBore(D, BoreB, G, Tol);   { the old tunnel's creases, where the new one runs }
-        TrimLinesInBore(D, BoreA, G, Tol);   { and the new one's, where the old one runs }
+        { both bores by value before either trim touches the list }
+        LoopA := Copy(D[BoreA].Poly, 0, Length(D[BoreA].Poly)); FarA := D[BoreA].B;
+        LoopB := Copy(D[BoreB].Poly, 0, Length(D[BoreB].Poly)); FarB := D[BoreB].B;
+        TrimLinesInBore(D, LoopB, FarB, G, Tol);   { the old tunnel's creases, where the new one runs }
+        TrimLinesInBore(D, LoopA, FarA, G, Tol);   { and the new one's, where the old one runs }
       end;
   end;
 end;
