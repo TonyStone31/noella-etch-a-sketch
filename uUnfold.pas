@@ -28,7 +28,7 @@ unit uUnfold;
 interface
 
 uses
-  Classes, SysUtils, Math, uWork;
+  Classes, SysUtils, Math, uWork, uDxf;
 
 type
   TIntArray = array of Integer;
@@ -88,6 +88,10 @@ function Unfold(const Doc: TWorkDoc; const Faces: array of Integer;
   part of a piece lays the whole piece out. }
 function SolidFaces(const Doc: TWorkDoc; Index: Integer): TIntArray;
 
+{ The pattern as a DXF a table can cut: CUT, BEND and NOTCH on layers of
+  their own, in inches or millimetres according to the drawing's units. }
+procedure PatternToDxf(const Pat: TFlatPattern; U: TUnitSystem; L: TStrings);
+
 implementation
 
 type
@@ -135,6 +139,37 @@ end;
   folding back onto itself does.  A separating axis for each edge of each: if
   any line has one panel wholly on one side and the other wholly on the other,
   they are apart. }
+procedure PatternToDxf(const Pat: TFlatPattern; U: TUnitSystem; L: TStrings);
+var
+  W: TDxfWriter;
+  I: Integer;
+  K: Double;
+  Lay: string;
+begin
+  { feet to inches, or metres to millimetres - a table wants shop units }
+  if U = usImperial then K := 12 else K := 1000;
+  W := TDxfWriter.Create;
+  try
+    { colors are AutoCAD's index: 7 white/black, 1 red, 5 blue }
+    W.Layer('CUT', 7);
+    W.Layer('BEND', 5, True);
+    W.Layer('NOTCH', 1);
+    for I := 0 to High(Pat.Edges) do
+    begin
+      case Pat.Edges[I].Kind of
+        fkBend:  Lay := 'BEND';
+        fkNotch: Lay := 'NOTCH';
+      else       Lay := 'CUT';
+      end;
+      W.Line(Lay, Pat.Edges[I].AX * K, Pat.Edges[I].AY * K, 0,
+                  Pat.Edges[I].BX * K, Pat.Edges[I].BY * K, 0);
+    end;
+    W.SaveTo(L, U = usImperial);
+  finally
+    W.Free;
+  end;
+end;
+
 function PanelsOverlap(const A, B: TFlatFace): Boolean;
 const
   SHRINK = 0.02;

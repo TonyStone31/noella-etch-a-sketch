@@ -12,7 +12,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, ExtCtrls, StdCtrls,
-  uWork, uUnfold;
+  Dialogs, uWork, uUnfold;
 
 { Put a pattern on screen.  Returns when the window is closed. }
 procedure ShowFlatPattern(const Pat: TFlatPattern; U: TUnitSystem;
@@ -26,6 +26,7 @@ type
     Pat: TFlatPattern;
     Units: TUnitSystem;
     procedure Paint; override;
+    procedure SaveDxfClick(Sender: TObject);
   end;
 
 procedure TFlatForm.Paint;
@@ -175,10 +176,36 @@ begin
   end;
 end;
 
+{ The pattern to a file a table can cut. }
+procedure TFlatForm.SaveDxfClick(Sender: TObject);
+var
+  Dlg: TSaveDialog;
+  L: TStringList;
+begin
+  Dlg := TSaveDialog.Create(nil);
+  try
+    Dlg.Title := 'Save the flat pattern as DXF';
+    Dlg.Filter := 'DXF for a cutting table|*.dxf';
+    Dlg.DefaultExt := 'dxf';
+    Dlg.FileName := 'flat-pattern-' + FormatDateTime('yyyymmdd-hhnnss', Now) + '.dxf';
+    if not Dlg.Execute then Exit;
+    L := TStringList.Create;
+    try
+      PatternToDxf(Pat, Units, L);
+      L.SaveToFile(Dlg.FileName);
+    finally
+      L.Free;
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
 procedure ShowFlatPattern(const Pat: TFlatPattern; U: TUnitSystem;
   const Caption: string);
 var
   F: TFlatForm;
+  B: TButton;
 begin
   F := TFlatForm.CreateNew(nil);
   try
@@ -190,6 +217,14 @@ begin
     F.Position := poScreenCenter;
     F.DoubleBuffered := True;
     F.Color := clWhite;
+
+    B := TButton.Create(F);
+    B.Parent := F;
+    B.Caption := 'Save DXF...';
+    B.SetBounds(F.ClientWidth - 150, F.ClientHeight - 36, 136, 28);
+    B.Anchors := [akRight, akBottom];
+    B.OnClick := @F.SaveDxfClick;
+
     F.ShowModal;
   finally
     F.Free;

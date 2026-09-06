@@ -11241,7 +11241,8 @@ var
   L: TStringList;
   Fn, Ext, E: string;
 begin
-  dlgSave.Filter := 'PNG image|*.png|SVG drawing|*.svg';
+  dlgSave.Filter := 'PNG image|*.png|SVG drawing|*.svg|' +
+    'DXF - this view, flat|*.dxf|DXF - the 3D model|*.dxf';
   dlgSave.DefaultExt := '';
   if dlgSave.InitialDir = '' then dlgSave.InitialDir := GetUserDir;
   dlgSave.FileName := 'heckers-sketch-' + FormatDateTime('yyyymmdd-hhnnss', Now);
@@ -11249,8 +11250,13 @@ begin
 
   { the chosen filter decides the format, and any extension the dialog or the
     user tacked on is normalized away so nothing ends up as .svg.png }
-  if dlgSave.FilterIndex = 2 then Ext := '.svg' else Ext := '.png';
-  if (Ext = '.svg') and (FMode <> mdPro) then
+  case dlgSave.FilterIndex of
+    2: Ext := '.svg';
+    3, 4: Ext := '.dxf';
+  else
+    Ext := '.png';
+  end;
+  if (Ext <> '.png') and (FMode <> mdPro) then
   begin
     Ext := '.png';
     FCmdMsg := 'The toy has no vectors to export, so that is a PNG.';
@@ -11259,7 +11265,7 @@ begin
   Fn := dlgSave.FileName;
   repeat
     E := LowerCase(ExtractFileExt(Fn));
-    if (E = '.png') or (E = '.svg') then
+    if (E = '.png') or (E = '.svg') or (E = '.dxf') then
       Fn := ChangeFileExt(Fn, '')
     else
       Break;
@@ -11272,6 +11278,17 @@ begin
       L := TStringList.Create;
       try
         FD.Doc.WriteSVG(L, Proj, FD.Units, FEdgeW);
+        L.SaveToFile(Fn);
+      finally
+        L.Free;
+      end;
+    end
+    else if Ext = '.dxf' then
+    begin
+      L := TStringList.Create;
+      try
+        { the fourth filter is the model itself; the third is this view }
+        FD.Doc.WriteDXF(L, Proj, FD.Units, dlgSave.FilterIndex = 4);
         L.SaveToFile(Fn);
       finally
         L.Free;

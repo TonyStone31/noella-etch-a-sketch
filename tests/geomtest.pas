@@ -1682,6 +1682,140 @@ end;
   where the seam falls, and the two together account for every edge.  The
   measure of a correct unfold is that no metal was created or destroyed, so
   the area of the pattern has to equal the area of the box. }
+{ The DXF a table gets, read back the way a table would: group code, value,
+  group code, value.  What has to be true: well formed, the three layers
+  declared, every edge on the right one, and the numbers in inches - a ten
+  foot edge is 120 in the file, not 10. }
+procedure TestPatternDxf;
+var
+  D: TWorkDoc;
+  P: TFlatPattern;
+  Faces: array of Integer;
+  L: TStringList;
+  I, Cut, Bend, Notch, Ents: Integer;
+  Lay: string;
+  Big: Double;
+  Q: TP3Array;
+  procedure F(const A, B, C, E: TP3);
+  begin
+    SetLength(Q, 4);
+    Q[0] := A; Q[1] := B; Q[2] := C; Q[3] := E;
+    D.AddFace(Q, 0, True);
+  end;
+begin
+  WriteLn('The flat pattern as DXF');
+  D := TWorkDoc.Create; L := TStringList.Create;
+  try
+    F(P3(0,0,0), P3(10,0,0), P3(10,6,0), P3(0,6,0));
+    F(P3(0,0,4), P3(10,0,4), P3(10,6,4), P3(0,6,4));
+    F(P3(0,0,0), P3(10,0,0), P3(10,0,4), P3(0,0,4));
+    F(P3(0,6,0), P3(10,6,0), P3(10,6,4), P3(0,6,4));
+    F(P3(0,0,0), P3(0,6,0), P3(0,6,4), P3(0,0,4));
+    F(P3(10,0,0), P3(10,6,0), P3(10,6,4), P3(10,0,4));
+    SetLength(Faces, D.Live);
+    for I := 0 to D.Live - 1 do Faces[I] := I;
+    P := Unfold(D, Faces);
+    PatternToDxf(P, usImperial, L);
+
+    Ok((L.Count > 20) and (Trim(L[L.Count - 1]) = 'EOF'), 'the file ends in EOF');
+    Ok(L.IndexOf('ENTITIES') > 0, 'and has an ENTITIES section');
+    Ok(L.IndexOf('AC1009') > 0, 'written as R12, which every table reads');
+    Ok((L.IndexOf('CUT') > 0) and (L.IndexOf('BEND') > 0) and (L.IndexOf('NOTCH') > 0),
+       'CUT, BEND and NOTCH are all declared');
+
+    Cut := 0; Bend := 0; Notch := 0; Ents := 0; Big := 0;
+    { the section name is a value; the first code follows it }
+    I := L.IndexOf('ENTITIES') + 1;
+    while I < L.Count - 1 do
+    begin
+      if (Trim(L[I]) = '0') and (L[I + 1] = 'LINE') then
+      begin
+        Inc(Ents);
+        if (I + 3 < L.Count) and (Trim(L[I + 2]) = '8') then
+        begin
+          Lay := L[I + 3];
+          if Lay = 'CUT' then Inc(Cut)
+          else if Lay = 'BEND' then Inc(Bend)
+          else if Lay = 'NOTCH' then Inc(Notch);
+        end;
+      end;
+      if Trim(L[I]) = '10' then
+        Big := Max(Big, Abs(StrToFloatDef(L[I + 1], 0)));
+      Inc(I, 2);
+    end;
+    Ok(Ents = Length(P.Edges), Format('every edge of the pattern is a LINE (%d)', [Ents]));
+    Ok(Bend = 5, Format('five on BEND (%d)', [Bend]));
+    Ok(Cut = 7, Format('seven on CUT (%d)', [Cut]));
+    Ok(Notch = 20, Format('twenty notch legs on NOTCH (%d)', [Notch]));
+    Ok(Big >= 120 - 1E-6, Format('and the numbers are inches - the sheet reaches %.0f', [Big]));
+  finally
+    L.Free;
+    D.Free;
+  end;
+end;
+
+{ The drawing as DXF, both ways.  Flat is this view: lines, the dimension as
+  drawn, no faces.  3D is the model: faces as 3DFACE, true coordinates, and no
+  dimension - a dimension is a thing on a view, not a thing in the model. }
+procedure TestDrawingDxf;
+var
+  D: TWorkDoc;
+  L: TStringList;
+  V: TProjector;
+  Q: TP3Array;
+  I, Faces3D, Lines, DimLines, Notes: Integer;
+  procedure Count;
+  begin
+    Faces3D := 0; Lines := 0; DimLines := 0; Notes := 0;
+    { the section name is a value; the first code follows it }
+    I := L.IndexOf('ENTITIES') + 1;
+    while I < L.Count - 1 do
+    begin
+      if Trim(L[I]) = '0' then
+      begin
+        if L[I + 1] = '3DFACE' then Inc(Faces3D)
+        else if L[I + 1] = 'TEXT' then Inc(Notes)
+        else if (L[I + 1] = 'LINE') and (I + 3 < L.Count) then
+        begin
+          if L[I + 3] = 'DIMENSIONS' then Inc(DimLines) else Inc(Lines);
+        end;
+      end;
+      Inc(I, 2);
+    end;
+  end;
+begin
+  WriteLn('The drawing as DXF');
+  D := TWorkDoc.Create; L := TStringList.Create;
+  try
+    SetLength(Q, 4);
+    Q[0] := P3(0,0,0); Q[1] := P3(10,0,0); Q[2] := P3(10,6,0); Q[3] := P3(0,6,0);
+    D.AddFace(Q, 0, True);
+    D.AddLine(P3(0,0,0), P3(10,0,0), 0, 1, False);
+    D.AddLine(P3(10,0,0), P3(10,6,0), 0, 1, False);
+    D.AddNote(P3(2, 2, 0), P3(2, 2, 0), 'hello', 0);
+    D.AddDim(P3(0,0,0), P3(10,0,0), 0, P3(0, -1, 0));
+
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 300; V.OY := 300; V.Ppu := 20;
+
+    D.WriteDXF(L, V, usImperial, True);
+    Count;
+    Ok(Faces3D >= 1, Format('3D: the face goes out as 3DFACE (%d)', [Faces3D]));
+    Ok(Lines = 2, Format('3D: the two lines go out (%d)', [Lines]));
+    Ok(DimLines = 0, '3D: a dimension is not part of the model');
+    Ok(Notes = 1, '3D: the note goes out as TEXT');
+
+    D.WriteDXF(L, V, usImperial, False);
+    Count;
+    Ok(Faces3D = 0, 'flat: no 3DFACE - the outline is already lines');
+    Ok(Lines = 2, Format('flat: the two lines go out (%d)', [Lines]));
+    Ok(DimLines = 3, Format('flat: the dimension is its line and two witness lines (%d)', [DimLines]));
+    Ok(Notes = 2, Format('flat: the note and the dimension figure are TEXT (%d)', [Notes]));
+  finally
+    L.Free; D.Free;
+  end;
+end;
+
 procedure TestUnfold;
 var
   D: TWorkDoc;
@@ -1910,6 +2044,8 @@ begin
   TestDimNote;      WriteLn;
   TestNotes;        WriteLn;
   TestVersions;
+  TestPatternDxf;  WriteLn;
+  TestDrawingDxf;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

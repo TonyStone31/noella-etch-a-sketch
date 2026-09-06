@@ -25,7 +25,7 @@ unit uWork;
 interface
 
 uses
-  Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface;
+  Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface, uDxf;
 
 type
   TUnitSystem = (usImperial, usMetric);
@@ -314,6 +314,11 @@ type
     { the document, as plain text - one line per entity }
     procedure SaveTo(L: TStrings);
     procedure LoadFrom(L: TStrings; var Idx: Integer);
+    { The drawing as DXF.  ThreeD writes the model in its own coordinates,
+      faces and all; otherwise it is this view, flat, the way the SVG is -
+      but as entities somebody can snap to and measure in their own CAD. }
+    procedure WriteDXF(L: TStrings; const V: TProjector; U: TUnitSystem;
+      ThreeD: Boolean);
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
@@ -4036,6 +4041,121 @@ end;
 
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
   same size it prints. }
+procedure TWorkDoc.WriteDXF(L: TStrings; const V: TProjector; U: TUnitSystem;
+  ThreeD: Boolean);
+var
+  W: TDxfWriter;
+  I, K, Steps, N: Integer;
+  Sc, TX, TY, TZ, AX1, AY1, BX1, BY1: Double;
+  XS, YS, ZS: array of Double;
+  G: TDimGeom;
+
+  { one point, in the file's units, flat or not }
+  procedure At(const P: TP3; out X, Y, Z: Double);
+  var
+    S: TPointF;
+  begin
+    if ThreeD then
+    begin
+      X := P.X * Sc; Y := P.Y * Sc; Z := P.Z * Sc;
+    end
+    else
+    begin
+      { the view is in screen pixels with Y downwards; a DXF has Y up and is
+        in drawing units, so the picture is put back to true size and turned
+        the right way over }
+      S := Project(V, P);
+      X := (S.X - V.OX) / V.Ppu * Sc;
+      Y := -(S.Y - V.OY) / V.Ppu * Sc;
+      Z := 0;
+    end;
+  end;
+
+  procedure Seg(const Lay: string; const A, B: TP3);
+  var
+    X1, Y1, Z1, X2, Y2, Z2: Double;
+  begin
+    At(A, X1, Y1, Z1);
+    At(B, X2, Y2, Z2);
+    W.Line(Lay, X1, Y1, Z1, X2, Y2, Z2);
+  end;
+
+  { a screen point of a dimension, in the file's units }
+  procedure Flat(const S: TPointF; out X, Y: Double);
+  begin
+    X := (S.X - V.OX) / V.Ppu * Sc;
+    Y := -(S.Y - V.OY) / V.Ppu * Sc;
+  end;
+
+begin
+  if U = usImperial then Sc := 12 else Sc := 1000;
+  W := TDxfWriter.Create;
+  try
+    W.Layer('GEOMETRY', 7);
+    W.Layer('FACES', 8);
+    W.Layer('DIMENSIONS', 3);
+    W.Layer('NOTES', 2);
+    W.Layer('GUIDES', 9, True);
+
+    for I := 0 to FLive - 1 do
+      case FEnts[I].Kind of
+        ekLine:
+          Seg('GEOMETRY', FEnts[I].A, FEnts[I].B);
+        ekArc:
+          begin
+            { an arc goes out as short lines.  A DXF ARC is only defined in
+              its own plane with its own extrusion direction, and every table
+              and CAD reads a chain of lines the same way; a spool drawing
+              does not need the arc to be an arc to be cut right. }
+            Steps := Max(12, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * 24));
+            Steps := Min(Steps, 360);
+            for K := 0 to Steps - 1 do
+              Seg('GEOMETRY',
+                ArcPoint(FEnts[I].C, FEnts[I].R,
+                  FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane, FEnts[I].Nm),
+                ArcPoint(FEnts[I].C, FEnts[I].R,
+                  FEnts[I].A0 + FEnts[I].Sweep * (K + 1) / Steps, FEnts[I].Plane, FEnts[I].Nm));
+          end;
+        ekFace:
+          if ThreeD then
+          begin
+            { the model's faces, for handing over the thing itself; flat, the
+              outline is already there as lines }
+            N := Length(FEnts[I].Poly);
+            SetLength(XS, N); SetLength(YS, N); SetLength(ZS, N);
+            for K := 0 to N - 1 do At(FEnts[I].Poly[K], XS[K], YS[K], ZS[K]);
+            W.Face3D('FACES', XS, YS, ZS);
+          end;
+        ekGuide:
+          if Dist(FEnts[I].A, FEnts[I].B) > 1E-9 then
+            Seg('GUIDES', FEnts[I].A, FEnts[I].B);
+        ekText:
+          begin
+            At(FEnts[I].A, TX, TY, TZ);
+            W.Text('NOTES', TX, TY, TZ, 0.25 * Sc, FEnts[I].Txt);
+          end;
+        ekDim:
+          if not ThreeD then
+            if DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, U, G, FEnts[I].Txt) then
+            begin
+              { the drawn dimension - line, witness lines and figure - as it
+                sits on this view }
+              Flat(G.A, AX1, AY1);  Flat(G.W1, BX1, BY1);
+              W.Line('DIMENSIONS', AX1, AY1, 0, BX1, BY1, 0);
+              Flat(G.B, AX1, AY1);  Flat(G.W2, BX1, BY1);
+              W.Line('DIMENSIONS', AX1, AY1, 0, BX1, BY1, 0);
+              Flat(G.LA, AX1, AY1); Flat(G.LB, BX1, BY1);
+              W.Line('DIMENSIONS', AX1, AY1, 0, BX1, BY1, 0);
+              Flat(G.Mid, AX1, AY1);
+              W.Text('DIMENSIONS', AX1, AY1 + 0.1 * Sc, 0, 0.25 * Sc, G.Txt);
+            end;
+      end;
+    W.SaveTo(L, U = usImperial);
+  finally
+    W.Free;
+  end;
+end;
+
 procedure TWorkDoc.WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
   EdgeW: Single);
 var
