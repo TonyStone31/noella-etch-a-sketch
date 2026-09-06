@@ -2300,6 +2300,101 @@ begin
   end;
 end;
 
+procedure TestElbowTee;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  First, Faces, Lines, Dims, I, J, Holed: Integer;
+  MaxX, MinX: Double;
+  Found: Boolean;
+begin
+  WriteLn('Elbows and tees');
+  D := TWorkDoc.Create;
+  try
+    { a 90 to the right, 4 inch throat, 2 inch legs, 20 x 20 }
+    T := Default(TTransitionSpec);
+    T.Kind := fkElbow; T.W0 := 20 / 12; T.H0 := 20 / 12; T.Inch := 1 / 12;
+    T.Angle := Pi / 2; T.Throat := 4 / 12; T.Leg0 := 2 / 12; T.Leg1 := 2 / 12;
+    T.Turn := tuRight;
+    Ok(FittingProblem(T) = '', 'the elbow reads');
+    First := BuildFitting(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok(Faces = 4 + 4 + 2 + 12 + 12, 'two legs, two cheeks, twelve gores each side');
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do MaxX := Max(MaxX, D[I].Poly[J].X);
+    Ok(Abs(MaxX - 26 / 12) < 1E-9, 'the exit leg reaches width + throat + leg to the right');
+    { the same to the left never crosses the entry width }
+    T.Turn := tuLeft;
+    First := BuildFitting(D, T, 0, 1);
+    MaxX := -1E9; MinX := 1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+        begin
+          MaxX := Max(MaxX, D[I].Poly[J].X);
+          MinX := Min(MinX, D[I].Poly[J].X);
+        end;
+    Ok((MaxX < 20 / 12 + 1E-9) and (Abs(MinX + 6 / 12) < 1E-9), 'turning left goes the other way');
+    { square throat and square heel, no legs: a mitre }
+    T.Turn := tuRight; T.Throat := 0; T.SquareHeel := True; T.Leg0 := 0; T.Leg1 := 0;
+    First := BuildFitting(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok(Faces = 2 + 2, 'a mitre is two cheeks and two heel panels');
+    Found := False;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+          if (Abs(D[I].Poly[J].X) < 1E-9) and (Abs(D[I].Poly[J].Y - 20 / 12) < 1E-9) then Found := True;
+    Ok(Found, 'with the heel corner where the two outer walls meet');
+    { an end finished on a leg too short for it }
+    T.Ends[0].Kind := deTDF; T.Ends[0].Amount := 1.375 / 12;
+    Ok(FittingProblem(T) <> '', 'a flange needs a leg to be cut from');
+    T.Leg0 := 2 / 12;
+    Ok(FittingProblem(T) = '', 'and reads with one');
+    { up and down turn in the height }
+    T.Ends[0].Kind := deRaw; T.Turn := tuUp; T.Throat := 4 / 12; T.SquareHeel := False;
+    T.H0 := 10 / 12; T.Leg1 := 2 / 12;
+    First := BuildFitting(D, T, 0, 1);
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do MaxX := Max(MaxX, D[I].Poly[J].Z);
+    Ok(Abs(MaxX - (10 + 4 + 2) / 12) < 1E-9, 'turning up, the exit climbs height + throat + leg');
+    { a tee: 20 x 20 run, 36 long, a 12 x 10 branch off the right }
+    T := Default(TTransitionSpec);
+    T.Kind := fkTee; T.W0 := 20 / 12; T.H0 := 20 / 12; T.Len := 3; T.Inch := 1 / 12;
+    T.BW := 1; T.BH := 10 / 12; T.BranchOn := bsRight; T.BranchFrom := 1;
+    T.BranchUp := 5 / 12; T.BranchLen := 8 / 12;
+    Ok(FittingProblem(T) = '', 'the tee reads');
+    First := BuildFitting(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok(Faces = 3 + 1 + 4, 'three run walls, one with the opening, four branch walls');
+    Holed := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Holes) = 1) then Inc(Holed);
+    Ok(Holed = 1, 'the opening is a hole in the wall it comes off');
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do MaxX := Max(MaxX, D[I].Poly[J].X);
+    Ok(Abs(MaxX - 28 / 12) < 1E-9, 'the branch stands out by its length');
+    T.BranchFrom := 2.5;
+    Ok(FittingProblem(T) <> '', 'a branch past the exit is refused');
+    T.BranchFrom := 1; T.BranchOn := bsTop;
+    First := BuildFitting(D, T, 0, 1);
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do MaxX := Max(MaxX, D[I].Poly[J].Z);
+    Ok(Abs(MaxX - 28 / 12) < 1E-9, 'off the top it stands up');
+    Ok(Pos('off the top', TicketText(T)) > 0, 'and the ticket says so');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArrays;
 var
   D: TWorkDoc;
@@ -2743,6 +2838,7 @@ begin
   TestRoundCrossing;  WriteLn;
   TestTransition;  WriteLn;
   TestDuctEnds;  WriteLn;
+  TestElbowTee;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;

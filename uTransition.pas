@@ -40,6 +40,36 @@ type
     edTag: TEdit;
     btnEmail: TButton;
     btnFiles: TButton;
+    rgFitting: TRadioGroup;
+    rgAngle: TRadioGroup;
+    edAngle: TEdit;
+    lblDeg: TLabel;
+    rgTurn: TRadioGroup;
+    lblThroat: TLabel;
+    edThroat: TEdit;
+    lblThroatHint: TLabel;
+    cbSquareHeel: TCheckBox;
+    lblLegs: TLabel;
+    edLeg0: TEdit;
+    edLeg1: TEdit;
+    lblLegHint: TLabel;
+    lblBranch: TLabel;
+    edBW: TEdit;
+    lblBX: TLabel;
+    edBH: TEdit;
+    lblBHint: TLabel;
+    rgBranchOn: TRadioGroup;
+    lblBFrom: TLabel;
+    edBFrom: TEdit;
+    lblBUp: TLabel;
+    edBUp: TEdit;
+    lblBUpHint: TLabel;
+    lblBLen: TLabel;
+    edBLen: TEdit;
+    lblBranchEnd: TLabel;
+    cbBranchEnd: TComboBox;
+    edBranchEndAmt: TEdit;
+    lblEndUnit3: TLabel;
     edEntryW: TEdit;
     edEntryH: TEdit;
     edExitW: TEdit;
@@ -69,11 +99,17 @@ type
     procedure pbIsoPaint(Sender: TObject);
     procedure btnEmailClick(Sender: TObject);
     procedure btnFilesClick(Sender: TObject);
+    procedure FittingChange(Sender: TObject);
   private
     FUnits: TUnitSystem;
+    { the controls each kind of fitting uses shown, the rest hidden, and the
+      shared ones relabelled }
+    procedure ShowKind;
     { the two drawings, at any size: the paint boxes and the pictures for
       an email both come from these }
     procedure PaintPlan(C: TCanvas; W, H: Integer);
+    procedure PaintElbowPlan(C: TCanvas; W, H: Integer; const T: TTransitionSpec);
+    procedure PaintTeePlan(C: TCanvas; W, H: Integer; const T: TTransitionSpec);
     procedure PaintIso(C: TCanvas; W, H: Integer);
     { the pictures and the ticket written to disk; the files made, and where }
     function ExportFiles(out Dir: string; out Files: TStringArray): Boolean;
@@ -96,7 +132,8 @@ uses
   the report cannot see the dialog, and the dialog is the thing wrong. }
 procedure TTransitionForm.btnReportClick(Sender: TObject);
 begin
-  MainForm.ReportFromDialog('Build a transition',
+  MainForm.ReportFromDialog('Build a fitting',
+    'fitting: ' + rgFitting.Items[Max(0, rgFitting.ItemIndex)] + LineEnding +
     'entry ' + edEntryW.Text + ' x ' + edEntryH.Text +
     ', exit ' + edExitW.Text + ' x ' + edExitH.Text +
     ', length ' + edLen.Text + LineEnding +
@@ -104,6 +141,13 @@ begin
     'height: ' + rgHeight.Items[Max(0, rgHeight.ItemIndex)] + ' ' + edHeightAmount.Text + LineEnding +
     'entry end: ' + cbEntryEnd.Text + ' ' + edEntryEndAmt.Text + LineEnding +
     'exit end: ' + cbExitEnd.Text + ' ' + edExitEndAmt.Text + LineEnding +
+    'branch end: ' + cbBranchEnd.Text + ' ' + edBranchEndAmt.Text + LineEnding +
+    'angle ' + rgAngle.Items[Max(0, rgAngle.ItemIndex)] + ' ' + edAngle.Text +
+    ', turn ' + rgTurn.Items[Max(0, rgTurn.ItemIndex)] +
+    ', throat ' + edThroat.Text + ', square heel ' + BoolToStr(cbSquareHeel.Checked, True) +
+    ', legs ' + edLeg0.Text + ' / ' + edLeg1.Text + LineEnding +
+    'branch ' + edBW.Text + ' x ' + edBH.Text + ' on ' + rgBranchOn.Items[Max(0, rgBranchOn.ItemIndex)] +
+    ', from ' + edBFrom.Text + ', up ' + edBUp.Text + ', long ' + edBLen.Text + LineEnding +
     'dimensions: ' + BoolToStr(cbDims.Checked, True) + LineEnding +
     'tag: ' + edTag.Text + LineEnding +
     'problem shown: ' + lblProblem.Caption);
@@ -129,17 +173,64 @@ begin
 end;
 
 function TTransitionForm.Read(out T: TTransitionSpec): Boolean;
+var
+  Deg: Double;
 begin
   T := Default(TTransitionSpec);
-  Result := InchesOf(edEntryW.Text, T.W0) and InchesOf(edEntryH.Text, T.H0) and
-            InchesOf(edExitW.Text, T.W1) and InchesOf(edExitH.Text, T.H1) and
-            InchesOf(edLen.Text, T.Len);
-  T.Side := TSideRule(Max(0, rgSide.ItemIndex));
-  T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
-  if T.Side <> srCentred then
-    Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
-  if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
-    Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+  T.Kind := TFittingKind(Max(0, rgFitting.ItemIndex));
+  Result := InchesOf(edEntryW.Text, T.W0) and InchesOf(edEntryH.Text, T.H0);
+  case T.Kind of
+    fkElbow:
+      begin
+        case rgAngle.ItemIndex of
+          0: T.Angle := DegToRad(22.5);
+          1: T.Angle := DegToRad(45);
+          2: T.Angle := DegToRad(90);
+        else
+          begin
+            Result := Result and TryStrToFloat(Trim(edAngle.Text), Deg);
+            T.Angle := DegToRad(Deg);
+          end;
+        end;
+        T.Turn := TTurn(Max(0, rgTurn.ItemIndex));
+        Result := Result and InchesOf(edThroat.Text, T.Throat) and
+          InchesOf(edLeg0.Text, T.Leg0) and InchesOf(edLeg1.Text, T.Leg1);
+        T.SquareHeel := cbSquareHeel.Checked;
+        { a transition's exit is the same opening, so the shared code that
+          sizes things off it has a number to work with }
+        T.W1 := T.W0; T.H1 := T.H0;
+      end;
+    fkTee:
+      begin
+        Result := Result and InchesOf(edLen.Text, T.Len) and
+          InchesOf(edBW.Text, T.BW) and InchesOf(edBH.Text, T.BH) and
+          InchesOf(edBFrom.Text, T.BranchFrom) and InchesOf(edBLen.Text, T.BranchLen);
+        T.BranchOn := TBranchSide(Max(0, rgBranchOn.ItemIndex));
+        { blank is centred on the wall }
+        if Trim(edBUp.Text) = '' then
+        begin
+          if T.BranchOn in [bsLeft, bsRight] then T.BranchUp := (T.H0 - T.BH) / 2
+          else T.BranchUp := (T.W0 - T.BH) / 2;
+        end
+        else
+          Result := Result and InchesOf(edBUp.Text, T.BranchUp);
+        T.W1 := T.W0; T.H1 := T.H0;
+        T.Ends[2].Kind := TDuctEnd(Max(0, cbBranchEnd.ItemIndex));
+        if T.Ends[2].Kind <> deRaw then
+          Result := Result and InchesOf(edBranchEndAmt.Text, T.Ends[2].Amount);
+      end;
+  else
+    begin
+      Result := Result and InchesOf(edExitW.Text, T.W1) and InchesOf(edExitH.Text, T.H1) and
+                InchesOf(edLen.Text, T.Len);
+      T.Side := TSideRule(Max(0, rgSide.ItemIndex));
+      T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
+      if T.Side <> srCentred then
+        Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
+      if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
+        Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+    end;
+  end;
   T.Ends[0].Kind := TDuctEnd(Max(0, cbEntryEnd.ItemIndex));
   T.Ends[1].Kind := TDuctEnd(Max(0, cbExitEnd.ItemIndex));
   if T.Ends[0].Kind <> deRaw then
@@ -159,9 +250,68 @@ begin
   begin
     cbEntryEnd.Items.Add(DUCT_END_NAMES[K]);
     cbExitEnd.Items.Add(DUCT_END_NAMES[K]);
+    cbBranchEnd.Items.Add(DUCT_END_NAMES[K]);
   end;
   cbEntryEnd.ItemIndex := 0;
   cbExitEnd.ItemIndex := 0;
+  cbBranchEnd.ItemIndex := 0;
+  ShowKind;
+end;
+
+procedure TTransitionForm.FittingChange(Sender: TObject);
+begin
+  ShowKind;
+  AnyChange(nil);
+end;
+
+procedure TTransitionForm.ShowKind;
+var
+  K: TFittingKind;
+  Tr, El, Te: Boolean;
+begin
+  K := TFittingKind(Max(0, rgFitting.ItemIndex));
+  Tr := K = fkTransition; El := K = fkElbow; Te := K = fkTee;
+  { the transition's own }
+  lblExit.Visible := Tr; edExitW.Visible := Tr; lblExitX.Visible := Tr; edExitH.Visible := Tr;
+  rgSide.Visible := Tr; edSideAmount.Visible := Tr;
+  rgHeight.Visible := Tr; edHeightAmount.Visible := Tr;
+  { the length row is the transition's and the tee's }
+  lblLen.Visible := not El; edLen.Visible := not El; lblLenHint.Visible := not El;
+  { the elbow's }
+  rgAngle.Visible := El; edAngle.Visible := El; lblDeg.Visible := El;
+  rgTurn.Visible := El;
+  lblThroat.Visible := El; edThroat.Visible := El; lblThroatHint.Visible := El;
+  cbSquareHeel.Visible := El;
+  lblLegs.Visible := El; edLeg0.Visible := El; edLeg1.Visible := El; lblLegHint.Visible := El;
+  { the tee's }
+  lblBranch.Visible := Te; edBW.Visible := Te; lblBX.Visible := Te; edBH.Visible := Te; lblBHint.Visible := Te;
+  rgBranchOn.Visible := Te;
+  lblBFrom.Visible := Te; edBFrom.Visible := Te;
+  lblBUp.Visible := Te; edBUp.Visible := Te; lblBUpHint.Visible := Te;
+  lblBLen.Visible := Te; edBLen.Visible := Te;
+  lblBranchEnd.Visible := Te; cbBranchEnd.Visible := Te; edBranchEndAmt.Visible := Te; lblEndUnit3.Visible := Te;
+  { the shared rows, said the right way }
+  case K of
+    fkElbow:
+      begin
+        lblTitle.Caption := 'Measure the turn';
+        lblEntry.Caption := 'Opening';
+      end;
+    fkTee:
+      begin
+        lblTitle.Caption := 'Measure the run and the branch';
+        lblEntry.Caption := 'Run opening';
+        lblLen.Caption := 'Run length';
+        lblLenHint.Caption := 'entry to exit';
+      end;
+  else
+    begin
+      lblTitle.Caption := 'Measure the gap it fills';
+      lblEntry.Caption := 'Entry opening';
+      lblLen.Caption := 'Length';
+      lblLenHint.Caption := 'the gap, entry to exit';
+    end;
+  end;
 end;
 
 { A kind of end picked: its size starts at what the shop would say - a one
@@ -172,7 +322,9 @@ var
   Ed: TEdit;
   K: TDuctEnd;
 begin
-  if Sender = cbEntryEnd then Ed := edEntryEndAmt else Ed := edExitEndAmt;
+  if Sender = cbEntryEnd then Ed := edEntryEndAmt
+  else if Sender = cbBranchEnd then Ed := edBranchEndAmt
+  else Ed := edExitEndAmt;
   K := TDuctEnd(Max(0, TComboBox(Sender).ItemIndex));
   Ed.Enabled := K <> deRaw;
   if K = deRaw then Ed.Text := ''
@@ -184,6 +336,86 @@ end;
   all, seen from in front of the entry, to the right and above.  Built with
   the same code that builds it for real, so what is shown is what is
   made. }
+{ The elbow from above its cheek: the throat, the heel, the legs, with the
+  angle and the throat radius written on it. }
+procedure TTransitionForm.PaintElbowPlan(C: TCanvas; W, H: Integer; const T: TTransitionSpec);
+var
+  Pts: TP3Array;
+  P: array of TPoint;
+  I, Margin: Integer;
+  MinX, MaxX, MinY, MaxY, Sc: Double;
+  S: string;
+begin
+  ElbowCheek(T, Pts);
+  if Length(Pts) < 3 then Exit;
+  Margin := 36;
+  MinX := 1E30; MaxX := -1E30; MinY := 1E30; MaxY := -1E30;
+  for I := 0 to High(Pts) do
+  begin
+    MinX := Min(MinX, Pts[I].X); MaxX := Max(MaxX, Pts[I].X);
+    MinY := Min(MinY, Pts[I].Y); MaxY := Max(MaxY, Pts[I].Y);
+  end;
+  Sc := Min((W - 2 * Margin) / Max(MaxX - MinX, 1E-9), (H - 2 * Margin) / Max(MaxY - MinY, 1E-9));
+  SetLength(P, Length(Pts));
+  for I := 0 to High(Pts) do
+    P[I] := Point(Round(Margin + (Pts[I].X - MinX) * Sc), Round(H - Margin - (Pts[I].Y - MinY) * Sc));
+  C.Pen.Color := clBlack;
+  C.Pen.Width := 2;
+  C.Brush.Style := bsClear;
+  C.Polygon(P);
+  C.Pen.Width := 1;
+  C.Font.Color := clBlack;
+  S := Format('%s x %s, %s%s', [FormatLen(T.W0, FUnits), FormatLen(T.H0, FUnits),
+    FormatFloat('0.#', RadToDeg(T.Angle)), #176]);
+  C.TextOut(8, 6, S);
+  if T.Throat > 0 then S := 'throat R ' + FormatLen(T.Throat, FUnits) else S := 'square throat';
+  if T.SquareHeel then S := S + ', square heel';
+  C.Font.Color := clGray;
+  C.TextOut(8, H - 20, S + ', turns ' + LowerCase(TURN_NAMES[T.Turn]));
+  { the entry, marked }
+  C.TextOut(P[High(P)].X, P[High(P)].Y + 4, 'entry');
+end;
+
+{ The tee: the run along the page, the branch off whichever wall, seen
+  from above for a side branch and from the side for a top or bottom one. }
+procedure TTransitionForm.PaintTeePlan(C: TCanvas; W, H: Integer; const T: TTransitionSpec);
+var
+  Margin: Integer;
+  Across, MinX, MaxX, Sc, OX: Double;
+  Sign: Integer;
+  S: string;
+  function SX(V: Double): Integer; begin Result := Round(Margin + (V - OX) * Sc); end;
+  function SY(V: Double): Integer; begin Result := Round(H - Margin - V * Sc); end;
+begin
+  Margin := 36;
+  if T.BranchOn in [bsLeft, bsRight] then Across := T.W0 else Across := T.H0;
+  if T.BranchOn in [bsRight, bsTop] then Sign := 1 else Sign := -1;
+  MinX := Min(0, Sign * T.BranchLen);
+  MaxX := Max(Across, Across + Sign * T.BranchLen);
+  if Sign < 0 then begin MinX := -T.BranchLen; MaxX := Across; end
+  else begin MinX := 0; MaxX := Across + T.BranchLen; end;
+  OX := MinX;
+  Sc := Min((W - 2 * Margin) / Max(MaxX - MinX, 1E-9), (H - 2 * Margin) / Max(T.Len, 1E-9));
+  C.Pen.Color := clBlack;
+  C.Pen.Width := 2;
+  C.Brush.Style := bsClear;
+  C.Rectangle(SX(0), SY(0), SX(Across), SY(T.Len));
+  if Sign > 0 then
+    C.Rectangle(SX(Across), SY(T.BranchFrom), SX(Across + T.BranchLen), SY(T.BranchFrom + T.BW))
+  else
+    C.Rectangle(SX(-T.BranchLen), SY(T.BranchFrom), SX(0), SY(T.BranchFrom + T.BW));
+  C.Pen.Width := 1;
+  C.Font.Color := clBlack;
+  S := Format('run %s x %s, %s long', [FormatLen(T.W0, FUnits), FormatLen(T.H0, FUnits), FormatLen(T.Len, FUnits)]);
+  C.TextOut(8, 6, S);
+  S := Format('branch %s x %s off the %s', [FormatLen(T.BW, FUnits), FormatLen(T.BH, FUnits),
+    LowerCase(BRANCH_NAMES[T.BranchOn])]);
+  C.Font.Color := clGray;
+  C.TextOut(8, H - 20, S);
+  if T.BranchOn in [bsTop, bsBottom] then C.TextOut(8, H - 36, 'seen from the side');
+  C.TextOut(SX(0), SY(0) + 4, 'entry');
+end;
+
 procedure TTransitionForm.PaintIso(C: TCanvas; W, H: Integer);
 const
   CX = 0.866;
@@ -209,11 +441,11 @@ begin
   C.FillRect(0, 0, W, H);
   C.Pen.Color := clSilver;
   C.Rectangle(0, 0, W, H);
-  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
+  if not Read(T) or (FittingProblem(T) <> '') then Exit;
   T.Dims := False;
   D := TWorkDoc.Create;
   try
-    BuildTransition(D, T, clBlack, 1);
+    BuildFitting(D, T, clBlack, 1);
     Margin := 16;
     MinX := 1E30; MaxX := -1E30; MinY := 1E30; MaxY := -1E30;
     for I := 0 to D.Live - 1 do
@@ -291,10 +523,12 @@ begin
   edHeightAmount.Enabled := rgHeight.ItemIndex >= 3;
   edEntryEndAmt.Enabled := cbEntryEnd.ItemIndex > 0;
   edExitEndAmt.Enabled := cbExitEnd.ItemIndex > 0;
+  edBranchEndAmt.Enabled := cbBranchEnd.ItemIndex > 0;
+  edAngle.Enabled := rgAngle.ItemIndex = 3;
   if not Read(T) then
     lblProblem.Caption := 'A size did not read - 20, 20.5, 8 3/4, or 2'' with a mark.'
   else
-    lblProblem.Caption := TransitionProblem(T);
+    lblProblem.Caption := FittingProblem(T);
   btnBuild.Enabled := lblProblem.Caption = '';
   pbSketch.Invalidate;
   pbIso.Invalidate;
@@ -336,9 +570,19 @@ begin
   C.FillRect(0, 0, W, H);
   C.Pen.Color := clSilver;
   C.Rectangle(0, 0, W, H);
-  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
-  TransitionCorners(T, E, X);
+  if not Read(T) or (FittingProblem(T) <> '') then Exit;
   Margin := 36;
+  if T.Kind = fkElbow then
+  begin
+    PaintElbowPlan(C, W, H, T);
+    Exit;
+  end;
+  if T.Kind = fkTee then
+  begin
+    PaintTeePlan(C, W, H, T);
+    Exit;
+  end;
+  TransitionCorners(T, E, X);
   Wmax := Max(Max(E[1].X, X[1].X) - Min(0, X[0].X), 1E-6);
   OX := Min(0, X[0].X);
   Sc := Min((W - 2 * Margin) / Wmax, (H - 2 * Margin) / Max(T.Len, 1E-6));
@@ -392,7 +636,7 @@ begin
   try
     F.FUnits := Units;
     if F.ShowModal <> mrOK then Exit;
-    Result := F.Read(Spec) and (TransitionProblem(Spec) = '');
+    Result := F.Read(Spec) and (FittingProblem(Spec) = '');
   finally
     F.Free;
   end;
@@ -429,14 +673,14 @@ var
 begin
   Result := False;
   Files := nil;
-  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
+  if not Read(T) or (FittingProblem(T) <> '') then Exit;
   Dir := IncludeTrailingPathDelimiter(GetUserDir) + 'Heckers Sketch' + PathDelim +
     'fittings' + PathDelim;
   if not ForceDirectories(Dir) then Exit;
   Name_ := T.Tag;
   for I := 1 to Length(Name_) do
     if not (Name_[I] in ['A'..'Z', 'a'..'z', '0'..'9', '-', '_']) then Name_[I] := '_';
-  if Name_ = '' then Name_ := 'transition';
+  if Name_ = '' then Name_ := LowerCase(FITTING_NAMES[T.Kind]);
   Base := Dir + Name_ + '-' + FormatDateTime('yyyymmdd-hhnnss', Now);
   SetLength(Files, 3);
   Files[0] := Base + '-plan.png';
@@ -465,17 +709,24 @@ var
   Dir, Err, Subject: string;
   Files: TStringArray;
 begin
-  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
+  if not Read(T) or (FittingProblem(T) <> '') then Exit;
   if not ExportFiles(Dir, Files) then
   begin
     ShowMessage('The pictures could not be written under ' + Dir);
     Exit;
   end;
-  Subject := 'Transition';
+  Subject := FITTING_NAMES[T.Kind];
   if T.Tag <> '' then Subject := Subject + ' ' + T.Tag;
   Subject := Subject + ': ' + FormatFloat('0.###', T.W0 / T.Inch) + ' x ' +
-    FormatFloat('0.###', T.H0 / T.Inch) + ' to ' + FormatFloat('0.###', T.W1 / T.Inch) +
-    ' x ' + FormatFloat('0.###', T.H1 / T.Inch);
+    FormatFloat('0.###', T.H0 / T.Inch);
+  case T.Kind of
+    fkElbow: Subject := Subject + ' ' + FormatFloat('0.#', RadToDeg(T.Angle)) + ' degree elbow';
+    fkTee: Subject := Subject + ' tee, ' + FormatFloat('0.###', T.BW / T.Inch) + ' x ' +
+      FormatFloat('0.###', T.BH / T.Inch) + ' branch';
+  else
+    Subject := Subject + ' to ' + FormatFloat('0.###', T.W1 / T.Inch) + ' x ' +
+      FormatFloat('0.###', T.H1 / T.Inch);
+  end;
   if SendByEmail(Subject, TicketText(T), Files, Err) then
     lblProblem.Caption := 'Handed to your mail program.  The files are in ' + Dir
   else

@@ -4742,7 +4742,7 @@ begin
   if not TTransitionForm.Ask(FD.Units, Spec) then Exit;
   if FD.View = vkPlan then EnterFreeCamera(True);
   PushUndo;
-  First := BuildTransition(FD.Doc, Spec, FInkColor, FEdgeW);
+  First := BuildFitting(FD.Doc, Spec, FInkColor, FEdgeW);
   SeedRegions;
   RenderPro;
   RecomposeAll;
@@ -8061,7 +8061,7 @@ begin
   else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
   else if (W = 'drill') or (W = 'bore') or (W = 'punch') then SetTool(ptDrill)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
-  else if (W = 'transition') or (W = 'trans') then BuildTransitionWizard
+  else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'update') or (W = 'upgrade') then
   begin
     if Rest = 'never' then
@@ -9171,7 +9171,7 @@ begin
     POP_SHOP:
       case I of
         0: Result := 'Lay a piece out flat';
-        1: Result := 'Build a transition...';
+        1: Result := 'Build a fitting...';
       else
         Result := 'Field sketch, on iso paper';
       end;

@@ -1,11 +1,11 @@
 object TransitionForm: TTransitionForm
   Left = 360
-  Height = 716
+  Height = 748
   Top = 160
   Width = 800
   BorderStyle = bsDialog
-  Caption = 'Build a transition'
-  ClientHeight = 716
+  Caption = 'Build a fitting'
+  ClientHeight = 748
   ClientWidth = 800
   Position = poMainFormCenter
   OnCreate = FormCreate
@@ -194,7 +194,7 @@ object TransitionForm: TTransitionForm
   object btnReport: TButton
     Left = 24
     Height = 32
-    Top = 676
+    Top = 708
     Width = 150
     Caption = 'Report a problem...'
     OnClick = btnReportClick
@@ -203,7 +203,7 @@ object TransitionForm: TTransitionForm
   object lblProblem: TLabel
     Left = 24
     Height = 18
-    Top = 652
+    Top = 684
     Width = 760
     AutoSize = False
     Caption = ''
@@ -213,7 +213,7 @@ object TransitionForm: TTransitionForm
   object btnBuild: TButton
     Left = 690
     Height = 32
-    Top = 676
+    Top = 708
     Width = 90
     Caption = 'Build it'
     Default = True
@@ -223,7 +223,7 @@ object TransitionForm: TTransitionForm
   object btnCancel: TButton
     Left = 584
     Height = 32
-    Top = 676
+    Top = 708
     Width = 96
     Cancel = True
     Caption = 'Cancel'
@@ -306,7 +306,7 @@ object TransitionForm: TTransitionForm
   object cbDims: TCheckBox
     Left = 24
     Height = 22
-    Top = 628
+    Top = 660
     Width = 300
     Caption = 'Put the sizes on it as dimensions'
     Checked = True
@@ -316,8 +316,8 @@ object TransitionForm: TTransitionForm
   end
   object pcViews: TPageControl
     Left = 440
-    Height = 400
-    Top = 80
+    Height = 352
+    Top = 128
     Width = 340
     ActivePage = tsPlan
     TabIndex = 0
@@ -376,7 +376,7 @@ object TransitionForm: TTransitionForm
   object btnEmail: TButton
     Left = 330
     Height = 32
-    Top = 676
+    Top = 708
     Width = 110
     Caption = 'Email it...'
     OnClick = btnEmailClick
@@ -385,10 +385,347 @@ object TransitionForm: TTransitionForm
   object btnFiles: TButton
     Left = 446
     Height = 32
-    Top = 676
+    Top = 708
     Width = 130
     Caption = 'Show the files'
     OnClick = btnFilesClick
     TabOrder = 20
+  end
+  object rgFitting: TRadioGroup
+    Left = 440
+    Height = 44
+    Top = 74
+    Width = 340
+    AutoFill = True
+    Caption = 'Fitting'
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 3
+    Columns = 3
+    ItemIndex = 0
+    Items.Strings = (
+      'Transition'
+      'Elbow'
+      'Tee'
+    )
+    OnClick = FittingChange
+    TabOrder = 21
+  end
+  object rgAngle: TRadioGroup
+    Left = 24
+    Height = 52
+    Top = 164
+    Width = 300
+    AutoFill = True
+    Caption = 'Angle'
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 4
+    Columns = 4
+    ItemIndex = 2
+    Items.Strings = (
+      '22.5'
+      '45'
+      '90'
+      'Other'
+    )
+    OnClick = AnyChange
+    TabOrder = 22
+    Visible = False
+  end
+  object edAngle: TEdit
+    Left = 332
+    Height = 28
+    Top = 180
+    Width = 60
+    OnChange = AnyChange
+    TabOrder = 23
+    Text = '30'
+    Visible = False
+  end
+  object lblDeg: TLabel
+    Left = 396
+    Height = 18
+    Top = 186
+    Width = 40
+    Caption = 'deg'
+    Visible = False
+  end
+  object rgTurn: TRadioGroup
+    Left = 24
+    Height = 52
+    Top = 224
+    Width = 300
+    AutoFill = True
+    Caption = 'Turns, seen from the entry'
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 4
+    Columns = 4
+    ItemIndex = 0
+    Items.Strings = (
+      'Right'
+      'Left'
+      'Up'
+      'Down'
+    )
+    OnClick = AnyChange
+    TabOrder = 24
+    Visible = False
+  end
+  object lblThroat: TLabel
+    Left = 24
+    Height = 18
+    Top = 296
+    Width = 120
+    Caption = 'Throat radius'
+    Visible = False
+  end
+  object edThroat: TEdit
+    Left = 170
+    Height = 28
+    Top = 290
+    Width = 80
+    OnChange = AnyChange
+    TabOrder = 25
+    Text = '4'
+    Visible = False
+  end
+  object lblThroatHint: TLabel
+    Left = 260
+    Height = 18
+    Top = 296
+    Width = 170
+    Caption = '0 is a square throat'
+    Font.Color = clGray
+    ParentFont = False
+    Visible = False
+  end
+  object cbSquareHeel: TCheckBox
+    Left = 24
+    Height = 22
+    Top = 330
+    Width = 300
+    Caption = 'Square heel - mitred, not rolled'
+    OnChange = AnyChange
+    TabOrder = 26
+    Visible = False
+  end
+  object lblLegs: TLabel
+    Left = 24
+    Height = 18
+    Top = 372
+    Width = 140
+    Caption = 'Legs, entry / exit'
+    Visible = False
+  end
+  object edLeg0: TEdit
+    Left = 170
+    Height = 28
+    Top = 366
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 27
+    Text = '2'
+    Visible = False
+  end
+  object edLeg1: TEdit
+    Left = 250
+    Height = 28
+    Top = 366
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 28
+    Text = '2'
+    Visible = False
+  end
+  object lblLegHint: TLabel
+    Left = 330
+    Height = 18
+    Top = 372
+    Width = 100
+    Caption = 'straight collars'
+    Font.Color = clGray
+    ParentFont = False
+    Visible = False
+  end
+  object lblBranch: TLabel
+    Left = 24
+    Height = 18
+    Top = 216
+    Width = 140
+    Caption = 'Branch opening'
+    Visible = False
+  end
+  object edBW: TEdit
+    Left = 170
+    Height = 28
+    Top = 210
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 29
+    Text = '12'
+    Visible = False
+  end
+  object lblBX: TLabel
+    Left = 246
+    Height = 18
+    Top = 216
+    Width = 10
+    Caption = 'x'
+    Visible = False
+  end
+  object edBH: TEdit
+    Left = 260
+    Height = 28
+    Top = 210
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 30
+    Text = '10'
+    Visible = False
+  end
+  object lblBHint: TLabel
+    Left = 340
+    Height = 18
+    Top = 216
+    Width = 100
+    Caption = 'along x across'
+    Font.Color = clGray
+    ParentFont = False
+    Visible = False
+  end
+  object rgBranchOn: TRadioGroup
+    Left = 24
+    Height = 52
+    Top = 248
+    Width = 400
+    AutoFill = True
+    Caption = 'Branch comes off the'
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 4
+    Columns = 4
+    ItemIndex = 1
+    Items.Strings = (
+      'Left side'
+      'Right side'
+      'Top'
+      'Bottom'
+    )
+    OnClick = AnyChange
+    TabOrder = 31
+    Visible = False
+  end
+  object lblBFrom: TLabel
+    Left = 24
+    Height = 18
+    Top = 316
+    Width = 170
+    Caption = 'Starts, from the entry'
+    Visible = False
+  end
+  object edBFrom: TEdit
+    Left = 200
+    Height = 28
+    Top = 310
+    Width = 80
+    OnChange = AnyChange
+    TabOrder = 32
+    Text = '6'
+    Visible = False
+  end
+  object lblBUp: TLabel
+    Left = 24
+    Height = 18
+    Top = 350
+    Width = 170
+    Caption = 'Up from the bottom'
+    Visible = False
+  end
+  object edBUp: TEdit
+    Left = 200
+    Height = 28
+    Top = 344
+    Width = 80
+    OnChange = AnyChange
+    TabOrder = 33
+    Visible = False
+  end
+  object lblBUpHint: TLabel
+    Left = 290
+    Height = 18
+    Top = 350
+    Width = 150
+    Caption = 'blank is centred'
+    Font.Color = clGray
+    ParentFont = False
+    Visible = False
+  end
+  object lblBLen: TLabel
+    Left = 24
+    Height = 18
+    Top = 384
+    Width = 170
+    Caption = 'Branch length'
+    Visible = False
+  end
+  object edBLen: TEdit
+    Left = 200
+    Height = 28
+    Top = 378
+    Width = 80
+    OnChange = AnyChange
+    TabOrder = 34
+    Text = '8'
+    Visible = False
+  end
+  object lblBranchEnd: TLabel
+    Left = 24
+    Height = 18
+    Top = 634
+    Width = 70
+    Caption = 'Branch end'
+    Visible = False
+  end
+  object cbBranchEnd: TComboBox
+    Left = 100
+    Height = 28
+    Top = 628
+    Width = 250
+    ItemHeight = 0
+    OnChange = EndKindChange
+    Style = csDropDownList
+    TabOrder = 35
+    Visible = False
+  end
+  object edBranchEndAmt: TEdit
+    Left = 358
+    Height = 28
+    Top = 628
+    Width = 52
+    OnChange = AnyChange
+    TabOrder = 36
+    Visible = False
+  end
+  object lblEndUnit3: TLabel
+    Left = 414
+    Height = 18
+    Top = 634
+    Width = 16
+    Caption = 'in'
+    Visible = False
   end
 end
