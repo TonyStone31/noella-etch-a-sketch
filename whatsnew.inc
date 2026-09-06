@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- A **Report a problem** button inside the transition wizard.  The picture' + LineEnding +
+    '  is the whole screen with the wizard in it, and what was typed into the' + LineEnding +
+    '  wizard goes into the report.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A built transition is hollow again.  Placing it was capping both ends.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.16' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

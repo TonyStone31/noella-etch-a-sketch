@@ -193,6 +193,11 @@ type
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
     procedure pbScreenPaint(Sender: TObject);
     procedure tmrTickTimer(Sender: TObject);
+  public
+    { A report from inside a dialog - the transition wizard, say.  Where is
+      the dialog's name and Fields what it held, so the report says what was
+      typed; the picture is the screen, dialog and all. }
+    procedure ReportFromDialog(const Where, Fields: string);
   private
     { --- surfaces ------------------------------------------------------- }
     FPaper: TArtSurface;         // paper, grain, grid
@@ -452,6 +457,8 @@ type
     FMoveShift: TShiftState;
     { a built part being placed moves whole, on its own; nothing stretches }
     FMoveRigid: Boolean;
+    { what a dialog reported from inside itself, for the report body }
+    FReportExtra: string;
     { the dimension the move tool has hold of by its line: only where the
       line sits changes, never what it measures }
     FDimMove: Integer;
@@ -4871,8 +4878,28 @@ end;
   TBitmap.LoadFromStream, which reads BMP, and take the program down inside
   the bug reporter. }
 function TMainForm.WindowShot(out B: TBitmap): Boolean;
+var
+  DC: HDC;
 begin
-  B := GetFormImage;
+  { From inside a dialog the picture is of the screen, because a picture of
+    this window alone would leave out the one thing being reported. }
+  if FReportExtra <> '' then
+  begin
+    B := TBitmap.Create;
+    try
+      DC := GetDC(0);
+      try
+        B.LoadFromDevice(DC);
+      finally
+        ReleaseDC(0, DC);
+      end;
+    except
+      FreeAndNil(B);
+    end;
+    if B = nil then B := GetFormImage;
+  end
+  else
+    B := GetFormImage;
   Result := (B <> nil) and (B.Width >= 8) and (B.Height >= 8);
   if not Result then
   begin
@@ -4971,6 +4998,16 @@ end;
   fault has the fault in their head, and being asked to approve a picture
   before writing a word about it means writing the word afterwards, from
   memory - which is exactly the complaint that led here. }
+procedure TMainForm.ReportFromDialog(const Where, Fields: string);
+begin
+  FReportExtra := Where + LineEnding + Fields;
+  try
+    ReportBug;
+  finally
+    FReportExtra := '';
+  end;
+end;
+
 function TMainForm.CaptureShot(Wait: Boolean; out Bmp: TBitmap): Boolean;
 var
   WasMsg: string;
@@ -5246,6 +5283,8 @@ begin
       specialize IfThen<string>(Note = '', '(nothing written)', Note) +
       LineEnding + LineEnding +
       'state:' + LineEnding + DiagnosticText;
+    if FReportExtra <> '' then
+      Body := Body + LineEnding + 'in the dialog:' + LineEnding + FReportExtra;
     if Preamble <> '' then
       Body := Body + LineEnding + 'the crash it left behind:' + LineEnding +
         Preamble;
@@ -7794,8 +7833,11 @@ begin
           end;
           { moving an edge changes what the edges enclose, so the flat areas
             are worked out again - which is also what stretches a face to
-            follow the edge that moved }
-          RebuildFlatFaces;
+            follow the edge that moved.  A built part placed whole is the
+            exception: its openings are the four edges of a duct end, and
+            working the areas out again would cap them.  They are taken as
+            seen where they now sit instead. }
+          if FMoveRigid then SeedRegions else RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
         end;

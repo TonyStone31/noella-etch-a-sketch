@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- A **Report a problem** button inside the transition wizard.  The picture
+  is the whole screen with the wizard in it, and what was typed into the
+  wizard goes into the report.
+
+### Fixed
+
+- A built transition is hollow again.  Placing it was capping both ends.
+
 ## v2026.09.06.16
 
 ### New

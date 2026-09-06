@@ -20,6 +20,7 @@ type
   TTransitionForm = class(TForm)
     btnBuild: TButton;
     btnCancel: TButton;
+    btnReport: TButton;
     edEntryW: TEdit;
     edEntryH: TEdit;
     edExitW: TEdit;
@@ -43,6 +44,7 @@ type
     procedure AnyChange(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure pbSketchPaint(Sender: TObject);
+    procedure btnReportClick(Sender: TObject);
   private
     FUnits: TUnitSystem;
     function Read(out T: TTransitionSpec): Boolean;
@@ -55,6 +57,23 @@ type
 implementation
 
 {$R *.lfm}
+
+uses
+  uMain;
+
+{ A problem with the wizard is reported from the wizard, with the wizard in
+  the picture and what was typed into it in the words.  From the main window
+  the report cannot see the dialog, and the dialog is the thing wrong. }
+procedure TTransitionForm.btnReportClick(Sender: TObject);
+begin
+  MainForm.ReportFromDialog('Build a transition',
+    'entry ' + edEntryW.Text + ' x ' + edEntryH.Text +
+    ', exit ' + edExitW.Text + ' x ' + edExitH.Text +
+    ', length ' + edLen.Text + LineEnding +
+    'width: ' + rgSide.Items[Max(0, rgSide.ItemIndex)] + ' ' + edSideAmount.Text + LineEnding +
+    'height: ' + rgHeight.Items[Max(0, rgHeight.ItemIndex)] + ' ' + edHeightAmount.Text + LineEnding +
+    'problem shown: ' + lblProblem.Caption);
+end;
 
 { Duct sizes are said in inches - 20x20, 8 3/4 - so a bare number here is
   inches.  A foot mark or an inch mark makes it the drawing's own notation. }

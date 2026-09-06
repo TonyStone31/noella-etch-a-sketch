@@ -143,3 +143,15 @@ The arrow question is taken the second way: a side named with an amount is
 the side that comes in by that amount, and the other side follows from the
 exit width.  End treatments and their allowances are not built; the fitting
 is the shape, not yet the cut size.
+
+### Hollow, and reporting from inside
+
+A placed transition is four walls and twelve edges, nothing across the ends.
+Placing it used to cap both openings: the four edges of an end are a closed
+loop on a plane, and the pass that works flat areas out after a move gave
+each a face.  A part placed whole now has its regions taken as seen where it
+lands instead of worked out again.
+
+The wizard has its own **Report a problem** button, because a report from the
+main window cannot photograph a dialog that is in front of it.  The picture
+from there is the whole screen and the report carries the wizard's fields.

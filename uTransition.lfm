@@ -195,11 +195,20 @@ object TransitionForm: TTransitionForm
     Width = 296
     OnPaint = pbSketchPaint
   end
-  object lblProblem: TLabel
+  object btnReport: TButton
     Left = 24
+    Height = 32
+    Top = 470
+    Width = 150
+    Caption = 'Report a problem...'
+    OnClick = btnReportClick
+    TabOrder = 11
+  end
+  object lblProblem: TLabel
+    Left = 184
     Height = 18
     Top = 478
-    Width = 480
+    Width = 310
     AutoSize = False
     Caption = ''
     Font.Color = clRed

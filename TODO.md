@@ -56,6 +56,14 @@ into the drawing; hammer the general tools before the generators.
    raw, corners notched - per edge, each worth the shop's own number of
    material.  Then the offset (same size both ends) and the elbows as more
    wizards.
+   From the first report on it (2026-09-06): the ends need a type each -
+   raw, TDF flange, flanged in and down, flanged out - drawn in 3D; the
+   important dimensions put on the 3D part by default; a corner 3D preview
+   in the wizard beside the plan sketch; and the same wizard, with fitting
+   type radio buttons at the top, building a tee and a 90 / 45 / any-angle
+   elbow.  The hollow-ends fault and the report button from inside the
+   wizard are done.
+
 3. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
 4. **Drill, the hard cases.**  A tunnel crossing a tunnel that was itself
