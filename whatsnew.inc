@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- Drawing on the face of a box is steadier.  The "line up with that' + LineEnding +
+    '  corner" nudges used to grab the cursor every few pixels as it swept' + LineEnding +
+    '  across a face; they wait for the hand to slow down now, and one taken' + LineEnding +
+    '  holds a little longer than it took to get, so it does not flicker.' + LineEnding +
+    '  Snapping to points and edges is unchanged.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.6' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

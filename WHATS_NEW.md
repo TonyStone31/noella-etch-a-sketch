@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- Drawing on the face of a box is steadier.  The "line up with that
+  corner" nudges used to grab the cursor every few pixels as it swept
+  across a face; they wait for the hand to slow down now, and one taken
+  holds a little longer than it took to get, so it does not flicker.
+  Snapping to points and edges is unchanged.
+
 ## v2026.09.06.6
 
 ### Fixed

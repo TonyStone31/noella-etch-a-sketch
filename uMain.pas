@@ -377,6 +377,15 @@ type
     FHoldOn: Boolean;
     FHoldT, FSnapT: Single;
     FHoldX, FHoldY: Integer;
+    { How fast the pointer is moving, in pixels a second, smoothed.  The
+      "line up with that point" nudges wait for the hand to slow down: a
+      cursor swept across a cube crosses an alignment with one of its
+      corners every few pixels, and taking each one as it passed made the
+      cursor hunt sideways all the way over - what Tony called the mouse
+      losing track of the rectangle. }
+    FMoveSpeed: Double;
+    FLastMoveTick: QWord;
+    FLastMoveX, FLastMoveY: Integer;
     FSnapA, FSnapB, FSnapM: TPointF;
     { After a run is snapped off, the cursor is still sitting on the point it
       was joined to, and the dwell would quietly take it up again as a
@@ -827,6 +836,8 @@ const
   MAX_PEN         = 40;
   SNAP_PX         = 16.0;   // pulling onto a point on the drawing
   INFER_PX        = 7.0;    // lining up with one that is somewhere else
+  FAST_PX_S       = 600.0;  // moving quicker than this, alignments wait
+  KEEP_FACTOR     = 1.7;    // an alignment taken holds this much further out
   HOLD_PX         = 18.0;   // ...or with one you deliberately rested on
   { how long the button is leaned on before the line snaps off, and how long
     the two ends recoil afterwards }
@@ -1099,8 +1110,10 @@ function TMainForm.ResolveSnapRaw(SX, SY: Double): TP3;
 var
   Hit: TSnapHit;
   Pts: TP3Array;
-  I, BestAxis: Integer;
-  Tol, Best: Double;
+  I, BestAxis, Near: Integer;
+  Tol, Best, KeepTol: Double;
+  PrevGuide: Boolean;
+  PrevFrom: TP3;
   W, Wf, AxRef, AxPt, EdgeP, AxSnapP: TP3;
   SP: TPointF;
   PtOK: Boolean;
@@ -1199,9 +1212,14 @@ var
       when you are coming back across the drawing to close a rectangle. }
     if not (FLockOn and TryLevel(FLockPt, HOLD_PX)) then
     begin
-      FD.Doc.SnapPoints(APts);
-      for I := 0 to High(APts) do TryLevel(APts[I], INFER_PX);
-      if FStage > 0 then TryLevel(FP1, INFER_PX);
+      { levelling with some other point waits for a slow hand; a point you
+        rested on is asked for and does not }
+      if FMoveSpeed <= FAST_PX_S then
+      begin
+        FD.Doc.SnapPoints(APts);
+        for I := 0 to High(APts) do TryLevel(APts[I], INFER_PX);
+        if FStage > 0 then TryLevel(FP1, INFER_PX);
+      end;
     end;
     if not Got then Exit;
 
@@ -1292,6 +1310,8 @@ var
   end;
 
 begin
+  PrevGuide := FGuide;
+  PrevFrom := FGuideFrom;
   FGuide := False;
   FAxisLock := -1;
 
@@ -1480,6 +1500,29 @@ begin
   Tol := INFER_PX / Max(1E-9, Ppu);
   Best := 1E30;
   BestAxis := -1;
+  { A hand moving fast is going somewhere, not lining up: no nudges until
+    it slows.  One already taken is kept while the cursor stays near it -
+    further out than it took to get it, so it does not flicker on and off
+    along the boundary. }
+  if PrevGuide then
+  begin
+    KeepTol := Tol * KEEP_FACTOR;
+    Near := 0;
+    if Abs(W.X - PrevFrom.X) <= KeepTol then Inc(Near);
+    if Abs(W.Y - PrevFrom.Y) <= KeepTol then Inc(Near);
+    if Abs(W.Z - PrevFrom.Z) <= KeepTol then Inc(Near);
+    if (Near = 2) and (Dist(W, PrevFrom) * Ppu >= 18) then
+    begin
+      if Abs(W.X - PrevFrom.X) <= KeepTol then W.X := PrevFrom.X;
+      if Abs(W.Y - PrevFrom.Y) <= KeepTol then W.Y := PrevFrom.Y;
+      if Abs(W.Z - PrevFrom.Z) <= KeepTol then W.Z := PrevFrom.Z;
+      FGuideFrom := PrevFrom;
+      FGuide := True;
+      Exit(W);
+    end;
+  end;
+  if FMoveSpeed > FAST_PX_S then Exit(W);
+
   FD.Doc.SnapPoints(Pts);
   for I := 0 to High(Pts) do
     Consider(Pts[I]);
@@ -8306,6 +8349,8 @@ end;
 procedure TMainForm.ServiceMotion;
 var
   HeldU, HeldV: TP3;
+  SpeedNow: QWord;
+  SpeedInst: Double;
   X, Y, HF: Integer;
   HP, HN: TP3;
   OP: TPointF;
@@ -8315,6 +8360,18 @@ begin
   FMovePending := False;
   X := FMoveX;
   Y := FMoveY;
+  { the pointer's speed, for the alignment nudges to wait on }
+  SpeedNow := GetTickCount64;
+  if (FLastMoveTick > 0) and (SpeedNow > FLastMoveTick) then
+  begin
+    SpeedInst := Sqrt(Sqr(X - FLastMoveX) + Sqr(Y - FLastMoveY)) * 1000 / (SpeedNow - FLastMoveTick);
+    FMoveSpeed := FMoveSpeed * 0.5 + SpeedInst * 0.5;
+  end
+  else if SpeedNow - FLastMoveTick > 150 then
+    FMoveSpeed := 0;
+  FLastMoveTick := SpeedNow;
+  FLastMoveX := X;
+  FLastMoveY := Y;
 
   { An open list takes the mouse, and nothing else gets it.
 

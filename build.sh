@@ -407,6 +407,13 @@ do_github() {
 
   NOUPLOAD=1 do_ship
 
+  # Keep this release's symbols under its tag.  The fixed-name copies are
+  # overwritten by the next release, and a crash report from the build before
+  # then had nothing to be resolved against.
+  for f in linux-release win64-release linux-checked; do
+    [ -f "$DIST/syms/$APP-$f.dbg" ] && cp "$DIST/syms/$APP-$f.dbg" "$DIST/syms/$APP-$tag-$f.dbg"
+  done
+
   local s zipfile stage
   s="$(stamp)"
   zipfile="$DIST/heckers-sketch-$s.zip"
