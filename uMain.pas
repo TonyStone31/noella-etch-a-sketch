@@ -9098,28 +9098,51 @@ end;
 function TMainForm.ArcPicks(const B: TP3; out Pl: TPlane; out C: TP3;
   out R, A0, Sweep, Bulge: Double): Boolean;
 var
-  AU, AV, N, D1, D2: TP3;
-  U1, V1, U2, V2, UC, VC, Ln, NU, NV, L, Off, Size: Double;
+  AU, AV, N, FN: TP3;
+  U1, V1, U2, V2, UC, VC, Ln, NU, NV, L, Size, Tol: Double;
+  F: Integer;
+
+  function OnPlane(const P, Org, Nm: TP3): Boolean;
+  begin
+    Result := Abs(Dot3(Nm, P3(P.X - Org.X, P.Y - Org.Y, P.Z - Org.Z))) <= Tol;
+  end;
+
 begin
   Result := False;
   Bulge := 0;
   C := FP1; R := 0; A0 := 0; Sweep := 0;
   Pl := FD.Plane;
-  PlaneAxes(Pl, AU, AV);
-  N := Norm3(Cross3(AU, AV));
-  D1 := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
-  D2 := P3(B.X - FP1.X, B.Y - FP1.Y, B.Z - FP1.Z);
   Size := Max(Dist(FP2, FP1), Dist(B, FP1));
   if Size < 1E-9 then Exit;
-  Off := Abs(Dot3(N, D2));
-  if (Off > 1E-6 * (1 + Size)) and
-     (Dist(Cross3(D1, D2), P3(0, 0, 0)) > 1E-9 * Size * Size) then
-  begin
-    { the third point is off the working plane, so the three points say
-      which plane the arc is in - through the chord, containing the pull }
-    SetFreePlane(FP1, Norm3(Cross3(D1, D2)));
-    Pl := plFree;
-  end;
+  Tol := 1E-6 * (1 + Size);
+  PlaneAxes(Pl, AU, AV);
+  N := Norm3(Cross3(AU, AV));
+  { The pull off the working plane, onto a face that holds all three points,
+    says the arc is on that face: the chord along the bottom edge of a wall
+    is in the ground plane and the wall's both, and the pull up the wall is
+    what settles it.  Only a face's plane, though.  A pull that has snapped
+    to some stray point in space - a crease inside the box behind the wall -
+    stays projected onto the working plane, as any other point would; the
+    first version of this let it tilt the arc off the wall. }
+  if not OnPlane(B, FP1, N) then
+    for F := 0 to FD.Doc.Live - 1 do
+    begin
+      if (FD.Doc[F].Kind <> ekFace) or (Length(FD.Doc[F].Poly) < 3) then Continue;
+      FN := Norm3(FD.Doc.FaceNormal(F));
+      if OnPlane(FP1, FD.Doc[F].Poly[0], FN) and OnPlane(FP2, FD.Doc[F].Poly[0], FN) and
+         OnPlane(B, FD.Doc[F].Poly[0], FN) then
+      begin
+        if Abs(FN.Z) > 0.999 then Pl := plXY
+        else if Abs(FN.Y) > 0.999 then Pl := plXZ
+        else if Abs(FN.X) > 0.999 then Pl := plYZ
+        else
+        begin
+          SetFreePlane(FP1, FN);
+          Pl := plFree;
+        end;
+        Break;
+      end;
+    end;
   PlaneCoords(Pl, FP1, U1, V1);
   PlaneCoords(Pl, FP2, U2, V2);
   PlaneCoords(Pl, B, UC, VC);

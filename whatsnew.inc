@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- An arc''s pull only takes the arc onto a face that holds all three of its' + LineEnding +
+    '  points.  A pull that snapped to some stray point behind the wall used to' + LineEnding +
+    '  tilt the arc off the wall.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.05.29' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

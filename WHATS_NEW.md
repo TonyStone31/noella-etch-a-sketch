@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- An arc's pull only takes the arc onto a face that holds all three of its
+  points.  A pull that snapped to some stray point behind the wall used to
+  tilt the arc off the wall.
+
 ## v2026.09.05.29
 
 ### New
