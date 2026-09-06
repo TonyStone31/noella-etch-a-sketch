@@ -19,6 +19,14 @@ const
     '' + LineEnding +
     '- `/select` and `/move` in the command bar, alongside the other tools.' + LineEnding +
     '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Offset lands on the guide.**  With the cursor snapped to a guide, a' + LineEnding +
+    '  guide point, a corner or an edge, the offset is now measured to that' + LineEnding +
+    '  point exactly.  It used to take where the mouse was and round it to the' + LineEnding +
+    '  snap step, so a guide 8" in could give an offset of 9".  Put a guide where' + LineEnding +
+    '  the footing edge goes and the offset goes there.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.25' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

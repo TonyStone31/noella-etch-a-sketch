@@ -16,6 +16,14 @@
 
 - `/select` and `/move` in the command bar, alongside the other tools.
 
+### Fixed
+
+- **Offset lands on the guide.**  With the cursor snapped to a guide, a
+  guide point, a corner or an edge, the offset is now measured to that
+  point exactly.  It used to take where the mouse was and round it to the
+  snap step, so a guide 8" in could give an offset of 9".  Put a guide where
+  the footing edge goes and the offset goes there.
+
 ## v2026.09.06.25
 
 ### Fixed

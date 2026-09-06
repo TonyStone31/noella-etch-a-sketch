@@ -2300,6 +2300,7 @@ var
   N, P, A, B, W, V: TP3;
   I, J, Cnt: Integer;
   Best, D, T, L2: Double;
+  Snapped: Boolean;
 begin
   Result := 0;
   if (FOffFace < 0) or (FOffFace >= FD.Doc.Live) then Exit;
@@ -2307,7 +2308,23 @@ begin
   Cnt := Length(Loop);
   if Cnt < 3 then Exit;
   N := FD.Doc.FaceNormal(FOffFace);
-  P := CursorOnPlane(N, Loop[0]);
+  { Where the cursor is.  When it has snapped to something - a guide, a
+    guide point, a corner, the middle of an edge - that point is what the
+    offset is measured to, dropped onto the face's plane, and it is taken
+    exactly: a fitter who put a guide 8" in wants the offset at 8", not at
+    the nearest snap step of where the mouse happened to be - which is how
+    a guide at 8" gave an offset of 9".  SketchUp's offset follows its
+    inferences the same way. }
+  Snapped := FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross, snSubMid,
+    snOnEdge, snOrigin];
+  if Snapped then
+  begin
+    P := FCur;
+    D := Dot3(N, P3(P.X - Loop[0].X, P.Y - Loop[0].Y, P.Z - Loop[0].Z));
+    P := P3(P.X - N.X * D, P.Y - N.Y * D, P.Z - N.Z * D);
+  end
+  else
+    P := CursorOnPlane(N, Loop[0]);
 
   Best := 1E30;
   for I := 0 to Cnt - 1 do
@@ -2325,7 +2342,7 @@ begin
   end;
 
   if PointInLoop(P, Loop, N) then Result := -Best else Result := Best;
-  if SnapStep > 0 then Result := Round(Result / SnapStep) * SnapStep;
+  if (not Snapped) and (SnapStep > 0) then Result := Round(Result / SnapStep) * SnapStep;
 
   { a typed thickness wins on size; the cursor still says in or out }
   if (FInput <> '') and ParseLen(FInput, FD.Units, D) then
