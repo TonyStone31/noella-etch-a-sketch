@@ -693,8 +693,7 @@ type
     function InPalette(C: TColor): Boolean;
 
     function StatusLine: string;
-    procedure WashFace(C: TCanvas; const Poly: TPointFArray;
-      const Col: TPix);
+    procedure WashFace(C: TCanvas; Face: Integer; const Col: TPix);
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
@@ -5496,22 +5495,160 @@ end;
   it, which is the opposite of helpful when the question being asked is "am I
   about to delete the right thing".  A diagonal hatch reads as marked out
   from across the room and leaves the drawing legible underneath. }
-procedure TMainForm.WashFace(C: TCanvas; const Poly: TPointFArray;
-  const Col: TPix);
+{ The eraser's warning across a face it has locked on to.
+
+  Drawn as hatching laid in the face's own plane, in short pieces, and each
+  piece is kept only where the face can actually be seen.  It used to be a
+  hatched polygon on the canvas, which is on top of everything by
+  construction - so with a column standing in front of the wall the eraser
+  was about to take, the red spilled straight across the column, and the
+  picture said the column was going too.
+
+  Two questions decide whether a piece is drawn.  Is its middle inside the
+  face - inside the outline and outside any window in it?  And is anything in
+  front of that point?  The second is asked of the depth buffer the render
+  left behind, one lookup per piece, which is what makes this cheap enough to
+  run while the mouse hovers. }
+procedure TMainForm.WashFace(C: TCanvas; Face: Integer; const Col: TPix);
+const
+  STEP_PX = 7;      // between hatch lines
+  PIECE_PX = 6;     // along each one
 var
-  Pts: array of TPoint;
-  I: Integer;
+  Nm, AU, AV, O, P, Look: TP3;
+  Poly: TP3Array;
+  UV: array of TPointF;
+  HUV: array of array of TPointF;
+  I, J, H, N, Steps, Pieces: Integer;
+  MinU, MaxU, MinV, MaxV, Ppx, StepW, PieceW, Diag, T0, T1, A, B: Double;
+  U0, V0, DU, DV, Len: Double;
+  SA, SB: TPointF;
+  Ink: TArtSurface;
+  Zb, Dp: Double;
+
+  function InFace(U, V: Double): Boolean;
+  var
+    Q, R, W: Integer;
+    Inside: Boolean;
+  begin
+    Inside := False;
+    R := N - 1;
+    for Q := 0 to N - 1 do
+    begin
+      if ((UV[Q].Y > V) <> (UV[R].Y > V)) and
+         (U < (UV[R].X - UV[Q].X) * (V - UV[Q].Y) / (UV[R].Y - UV[Q].Y) + UV[Q].X) then
+        Inside := not Inside;
+      R := Q;
+    end;
+    if Inside then
+      for W := 0 to High(HUV) do
+      begin
+        R := High(HUV[W]);
+        for Q := 0 to High(HUV[W]) do
+        begin
+          if ((HUV[W][Q].Y > V) <> (HUV[W][R].Y > V)) and
+             (U < (HUV[W][R].X - HUV[W][Q].X) * (V - HUV[W][Q].Y) /
+                  (HUV[W][R].Y - HUV[W][Q].Y) + HUV[W][Q].X) then
+            Inside := not Inside;
+          R := Q;
+        end;
+      end;
+    Result := Inside;
+  end;
+
+  function Seen(const W: TP3): Boolean;
+  var
+    SP: TPointF;
+  begin
+    Result := True;
+    if (Ink = nil) or not Ink.DepthOn then Exit;
+    SP := ScreenOf(W);
+    Zb := Ink.DepthAt(Round(SP.X), Round(SP.Y));
+    if Zb < -1E29 then Exit;
+    Dp := Dot3(W, Look);
+    Result := Zb <= Dp + 1E-3 * (1 + Abs(Dp));
+  end;
+
 begin
-  if Length(Poly) < 3 then Exit;
-  SetLength(Pts, Length(Poly));
-  for I := 0 to High(Poly) do
-    Pts[I] := Point(Round(Poly[I].X), Round(Poly[I].Y));
-  C.Brush.Style := bsDiagCross;
-  C.Brush.Color := PixToColor(Col);
-  C.Pen.Style := psClear;
-  C.Polygon(Pts);
-  C.Brush.Style := bsClear;
+  if (Face < 0) or (Face >= FD.Doc.Live) or (FD.Doc[Face].Kind <> ekFace) then
+    Exit;
+  Poly := FD.Doc[Face].Poly;
+  N := Length(Poly);
+  if N < 3 then Exit;
+  Ink := ActiveInk;
+  Look := ViewDir(Proj);
+  Nm := Norm3(FD.Doc.FaceNormal(Face));
+  AxesFromNormal(Nm, AU, AV);
+  O := Poly[0];
+
+  { the face and its windows in the plane's own coordinates }
+  SetLength(UV, N);
+  MinU := 1E30; MaxU := -1E30; MinV := 1E30; MaxV := -1E30;
+  for I := 0 to N - 1 do
+  begin
+    P := P3(Poly[I].X - O.X, Poly[I].Y - O.Y, Poly[I].Z - O.Z);
+    UV[I] := PtF(Dot3(P, AU), Dot3(P, AV));
+    MinU := Min(MinU, UV[I].X); MaxU := Max(MaxU, UV[I].X);
+    MinV := Min(MinV, UV[I].Y); MaxV := Max(MaxV, UV[I].Y);
+  end;
+  SetLength(HUV, Length(FD.Doc[Face].Holes));
+  for H := 0 to High(HUV) do
+  begin
+    SetLength(HUV[H], Length(FD.Doc[Face].Holes[H]));
+    for I := 0 to High(HUV[H]) do
+    begin
+      P := P3(FD.Doc[Face].Holes[H][I].X - O.X, FD.Doc[Face].Holes[H][I].Y - O.Y,
+              FD.Doc[Face].Holes[H][I].Z - O.Z);
+      HUV[H][I] := PtF(Dot3(P, AU), Dot3(P, AV));
+    end;
+  end;
+
+  { how big a screen pixel is in the plane, so the hatch keeps its density
+    whatever the zoom - a unit vector along AU projects to Ppx pixels }
+  SA := ScreenOf(O);
+  SB := ScreenOf(P3(O.X + AU.X, O.Y + AU.Y, O.Z + AU.Z));
+  Ppx := Sqrt(Sqr(SB.X - SA.X) + Sqr(SB.Y - SA.Y));
+  if Ppx < 1E-6 then Exit;
+  StepW := STEP_PX * FUIScale / Ppx;
+  PieceW := PIECE_PX * FUIScale / Ppx;
+
   C.Pen.Style := psSolid;
+  C.Pen.Color := PixToColor(Col);
+  C.Pen.Width := 1;
+
+  { diagonals across the bounding box; each is walked in pieces }
+  Diag := (MaxU - MinU) + (MaxV - MinV);
+  Steps := Ceil(Diag / StepW);
+  if Steps > 400 then Exit;          // a face the size of the screen at 1:1
+  for I := 0 to Steps do
+  begin
+    { the line u + v = MinU + MinV + I*StepW, clipped to the box }
+    T0 := MinU + MinV + I * StepW;
+    U0 := Max(MinU, T0 - MaxV);  V0 := T0 - U0;
+    T1 := Min(MaxU, T0 - MinV);
+    if T1 <= U0 then Continue;
+    DU := 1; DV := -1;
+    Len := (T1 - U0) * Sqrt(2);
+    Pieces := Max(1, Ceil(Len / PieceW));
+    for J := 0 to Pieces - 1 do
+    begin
+      A := U0 + (T1 - U0) * J / Pieces;
+      B := U0 + (T1 - U0) * (J + 1) / Pieces;
+      { the middle of the piece decides for the whole piece }
+      if not InFace((A + B) / 2, V0 - ((A + B) / 2 - U0)) then Continue;
+      P := P3(O.X + AU.X * ((A + B) / 2) + AV.X * (V0 - ((A + B) / 2 - U0)),
+              O.Y + AU.Y * ((A + B) / 2) + AV.Y * (V0 - ((A + B) / 2 - U0)),
+              O.Z + AU.Z * ((A + B) / 2) + AV.Z * (V0 - ((A + B) / 2 - U0)));
+      if not Seen(P) then Continue;
+      SA := ScreenOf(P3(O.X + AU.X * A + AV.X * (V0 - (A - U0)),
+                        O.Y + AU.Y * A + AV.Y * (V0 - (A - U0)),
+                        O.Z + AU.Z * A + AV.Z * (V0 - (A - U0))));
+      SB := ScreenOf(P3(O.X + AU.X * B + AV.X * (V0 - (B - U0)),
+                        O.Y + AU.Y * B + AV.Y * (V0 - (B - U0)),
+                        O.Z + AU.Z * B + AV.Z * (V0 - (B - U0))));
+      C.MoveTo(Round(SA.X), Round(SA.Y));
+      C.LineTo(Round(SB.X), Round(SB.Y));
+    end;
+  end;
 end;
 
 { An entity's outline, traced heavily in one color.
@@ -5795,7 +5932,7 @@ begin
   begin
     Hi := FD.Doc.Outline(Proj, FDoomed[AY]);
     if (Length(Hi) >= 3) and (FD.Doc[FDoomed[AY]].Kind = ekFace) then
-      WashFace(C, Hi, Pix(240, 60, 60));
+      WashFace(C, FDoomed[AY], Pix(240, 60, 60));
     if Length(Hi) >= 2 then
     begin
       TraceOutline(C, Hi, Pix(240, 60, 60));
@@ -5808,7 +5945,7 @@ begin
     { A whole panel is a lot to lose to a click, so when the eraser has locked
       onto one it says so across the face rather than round its edge. }
     if (Length(Hi) >= 3) and (FD.Doc[FHoverEnt].Kind = ekFace) then
-      WashFace(C, Hi, Pix(230, 70, 70));
+      WashFace(C, FHoverEnt, Pix(230, 70, 70));
     if Length(Hi) >= 2 then
     begin
       TraceOutline(C, Hi, Pix(230, 70, 70));
@@ -7205,6 +7342,9 @@ begin
     SetTool(ptPush)
   else if (W = 'undo') or (W = 'u') then DoUndo
   else if W = 'redo' then DoRedo
+  { the shop tool by name, the way every other tool can be reached - the
+    SHOP list is the discoverable way in, this is the fast one }
+  else if (W = 'unfold') or (W = 'layout') then StartUnfold
   else if (W = 'fit') or (W = 'zoom') then FitView
   else if W = 'view' then CycleViewPreset(1)
   else if (W = 'top') or (W = 'down') then ApplyViewPreset(10)
@@ -9013,7 +9153,7 @@ type
 var
   R: TRegionArray;
   Was: array of TWas;
-  NWas, I, J, K, Made, DupAt, HK: Integer;
+  NWas, I, J, K, Made, DupAt: Integer;
   RegArea: Double;
   Mid, Other: TP3;
   Ink: TColor;
@@ -9082,12 +9222,19 @@ begin
                               FD.Doc[J].Poly[0].Y - R[I].Outer[0].Y,
                               FD.Doc[J].Poly[0].Z - R[I].Outer[0].Z))) > 1E-4
           then Continue;
-        { both sides net of their openings, now that a face knows about its
-          own - comparing a ring against a whole rectangle never matches }
+        { Outline against outline, with the openings left out of both.
+
+          This is asking "is this the same face", and the outline is what
+          makes it the same face; what has been cut out of it is what changes
+          from one rebuild to the next.  Comparing net areas - the first
+          version of this after faces learned about holes - meant a wall that
+          had just had a window drawn on it was measured with the window and
+          the solid's own face without it, 68 against 80, so they never
+          matched, and the hand-off below that gives the solid's face its
+          opening never ran.  The window drew, and the wall stayed solid. }
         RegArea := Abs(LoopArea(R[I].Outer, R[I].Normal));
-        for HK := 0 to High(R[I].Holes) do
-          RegArea := RegArea - Abs(LoopArea(R[I].Holes[HK], R[I].Normal));
-        if Abs(RegArea - FD.Doc.FaceArea(J)) > 1E-3 then Continue;
+        if Abs(RegArea - Abs(LoopArea(FD.Doc[J].Poly, Other))) > 1E-3 then
+          Continue;
         if PointInLoop(Mid, FD.Doc[J].Poly, Other) then
         begin
           Dup := True;

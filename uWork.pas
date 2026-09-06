@@ -3510,12 +3510,12 @@ end;
   own, for the times something needs asking outside a repaint. }
 function TWorkDoc.HiddenAt(const V: TProjector; const P: TP3): Boolean;
 var
-  I, A, B, N: Integer;
+  I, A, B, N, H, M: Integer;
   SP: TPointF;
   Inside: Boolean;
   Nm, Look: TP3;
   Den, T: Double;
-  Poly: array of TPointF;
+  Poly, HP: array of TPointF;
 begin
   Result := False;
   SP := Project(V, P);
@@ -3550,6 +3550,25 @@ begin
         Inside := not Inside;
       B := A;
     end;
+    { and out again through anything cut from it: a wall does not hide what
+      is seen through its window }
+    if Inside then
+      for H := 0 to High(FEnts[I].Holes) do
+      begin
+        M := Length(FEnts[I].Holes[H]);
+        if M < 3 then Continue;
+        SetLength(HP, M);
+        for A := 0 to M - 1 do HP[A] := Project(V, FEnts[I].Holes[H][A]);
+        B := M - 1;
+        for A := 0 to M - 1 do
+        begin
+          if ((HP[A].Y > SP.Y) <> (HP[B].Y > SP.Y)) and
+             (SP.X < (HP[B].X - HP[A].X) * (SP.Y - HP[A].Y) /
+                     (HP[B].Y - HP[A].Y) + HP[A].X) then
+            Inside := not Inside;
+          B := A;
+        end;
+      end;
     if Inside then Exit(True);
   end;
 end;

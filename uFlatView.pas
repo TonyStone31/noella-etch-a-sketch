@@ -30,8 +30,8 @@ type
 
 procedure TFlatForm.Paint;
 var
-  I, J, K: Integer;
-  Sc, OX, OY, W, H: Double;
+  I, J, K, H: Integer;
+  Sc, OX, OY, W, HH: Double;
   HeadH, FootH: Integer;
   Pts: array of TPoint;
   S: string;
@@ -54,21 +54,32 @@ begin
   Canvas.FillRect(0, 0, ClientWidth, ClientHeight);
 
   W := Max(Pat.MaxX - Pat.MinX, 1E-9);
-  H := Max(Pat.MaxY - Pat.MinY, 1E-9);
-  Sc := Min((ClientWidth - 80) / W, (ClientHeight - HeadH - FootH - 40) / H);
+  HH := Max(Pat.MaxY - Pat.MinY, 1E-9);
+  Sc := Min((ClientWidth - 80) / W, (ClientHeight - HeadH - FootH - 40) / HH);
   if Sc <= 0 then Sc := 1;
   OX := (ClientWidth - W * Sc) / 2;
-  OY := HeadH + (ClientHeight - HeadH - FootH - H * Sc) / 2 + H * Sc;
+  OY := HeadH + (ClientHeight - HeadH - FootH - HH * Sc) / 2 + HH * Sc;
 
   { the panels, filled faintly so the shape of the sheet reads at a glance }
-  Canvas.Brush.Color := $00F4F0EC;
   Canvas.Pen.Style := psClear;
   for I := 0 to High(Pat.Faces) do
   begin
+    Canvas.Brush.Color := $00F4F0EC;
     SetLength(Pts, Length(Pat.Faces[I].P));
     for J := 0 to High(Pat.Faces[I].P) do
       Pts[J] := Point(SX(Pat.Faces[I].P[J].X), SY(Pat.Faces[I].P[J].Y));
     Canvas.Polygon(Pts);
+    { and the openings, in the color of the sheet, so a window in a panel
+      reads as metal that is not there rather than as a shape drawn on it }
+    Canvas.Brush.Color := clWhite;
+    for H := 0 to High(Pat.Faces[I].Holes) do
+    begin
+      SetLength(Pts, Length(Pat.Faces[I].Holes[H]));
+      for J := 0 to High(Pat.Faces[I].Holes[H]) do
+        Pts[J] := Point(SX(Pat.Faces[I].Holes[H][J].X),
+                        SY(Pat.Faces[I].Holes[H][J].Y));
+      if Length(Pts) >= 3 then Canvas.Polygon(Pts);
+    end;
   end;
   Canvas.Pen.Style := psSolid;
   Canvas.Brush.Style := bsClear;
@@ -105,7 +116,7 @@ begin
 
   Canvas.Font.Size := 9;
   Canvas.Font.Style := [];
-  S := Format('sheet %s x %s', [FormatLen(W, Units), FormatLen(H, Units)]);
+  S := Format('sheet %s x %s', [FormatLen(W, Units), FormatLen(HH, Units)]);
   Canvas.TextOut(16, 34, S);
 
   Canvas.Font.Color := $00303030;

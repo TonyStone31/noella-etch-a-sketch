@@ -55,6 +55,10 @@ type
     shape and the same size it was. }
   TFlatFace = record
     P: array of TFlatPt;
+    { What is cut out of it, laid flat the same way.  A window in a panel is
+      metal that is not there, and the sheet has to say so or the shop cuts a
+      solid panel and the window is drawn on it afterwards by hand. }
+    Holes: array of array of TFlatPt;
     Face: Integer;            // which face of the document it came from
   end;
 
@@ -84,6 +88,7 @@ type
     Doc: Integer;                 // index in the document
     V: TIntArray;                 // welded vertex numbers, in order
     L: array of TFlatPt;          // the panel in its own plane
+    LH: array of array of TFlatPt;  // its openings, in that same plane
     Q: array of TFlatPt;          // and where it ended up on the sheet
     Nm: TP3;
     Placed: Boolean;
@@ -198,7 +203,7 @@ var
   Edges: array of TEdgeRef;
   NP, NV, NE: Integer;
   Order, Parent: TIntArray;
-  I, J, K, F, Head, Tail, T, O, E, Ai, Bi: Integer;
+  I, J, K, F, H, Head, Tail, T, O, E, Ai, Bi: Integer;
   U, V, Nm, D3: TP3;
   Poly: TP3Array;
   Dot, Ang, Sx, Sy, Cs, Sn, LenL, LenP: Double;
@@ -272,6 +277,43 @@ var
     Result.Y := Result.Y / Length(S);
   end;
 
+  { Where a point of a panel's own plane ends up on the sheet, given where the
+    panel's corners ended up.
+
+    The move from L to Q is rigid - a turn and a shift, and possibly a mirror
+    - so two corners fix the turn and shift and a third says whether it was
+    mirrored: carry the third across without a mirror, and if it does not land
+    on its own Q the panel was flipped. }
+  function Carried(const L, Q: array of TFlatPt; const X: TFlatPt): TFlatPt;
+  var
+    EX, EY, FX, FY, LenE, LenF, A, B, Sg: Double;
+    T: TFlatPt;
+  begin
+    Result := X;
+    if (Length(L) < 2) or (Length(Q) < 2) then Exit;
+    EX := L[1].X - L[0].X; EY := L[1].Y - L[0].Y;
+    FX := Q[1].X - Q[0].X; FY := Q[1].Y - Q[0].Y;
+    LenE := Sqrt(EX * EX + EY * EY);
+    LenF := Sqrt(FX * FX + FY * FY);
+    if (LenE < 1E-12) or (LenF < 1E-12) then Exit;
+    EX := EX / LenE; EY := EY / LenE;
+    FX := FX / LenF; FY := FY / LenF;
+    Sg := 1;
+    if Length(L) >= 3 then
+    begin
+      { the third corner, carried as if there were no mirror }
+      A := (L[2].X - L[0].X) * EX + (L[2].Y - L[0].Y) * EY;
+      B := (L[2].X - L[0].X) * (-EY) + (L[2].Y - L[0].Y) * EX;
+      T.X := Q[0].X + A * FX + B * (-FY);
+      T.Y := Q[0].Y + A * FY + B * FX;
+      if Sqr(T.X - Q[2].X) + Sqr(T.Y - Q[2].Y) > 1E-12 then Sg := -1;
+    end;
+    A := (X.X - L[0].X) * EX + (X.Y - L[0].Y) * EY;
+    B := ((X.X - L[0].X) * (-EY) + (X.Y - L[0].Y) * EX) * Sg;
+    Result.X := Q[0].X + A * FX + B * (-FY);
+    Result.Y := Q[0].Y + A * FY + B * FX;
+  end;
+
   { Which side of the line PA..PB a point falls. }
   function Side(const PA2, PB2, Pt: TFlatPt): Double;
   begin
@@ -310,6 +352,21 @@ begin
                Poly[J].Z - Poly[0].Z);
       Pan[NP].L[J].X := Dot3(D3, U);
       Pan[NP].L[J].Y := Dot3(D3, V);
+    end;
+    { the openings, with the same basis and the same origin, so they sit in
+      the panel exactly where they sit in the face }
+    SetLength(Pan[NP].LH, Length(Doc[F].Holes));
+    for H := 0 to High(Doc[F].Holes) do
+    begin
+      SetLength(Pan[NP].LH[H], Length(Doc[F].Holes[H]));
+      for J := 0 to High(Doc[F].Holes[H]) do
+      begin
+        D3 := P3(Doc[F].Holes[H][J].X - Poly[0].X,
+                 Doc[F].Holes[H][J].Y - Poly[0].Y,
+                 Doc[F].Holes[H][J].Z - Poly[0].Z);
+        Pan[NP].LH[H][J].X := Dot3(D3, U);
+        Pan[NP].LH[H][J].Y := Dot3(D3, V);
+      end;
     end;
     Inc(NP);
   end;
@@ -411,6 +468,20 @@ begin
       SetLength(Result.Faces[Result.Laid].P, Length(Pan[I].Q));
       for J := 0 to High(Pan[I].Q) do
         Result.Faces[Result.Laid].P[J] := Pan[I].Q[J];
+      { The openings go where the panel went.  The panel was turned, moved and
+        perhaps mirrored on its way to the sheet, and none of that was written
+        down as a transform - it was applied to the corners as it happened.
+        So the transform is read back off the corners: where the first two
+        went says how it turned and moved, and whether the third landed where
+        that alone would put it says whether it was mirrored too. }
+      SetLength(Result.Faces[Result.Laid].Holes, Length(Pan[I].LH));
+      for H := 0 to High(Pan[I].LH) do
+      begin
+        SetLength(Result.Faces[Result.Laid].Holes[H], Length(Pan[I].LH[H]));
+        for J := 0 to High(Pan[I].LH[H]) do
+          Result.Faces[Result.Laid].Holes[H][J] :=
+            Carried(Pan[I].L, Pan[I].Q, Pan[I].LH[H][J]);
+      end;
       Inc(Result.Laid);
     end;
   SetLength(Result.Faces, Result.Laid);
@@ -447,6 +518,23 @@ begin
     end;
     Inc(K);
   end;
+  { and every edge of every opening is a cut, because there is nothing on
+    the other side of it to fold to }
+  for I := 0 to High(Result.Faces) do
+    for H := 0 to High(Result.Faces[I].Holes) do
+      for J := 0 to High(Result.Faces[I].Holes[H]) do
+      begin
+        if K >= Length(Result.Edges) then
+          SetLength(Result.Edges, Max(16, K * 2));
+        O := (J + 1) mod Length(Result.Faces[I].Holes[H]);
+        Result.Edges[K].AX := Result.Faces[I].Holes[H][J].X;
+        Result.Edges[K].AY := Result.Faces[I].Holes[H][J].Y;
+        Result.Edges[K].BX := Result.Faces[I].Holes[H][O].X;
+        Result.Edges[K].BY := Result.Faces[I].Holes[H][O].Y;
+        Result.Edges[K].Angle := 0;
+        Result.Edges[K].Kind := fkCut;
+        Inc(K);
+      end;
   SetLength(Result.Edges, K);
 
   { --- the sheet it needs --------------------------------------------- }

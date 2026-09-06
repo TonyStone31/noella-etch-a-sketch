@@ -277,13 +277,15 @@ end;
 
 function SwapInAndRestart(const NewFile: string; out Err: string): Boolean;
 var
-  Me, Old: string;
+  Me: string;
+  {$IFDEF WINDOWS}
+  Old: string;      { only Windows has to move the running file aside }
+  {$ENDIF}
   P: TProcess;
 begin
   Result := False;
   Err := '';
   Me := ExpandFileName(ParamStr(0));
-  Old := Me + '.old';
   if not FileExists(NewFile) then
   begin
     Err := 'the download went missing';
@@ -294,6 +296,7 @@ begin
   { Windows will not let a running program be written over, but it will let
     it be renamed out of the way.  The new copy clears the old one up the
     next time it starts. }
+  Old := Me + '.old';
   if FileExists(Old) then DeleteFile(Old);
   if not RenameFile(Me, Old) then
   begin

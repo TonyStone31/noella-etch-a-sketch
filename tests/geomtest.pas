@@ -1644,6 +1644,8 @@ var
   Faces: array of Integer;
   I, J, K, Bends, Cuts: Integer;
   Area, Want, EL: Double;
+  HoleSet: array of TP3Array;
+  Win: TP3Array;
 
   { A rectangular transition, flat on top and on the left. }
   procedure Trans(W1, H1, W2, H2, L: Double);
@@ -1731,6 +1733,61 @@ begin
     { the sheet it needs is at least as big as the biggest face }
     Ok((P.MaxX - P.MinX) >= 10 - 1E-9, 'the sheet is wide enough for it');
     Ok((P.MaxY - P.MinY) >= 4 - 1E-9, 'and tall enough');
+  finally
+    D.Free;
+  end;
+
+  { The same box with a window cut in its top.  The window has to arrive on
+    the sheet: as metal that is not there, and as four more cuts. }
+  D := TWorkDoc.Create;
+  try
+    Box(10, 6, 4);
+    SetLength(Win, 4);
+    Win[0] := P3(2, 1, 4); Win[1] := P3(2, 5, 4);
+    Win[2] := P3(5, 5, 4); Win[3] := P3(5, 1, 4);
+    SetLength(HoleSet, 1);
+    HoleSet[0] := Win;
+    { the top is the second face the Box helper adds }
+    D.SetFaceHoles(1, HoleSet);
+    SetLength(Faces, D.Live);
+    for I := 0 to D.Live - 1 do Faces[I] := I;
+    P := Unfold(D, Faces);
+    Ok(P.Ok and (P.Laid = 6), 'a box with a window still lays out');
+
+    K := 0;
+    for I := 0 to High(P.Faces) do
+      Inc(K, Length(P.Faces[I].Holes));
+    Ok(K = 1, Format('and exactly one panel carries the window (%d)', [K]));
+
+    Cuts := 0;
+    for I := 0 to High(P.Edges) do
+      if P.Edges[I].Kind = fkCut then Inc(Cuts);
+    Ok(Cuts = 7 + 4, Format('the window adds four cuts (%d)', [Cuts]));
+
+    { the window sits inside its panel on the sheet - which is what the
+      carried transform is for, mirror and all }
+    for I := 0 to High(P.Faces) do
+      if Length(P.Faces[I].Holes) = 1 then
+      begin
+        Area := 0;
+        for J := 0 to High(P.Faces[I].Holes[0]) do
+        begin
+          EL := P.Faces[I].Holes[0][J].X;
+          Want := P.Faces[I].Holes[0][J].Y;
+          Bends := 0;
+          for K := 0 to High(P.Faces[I].P) do
+          begin
+            Cuts := (K + 1) mod Length(P.Faces[I].P);
+            if ((P.Faces[I].P[K].Y > Want) <> (P.Faces[I].P[Cuts].Y > Want)) and
+               (EL < (P.Faces[I].P[Cuts].X - P.Faces[I].P[K].X) *
+                     (Want - P.Faces[I].P[K].Y) /
+                     (P.Faces[I].P[Cuts].Y - P.Faces[I].P[K].Y) + P.Faces[I].P[K].X) then
+              Bends := 1 - Bends;
+          end;
+          if Bends = 1 then Area := Area + 1;
+        end;
+        Ok(Area = 4, Format('all four window corners lie inside their panel (%.0f)', [Area]));
+      end;
   finally
     D.Free;
   end;
