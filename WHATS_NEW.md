@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- The middle of a footing ring can be erased.  A rectangle offset out and
+  in, with the middle lines removed, makes a ring with a hole; erasing the
+  face in the hole gave it straight back, because the check for "was there
+  a face here" looked only at the ring's outline and not at its hole.
+- The rear edges of a pulled circle and the top of a column drew dashed in
+  the last build; the hidden-line test had been made too strict for the
+  depth buffer's precision on a model far from the origin.
+
 ## v2026.09.06.8
 
 ### Fixed

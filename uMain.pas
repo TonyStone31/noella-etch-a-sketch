@@ -9844,6 +9844,7 @@ type
   TWas = record
     Mid: TP3;
     Poly: TP3Array;
+    Holes: array of TP3Array;
     Nm: TP3;
     Ink: TColor;
   end;
@@ -9881,6 +9882,20 @@ var
     Result := (Abs(Abs(Dot3(Was[W].Nm, R[I].Normal)) - 1) < 1E-6) and
       (Abs(Dot3(Was[W].Nm, P3(Mid.X - Was[W].Poly[0].X, Mid.Y - Was[W].Poly[0].Y,
                               Mid.Z - Was[W].Poly[0].Z))) < 1E-4);
+  end;
+
+  { Did the face that was here actually cover this point - inside its
+    outline and not inside one of its openings.  A footing ring with the
+    middle rubbed out is a face with a hole; asking only about the outline
+    said the middle "had a face", and gave it one back every rebuild. }
+  function WasCovering(W: Integer): Boolean;
+  var
+    H: Integer;
+  begin
+    Result := OnPlaneOf(W) and PointInLoop(Mid, Was[W].Poly, Was[W].Nm);
+    if not Result then Exit;
+    for H := 0 to High(Was[W].Holes) do
+      if PointInLoop(Mid, Was[W].Holes[H], Was[W].Nm) then Exit(False);
   end;
 
 begin
@@ -9969,6 +9984,9 @@ begin
        (Length(FD.Doc[I].Poly) >= 3) then
     begin
       Was[NWas].Poly := Copy(FD.Doc[I].Poly, 0, Length(FD.Doc[I].Poly));
+      SetLength(Was[NWas].Holes, Length(FD.Doc[I].Holes));
+      for J := 0 to High(FD.Doc[I].Holes) do
+        Was[NWas].Holes[J] := Copy(FD.Doc[I].Holes[J], 0, Length(FD.Doc[I].Holes[J]));
       Was[NWas].Nm := FD.Doc.FaceNormal(I);
       Was[NWas].Ink := FD.Doc[I].Ink;
       Mid := P3(0, 0, 0);
@@ -9988,7 +10006,7 @@ begin
 
   for I := 0 to High(R) do
   begin
-    Mid := InnerPoint(R[I].Outer, R[I].Normal);
+    Mid := InnerPointOf(R[I].Outer, R[I].Holes, R[I].Normal);
 
     { Is this one a face the solid already has?  Same middle, same size, so
       it is the same face arrived at from the other direction.  Drawing it
@@ -10071,7 +10089,7 @@ begin
       straight back because its twin on the other end was still there. }
     HadFace := False;
     for J := 0 to NWas - 1 do
-      if OnPlaneOf(J) and PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
+      if WasCovering(J) then
       begin
         HadFace := True;
         Break;
@@ -10091,7 +10109,7 @@ begin
 
     Ink := FInkColor;
     for J := 0 to NWas - 1 do
-      if OnPlaneOf(J) and PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
+      if WasCovering(J) then
       begin
         Ink := Was[J].Ink;
         Break;

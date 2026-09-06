@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- The middle of a footing ring can be erased.  A rectangle offset out and' + LineEnding +
+    '  in, with the middle lines removed, makes a ring with a hole; erasing the' + LineEnding +
+    '  face in the hole gave it straight back, because the check for "was there' + LineEnding +
+    '  a face here" looked only at the ring''s outline and not at its hole.' + LineEnding +
+    '- The rear edges of a pulled circle and the top of a column drew dashed in' + LineEnding +
+    '  the last build; the hidden-line test had been made too strict for the' + LineEnding +
+    '  depth buffer''s precision on a model far from the origin.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.8' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

@@ -103,6 +103,13 @@ function PointInLoop(const P: TP3; const Loop: TP3Array; const Normal: TP3;
   that was not in the region.  The middle of an edge, nudged inward, is. }
 function InnerPoint(const Loop: TP3Array; const Normal: TP3): TP3;
 
+{ The same for a region with openings: a point inside the outline and not
+  inside any hole.  A ring's centre is in its hole, and a point in the hole
+  is not a point of the ring - asking the ring's centre whether the ring had
+  a face said no, and the ring was not given one back. }
+function InnerPointOf(const Outer: TP3Array; const Holes: array of TP3Array;
+  const Normal: TP3): TP3;
+
 implementation
 
 type
@@ -411,6 +418,51 @@ begin
   for I := 0 to N - 1 do
     Acc := Add3(Acc, Cross3(Loop[I], Loop[(I + 1) mod N]));
   Result := Dot3(Acc, Normal) / 2;
+end;
+
+function InnerPointOf(const Outer: TP3Array; const Holes: array of TP3Array;
+  const Normal: TP3): TP3;
+var
+  I, N, F: Integer;
+  Mid, E, Side, N1, Q: TP3;
+  Size, Step: Double;
+
+  function InHole(const P: TP3): Boolean;
+  var
+    K: Integer;
+  begin
+    Result := False;
+    for K := 0 to High(Holes) do
+      if PointInLoop(P, Holes[K], Normal) then Exit(True);
+  end;
+
+begin
+  Result := InnerPoint(Outer, Normal);
+  if (Length(Holes) = 0) or not InHole(Result) then Exit;
+  { the middle is in a hole: walk the outline and try a point just inside
+    each edge, a little way in and then further, until one is in the region }
+  N := Length(Outer);
+  N1 := Norm3(Normal);
+  Size := 0;
+  for I := 0 to N - 1 do
+    Size := Max(Size, Dist(Outer[I], Outer[0]));
+  for F := 1 to 3 do
+  begin
+    Step := Size * 1E-3 * F * F;
+    for I := 0 to N - 1 do
+    begin
+      E := Sub3(Outer[(I + 1) mod N], Outer[I]);
+      if Len3(E) < Step then Continue;
+      Mid := P3((Outer[I].X + Outer[(I + 1) mod N].X) / 2,
+                (Outer[I].Y + Outer[(I + 1) mod N].Y) / 2,
+                (Outer[I].Z + Outer[(I + 1) mod N].Z) / 2);
+      Side := Norm3(Cross3(N1, E));
+      Q := P3(Mid.X + Side.X * Step, Mid.Y + Side.Y * Step, Mid.Z + Side.Z * Step);
+      if PointInLoop(Q, Outer, Normal) and not InHole(Q) then Exit(Q);
+      Q := P3(Mid.X - Side.X * Step, Mid.Y - Side.Y * Step, Mid.Z - Side.Z * Step);
+      if PointInLoop(Q, Outer, Normal) and not InHole(Q) then Exit(Q);
+    end;
+  end;
 end;
 
 function InnerPoint(const Loop: TP3Array; const Normal: TP3): TP3;

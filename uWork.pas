@@ -4962,13 +4962,20 @@ var
       lying exactly on the surface it belongs to then loses to its own face by
       a hair and comes out dashed.  Measuring the step from the neighbours
       makes the tolerance follow the angle instead of being a guess. }
+    { The slope is read from a neighbour; at the edge of a face the one
+      side may be off the face - a loose face is not in the buffer at all -
+      and then the other side is asked, and failing both, a 45 degree slope
+      is assumed rather than none.  Assuming none is what drew the rear top
+      edges of a pulled octagon as dashes. }
     Zx := S.DepthAt(Round(SP.X) + 1, Round(SP.Y));
+    if Zx < -1E29 then Zx := S.DepthAt(Round(SP.X) - 1, Round(SP.Y));
     Zy := S.DepthAt(Round(SP.X), Round(SP.Y) + 1);
+    if Zy < -1E29 then Zy := S.DepthAt(Round(SP.X), Round(SP.Y) - 1);
     { half a step in each direction, since the point can be half a pixel
       from the centre both ways at once }
     Grad := 0;
-    if Zx > -1E29 then Grad := Grad + 0.5 * Abs(Zx - Zb);
-    if Zy > -1E29 then Grad := Grad + 0.5 * Abs(Zy - Zb);
+    if Zx > -1E29 then Grad := Grad + 0.5 * Abs(Zx - Zb) else Grad := Grad + 0.5 / Max(1E-9, V.Ppu);
+    if Zy > -1E29 then Grad := Grad + 0.5 * Abs(Zy - Zb) else Grad := Grad + 0.5 / Max(1E-9, V.Ppu);
 
     { Half a step, not a whole one: the point is within half a pixel of the
 
@@ -4994,7 +5001,12 @@ var
 
       show for a few pixels past its corner. }
 
-    Result := Zb > D + Grad + 1E-7 * (1 + Abs(D)) + 0.02 / Max(1E-9, V.Ppu);
+    { The buffer is single precision and each face's depth is interpolated
+      across it, so at a hundred feet from the origin it is only good to a
+      few ten-thousandths - a slack that scales with the distance is needed
+      for a line on its own face to pass.  A fifth of what it was: enough
+      for the precision, not enough for a crease behind a wall to show. }
+    Result := Zb > D + Grad + 2E-4 * (1 + Abs(D)) + 0.02 / Max(1E-9, V.Ppu);
   end;
 
   { Where along a stretch the cover begins: TVis is a point that can be seen
