@@ -131,10 +131,10 @@ The two worth recognising:
   cannot hold.  Either write it in sixteenths or change PREC.
 * *I cannot read "12..5" as a length.*  Followed by the forms that do work.
 
-## What SketchUp has that we do not
+## Arrays and sides
 
-* `*6` or `x6` after a move - make six copies.
-* `/3` after a move - divide the run into three.
-* `24s` on a circle or an arc - set the segment count.
-
-All three are on the list.
+* `3x`, `x3` or `*3` after a Ctrl-move (a copy) - three copies that far
+  apart.  `/3` - the run divided into three.  The same after a Ctrl-rotate,
+  round the turn.  Another count typed next replaces the last.
+* `24s` or `s24` on a circle or an arc - how many sides.  `+` and `-` step
+  it while the tool is in hand.

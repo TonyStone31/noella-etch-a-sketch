@@ -79,6 +79,8 @@ type
     a list of its own so that undo, save and load carry it for nothing. }
   TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace, ekGuide, ekBore);
 
+  TIntArrayW = array of Integer;
+
   { One thing on the drawing.  World coordinates, Y up, in feet or metres.
 
     ekLine  uses A and B.
@@ -267,6 +269,14 @@ type
     { These entities shift whole, whatever they touch - a built part being
       put down, which must not drag the corner it happened to be built on. }
     procedure TranslateEnts(const Idx: array of Integer; const D: TP3);
+    { SketchUp's arrays.  N copies of Src along D - at D, 2D, 3D when
+      Divide is off (3x), at D/N, 2D/N ... D when it is on (/3) - or turned
+      about the axis by Ang, 2Ang ... likewise.  Made is every entity the
+      copies are, in order, all appended at the end. }
+    procedure ArrayMove(const Src: array of Integer; const D: TP3; N: Integer;
+      Divide: Boolean; out Made: TIntArrayW);
+    procedure ArrayRotate(const Src: array of Integer; const C, Axis: TP3;
+      Ang: Double; N: Integer; Divide: Boolean; out Made: TIntArrayW);
     { The points Outline projects, before projection - for drawing a ghost
       of the thing somewhere other than where it is. }
     function OutlineWorld(I: Integer): TP3Array;
@@ -2967,6 +2977,48 @@ begin
   for I := 0 to FLive - 1 do
     RotateEnt(I, Pts, C, Axis, Ang, False);
   FSnapDirty := True;
+end;
+
+procedure TWorkDoc.ArrayMove(const Src: array of Integer; const D: TP3; N: Integer;
+  Divide: Boolean; out Made: TIntArrayW);
+var
+  K, I, Base, M: Integer;
+  F: Double;
+begin
+  Made := nil;
+  if (N < 1) or (Length(Src) = 0) then Exit;
+  for K := 1 to N do
+  begin
+    if Divide then F := K / N else F := K;
+    Base := FLive;
+    Duplicate(Src, P3(D.X * F, D.Y * F, D.Z * F));
+    M := Length(Made);
+    SetLength(Made, M + (FLive - Base));
+    for I := Base to FLive - 1 do Made[M + I - Base] := I;
+  end;
+end;
+
+procedure TWorkDoc.ArrayRotate(const Src: array of Integer; const C, Axis: TP3;
+  Ang: Double; N: Integer; Divide: Boolean; out Made: TIntArrayW);
+var
+  K, I, Base, M: Integer;
+  F: Double;
+  Fresh: TIntArrayW;
+begin
+  Made := nil;
+  if (N < 1) or (Length(Src) = 0) then Exit;
+  for K := 1 to N do
+  begin
+    if Divide then F := K / N else F := K;
+    Base := FLive;
+    Duplicate(Src, P3(0, 0, 0));
+    SetLength(Fresh, FLive - Base);
+    for I := 0 to High(Fresh) do Fresh[I] := Base + I;
+    RotateEnts(Fresh, C, Axis, Ang * F);
+    M := Length(Made);
+    SetLength(Made, M + Length(Fresh));
+    for I := 0 to High(Fresh) do Made[M + I] := Fresh[I];
+  end;
 end;
 
 procedure TWorkDoc.TranslateEnts(const Idx: array of Integer; const D: TP3);

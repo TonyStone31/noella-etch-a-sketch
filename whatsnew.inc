@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- Copy arrays, SketchUp''s way.  Ctrl-move something to leave a copy, then' + LineEnding +
+    '  type 3x (or x3, *3) for three copies that far apart, or /3 to divide the' + LineEnding +
+    '  run into three.  The same after a Ctrl-rotate: 6x for six round the' + LineEnding +
+    '  circle, /6 to divide the turn.  Typing another count replaces the last.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.13' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

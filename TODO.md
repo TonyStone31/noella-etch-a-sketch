@@ -48,25 +48,22 @@ The direction, settled 6 September: one drawing, one camera; the things that
 build a model from numbers are wizards under Create that drop the result
 into the drawing; hammer the general tools before the generators.
 
-1. **Copy and move arrays** - `*6` and `/3` after a Ctrl-move, and after a
-   rotate.  SketchUp's own docs do not give the syntax, so this is worked out
-   from the app.
-2. **The field-sketch wizard.**  The paper grid as an input: draw the run not
+1. **The field-sketch wizard.**  The paper grid as an input: draw the run not
    to scale, dimension it, build the 3D drawing from the numbers and place
    it.  The ISO and PLAN paper modes are its engine; they come off the
    Create menu and on to the wizard when it exists.
-3. **The transition wizard's ends**: TDF, flange out, flange in, slip, drive,
+2. **The transition wizard's ends**: TDF, flange out, flange in, slip, drive,
    raw, corners notched - per edge, each worth the shop's own number of
    material.  Then the offset (same size both ends) and the elbows as more
    wizards.
-4. **The rest of the dimension tool**: radius and diameter, dragging an
+3. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
-5. **Drill, the hard cases.**  A tunnel crossing a tunnel that was itself
+4. **Drill, the hard cases.**  A tunnel crossing a tunnel that was itself
    already crossed; two tunnels that share a wall plane (coplanar floors -
    left overlapping today); a tunnel that grazes another.
-6. **Sliding a wall of a block with a tunnel through it** tears the block:
+5. **Sliding a wall of a block with a tunnel through it** tears the block:
    the tunnel's lining is not attached to the wall that moves.
-7. **Rotate's Shift and Alt.**
+6. **Rotate's Shift and Alt.**
 
 ---
 

@@ -2173,6 +2173,46 @@ begin
   end;
 end;
 
+procedure TestArrays;
+var
+  D: TWorkDoc;
+  Made: TIntArrayW;
+  I, Lines: Integer;
+  Far: Double;
+begin
+  WriteLn('Copy arrays');
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(1, 0, 0), 0, 1, False);
+    D.AddLine(P3(1, 0, 0), P3(1, 1, 0), 0, 1, False);
+    { 3x: three copies two feet apart along Y }
+    D.ArrayMove([0, 1], P3(0, 2, 0), 3, False, Made);
+    Ok(Length(Made) = 6, 'three copies of two lines is six lines');
+    Ok(D.Live = 8, 'appended to the drawing');
+    Far := 0;
+    for I := 0 to High(Made) do Far := Max(Far, D[Made[I]].A.Y);
+    Ok(Abs(Far - 6) < 1E-9, 'the last is three spacings out');
+    Ok(Abs(D[Made[0]].A.Y - 2) < 1E-9, 'the first is one spacing out');
+    { /4: the same run divided into four }
+    for I := High(Made) downto 0 do D.Delete(Made[I]);
+    D.ArrayMove([0, 1], P3(0, 2, 0), 4, True, Made);
+    Ok(Length(Made) = 8, 'divided into four is four copies');
+    Ok(Abs(D[Made[0]].A.Y - 0.5) < 1E-9, 'the first at a quarter of the run');
+    Ok(Abs(D[Made[6]].A.Y - 2) < 1E-9, 'the last at the end of the run');
+    { a turned array: four round a circle }
+    for I := High(Made) downto 0 do D.Delete(Made[I]);
+    D.ArrayRotate([0], P3(0, 0, 0), P3(0, 0, 1), Pi / 2, 4, False, Made);
+    Ok(Length(Made) = 4, 'four turned copies');
+    Ok(Dist(D[Made[0]].B, P3(0, 1, 0)) < 1E-9, 'the first a quarter turn round');
+    Ok(Dist(D[Made[3]].B, P3(1, 0, 0)) < 1E-9, 'the fourth back where it started');
+    Lines := 0;
+    for I := 0 to D.Live - 1 do if D[I].Kind = ekLine then Inc(Lines);
+    Ok(Lines = 6, 'nothing but the two originals and the four copies');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArcOnFreePlane;
 var
   C, A, B, P, N: TP3;
@@ -2575,6 +2615,7 @@ begin
   TestArcSides;  WriteLn;
   TestRoundCrossing;  WriteLn;
   TestTransition;  WriteLn;
+  TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

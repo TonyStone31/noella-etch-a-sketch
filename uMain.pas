@@ -452,6 +452,17 @@ type
     FMoveShift: TShiftState;
     { a built part being placed moves whole, on its own; nothing stretches }
     FMoveRigid: Boolean;
+    { The copy just made, so 3x or /3 typed next turns it into an array.
+      Src is what was copied, Made every entity the copies are - all at the
+      end of the list, so they can be taken back and made again at a new
+      count.  Live until any other action. }
+    FArray: record
+      Live, Rotate: Boolean;
+      Src: array of Integer;
+      Made: TIntArrayW;
+      D, C, Axis: TP3;
+      Ang: Double;
+    end;
     { Rotate and the protractor.  FP1 is the center; the axis is the plane's
       normal - an arrow key's axis, else the face under the cursor, else
       blue - and the reference arm is the second click. }
@@ -553,6 +564,8 @@ type
     procedure DoUpdate;
     procedure ShowWhatsNew;
     procedure BuildTransitionWizard;
+    procedure ApplyArray(N: Integer; Divide: Boolean);
+    function ArrayCommand(const S: string; out N: Integer; out Divide: Boolean): Boolean;
     { hand something just built to the move tool, so the next click places it }
     procedure PlaceBuilt(First: Integer; const Ref: TP3);
     procedure StartUnfold;
@@ -4653,6 +4666,61 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ 3x, x3, *3: three copies at the spacing of the one just made.  /3, 3/:
+  the run divided into three.  Nothing else. }
+function TMainForm.ArrayCommand(const S: string; out N: Integer; out Divide: Boolean): Boolean;
+var
+  T: string;
+begin
+  Result := False;
+  N := 0;
+  Divide := False;
+  T := LowerCase(Trim(S));
+  if Length(T) < 2 then Exit;
+  if T[1] in ['x', '*', '/'] then
+  begin
+    Divide := T[1] = '/';
+    Delete(T, 1, 1);
+  end
+  else if T[Length(T)] in ['x', '*', '/'] then
+  begin
+    Divide := T[Length(T)] = '/';
+    Delete(T, Length(T), 1);
+  end
+  else
+    Exit;
+  Result := TryStrToInt(Trim(T), N) and (N >= 2) and (N <= 500);
+end;
+
+{ Make the copy just placed into N of them.  The ones already made are
+  taken back first, so a second count replaces the first rather than piling
+  on top of it; they are the last things in the list, so that is a matter
+  of deleting from the end. }
+procedure TMainForm.ApplyArray(N: Integer; Divide: Boolean);
+var
+  I: Integer;
+begin
+  if not FArray.Live then Exit;
+  PushUndo;
+  for I := High(FArray.Made) downto 0 do
+    FD.Doc.Delete(FArray.Made[I]);
+  if FArray.Rotate then
+    FD.Doc.ArrayRotate(FArray.Src, FArray.C, FArray.Axis, FArray.Ang, N, Divide, FArray.Made)
+  else
+    FD.Doc.ArrayMove(FArray.Src, FArray.D, N, Divide, FArray.Made);
+  SelectNone;
+  for I := 0 to High(FArray.Made) do SelectAdd(FArray.Made[I]);
+  SeedRegions;
+  RenderPro;
+  RecomposeAll;
+  if Divide then
+    FCmdMsg := Format('Divided into %d.  Another count replaces it.', [N])
+  else
+    FCmdMsg := Format('%d copies.  Another count replaces it.', [N]);
+  pbScreen.Invalidate;
+  pbCmd.Invalidate;
+end;
+
 { The wizards.  Each builds a real piece from numbers, at the origin, and
   then hands it to the move tool so the next click puts it where it goes -
   the same move anything else gets, with the same snaps. }
@@ -6416,7 +6484,7 @@ begin
         if FStage >= 2 then S2 := 'Enter keeps this as a dimension - any two points, connected or not'
         else S2 := 'click the second point, or type a distance - 3, 2''6, 0-8-8';
       ptRect:   S2 := 'drag it, or type 8x10, 8/10 or 2''6x4 - a minus flips a side';
-      ptMove:   S2 := 'type a length, [x,y,z] or <x,y,z> - arrows lock an axis, Ctrl copies';
+      ptMove:   S2 := 'type a length, [x,y,z] or <x,y,z> - Ctrl copies, then 3x or /3 for an array';
       ptOffset: S2 := 'type the offset - 6", 1-6 - negative goes inward';
       ptRotate, ptProtractor:
         if FStage = 1 then S2 := 'click a point to measure the angle from'
@@ -6668,6 +6736,7 @@ end;
 procedure TMainForm.SetTool(T: TProTool);
 begin
   Trail('tool ' + TOOL_NAMES[T]);
+  FArray.Live := False;
   { Push/pull along a face normal that points at the camera can only move the
     face away from you, which plan cannot draw and you cannot judge. Rather
     than leave a tool that appears to do nothing, go and get a view where it
@@ -7036,6 +7105,9 @@ var
   T: TP3;
   WasLine: Boolean;
 begin
+  { a click on anything is the end of the copy that could have become an
+    array - except the copy's own placing click, which is what set it up }
+  if FStage = 0 then FArray.Live := False;
   case FTool of
     ptOrbit: ;   // the drag does the work
 
@@ -7498,14 +7570,20 @@ begin
         begin
           { the copy stands on its own and turns whole; the original and
             whatever hangs off it stay put }
-          Base := FD.Doc.Live;
-          FD.Doc.Duplicate(FSel, P3(0, 0, 0));
-          SetLength(Copies, FD.Doc.Live - Base);
-          for I := 0 to High(Copies) do Copies[I] := Base + I;
-          FD.Doc.RotateEnts(Copies, FP1, FRotAxis, Ang);
+          FArray.Live := True;
+          FArray.Rotate := True;
+          FArray.C := FP1;
+          FArray.Axis := FRotAxis;
+          FArray.Ang := Ang;
+          SetLength(FArray.Src, Length(FSel));
+          for I := 0 to High(FSel) do FArray.Src[I] := FSel[I];
+          FD.Doc.ArrayRotate(FArray.Src, FP1, FRotAxis, Ang, 1, False, FArray.Made);
+          SetLength(Copies, Length(FArray.Made));
+          for I := 0 to High(Copies) do Copies[I] := FArray.Made[I];
           SelectNone;
           for I := 0 to High(Copies) do SelectAdd(Copies[I]);
-          FCmdMsg := 'Copied, turned ' + FormatAngle(RadToDeg(Ang));
+          FCmdMsg := 'Copied, turned ' + FormatAngle(RadToDeg(Ang)) +
+            '.  Type 6x for six round, or /6 to divide the turn.';
         end
         else
         begin
@@ -7652,9 +7730,15 @@ begin
           if FMoveCopy then
           begin
             { a copy stands on its own, so nothing gets stretched to reach it }
-            FD.Doc.Duplicate(FSel, T);
+            FArray.Live := True;
+            FArray.Rotate := False;
+            FArray.D := T;
+            SetLength(FArray.Src, Length(FSel));
+            for I := 0 to High(FSel) do FArray.Src[I] := FSel[I];
+            FD.Doc.ArrayMove(FArray.Src, T, 1, False, FArray.Made);
             FCmdMsg := 'Copied ' + FormatLen(
-              Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units);
+              Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units) +
+              '.  Type 3x for three that far apart, or /3 to divide the run.';
           end
           else if FMoveRigid then
           begin
@@ -8010,7 +8094,8 @@ procedure TMainForm.CommandEnter;
 var
   L: Double;
   Why: string;
-  SidesN: Integer;
+  SidesN, ArrN: Integer;
+  ArrDiv: Boolean;
 begin
   if FDimEdit >= 0 then
   begin
@@ -8028,6 +8113,13 @@ begin
   if FInput = '' then
   begin
     if FStage > 0 then ProCommit else ProClick;
+    Exit;
+  end;
+
+  if FArray.Live and ArrayCommand(FInput, ArrN, ArrDiv) then
+  begin
+    FInput := '';
+    ApplyArray(ArrN, ArrDiv);
     Exit;
   end;
 
@@ -11441,6 +11533,26 @@ begin
       [Round(FD.Doc.NoteSize(FSel[0]) * 100)]);
     RenderPro;
     RecomposeAll;
+    pbCmd.Invalidate;
+    Key := #0;
+    Exit;
+  end;
+
+  { Right after a copy, 3x or /3 makes an array of it: the x, the star and
+    the slash go in with the digits, and Enter does the rest. }
+  if FArray.Live and (Key in ['x', 'X', '*', '/']) and
+     ((FInput = '') or (FInput[1] in ['0'..'9'])) and
+     (Pos('x', FInput) = 0) and (Pos('*', FInput) = 0) and (Pos('/', FInput) = 0) then
+  begin
+    if Key = 'X' then Key := 'x';
+    FInput := FInput + Key;
+    pbCmd.Invalidate;
+    Key := #0;
+    Exit;
+  end;
+  if FArray.Live and (Key in ['0'..'9']) and (FInput <> '') and (FInput[1] in ['x', '*', '/']) then
+  begin
+    FInput := FInput + Key;
     pbCmd.Invalidate;
     Key := #0;
     Exit;

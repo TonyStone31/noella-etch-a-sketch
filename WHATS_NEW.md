@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- Copy arrays, SketchUp's way.  Ctrl-move something to leave a copy, then
+  type 3x (or x3, *3) for three copies that far apart, or /3 to divide the
+  run into three.  The same after a Ctrl-rotate: 6x for six round the
+  circle, /6 to divide the turn.  Typing another count replaces the last.
+
 ## v2026.09.06.13
 
 ### New
