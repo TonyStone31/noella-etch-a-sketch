@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Footings: nested rings are their own faces.**  Offset a rectangle' + LineEnding +
+    '  twice and the outer ring was cut out all the way to the middle and the' + LineEnding +
+    '  eraser took two faces for one.  A loop inside a loop is now a hole in the' + LineEnding +
+    '  nearest ring only, so each ring is its own face and erases on its own.' + LineEnding +
+    '  Drawings made before this need `/rebuild` (or any edit) to be worked out' + LineEnding +
+    '  again.' + LineEnding +
+    '- The eraser''s tip now says it sweeps: hold the button and drag across' + LineEnding +
+    '  several things to take them all at once, the way SketchUp''s does.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.26' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

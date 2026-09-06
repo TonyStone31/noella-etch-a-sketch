@@ -219,6 +219,27 @@ begin
   EqF(AreaOfSmallest(R), 25, 'each a quarter');
 end;
 
+procedure TestThreeNested;
+var
+  R: TRegionArray;
+  I, One, None: Integer;
+begin
+  Say('three squares one inside the other - a footing');
+  Clear;
+  Box(0, 0, 12, 12, 0);
+  Box(2, 2, 10, 10, 0);
+  Box(4, 4, 8, 8, 0);
+  R := Built;
+  EqI(Length(R), 3, 'three regions: two rings and the middle');
+  One := 0; None := 0;
+  for I := 0 to High(R) do
+    if Length(R[I].Holes) = 1 then Inc(One)
+    else if Length(R[I].Holes) = 0 then Inc(None);
+  EqI(One, 2, 'each ring has exactly one hole - the loop just inside it');
+  EqI(None, 1, 'and the middle has none');
+  EqF(NetArea(R), 144, 'the two rings and the middle make the whole square');
+end;
+
 procedure TestSquareInSquare;
 var
   R: TRegionArray;
@@ -699,6 +720,7 @@ begin
   TestTicTacToe;        WriteLn;
   TestTJunctions;       WriteLn;
   TestSquareInSquare;   WriteLn;
+  TestThreeNested;
   TestUpright;          WriteLn;
   TestTilted;           WriteLn;
   TestTwoPlanes;        WriteLn;

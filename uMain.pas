@@ -6542,7 +6542,7 @@ begin
       ptArc:    S2 := Format('click one end - %d segments: + - or type 12s', [FSidesArc]);
       ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
       ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
-      ptErase:  S2 := 'click anything to delete it';
+      ptErase:  S2 := 'click anything to delete it - or hold and drag across several';
       ptText:   S2 := 'space or click - the note points here';
       ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
       ptOffset: S2 := 'click a face - then type the offset, negative goes inward';

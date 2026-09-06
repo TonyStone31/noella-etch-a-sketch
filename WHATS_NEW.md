@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Footings: nested rings are their own faces.**  Offset a rectangle
+  twice and the outer ring was cut out all the way to the middle and the
+  eraser took two faces for one.  A loop inside a loop is now a hole in the
+  nearest ring only, so each ring is its own face and erases on its own.
+  Drawings made before this need `/rebuild` (or any edit) to be worked out
+  again.
+- The eraser's tip now says it sweeps: hold the button and drag across
+  several things to take them all at once, the way SketchUp's does.
+
 ## v2026.09.06.26
 
 ### New

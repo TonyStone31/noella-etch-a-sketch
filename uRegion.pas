@@ -916,6 +916,8 @@ var
   AtVert: array of TIntArray;
   LoopArea_: array of Double;
   LoopPart: TIntArray;
+  Between: Boolean;
+  KMid: TP3;
 begin
   Result := nil;
   Cut := SplitAtCrossings(Segs, Tol);
@@ -1019,6 +1021,29 @@ begin
       Mid := Mul3(Mid, 1 / Length(Loops[J]));
       if not PointInLoop(Mid, Loops[I], Planes[LoopPlane[I]].N, Tol) then
         Continue;
+      { Only the nearest loop around J takes it as a hole.  Three squares
+        one inside the other are an outer ring, an inner ring and a middle:
+        the middle is a hole in the inner ring and in nothing else.  It used
+        to be a hole in the outer ring too, which drew the outer ring's face
+        with the whole middle cut out of it and let the eraser take the
+        inner ring and the middle together. }
+      Between := False;
+      for K := 0 to NLoop - 1 do
+      begin
+        if (K = I) or (K = J) then Continue;
+        if LoopPlane[K] <> LoopPlane[I] then Continue;
+        if (LoopArea_[K] <= LoopArea_[J]) or (LoopArea_[K] >= LoopArea_[I]) then Continue;
+        if not PointInLoop(Mid, Loops[K], Planes[LoopPlane[K]].N, Tol) then Continue;
+        KMid := Loops[K][0];
+        for E := 1 to High(Loops[K]) do KMid := Add3(KMid, Loops[K][E]);
+        KMid := Mul3(KMid, 1 / Length(Loops[K]));
+        if PointInLoop(KMid, Loops[I], Planes[LoopPlane[I]].N, Tol) then
+        begin
+          Between := True;
+          Break;
+        end;
+      end;
+      if Between then Continue;
       SetLength(Result[Count].Holes, Length(Result[Count].Holes) + 1);
       Result[Count].Holes[High(Result[Count].Holes)] := Loops[J];
     end;
