@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Follow Me.**  A new tool with the drawing tools: spin a face round an
+  axis into a solid.  Click the face, then two points on the axis - or
+  click a circle to follow round, the way SketchUp does it.  Type an angle
+  first, 90 or 180, for a part turn; a plain click goes all the way round.
+  A half circle spun on its diameter is a ball; a rectangle spun beside an
+  axis is a tube; a profile spun on its edge is a cone, a cap, a round
+  reducer.  The gores follow the circle side count, so `24s` gives a
+  24-gore turn.  Following a path of lines and arcs - round elbows and
+  spools - is the next half of this tool.
+
 ## v2026.09.06.28
 
 ### New

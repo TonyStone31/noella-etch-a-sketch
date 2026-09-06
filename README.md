@@ -110,8 +110,8 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   command - the full list is below.  Every tool's tip shows an example of
   what it will take typed.
 * **Tools** - select, line (chained), rectangle, arc, circle, push/pull,
-  drill, offset, move, rotate, tape measure, protractor, dimension, text
-  note, eraser, orbit.  Clicking the lit tool puts it away; **Esc** backs out
+  drill, follow me, offset, move, rotate, tape measure, protractor,
+  dimension, text note, eraser, orbit.  Clicking the lit tool puts it away; **Esc** backs out
   one step at a time.
 * **Circles and arcs take a side count.**  `24s` or `s24` while the tool is
   in hand, `+` and `-` to step it; a chip at the cursor shows the count.
@@ -179,6 +179,11 @@ The same idea taken seriously.  The program starts here, in the 3D view.
 * **Drill.**  Where push/pull stops, the drill goes on: a second tunnel cuts
   clean through the first, square or round, from any side, so a block can be
   bored in several directions like a manifold.
+* **Follow Me.**  Spin a face round an axis into a solid: click the face,
+  then two points on the axis or a circle to follow round, and type an
+  angle first for a part turn.  A half circle on its diameter is a ball, a
+  profile on its edge is a cone or a round reducer.  Following a path of
+  lines and arcs, for round elbows and spools, is the half still to come.
 * **Shake the mouse to say which way you meant it.**  Drawing in mid air and
   the shape keeps standing up when you wanted it flat?  Jerk the mouse side
   to side and it lies down; jerk it up and down and it stands up.
@@ -281,7 +286,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | Command | Does |
 | --- | --- |
 | `/line` `/l`, `/rect` `/r`, `/arc` `/a`, `/circle` `/c` | the drawing tools |
-| `/push` `/pull` `/p`, `/drill` `/bore` `/punch`, `/offset` `/f` | the solid tools |
+| `/push` `/pull` `/p`, `/drill` `/bore` `/punch`, `/followme` `/follow` `/revolve` `/lathe`, `/offset` `/f` | the solid tools |
 | `/select` `/s`, `/move` `/mv`, `/rotate` `/q` `/turn`, `/erase` `/e` `/del` | select, move, turn, erase |
 | `/measure` `/m` `/tape`, `/protractor` `/angle`, `/dimension` `/dim` | measuring |
 | `/text` `/note` `/n` | a note |
@@ -345,7 +350,7 @@ length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
 | Key | Action |
 | --- | --- |
 | L R A C | line, rectangle, arc, circle |
-| P B F | push/pull, drill (bore), offset |
+| P B F | push/pull, drill (bore), offset (Follow Me is on the deck) |
 | M Q E | move, rotate, erase |
 | T D N | tape measure, dimension, note |
 | O | orbit |

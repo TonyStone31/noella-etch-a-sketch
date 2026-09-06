@@ -58,7 +58,7 @@ type
 
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
     ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset, ptRotate,
-    ptProtractor, ptDrill);
+    ptProtractor, ptDrill, ptFollow);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -457,6 +457,9 @@ type
     FMoveShift: TShiftState;
     { a built part being placed moves whole, on its own; nothing stretches }
     FMoveRigid: Boolean;
+    { Follow Me: the face being spun, and the first point of its axis }
+    FFollowFace: Integer;
+    FAxisA: TP3;
     { what a dialog reported from inside itself, for the report body }
     FReportExtra: string;
     { the dimension the move tool has hold of by its line: only where the
@@ -574,6 +577,8 @@ type
     procedure DoUpdate;
     procedure ShowWhatsNew;
     procedure BuildTransitionWizard;
+    function ArcNormal(I: Integer): TP3;
+    procedure DoRevolve(const AxisP, AxisDir: TP3);
     { /rendertime: how long a frame takes, for chasing sluggish orbits }
     procedure RenderTiming;
     procedure ApplyArray(N: Integer; Divide: Boolean);
@@ -953,12 +958,12 @@ const
   TOOL_ICONS: array[TProTool] of TIconKind =
     (ikTSelect, ikTMove, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush,
      ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit, ikTOffset, ikTRotate,
-     ikTProtractor, ikTDrill);
+     ikTProtractor, ikTDrill, ikTFollow);
 
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
      'ERASE', 'MEASURE', 'DIMENSION', 'ORBIT', 'OFFSET', 'ROTATE',
-     'PROTRACTOR', 'DRILL');
+     'PROTRACTOR', 'DRILL', 'FOLLOW ME');
 
   { The tools in three groups of four, laid out two rows deep, so a group
     reads as a group and every name has room to be read.  The grouping is
@@ -968,11 +973,11 @@ const
     they are.  The first has three across because it has five in it - orbit
     belongs with getting about rather than with drawing, and the deck is the
     only place a tool is discoverable at all. }
-  GRP_COLS: array[0..2] of Integer = (3, 2, 3);
-  GRP_N:    array[0..2] of Integer = (6, 4, 6);
+  GRP_COLS: array[0..2] of Integer = (3, 3, 3);
+  GRP_N:    array[0..2] of Integer = (6, 5, 6);
   TOOL_GROUPS: array[0..2, 0..5] of TProTool =
     ((ptSelect, ptMove, ptRotate, ptErase, ptPush, ptDrill),
-     (ptLine, ptRect, ptCircle, ptArc, ptSelect, ptSelect),
+     (ptLine, ptRect, ptCircle, ptArc, ptFollow, ptSelect),
      (ptMeasure, ptProtractor, ptDim, ptText, ptOffset, ptOrbit));
 
   TOOL_HINTS: array[TProTool] of string = (
@@ -999,7 +1004,10 @@ const
     'Protractor - click the vertex, a point to measure from, then the ' +
       'angle, or type it.  Lays a guide line at that angle.',
     'Drill - push a shape through everything.  Where the hole crosses a ' +
-      'tunnel already there, both are cut open into each other.  (B)');
+      'tunnel already there, both are cut open into each other.  (B)',
+    'Follow Me - spin a face round an axis into a solid.  Click the face, ' +
+      'then two points on the axis or a circle to follow round; type the ' +
+      'angle first for less than a full turn.');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -4777,6 +4785,50 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ the normal of an arc's plane }
+function TMainForm.ArcNormal(I: Integer): TP3;
+var
+  AU, AV: TP3;
+begin
+  if FD.Doc[I].Plane = plFree then Result := Norm3(FD.Doc[I].Nm)
+  else
+  begin
+    PlaneAxes(FD.Doc[I].Plane, AU, AV);
+    Result := Norm3(Cross3(AU, AV));
+  end;
+end;
+
+{ Follow Me round an axis: the angle typed in degrees, or all the way; the
+  gores from the circle side count, so a full turn has as many as a circle
+  does and a quarter turn a quarter of them. }
+procedure TMainForm.DoRevolve(const AxisP, AxisDir: TP3);
+var
+  Deg, Ang: Double;
+  Steps, First, Made: Integer;
+begin
+  Ang := 2 * Pi;
+  if (FInput <> '') and TryStrToFloat(Trim(FInput), Deg) and (Deg <> 0) then
+    Ang := DegToRad(Deg);
+  Steps := Max(1, Round(FSidesCircle * Abs(Ang) / (2 * Pi)));
+  PushUndo;
+  Made := FD.Doc.Live;
+  First := FD.Doc.Revolve(FFollowFace, AxisP, AxisDir, Ang, Steps);
+  if First < 0 then
+  begin
+    FCmdMsg := 'That could not be spun - it needs a face and an axis of some length.';
+    Exit;
+  end;
+  Made := FD.Doc.Live - Made;
+  SeedRegions;
+  SelectNone;
+  RenderPro;
+  RecomposeAll;
+  FCmdMsg := Format('Spun %s in %d gores.', [FormatAngle(RadToDeg(Ang)), Steps]);
+  if Made > 0 then ;
+  ResetTool;
+  FInput := '';
+end;
+
 procedure TMainForm.BuildTransitionWizard;
 var
   Spec: TTransitionSpec;
@@ -6373,6 +6425,13 @@ begin
       end
       else
         PaintFaceHint(C, FHoverFace, HINT_BLUE);
+    ptFollow:
+      if FStage = 0 then PaintFaceHint(C, FHoverFace, HINT_BLUE)
+      else
+      begin
+        PaintFaceHint(C, FFollowFace, HINT_BLUE);
+        if FStage = 2 then Rubber(FAxisA, FCur);
+      end;
     ptMove:
       if FDimMove >= 0 then PaintDimPreview(C) else PaintMoveGhost(C);
     ptRotate, ptProtractor: PaintRotateGhost(C);
@@ -6545,6 +6604,7 @@ begin
       ptArc:    S2 := Format('click one end - %d segments: + - or type 12s', [FSidesArc]);
       ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
       ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
+      ptFollow: S2 := 'click the face to spin round an axis';
       ptErase:  S2 := 'click anything to delete it - or hold and drag across several';
       ptText:   S2 := 'space or click - the note points here';
       ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
@@ -6564,6 +6624,7 @@ begin
     if S1 = '' then S1 := 'DRAWING';
     case FTool of
       ptPush, ptDrill: S2 := 'type how far - 2, 6", 1-6 - or rest on an edge or a face';
+      ptFollow: S2 := 'two points on the axis, or a circle to follow - type 90 or 180 first for a part turn';
       ptCircle: S2 := Format('type a radius, or click - %d sides: + - or 24s', [FSidesCircle]);
       ptArc:    S2 := Format('pull the middle out, or type the bulge - %d segments: + - or 12s', [FSidesArc]);
       ptText:   S2 := 'type it, move away, then Enter - Shift+Enter for a new line';
@@ -6829,7 +6890,7 @@ begin
     face away from you, which plan cannot draw and you cannot judge. Rather
     than leave a tool that appears to do nothing, go and get a view where it
     means something. }
-  if (T in [ptPush, ptDrill]) and (FD.View = vkPlan) then
+  if (T in [ptPush, ptDrill, ptFollow]) and (FD.View = vkPlan) then
   begin
     EnterFreeCamera(True);
     FCmdMsg := 'Push/pull needs to see the face - switched to the corner view.';
@@ -6852,6 +6913,7 @@ end;
 procedure TMainForm.ResetTool;
 begin
   FStage := 0;
+  FFollowFace := -1;
   FUnfoldPick := False;
   FNoteDrag := -1;
   FStickOn := False;
@@ -7079,6 +7141,13 @@ begin
         Result := 'click a face'
       else
         Result := 'how far?  type it, or move and click';
+    ptFollow:
+      case FStage of
+        0: Result := 'click the face to spin';
+        1: Result := 'the axis: click its first point, or click a circle to follow round';
+      else
+        Result := 'the axis: click its second point - type 90 first for a quarter turn';
+      end;
     ptDim:
       case FStage of
         0:
@@ -7430,6 +7499,46 @@ begin
       else
         ProCommit;
 
+    ptFollow:
+      case FStage of
+        0:
+          begin
+            I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+            if I < 0 then
+            begin
+              FCmdMsg := 'Click the face to spin - that is the profile.';
+              Exit;
+            end;
+            FFollowFace := I;
+            FStage := 1;
+            FInput := '';
+            FCmdMsg := 'Now the axis: click two points on it, or click a circle to follow round.';
+          end;
+        1:
+          begin
+            { a circle under the cursor is the path: SketchUp's own gesture,
+              and the axis is through its centre }
+            I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
+            if (I >= 0) and (FD.Doc[I].Kind = ekArc) and (I <> FFollowFace) then
+            begin
+              DoRevolve(FD.Doc[I].C, ArcNormal(I));
+              Exit;
+            end;
+            FAxisA := FCur;
+            FStage := 2;
+            FCmdMsg := 'Second point on the axis.  Type 90 first for a quarter turn, or just click for all the way round.';
+          end;
+      else
+        begin
+          if Dist(FCur, FAxisA) < 1E-9 then
+          begin
+            FCmdMsg := 'The second point has to be somewhere else along the axis.';
+            Exit;
+          end;
+          DoRevolve(FAxisA, P3(FCur.X - FAxisA.X, FCur.Y - FAxisA.Y, FCur.Z - FAxisA.Z));
+        end;
+      end;
+
     ptPush, ptDrill:
       if FStage = 0 then
       begin
@@ -7727,6 +7836,12 @@ begin
     ptOffset:
       begin
         CommitOffset;
+        Exit;
+      end;
+    ptFollow:
+      begin
+        if FStage = 2 then
+          DoRevolve(FAxisA, P3(FCur.X - FAxisA.X, FCur.Y - FAxisA.Y, FCur.Z - FAxisA.Z));
         Exit;
       end;
 
@@ -8107,6 +8222,7 @@ begin
   else if (W = 'rotate') or (W = 'q') or (W = 'turn') then SetTool(ptRotate)
   else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
   else if (W = 'drill') or (W = 'bore') or (W = 'punch') then SetTool(ptDrill)
+  else if (W = 'followme') or (W = 'follow') or (W = 'revolve') or (W = 'lathe') then SetTool(ptFollow)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if W = 'rendertime' then RenderTiming
@@ -9066,7 +9182,7 @@ begin
       going onto, before the click, or you find out afterwards that it went
       on the ground.  SketchUp washes the face over and shows its points;
       this does the same. }
-    if (FTool in [ptPush, ptDrill, ptOffset]) and (FStage = 0) then
+    if (FTool in [ptPush, ptDrill, ptOffset, ptFollow]) and (FStage = 0) then
       FHoverFace := FD.Doc.HitFace(Proj, X, Y)
     else if (FTool in [ptLine, ptRect, ptCircle, ptArc]) and (FStage = 0) and
             not FPlaneHeld then

@@ -44,6 +44,15 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
+0. **Follow Me, the path half.**  The turning half shipped 2026-09-06
+   (TWorkDoc.Revolve).  Next: a profile swept along a chain of lines and
+   arcs, mitred at the corners - round elbows, round offsets, and a whole
+   spool from a centreline, which is what the field-sketch wizard will
+   build on.  Then, if still wanted, the two-circles-make-a-ball offer
+   (two circles sharing a centre on two planes, same radius: offer to spin
+   one about the other's axis).
+
+
 The direction, settled 6 September: one drawing, one camera; the things that
 build a model from numbers are wizards under Create that drop the result
 into the drawing; hammer the general tools before the generators.

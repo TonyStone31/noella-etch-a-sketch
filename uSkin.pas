@@ -41,7 +41,7 @@ type
     { one per tool, so a button and the cursor can both say which is which }
     ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
     ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove,
-    ikTOffset, ikTRotate, ikTProtractor, ikTDrill
+    ikTOffset, ikTRotate, ikTProtractor, ikTDrill, ikTFollow
   );
 
 const
@@ -485,6 +485,20 @@ begin
           S.Line(CX + U * 0.34 * Cos(Pi + K * Pi / 6), CY + U * 0.14 + U * 0.34 * Sin(Pi + K * Pi / 6),
                  CX + U * 0.26 * Cos(Pi + K * Pi / 6), CY + U * 0.14 + U * 0.26 * Sin(Pi + K * Pi / 6),
                  LW, C, Alpha);
+      end;
+
+    ikTFollow:
+      begin
+        { a profile spun round an axis: the axis, and the belly it sweeps }
+        S.Line(CX, Y + H * 0.12, CX, Y + H * 0.88, LW, C, Alpha);
+        S.Line(CX, CY - U * 0.30, CX + U * 0.34, CY - U * 0.22, LW, C, Alpha);
+        S.Line(CX + U * 0.34, CY - U * 0.22, CX + U * 0.40, CY, LW, C, Alpha);
+        S.Line(CX + U * 0.40, CY, CX + U * 0.34, CY + U * 0.22, LW, C, Alpha);
+        S.Line(CX + U * 0.34, CY + U * 0.22, CX, CY + U * 0.30, LW, C, Alpha);
+        S.Line(CX, CY - U * 0.30, CX - U * 0.34, CY - U * 0.22, LW * 0.6, C, Alpha * 0.55);
+        S.Line(CX - U * 0.34, CY - U * 0.22, CX - U * 0.40, CY, LW * 0.6, C, Alpha * 0.55);
+        S.Line(CX - U * 0.40, CY, CX - U * 0.34, CY + U * 0.22, LW * 0.6, C, Alpha * 0.55);
+        S.Line(CX - U * 0.34, CY + U * 0.22, CX, CY + U * 0.30, LW * 0.6, C, Alpha * 0.55);
       end;
 
     ikTDrill:

@@ -197,6 +197,12 @@ type
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure SetArcSides(Index, N: Integer);
+    { Follow Me, the turning half: spin the face Face about the axis through
+      AxisP along AxisDir by Angle, in Steps gores, into one solid.  Returns
+      the index of the first thing made, or -1.  A full turn consumes the
+      profile face; a part turn keeps it as one cap and makes the other. }
+    function Revolve(Face: Integer; const AxisP, AxisDir: TP3; Angle: Double;
+      Steps: Integer): Integer;
     { where a dimension's line sits: the offset from what it measures }
     procedure SetDimOffset(Index: Integer; const Off: TP3);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
@@ -2229,6 +2235,172 @@ procedure TWorkDoc.SetDimOffset(Index: Integer; const Off: TP3);
 begin
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekDim) then Exit;
   FEnts[Index].C := Off;
+end;
+
+function TWorkDoc.Revolve(Face: Integer; const AxisP, AxisDir: TP3; Angle: Double;
+  Steps: Integer): Integer;
+const
+  { the turn in the profile at a vertex below which the ring it sweeps is a
+    soft edge - the creases of a curve rather than a corner }
+  SOFT_TURN = 30 * Pi / 180;
+var
+  Poly: TP3Array;
+  N, S, K, K2, G, I, First: Integer;
+  Full: Boolean;
+  Ax, Nf, Cen, Side, E, Mid, Out, Tang, PrevE: TP3;
+  Rings: array of array of TP3;
+  Quad: array of TP3;
+  OnAxis: array of Boolean;
+  Turn: Double;
+  Q: array[0..3] of TP3;
+
+  function Rot(const P: TP3; S: Integer): TP3;
+  begin
+    Result := RotP(P, AxisP, Ax, Angle * S / Steps);
+  end;
+
+  function Near(const A, B: TP3): Boolean;
+  begin
+    Result := Dist(A, B) < 1E-9;
+  end;
+
+  procedure FaceOut(const Pts: array of TP3; const Want: TP3);
+  begin
+    AddFaceRaw(Pts, FEnts[Face].Ink, True);
+    SetFaceGroup(FLive - 1, G);
+    if Dot3(FaceNormal(FLive - 1), Want) < 0 then FlipFace(FLive - 1);
+  end;
+
+  procedure Edge(const A, B: TP3; Soft: Boolean);
+  begin
+    if Near(A, B) then Exit;
+    AddLine(A, B, FEnts[Face].Ink, FEnts[Face].Weight, False);
+    SetGroup(FLive - 1, G);
+    SetSoft(FLive - 1, Soft);
+  end;
+
+  { the line already in the drawing between two points, if there is one }
+  function LineAt(const A, B: TP3): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to FLive - 1 do
+      if (FEnts[J].Kind = ekLine) and
+         ((Near(FEnts[J].A, A) and Near(FEnts[J].B, B)) or
+          (Near(FEnts[J].A, B) and Near(FEnts[J].B, A))) then Exit(J);
+  end;
+
+begin
+  Result := -1;
+  if (Face < 0) or (Face >= FLive) or (FEnts[Face].Kind <> ekFace) then Exit;
+  if (Steps < 1) or (Abs(Angle) < 1E-9) then Exit;
+  Ax := Norm3(AxisDir);
+  if Dist(Ax, P3(0, 0, 0)) < 1E-9 then Exit;
+  Poly := Copy(FEnts[Face].Poly);
+  N := Length(Poly);
+  if N < 3 then Exit;
+  Full := Abs(Angle) >= 2 * Pi - 1E-9;
+  Nf := FaceNormal(Face);
+  Cen := P3(0, 0, 0);
+  for K := 0 to N - 1 do Cen := P3(Cen.X + Poly[K].X / N, Cen.Y + Poly[K].Y / N, Cen.Z + Poly[K].Z / N);
+  { which way the sweep moves off the profile: along the tangent of the
+    turn at the profile's middle }
+  Tang := Cross3(Ax, P3(Cen.X - AxisP.X, Cen.Y - AxisP.Y, Cen.Z - AxisP.Z));
+  if Angle < 0 then Tang := P3(-Tang.X, -Tang.Y, -Tang.Z);
+  First := FLive;
+  G := NewGroup;
+  { every profile point at every step }
+  SetLength(Rings, Steps + 1);
+  SetLength(OnAxis, N);
+  for K := 0 to N - 1 do
+  begin
+    E := P3(Poly[K].X - AxisP.X, Poly[K].Y - AxisP.Y, Poly[K].Z - AxisP.Z);
+    E := P3(E.X - Ax.X * Dot3(E, Ax), E.Y - Ax.Y * Dot3(E, Ax), E.Z - Ax.Z * Dot3(E, Ax));
+    OnAxis[K] := Dist(E, P3(0, 0, 0)) < 1E-9;
+  end;
+  for S := 0 to Steps do
+  begin
+    SetLength(Rings[S], N);
+    for K := 0 to N - 1 do Rings[S][K] := Rot(Poly[K], S);
+  end;
+  { the surface: one strip of gores per profile edge, wound to face the way
+    the profile's edge faces - away from the inside of the profile }
+  for K := 0 to N - 1 do
+  begin
+    K2 := (K + 1) mod N;
+    if OnAxis[K] and OnAxis[K2] then Continue;
+    E := P3(Poly[K2].X - Poly[K].X, Poly[K2].Y - Poly[K].Y, Poly[K2].Z - Poly[K].Z);
+    Side := Norm3(Cross3(Nf, E));
+    Mid := P3((Poly[K].X + Poly[K2].X) / 2, (Poly[K].Y + Poly[K2].Y) / 2, (Poly[K].Z + Poly[K2].Z) / 2);
+    if Dot3(Side, P3(Mid.X - Cen.X, Mid.Y - Cen.Y, Mid.Z - Cen.Z)) < 0 then
+      Side := P3(-Side.X, -Side.Y, -Side.Z);
+    for S := 0 to Steps - 1 do
+    begin
+      Q[0] := Rings[S][K]; Q[1] := Rings[S][K2]; Q[2] := Rings[S + 1][K2]; Q[3] := Rings[S + 1][K];
+      { a point on the axis stays put, so the gore there is a triangle }
+      SetLength(Quad, 0);
+      for I := 0 to 3 do
+        if (Length(Quad) = 0) or not Near(Quad[High(Quad)], Q[I]) then
+        begin
+          SetLength(Quad, Length(Quad) + 1);
+          Quad[High(Quad)] := Q[I];
+        end;
+      if (Length(Quad) > 1) and Near(Quad[0], Quad[High(Quad)]) then SetLength(Quad, Length(Quad) - 1);
+      if Length(Quad) < 3 then Continue;
+      Out := RotV(Side, Ax, Angle * (S + 0.5) / Steps);
+      FaceOut(Quad, Out);
+      { the seam between this gore and the next, soft: a crease of the curve }
+      if (S > 0) or Full then
+        Edge(Rings[S][K], Rings[S][K2], True);
+    end;
+  end;
+  { the rings each profile point sweeps: hard where the profile has a corner
+    there, soft where it only bends a little }
+  for K := 0 to N - 1 do
+  begin
+    if OnAxis[K] then Continue;
+    K2 := (K + 1) mod N;
+    PrevE := Norm3(P3(Poly[K].X - Poly[(K + N - 1) mod N].X, Poly[K].Y - Poly[(K + N - 1) mod N].Y,
+                      Poly[K].Z - Poly[(K + N - 1) mod N].Z));
+    E := Norm3(P3(Poly[K2].X - Poly[K].X, Poly[K2].Y - Poly[K].Y, Poly[K2].Z - Poly[K].Z));
+    Turn := ArcCos(Max(-1, Min(1, Dot3(PrevE, E))));
+    for S := 0 to Steps - 1 do
+      Edge(Rings[S][K], Rings[S + 1][K], Turn < SOFT_TURN);
+  end;
+  if Full then
+  begin
+    { the profile's own edges are now a seam of the surface }
+    for K := 0 to N - 1 do
+    begin
+      I := LineAt(Poly[K], Poly[(K + 1) mod N]);
+      if I >= 0 then
+      begin
+        SetGroup(I, G);
+        SetSoft(I, True);
+      end;
+    end;
+    Delete(Face);
+    if Face < First then Dec(First);
+  end
+  else
+  begin
+    { the profile is one cap, facing back against the sweep; the far end is
+      the other, facing on }
+    FEnts[Face].Solid := True;
+    SetFaceGroup(Face, G);
+    if Dot3(FaceNormal(Face), Tang) > 0 then FlipFace(Face);
+    FaceOut(Rings[Steps], RotV(Tang, Ax, Angle));
+    for K := 0 to N - 1 do
+      Edge(Rings[Steps][K], Rings[Steps][(K + 1) mod N], False);
+    for K := 0 to N - 1 do
+    begin
+      I := LineAt(Poly[K], Poly[(K + 1) mod N]);
+      if I >= 0 then SetGroup(I, G);
+    end;
+  end;
+  FSnapDirty := True;
+  Result := First;
 end;
 
 procedure TWorkDoc.SetArcSides(Index, N: Integer);

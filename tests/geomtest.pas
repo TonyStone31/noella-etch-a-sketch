@@ -2575,6 +2575,81 @@ begin
   end;
 end;
 
+{ --------------------------------------------- follow me, the turning half - }
+procedure TestRevolve;
+var
+  D: TWorkDoc;
+  First, I, J, Faces, Wrong, K: Integer;
+  Poly: array of TP3;
+  N, Mid, Rad: TP3;
+  Ang: Double;
+begin
+  WriteLn('Follow Me round an axis');
+  D := TWorkDoc.Create;
+  try
+    { a rectangle standing off the Z axis, spun all the way: a tube }
+    D.AddFaceRaw([P3(1, 0, 0), P3(2, 0, 0), P3(2, 0, 1), P3(1, 0, 1)], 0, False);
+    First := D.Revolve(0, P3(0, 0, 0), P3(0, 0, 1), 2 * Pi, 24);
+    Ok(First >= 0, 'a rectangle spins');
+    Faces := 0; Wrong := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        Inc(Faces);
+        Mid := P3(0, 0, 0);
+        for J := 0 to High(D[I].Poly) do
+          Mid := P3(Mid.X + D[I].Poly[J].X / Length(D[I].Poly), Mid.Y + D[I].Poly[J].Y / Length(D[I].Poly),
+                    Mid.Z + D[I].Poly[J].Z / Length(D[I].Poly));
+        N := D.FaceNormal(I);
+        Rad := P3(Mid.X, Mid.Y, 0);
+        { the outer wall faces out, the inner wall faces in towards the axis,
+          the top up and the bottom down }
+        if Abs(Dist(Rad, P3(0, 0, 0)) - 2 * Cos(Pi / 24)) < 1E-6 then
+        begin if Dot3(N, Rad) < 0 then Inc(Wrong); end
+        else if Abs(Dist(Rad, P3(0, 0, 0)) - 1 * Cos(Pi / 24)) < 1E-6 then
+        begin if Dot3(N, Rad) > 0 then Inc(Wrong); end
+        else if Abs(Mid.Z - 1) < 1E-9 then
+        begin if N.Z < 0.9 then Inc(Wrong); end
+        else if Abs(Mid.Z) < 1E-9 then
+        begin if N.Z > -0.9 then Inc(Wrong); end;
+      end;
+    Ok(Faces = 4 * 24, 'four sides of the profile times twenty-four gores, the profile itself consumed');
+    Ok(Wrong = 0, 'every gore faces out of the tube');
+    { a quarter turn keeps the profile as a cap and adds the other }
+    D.Free; D := TWorkDoc.Create;
+    D.AddFaceRaw([P3(1, 0, 0), P3(2, 0, 0), P3(2, 0, 1), P3(1, 0, 1)], 0, False);
+    First := D.Revolve(0, P3(0, 0, 0), P3(0, 0, 1), Pi / 2, 6);
+    Faces := 0;
+    for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 4 * 6 + 2, 'a quarter turn: four sides times six gores and two caps');
+    { a half disc on its diameter: a ball, every face looking away from the middle }
+    D.Free; D := TWorkDoc.Create;
+    SetLength(Poly, 13);
+    for K := 0 to 12 do
+    begin
+      Ang := Pi * K / 12;
+      Poly[K] := P3(2 * Sin(Ang), 0, 2 * Cos(Ang));
+    end;
+    D.AddFaceRaw(Poly, 0, False);
+    First := D.Revolve(0, P3(0, 0, 0), P3(0, 0, 1), 2 * Pi, 24);
+    Faces := 0; Wrong := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        Inc(Faces);
+        Mid := P3(0, 0, 0);
+        for J := 0 to High(D[I].Poly) do
+          Mid := P3(Mid.X + D[I].Poly[J].X / Length(D[I].Poly), Mid.Y + D[I].Poly[J].Y / Length(D[I].Poly),
+                    Mid.Z + D[I].Poly[J].Z / Length(D[I].Poly));
+        if Dot3(D.FaceNormal(I), Mid) < 0 then Inc(Wrong);
+      end;
+    Ok(Faces = 12 * 24, 'a ball: twelve bands of twenty-four, the diameter on the axis sweeping nothing');
+    Ok(Wrong = 0, 'every face of the ball looks outward');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArrays;
 var
   D: TWorkDoc;
@@ -3021,6 +3096,7 @@ begin
   TestElbowTee;  WriteLn;
   TestFacingOut;  WriteLn;
   TestArcSnaps;  WriteLn;
+  TestRevolve;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;

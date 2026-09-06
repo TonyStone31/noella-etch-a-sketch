@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Follow Me.**  A new tool with the drawing tools: spin a face round an' + LineEnding +
+    '  axis into a solid.  Click the face, then two points on the axis - or' + LineEnding +
+    '  click a circle to follow round, the way SketchUp does it.  Type an angle' + LineEnding +
+    '  first, 90 or 180, for a part turn; a plain click goes all the way round.' + LineEnding +
+    '  A half circle spun on its diameter is a ball; a rectangle spun beside an' + LineEnding +
+    '  axis is a tube; a profile spun on its edge is a cone, a cap, a round' + LineEnding +
+    '  reducer.  The gores follow the circle side count, so `24s` gives a' + LineEnding +
+    '  24-gore turn.  Following a path of lines and arcs - round elbows and' + LineEnding +
+    '  spools - is the next half of this tool.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.28' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
