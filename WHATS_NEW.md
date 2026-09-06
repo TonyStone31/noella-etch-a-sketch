@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- The cursor tip says it now: a dimension can run between any two points -
+  a corner of the footing and the roof next door - with the dimension tool
+  or by pressing Enter after a tape measurement.  Both already worked; the
+  tip did not say so.
+
 ## v2026.09.06.9
 
 ### Fixed

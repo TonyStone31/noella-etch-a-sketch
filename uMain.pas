@@ -6276,7 +6276,7 @@ begin
       ptOffset: S2 := 'click a face - then type the offset, negative goes inward';
       ptMeasure:
         S2 := 'measure from here - type a distance to lay a guide';
-      ptDim:    S2 := 'click the first point of what you are measuring';
+      ptDim:    S2 := 'click any two points - a corner here, a roof over there - or a lit edge';
       ptRotate: S2 := 'click the center - arrows pick the plane by color';
       ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
       ptOrbit:  S2 := 'drag to spin - Shift drags to pan';
@@ -6293,7 +6293,9 @@ begin
       ptArc:    S2 := Format('pull the middle out, or type the bulge - %d segments: + - or 12s', [FSidesArc]);
       ptText:   S2 := 'type it, move away, then Enter - Shift+Enter for a new line';
       ptDim:    S2 := 'move away to place it - shake up and down to stand it up';
-      ptMeasure: S2 := 'click the second point, or type a distance - 3, 2''6, 0-8-8';
+      ptMeasure:
+        if FStage >= 2 then S2 := 'Enter keeps this as a dimension - any two points, connected or not'
+        else S2 := 'click the second point, or type a distance - 3, 2''6, 0-8-8';
       ptRect:   S2 := 'drag it, or type 8x10, 8/10 or 2''6x4 - a minus flips a side';
       ptMove:   S2 := 'type a length, [x,y,z] or <x,y,z> - arrows lock an axis, Ctrl copies';
       ptOffset: S2 := 'type the offset - 6", 1-6 - negative goes inward';
@@ -6806,7 +6808,7 @@ begin
             Result := 'click the lit edge to dimension all of it'
           else
             Result := 'click an edge, or a first point to measure from';
-        1: Result := 'second point';
+        1: Result := 'second point - anywhere, on anything, or in the air';
       else
         Result := 'move away to place the line, then click';
       end;

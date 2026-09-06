@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- The cursor tip says it now: a dimension can run between any two points -' + LineEnding +
+    '  a corner of the footing and the roof next door - with the dimension tool' + LineEnding +
+    '  or by pressing Enter after a tape measurement.  Both already worked; the' + LineEnding +
+    '  tip did not say so.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.9' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
