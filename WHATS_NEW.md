@@ -10,6 +10,13 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- The view button has a drop-down arrow: click the name to step through the
+  views, click the arrow to pick one from the list.
+
 ## v2026.09.06.12
 
 ### New

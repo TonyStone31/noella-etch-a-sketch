@@ -49,7 +49,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
-  Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
+  Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs,
   uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition;
 
@@ -131,6 +131,7 @@ type
     pbCmd: TPaintBox;
     pbTabs: TPaintBox;
     pbView: TPaintBox;
+    pmView: TPopupMenu;
     pbDeck: TPaintBox;
     pbKnobL: TPaintBox;
     pbKnobR: TPaintBox;
@@ -160,6 +161,8 @@ type
     procedure pbViewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbViewPaint(Sender: TObject);
     function ViewButtonName: string;
+    procedure ViewMenuClick(Sender: TObject);
+    procedure FillViewMenu;
     procedure pbDeckMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure pbDeckMouseLeave(Sender: TObject);
@@ -888,6 +891,7 @@ const
   ISO_EL = 35.264 * Pi / 180;   // the true isometric tilt
   { the first two presets are the paper modes; the button cycles from here }
   FIRST_CAMERA_PRESET = 2;
+  VIEW_ARROW_W = 30;    // the drop-down arrow's share of the view button
 
   { One key steps through the views worth having.  The four corners come
     first because that is what you actually draw from; the flat elevations
@@ -1669,6 +1673,7 @@ begin
     if Pos('--updated-from=', LowerCase(A)) = 1 then
       FUpdatedFrom := Copy(A, Length('--updated-from=') + 1, MaxInt);
   end;
+  FillViewMenu;
   { real hover tooltips on the deck, not just the hint line }
   pbDeck.ShowHint := True;
   Application.ShowHint := True;
@@ -4004,16 +4009,65 @@ begin
     MixPix(Theme.Panel, Pix(0, 0, 0), 0.20), MixPix(Theme.Panel, Pix(0, 0, 0), 0.42));
   FViewSkin.RoundFrame(Rect(0, 0, W, H), H / 2, 1.0,
     MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.14));
-  R := Rect(3, 3, W - 3, H - 3);
-  if FHotView >= 0 then
-    FViewSkin.RoundRect(R, (R.Bottom - R.Top) / 2,
+  { the name on the left, the arrow on the right; whichever is under the
+    pointer lights up on its own }
+  if FHotView = 0 then
+    FViewSkin.RoundRect(Rect(3, 3, W - VIEW_ARROW_W, H - 3), (H - 6) / 2,
+      MixPix(Theme.Panel, Pix(255, 255, 255), 0.10))
+  else if FHotView = 1 then
+    FViewSkin.RoundRect(Rect(W - VIEW_ARROW_W, 3, W - 3, H - 3), (H - 6) / 2,
       MixPix(Theme.Panel, Pix(255, 255, 255), 0.10));
+  FViewSkin.Line(W - VIEW_ARROW_W, 6, W - VIEW_ARROW_W, H - 6, 1,
+    MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.14), 1.0);
   FViewSkin.DrawTo(pbView.Canvas, 0, 0);
 
   S := ViewButtonName;
   UIFont(pbView.Canvas, 10, True, Theme.Text);
-  pbView.Canvas.TextOut((W - pbView.Canvas.TextWidth(S)) div 2,
+  pbView.Canvas.TextOut(((W - VIEW_ARROW_W) - pbView.Canvas.TextWidth(S)) div 2,
     (H - pbView.Canvas.TextHeight(S)) div 2, S);
+  { the arrow: a small filled triangle }
+  pbView.Canvas.Brush.Style := bsSolid;
+  pbView.Canvas.Brush.Color := PixToColor(Theme.Text);
+  pbView.Canvas.Pen.Color := PixToColor(Theme.Text);
+  pbView.Canvas.Polygon([Point(W - VIEW_ARROW_W div 2 - 5, H div 2 - 3),
+                         Point(W - VIEW_ARROW_W div 2 + 5, H div 2 - 3),
+                         Point(W - VIEW_ARROW_W div 2, H div 2 + 3)]);
+  pbView.Canvas.Brush.Style := bsClear;
+end;
+
+{ The list behind the arrow: every camera preset, then the two paper modes
+  below a line.  Built from the same table the button steps through, so the
+  two can never disagree. }
+procedure TMainForm.FillViewMenu;
+var
+  I: Integer;
+  M: TMenuItem;
+begin
+  pmView.Items.Clear;
+  for I := FIRST_CAMERA_PRESET to High(VIEW_PRESETS) do
+  begin
+    M := TMenuItem.Create(pmView);
+    M.Caption := VIEW_PRESETS[I].Name;
+    M.Tag := I;
+    M.OnClick := @ViewMenuClick;
+    pmView.Items.Add(M);
+  end;
+  M := TMenuItem.Create(pmView);
+  M.Caption := '-';
+  pmView.Items.Add(M);
+  for I := 0 to FIRST_CAMERA_PRESET - 1 do
+  begin
+    M := TMenuItem.Create(pmView);
+    M.Caption := VIEW_PRESETS[I].Name + ' paper';
+    M.Tag := I;
+    M.OnClick := @ViewMenuClick;
+    pmView.Items.Add(M);
+  end;
+end;
+
+procedure TMainForm.ViewMenuClick(Sender: TObject);
+begin
+  ApplyViewPreset((Sender as TMenuItem).Tag);
 end;
 
 { What the button says: the paper mode when one is on, the preset the
@@ -4029,10 +4083,13 @@ begin
 end;
 
 procedure TMainForm.pbViewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+var
+  Z: Integer;
 begin
-  if FHotView <> 0 then
+  if X >= pbView.Width - VIEW_ARROW_W then Z := 1 else Z := 0;
+  if FHotView <> Z then
   begin
-    FHotView := 0;
+    FHotView := Z;
     pbView.Invalidate;
   end;
 end;
@@ -4046,8 +4103,15 @@ end;
 procedure TMainForm.pbViewMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  { left steps forward through the camera presets, right steps back; from a
-    paper mode or a free 3D view either goes to the first corner }
+  { the arrow opens the list; on the name, left steps forward through the
+    camera presets and right steps back - from a paper mode or a free 3D
+    view either goes to the first corner }
+  if X >= pbView.Width - VIEW_ARROW_W then
+  begin
+    with pbView.ClientToScreen(Point(pbView.Width - VIEW_ARROW_W, pbView.Height)) do
+      pmView.PopUp(X, Y);
+    Exit;
+  end;
   if Button = mbLeft then CycleViewPreset(1)
   else if Button = mbRight then CycleViewPreset(-1);
 end;

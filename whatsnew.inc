@@ -13,6 +13,13 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- The view button has a drop-down arrow: click the name to step through the' + LineEnding +
+    '  views, click the arrow to pick one from the list.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.12' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
