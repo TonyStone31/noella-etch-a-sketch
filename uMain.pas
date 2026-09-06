@@ -452,6 +452,9 @@ type
     FMoveShift: TShiftState;
     { a built part being placed moves whole, on its own; nothing stretches }
     FMoveRigid: Boolean;
+    { the dimension the move tool has hold of by its line: only where the
+      line sits changes, never what it measures }
+    FDimMove: Integer;
     { The copy just made, so 3x or /3 typed next turns it into an array.
       Src is what was copied, Made every entity the copies are - all at the
       end of the list, so they can be taken back and made again at a new
@@ -6286,7 +6289,8 @@ begin
       end
       else
         PaintFaceHint(C, FHoverFace, HINT_BLUE);
-    ptMove: PaintMoveGhost(C);
+    ptMove:
+      if FDimMove >= 0 then PaintDimPreview(C) else PaintMoveGhost(C);
     ptRotate, ptProtractor: PaintRotateGhost(C);
     ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
   end;
@@ -6464,7 +6468,7 @@ begin
       ptMeasure:
         S2 := 'measure from here - type a distance to lay a guide';
       ptDim:    S2 := 'click a corner, then another - anywhere - or the body of an edge for all of it';
-      ptRotate: S2 := 'click the center - arrows pick the plane by color';
+      ptRotate: S2 := 'click the center - nothing picked turns all that is joined; arrows pick the plane';
       ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
       ptOrbit:  S2 := 'drag to spin - Shift drags to pan';
     else
@@ -6786,6 +6790,7 @@ begin
   FBoxing := False;
   FMoveCopy := False;
   FMoveRigid := False;
+  FDimMove := -1;
   SetLength(FMoveVerts, 0);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
@@ -7144,6 +7149,22 @@ begin
           end;
           SelectOnly(I);
         end;
+        { A dimension taken by its line is repositioned, not moved: the two
+          points it measures stay, the line goes where the cursor puts it -
+          further out, the other side, or standing up on another plane.
+          SketchUp's move does the same with a dimension. }
+        if (Length(FSel) = 1) and (FD.Doc[FSel[0]].Kind = ekDim) then
+        begin
+          FDimMove := FSel[0];
+          FP1 := FD.Doc[FDimMove].A;
+          FP2 := FD.Doc[FDimMove].B;
+          FStage := 1;
+          FDirLock := -1;
+          FInput := '';
+          FCmdMsg := 'Moving the dimension line - click where it should sit.  ' +
+            'Shake up and down to stand it on another plane.';
+          Exit;
+        end;
         FP1 := FCur;
         FD.Doc.VertsOf(FSel, FMoveVerts);
         FStage := 1;
@@ -7169,7 +7190,13 @@ begin
                   FCmdMsg := 'Nothing there to rotate - pick something first.';
                   Exit;
                 end;
-                SelectOnly(I);
+                { Everything joined to it, not the one face.  Turning one
+                  face of a box twists the box - SketchUp does the same to a
+                  partial selection - and nobody who has not selected
+                  anything means that.  Pick first to turn a part on its
+                  own: a click for one thing, double for a face and its
+                  edges, triple for all that is joined. }
+                SelectConnected(I);
               end;
               FD.Doc.VertsOf(FSel, FMoveVerts);
             end;
@@ -7723,6 +7750,16 @@ begin
 
     ptMove:
       begin
+        if FDimMove >= 0 then
+        begin
+          PushUndo;
+          FD.Doc.SetDimOffset(FDimMove, OutsideOf(FP1, FP2, DimOffset3));
+          RenderPro;
+          RecomposeAll;
+          FCmdMsg := 'Dimension moved.';
+          ResetTool;
+          Exit;
+        end;
         T := MoveDelta;
         if (Abs(T.X) > 1E-9) or (Abs(T.Y) > 1E-9) or (Abs(T.Z) > 1E-9) then
         begin

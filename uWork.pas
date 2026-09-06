@@ -196,6 +196,8 @@ type
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure SetArcSides(Index, N: Integer);
+    { where a dimension's line sits: the offset from what it measures }
+    procedure SetDimOffset(Index: Integer; const Off: TP3);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
     { A note with a leader out to Target.  Target = A means no leader, which
       is a plain label. }
@@ -2220,6 +2222,12 @@ procedure TWorkDoc.SetSoft(Index: Integer; Soft: Boolean);
 begin
   if (Index < 0) or (Index >= FLive) then Exit;
   FEnts[Index].Soft := Soft;
+end;
+
+procedure TWorkDoc.SetDimOffset(Index: Integer; const Off: TP3);
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekDim) then Exit;
+  FEnts[Index].C := Off;
 end;
 
 procedure TWorkDoc.SetArcSides(Index, N: Integer);
