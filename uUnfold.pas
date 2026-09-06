@@ -42,9 +42,16 @@ type
   { What an edge of the pattern turns out to be. }
   TFoldKind = (
     fkCut,     // nothing joined here: it gets cut
-    fkBend     // joined, and the metal turns: it gets a bend line
+    fkBend,    // joined, and the metal turns: it gets a bend line
+    fkNotch    // a nick at the end of a bend, so the brake can be set to it
   );
 
+const
+  { A quarter inch, in feet.  The length of the little V cut into the sheet's
+    edge at each end of a fold line - the mark the brake is lined up on. }
+  NOTCH_LEN = 0.25 / 12;
+
+type
   TFlatEdge = record
     AX, AY, BX, BY: Double;   // where it lies on the sheet
     Kind: TFoldKind;
@@ -203,7 +210,9 @@ var
   Edges: array of TEdgeRef;
   NP, NV, NE: Integer;
   Order, Parent: TIntArray;
-  I, J, K, F, H, Head, Tail, T, O, E, Ai, Bi: Integer;
+  I, J, K, F, H, Head, Tail, T, O, E, Ai, Bi, NE2: Integer;
+  DX, DY, PX, PY, Len: Double;
+  OnEdge: Boolean;
   U, V, Nm, D3: TP3;
   Poly: TP3Array;
   Dot, Ang, Sx, Sy, Cs, Sn, LenL, LenP: Double;
@@ -535,6 +544,58 @@ begin
         Result.Edges[K].Kind := fkCut;
         Inc(K);
       end;
+  { --- notches, so the sheet can be set in the brake ------------------
+    A fold line ends at the edge of the sheet, and that is where the operator
+    needs a mark: a small V cut into the edge, pointing along the fold, at
+    both ends.  Only ends that really are on the edge get one - a fold that
+    meets another fold in the middle of the sheet has nothing to nick. }
+  NE2 := K;
+  for I := 0 to NE2 - 1 do
+  begin
+    if Result.Edges[I].Kind <> fkBend then Continue;
+    DX := Result.Edges[I].BX - Result.Edges[I].AX;
+    DY := Result.Edges[I].BY - Result.Edges[I].AY;
+    Len := Sqrt(DX * DX + DY * DY);
+    if Len < 1E-9 then Continue;
+    DX := DX / Len; DY := DY / Len;
+    for E := 0 to 1 do
+    begin
+      if E = 0 then begin PX := Result.Edges[I].AX; PY := Result.Edges[I].AY; end
+      else begin PX := Result.Edges[I].BX; PY := Result.Edges[I].BY; DX := -DX; DY := -DY; end;
+      { on the sheet's edge means: an end of some cut is right here }
+      OnEdge := False;
+      for J := 0 to NE2 - 1 do
+        if Result.Edges[J].Kind = fkCut then
+          if (Sqr(Result.Edges[J].AX - PX) + Sqr(Result.Edges[J].AY - PY) < 1E-12) or
+             (Sqr(Result.Edges[J].BX - PX) + Sqr(Result.Edges[J].BY - PY) < 1E-12) then
+          begin
+            OnEdge := True;
+            Break;
+          end;
+      if not OnEdge then Continue;
+      { the V: two legs from the edge point, in along the fold and a little
+        to either side }
+      for J := 0 to 1 do
+      begin
+        if K >= Length(Result.Edges) then SetLength(Result.Edges, Max(16, K * 2));
+        Result.Edges[K].AX := PX;
+        Result.Edges[K].AY := PY;
+        if J = 0 then
+        begin
+          Result.Edges[K].BX := PX + DX * NOTCH_LEN - DY * NOTCH_LEN * 0.5;
+          Result.Edges[K].BY := PY + DY * NOTCH_LEN + DX * NOTCH_LEN * 0.5;
+        end
+        else
+        begin
+          Result.Edges[K].BX := PX + DX * NOTCH_LEN + DY * NOTCH_LEN * 0.5;
+          Result.Edges[K].BY := PY + DY * NOTCH_LEN - DX * NOTCH_LEN * 0.5;
+        end;
+        Result.Edges[K].Angle := 0;
+        Result.Edges[K].Kind := fkNotch;
+        Inc(K);
+      end;
+    end;
+  end;
   SetLength(Result.Edges, K);
 
   { --- the sheet it needs --------------------------------------------- }

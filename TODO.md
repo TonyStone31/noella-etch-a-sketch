@@ -44,29 +44,26 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
 
 ## Next up, in order
 
-1. **Bend-line notches on a flat pattern.**  Tony's: little cuts at the fold
-   lines so the sheet can be set in the brake.  The pattern knows where every
-   fold is and which way it turns; this is drawing them.
-2. **DXF out.**  A flat pattern is only useful if a table can cut it.  Cut
+1. **DXF out.**  A flat pattern is only useful if a table can cut it.  Cut
    lines and fold lines on their own layers, because a table reads layers.
    Then the 2D and 3D exports of a drawing, which are the same writer.
-3. **The transition builder.**  Two opening sizes, the length of the gap, and
+2. **The transition builder.**  Two opening sizes, the length of the gap, and
    for each axis one named edge and how far it moves.  Six numbers and two
    choices - `docs/transition-ticket.md` has the notation it has to match.
-4. **Seam and bend allowance, and end treatments.**  TDF, flange out, flange
+3. **Seam and bend allowance, and end treatments.**  TDF, flange out, flange
    in, slip, drive, raw, corners notched - per edge, not per end, each worth
    a different amount of material.  The shop's numbers, not guessed ones.
-5. **Note text size.**  Asked for as "resize the caption box"; SketchUp
+4. **Note text size.**  Asked for as "resize the caption box"; SketchUp
    changes the text size, which is the thing worth having.  Wants a size on
    the note and a renderer that honours it.
-6. **Rotate.**  Never built.  45s are the job.
-7. **A protractor, and angled guides.**  The largest thing missing from
+5. **Rotate.**  Never built.  45s are the job.
+6. **A protractor, and angled guides.**  The largest thing missing from
    guides, and the same 45s are why.  `docs/sketchup/13-guides.md`.
-8. **The rest of the dimension tool**: radius and diameter, dragging an
+7. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
-9. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  SketchUp's own docs do
+8. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  SketchUp's own docs do
    not give the syntax, so this is worked out from the app.
-10. **Elbows and 45s with offsets**, then square-to-round.  There is no house
+9. **Elbows and 45s with offsets**, then square-to-round.  There is no house
     style for square-to-round to follow, so it takes a standard from the
     layout books and expects to be argued with.
 
@@ -74,16 +71,11 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
 
 ## Smaller things, roughly in order
 
-* **Dimension labels can land inside a closed shape.**  They should be pushed
-  to the outside of the run they belong to.
 * **Edges that partly overlap.**  An edge landing exactly on one already there
   is skipped.  SketchUp goes further and splits both where they overlap in
   part, so a new line borrows the piece it shares.
 * **The eraser's modifier keys.**  SketchUp softens with Ctrl and hides with
   Shift.  There is a soft flag on an edge now, so the hook exists.
-* **Arcs on a solid's face.**  An arc whose chord is an existing edge closes a
-  region of its own, but a face belonging to a solid is left alone - so a box
-  already pulled up cannot have its end rounded off.  Draw the curve first.
 * **A leader that follows its edge.**  A note points at a point; move the edge
   and the note keeps pointing at where it was.
 * **More in the settings lists.**  They can hold more than a row ever could

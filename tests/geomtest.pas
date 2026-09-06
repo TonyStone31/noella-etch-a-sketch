@@ -1056,6 +1056,51 @@ end;
   The thing worth checking is that the *spacing* is right, not just that the
   points moved: offsetting the corner points instead of the edges gives a
   shape that looks plausible and is the wrong distance away at every corner. }
+{ An offset lands on the plane of the face it was made from.
+
+  The loop is worked in two in-plane directions, and those two directions
+  describe a plane through the origin.  A face on the ground *is* that plane,
+  so an offset there always came out right; a face at the top of a box, or
+  its side, is the same plane moved out along its normal, and the offset was
+  coming back on the one through the origin - the top of a four foot box got
+  its offset at ground level, and the side at x=6 got it at x=0.  "A mile
+  away", as reported, when the face was a long way from the origin. }
+procedure TestOffsetStaysOnItsPlane;
+var
+  Loop, R: TP3Array;
+  N: TP3;
+  I: Integer;
+  Off, Worst: Double;
+begin
+  WriteLn('An offset stays on the plane of its face');
+  { the side of a box at x = 6 }
+  SetLength(Loop, 4);
+  Loop[0] := P3(6, 0, 0); Loop[1] := P3(6, 6, 0);
+  Loop[2] := P3(6, 6, 4); Loop[3] := P3(6, 0, 4);
+  N := P3(1, 0, 0);
+  R := OffsetLoop(Loop, N, -1);
+  Ok(Length(R) = 4, 'the side offsets to four corners');
+  Worst := 0;
+  for I := 0 to High(R) do
+  begin
+    Off := Abs(Dot3(P3(R[I].X - Loop[0].X, R[I].Y - Loop[0].Y, R[I].Z - Loop[0].Z), N));
+    Worst := Max(Worst, Off);
+  end;
+  Ok(Worst < 1E-9, Format('and every corner is on the plane x = 6 (worst %.3g off)', [Worst]));
+  if Length(R) = 4 then
+    Ok(Abs(R[0].X - 6) < 1E-9, Format('x is 6, not %.2f', [R[0].X]));
+
+  { the top of the same box }
+  Loop[0] := P3(0, 0, 4); Loop[1] := P3(6, 0, 4);
+  Loop[2] := P3(6, 6, 4); Loop[3] := P3(0, 6, 4);
+  N := P3(0, 0, 1);
+  R := OffsetLoop(Loop, N, -1);
+  Worst := 0;
+  for I := 0 to High(R) do
+    Worst := Max(Worst, Abs(R[I].Z - 4));
+  Ok(Worst < 1E-9, Format('the top offsets at z = 4, not on the ground (worst %.3g off)', [Worst]));
+end;
+
 procedure TestOffset;
 var
   Sq, R, Tri: TP3Array;
@@ -1713,11 +1758,18 @@ begin
        Format('the pattern is the same area as the box (%.1f vs %.1f)',
               [Area, Want]));
 
-    Bends := 0; Cuts := 0;
+    Bends := 0; Cuts := 0; K := 0;
     for I := 0 to High(P.Edges) do
-      if P.Edges[I].Kind = fkBend then Inc(Bends) else Inc(Cuts);
+      case P.Edges[I].Kind of
+        fkBend: Inc(Bends);
+        fkCut: Inc(Cuts);
+        fkNotch: Inc(K);
+      end;
     Ok(Bends = 5, Format('five folds join the six panels (%d)', [Bends]));
     Ok(Cuts = 7, Format('and the other seven edges are cut (%d)', [Cuts]));
+    { every fold on a box ends at the edge of the sheet at both ends, and each
+      end gets a V - two legs - so ten ends make twenty notch edges }
+    Ok(K = 20, Format('each fold end on the sheet edge gets a brake notch (%d legs)', [K]));
     Ok(not P.Overlaps, 'the pattern does not fold back over itself');
 
     { every bend on a box turns a right angle }

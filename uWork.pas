@@ -206,6 +206,8 @@ type
     { Give a face the loops cut out of it - a window in a wall, the middle of
       a ring left by an offset. }
     procedure SetFaceHoles(Index: Integer; const H: array of TP3Array);
+    { Make a face part of a solid - the one whose face it was cut from. }
+    procedure SetFaceGroup(Index, G: Integer);
 
     { push/pull: lift the face along its own normal and wall in the sides }
     { Hand the edges round a face to a solid's group, so they stop counting
@@ -1399,13 +1401,14 @@ var
   DU, DV: array of Double;         // each edge's unit direction
   NU, NV: array of Double;         // each edge's outward normal
   RU, RV: array of Double;         // the answer, in plane coordinates
-  Area, L, Cr, T, Sgn, AU, AV: Double;
+  Area, L, Cr, T, Sgn, AU, AV, Lift: Double;
 begin
   Result := nil;
   Cnt := Length(Loop);
   if Cnt < 3 then Exit;
 
   N := Norm3(Normal);
+  Lift := Dot3(Loop[0], N);
 
   { Any two perpendicular directions in the plane will do.  Start from
     whichever axis the normal leans on least, so the cross product is never
@@ -1481,8 +1484,19 @@ begin
       AU := PU[K] + NU[K] * D + DU[K] * T;
       AV := PV[K] + NV[K] * D + DV[K] * T;
     end;
-    Result[I] := P3(Ax.X * AU + Bx.X * AV, Ax.Y * AU + Bx.Y * AV,
-                    Ax.Z * AU + Bx.Z * AV);
+    { Back into the model, and out to the plane the loop is actually on.
+
+      Ax and Bx span the plane through the origin parallel to the face, and
+      a corner rebuilt from them alone lands on that one.  A face on the
+      ground is that plane, so an offset there always came out where it should;
+      the top of a four foot box is the same plane four feet up, and its
+      offset came back on the ground - the side of the box at x = 6 got its
+      offset at x = 0.  A mile away, when the face is a long way from the
+      origin.  The plane's own height along its normal is the missing part,
+      and it is the same for every corner. }
+    Result[I] := P3(Ax.X * AU + Bx.X * AV + N.X * Lift,
+                    Ax.Y * AU + Bx.Y * AV + N.Y * Lift,
+                    Ax.Z * AU + Bx.Z * AV + N.Z * Lift);
     { kept apart from PU/PV, which the next corner still needs to read }
     RU[I] := AU;
     RV[I] := AV;
@@ -1968,6 +1982,13 @@ begin
   for I := 0 to High(Pts) do Fixed[I] := Pts[I];
   OrientFace(Fixed);
   AddFaceRaw(Fixed, Ink, Solid);
+end;
+
+procedure TWorkDoc.SetFaceGroup(Index, G: Integer);
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
+  FEnts[Index].Grp := G;
+  FEnts[Index].Solid := True;
 end;
 
 { Give the face just added the loops cut out of it. }

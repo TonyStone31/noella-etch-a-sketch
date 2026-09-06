@@ -30,8 +30,8 @@ type
 
 procedure TFlatForm.Paint;
 var
-  I, J, K, H: Integer;
-  Sc, OX, OY, W, HH: Double;
+  I, J, K, H, N: Integer;
+  Sc, OX, OY, W, HH, NX, NY, NL: Double;
   HeadH, FootH: Integer;
   Pts: array of TPoint;
   S: string;
@@ -95,14 +95,44 @@ begin
         Canvas.Pen.Style := psDash;
         Canvas.Pen.Width := 1;
       end
+      else if Pat.Edges[I].Kind = fkNotch then
+      begin
+        { the brake marks.  Solid and in the cut colour, because they are
+          cuts; heavier than the outline so they can be found at a glance at
+          the end of a fold, which is the whole point of them. }
+        Canvas.Pen.Color := $00202020;
+        Canvas.Pen.Style := psSolid;
+        Canvas.Pen.Width := 3;
+      end
       else
       begin
         Canvas.Pen.Color := clBlack;
         Canvas.Pen.Style := psSolid;
         Canvas.Pen.Width := 2;
       end;
-      Canvas.Line(SX(Pat.Edges[I].AX), SY(Pat.Edges[I].AY),
-                  SX(Pat.Edges[I].BX), SY(Pat.Edges[I].BY));
+      if Pat.Edges[I].Kind = fkNotch then
+      begin
+        { A quarter inch on a forty foot sheet is a tenth of a pixel.  The
+          notch is true size in the pattern - a table cuts what the numbers
+          say - but on screen it is stretched to a size an eye can find, so
+          the mark the brake is set to can be seen where it goes. }
+        NX := SX(Pat.Edges[I].BX) - SX(Pat.Edges[I].AX);
+        NY := SY(Pat.Edges[I].BY) - SY(Pat.Edges[I].AY);
+        NL := Sqrt(NX * NX + NY * NY);
+        { the two legs of a V lean half a notch to either side of the fold;
+          stretched to a legible size the lean is stretched with them, so the
+          mark on screen keeps the shape the cut on the sheet has }
+        if (NL > 1E-6) and (NL < 12) then
+        begin
+          NX := NX * 12 / NL;
+          NY := NY * 12 / NL;
+        end;
+        Canvas.Line(SX(Pat.Edges[I].AX), SY(Pat.Edges[I].AY),
+                    SX(Pat.Edges[I].AX) + Round(NX), SY(Pat.Edges[I].AY) + Round(NY));
+      end
+      else
+        Canvas.Line(SX(Pat.Edges[I].AX), SY(Pat.Edges[I].AY),
+                    SX(Pat.Edges[I].BX), SY(Pat.Edges[I].BY));
     end;
   Canvas.Pen.Style := psSolid;
   Canvas.Pen.Width := 1;
@@ -121,11 +151,12 @@ begin
 
   Canvas.Font.Color := $00303030;
   S := Format('%d panels, %d folds', [Length(Pat.Faces), 0]);
-  K := 0;
+  K := 0; N := 0;
   for I := 0 to High(Pat.Edges) do
-    if Pat.Edges[I].Kind = fkBend then Inc(K);
-  S := Format('%d panels, %d folds  -  solid is cut, dashed is folded',
-    [Length(Pat.Faces), K]);
+    if Pat.Edges[I].Kind = fkBend then Inc(K)
+    else if Pat.Edges[I].Kind = fkNotch then Inc(N);
+  S := Format('%d panels, %d folds, %d brake notches  -  solid is cut, ' +
+    'dashed is folded', [Length(Pat.Faces), K, N div 2]);
   Canvas.TextOut(16, ClientHeight - 26, S);
 
   if Pat.Overlaps then

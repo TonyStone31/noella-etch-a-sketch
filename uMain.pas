@@ -555,6 +555,7 @@ type
     procedure InvalidateStatus;
     procedure ServiceMotion;
     procedure ServiceHover;
+    function OutsideOf(const A, B, Off: TP3): TP3;
     function DimOffset3: TP3;
     procedure LayGuide;
     { Every drawn edge as a plain segment, which is what the region engine
@@ -4320,7 +4321,7 @@ var
   Sz: TSize;
   TP: TPoint;
 begin
-  if not DimGeometry(Proj, FP1, FP2, DimOffset3, FD.Units, G) then Exit;
+  if not DimGeometry(Proj, FP1, FP2, OutsideOf(FP1, FP2, DimOffset3), FD.Units, G) then Exit;
   C.Pen.Style := psSolid;
   C.Pen.Color := PixToColor(AnnotColor);
   C.Pen.Width := 1;
@@ -7212,7 +7213,7 @@ begin
         if Dist(FP1, FP2) > 1E-9 then
         begin
           PushUndo;
-          FD.Doc.AddDim(FP1, FP2, FInkColor, DimOffset3);
+          FD.Doc.AddDim(FP1, FP2, FInkColor, OutsideOf(FP1, FP2, DimOffset3));
           RenderPro;
           RecomposeAll;
           FCmdMsg := 'Dimension ' + FormatLen(Dist(FP1, FP2), FD.Units);
@@ -9153,8 +9154,11 @@ type
 var
   R: TRegionArray;
   Was: array of TWas;
-  NWas, I, J, K, Made, DupAt: Integer;
-  RegArea: Double;
+  NWas, I, J, K, M, G, Made, DupAt: Integer;
+  RegArea, FArea, PiecesArea: Double;
+  FN: TP3;
+  Pieces: array of Integer;
+  Shares: Boolean;
   Mid, Other: TP3;
   Ink: TColor;
   Dup, HadFace, Known: Boolean;
@@ -9162,6 +9166,73 @@ var
 begin
   R := BuildRegionsCached(EdgeSegments, FRegionCache);
   Made := 0;
+
+  { A solid's face divided by what has been drawn on it.
+
+    An arc whose chord is the top edge of a box closes a region of its own,
+    and the region finder sees the top as two pieces: the bite and the rest.
+    Neither piece is the face the solid has, so neither matched it, a loose
+    face was laid over each piece, and the solid's own top stayed whole
+    underneath - so the rounded-off end could not be pushed, because there was
+    nothing solid there to push.  A box already pulled up could not have its
+    end rounded off.
+
+    When the pieces that lie on a solid's face add up to that face, and at
+    least one of them shares an edge with its outline - which is what tells a
+    cut from a window drawn in the middle - the face is replaced by the
+    pieces, each one a face of the same solid.  Then push finds a piece and
+    lifts it, which is the whole point. }
+  for J := FD.Doc.Live - 1 downto 0 do
+  begin
+    if (FD.Doc[J].Kind <> ekFace) or not FD.Doc[J].Solid then Continue;
+    if Length(FD.Doc[J].Holes) > 0 then Continue;
+    FN := FD.Doc.FaceNormal(J);
+    FArea := Abs(LoopArea(FD.Doc[J].Poly, FN));
+    if FArea < 1E-9 then Continue;
+    SetLength(Pieces, 0);
+    PiecesArea := 0;
+    Shares := False;
+    for I := 0 to High(R) do
+    begin
+      if Length(R[I].Holes) > 0 then Continue;
+      if Abs(Abs(Dot3(Norm3(R[I].Normal), FN)) - 1) > 1E-6 then Continue;
+      Mid := P3(0, 0, 0);
+      for K := 0 to High(R[I].Outer) do
+        Mid := P3(Mid.X + R[I].Outer[K].X, Mid.Y + R[I].Outer[K].Y,
+                  Mid.Z + R[I].Outer[K].Z);
+      K := Length(R[I].Outer);
+      Mid := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
+      if Abs(Dot3(FN, P3(Mid.X - FD.Doc[J].Poly[0].X,
+                          Mid.Y - FD.Doc[J].Poly[0].Y,
+                          Mid.Z - FD.Doc[J].Poly[0].Z))) > 1E-4 then Continue;
+      if not PointInLoop(Mid, FD.Doc[J].Poly, FN) then Continue;
+      { the whole face is itself a region; that is not a division }
+      if Abs(Abs(LoopArea(R[I].Outer, R[I].Normal)) - FArea) < 1E-3 then
+        Continue;
+      SetLength(Pieces, Length(Pieces) + 1);
+      Pieces[High(Pieces)] := I;
+      PiecesArea := PiecesArea + Abs(LoopArea(R[I].Outer, R[I].Normal));
+      if not Shares then
+        for K := 0 to High(R[I].Outer) do
+          for M := 0 to High(FD.Doc[J].Poly) do
+            if (Dist(R[I].Outer[K], FD.Doc[J].Poly[M]) < 1E-6) and
+               (Dist(R[I].Outer[(K + 1) mod Length(R[I].Outer)],
+                     FD.Doc[J].Poly[(M + 1) mod Length(FD.Doc[J].Poly)]) < 1E-6) then
+              Shares := True;
+    end;
+    if (Length(Pieces) < 2) or not Shares then Continue;
+    if Abs(PiecesArea - FArea) > 1E-3 * (1 + FArea) then Continue;
+
+    { replace it: the pieces become faces of the same solid }
+    G := FD.Doc[J].Grp;
+    Ink := FD.Doc[J].Ink;
+    FD.Doc.Delete(J);
+    for I := 0 to High(Pieces) do
+    begin
+      FD.Doc.AddFaceRaw(R[Pieces[I]].Outer, Ink, True);
+      FD.Doc.SetFaceGroup(FD.Doc.Live - 1, G);
+    end;
+  end;
 
   { remember what was there, so the new faces can take their colors }
   NWas := 0;
@@ -9352,6 +9423,41 @@ begin
     [Length(Segs), Length(R), FormatArea(Area, FD.Units), Holes, T0,
      Stored, FormatArea(StoredArea, FD.Units)]);
   pbCmd.Invalidate;
+end;
+
+{ A dimension's offset, kept out of the shape it measures.
+
+  A dimension on the edge of a closed shape can be dropped on the inside, and
+  then its line and its figure sit across the face - which is where the next
+  thing you draw is going, and where nobody reads a dimension from.  If the
+  edge belongs to a face and the offset would put the dimension line inside
+  that face, it is turned round to the other side.  An offset that already
+  clears the face is left exactly where it was put. }
+function TMainForm.OutsideOf(const A, B, Off: TP3): TP3;
+var
+  I, K, N: Integer;
+  Mid, Nm: TP3;
+begin
+  Result := Off;
+  for I := 0 to FD.Doc.Live - 1 do
+  begin
+    if FD.Doc[I].Kind <> ekFace then Continue;
+    N := Length(FD.Doc[I].Poly);
+    if N < 3 then Continue;
+    for K := 0 to N - 1 do
+      if ((Dist(FD.Doc[I].Poly[K], A) < 1E-6) and
+          (Dist(FD.Doc[I].Poly[(K + 1) mod N], B) < 1E-6)) or
+         ((Dist(FD.Doc[I].Poly[K], B) < 1E-6) and
+          (Dist(FD.Doc[I].Poly[(K + 1) mod N], A) < 1E-6)) then
+      begin
+        Mid := P3((A.X + B.X) / 2 + Off.X, (A.Y + B.Y) / 2 + Off.Y,
+                  (A.Z + B.Z) / 2 + Off.Z);
+        Nm := FD.Doc.FaceNormal(I);
+        if PointInLoop(Mid, FD.Doc[I].Poly, Nm) then
+          Result := P3(-Off.X, -Off.Y, -Off.Z);
+        Exit;
+      end;
+  end;
 end;
 
 function TMainForm.DimOffset3: TP3;
