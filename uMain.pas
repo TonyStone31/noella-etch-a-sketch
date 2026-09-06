@@ -733,6 +733,7 @@ type
 
     function StatusLine: string;
     procedure WashFace(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure TraceOutlineVisible(C: TCanvas; Idx: Integer; const Col: TPix; PenW: Integer);
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
@@ -5788,6 +5789,72 @@ end;
   the same drawing with a different color, and each copy carried its own pen
   width and its own loop - so a change to how a highlight looks meant finding
   all four. }
+{ The outline of an entity, only where it can be seen.
+
+  SketchUp's hover and selection do not show through faces, and neither do
+  these now: each piece of the outline is sampled against the faces in front
+  of it and drawn where nothing covers it.  The whole line used to be traced
+  through everything, which lit up the far half of an edge behind a wall. }
+procedure TMainForm.TraceOutlineVisible(C: TCanvas; Idx: Integer; const Col: TPix;
+  PenW: Integer);
+const
+  N = 24;
+var
+  W: TP3Array;
+  I, K, Run0: Integer;
+  A, B: TP3;
+  PA, PB: TPointF;
+  Vis: Boolean;
+  T0, T1: Double;
+
+  function Edge(TVis, TCov: Double): Double;
+  var
+    J: Integer;
+    TM: Double;
+  begin
+    for J := 1 to 5 do
+    begin
+      TM := (TVis + TCov) / 2;
+      if FD.Doc.HiddenAt(Proj, Lerp3(A, B, TM)) then TCov := TM else TVis := TM;
+    end;
+    Result := (TVis + TCov) / 2;
+  end;
+
+begin
+  W := FD.Doc.OutlineWorld(Idx);
+  if Length(W) < 2 then Exit;
+  C.Pen.Color := PixToColor(Col);
+  C.Pen.Width := PenW;
+  C.Pen.Style := psSolid;
+  T0 := 0;
+  for I := 0 to High(W) - 1 do
+  begin
+    A := W[I];
+    B := W[I + 1];
+    Run0 := -1;
+    for K := 0 to N do
+    begin
+      if K < N then Vis := not FD.Doc.HiddenAt(Proj, Lerp3(A, B, (K + 0.5) / N))
+      else Vis := False;
+      if Vis and (Run0 < 0) then
+      begin
+        Run0 := K;
+        if K = 0 then T0 := 0 else T0 := Edge((K + 0.5) / N, (K - 0.5) / N);
+      end;
+      if (not Vis) and (Run0 >= 0) then
+      begin
+        if K = N then T1 := 1 else T1 := Edge((K - 0.5) / N, (K + 0.5) / N);
+        PA := ScreenOf(Lerp3(A, B, T0));
+        PB := ScreenOf(Lerp3(A, B, T1));
+        C.MoveTo(Round(PA.X), Round(PA.Y));
+        C.LineTo(Round(PB.X), Round(PB.Y));
+        Run0 := -1;
+      end;
+    end;
+  end;
+  C.Pen.Width := 1;
+end;
+
 procedure TMainForm.TraceOutline(C: TCanvas; const Hi: TPointFArray;
   const Col: TPix);
 var
@@ -6080,13 +6147,7 @@ begin
 
   { --- what is selected ------------------------------------------------ }
   for AY := 0 to High(FSel) do
-  begin
-    Hi := FD.Doc.Outline(Proj, FSel[AY]);
-    if Length(Hi) >= 2 then
-    begin
-      TraceOutline(C, Hi, Pix(70, 130, 240));
-    end;
-  end;
+    TraceOutlineVisible(C, FSel[AY], Pix(70, 130, 240), Max(3, Round(3 * FUIScale)));
 
   { the edge the dimension tool would take }
   if (FTool = ptDim) and (FStage = 0) and (FHoverEnt >= 0) then
@@ -6102,17 +6163,7 @@ begin
   if (FTool in [ptSelect, ptMove, ptRotate]) and (FHoverEnt >= 0) and
      not IsSelected(FHoverEnt) then
   begin
-    Hi := FD.Doc.Outline(Proj, FHoverEnt);
-    if Length(Hi) >= 2 then
-    begin
-      C.Pen.Color := PixToColor(Pix(150, 185, 245));
-      C.Pen.Width := Max(2, Round(2 * FUIScale));
-      C.Pen.Style := psSolid;
-      C.MoveTo(Round(Hi[0].X), Round(Hi[0].Y));
-      for AX := 1 to High(Hi) do
-        C.LineTo(Round(Hi[AX].X), Round(Hi[AX].Y));
-      C.Pen.Width := 1;
-    end;
+    TraceOutlineVisible(C, FHoverEnt, Pix(150, 185, 245), Max(2, Round(2 * FUIScale)));
   end;
 
   { the box itself.  Dashed for a crossing box, solid for a containing one,

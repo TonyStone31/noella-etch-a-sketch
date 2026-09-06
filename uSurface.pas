@@ -890,9 +890,27 @@ end;
 procedure TArtSurface.Line(X0, Y0, X1, Y1, LineW: Single; const C: TPix; Alpha: Single);
 var
   X, Y, IX0, IY0, IX1, IY1, RX0, RX1: Integer;
-  HW, Pad, DY, Lo, Hi, XA, XB, T: Single;
+  HW, Pad, DY, Lo, Hi, XA, XB, T, Len, DX, DYc: Single;
 begin
   HW := Max(LineW, 0.35) / 2;
+  { A line is a capsule: a round cap reaches half the width past each end.
+    On a one pixel edge that is nothing; on a two pixel profile it is a
+    pixel past every corner, and at the mouth of a tunnel those pixels
+    poke out onto the wall - the corner bleed.  So a line wider than a
+    pixel and a half is pulled in by half its width at each end, and the
+    cap then ends exactly on the point.  Two lines meeting at a corner keep
+    it covered between them, gently rounded rather than notched. }
+  if LineW > 1.5 then
+  begin
+    Len := Sqrt(Sqr(X1 - X0) + Sqr(Y1 - Y0));
+    if Len > 2 * HW + 0.5 then
+    begin
+      DX := (X1 - X0) / Len * HW;
+      DYc := (Y1 - Y0) / Len * HW;
+      X0 := X0 + DX; Y0 := Y0 + DYc;
+      X1 := X1 - DX; Y1 := Y1 - DYc;
+    end;
+  end;
   Pad := HW + 3;
   IX0 := LoBound(Min(X0, X1) - Pad, FWidth);
   IY0 := LoBound(Min(Y0, Y1) - Pad, FHeight);

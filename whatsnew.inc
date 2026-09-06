@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- The last of the line bleed: the corners of a tunnel''s mouth and the' + LineEnding +
+    '  creases of a cylinder no longer poke a pixel or two into the face beside' + LineEnding +
+    '  them.  Heavier profile lines end exactly on their corners too.' + LineEnding +
+    '- Hovering or selecting an edge lights only the part of it you can see, the' + LineEnding +
+    '  way SketchUp does, instead of the whole line through every face.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.7' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

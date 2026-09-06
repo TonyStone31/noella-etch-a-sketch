@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- The last of the line bleed: the corners of a tunnel's mouth and the
+  creases of a cylinder no longer poke a pixel or two into the face beside
+  them.  Heavier profile lines end exactly on their corners too.
+- Hovering or selecting an edge lights only the part of it you can see, the
+  way SketchUp does, instead of the whole line through every face.
+
 ## v2026.09.06.7
 
 ### Fixed

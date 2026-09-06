@@ -454,6 +454,8 @@ function ArcFromChord(const A, B: TP3; Bulge: Double; Pl: TPlane;
 
 function P3(X, Y, Z: Double): TP3; inline;
 function Dist(const A, B: TP3): Double; inline;
+{ the point T of the way from A to B }
+function Lerp3(const A, B: TP3; T: Double): TP3;
 function SamePt(const A, B: TP3; Tol: Double): Boolean; inline;
 
 { --- projection ---------------------------------------------------------- }
@@ -4962,11 +4964,37 @@ var
       makes the tolerance follow the angle instead of being a guess. }
     Zx := S.DepthAt(Round(SP.X) + 1, Round(SP.Y));
     Zy := S.DepthAt(Round(SP.X), Round(SP.Y) + 1);
+    { half a step in each direction, since the point can be half a pixel
+      from the centre both ways at once }
     Grad := 0;
-    if Zx > -1E29 then Grad := Max(Grad, Abs(Zx - Zb));
-    if Zy > -1E29 then Grad := Max(Grad, Abs(Zy - Zb));
+    if Zx > -1E29 then Grad := Grad + 0.5 * Abs(Zx - Zb);
+    if Zy > -1E29 then Grad := Grad + 0.5 * Abs(Zy - Zb);
 
-    Result := Zb > D + Grad + 1E-3 * (1 + Abs(D));
+    { Half a step, not a whole one: the point is within half a pixel of the
+
+      centre the buffer was sampled at, so half the local slope is all the
+
+      disagreement a line on its own face can have.  A whole step let a line
+
+      behind a face seen nearly edge-on through for several pixels past the
+
+      face's edge - the bleed at a tunnel's mouth.  And the slope is capped
+
+      at about an eighty degree tilt; steeper than that the face is its own
+
+      silhouette and a line on it is at the edge anyway. }
+
+    Grad := Min(Grad, 6 / Max(1E-9, V.Ppu));
+
+    { The last term is for floating point, and only that.  It used to be a
+
+      thousandth of the distance from the origin - half an inch of depth on
+
+      a model fifty feet out - which let a crease receding behind a wall
+
+      show for a few pixels past its corner. }
+
+    Result := Zb > D + Grad + 1E-7 * (1 + Abs(D)) + 0.02 / Max(1E-9, V.Ppu);
   end;
 
   { Where along a stretch the cover begins: TVis is a point that can be seen
