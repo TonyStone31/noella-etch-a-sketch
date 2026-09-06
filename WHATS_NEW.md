@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- A circle drawn with few sides was still outlined smooth in some views
+  while its face and anything pulled from it were faceted.  Every drawing
+  pass uses the side count now.
+
 ## v2026.09.06.4
 
 ### New

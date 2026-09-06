@@ -4839,7 +4839,7 @@ begin
         end;
       ekArc:
         begin
-          Steps := 64;
+          if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides else Steps := 64;
           D := '';
           for K := 0 to Steps do
           begin
@@ -5149,7 +5149,8 @@ begin
 
       ekArc:
         begin
-          Steps := Max(10, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 4));
+          if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
+          else Steps := Max(10, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 4));
           Steps := Min(Steps, 1500);
           PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm));
           for K := 1 to Steps do
@@ -5426,8 +5427,8 @@ begin
             the side of a box was painted over by the box and looked as though
             it had landed somewhere else entirely }
           begin
-            Steps := Max(24, Min(180, Round(Abs(FEnts[I].Sweep) *
-              FEnts[I].R * V.Ppu / 6)));
+            if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
+            else Steps := Max(24, Min(180, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 6)));
             Run0 := -1;
             for M := 0 to Steps do
             begin

@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A circle drawn with few sides was still outlined smooth in some views' + LineEnding +
+    '  while its face and anything pulled from it were faceted.  Every drawing' + LineEnding +
+    '  pass uses the side count now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.4' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
