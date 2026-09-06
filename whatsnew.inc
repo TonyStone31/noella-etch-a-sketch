@@ -13,6 +13,13 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- Where two tunnels cross, the edges drawn along each tunnel no longer run' + LineEnding +
+    '  on through the other one''s bore.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

@@ -10,6 +10,13 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- Where two tunnels cross, the edges drawn along each tunnel no longer run
+  on through the other one's bore.
+
 ## v2026.09.06
 
 ### New

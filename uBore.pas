@@ -329,6 +329,98 @@ begin
   if Best < Abs(Dist) - Tol then Result := Sign(Dist) * Best;
 end;
 
+{ The stretch of the segment A-B that lies inside the bore, as fractions
+  of the way from A to B.  The bore is a convex prism - the opening's sides
+  swept along the axis, closed by its two mouths - so the inside is one
+  stretch, found by clipping against each of those planes in turn. }
+function SegInBore(const Loop: TP3Array; const FarOfFirst: TP3; const A, B: TP3;
+  out TA, TB: Double): Boolean;
+var
+  Ax, N, P0, E, Side: TP3;
+  I, M: Integer;
+  L: Double;
+
+  { keep the part of [TA,TB] on the inner side of the plane through P0 with
+    outward normal N }
+  procedure Clip(const P0, N: TP3);
+  var
+    DA, DB: Double;
+  begin
+    DA := Dot3(Sub(A, P0), N);
+    DB := Dot3(Sub(B, P0), N);
+    if (DA > 0) and (DB > 0) then begin TA := 1; TB := 0; Exit; end;   { all outside }
+    if (DA <= 0) and (DB <= 0) then Exit;                              { all inside }
+    if DA > 0 then TA := Max(TA, DA / (DA - DB))                      { A outside, enters }
+    else TB := Min(TB, DA / (DA - DB));                               { B outside, leaves }
+  end;
+
+begin
+  TA := 0; TB := 1;
+  Ax := Norm3(Sub(FarOfFirst, Loop[0]));
+  L := Dist(FarOfFirst, Loop[0]);
+  M := Length(Loop);
+  { the mouths }
+  Clip(Loop[0], Scaled(Ax, -1));
+  Clip(Add(Loop[0], Scaled(Ax, L)), Ax);
+  { the sides: outward is away from the opening's middle }
+  Side := P3(0, 0, 0);
+  for I := 0 to M - 1 do Side := Add(Side, Loop[I]);
+  Side := Scaled(Side, 1 / M);
+  for I := 0 to M - 1 do
+  begin
+    P0 := Loop[I];
+    E := Sub(Loop[(I + 1) mod M], P0);
+    N := Norm3(Cross3(E, Ax));
+    if Dot3(N, Sub(Side, P0)) > 0 then N := Scaled(N, -1);
+    Clip(P0, N);
+    if TA >= TB then Exit(False);
+  end;
+  Result := TB - TA > 1E-9;
+end;
+
+{ Every edge of the solid that runs through the bore loses the part inside
+  it: the creases along one tunnel's walls no longer cross the other's
+  space, which is what was left hanging in the air after the walls went. }
+procedure TrimLinesInBore(D: TWorkDoc; Bore, G: Integer; Tol: Double);
+var
+  I, N: Integer;
+  A, B, PA, PB, Far: TP3;
+  TA, TB: Double;
+  Ink: TColor;
+  Wt: Single;
+  Soft: Boolean;
+  Loop: TP3Array;
+begin
+  { the bore by value - deleting lines below it would move its index }
+  Loop := Copy(D[Bore].Poly, 0, Length(D[Bore].Poly));
+  Far := D[Bore].B;
+  N := D.Live;
+  for I := N - 1 downto 0 do
+  begin
+    if (D[I].Kind <> ekLine) or (D[I].Grp <> G) then Continue;
+    A := D[I].A; B := D[I].B;
+    if not SegInBore(Loop, Far, A, B, TA, TB) then Continue;
+    { only a real stretch, not a touch at a wall }
+    if (TB - TA) * Dist(A, B) < Tol * 10 then Continue;
+    Ink := D[I].Ink; Wt := D[I].Weight; Soft := D[I].Soft;
+    PA := Add(A, Scaled(Sub(B, A), TA));
+    PB := Add(A, Scaled(Sub(B, A), TB));
+    D.Delete(I);
+    if Dist(A, PA) > Tol * 10 then
+    begin
+      D.AddLine(A, PA, Ink, Wt, False);
+      D.SetGroup(D.Live - 1, G);
+      D.SetSoft(D.Live - 1, Soft);
+    end;
+    if Dist(PB, B) > Tol * 10 then
+    begin
+      D.AddLine(PB, B, Ink, Wt, False);
+      D.SetGroup(D.Live - 1, G);
+      D.SetSoft(D.Live - 1, Soft);
+    end;
+  end;
+end;
+
 function CutCrossingBores(D: TWorkDoc; NewBore: Integer): Integer;
 type
   TReplace = record
@@ -343,6 +435,8 @@ var
   Segs: array[0..15] of TCut;
   Reps: array of TReplace;
   Tmp: TReplace;
+  Crossed, CrossedOrd: array of Integer;
+  BoreA, BoreB, NewBoreOrd: Integer;
   FN: TP3;
   Ink: TColor;
 
@@ -414,6 +508,11 @@ begin
   Tol := 1E-6 * (1 + Size);
   NRep := 0;
   Reps := nil;
+  Crossed := nil;
+  CrossedOrd := nil;
+  NewBoreOrd := 0;
+  for I := 0 to NewBore - 1 do
+    if D[I].Kind = ekBore then Inc(NewBoreOrd);
 
   for Other := 0 to D.Live - 1 do
   begin
@@ -446,6 +545,12 @@ begin
 
     for I := 0 to High(LA) do Divide(LA[I], NewBore);
     for I := 0 to High(LB) do Divide(LB[I], Other);
+    SetLength(Crossed, Length(Crossed) + 1);
+    Crossed[High(Crossed)] := Other;
+    SetLength(CrossedOrd, Length(Crossed));
+    CrossedOrd[High(CrossedOrd)] := 0;
+    for I := 0 to Other - 1 do
+      if D[I].Kind = ekBore then Inc(CrossedOrd[High(CrossedOrd)]);
 
     { the crossings are edges now, so they draw }
     for I := 0 to NCuts - 1 do
@@ -479,6 +584,35 @@ begin
       if Dot3(D.FaceNormal(D.Live - 1), FN) < 0 then D.FlipFace(D.Live - 1);
     end;
     Inc(Result);
+  end;
+
+  { The edges.  Deleting walls has moved every index, so the bores are
+    found again: they were never deleted, and they keep their order. }
+  if Length(Crossed) > 0 then
+  begin
+    BoreB := -1;
+    K := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekBore then
+      begin
+        if K = NewBoreOrd then BoreB := I;
+        Inc(K);
+      end;
+    if BoreB >= 0 then
+      for J := 0 to High(Crossed) do
+      begin
+        BoreA := -1;
+        K := 0;
+        for I := 0 to D.Live - 1 do
+          if D[I].Kind = ekBore then
+          begin
+            if K = CrossedOrd[J] then BoreA := I;
+            Inc(K);
+          end;
+        if BoreA < 0 then Continue;
+        TrimLinesInBore(D, BoreB, G, Tol);   { the old tunnel's creases, where the new one runs }
+        TrimLinesInBore(D, BoreA, G, Tol);   { and the new one's, where the old one runs }
+      end;
   end;
 end;
 

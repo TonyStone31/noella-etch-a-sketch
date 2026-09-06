@@ -223,6 +223,7 @@ type
     procedure SetFaceGroup(Index, G: Integer);
     { the same for anything - a line that belongs to a solid, say }
     procedure SetGroup(Index, G: Integer);
+    procedure SetSoft(Index: Integer; Soft: Boolean);
     { Turn a face over: its outline and its openings run the other way round,
       so its normal points the other way. }
     procedure FlipFace(Index: Integer);
@@ -2165,6 +2166,12 @@ begin
     FEnts[Index].Holes[H] := T;
   end;
   FSnapDirty := True;
+end;
+
+procedure TWorkDoc.SetSoft(Index: Integer; Soft: Boolean);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  FEnts[Index].Soft := Soft;
 end;
 
 procedure TWorkDoc.SetGroup(Index, G: Integer);
