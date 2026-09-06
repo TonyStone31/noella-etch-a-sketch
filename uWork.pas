@@ -146,7 +146,7 @@ type
     line, and the one point in the model everybody knows the coordinates of
     cannot be landed on. }
   TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCenter, snCross,
-    snSubMid, snOnEdge, snOnAxis, snOrigin);
+    snSubMid, snOnEdge, snOnAxis, snOrigin, snOnFace);
 
   { Everything a dimension is drawn out of, in screen coordinates.  One
     routine works it out so that the preview you drag around and the thing
@@ -3943,7 +3943,7 @@ const
     likely to be the thing being aimed at than the place the model happens to
     start - and near the origin is exactly where people draw corners. }
   BIAS: array[TSnapKind] of Double =
-    (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0, 0, 3.0);
+    (0, 0, 3.5, 1.0, 2.0, 1.5, 0.25, 0, 0, 3.0, 0);   { snOnFace: found separately too }
 var
   I: Integer;
   P: TPointF;

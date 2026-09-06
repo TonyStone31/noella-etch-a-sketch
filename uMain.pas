@@ -599,6 +599,13 @@ type
     function RunReading(const A, B: TP3): string;
     procedure PaintMoveGhost(C: TCanvas);
     procedure PaintRotateGhost(C: TCanvas);
+    { The arc the picks describe: FP1 and FP2 the chord, B the point pulling
+      its middle out.  Works out the plane too - the working plane, unless B
+      is off it, in which case the three points make their own plane, which
+      is how an arc drawn up the end of a box stands on the end of the box
+      instead of lying on the ground under it. }
+    function ArcPicks(const B: TP3; out Pl: TPlane; out C: TP3;
+      out R, A0, Sweep, Bulge: Double): Boolean;
     function RotAngle: Double;
     function RotRefDir: TP3;
     function IsDoomed(I: Integer): Boolean;
@@ -1509,8 +1516,20 @@ begin
 end;
 
 function TMainForm.ResolveSnapAt(SX, SY: Double): TP3;
+var
+  HF: Integer;
+  HP, N: TP3;
 begin
   Result := HeldToFace(ResolveSnapRaw(SX, SY));
+  { A free point that is resting on a face is On Face, and says so - the way
+    SketchUp does.  Only when the point really is on that face's plane: a
+    cursor drawing in mid air with a face somewhere behind it is not on it. }
+  if (FSnapKind = snGrid) and FD.Doc.FaceUnder(Proj, SX, SY, HF, HP) then
+  begin
+    N := Norm3(FD.Doc.FaceNormal(HF));
+    if Abs(Dot3(N, P3(Result.X - HP.X, Result.Y - HP.Y, Result.Z - HP.Z))) < 1E-6 then
+      FSnapKind := snOnFace;
+  end;
 end;
 
 function TMainForm.AnnotColor: TPix;
@@ -4200,6 +4219,7 @@ begin
     snCenter:   Result := 'CENTER';
     snCross:    Result := 'CROSSING';
     snOnEdge:   Result := 'ON EDGE';
+    snOnFace:   Result := 'ON FACE';
     snOrigin:   Result := 'ORIGIN';
     snOnAxis:   case FSnapAxis of
                   0: Result := 'ON RED AXIS';
@@ -5469,6 +5489,8 @@ begin
     snEndpoint, snCenter: MarkPix := Pix(60, 210, 90);
     snMidpoint, snSubMid: MarkPix := Pix(90, 220, 235);
     snOnEdge:             MarkPix := Pix(235, 70, 70);
+    { SketchUp's On Face is blue, and the point sits on the surface }
+    snOnFace:             MarkPix := Pix(70, 130, 240);
     { the mark takes the color of the axis it is on, which is the whole point
       of the axes being colored }
     snOnAxis:             MarkPix := AxisPix(FSnapAxis);
@@ -5695,6 +5717,11 @@ end;
 
 procedure TMainForm.PaintProOverlay(C: TCanvas);
 var
+  ArcPl: TPlane;
+  ArcC, ArcU, ArcV, ArcMid, ArcFoot: TP3;
+  ArcR, ArcA0, ArcSw, ArcBulge, U1, V1, U2, V2, Ln: Double;
+  PA, PB: TPointF;
+  ArcK: Integer;
   HintFace: Integer;
   CircI: Integer;
   CircR: Double;
@@ -5712,6 +5739,22 @@ var
   { When the cursor is locked to an axis the band is drawn in that axis's
     color, so the direction you are committing to is readable without
     looking away at the chip. }
+  { a small red square on a point that has been picked, SketchUp's mark }
+  procedure EndMark(const P: TP3);
+  var
+    Q: TPointF;
+    D: Integer;
+  begin
+    Q := ScreenOf(P);
+    D := Round(3 * FUIScale);
+    C.Pen.Width := 1;
+    C.Pen.Color := PixToColor(Pix(235, 70, 70));
+    C.Brush.Style := bsSolid;
+    C.Brush.Color := PixToColor(Pix(255, 150, 150));
+    C.Rectangle(Round(Q.X) - D, Round(Q.Y) - D, Round(Q.X) + D + 1, Round(Q.Y) + D + 1);
+    C.Brush.Style := bsClear;
+  end;
+
   procedure Rubber(const A, B: TP3);
   var
     PA, PB: TPointF;
@@ -5786,8 +5829,59 @@ begin
       end;
     ptArc:
       begin
-        if FStage >= 1 then Rubber(FP1, FCur);
-        if FStage = 2 then Rubber(FP2, FCur);
+        { What SketchUp shows, because it is what you need to see: the two
+          ends marked, the chord, the pull from the chord's middle drawn in
+          the color of the axis it runs along - blue when it goes straight up
+          a wall - and the arc itself where it will land.  Before this it was
+          two rubber bands to the cursor, which said nothing about the plane,
+          so an arc that had dropped onto the ground looked the same as one
+          standing on the wall until it was drawn. }
+        if FStage = 1 then
+        begin
+          Rubber(FP1, FCur);
+          EndMark(FP1);
+        end
+        else if FStage = 2 then
+        begin
+          if ArcPicks(FCur, ArcPl, ArcC, ArcR, ArcA0, ArcSw, ArcBulge) then
+          begin
+            PlaneAxes(ArcPl, ArcU, ArcV);
+            PlaneCoords(ArcPl, FP1, U1, V1);
+            PlaneCoords(ArcPl, FP2, U2, V2);
+            Ln := Sqrt(Sqr(U2 - U1) + Sqr(V2 - V1));
+            { the chord, thin }
+            PA := ScreenOf(FP1);
+            PB := ScreenOf(FP2);
+            C.Pen.Style := psDash;
+            C.Pen.Width := 1;
+            C.Pen.Color := PixToColor(Theme.Accent);
+            C.MoveTo(Round(PA.X), Round(PA.Y));
+            C.LineTo(Round(PB.X), Round(PB.Y));
+            C.Pen.Style := psSolid;
+            { the pull, from the chord's middle, in its axis color }
+            ArcMid := P3((FP1.X + FP2.X) / 2, (FP1.Y + FP2.Y) / 2, (FP1.Z + FP2.Z) / 2);
+            ArcFoot := P3(
+              ArcMid.X + (ArcU.X * (-(V2 - V1) / Ln) + ArcV.X * ((U2 - U1) / Ln)) * ArcBulge,
+              ArcMid.Y + (ArcU.Y * (-(V2 - V1) / Ln) + ArcV.Y * ((U2 - U1) / Ln)) * ArcBulge,
+              ArcMid.Z + (ArcU.Z * (-(V2 - V1) / Ln) + ArcV.Z * ((U2 - U1) / Ln)) * ArcBulge);
+            Rubber(ArcMid, ArcFoot);
+            { the arc, where it will land }
+            C.Pen.Width := Max(2, Round(2 * FUIScale));
+            C.Pen.Color := PixToColor(Theme.Accent);
+            PA := ScreenOf(ArcPoint(ArcC, ArcR, ArcA0, ArcPl));
+            C.MoveTo(Round(PA.X), Round(PA.Y));
+            for ArcK := 1 to 48 do
+            begin
+              PB := ScreenOf(ArcPoint(ArcC, ArcR, ArcA0 + ArcSw * ArcK / 48, ArcPl));
+              C.LineTo(Round(PB.X), Round(PB.Y));
+            end;
+            C.Pen.Width := 1;
+          end
+          else
+            Rubber(FP1, FP2);
+          EndMark(FP1);
+          EndMark(FP2);
+        end;
       end;
     ptCircle:
       if FStage = 1 then
@@ -6464,7 +6558,8 @@ end;
 function TMainForm.LiveMeasure: string;
 var
   T: TP3;
-  W, H, L: Double;
+  W, H, L, LBulge: Double;
+  LPl: TPlane;
 begin
   Result := '';
   if FMode <> mdPro then Exit;
@@ -6482,6 +6577,14 @@ begin
     ptCircle:
       if FStage = 1 then
         Result := FormatLen(Dist(FP1, FCur), FD.Units);
+    ptArc:
+      if FStage = 1 then
+        Result := FormatLen(Dist(FP1, FCur), FD.Units)
+      else if FStage = 2 then
+      begin
+        if ArcPicks(FCur, LPl, T, W, H, L, LBulge) then
+          Result := 'bulge ' + FormatLen(Abs(LBulge), FD.Units);
+      end;
     ptRotate, ptProtractor:
       if FStage >= 1 then
         Result := FormatAngle(RadToDeg(RotAngle));
@@ -7094,6 +7197,7 @@ var
   Ang: Double;
   Base: Integer;
   Copies: array of Integer;
+  ArcPl: TPlane;
 begin
   Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
   case FTool of
@@ -7216,28 +7320,16 @@ begin
 
     ptArc:
       begin
-        { bulge is how far the middle is pulled off the chord }
-        PlaneCoords(FD.Plane, FP1, U1, V1);
-        PlaneCoords(FD.Plane, FP2, U2, V2);
-        PlaneCoords(FD.Plane, FCur, UC, VC);
-        Ln := Sqrt(Sqr(U2 - U1) + Sqr(V2 - V1));
-        if Ln < 1E-9 then
+        Ok := ArcPicks(FCur, ArcPl, C, R, A0, Sweep, Bulge);
+        if not Ok and (Dist(FP1, FP2) < 1E-9) then
         begin
           ResetTool;
           Exit;
         end;
-        NU := -(V2 - V1) / Ln;
-        NV := (U2 - U1) / Ln;
-        Bulge := (UC - (U1 + U2) / 2) * NU + (VC - (V1 + V2) / 2) * NV;
-        if (FInput <> '') and ParseLen(FInput, FD.Units, L) then
-          Bulge := Sign(Bulge) * L;
-        if Abs(Bulge) < 1E-9 then Bulge := Ln / 8;
-
-        Ok := ArcFromChord(FP1, FP2, Bulge, FD.Plane, C, R, A0, Sweep);
         if Ok then
         begin
           PushUndo;
-          FD.Doc.AddArc(C, R, A0, Sweep, FD.Plane, FInkColor, FEdgeW);
+          FD.Doc.AddArc(C, R, A0, Sweep, ArcPl, FInkColor, FEdgeW);
           FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
           I := FaceCount;
           if RebuildFlatFaces > I then
@@ -8987,6 +9079,46 @@ end;
 
 { The selection drawn again where it would land, plus the line back to where
   it was grabbed. }
+function TMainForm.ArcPicks(const B: TP3; out Pl: TPlane; out C: TP3;
+  out R, A0, Sweep, Bulge: Double): Boolean;
+var
+  AU, AV, N, D1, D2: TP3;
+  U1, V1, U2, V2, UC, VC, Ln, NU, NV, L, Off, Size: Double;
+begin
+  Result := False;
+  Bulge := 0;
+  C := FP1; R := 0; A0 := 0; Sweep := 0;
+  Pl := FD.Plane;
+  PlaneAxes(Pl, AU, AV);
+  N := Norm3(Cross3(AU, AV));
+  D1 := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
+  D2 := P3(B.X - FP1.X, B.Y - FP1.Y, B.Z - FP1.Z);
+  Size := Max(Dist(FP2, FP1), Dist(B, FP1));
+  if Size < 1E-9 then Exit;
+  Off := Abs(Dot3(N, D2));
+  if (Off > 1E-6 * (1 + Size)) and
+     (Dist(Cross3(D1, D2), P3(0, 0, 0)) > 1E-9 * Size * Size) then
+  begin
+    { the third point is off the working plane, so the three points say
+      which plane the arc is in - through the chord, containing the pull }
+    SetFreePlane(FP1, Norm3(Cross3(D1, D2)));
+    Pl := plFree;
+  end;
+  PlaneCoords(Pl, FP1, U1, V1);
+  PlaneCoords(Pl, FP2, U2, V2);
+  PlaneCoords(Pl, B, UC, VC);
+  Ln := Sqrt(Sqr(U2 - U1) + Sqr(V2 - V1));
+  if Ln < 1E-9 then Exit;
+  { bulge is how far the middle is pulled off the chord }
+  NU := -(V2 - V1) / Ln;
+  NV := (U2 - U1) / Ln;
+  Bulge := (UC - (U1 + U2) / 2) * NU + (VC - (V1 + V2) / 2) * NV;
+  if (FInput <> '') and ParseLen(FInput, FD.Units, L) then
+    Bulge := Sign(IfThen(Bulge = 0, 1, Bulge)) * L;
+  if Abs(Bulge) < 1E-9 then Bulge := Ln / 8;
+  Result := ArcFromChord(FP1, FP2, Bulge, Pl, C, R, A0, Sweep);
+end;
+
 procedure TMainForm.PaintMoveGhost(C: TCanvas);
 var
   I, K: Integer;

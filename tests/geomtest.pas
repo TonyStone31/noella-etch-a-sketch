@@ -1817,6 +1817,33 @@ begin
 end;
 
 { A note's text size survives the file, and a normal note writes nothing new. }
+procedure TestArcOnFreePlane;
+var
+  C, A, B, P, N: TP3;
+  R, A0, Sweep: Double;
+  I: Integer;
+  Flat: Boolean;
+begin
+  WriteLn('An arc on a plane of its own');
+  { the chord along the bottom of a wall at x=6, the pull straight up it }
+  A := P3(6, 1, 0);
+  B := P3(6, 5, 0);
+  N := Norm3(Cross3(P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z), P3(0, 0, 1)));
+  SetFreePlane(A, N);
+  Ok(ArcFromChord(A, B, 1.5, plFree, C, R, A0, Sweep), 'the arc is made');
+  Flat := True;
+  for I := 0 to 24 do
+  begin
+    P := ArcPoint(C, R, A0 + Sweep * I / 24, plFree);
+    if Abs(P.X - 6) > 1E-6 then Flat := False;
+  end;
+  Ok(Flat, 'every point of it is on the wall, x = 6');
+  P := ArcPoint(C, R, A0 + Sweep / 2, plFree);
+  Ok(Abs(Abs(P.Z) - 1.5) < 1E-6, 'and its middle is pulled 1.5 off the chord');
+  Ok(Dist(ArcPoint(C, R, A0, plFree), A) < 1E-6, 'it starts at A');
+  Ok(Dist(ArcPoint(C, R, A0 + Sweep, plFree), B) < 1E-6, 'and ends at B');
+end;
+
 procedure TestInnerPoint;
 var
   Loop: TP3Array;
@@ -2185,6 +2212,7 @@ begin
   TestNoteSize;  WriteLn;
   TestRotate;  WriteLn;
   TestInnerPoint;  WriteLn;
+  TestArcOnFreePlane;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
