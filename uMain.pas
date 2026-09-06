@@ -50,8 +50,8 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uPaths, uReport, uNet,
-  uUnfold, uFlatView;
+  uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uReport, uNet, uUnfold, uFlatView;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -391,6 +391,8 @@ type
       to say the startup worked }
     FUpTime: Single;
     FStartupDone, FAskedAboutCrash: Boolean;
+    FUpdatedFrom: string;
+    FWhatsNewShown: Boolean;
     { The last few dozen things that happened, so a crash report says what
       was being done and not only where it landed.  A ring, so it costs
       nothing and never grows. }
@@ -528,6 +530,7 @@ type
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
+    procedure ShowWhatsNew;
     procedure StartUnfold;
     procedure UnfoldAt(SX, SY: Integer);
     procedure OfferCrashReport;
@@ -1576,10 +1579,17 @@ end;
 procedure TMainForm.FormCreate(Sender: TObject);
 var
   I: Integer;
+  A: string;
 begin
   Application.OnException := @ReportCrash;
   Randomize;
   FRunTag := IntToHex(GetTickCount64 and $FFFFFF, 6) + IntToHex(Random($10000), 4);
+  for I := 1 to ParamCount do
+  begin
+    A := ParamStr(I);
+    if Pos('--updated-from=', LowerCase(A)) = 1 then
+      FUpdatedFrom := Copy(A, Length('--updated-from=') + 1, MaxInt);
+  end;
   { real hover tooltips on the deck, not just the hint line }
   pbDeck.ShowHint := True;
   Application.ShowHint := True;
@@ -4470,6 +4480,19 @@ begin
     if Loud then FCmdMsg := 'Up to date - ' + CurrentVersion + '.';
   end;
   pbCmd.Invalidate;
+end;
+
+{ The release notes, the whole history, from the help menu or /whatsnew. }
+procedure TMainForm.ShowWhatsNew;
+var
+  F: TWhatsNewForm;
+begin
+  F := TWhatsNewForm.Create(Self);
+  try
+    F.ShowAll;
+  finally
+    F.Free;
+  end;
 end;
 
 { Fetch it, check it is what the release says it is, put it in place and
@@ -7463,6 +7486,7 @@ begin
   else if (W = 'offset') or (W = 'f') then SetTool(ptOffset)
   else if (W = 'rotate') or (W = 'q') or (W = 'turn') then SetTool(ptRotate)
   else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
+  else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'update') or (W = 'upgrade') then
   begin
     if Rest = 'never' then
@@ -8493,7 +8517,7 @@ begin
     POP_SNAP: Result := SNAP_COUNT;
     POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
-    POP_HELP: Result := 6;
+    POP_HELP: Result := 7;
     POP_SHOP: Result := 1;
     POP_PREC: Result := Length(PREC_DENOMS);
   else
@@ -8518,9 +8542,10 @@ begin
       case I of
         0: Result := 'About  (F1)';
         1: Result := 'Check for updates';
-        2: Result := 'Downloads';
-        3: Result := 'The manual';
-        4: Result := 'Report a problem';
+        2: Result := 'What''s new';
+        3: Result := 'Downloads';
+        4: Result := 'The manual';
+        5: Result := 'Report a problem';
       else
         Result := 'Project page';
       end;
@@ -8546,9 +8571,10 @@ begin
       case I of
         0: ShowAbout;
         1: begin CheckForUpdate(True); DoUpdate; end;
-        2: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/releases/latest');
-        3: OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
-        4: ReportBug;
+        2: ShowWhatsNew;
+        3: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/releases/latest');
+        4: OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
+        5: ReportBug;
       else
         OpenInBrowser('https://github.com/' + UPDATE_REPO);
       end;
@@ -10631,6 +10657,7 @@ end;
 procedure TMainForm.tmrTickTimer(Sender: TObject);
 var
   Dt, Speed, DX, DY: Single;
+  WhatsNewForm: TWhatsNewForm;
 begin
   Dt := TICK_MS / 1000;
 
@@ -10655,6 +10682,16 @@ begin
   if not FStartupDone then
   begin
     FUpTime := FUpTime + Dt;
+    if (FUpdatedFrom <> '') and not FWhatsNewShown and (FUpTime > 0.5) then
+    begin
+      FWhatsNewShown := True;
+      WhatsNewForm := TWhatsNewForm.Create(Self);
+      try
+        WhatsNewForm.ShowRelease(FUpdatedFrom, CurrentVersion);
+      finally
+        WhatsNewForm.Free;
+      end;
+    end;
     { and once there is a window to put it in front of, last time's crash can
       be offered - not before }
     if (FUpTime > 1.5) and not FAskedAboutCrash then

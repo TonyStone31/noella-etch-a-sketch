@@ -127,6 +127,27 @@ die() { printf '\n\033[1;31m!! %s\033[0m\n' "$*" >&2; exit 1; }
 need_tools() {
   [ -x "$LAZBUILD" ] || die "lazbuild not found at $LAZBUILD"
   [ -f "$PROJ" ]     || die "project not found at $PROJ"
+  gen_whatsnew
+}
+
+# WHATS_NEW.md is the one copy of the release notes.  The program shows it
+# after an update, so it is turned into a Pascal string constant before every
+# build - the words on screen are the words in the file, and nobody keeps two
+# lists in step by hand.  The generated file is committed, so a build from the
+# IDE without this script still has one; it just may be a build behind.
+gen_whatsnew() {
+  python3 - "$ROOT/WHATS_NEW.md" "$ROOT/whatsnew.inc" <<'PY'
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+lines = open(src, encoding='utf-8').read().split('\n')
+out = ['{ Generated from WHATS_NEW.md by build.sh - edit that, not this. }',
+       'const', '  WHATS_NEW_MD =']
+for i, l in enumerate(lines):
+    q = "'" + l.replace("'", "''") + "'"
+    sep = ' + LineEnding +' if i < len(lines) - 1 else ';'
+    out.append('    ' + q + sep)
+open(dst, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
+PY
 }
 
 build_linux() {
@@ -439,6 +460,17 @@ do_github() {
     "$stage"/* || die "gh release create failed"
 
   rm -rf "$stage" "$notes"
+  # The notes written under "Next release" were this release.  Name them, so
+  # the next build knows they are behind it and an update from here shows
+  # only what comes after.  One commit, by this script, right after the tag.
+  if grep -q '^## Next release$' "$ROOT/WHATS_NEW.md"; then
+    sed -i "s/^## Next release\$/## $tag/" "$ROOT/WHATS_NEW.md"
+    gen_whatsnew
+    git -C "$ROOT" add WHATS_NEW.md whatsnew.inc
+    git -C "$ROOT" commit -q -m "Release notes: $tag" && \
+      git -C "$ROOT" push -q origin HEAD || say "WARNING - could not commit the renamed release notes"
+  fi
+
   say "released $tag"
 }
 

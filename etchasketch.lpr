@@ -100,12 +100,17 @@ begin
     if LowerCase(ParamStr(I)) = '--updated' then Result := 15;
 end;
 
+var
+  UpdateWait: Integer;
+
 begin
   if AskedForHelp then Halt(0);
 
   { One copy at a time, because they share the draft and would otherwise take
     turns overwriting each other's work. }
-  if not WantsAnother and not BecomeTheOnlyCopy(AfterAnUpdate) then
+  UpdateWait := AfterAnUpdate;
+  if UpdateWait > 0 then DropInheritedUpdateLock;
+  if not WantsAnother and not BecomeTheOnlyCopy(UpdateWait) then
   begin
     ShowAlreadyRunning;
     Halt(0);

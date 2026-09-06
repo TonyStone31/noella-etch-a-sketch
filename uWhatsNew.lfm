@@ -1,0 +1,58 @@
+object WhatsNewForm: TWhatsNewForm
+  Left = 390
+  Height = 500
+  Top = 170
+  Width = 620
+  BorderStyle = bsDialog
+  Caption = 'What''s New'
+  ClientHeight = 500
+  ClientWidth = 620
+  Constraints.MinHeight = 420
+  Constraints.MinWidth = 520
+  Position = poMainFormCenter
+  object lblHeading: TLabel
+    Left = 28
+    Height = 28
+    Top = 24
+    Width = 564
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'Heckers Sketch has been updated'
+    Font.Height = -19
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblVersion: TLabel
+    Left = 28
+    Height = 22
+    Top = 56
+    Width = 564
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'Version'
+  end
+  object memChanges: TMemo
+    Left = 28
+    Height = 350
+    Top = 92
+    Width = 564
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderStyle = bsNone
+    Color = clBtnFace
+    ReadOnly = True
+    ScrollBars = ssAutoVertical
+    TabOrder = 0
+  end
+  object btnContinue: TButton
+    Left = 472
+    Height = 34
+    Top = 454
+    Width = 120
+    Anchors = [akRight, akBottom]
+    Caption = 'Continue'
+    Cancel = True
+    Default = True
+    ModalResult = 1
+    TabOrder = 1
+  end
+end

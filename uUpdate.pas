@@ -41,12 +41,15 @@ type
     Size: Int64;
   end;
 
+  TDownloadProgress = procedure(BytesReceived, TotalBytes: Int64) of object;
+
 function CurrentVersion: string;
 { Tags are dotted numbers - v2026.09.03.13 - compared piece by piece as
   numbers, so 13 lands after 9 rather than before it as it would as text. }
 function NewerThan(const A, B: string): Boolean;
 function FetchLatest(out Info: TUpdateInfo; out Err: string): Boolean;
-function Download(const URL, Path: string; out Err: string): Boolean;
+function Download(const URL, Path: string; TotalBytes: Int64;
+  OnProgress: TDownloadProgress; out Err: string): Boolean;
 function Sha256Of(const Path: string): string;
 function ExpectedSum(const SumsURL, AName: string): string;
 { Why replacing ourselves would be a bad idea, or '' if it is fine. }
@@ -175,18 +178,61 @@ begin
   end;
 end;
 
-function Download(const URL, Path: string; out Err: string): Boolean;
+type
+  TProgressStream = class(TStream)
+  private
+    FDest: TStream;
+    FTotal: Int64;
+    FOnProgress: TDownloadProgress;
+  public
+    constructor Create(ADest: TStream; ATotal: Int64;
+      AOnProgress: TDownloadProgress);
+    function Read(var Buffer; Count: Longint): Longint; override;
+    function Write(const Buffer; Count: Longint): Longint; override;
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+  end;
+
+constructor TProgressStream.Create(ADest: TStream; ATotal: Int64;
+  AOnProgress: TDownloadProgress);
+begin
+  inherited Create;
+  FDest := ADest;
+  FTotal := ATotal;
+  FOnProgress := AOnProgress;
+end;
+
+function TProgressStream.Read(var Buffer; Count: Longint): Longint;
+begin
+  Result := FDest.Read(Buffer, Count);
+end;
+
+function TProgressStream.Write(const Buffer; Count: Longint): Longint;
+begin
+  Result := FDest.Write(Buffer, Count);
+  if Assigned(FOnProgress) then FOnProgress(FDest.Position, FTotal);
+end;
+
+function TProgressStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+begin
+  Result := FDest.Seek(Offset, Origin);
+end;
+
+function Download(const URL, Path: string; TotalBytes: Int64;
+  OnProgress: TDownloadProgress; out Err: string): Boolean;
 var
   F: TFileStream;
+  Progress: TProgressStream;
   Status: Integer;
 begin
   Result := False;
   Err := '';
   F := nil;
+  Progress := nil;
   try
     try
       F := TFileStream.Create(Path, fmCreate);
-      Result := NetGet(URL, '', F, Status, Err);
+      Progress := TProgressStream.Create(F, TotalBytes, OnProgress);
+      Result := NetGet(URL, '', Progress, Status, Err);
       if Result and (F.Size <= 0) then
       begin
         Result := False;
@@ -196,6 +242,7 @@ begin
       on E: Exception do Err := E.Message;
     end;
   finally
+    Progress.Free;
     F.Free;
   end;
   if not Result then DeleteFile(Path);
@@ -328,6 +375,7 @@ begin
       found the lock, quite correctly refused to be a second instance, and the
       update stopped the program without ever starting it again. }
     P.Parameters.Add('--updated');
+    P.Parameters.Add('--updated-from=' + CurrentVersion);
     P.InheritHandles := False;
     try
       P.Execute;

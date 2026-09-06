@@ -1,0 +1,63 @@
+object UpdateForm: TUpdateForm
+  Left = 420
+  Height = 190
+  Top = 280
+  Width = 520
+  BorderIcons = []
+  BorderStyle = bsDialog
+  Caption = 'Updating Heckers Sketch'
+  ClientHeight = 190
+  ClientWidth = 520
+  Constraints.MinHeight = 190
+  Constraints.MinWidth = 520
+  OnCloseQuery = FormCloseQuery
+  OnShow = FormShow
+  Position = poMainFormCenter
+  object lblStage: TLabel
+    Left = 28
+    Height = 24
+    Top = 24
+    Width = 464
+    AutoSize = False
+    Caption = 'Preparing update'
+    Font.Height = -17
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblDetail: TLabel
+    Left = 28
+    Height = 40
+    Top = 56
+    Width = 464
+    AutoSize = False
+    Caption = 'Getting ready...'
+    WordWrap = True
+  end
+  object pbProgress: TProgressBar
+    Left = 28
+    Height = 22
+    Top = 108
+    Width = 464
+    Max = 100
+    TabOrder = 0
+  end
+  object btnClose: TButton
+    Left = 392
+    Height = 32
+    Top = 146
+    Width = 100
+    Anchors = [akRight, akBottom]
+    Caption = 'Close'
+    Default = True
+    TabOrder = 1
+    Visible = False
+    OnClick = btnCloseClick
+  end
+  object tmrStart: TTimer
+    Enabled = False
+    Interval = 50
+    OnTimer = tmrStartTimer
+    Left = 472
+    Top = 8
+  end
+end

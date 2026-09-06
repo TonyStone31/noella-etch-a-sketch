@@ -40,6 +40,7 @@ interface
   update passes a few seconds, because there a copy is known to be on its way
   out. }
 function BecomeTheOnlyCopy(WaitSecs: Integer = 0): Boolean;
+procedure DropInheritedUpdateLock;
 
 implementation
 
@@ -49,8 +50,24 @@ uses
   {$IFDEF WINDOWS}, Windows{$ENDIF};
 
 {$IFDEF UNIX}
+const
+  CLOSE_ON_EXEC = 1;
+
 var
   LockFD: cint = -1;
+
+procedure DropInheritedUpdateLock;
+var
+  I: Integer;
+  LockInfo, FDInfo: TStat;
+begin
+  if FpStat(AppDataDir + 'heckers-sketch.lock', LockInfo) <> 0 then Exit;
+  for I := 3 to 1024 do
+    if (FpFStat(I, FDInfo) = 0) and
+       (FDInfo.st_dev = LockInfo.st_dev) and
+       (FDInfo.st_ino = LockInfo.st_ino) then
+      FpClose(I);
+end;
 
 function BecomeTheOnlyCopy(WaitSecs: Integer): Boolean;
 var
@@ -60,6 +77,7 @@ begin
   Path := AppDataDir + 'heckers-sketch.lock';
   LockFD := FpOpen(PChar(Path), O_RDWR or O_CREAT, &644);
   if LockFD < 0 then Exit(True);   { cannot lock: better to run than not }
+  FpFcntl(LockFD, F_SETFD, CLOSE_ON_EXEC);
   { A whole-file write lock.  It goes when the process does, however it goes. }
   Give := GetTickCount64 + QWord(WaitSecs) * 1000;
   repeat
@@ -78,6 +96,10 @@ end;
 {$IFDEF WINDOWS}
 var
   Mutex: HANDLE = 0;
+
+procedure DropInheritedUpdateLock;
+begin
+end;
 
 function BecomeTheOnlyCopy(WaitSecs: Integer): Boolean;
 var
