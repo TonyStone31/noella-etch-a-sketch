@@ -48,3 +48,13 @@ the angle or type it - `34.1`, or `8:12` for a slope, negative the other way.
 The arrows pick the plane by axis color, Ctrl leaves a copy, and the angle
 snaps to the fifteens near them.  Shift to hold an inferred plane, Alt to
 move the protractor off it, Flip and Folding are not built.)*
+
+## What the rotate tool picks up
+
+SketchUp's rotate and move act on the selection, and a partial selection is
+stretched: turn one face of a box and the box twists, because the geometry is
+sticky.  We do the same to a selection, but with **nothing** selected our
+rotate takes everything joined to the thing under the cursor, since nobody
+who has not selected anything means "twist the box".  Select first to turn a
+part on its own - a click for one thing, double for a face and its edges,
+triple for all that is joined - which is SketchUp's own click ladder.

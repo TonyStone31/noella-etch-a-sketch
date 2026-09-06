@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- The move tool taken to a dimension's line repositions the line - further
+  out, the other side, or standing up on another plane - while the two points
+  it measures stay put.  The eraser takes a dimension by its line or its
+  witness lines.
+
+### Fixed
+
+- With nothing selected, rotate now takes everything joined to what you
+  click, so turning a box turns the box instead of twisting it.  To turn a
+  part on its own, select it first: one click for one thing, a double click
+  for a face and its edges, a triple click for all that is joined.
+
 ## v2026.09.06.14
 
 ### New
