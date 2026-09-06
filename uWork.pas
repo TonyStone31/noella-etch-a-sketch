@@ -231,6 +231,16 @@ type
       Geometry joined to what moves comes along, which is what makes moving
       one edge of a shape stretch the rest of it. }
     procedure MoveVerts(const Pts: TP3Array; const D: TP3);
+    procedure RotateEnt(I: Integer; const Pts: TP3Array; const C, Axis: TP3;
+      Ang: Double; All: Boolean);
+    { Every corner on the set turns about the axis; whatever shares a corner
+      stretches to follow, the same rule as MoveVerts.  An arc turns whole. }
+    procedure RotateVerts(const Pts: TP3Array; const C, Axis: TP3; Ang: Double);
+    { These entities turn whole, whatever they touch - for a copy. }
+    procedure RotateEnts(const Idx: array of Integer; const C, Axis: TP3; Ang: Double);
+    { The points Outline projects, before projection - for drawing a ghost
+      of the thing somewhere other than where it is. }
+    function OutlineWorld(I: Integer): TP3Array;
     { Copy these entities, offset.  A copy stretches nothing. }
     procedure Duplicate(const Idx: array of Integer; const D: TP3);
     { Where an entity lands on screen, for a selection box to test against. }
@@ -383,6 +393,16 @@ function LenDenom: Integer;
 function FormatLen(V: Double; U: TUnitSystem): string;
 function FormatArea(V: Double; U: TUnitSystem): string;
 function ParseLen(const S: string; U: TUnitSystem; out V: Double): Boolean;
+
+{ An angle as typed for the rotate tool and the protractor: decimal degrees
+  (34.1, -45, 90d), or a slope as rise:run (8:12).  Negative is the other way. }
+function ParseAngle(const S: string; out Deg: Double): Boolean;
+function FormatAngle(Deg: Double): string;
+
+{ P turned about the line through C along the unit vector Axis, by Ang
+  radians, right-handed.  RotV does the same to a direction. }
+function RotP(const P, C, Axis: TP3; Ang: Double): TP3;
+function RotV(const V, Axis: TP3; Ang: Double): TP3;
 { Reads "[3', 4', 5']" or "<3', 4', 5'>" - a point in the drawing, or an
   offset from where you are.  Returns how many of the three were given;
   any left out come back as zero. }
@@ -1566,6 +1586,74 @@ begin
   Result.Z := C.Z + AU.Z * Cs + AV.Z * Sn;
 end;
 
+function ParseAngle(const S: string; out Deg: Double): Boolean;
+var
+  T: string;
+  P: Integer;
+  Rise, Run: Double;
+  FS: TFormatSettings;
+begin
+  Result := False;
+  Deg := 0;
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  T := Trim(S);
+  if T = '' then Exit;
+  { 8:12 - a slope, rise over run, which is how a roof pitch or a duct
+    offset is written on the job }
+  P := Pos(':', T);
+  if P > 0 then
+  begin
+    if not TryStrToFloat(Trim(Copy(T, 1, P - 1)), Rise, FS) then Exit;
+    if not TryStrToFloat(Trim(Copy(T, P + 1, MaxInt)), Run, FS) then Exit;
+    if Abs(Run) < 1E-12 then Exit;
+    Deg := RadToDeg(ArcTan2(Rise, Abs(Run)));
+    if Run < 0 then Deg := -Deg;
+    Exit(True);
+  end;
+  { a degree sign or a d after the number is allowed and ignored }
+  if (Length(T) >= 2) and (Copy(T, Length(T) - 1, 2) = #$C2#$B0) then
+    T := Trim(Copy(T, 1, Length(T) - 2))
+  else if (T <> '') and (T[Length(T)] in ['d', 'D']) then
+    T := Trim(Copy(T, 1, Length(T) - 1));
+  Result := TryStrToFloat(T, Deg, FS);
+end;
+
+function FormatAngle(Deg: Double): string;
+var
+  FS: TFormatSettings;
+begin
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  if Abs(Deg - Round(Deg)) < 0.005 then
+    Result := IntToStr(Round(Deg)) + #$C2#$B0
+  else
+    Result := FormatFloat('0.0', Deg, FS) + #$C2#$B0;
+end;
+
+function RotV(const V, Axis: TP3; Ang: Double): TP3;
+var
+  K: TP3;
+  Cs, Sn, D: Double;
+begin
+  { Rodrigues: V cos + (K x V) sin + K (K.V)(1 - cos) }
+  K := Norm3(Axis);
+  Cs := Cos(Ang);
+  Sn := Sin(Ang);
+  D := Dot3(K, V) * (1 - Cs);
+  Result := P3(V.X * Cs + (K.Y * V.Z - K.Z * V.Y) * Sn + K.X * D,
+               V.Y * Cs + (K.Z * V.X - K.X * V.Z) * Sn + K.Y * D,
+               V.Z * Cs + (K.X * V.Y - K.Y * V.X) * Sn + K.Z * D);
+end;
+
+function RotP(const P, C, Axis: TP3; Ang: Double): TP3;
+var
+  V: TP3;
+begin
+  V := RotV(P3(P.X - C.X, P.Y - C.Y, P.Z - C.Z), Axis, Ang);
+  Result := P3(C.X + V.X, C.Y + V.Y, C.Z + V.Z);
+end;
+
 function ArcFromChord(const A, B: TP3; Bulge: Double; Pl: TPlane;
   out C: TP3; out R, A0, Sweep: Double): Boolean;
 var
@@ -2643,7 +2731,7 @@ procedure TWorkDoc.MoveVerts(const Pts: TP3Array; const D: TP3);
 const
   TOL = 1E-7;
 var
-  I, K: Integer;
+  I, K, H: Integer;
 
   function OnSet(const P: TP3): Boolean;
   var
@@ -2669,8 +2757,132 @@ begin
     if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
     for K := 0 to High(FEnts[I].Poly) do
       Shift(FEnts[I].Poly[K]);
+    for H := 0 to High(FEnts[I].Holes) do
+      for K := 0 to High(FEnts[I].Holes[H]) do
+        Shift(FEnts[I].Holes[H][K]);
   end;
   FSnapDirty := True;
+end;
+
+{ Rotation is the one change that has to know what an arc is.  A line is its
+  two ends and a face its corners, and turning the points turns the thing;
+  an arc is a center, a radius and two angles measured in a plane, and the
+  plane turns with it.  So arcs go round whole, onto a free plane whose
+  normal is the old one turned, and the start angle is measured again in the
+  new plane's basis so the same point is still the start. }
+procedure TWorkDoc.RotateEnt(I: Integer; const Pts: TP3Array;
+  const C, Axis: TP3; Ang: Double; All: Boolean);
+const
+  TOL = 1E-7;
+var
+  K, H: Integer;
+  AU, AV, N, D: TP3;
+
+  function OnSet(const P: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    if All then Exit(True);
+    Result := True;
+    for J := 0 to High(Pts) do
+      if Dist(P, Pts[J]) < TOL then Exit;
+    Result := False;
+  end;
+
+  procedure Turn(var P: TP3);
+  begin
+    if OnSet(P) then P := RotP(P, C, Axis, Ang);
+  end;
+
+begin
+  if FEnts[I].Kind = ekArc then
+  begin
+    if not (OnSet(FEnts[I].A) or OnSet(FEnts[I].B) or OnSet(FEnts[I].C)) then Exit;
+    if FEnts[I].Plane = plFree then
+      N := Norm3(FEnts[I].Nm)
+    else
+    begin
+      PlaneAxes(FEnts[I].Plane, AU, AV);
+      N := Norm3(Cross3(AU, AV));
+    end;
+    FEnts[I].A := RotP(FEnts[I].A, C, Axis, Ang);
+    FEnts[I].B := RotP(FEnts[I].B, C, Axis, Ang);
+    FEnts[I].C := RotP(FEnts[I].C, C, Axis, Ang);
+    N := RotV(N, Axis, Ang);
+    FEnts[I].Plane := plFree;
+    FEnts[I].Nm := N;
+    AxesFromNormal(N, AU, AV);
+    D := P3(FEnts[I].A.X - FEnts[I].C.X, FEnts[I].A.Y - FEnts[I].C.Y,
+            FEnts[I].A.Z - FEnts[I].C.Z);
+    FEnts[I].A0 := ArcTan2(Dot3(D, AV), Dot3(D, AU));
+    Exit;
+  end;
+  { a dimension's third point is where its line sits, and it goes where the
+    dimension goes }
+  if (FEnts[I].Kind = ekDim) and (OnSet(FEnts[I].A) or OnSet(FEnts[I].B)) then
+    FEnts[I].C := RotP(FEnts[I].C, C, Axis, Ang);
+  Turn(FEnts[I].A);
+  Turn(FEnts[I].B);
+  for K := 0 to High(FEnts[I].Poly) do
+    Turn(FEnts[I].Poly[K]);
+  for H := 0 to High(FEnts[I].Holes) do
+    for K := 0 to High(FEnts[I].Holes[H]) do
+      Turn(FEnts[I].Holes[H][K]);
+end;
+
+procedure TWorkDoc.RotateVerts(const Pts: TP3Array; const C, Axis: TP3; Ang: Double);
+var
+  I: Integer;
+begin
+  if (Length(Pts) = 0) or (Abs(Ang) < 1E-12) then Exit;
+  for I := 0 to FLive - 1 do
+    RotateEnt(I, Pts, C, Axis, Ang, False);
+  FSnapDirty := True;
+end;
+
+procedure TWorkDoc.RotateEnts(const Idx: array of Integer; const C, Axis: TP3; Ang: Double);
+var
+  J: Integer;
+begin
+  for J := 0 to High(Idx) do
+    if (Idx[J] >= 0) and (Idx[J] < FLive) then
+      RotateEnt(Idx[J], nil, C, Axis, Ang, True);
+  FSnapDirty := True;
+end;
+
+function TWorkDoc.OutlineWorld(I: Integer): TP3Array;
+var
+  K, Steps: Integer;
+begin
+  Result := nil;
+  if (I < 0) or (I >= FLive) then Exit;
+  case FEnts[I].Kind of
+    ekArc:
+      begin
+        Steps := 48;
+        SetLength(Result, Steps + 1);
+        for K := 0 to Steps do
+          Result[K] := ArcPoint(FEnts[I].C, FEnts[I].R,
+            FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane, FEnts[I].Nm);
+      end;
+    ekFace:
+      begin
+        SetLength(Result, Length(FEnts[I].Poly) + 1);
+        for K := 0 to High(FEnts[I].Poly) do
+          Result[K] := FEnts[I].Poly[K];
+        if Length(FEnts[I].Poly) > 0 then
+          Result[High(Result)] := Result[0];
+      end;
+    ekText:
+      begin
+        SetLength(Result, 1);
+        Result[0] := FEnts[I].A;
+      end;
+  else
+    SetLength(Result, 2);
+    Result[0] := FEnts[I].A;
+    Result[1] := FEnts[I].B;
+  end;
 end;
 
 procedure TWorkDoc.Duplicate(const Idx: array of Integer; const D: TP3);

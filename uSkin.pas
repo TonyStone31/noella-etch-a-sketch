@@ -41,7 +41,7 @@ type
     { one per tool, so a button and the cursor can both say which is which }
     ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
     ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove,
-    ikTOffset
+    ikTOffset, ikTRotate, ikTProtractor
   );
 
 const
@@ -409,6 +409,7 @@ var
 
 var
   P: TPointF;
+  K: Integer;
 begin
   S.BlendMode := bmNormal;
   X := R.Left;
@@ -461,6 +462,31 @@ begin
 
     { Offset: the shape, and the same shape again a little way outside it -
       which is the whole of what the tool does. }
+    ikTRotate:
+      begin
+        { three quarters of a circle with an arrowhead on its end }
+        for K := 0 to 17 do
+          S.Line(CX + U * 0.30 * Cos(K * Pi / 12), CY + U * 0.30 * Sin(K * Pi / 12),
+                 CX + U * 0.30 * Cos((K + 1) * Pi / 12), CY + U * 0.30 * Sin((K + 1) * Pi / 12),
+                 LW, C, Alpha);
+        S.Line(CX + U * 0.30, CY, CX + U * 0.30 - U * 0.13, CY + U * 0.02, LW, C, Alpha);
+        S.Line(CX + U * 0.30, CY, CX + U * 0.30 + U * 0.11, CY + U * 0.09, LW, C, Alpha);
+      end;
+
+    ikTProtractor:
+      begin
+        { a half circle on a baseline, with its ticks }
+        for K := 0 to 11 do
+          S.Line(CX + U * 0.34 * Cos(Pi + K * Pi / 12), CY + U * 0.14 + U * 0.34 * Sin(Pi + K * Pi / 12),
+                 CX + U * 0.34 * Cos(Pi + (K + 1) * Pi / 12), CY + U * 0.14 + U * 0.34 * Sin(Pi + (K + 1) * Pi / 12),
+                 LW, C, Alpha);
+        S.Line(CX - U * 0.34, CY + U * 0.14, CX + U * 0.34, CY + U * 0.14, LW, C, Alpha);
+        for K := 1 to 5 do
+          S.Line(CX + U * 0.34 * Cos(Pi + K * Pi / 6), CY + U * 0.14 + U * 0.34 * Sin(Pi + K * Pi / 6),
+                 CX + U * 0.26 * Cos(Pi + K * Pi / 6), CY + U * 0.14 + U * 0.26 * Sin(Pi + K * Pi / 6),
+                 LW, C, Alpha);
+      end;
+
     ikTOffset:
       begin
         S.Poly([Px(0.32, 0.38), Px(0.68, 0.38), Px(0.68, 0.62), Px(0.32, 0.62)],

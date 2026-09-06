@@ -1817,6 +1817,72 @@ begin
 end;
 
 { A note's text size survives the file, and a normal note writes nothing new. }
+procedure TestRotate;
+var
+  D: TWorkDoc;
+  Pts: TP3Array;
+  P, Q, M0, M1: TP3;
+  Deg: Double;
+  Base: Integer;
+begin
+  WriteLn('Rotate');
+  Ok(ParseAngle('34.1', Deg) and (Abs(Deg - 34.1) < 1E-9), '34.1 reads as degrees');
+  Ok(ParseAngle('-45', Deg) and (Abs(Deg + 45) < 1E-9), '-45 is negative');
+  Ok(ParseAngle('90d', Deg) and (Abs(Deg - 90) < 1E-9), '90d drops the d');
+  Ok(ParseAngle('8:12', Deg) and (Abs(Deg - RadToDeg(ArcTan2(8, 12))) < 1E-9),
+    '8:12 is a slope, rise over run');
+  Ok(not ParseAngle('abc', Deg), 'letters are refused');
+  Ok(not ParseAngle('', Deg), 'nothing is refused');
+  Ok(not ParseAngle('3:0', Deg), 'a run of nought is refused');
+  Ok(FormatAngle(45) = '45' + #$C2#$B0, 'a whole angle prints whole');
+  Ok(FormatAngle(22.5) = '22.5' + #$C2#$B0, 'a half prints to a tenth');
+
+  P := RotP(P3(1, 0, 0), P3(0, 0, 0), P3(0, 0, 1), Pi / 2);
+  Ok(Dist(P, P3(0, 1, 0)) < 1E-9, 'a quarter turn about blue takes red onto green');
+  P := RotP(P3(5, 2, 0), P3(5, 0, 0), P3(1, 0, 0), Pi / 2);
+  Ok(Dist(P, P3(5, 0, 2)) < 1E-9, 'about an off-origin red axis, green goes up');
+
+  D := TWorkDoc.Create;
+  try
+    { one line picked, another hanging off its end }
+    D.AddLine(P3(0, 0, 0), P3(4, 0, 0), 0, 2, False);
+    D.AddLine(P3(4, 0, 0), P3(4, 3, 0), 0, 2, False);
+    D.VertsOf([0], Pts);
+    D.RotateVerts(Pts, P3(0, 0, 0), P3(0, 0, 1), Pi / 2);
+    Ok(Dist(D[0].B, P3(0, 4, 0)) < 1E-9, 'the picked line turned a quarter');
+    Ok(Dist(D[1].A, P3(0, 4, 0)) < 1E-9, 'the line joined to it stretched to follow');
+    Ok(Dist(D[1].B, P3(4, 3, 0)) < 1E-9, 'its far end stayed put');
+
+    { a copy turns whole and leaves the original alone }
+    Base := D.Live;
+    D.Duplicate([1], P3(0, 0, 0));
+    D.RotateEnts([Base], P3(4, 3, 0), P3(0, 0, 1), Pi);
+    Ok(Dist(D[Base].A, P3(8, 2, 0)) < 1E-9, 'the copy turned about the far end');
+    Ok(Dist(D[1].A, P3(0, 4, 0)) < 1E-9, 'the original did not move');
+
+    { an arc stands up: same radius, the same points, on a free plane }
+    D.AddArc(P3(10, 0, 0), 3, 0, Pi / 2, plXY, 0, 2);
+    Base := D.Live - 1;
+    M0 := ArcPoint(D[Base].C, D[Base].R, D[Base].A0 + D[Base].Sweep / 2,
+      D[Base].Plane, D[Base].Nm);
+    D.VertsOf([Base], Pts);
+    D.RotateVerts(Pts, P3(10, 0, 0), P3(1, 0, 0), Pi / 2);
+    Ok(Abs(D[Base].R - 3) < 1E-9, 'the radius survives');
+    Ok(D[Base].Plane = plFree, 'it is on a free plane now');
+    Q := ArcPoint(D[Base].C, D[Base].R, D[Base].A0, D[Base].Plane, D[Base].Nm);
+    Ok(Dist(Q, P3(13, 0, 0)) < 1E-9, 'the start is still where it was, on the axis');
+    Q := ArcPoint(D[Base].C, D[Base].R, D[Base].A0 + D[Base].Sweep,
+      D[Base].Plane, D[Base].Nm);
+    Ok(Dist(Q, P3(10, 0, 3)) < 1E-9, 'the end went from green to up');
+    M1 := ArcPoint(D[Base].C, D[Base].R, D[Base].A0 + D[Base].Sweep / 2,
+      D[Base].Plane, D[Base].Nm);
+    Ok(Dist(M1, RotP(M0, P3(10, 0, 0), P3(1, 0, 0), Pi / 2)) < 1E-9,
+      'the middle of the arc went where the points went');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestNoteSize;
 var
   D, E: TWorkDoc;
@@ -2079,6 +2145,7 @@ begin
   TestPatternDxf;  WriteLn;
   TestDrawingDxf;  WriteLn;
   TestNoteSize;  WriteLn;
+  TestRotate;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

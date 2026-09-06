@@ -21,9 +21,9 @@ out of date.
 
 ## Where it stands, 5 September 2026
 
-Drawing: lines, rectangles, circles, arcs, offset, push/pull, move, erase,
-text with leader lines, dimensions you place yourself, the tape measure with
-guides.  Snapping and inference - endpoints, midpoints, the midpoints a
+Drawing: lines, rectangles, circles, arcs, offset, push/pull, move, rotate,
+erase, text with leader lines, dimensions you place yourself, the tape
+measure with guides and the protractor with angled ones.  Snapping and inference - endpoints, midpoints, the midpoints a
 crossing makes, on-edge, axis locks, From Point - and a snapped point now
 holds until you mean to leave it.
 
@@ -37,7 +37,7 @@ camera and the only place anything goes off-axis.
 Around the edges: portable, single instance, drafts that survive a crash,
 self-update, crash and bug reports that go somewhere, Windows on its own TLS.
 
-Two test suites, both green: `./tests/run.sh` (255 checks) and
+Two test suites, both green: `./tests/run.sh` (333 checks) and
 `./tests/run-region.sh` (76).
 
 ---
@@ -50,16 +50,17 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
 2. **Seam and bend allowance, and end treatments.**  TDF, flange out, flange
    in, slip, drive, raw, corners notched - per edge, not per end, each worth
    a different amount of material.  The shop's numbers, not guessed ones.
-3. **Rotate.**  Never built.  45s are the job.
-4. **A protractor, and angled guides.**  The largest thing missing from
-   guides, and the same 45s are why.  `docs/sketchup/13-guides.md`.
-5. **The rest of the dimension tool**: radius and diameter, dragging an
+3. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
-6. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  SketchUp's own docs do
-   not give the syntax, so this is worked out from the app.
-7. **Elbows and 45s with offsets**, then square-to-round.  There is no house
-    style for square-to-round to follow, so it takes a standard from the
-    layout books and expects to be argued with.
+4. **Copy arrays** - `*6` and `/3` after a Ctrl-move, and after a rotate.
+   SketchUp's own docs do not give the syntax, so this is worked out from
+   the app.
+5. **Elbows and 45s with offsets**, then square-to-round.  There is no house
+   style for square-to-round to follow, so it takes a standard from the
+   layout books and expects to be argued with.
+6. **Rotate's Shift and Alt.**  Shift to hold the plane the cursor inferred,
+   Alt to move the protractor off it.  The arrows do the job outright for
+   now; SketchUp hands do it by feel.
 
 ---
 

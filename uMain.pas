@@ -56,7 +56,8 @@ type
   TAppMode = (mdToy, mdPro);
 
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
-    ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset);
+    ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset, ptRotate,
+    ptProtractor);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -430,6 +431,12 @@ type
       tick instead, off the back of the newest position. }
     FMoveX, FMoveY: Integer;
     FMoveShift: TShiftState;
+    { Rotate and the protractor.  FP1 is the center; the axis is the plane's
+      normal - an arrow key's axis, else the face under the cursor, else
+      blue - and the reference arm is the second click. }
+    FRotAxis: TP3;
+    FRotAxisIx: Integer;
+    FRotRef: TP3;
     FMovePending: Boolean;
     FScreenDirty: Boolean;
     FHotMode: Integer;
@@ -587,6 +594,9 @@ type
     function MoveDelta: TP3;
     function RunReading(const A, B: TP3): string;
     procedure PaintMoveGhost(C: TCanvas);
+    procedure PaintRotateGhost(C: TCanvas);
+    function RotAngle: Double;
+    function RotRefDir: TP3;
     function IsDoomed(I: Integer): Boolean;
     procedure BurnDoomed;
     procedure OpenPopup(Which: Integer);
@@ -874,11 +884,13 @@ const
   { one glyph per tool, for the button and for the cursor }
   TOOL_ICONS: array[TProTool] of TIconKind =
     (ikTSelect, ikTMove, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush,
-     ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit, ikTOffset);
+     ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit, ikTOffset, ikTRotate,
+     ikTProtractor);
 
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
-     'ERASE', 'MEASURE', 'DIMENSION', 'ORBIT', 'OFFSET');
+     'ERASE', 'MEASURE', 'DIMENSION', 'ORBIT', 'OFFSET', 'ROTATE',
+     'PROTRACTOR');
 
   { The tools in three groups of four, laid out two rows deep, so a group
     reads as a group and every name has room to be read.  The grouping is
@@ -888,12 +900,12 @@ const
     they are.  The first has three across because it has five in it - orbit
     belongs with getting about rather than with drawing, and the deck is the
     only place a tool is discoverable at all. }
-  GRP_COLS: array[0..2] of Integer = (3, 2, 2);
-  GRP_N:    array[0..2] of Integer = (5, 4, 4);
+  GRP_COLS: array[0..2] of Integer = (3, 2, 3);
+  GRP_N:    array[0..2] of Integer = (6, 4, 5);
   TOOL_GROUPS: array[0..2, 0..5] of TProTool =
-    ((ptSelect, ptMove, ptOrbit, ptErase, ptPush, ptSelect),
+    ((ptSelect, ptMove, ptRotate, ptOrbit, ptErase, ptPush),
      (ptLine, ptRect, ptCircle, ptArc, ptSelect, ptSelect),
-     (ptMeasure, ptDim, ptText, ptOffset, ptSelect, ptSelect));
+     (ptMeasure, ptProtractor, ptDim, ptText, ptOffset, ptSelect));
 
   TOOL_HINTS: array[TProTool] of string = (
     'Select - click to pick, drag a box for several.  Ctrl adds, Shift ' +
@@ -912,7 +924,12 @@ const
     'Dimension - click two points, then drag away to place the line.',
     'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)',
     'Offset - click a face, then move in or out and click, or type a wall ' +
-      'thickness.  (F)');
+      'thickness.  (F)',
+    'Rotate - click the center, a point to measure from, then swing to the ' +
+      'angle or type it (34.1, or 8:12 for a slope).  Arrows pick the ' +
+      'plane, Ctrl leaves a copy.  (Q)',
+    'Protractor - click the vertex, a point to measure from, then the ' +
+      'angle, or type it.  Lays a guide line at that angle.');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -3116,8 +3133,8 @@ begin
       groups wide enough to read as a break rather than as spacing. }
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
     GrpGap := Round(20 * FUIScale);
-    { seven columns across the three groups now, not six }
-    SegW := (Avail - 2 * GrpGap) div 7;
+    { eight columns across the three groups }
+    SegW := (Avail - 2 * GrpGap) div 8;
     FGrpDivY0 := Y0 + Round(2 * FUIScale);
     FGrpDivY1 := Y0 + 2 * RowH + RowGap - Round(2 * FUIScale);
     GrpX := X;
@@ -5834,6 +5851,7 @@ begin
       else
         PaintFaceHint(C, FHoverFace, HINT_BLUE);
     ptMove: PaintMoveGhost(C);
+    ptRotate, ptProtractor: PaintRotateGhost(C);
     ptSelect, ptText, ptErase, ptOrbit: ;   // nothing to rubber-band
   end;
 
@@ -5899,7 +5917,7 @@ begin
   end;
 
   { what a click would take, so a pick can be aimed before committing }
-  if (FTool in [ptSelect, ptMove]) and (FHoverEnt >= 0) and
+  if (FTool in [ptSelect, ptMove, ptRotate]) and (FHoverEnt >= 0) and
      not IsSelected(FHoverEnt) then
   begin
     Hi := FD.Doc.Outline(Proj, FHoverEnt);
@@ -6018,6 +6036,8 @@ begin
       ptText:  S2 := 'space or click - the note points here';
       ptMeasure:
         S2 := 'measure from here - it leaves a guide and a point';
+      ptRotate: S2 := 'click the center to turn about - arrows pick the plane';
+      ptProtractor: S2 := 'click the vertex of the angle - arrows pick the plane';
     else
       S2 := 'space or click - start here';
     end;
@@ -6033,6 +6053,9 @@ begin
       ptDim:    S2 := 'move away to place it - shake up and down to stand it up';
       ptMeasure: S2 := 'click the second point';
       ptRect:   S2 := 'drag it, or type 8x10 - the pad''s slash works too';
+      ptRotate, ptProtractor:
+        if FStage = 1 then S2 := 'click a point to measure the angle from'
+        else S2 := 'swing to the angle and click, or type it - 45, or 8:12';
     else
       S2 := 'arrows set direction - type a length - Enter';
     end;
@@ -6324,6 +6347,7 @@ begin
   FAxisLock := -1;
   FLockOn := False;
   FDirLock := -1;
+  FRotAxisIx := -1;
   FInput := '';
   FBoxing := False;
   FMoveCopy := False;
@@ -6458,6 +6482,9 @@ begin
     ptCircle:
       if FStage = 1 then
         Result := FormatLen(Dist(FP1, FCur), FD.Units);
+    ptRotate, ptProtractor:
+      if FStage >= 1 then
+        Result := FormatAngle(RadToDeg(RotAngle));
     ptPush:
       if (FStage = 1) and (FPushFace >= 0) then
       begin
@@ -6550,6 +6577,17 @@ begin
         Result := 'where does it go?  a length, [x,y,z] or <x,y,z>';
     ptErase:
       Result := 'click anything to delete it   (or /help)';
+    ptRotate, ptProtractor:
+      case FStage of
+        0: if FTool = ptRotate then
+             Result := 'click the center to turn about   (arrows: red, green or blue plane)'
+           else
+             Result := 'click the vertex of the angle   (arrows: red, green or blue plane)';
+        1: Result := 'click a point to measure the angle from, or type the angle';
+      else
+        Result := 'swing to the angle and click, or type it - 45, 22.5, or 8:12 ' +
+          'for a slope.  Negative goes the other way.';
+      end;
   else
     case FStage of
       0: Result := 'measure from...';
@@ -6620,6 +6658,7 @@ procedure TMainForm.ProClick;
 var
   I, J: Integer;
   P: TPointF;
+  T: TP3;
   WasLine: Boolean;
 begin
   case FTool of
@@ -6668,6 +6707,54 @@ begin
       end
       else
         ProCommit;
+
+    ptRotate, ptProtractor:
+      case FStage of
+        0:
+          begin
+            if FTool = ptRotate then
+            begin
+              if Length(FSel) = 0 then
+              begin
+                I := PickAt(FMouseSX, FMouseSY);
+                if I < 0 then
+                begin
+                  FCmdMsg := 'Nothing there to rotate - pick something first.';
+                  Exit;
+                end;
+                SelectOnly(I);
+              end;
+              FD.Doc.VertsOf(FSel, FMoveVerts);
+            end;
+            FP1 := FCur;
+            { the plane: an arrow key's, else the face under the cursor's,
+              else flat - which is the one a duct run turns in }
+            if FRotAxisIx >= 0 then
+              FRotAxis := AxisDir(FRotAxisIx)
+            else if FD.Doc.FaceUnder(Proj, FMouseSX, FMouseSY, I, T) then
+              FRotAxis := Norm3(FD.Doc.FaceNormal(I))
+            else
+              FRotAxis := P3(0, 0, 1);
+            FStage := 1;
+            FDirLock := -1;
+            FInput := '';
+            FCmdMsg := '';
+          end;
+        1:
+          begin
+            if Dist(FCur, FP1) < 1E-6 then
+            begin
+              FCmdMsg := 'Pick a point away from the center to measure from.';
+              Exit;
+            end;
+            FRotRef := FCur;
+            FStage := 2;
+            FInput := '';
+            FCmdMsg := '';
+          end;
+      else
+        ProCommit;
+      end;
 
     ptErase:
       begin
@@ -7004,9 +7091,64 @@ var
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
   K: Integer;
   Ok: Boolean;
+  Ang: Double;
+  Base: Integer;
+  Copies: array of Integer;
 begin
   Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
   case FTool of
+    ptRotate:
+      begin
+        if FStage < 1 then Exit;
+        Ang := RotAngle;
+        if Abs(Ang) < 1E-9 then
+        begin
+          FCmdMsg := 'Nothing turned - the angle was nought.';
+          ResetTool;
+          Exit;
+        end;
+        PushUndo;
+        if FMoveCopy then
+        begin
+          { the copy stands on its own and turns whole; the original and
+            whatever hangs off it stay put }
+          Base := FD.Doc.Live;
+          FD.Doc.Duplicate(FSel, P3(0, 0, 0));
+          SetLength(Copies, FD.Doc.Live - Base);
+          for I := 0 to High(Copies) do Copies[I] := Base + I;
+          FD.Doc.RotateEnts(Copies, FP1, FRotAxis, Ang);
+          SelectNone;
+          for I := 0 to High(Copies) do SelectAdd(Copies[I]);
+          FCmdMsg := 'Copied, turned ' + FormatAngle(RadToDeg(Ang));
+        end
+        else
+        begin
+          FD.Doc.RotateVerts(FMoveVerts, FP1, FRotAxis, Ang);
+          FCmdMsg := 'Turned ' + FormatAngle(RadToDeg(Ang));
+        end;
+        RebuildFlatFaces;
+        RenderPro;
+        RecomposeAll;
+        SetLength(FMoveVerts, 0);
+        FMoveCopy := False;
+        ResetTool;
+        FInput := '';
+      end;
+
+    ptProtractor:
+      begin
+        if FStage < 1 then Exit;
+        Ang := RotAngle;
+        T := RotV(RotRefDir, FRotAxis, Ang);
+        PushUndo;
+        FD.Doc.AddGuide(FP1, P3(FP1.X + T.X, FP1.Y + T.Y, FP1.Z + T.Z));
+        RenderPro;
+        RecomposeAll;
+        FCmdMsg := 'Guide laid at ' + FormatAngle(RadToDeg(Ang)) + '.';
+        ResetTool;
+        FInput := '';
+      end;
+
     ptOffset:
       begin
         CommitOffset;
@@ -7317,6 +7459,8 @@ begin
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'dimension') or (W = 'dim') then SetTool(ptDim)
   else if (W = 'offset') or (W = 'f') then SetTool(ptOffset)
+  else if (W = 'rotate') or (W = 'q') or (W = 'turn') then SetTool(ptRotate)
+  else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
   else if (W = 'update') or (W = 'upgrade') then
   begin
     if Rest = 'never' then
@@ -7622,7 +7766,7 @@ begin
     end;
     { the arrow starts a box; a press that never travels is read as a click
       when the button comes back up }
-    if (FTool = ptMove) and (FStage = 1) then
+    if ((FTool = ptMove) and (FStage = 1)) or ((FTool = ptRotate) and (FStage = 2)) then
       FMoveCopy := ssCtrl in Shift;
 
     if (GetTickCount64 - FClickT < 450) and (Abs(X - FClickX) < 5) and
@@ -8059,7 +8203,7 @@ begin
     FMouseSY := Y;
     { holding Ctrl part way through a move turns it into a copy, and the
       ghost changes color to say so }
-    if (FTool = ptMove) and (FStage = 1) then
+    if ((FTool = ptMove) and (FStage = 1)) or ((FTool = ptRotate) and (FStage = 2)) then
       FMoveCopy := ssCtrl in FMoveShift;
     { Point at a face and draw on it.  Before this the plane came only from a
       key, so a square drawn on the top of a box was really being drawn on
@@ -8847,12 +8991,144 @@ begin
   PA := ScreenOf(FP1);
   PB := ScreenOf(P3(FP1.X + D.X, FP1.Y + D.Y, FP1.Z + D.Z));
   C.Pen.Style := psDash;
-  if FDirLock in [0..2] then
-    C.Pen.Color := PixToColor(AxisPix(FDirLock))
+  { the lock is a direction code, two per axis; the color is per axis }
+  if FDirLock >= 0 then
+    C.Pen.Color := PixToColor(AxisPix(FDirLock div 2))
   else
     C.Pen.Color := PixToColor(Theme.Accent);
   C.MoveTo(Round(PA.X), Round(PA.Y));
   C.LineTo(Round(PB.X), Round(PB.Y));
+  C.Pen.Style := psSolid;
+end;
+
+{ The arm the angle is measured from: the reference click when there has
+  been one, else the plane's own first axis so a typed angle still means
+  something before the second click. }
+function TMainForm.RotRefDir: TP3;
+var
+  AU, AV, D: TP3;
+  L: Double;
+begin
+  AxesFromNormal(FRotAxis, AU, AV);
+  if FStage < 2 then Exit(AU);
+  D := P3(FRotRef.X - FP1.X, FRotRef.Y - FP1.Y, FRotRef.Z - FP1.Z);
+  { flattened into the plane, since the click may have been off it }
+  L := Dot3(D, FRotAxis);
+  D := P3(D.X - FRotAxis.X * L, D.Y - FRotAxis.Y * L, D.Z - FRotAxis.Z * L);
+  if Dist(D, P3(0, 0, 0)) < 1E-9 then Exit(AU);
+  Result := Norm3(D);
+end;
+
+{ How far round, in radians, right-handed about the axis.  Typed wins, and
+  takes its direction from the way the cursor has swung - the same as a typed
+  length on a move - so a 45 goes the way you were going, and a -45 back. }
+function TMainForm.RotAngle: Double;
+var
+  Ref, D: TP3;
+  L, Deg, Snap: Double;
+begin
+  Ref := RotRefDir;
+  D := P3(FCur.X - FP1.X, FCur.Y - FP1.Y, FCur.Z - FP1.Z);
+  L := Dot3(D, FRotAxis);
+  D := P3(D.X - FRotAxis.X * L, D.Y - FRotAxis.Y * L, D.Z - FRotAxis.Z * L);
+  if (FStage < 2) or (Dist(D, P3(0, 0, 0)) < 1E-9) then
+    Result := 0
+  else
+    Result := ArcTan2(Dot3(Cross3(Ref, D), FRotAxis), Dot3(Ref, D));
+  if ParseAngle(Trim(FInput), Deg) then
+  begin
+    if Result < 0 then Deg := -Deg;
+    Exit(DegToRad(Deg));
+  end;
+  { near a multiple of fifteen degrees, that is what was meant }
+  Snap := DegToRad(15) * Round(Result / DegToRad(15));
+  if Abs(Result - Snap) < DegToRad(2.5) then Result := Snap;
+end;
+
+{ The protractor: a circle in the plane, ticked every fifteen degrees, the
+  two arms of the angle, and the selection drawn where it would land. }
+procedure TMainForm.PaintRotateGhost(C: TCanvas);
+var
+  I, K: Integer;
+  AU, AV, P, Q, Ref: TP3;
+  Rw, Ang, A: Double;
+  PA, PB: TPointF;
+  W: TP3Array;
+  Col: TColor;
+
+  function OnCircle(Th, Rad: Double): TP3;
+  begin
+    Result := P3(FP1.X + (AU.X * Cos(Th) + AV.X * Sin(Th)) * Rad,
+                 FP1.Y + (AU.Y * Cos(Th) + AV.Y * Sin(Th)) * Rad,
+                 FP1.Z + (AU.Z * Cos(Th) + AV.Z * Sin(Th)) * Rad);
+  end;
+
+  procedure Seg(const A, B: TP3);
+  begin
+    PA := ScreenOf(A);
+    PB := ScreenOf(B);
+    C.MoveTo(Round(PA.X), Round(PA.Y));
+    C.LineTo(Round(PB.X), Round(PB.Y));
+  end;
+
+begin
+  if FStage < 1 then Exit;
+  if FRotAxisIx >= 0 then Col := PixToColor(AxisPix(FRotAxisIx div 2))
+  else Col := PixToColor(Pix(200, 60, 200));
+  AxesFromNormal(FRotAxis, AU, AV);
+  Ref := RotRefDir;
+  Ang := RotAngle;
+
+  { the dial: as big as the reference arm, never smaller than a thumb }
+  Rw := 60 * FUIScale / Proj.Ppu;
+  if FStage >= 2 then Rw := Max(Rw, Dist(FRotRef, FP1));
+  C.Pen.Style := psSolid;
+  C.Pen.Width := 1;
+  C.Pen.Color := Col;
+  for K := 0 to 71 do
+    Seg(OnCircle(K * Pi / 36, Rw), OnCircle((K + 1) * Pi / 36, Rw));
+  { ticks are measured from the reference arm, so the 15s read as 15s }
+  A := ArcTan2(Dot3(Ref, AV), Dot3(Ref, AU));
+  for K := 0 to 23 do
+    if K mod 6 = 0 then Seg(OnCircle(A + K * Pi / 12, Rw * 0.82), OnCircle(A + K * Pi / 12, Rw))
+    else Seg(OnCircle(A + K * Pi / 12, Rw * 0.91), OnCircle(A + K * Pi / 12, Rw));
+
+  C.Pen.Width := Max(2, Round(2 * FUIScale));
+  { the reference arm, dashed }
+  C.Pen.Style := psDash;
+  P := P3(FP1.X + Ref.X * Rw, FP1.Y + Ref.Y * Rw, FP1.Z + Ref.Z * Rw);
+  Seg(FP1, P);
+  { the swung arm, solid, and the arc between them }
+  if FStage >= 2 then
+  begin
+    C.Pen.Style := psSolid;
+    Q := RotV(Ref, FRotAxis, Ang);
+    Seg(FP1, P3(FP1.X + Q.X * Rw, FP1.Y + Q.Y * Rw, FP1.Z + Q.Z * Rw));
+    K := Max(2, Round(Abs(Ang) / (Pi / 36)));
+    for I := 0 to K - 1 do
+      Seg(OnCircle(A + Ang * I / K, Rw * 0.55), OnCircle(A + Ang * (I + 1) / K, Rw * 0.55));
+  end;
+
+  { the selection, where it would come to rest }
+  if (FTool = ptRotate) and (FStage >= 2) and (Abs(Ang) > 1E-9) then
+  begin
+    C.Pen.Style := psSolid;
+    if FMoveCopy then C.Pen.Color := PixToColor(Pix(60, 180, 110))
+    else C.Pen.Color := PixToColor(Pix(70, 130, 240));
+    for I := 0 to High(FSel) do
+    begin
+      W := FD.Doc.OutlineWorld(FSel[I]);
+      if Length(W) < 2 then Continue;
+      PA := ScreenOf(RotP(W[0], FP1, FRotAxis, Ang));
+      C.MoveTo(Round(PA.X), Round(PA.Y));
+      for K := 1 to High(W) do
+      begin
+        PB := ScreenOf(RotP(W[K], FP1, FRotAxis, Ang));
+        C.LineTo(Round(PB.X), Round(PB.Y));
+      end;
+    end;
+  end;
+  C.Pen.Width := 1;
   C.Pen.Style := psSolid;
 end;
 
@@ -10572,7 +10848,7 @@ begin
   { the brackets and commas are here for the Move tool's coordinate entry:
     [x,y,z] is a point in the drawing, <x,y,z> an offset from where you are }
   if Key in ['0'..'9', '.', '/', '''', '"', ' ', '-', ',', ';',
-             '[', ']', '<', '>'] then
+             '[', ']', '<', '>', ':'] then
   begin
     FInput := FInput + Key;
     FCmdMsg := '';
@@ -10636,6 +10912,22 @@ var
       FDirLock := ArrowAxis(K);
       if FDirLock < 0 then FCmdMsg := 'Free again.'
       else FCmdMsg := 'Locked to ' + AxisName(FDirLock) + '.';
+    end
+    else if FTool in [ptRotate, ptProtractor] then
+    begin
+      { the arrow names the axis the protractor turns about - its plane is
+        the one square to that axis, in that axis's color }
+      FRotAxisIx := ArrowAxis(K);
+      if FRotAxisIx < 0 then
+        FCmdMsg := 'Plane from whatever is under the cursor again.'
+      else
+      begin
+        FRotAxis := AxisDir(FRotAxisIx);
+        FCmdMsg := 'Turning about ' + AxisName(FRotAxisIx) + '.';
+      end;
+      pbScreen.Invalidate;
+      pbCmd.Invalidate;
+      Exit;
     end
     else
     begin
@@ -10843,7 +11135,7 @@ begin
           pbScreen.Invalidate;
         end;
       VK_TAB: SetTool(TProTool((Ord(FTool) + 1) mod (Ord(High(TProTool)) + 1)));
-      VK_Q: SetTool(ptSelect);
+      VK_Q: SetTool(ptRotate);      // SketchUp's key for it; Space is select
       VK_L: SetTool(ptLine);
       VK_R: SetTool(ptRect);
       VK_A: SetTool(ptArc);

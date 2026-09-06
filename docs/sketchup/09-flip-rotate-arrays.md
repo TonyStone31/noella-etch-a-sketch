@@ -43,4 +43,8 @@ Rotate, but click-**drag** from one endpoint of the fold line to the other, then
 click the start of the rotation and move.  Angle snaps apply near the protractor
 and free rotation further out.
 
-*(None of this is implemented.  Rotate is the obvious next one for duct work.)*
+*(Rotate is implemented: the center, a point to measure from, then swing to
+the angle or type it - `34.1`, or `8:12` for a slope, negative the other way.
+The arrows pick the plane by axis color, Ctrl leaves a copy, and the angle
+snaps to the fifteens near them.  Shift to hold an inferred plane, Alt to
+move the protractor off it, Flip and Folding are not built.)*

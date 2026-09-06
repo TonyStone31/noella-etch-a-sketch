@@ -82,8 +82,10 @@ A guide can be **selected and erased** individually like anything else, and
 * **Hide and show is a button in the corner of the drawing**, with the count
   on it, beside one that clears them.  Neither is there when the drawing has
   no guides in it.  SketchUp uses Edit > Hide and Edit > Delete Guides.
-* **No protractor**, so no angled guides.  This is the one that matters for
-  45s, and it is the largest thing missing here.
+* **The protractor** lays an angled guide: the vertex, a point to measure
+  from, then swing to the angle or type it - `45`, or `8:12` for a slope.
+  The arrows pick the plane; there is no Shift lock or Alt, because the
+  arrows already say it outright.
 * **A guide cannot be moved** once laid.  Erasing and laying another is the
   way round it.
 
