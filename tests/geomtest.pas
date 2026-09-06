@@ -1823,7 +1823,6 @@ var
   Sq, Disc: TP3Array;
   I, Wall, Patch, FarWall, Lining, Caps, G: Integer;
   N: TP3;
-  Holes1: array of TP3Array;
 begin
   WriteLn('Push through to the far side');
   D := TWorkDoc.Create;
@@ -1849,9 +1848,8 @@ begin
       wall has the opening as a hole and a loose face lies in it.  2 x 2. }
     SetLength(Disc, 4);
     Disc[0] := P3(6, 2, 1); Disc[1] := P3(6, 4, 1); Disc[2] := P3(6, 4, 3); Disc[3] := P3(6, 2, 3);
-    SetLength(Holes1, 1);
-    Holes1[0] := Disc;
-    D.SetFaceHoles(Wall, Holes1);
+    { the wall is left whole here, as it is when the tiling could not divide
+      it; the tunnel has to open it }
     D.AddFaceRaw(Disc, 0, False);
     Patch := D.Live - 1;
     Ok(G <> 0, 'the wall belongs to a solid');
@@ -1865,6 +1863,7 @@ begin
          (Abs(D[I].Poly[0].X) < 1E-9) and (Abs(D[I].Poly[2].X) < 1E-9) and
          (Abs(D.FaceArea(I) + 4 - 24) < 1E-6) then FarWall := I;
     Ok(FarWall >= 0, 'the far wall is 24 less the 4 of the opening');
+    Ok(Length(D[Wall].Holes) = 1, 'the near wall has been opened too');
     if FarWall >= 0 then
       Ok(Length(D[FarWall].Holes) = 1, 'and it has one hole');
     { no cap is left filling either end, and the tunnel is lined }

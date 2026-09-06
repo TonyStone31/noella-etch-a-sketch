@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- A tunnel pushed through a box opens both ends, whichever wall it starts
+  from.  In one direction the wall it started from stayed filled, because
+  the rule that divides a wall for a shape drawn on it gave up once anything
+  else had split that wall's edges.
+- The far end of a tunnel no longer gets filled back in by the next thing
+  you draw.
+- A wall divided by a shape drawn on it no longer turns blue - a piece could
+  come out facing into the box.
+- The walls lining a tunnel face inward whichever way the push went.
+
 ## v2026.09.05.30
 
 ### Fixed

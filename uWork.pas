@@ -212,6 +212,9 @@ type
     procedure SetFaceHoles(Index: Integer; const H: array of TP3Array);
     { Make a face part of a solid - the one whose face it was cut from. }
     procedure SetFaceGroup(Index, G: Integer);
+    { Turn a face over: its outline and its openings run the other way round,
+      so its normal points the other way. }
+    procedure FlipFace(Index: Integer);
     { A note's text size, as a multiple of normal; 1 when it has never been
       set.  SketchUp changes the size of the words rather than the box, and
       that is the thing worth having - the box follows the words. }
@@ -2108,6 +2111,26 @@ begin
   FEnts[Index].Size := Factor;
 end;
 
+procedure TWorkDoc.FlipFace(Index: Integer);
+var
+  I, H, N: Integer;
+  T: TP3Array;
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
+  N := Length(FEnts[Index].Poly);
+  SetLength(T, N);
+  for I := 0 to N - 1 do T[I] := FEnts[Index].Poly[N - 1 - I];
+  FEnts[Index].Poly := T;
+  for H := 0 to High(FEnts[Index].Holes) do
+  begin
+    N := Length(FEnts[Index].Holes[H]);
+    SetLength(T, N);
+    for I := 0 to N - 1 do T[I] := FEnts[Index].Holes[H][N - 1 - I];
+    FEnts[Index].Holes[H] := T;
+  end;
+  FSnapDirty := True;
+end;
+
 procedure TWorkDoc.SetFaceGroup(Index, G: Integer);
 begin
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
@@ -3078,8 +3101,11 @@ var
   Ink: TColor;
   Wt: Single;
   Holes: array of TP3Array;
+  Near: Integer;
+  Opened: Boolean;
 begin
   Result := False;
+  Near := -1;
   N := Length(Top);
   if N < 3 then Exit;
   { Whose solid is being pushed through?  A piece cut out of a wall carries
@@ -3106,6 +3132,7 @@ begin
       if LoopContains(Mid, FEnts[F].Poly, FN) then
       begin
         G := FEnts[F].Grp;
+        Near := F;
         Break;
       end;
     end;
@@ -3148,6 +3175,31 @@ begin
   if Wt <= 0 then Wt := FEnts[Index].Weight;
   if Wt <= 0 then Wt := 1;
 
+  { The near wall has to be open too.  When the window was drawn in the
+    middle of it the wall already has the hole; when it was drawn touching
+    an edge and the tiling did not divide the wall, it has not, and the wall
+    would go on covering the mouth of the tunnel. }
+  if Near >= 0 then
+  begin
+    Opened := False;
+    Mid := P3(0, 0, 0);
+    for I := 0 to High(FEnts[Index].Poly) do
+      Mid := P3(Mid.X + FEnts[Index].Poly[I].X, Mid.Y + FEnts[Index].Poly[I].Y,
+                Mid.Z + FEnts[Index].Poly[I].Z);
+    I := Length(FEnts[Index].Poly);
+    Mid := P3(Mid.X / I, Mid.Y / I, Mid.Z / I);
+    FN := FaceNormal(Near);
+    for I := 0 to High(FEnts[Near].Holes) do
+      if LoopContains(Mid, FEnts[Near].Holes[I], FN) then Opened := True;
+    if not Opened then
+    begin
+      SetLength(Holes, Length(FEnts[Near].Holes) + 1);
+      for I := 0 to High(FEnts[Near].Holes) do Holes[I] := FEnts[Near].Holes[I];
+      Holes[High(Holes)] := Copy(FEnts[Index].Poly, 0, Length(FEnts[Index].Poly));
+      SetFaceHoles(Near, Holes);
+    end;
+  end;
+
   { the far face gets the opening }
   SetLength(Holes, Length(FEnts[Far].Holes) + 1);
   for I := 0 to High(FEnts[Far].Holes) do Holes[I] := FEnts[Far].Holes[I];
@@ -3157,18 +3209,27 @@ begin
   { the walls line the tunnel, looking inward at the space it leaves; the
     edges at the far end and the creases along it are drawn, and a curved
     opening has its creases softened as an extrusion's are }
+  { the opening's middle, so each wall can be turned to look at it }
+  Mid := P3(0, 0, 0);
+  for I := 0 to N - 1 do
+    Mid := P3(Mid.X + FEnts[Index].Poly[I].X, Mid.Y + FEnts[Index].Poly[I].Y,
+              Mid.Z + FEnts[Index].Poly[I].Z);
+  Mid := P3(Mid.X / N, Mid.Y / N, Mid.Z / N);
   for I := 0 to N - 1 do
   begin
     J := (I + 1) mod N;
-    if Dist >= 0 then
+    Quad[0] := FEnts[Index].Poly[I]; Quad[1] := FEnts[Index].Poly[J];
+    Quad[2] := Top[J];              Quad[3] := Top[I];
+    { wound to look into the tunnel, whichever way the push went and
+      whichever way round the opening was drawn - the winding of the pushed
+      face and the sign of the push used to decide, and got it right only
+      half the time }
+    FN := Cross3(P3(Quad[1].X - Quad[0].X, Quad[1].Y - Quad[0].Y, Quad[1].Z - Quad[0].Z),
+                 P3(Quad[3].X - Quad[0].X, Quad[3].Y - Quad[0].Y, Quad[3].Z - Quad[0].Z));
+    if Dot3(FN, P3(Mid.X - Quad[0].X, Mid.Y - Quad[0].Y, Mid.Z - Quad[0].Z)) < 0 then
     begin
-      Quad[0] := FEnts[Index].Poly[J]; Quad[1] := FEnts[Index].Poly[I];
-      Quad[2] := Top[I];              Quad[3] := Top[J];
-    end
-    else
-    begin
-      Quad[0] := FEnts[Index].Poly[I]; Quad[1] := FEnts[Index].Poly[J];
-      Quad[2] := Top[J];              Quad[3] := Top[I];
+      Quad[1] := FEnts[Index].Poly[I]; Quad[0] := FEnts[Index].Poly[J];
+      Quad[3] := Top[J];              Quad[2] := Top[I];
     end;
     AddFaceRaw(Quad, Ink, True);
     FEnts[FLive - 1].Grp := G;

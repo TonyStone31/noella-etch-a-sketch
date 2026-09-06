@@ -7418,6 +7418,11 @@ begin
           if FD.Doc.PushPull(FPushFace, R) then
           begin
             FLastPush := R;      // so a double-click can repeat it
+            { Every area the push has just made is known now - the far end
+              of a tunnel above all, which is an opening and not a place for
+              a face.  Without this the next rebuild found it new, and
+              closed it. }
+            SeedRegions;
             SelectNone;
             RenderPro;
             RecomposeAll;
@@ -9651,6 +9656,20 @@ var
   Dup, HadFace, Known: Boolean;
   Sig: TRegionSig;
 
+  { is P on the segment AB, within a hair }
+  function OnSegment(const P, A, B: TP3): Boolean;
+  var
+    L, T: Double;
+    Q: TP3;
+  begin
+    L := Dist(A, B);
+    if L < 1E-9 then Exit(Dist(P, A) < 1E-6);
+    T := ((P.X - A.X) * (B.X - A.X) + (P.Y - A.Y) * (B.Y - A.Y) + (P.Z - A.Z) * (B.Z - A.Z)) / (L * L);
+    if (T < -1E-6) or (T > 1 + 1E-6) then Exit(False);
+    Q := P3(A.X + (B.X - A.X) * T, A.Y + (B.Y - A.Y) * T, A.Z + (B.Z - A.Z) * T);
+    Result := Dist(P, Q) < 1E-6;
+  end;
+
   { whether the face that was here lies in the plane of the region being
     looked at - same normal, and the region's middle on its plane }
   function OnPlaneOf(W: Integer): Boolean;
@@ -9704,12 +9723,19 @@ begin
       SetLength(Pieces, Length(Pieces) + 1);
       Pieces[High(Pieces)] := I;
       PiecesArea := PiecesArea + Abs(LoopArea(R[I].Outer, R[I].Normal));
+      { A piece shares the outline when one of its edges lies along one of
+        the face's edges.  It used to want two consecutive corners of the
+        piece to be two consecutive corners of the face, which stops being
+        true the moment anything else has split the face's edge - a tunnel
+        coming out beside it, say - and then the wall would not be divided
+        for a bite drawn on it. }
       if not Shares then
         for K := 0 to High(R[I].Outer) do
           for M := 0 to High(FD.Doc[J].Poly) do
-            if (Dist(R[I].Outer[K], FD.Doc[J].Poly[M]) < 1E-6) and
-               (Dist(R[I].Outer[(K + 1) mod Length(R[I].Outer)],
-                     FD.Doc[J].Poly[(M + 1) mod Length(FD.Doc[J].Poly)]) < 1E-6) then
+            if OnSegment(R[I].Outer[K], FD.Doc[J].Poly[M],
+                         FD.Doc[J].Poly[(M + 1) mod Length(FD.Doc[J].Poly)]) and
+               OnSegment(R[I].Outer[(K + 1) mod Length(R[I].Outer)], FD.Doc[J].Poly[M],
+                         FD.Doc[J].Poly[(M + 1) mod Length(FD.Doc[J].Poly)]) then
               Shares := True;
     end;
     if (Length(Pieces) < 2) or not Shares then Continue;
@@ -9723,6 +9749,11 @@ begin
     begin
       FD.Doc.AddFaceRaw(R[Pieces[I]].Outer, Ink, True);
       FD.Doc.SetFaceGroup(FD.Doc.Live - 1, G);
+      { facing the way the face it replaces faced - a region's outline runs
+        whichever way the finder walked it, and a piece wound the other way
+        is a back face, drawn blue as the inside of the box }
+      if Dot3(FD.Doc.FaceNormal(FD.Doc.Live - 1), FN) < 0 then
+        FD.Doc.FlipFace(FD.Doc.Live - 1);
     end;
   end;
 

@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A tunnel pushed through a box opens both ends, whichever wall it starts' + LineEnding +
+    '  from.  In one direction the wall it started from stayed filled, because' + LineEnding +
+    '  the rule that divides a wall for a shape drawn on it gave up once anything' + LineEnding +
+    '  else had split that wall''s edges.' + LineEnding +
+    '- The far end of a tunnel no longer gets filled back in by the next thing' + LineEnding +
+    '  you draw.' + LineEnding +
+    '- A wall divided by a shape drawn on it no longer turns blue - a piece could' + LineEnding +
+    '  come out facing into the box.' + LineEnding +
+    '- The walls lining a tunnel face inward whichever way the push went.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.05.30' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
