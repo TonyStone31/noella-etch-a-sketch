@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- The move tool taken to a dimension''s line repositions the line - further' + LineEnding +
+    '  out, the other side, or standing up on another plane - while the two points' + LineEnding +
+    '  it measures stay put.  The eraser takes a dimension by its line or its' + LineEnding +
+    '  witness lines.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- With nothing selected, rotate now takes everything joined to what you' + LineEnding +
+    '  click, so turning a box turns the box instead of twisting it.  To turn a' + LineEnding +
+    '  part on its own, select it first: one click for one thing, a double click' + LineEnding +
+    '  for a face and its edges, a triple click for all that is joined.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.14' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
