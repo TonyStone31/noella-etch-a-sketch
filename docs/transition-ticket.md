@@ -203,3 +203,28 @@ hands them to the mail program as a new message with the files attached -
 xdg-email on Linux, Simple MAPI on Windows.  The program sends nothing
 itself; the person addresses it and presses send.  When no mail program
 answers, the files are still there to attach by hand.
+
+### Elbows and tees
+
+The same wizard builds all three, picked with the radio buttons at the top.
+
+An **elbow** is one opening, W x H, and the turn: the angle - 22.5, 45, 90
+or typed - which way it turns seen from the entry (right, left, up, down),
+the throat radius with 0 meaning a square throat, whether the heel is
+square (mitred) or rolled, and a straight leg at each end.  The turn is in
+the plane of the width for right and left, of the height for up and down.
+The bend is built gore by gore, a gore every 7.5 degrees, so a 90 has
+twelve; the cheeks are one flat face each.  An end with a notch or a flange
+needs a leg at least that long, because it is cut from straight metal.
+
+A **tee** is a run, W x H by its length, and a branch: its opening, given
+along the run by across the wall, the wall it comes off, where it starts
+from the entry, how far up from the bottom (or in from the left, for the
+top and the bottom) with blank meaning centred, and how long the branch
+collar is.  The opening is a hole in the run's wall and the branch stands
+on it.  Three ends: entry, exit, branch.
+
+Not done: an elbow worked out from field reference measurements rather
+than an angle.  It would be a small wizard of its own - two points on the
+run and one on where the exit has to land - and is parked until the plain
+angle has been used for a while.

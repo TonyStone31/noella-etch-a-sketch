@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Elbows and tees.**  The fitting wizard - Build a fitting... under SHOP,' + LineEnding +
+    '  or /elbow, /tee, /transition - has radio buttons at the top for a' + LineEnding +
+    '  transition, an elbow or a tee.  An elbow takes its opening, the angle' + LineEnding +
+    '  (22.5, 45, 90, or any other), which way it turns seen from the entry,' + LineEnding +
+    '  the throat radius (0 for a square throat), a square or rolled heel, and' + LineEnding +
+    '  the straight legs at each end; it is built gore by gore.  A tee takes the' + LineEnding +
+    '  run, the branch opening, which wall it comes off, where it starts, and' + LineEnding +
+    '  the branch length, and cuts the opening out of the wall.  Ends, the tag,' + LineEnding +
+    '  the dimensions, the plan and 3D views, the email and the files all work' + LineEnding +
+    '  the same for every kind.' + LineEnding +
+    '- **Show the files.**  The same pictures and ticket, written and shown in' + LineEnding +
+    '  the file manager with the plan picked out, for when they go somewhere' + LineEnding +
+    '  other than an email.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.19' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
@@ -25,9 +43,6 @@ const
     '- **A tag on the fitting.**  Name it on the ticket - T-3, kitchen supply -' + LineEnding +
     '  and the name is written on the part when it drops into the drawing, on' + LineEnding +
     '  both pictures, and in the email subject.' + LineEnding +
-    '- **Show the files.**  The same pictures and ticket, written and shown in' + LineEnding +
-    '  the file manager with the plan picked out, for when they go somewhere' + LineEnding +
-    '  other than an email.' + LineEnding +
     '- **Plan and 3D on tabs.**  The wizard''s two views sit on tabs, so the form' + LineEnding +
     '  takes less room and either can be watched while the numbers go in.' + LineEnding +
     '' + LineEnding +

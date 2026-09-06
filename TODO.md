@@ -64,11 +64,10 @@ into the drawing; hammer the general tools before the generators.
    elbow.  Done so far: hollow ends, the report button, the end types (raw,
    notch, flange out / in, TDF, slip and drive both ways), all four height
    moves, the dimensions on the part, the corner view on a tab, the tag
-   written on the part, and Email it... to the office.  Left: fitting-type
-   radio buttons at the top of the wizard with the elbow (size, angle,
-   throat radius or square throat) and the tee (run size, branch size,
-   where the branch sits); TDF corner pieces if wanted; the flat pattern
-   of a fitting with its ends on.
+   written on the part, Email it... to the office, and the elbow and the
+   tee behind radio buttons at the top.  Left: TDF corner pieces if wanted;
+   an elbow from field reference measurements instead of an angle; the
+   flat pattern of a fitting with its ends on (parked on purpose).
 
 3. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.

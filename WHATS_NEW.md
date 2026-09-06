@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Elbows and tees.**  The fitting wizard - Build a fitting... under SHOP,
+  or /elbow, /tee, /transition - has radio buttons at the top for a
+  transition, an elbow or a tee.  An elbow takes its opening, the angle
+  (22.5, 45, 90, or any other), which way it turns seen from the entry,
+  the throat radius (0 for a square throat), a square or rolled heel, and
+  the straight legs at each end; it is built gore by gore.  A tee takes the
+  run, the branch opening, which wall it comes off, where it starts, and
+  the branch length, and cuts the opening out of the wall.  Ends, the tag,
+  the dimensions, the plan and 3D views, the email and the files all work
+  the same for every kind.
+- **Show the files.**  The same pictures and ticket, written and shown in
+  the file manager with the plan picked out, for when they go somewhere
+  other than an email.
+
 ## v2026.09.06.19
 
 ### New
@@ -22,9 +40,6 @@
 - **A tag on the fitting.**  Name it on the ticket - T-3, kitchen supply -
   and the name is written on the part when it drops into the drawing, on
   both pictures, and in the email subject.
-- **Show the files.**  The same pictures and ticket, written and shown in
-  the file manager with the plan picked out, for when they go somewhere
-  other than an email.
 - **Plan and 3D on tabs.**  The wizard's two views sit on tabs, so the form
   takes less room and either can be watched while the numbers go in.
 
