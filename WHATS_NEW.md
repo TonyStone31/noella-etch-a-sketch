@@ -10,7 +10,7 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## Next release
+## v2026.09.06.22
 
 ### New
 
