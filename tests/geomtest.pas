@@ -1816,6 +1816,38 @@ begin
   end;
 end;
 
+{ A note's text size survives the file, and a normal note writes nothing new. }
+procedure TestNoteSize;
+var
+  D, E: TWorkDoc;
+  L: TStringList;
+  Idx, I, Sized: Integer;
+begin
+  WriteLn('Note text size');
+  D := TWorkDoc.Create; E := TWorkDoc.Create; L := TStringList.Create;
+  try
+    D.AddNote(P3(1, 1, 0), P3(1, 1, 0), 'normal', 0);
+    D.AddNote(P3(2, 2, 0), P3(2, 2, 0), 'big', 0);
+    Ok(Abs(D.NoteSize(0) - 1) < 1E-6, 'a new note is normal size');
+    D.SetNoteSize(1, 2.0);
+    Ok(Abs(D.NoteSize(1) - 2) < 1E-6, 'and can be made twice the size');
+    D.SetNoteSize(1, 40);
+    Ok(Abs(D.NoteSize(1) - 4) < 1E-6, 'but no bigger than four times');
+    D.SetNoteSize(1, 2.0);
+    D.SaveTo(L);
+    Sized := 0;
+    for I := 0 to L.Count - 1 do if Pos('TEXTSIZE', L[I]) = 1 then Inc(Sized);
+    Ok(Sized = 1, Format('only the sized note writes a TEXTSIZE line (%d)', [Sized]));
+    Idx := 0;
+    E.LoadFrom(L, Idx);
+    Ok(E.Live = 2, 'both notes read back');
+    Ok(Abs(E.NoteSize(0) - 1) < 1E-6, 'the normal one is still normal');
+    Ok(Abs(E.NoteSize(1) - 2) < 1E-6, 'and the big one is still big');
+  finally
+    L.Free; E.Free; D.Free;
+  end;
+end;
+
 procedure TestUnfold;
 var
   D: TWorkDoc;
@@ -2046,6 +2078,7 @@ begin
   TestVersions;
   TestPatternDxf;  WriteLn;
   TestDrawingDxf;  WriteLn;
+  TestNoteSize;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

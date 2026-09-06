@@ -338,6 +338,8 @@ type
     { the note being dragged by its box, where it started, and where it was
       taken hold of }
     FNoteDrag: Integer;
+    { whether the note being carried has actually gone anywhere yet }
+    FNoteMoved: Boolean;
     FNoteFrom, FNoteGrab: TP3;
     { the point the cursor is holding on to, and whether it has one }
     FStickOn: Boolean;
@@ -6534,6 +6536,9 @@ begin
       if Length(FSel) = 0 then
         Result := 'click to pick, or drag a box   (Ctrl adds, Shift toggles)'
       else
+        if (Length(FSel) = 1) and (FD.Doc[FSel[0]].Kind = ekText) then
+          Result := '1 picked - M to move, + and - for the text size, Delete to remove'
+        else
         Result := Format('%d picked - M to move, Delete to remove',
           [Length(FSel)]);
     ptMove:
@@ -7638,7 +7643,9 @@ begin
       FNoteDrag := FD.Doc.HitNote(X, Y);
       if FNoteDrag >= 0 then
       begin
-        PushUndo;
+        { the undo step waits for the first real move - a press that turns
+          out to be a click leaves nothing behind to undo }
+        FNoteMoved := False;
         FNoteFrom := FD.Doc[FNoteDrag].A;
         FNoteGrab := WorldAt(X, Y);
         FCmdMsg := 'Moving the note.  Let go to drop it.';
@@ -8076,6 +8083,11 @@ begin
     begin
       FMouseSX := X;
       FMouseSY := Y;
+      if not FNoteMoved then
+      begin
+        PushUndo;
+        FNoteMoved := True;
+      end;
       FD.Doc.MoveNote(FNoteDrag, FNoteFrom, WorldAt(X, Y), FNoteGrab);
       RenderPro;
       RecomposeAll;
@@ -9567,11 +9579,26 @@ end;
 
 procedure TMainForm.pbScreenMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
+var
+  NoteI: Integer;
 begin
   { let go of a note being carried }
   if FNoteDrag >= 0 then
   begin
+    NoteI := FNoteDrag;
     FNoteDrag := -1;
+    if not FNoteMoved then
+    begin
+      { The press took hold of the note in case it was going to be carried,
+        and it was not: the button came straight back up.  That is a click,
+        and a click on a thing picks it - the same as everywhere else - so the
+        note can be sized or deleted.  It used to fall through to nothing. }
+      SelectOnly(NoteI);
+      FCmdMsg := '';
+      pbCmd.Invalidate;
+      FScreenDirty := True;
+      Exit;
+    end;
     FCmdMsg := 'Note moved.  What it points at has not.';
     pbCmd.Invalidate;
     Exit;
@@ -10481,6 +10508,28 @@ begin
       pbCmd.Invalidate;
       Key := #0;
     end;
+    Exit;
+  end;
+
+  { One note picked and nothing typed: + and - are its text size.
+
+    SketchUp resizes the words, not the box, and the box follows - which is
+    the thing that was asked for as "resize the caption box".  A quarter
+    bigger or smaller each press, between half and four times normal. }
+  if (FInput = '') and (FStage = 0) and (Length(FSel) = 1) and
+     (FD.Doc[FSel[0]].Kind = ekText) and (Key in ['+', '=', '-']) then
+  begin
+    PushUndo;
+    if Key = '-' then
+      FD.Doc.SetNoteSize(FSel[0], FD.Doc.NoteSize(FSel[0]) / 1.25)
+    else
+      FD.Doc.SetNoteSize(FSel[0], FD.Doc.NoteSize(FSel[0]) * 1.25);
+    FCmdMsg := Format('Text at %d%% of normal.  + and - change it.',
+      [Round(FD.Doc.NoteSize(FSel[0]) * 100)]);
+    RenderPro;
+    RecomposeAll;
+    pbCmd.Invalidate;
+    Key := #0;
     Exit;
   end;
 

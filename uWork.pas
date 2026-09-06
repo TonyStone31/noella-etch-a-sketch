@@ -115,6 +115,10 @@ type
     Txt: string;
     Ink: TColor;
     Weight: Single;
+    { ekText: how big the words are, as a multiple of the drawing's normal
+      note size.  Nought means normal, which is what every note made before
+      this has and what a new one gets - so nothing that exists changes. }
+    Size: Single;
     Dim: Boolean;
     { A soft edge is one of the many little creases that stand in for a curved
       surface - the facets down the side of a pulled circle.  SketchUp hides
@@ -208,6 +212,11 @@ type
     procedure SetFaceHoles(Index: Integer; const H: array of TP3Array);
     { Make a face part of a solid - the one whose face it was cut from. }
     procedure SetFaceGroup(Index, G: Integer);
+    { A note's text size, as a multiple of normal; 1 when it has never been
+      set.  SketchUp changes the size of the words rather than the box, and
+      that is the thing worth having - the box follows the words. }
+    function NoteSize(Index: Integer): Single;
+    procedure SetNoteSize(Index: Integer; Factor: Single);
 
     { push/pull: lift the face along its own normal and wall in the sides }
     { Hand the edges round a face to a solid's group, so they stop counting
@@ -1989,6 +1998,23 @@ begin
   AddFaceRaw(Fixed, Ink, Solid);
 end;
 
+function TWorkDoc.NoteSize(Index: Integer): Single;
+begin
+  Result := 1;
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekText) then Exit;
+  if FEnts[Index].Size > 0 then Result := FEnts[Index].Size;
+end;
+
+procedure TWorkDoc.SetNoteSize(Index: Integer; Factor: Single);
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekText) then Exit;
+  { half normal to four times it - smaller cannot be read and bigger is a
+    poster, not a note }
+  if Factor < 0.5 then Factor := 0.5;
+  if Factor > 4 then Factor := 4;
+  FEnts[Index].Size := Factor;
+end;
+
 procedure TWorkDoc.SetFaceGroup(Index, G: Integer);
 begin
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
@@ -3636,8 +3662,21 @@ begin
         D := ArcScreenDist(V, FEnts[I], SX, SY);
       ekText:
         begin
-          PA := Project(V, FEnts[I].A);
-          D := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
+          { The words are the note.  It was measured to its anchor point,
+            which is a dot at the corner of the box, so clicking on the text
+            itself - the only part anybody thinks of as the note - picked
+            nothing unless the box happened to be small.  Inside the box the
+            note is under the cursor, full stop; outside it, the anchor still
+            counts, for a note whose box has not been drawn yet. }
+          if (SX >= FEnts[I].BoxL) and (SX <= FEnts[I].BoxR) and
+             (SY >= FEnts[I].BoxT) and (SY <= FEnts[I].BoxB) and
+             (FEnts[I].BoxR > FEnts[I].BoxL) then
+            D := 0
+          else
+          begin
+            PA := Project(V, FEnts[I].A);
+            D := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
+          end;
         end;
       ekGuide:
         D := GuideScreenDist(V, FEnts[I], SX, SY);
@@ -3856,9 +3895,16 @@ begin
         { A note is one line in the file but may be several on the drawing,
           so the breaks are escaped.  The target goes before the text, which
           is the only field that can contain spaces and so has to be last. }
-        L.Add(Format('TEXT %s %d %s %s',
-          [N3(FEnts[I].A), FEnts[I].Ink, N3(FEnts[I].B),
-           EscapeNote(FEnts[I].Txt)], FS));
+        begin
+          L.Add(Format('TEXT %s %d %s %s',
+            [N3(FEnts[I].A), FEnts[I].Ink, N3(FEnts[I].B),
+             EscapeNote(FEnts[I].Txt)], FS));
+          { its size on a line of its own, after it, and only when it has
+            one - a reader that has never heard of it skips the line and
+            gets the note at the size it always was }
+          if (FEnts[I].Size > 0) and (Abs(FEnts[I].Size - 1) > 1E-6) then
+            L.Add(Format('TEXTSIZE %.3f', [FEnts[I].Size], FS));
+        end;
       ekFace:
         begin
           Line := Format('FACE %d %d %d',
@@ -3908,13 +3954,14 @@ procedure TWorkDoc.LoadFrom(L: TStrings; var Idx: Integer);
 var
   T: TStringList;
   Line, Kind: string;
-  I, N, K, LastFace: Integer;
+  I, N, K, LastFace, LastNote: Integer;
   Pts: TP3Array;
   P: Integer;
 begin
   Clear;
   { which face a HOLE line belongs to - the one just before it }
   LastFace := -1;
+  LastNote := -1;
   T := TStringList.Create;
   try
     T.Delimiter := ' ';
@@ -3987,9 +4034,12 @@ begin
           between.  Telling them apart is a matter of whether those three
           read as numbers. }
         if (T.Count >= 8) and IsNum(T[5]) and IsNum(T[6]) and IsNum(T[7]) then
+        begin
           AddNote(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                   P3(RdF(T[5]), RdF(T[6]), RdF(T[7])),
-                  UnescapeNote(JoinFrom(T, 8)), StrToIntDef(T[4], 0))
+                  UnescapeNote(JoinFrom(T, 8)), StrToIntDef(T[4], 0));
+          LastNote := FLive - 1;
+        end
         else
         begin
           P := Pos(' ', Line);
@@ -3999,10 +4049,16 @@ begin
             if P = 0 then Break;
           end;
           if P > 0 then
+          begin
             AddText(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])),
                     Copy(Line, P + 1, MaxInt), StrToIntDef(T[4], 0));
+            LastNote := FLive - 1;
+          end;
         end;
       end
+      else if (Kind = 'TEXTSIZE') and (T.Count >= 2) and (LastNote >= 0) and
+              (LastNote < FLive) then
+        SetNoteSize(LastNote, RdF(T[1]))
       else if (Kind = 'HOLE') and (T.Count >= 2) and (LastFace >= 0) then
       begin
         N := StrToIntDef(T[1], 0);
@@ -4132,7 +4188,7 @@ begin
         ekText:
           begin
             At(FEnts[I].A, TX, TY, TZ);
-            W.Text('NOTES', TX, TY, TZ, 0.25 * Sc, FEnts[I].Txt);
+            W.Text('NOTES', TX, TY, TZ, 0.25 * Sc * NoteSize(I), FEnts[I].Txt);
           end;
         ekDim:
           if not ThreeD then
@@ -4366,13 +4422,20 @@ var
   var
     Lines: TStringList;
     PA, PB: TPointF;
-    LH, W, H, BX, BY, K: Integer;
+    LH, W, H, BX, BY, K, WasH: Integer;
     AX, AY: Double;
     Sz: TSize;
   begin
     if Txt = '' then Exit;
     PA := Project(V, At);
     PB := Project(V, Target);
+
+    { the font is shared with every other label on the drawing, so its size
+      is changed for this note and put back afterwards }
+    WasH := AFont.Height;
+    if (Which >= 0) and (Which < FLive) and (FEnts[Which].Size > 0) and
+       (Abs(FEnts[Which].Size - 1) > 1E-6) then
+      AFont.Height := Round(WasH * FEnts[Which].Size);
 
     Lines := TStringList.Create;
     try
@@ -4422,6 +4485,7 @@ var
         S.Disc(PA.X, PA.Y, 2.2, Col, 0.9);
     finally
       Lines.Free;
+      AFont.Height := WasH;
     end;
   end;
 

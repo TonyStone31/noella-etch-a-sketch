@@ -50,17 +50,14 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
 2. **Seam and bend allowance, and end treatments.**  TDF, flange out, flange
    in, slip, drive, raw, corners notched - per edge, not per end, each worth
    a different amount of material.  The shop's numbers, not guessed ones.
-3. **Note text size.**  Asked for as "resize the caption box"; SketchUp
-   changes the text size, which is the thing worth having.  Wants a size on
-   the note and a renderer that honours it.
-4. **Rotate.**  Never built.  45s are the job.
-5. **A protractor, and angled guides.**  The largest thing missing from
+3. **Rotate.**  Never built.  45s are the job.
+4. **A protractor, and angled guides.**  The largest thing missing from
    guides, and the same 45s are why.  `docs/sketchup/13-guides.md`.
-6. **The rest of the dimension tool**: radius and diameter, dragging an
+5. **The rest of the dimension tool**: radius and diameter, dragging an
    extension line out of the way, endpoint styles.
-7. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  SketchUp's own docs do
+6. **Copy arrays** - `*6` and `/3` after a Ctrl-move.  SketchUp's own docs do
    not give the syntax, so this is worked out from the app.
-8. **Elbows and 45s with offsets**, then square-to-round.  There is no house
+7. **Elbows and 45s with offsets**, then square-to-round.  There is no house
     style for square-to-round to follow, so it takes a standard from the
     layout books and expects to be argued with.
 
