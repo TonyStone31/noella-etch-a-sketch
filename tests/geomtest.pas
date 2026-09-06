@@ -2094,7 +2094,14 @@ begin
       if D[I].Kind = ekFace then
       begin
         Mid := InnerPoint(D[I].Poly, D.FaceNormal(I));
-        if InsideBore(D, BoreA, Mid, 1E-6) or InsideBore(D, BoreB, Mid, 1E-6) then Inc(Stray);
+        if InsideBore(D, BoreA, Mid, 1E-6) or InsideBore(D, BoreB, Mid, 1E-6) then
+        begin
+          Inc(Stray);
+          N := D.FaceNormal(I);
+          WriteLn(Format('     stray wall: %d corners, normal %.2f %.2f %.2f, first %.2f %.2f %.2f, inside A=%s B=%s',
+            [Length(D[I].Poly), N.X, N.Y, N.Z, D[I].Poly[0].X, D[I].Poly[0].Y, D[I].Poly[0].Z,
+             BoolToStr(InsideBore(D, BoreA, Mid, 1E-6), True), BoolToStr(InsideBore(D, BoreB, Mid, 1E-6), True)]));
+        end;
       end;
     Ok(Stray = 0, Format('no wall is left inside either bore (%d)', [Stray]));
     Stray := 0;

@@ -13,6 +13,13 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A tunnel whose floor met a round tunnel exactly at one of its creases' + LineEnding +
+    '  left that floor uncut; the crossing is found along the crease now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

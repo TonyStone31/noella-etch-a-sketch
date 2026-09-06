@@ -10,6 +10,13 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- A tunnel whose floor met a round tunnel exactly at one of its creases
+  left that floor uncut; the crossing is found along the crease now.
+
 ## v2026.09.06.2
 
 ### New

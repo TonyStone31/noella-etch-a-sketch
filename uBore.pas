@@ -169,27 +169,41 @@ begin
     qu := Dot3(B, AU); qv := Dot3(B, AV);
     eu := qu - pu; ev := qv - pv;
     Den := du * ev - dv * eu;
-    if Abs(Den) < 1E-12 then Continue;
-    { L0 + t Dir = A + s E }
+    if Abs(Den) < 1E-12 then
+    begin
+      { An edge running along the line.  If it lies on the line, the whole
+        of it is inside: both ends go in as a pair.  This is a tunnel's
+        floor meeting a round tunnel exactly at a crease - the plane passes
+        through two corners of the circle, and the crossing is the crease. }
+      if Abs((pu - lu) * dv - (pv - lv) * du) < Tol * Max(1, Abs(du) + Abs(dv)) then
+      begin
+        if Count + 1 >= Length(Ts) then Exit;
+        if Abs(du) > Abs(dv) then
+        begin
+          Ts[Count] := (pu - lu) / du; Ts[Count + 1] := (qu - lu) / du;
+        end
+        else
+        begin
+          Ts[Count] := (pv - lv) / dv; Ts[Count + 1] := (qv - lv) / dv;
+        end;
+        Inc(Count, 2);
+      end;
+      Continue;
+    end;
+    { L0 + t Dir = A + s E.  Half open in s, so a vertex the line passes
+      through is counted once, by the edge that starts there, not twice. }
     T := ((pu - lu) * ev - (pv - lv) * eu) / Den;
     S := ((pu - lu) * dv - (pv - lv) * du) / Den;
-    if (S < -1E-9) or (S > 1 + 1E-9) then Continue;
+    if (S < -1E-9) or (S >= 1 - 1E-9) then Continue;
     if Count >= Length(Ts) then Exit;
     Ts[Count] := T;
     Inc(Count);
   end;
-  { sorted, and doubled-up corners taken once }
+  { sorted; an even count pairs up into the stretches inside }
   for I := 0 to Count - 2 do
     for J := I + 1 to Count - 1 do
       if Ts[J] < Ts[I] then begin Tmp := Ts[I]; Ts[I] := Ts[J]; Ts[J] := Tmp; end;
-  K := 0;
-  for I := 0 to Count - 1 do
-    if (K = 0) or (Abs(Ts[I] - Ts[K - 1]) > Tol) then
-    begin
-      Ts[K] := Ts[I];
-      Inc(K);
-    end;
-  Count := K;
+  if Odd(Count) then Count := Count - 1;
 end;
 
 { Where two flat polygons cross: the segments of the line their planes share
@@ -447,6 +461,18 @@ var
     Inc(N);
   end;
 
+  { every corner of the wall inside the bore or on its surface, and its
+    middle inside: the whole wall is in the void }
+  function WhollyInside(F, Against: Integer): Boolean;
+  var
+    I: Integer;
+  begin
+    Result := InsideBore(D, Against, InnerPoint(D[F].Poly, D.FaceNormal(F)), Tol);
+    if not Result then Exit;
+    for I := 0 to High(D[F].Poly) do
+      if not InsideBore(D, Against, D[F].Poly[I], -1E-9) then Exit(False);
+  end;
+
   { divide wall F by the cuts across it, dropping what lies in bore Against }
   procedure Divide(F, Against: Integer);
   var
@@ -478,7 +504,7 @@ var
         it lies wholly inside it - a small facet of a round tunnel sitting
         entirely within a square one's opening - and then all of it is in
         the void and all of it goes. }
-      if InsideBore(D, Against, InnerPoint(D[F].Poly, D.FaceNormal(F)), Tol) then
+      if WhollyInside(F, Against) then
       begin
         SetLength(Reps, NRep + 1);
         Reps[NRep].Face := F;
@@ -489,7 +515,19 @@ var
     end;
     SetLength(S, NS);
     R := BuildRegions(S);
-    if Length(R) < 2 then Exit;
+    if Length(R) < 2 then
+    begin
+      { crossed only at a corner or along an edge, so nothing was divided:
+        the wall is either clear of the other bore or wholly inside it }
+      if WhollyInside(F, Against) then
+      begin
+        SetLength(Reps, NRep + 1);
+        Reps[NRep].Face := F;
+        Reps[NRep].Pieces := nil;
+        Inc(NRep);
+      end;
+      Exit;
+    end;
     SetLength(Drop, Length(R));
     Kept := 0;
     for I := 0 to High(R) do
