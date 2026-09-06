@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- Erasing an arc''s face on the end of a box works.  The face came straight' + LineEnding +
+    '  back, because the check for "was there a face here" was matching a face on' + LineEnding +
+    '  the far end of the box - same direction, different wall.' + LineEnding +
+    '- A wall with a rounded bite out of it no longer grows a second, loose copy' + LineEnding +
+    '  of itself over the top.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.05.26' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
