@@ -10,6 +10,33 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Reducing elbows.**  An elbow can be given an exit opening of a
+  different size.  The size across the turn changes through the turn, the
+  heel spiralling in; the other size changes in the exit leg, which is
+  straight metal, so the exit leg needs a length when it does.  Blank exit
+  sizes keep the entry size.
+- **An elbow from field measurements.**  On the elbow page, "From field
+  measurements..." takes what can be measured on the job: from the inside
+  corner of the open end, straight ahead and across to the near inside
+  corner of the duct it has to meet, and either the angle that duct runs
+  at or a second point along its inside edge.  With the throat radius
+  chosen it works out the angle and both legs so the elbow lands there,
+  shows it, and puts the numbers into the elbow's fields.
+- **A tee's branch centres itself.**  Leave "starts, from the entry" blank
+  and the branch sits in the middle of the run, the way a blank height
+  already centres it on the wall.
+
+### Fixed
+
+- A drawing that was nothing but built fittings came back from a save or
+  a restart with every open end capped on the next edit.  The program took
+  a drawing whose faces all belong to solids for an old file with no faces
+  and worked its areas out again.  It now knows a solid's faces are faces.
+
 ## v2026.09.06.22
 
 ### New

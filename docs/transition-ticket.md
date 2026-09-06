@@ -224,7 +224,28 @@ top and the bottom) with blank meaning centred, and how long the branch
 collar is.  The opening is a hole in the run's wall and the branch stands
 on it.  Three ends: entry, exit, branch.
 
-Not done: an elbow worked out from field reference measurements rather
-than an angle.  It would be a small wizard of its own - two points on the
-run and one on where the exit has to land - and is parked until the plain
-angle has been used for a while.
+A **reducing elbow** has a different exit opening.  The size across the
+turn changes through the turn - the heel spirals in from the entry's size
+to the exit's while the throat stays a true arc - because the throat and
+heel are rolled anyway and take a taper.  The other size can only change
+in straight metal, so it changes in the exit leg, which then needs a
+length.  This is the shop's own answer: an elbow that reduces one way
+through the turn, a short transition on its tail for the other.
+
+### An elbow from field measurements
+
+`uFieldElbow` is a small form off the elbow page.  The reference point is
+the inside (throat-side) corner of the open end that is there.  The fitter
+measures straight ahead and across, towards the turn, to the near inside
+corner of the duct it has to meet, and gives that duct's direction either
+as an angle off straight ahead or as a second point along its inside edge.
+With the throat radius R and the angle known, the throat corner's path -
+up the entry leg, round the arc, out the exit leg - has to end at the
+measured corner, which fixes both legs:
+
+    exit leg  = (across - R (1 - cos a)) / sin a
+    entry leg = ahead - R sin a - exit leg * cos a
+
+A negative leg means the far duct is too close for that radius, and the
+form says so.  The result goes into the elbow's angle and leg fields as if
+typed, so ends, tag, email and building are the same as any elbow.

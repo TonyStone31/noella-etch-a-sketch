@@ -13,6 +13,33 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Reducing elbows.**  An elbow can be given an exit opening of a' + LineEnding +
+    '  different size.  The size across the turn changes through the turn, the' + LineEnding +
+    '  heel spiralling in; the other size changes in the exit leg, which is' + LineEnding +
+    '  straight metal, so the exit leg needs a length when it does.  Blank exit' + LineEnding +
+    '  sizes keep the entry size.' + LineEnding +
+    '- **An elbow from field measurements.**  On the elbow page, "From field' + LineEnding +
+    '  measurements..." takes what can be measured on the job: from the inside' + LineEnding +
+    '  corner of the open end, straight ahead and across to the near inside' + LineEnding +
+    '  corner of the duct it has to meet, and either the angle that duct runs' + LineEnding +
+    '  at or a second point along its inside edge.  With the throat radius' + LineEnding +
+    '  chosen it works out the angle and both legs so the elbow lands there,' + LineEnding +
+    '  shows it, and puts the numbers into the elbow''s fields.' + LineEnding +
+    '- **A tee''s branch centres itself.**  Leave "starts, from the entry" blank' + LineEnding +
+    '  and the branch sits in the middle of the run, the way a blank height' + LineEnding +
+    '  already centres it on the wall.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A drawing that was nothing but built fittings came back from a save or' + LineEnding +
+    '  a restart with every open end capped on the next edit.  The program took' + LineEnding +
+    '  a drawing whose faces all belong to solids for an old file with no faces' + LineEnding +
+    '  and worked its areas out again.  It now knows a solid''s faces are faces.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.22' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
