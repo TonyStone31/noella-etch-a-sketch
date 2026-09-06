@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- DRILL (B): push a shape through a block that already has a tunnel in it
+  and the two tunnels cut into each other - both walls opened where they
+  cross, nothing left inside either bore.  SketchUp stops at the first
+  tunnel and leaves you to Intersect Faces and erase by hand; this makes the
+  manifold in one push.  Square openings for now; round ones next.
+- Push/pull stops where it would run into a tunnel, the way SketchUp's does,
+  and says how far it got and that Drill goes on through.
+
+### Fixed
+
+- A plane held with an arrow key passes through the face under the cursor,
+  instead of floating wherever the cursor last was.
+
 ## v2026.09.05.31
 
 ### Fixed

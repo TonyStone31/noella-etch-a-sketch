@@ -42,3 +42,9 @@ point or edge - hover the far edge of a box and the push stops flush with the
 far side.  A shape pushed clean through to the far face of its own solid is a
 hole: the far face gets the opening, the tunnel is walled, the pushed face is
 gone, the same as SketchUp.  Double-click repeats the last push.
+
+**Drill (B)** is ours and not SketchUp's.  Push/pull stops where it would run
+into a tunnel already through the block - "Stopped at the tunnel" - which is
+what SketchUp does ("Offset limited").  Drill goes on through: where the new
+tunnel's walls cross the old one's, both are cut and the pieces inside the
+other bore are dropped, so the two open cleanly into each other.

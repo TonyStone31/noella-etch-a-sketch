@@ -41,7 +41,7 @@ type
     { one per tool, so a button and the cursor can both say which is which }
     ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
     ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove,
-    ikTOffset, ikTRotate, ikTProtractor
+    ikTOffset, ikTRotate, ikTProtractor, ikTDrill
   );
 
 const
@@ -485,6 +485,18 @@ begin
           S.Line(CX + U * 0.34 * Cos(Pi + K * Pi / 6), CY + U * 0.14 + U * 0.34 * Sin(Pi + K * Pi / 6),
                  CX + U * 0.26 * Cos(Pi + K * Pi / 6), CY + U * 0.14 + U * 0.26 * Sin(Pi + K * Pi / 6),
                  LW, C, Alpha);
+      end;
+
+    ikTDrill:
+      begin
+        { a bit going down through a bar: the bar is what it goes through }
+        S.Line(X + W * 0.22, CY + U * 0.02, X + W * 0.78, CY + U * 0.02, LW, C, Alpha);
+        S.Line(X + W * 0.22, CY + U * 0.14, X + W * 0.78, CY + U * 0.14, LW, C, Alpha);
+        S.Line(CX, Y + H * 0.14, CX, Y + H * 0.86, LW, C, Alpha);
+        S.Line(CX - U * 0.10, Y + H * 0.30, CX + U * 0.10, Y + H * 0.42, LW, C, Alpha);
+        S.Line(CX - U * 0.10, Y + H * 0.46, CX + U * 0.10, Y + H * 0.58, LW, C, Alpha);
+        S.Line(CX - U * 0.08, Y + H * 0.74, CX, Y + H * 0.86, LW, C, Alpha);
+        S.Line(CX + U * 0.08, Y + H * 0.74, CX, Y + H * 0.86, LW, C, Alpha);
       end;
 
     ikTOffset:

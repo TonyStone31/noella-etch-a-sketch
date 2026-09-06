@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- DRILL (B): push a shape through a block that already has a tunnel in it' + LineEnding +
+    '  and the two tunnels cut into each other - both walls opened where they' + LineEnding +
+    '  cross, nothing left inside either bore.  SketchUp stops at the first' + LineEnding +
+    '  tunnel and leaves you to Intersect Faces and erase by hand; this makes the' + LineEnding +
+    '  manifold in one push.  Square openings for now; round ones next.' + LineEnding +
+    '- Push/pull stops where it would run into a tunnel, the way SketchUp''s does,' + LineEnding +
+    '  and says how far it got and that Drill goes on through.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A plane held with an arrow key passes through the face under the cursor,' + LineEnding +
+    '  instead of floating wherever the cursor last was.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.05.31' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

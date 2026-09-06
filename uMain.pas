@@ -51,14 +51,14 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, LCLType, LCLIntf, Printers, PrintersDlgs,
   uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView;
+  uReport, uNet, uUnfold, uFlatView, uBore;
 
 type
   TAppMode = (mdToy, mdPro);
 
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
     ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset, ptRotate,
-    ptProtractor);
+    ptProtractor, ptDrill);
 
   TPenStyle = (psClassic, psNeon, psRainbow, psSparkle, psChalk);
 
@@ -896,12 +896,12 @@ const
   TOOL_ICONS: array[TProTool] of TIconKind =
     (ikTSelect, ikTMove, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush,
      ikTText, ikTErase, ikTMeasure, ikDim, ikTOrbit, ikTOffset, ikTRotate,
-     ikTProtractor);
+     ikTProtractor, ikTDrill);
 
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
      'ERASE', 'MEASURE', 'DIMENSION', 'ORBIT', 'OFFSET', 'ROTATE',
-     'PROTRACTOR');
+     'PROTRACTOR', 'DRILL');
 
   { The tools in three groups of four, laid out two rows deep, so a group
     reads as a group and every name has room to be read.  The grouping is
@@ -912,11 +912,11 @@ const
     belongs with getting about rather than with drawing, and the deck is the
     only place a tool is discoverable at all. }
   GRP_COLS: array[0..2] of Integer = (3, 2, 3);
-  GRP_N:    array[0..2] of Integer = (6, 4, 5);
+  GRP_N:    array[0..2] of Integer = (6, 4, 6);
   TOOL_GROUPS: array[0..2, 0..5] of TProTool =
-    ((ptSelect, ptMove, ptRotate, ptOrbit, ptErase, ptPush),
+    ((ptSelect, ptMove, ptRotate, ptErase, ptPush, ptDrill),
      (ptLine, ptRect, ptCircle, ptArc, ptSelect, ptSelect),
-     (ptMeasure, ptProtractor, ptDim, ptText, ptOffset, ptSelect));
+     (ptMeasure, ptProtractor, ptDim, ptText, ptOffset, ptOrbit));
 
   TOOL_HINTS: array[TProTool] of string = (
     'Select - click to pick, drag a box for several.  Ctrl adds, Shift ' +
@@ -940,7 +940,9 @@ const
       'angle or type it (34.1, or 8:12 for a slope).  Arrows pick the ' +
       'plane, Ctrl leaves a copy.  (Q)',
     'Protractor - click the vertex, a point to measure from, then the ' +
-      'angle, or type it.  Lays a guide line at that angle.');
+      'angle, or type it.  Lays a guide line at that angle.',
+    'Drill - push a shape through everything.  Where the hole crosses a ' +
+      'tunnel already there, both are cut open into each other.  (B)');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -5952,7 +5954,7 @@ begin
       if FStage = 1 then Rubber(FP1, FCur)
       else if FStage = 2 then PaintDimPreview(C);
 
-    ptPush:
+    ptPush, ptDrill:
       if FStage = 1 then
       begin
         PaintFaceHint(C, FPushFace, HINT_BLUE);
@@ -6142,6 +6144,7 @@ begin
     case FTool of
       ptSelect: S2 := 'pick a tool below, or press L for a line';
       ptPush:  S2 := 'click a face to push or pull it';
+      ptDrill: S2 := 'click a face to drill through';
       ptErase: S2 := 'click a line to delete it';
       ptText:  S2 := 'space or click - the note points here';
       ptMeasure:
@@ -6156,7 +6159,7 @@ begin
   begin
     if S1 = '' then S1 := 'DRAWING';
     case FTool of
-      ptPush:   S2 := 'type how far, or move and click';
+      ptPush, ptDrill: S2 := 'type how far, or move and click';
       ptCircle: S2 := 'type a radius, or click';
       ptArc:    S2 := 'pull the middle out, or type the bulge';
       ptText:   S2 := 'type it, move away, then Enter';
@@ -6417,7 +6420,7 @@ begin
     face away from you, which plan cannot draw and you cannot judge. Rather
     than leave a tool that appears to do nothing, go and get a view where it
     means something. }
-  if (T = ptPush) and (FD.View = vkPlan) then
+  if (T in [ptPush, ptDrill]) and (FD.View = vkPlan) then
   begin
     EnterFreeCamera(True);
     FCmdMsg := 'Push/pull needs to see the face - switched to the corner view.';
@@ -6604,7 +6607,7 @@ begin
     ptRotate, ptProtractor:
       if FStage >= 1 then
         Result := FormatAngle(RadToDeg(RotAngle));
-    ptPush:
+    ptPush, ptDrill:
       if (FStage = 1) and (FPushFace >= 0) then
       begin
         L := PushDistance;
@@ -6660,7 +6663,7 @@ begin
         Result := 'click what the note is about'
       else
         Result := 'type it - Shift+Enter for another line - then move away and Enter';
-    ptPush:
+    ptPush, ptDrill:
       if FStage = 0 then
         Result := 'click a face'
       else
@@ -6991,7 +6994,7 @@ begin
       else
         ProCommit;
 
-    ptPush:
+    ptPush, ptDrill:
       if FStage = 0 then
       begin
         { A double-click on another face repeats the last pull, which is how
@@ -7214,6 +7217,7 @@ var
   Base: Integer;
   Copies: array of Integer;
   ArcPl: TPlane;
+  Stopped: Boolean;
 begin
   Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
   case FTool of
@@ -7409,15 +7413,33 @@ begin
         FInput := '';
       end;
 
-    ptPush:
+    ptPush, ptDrill:
       begin
         R := PushDistance;
+        Stopped := False;
+        FCmdMsg := '';
+        { Push/pull stops where it would run into a tunnel already through
+          the solid, the way SketchUp's does, and says so.  Drill is the tool
+          that goes on through: where the new hole crosses the old one both
+          are cut open into each other. }
+        if (FTool = ptPush) and (Abs(R) > 1E-9) then
+        begin
+          L := BoreLimit(FD.Doc, FPushFace, R);
+          if Abs(L) < Abs(R) - 1E-9 then
+          begin
+            R := L;
+            Stopped := True;
+          end;
+        end;
         if Abs(R) > 1E-9 then
         begin
           PushUndo;
           if FD.Doc.PushPull(FPushFace, R) then
           begin
             FLastPush := R;      // so a double-click can repeat it
+            if (FTool = ptDrill) and (FD.Doc.LastBore >= 0) then
+              if CutCrossingBores(FD.Doc, FD.Doc.LastBore) > 0 then
+                FCmdMsg := 'Drilled through - the tunnels cut into each other.';
             { Every area the push has just made is known now - the far end
               of a tunnel above all, which is an opening and not a place for
               a face.  Without this the next rebuild found it new, and
@@ -7426,7 +7448,11 @@ begin
             SelectNone;
             RenderPro;
             RecomposeAll;
-            FCmdMsg := 'Pulled ' + FormatLen(Abs(R), FD.Units);
+            if Stopped then
+              FCmdMsg := 'Stopped at the tunnel, ' + FormatLen(Abs(R), FD.Units) +
+                ' in.  Drill (B) goes on through.'
+            else if FCmdMsg = '' then
+              FCmdMsg := 'Pulled ' + FormatLen(Abs(R), FD.Units);
           end;
         end;
         FPushFace := -1;
@@ -7599,6 +7625,7 @@ begin
   else if (W = 'offset') or (W = 'f') then SetTool(ptOffset)
   else if (W = 'rotate') or (W = 'q') or (W = 'turn') then SetTool(ptRotate)
   else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
+  else if (W = 'drill') or (W = 'bore') or (W = 'punch') then SetTool(ptDrill)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'update') or (W = 'upgrade') then
   begin
@@ -7996,7 +8023,7 @@ end;
 function TMainForm.KindCounts: string;
 const
   NAMES: array[TEntKind] of string =
-    ('lines', 'arcs', 'notes', 'dims', 'faces', 'guides');
+    ('lines', 'arcs', 'notes', 'dims', 'faces', 'guides', 'bore');
 var
   N: array[TEntKind] of Integer;
   K: TEntKind;
@@ -8222,6 +8249,7 @@ end;
   positions only ever fed a repaint that was immediately overdrawn. }
 procedure TMainForm.ServiceMotion;
 var
+  HeldU, HeldV: TP3;
   X, Y, HF: Integer;
   HP, HN: TP3;
   OP: TPointF;
@@ -8387,6 +8415,19 @@ begin
     if FStage = 0 then FPlaneFromFace := False;
     if (FStage = 0) and not FPlaneHeld and (FD.View = vkOrbit) then
       FD.Plane := plXY;
+    { A plane held by an arrow keeps its direction, but it still passes
+      through the face under the cursor when there is one facing the same
+      way: the arrow says which way the shape lies, not that it should float
+      at wherever the cursor last was. }
+    if (FStage = 0) and FPlaneHeld and (FD.Plane <> plFree) and
+       (FTool in [ptLine, ptRect, ptCircle, ptArc]) and
+       FD.Doc.FaceUnder(Proj, X, Y, HF, HP) then
+    begin
+      HN := Norm3(FD.Doc.FaceNormal(HF));
+      PlaneAxes(FD.Plane, HeldU, HeldV);
+      if Abs(Abs(Dot3(Norm3(Cross3(HeldU, HeldV)), HN)) - 1) < 1E-3 then
+        FCur := HP;
+    end;
     if (FStage = 0) and not FPlaneHeld and
        (FTool in [ptLine, ptRect, ptCircle, ptArc]) and
        FD.Doc.FaceUnder(Proj, X, Y, HF, HP) then
@@ -8496,7 +8537,7 @@ begin
       going onto, before the click, or you find out afterwards that it went
       on the ground.  SketchUp washes the face over and shows its points;
       this does the same. }
-    if (FTool in [ptPush, ptOffset]) and (FStage = 0) then
+    if (FTool in [ptPush, ptDrill, ptOffset]) and (FStage = 0) then
       FHoverFace := FD.Doc.HitFace(Proj, X, Y)
     else if (FTool in [ptLine, ptRect, ptCircle, ptArc]) and (FStage = 0) and
             not FPlaneHeld then
@@ -10249,11 +10290,11 @@ begin
 
   { the face push/pull is offered, and how big it is - the same reading
     SketchUp gives you, and it says which of several stacked faces you have }
-  if (FStage = 0) and (FTool = ptPush) and (FHoverFace >= 0) then
+  if (FStage = 0) and (FTool in [ptPush, ptDrill]) and (FHoverFace >= 0) then
     Result := Result + '   FACE ' +
       FormatArea(FD.Doc.FaceArea(FHoverFace), FD.Units);
 
-  if (FStage = 1) and (FTool = ptPush) and (FPushFace >= 0) then
+  if (FStage = 1) and (FTool in [ptPush, ptDrill]) and (FPushFace >= 0) then
   begin
     L := PushDistance;
     if Abs(L) > 1E-9 then
@@ -11387,6 +11428,7 @@ begin
       VK_A: SetTool(ptArc);
       VK_C: SetTool(ptCircle);
       VK_P: SetTool(ptPush);
+      VK_B: SetTool(ptDrill);       // bore
       VK_N: SetTool(ptText);
       VK_E: SetTool(ptErase);
       VK_M: SetTool(ptMove);

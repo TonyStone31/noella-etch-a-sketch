@@ -72,7 +72,12 @@ type
     SketchUp's rule: "these lines do not interfere with regular geometry" -
     they are infinite, dashed, snappable, erasable, and never make a face or
     bound one.  A guide whose two points are the same is a guide point. }
-  TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace, ekGuide);
+  { ekBore is a tunnel pushed through a solid: not drawn, not picked, not
+    snapped to.  Poly is the opening where it starts, B where Poly[0] comes
+    out the far side, Grp the solid.  It is kept so that the next tunnel
+    through the same solid knows what it is crossing.  An entity rather than
+    a list of its own so that undo, save and load carry it for nothing. }
+  TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace, ekGuide, ekBore);
 
   { One thing on the drawing.  World coordinates, Y up, in feet or metres.
 
@@ -176,6 +181,7 @@ type
     FSnapDirty: Boolean;
     FGuidesHidden: Boolean;
     FNextGrp: Integer;
+    FLastBore: Integer;
     function GetEnt(I: Integer): TWorkEnt;
     procedure RebuildSnapCache;
   public
@@ -207,11 +213,16 @@ type
     function ClearGuides: Integer;
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
+    { The record of a tunnel: its opening, where the first corner of that
+      opening comes out, and whose solid it is. }
+    procedure AddBore(const Loop: TP3Array; const FarOfFirst: TP3; G: Integer);
     { Give a face the loops cut out of it - a window in a wall, the middle of
       a ring left by an offset. }
     procedure SetFaceHoles(Index: Integer; const H: array of TP3Array);
     { Make a face part of a solid - the one whose face it was cut from. }
     procedure SetFaceGroup(Index, G: Integer);
+    { the same for anything - a line that belongs to a solid, say }
+    procedure SetGroup(Index, G: Integer);
     { Turn a face over: its outline and its openings run the other way round,
       so its normal points the other way. }
     procedure FlipFace(Index: Integer);
@@ -350,6 +361,9 @@ type
       EdgeW: Single);
 
     property Live: Integer read FLive;
+    { the bore the last PushPull made, or -1 - so the caller can cut it
+      against the others }
+    property LastBore: Integer read FLastBore;
     property Ent[I: Integer]: TWorkEnt read GetEnt; default;
   end;
 
@@ -1849,6 +1863,28 @@ begin
   FSnapDirty := True;
 end;
 
+procedure TWorkDoc.AddBore(const Loop: TP3Array; const FarOfFirst: TP3; G: Integer);
+var
+  Own: TP3Array;
+  Far: TP3;
+begin
+  if Length(Loop) < 3 then Exit;
+  { Loop may be a face's own polygon inside FEnts, and growing FEnts moves
+    it - so it is copied before anything else happens }
+  Own := Copy(Loop, 0, Length(Loop));
+  Far := FarOfFirst;
+  SetLength(FEnts, FLive + 1);
+  Finalize(FEnts[FLive]);
+  FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+  FEnts[FLive].Kind := ekBore;
+  FEnts[FLive].Poly := Own;
+  FEnts[FLive].A := Own[0];
+  FEnts[FLive].B := Far;
+  FEnts[FLive].Grp := G;
+  FEnts[FLive].Solid := True;
+  Inc(FLive);
+end;
+
 procedure TWorkDoc.AddGuide(const A, B: TP3);
 begin
   SetLength(FEnts, FLive + 1);
@@ -2129,6 +2165,12 @@ begin
     FEnts[Index].Holes[H] := T;
   end;
   FSnapDirty := True;
+end;
+
+procedure TWorkDoc.SetGroup(Index, G: Integer);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  FEnts[Index].Grp := G;
 end;
 
 procedure TWorkDoc.SetFaceGroup(Index, G: Integer);
@@ -2906,6 +2948,7 @@ begin
         SetLength(Result, 1);
         Result[0] := FEnts[I].A;
       end;
+    ekBore: ;
   else
     SetLength(Result, 2);
     Result[0] := FEnts[I].A;
@@ -3240,8 +3283,12 @@ begin
     FEnts[FLive - 1].Grp := G;
   end;
 
+  { and the record of the tunnel, for the next one through this solid }
+  AddBore(FEnts[Index].Poly, Top[0], G);
+  FLastBore := FLive - 1;
   { and the pushed face is the hole now }
   Delete(Index);
+  Dec(FLastBore);
   FSnapDirty := True;
   Result := True;
 end;
@@ -3258,6 +3305,7 @@ var
   Wt: Single;
 begin
   Result := False;
+  FLastBore := -1;
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
   if Abs(Dist) < 1E-9 then Exit;
 
@@ -3726,6 +3774,7 @@ begin
         if Length(FEnts[I].Poly) > 0 then
           Result[High(Result)] := Result[0];
       end;
+    ekBore: ;
     ekGuide:
       begin
         SetLength(Result, 2);
@@ -4108,6 +4157,8 @@ begin
         end;
       ekGuide:
         D := GuideScreenDist(V, FEnts[I], SX, SY);
+      ekBore, ekFace:
+        D := 1E30;   { not things to pick by their line }
       ekDim:
         { the drawn line and its witness lines, not the invisible chord
           through the geometry - that is where the eraser is aimed }
@@ -4333,6 +4384,13 @@ begin
           if (FEnts[I].Size > 0) and (Abs(FEnts[I].Size - 1) > 1E-6) then
             L.Add(Format('TEXTSIZE %.3f', [FEnts[I].Size], FS));
         end;
+      ekBore:
+        begin
+          Line := Format('BORE %d %s %d', [FEnts[I].Grp, N3(FEnts[I].B), Length(FEnts[I].Poly)]);
+          for K := 0 to High(FEnts[I].Poly) do
+            Line := Line + ' ' + N3(FEnts[I].Poly[K]);
+          L.Add(Line);
+        end;
       ekFace:
         begin
           Line := Format('FACE %d %d %d',
@@ -4500,6 +4558,17 @@ begin
           SetLength(FEnts[LastFace].Holes, K + 1);
           SetLength(FEnts[LastFace].Holes[K], N);
           for I := 0 to N - 1 do FEnts[LastFace].Holes[K][I] := Pts[I];
+        end;
+      end
+      else if (Kind = 'BORE') and (T.Count >= 6) then
+      begin
+        N := StrToIntDef(T[5], 0);
+        if (N >= 3) and (T.Count >= 6 + N * 3) then
+        begin
+          SetLength(Pts, N);
+          for I := 0 to N - 1 do
+            Pts[I] := P3(RdF(T[6 + I * 3]), RdF(T[7 + I * 3]), RdF(T[8 + I * 3]));
+          AddBore(Pts, P3(RdF(T[2]), RdF(T[3]), RdF(T[4])), StrToIntDef(T[1], 0));
         end;
       end
       else if (Kind = 'FACE') and (T.Count >= 4) then

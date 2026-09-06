@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold;
+  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold, uBore;
 
 var
   Fails: Integer = 0;
@@ -1882,6 +1882,129 @@ begin
   end;
 end;
 
+{ a square tunnel pushed along an axis through a 6 x 6 x 4 box; the opening
+  is a rectangle on the near wall }
+procedure MakeSquareTunnel(D: TWorkDoc; const Opening: array of TP3; Along: TP3);
+var
+  P: TP3Array;
+  I, Patch: Integer;
+  N: TP3;
+begin
+  SetLength(P, Length(Opening));
+  for I := 0 to High(Opening) do P[I] := Opening[I];
+  D.AddFaceRaw(P, 0, False);
+  Patch := D.Live - 1;
+  N := D.FaceNormal(Patch);
+  { push 6 through, against the outward normal }
+  if Dot3(N, Along) > 0 then D.PushPull(Patch, 6) else D.PushPull(Patch, -6);
+end;
+
+procedure TestCrossingTunnels;
+var
+  D: TWorkDoc;
+  Sq: TP3Array;
+  I, BoreA, BoreB, Eight, Stray: Integer;
+  Mid: TP3;
+  Area: Double;
+begin
+  WriteLn('Tunnels that cross');
+  D := TWorkDoc.Create;
+  try
+    SetLength(Sq, 4);
+    Sq[0] := P3(0, 0, 0); Sq[1] := P3(6, 0, 0); Sq[2] := P3(6, 6, 0); Sq[3] := P3(0, 6, 0);
+    D.AddFaceRaw(Sq, 0, False);
+    D.PushPull(0, 4);
+    { tunnel A along X: y 2..4, z 1..3, in from the x = 6 wall }
+    MakeSquareTunnel(D, [P3(6, 2, 1), P3(6, 4, 1), P3(6, 4, 3), P3(6, 2, 3)], P3(-1, 0, 0));
+    BoreA := D.LastBore;
+    Ok(BoreA >= 0, 'the first tunnel is recorded');
+    Ok((BoreA >= 0) and (D[BoreA].Kind = ekBore), 'as a bore');
+    { tunnel B along Y, half a foot higher: x 2..4, z 1.5..3.5, in from y = 0 }
+    MakeSquareTunnel(D, [P3(2, 0, 1.5), P3(4, 0, 1.5), P3(4, 0, 3.5), P3(2, 0, 3.5)], P3(0, 1, 0));
+    BoreB := D.LastBore;
+    Ok(BoreB >= 0, 'the second tunnel is recorded');
+    Ok(CutCrossingBores(D, BoreB) > 0, 'walls were divided where they cross');
+    { dividing walls deletes faces, so the bores have moved down the list:
+      find them again, first made first }
+    BoreA := -1; BoreB := -1;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekBore then
+        if BoreA < 0 then BoreA := I else BoreB := I;
+    Ok((BoreA >= 0) and (BoreB >= 0), 'both bores are still there');
+
+    { no wall is left with its middle inside either bore }
+    Stray := 0; Eight := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        Mid := InnerPoint(D[I].Poly, D.FaceNormal(I));
+        if InsideBore(D, BoreA, Mid, 1E-6) or InsideBore(D, BoreB, Mid, 1E-6) then Inc(Stray);
+        if Length(D[I].Poly) = 8 then Inc(Eight);
+      end;
+    Ok(Stray = 0, 'nothing is left inside either bore');
+    { A's two side walls and B's two side walls each got a notch: U shapes }
+    Ok(Eight = 4, Format('four U-shaped walls (%d)', [Eight]));
+    { A's ceiling (z = 3) was split by B into two 2 x 2 pieces; A's floor
+      (z = 1) is below B and untouched; B's ceiling (z = 3.5) is above A and
+      untouched; B's floor (z = 1.5) was split by A into two pieces }
+    Area := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Abs(D.FaceNormal(I).Z) > 0.999) and
+         (Abs(D[I].Poly[0].Z - 3) < 1E-9) and (D[I].Poly[0].Y > 1.9) and (D[I].Poly[0].Y < 4.1) then
+        Area := Area + D.FaceArea(I);
+    Ok(Abs(Area - 8) < 1E-6, Format('A''s ceiling is 8 sq ft in pieces now (%.2f)', [Area]));
+    Area := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Abs(D.FaceNormal(I).Z) > 0.999) and (Abs(D[I].Poly[0].Z - 1) < 1E-9) then
+        Area := Area + D.FaceArea(I);
+    Ok(Abs(Area - 12) < 1E-6, Format('A''s floor is whole, 12 sq ft (%.2f)', [Area]));
+    Area := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Abs(D.FaceNormal(I).Z) > 0.999) and (Abs(D[I].Poly[0].Z - 1.5) < 1E-9) then
+        Area := Area + D.FaceArea(I);
+    Ok(Abs(Area - 8) < 1E-6, Format('B''s floor is 8 sq ft in pieces (%.2f)', [Area]));
+  finally
+    D.Free;
+  end;
+end;
+
+procedure TestPushStopsAtTunnel;
+var
+  D: TWorkDoc;
+  Sq, P: TP3Array;
+  Patch: Integer;
+  L, S: Double;
+begin
+  WriteLn('Push/pull stops at a tunnel');
+  D := TWorkDoc.Create;
+  try
+    SetLength(Sq, 4);
+    Sq[0] := P3(0, 0, 0); Sq[1] := P3(6, 0, 0); Sq[2] := P3(6, 6, 0); Sq[3] := P3(0, 6, 0);
+    D.AddFaceRaw(Sq, 0, False);
+    D.PushPull(0, 4);
+    MakeSquareTunnel(D, [P3(6, 2, 1), P3(6, 4, 1), P3(6, 4, 3), P3(6, 2, 3)], P3(-1, 0, 0));
+    { a window on the y = 0 wall that would run into the tunnel's wall at y = 2 }
+    SetLength(P, 4);
+    P[0] := P3(2, 0, 1.5); P[1] := P3(4, 0, 1.5); P[2] := P3(4, 0, 3.5); P[3] := P3(2, 0, 3.5);
+    D.AddFaceRaw(P, 0, False);
+    Patch := D.Live - 1;
+    { into the box is +Y; the sign of a push is along the face's own normal }
+    if D.FaceNormal(Patch).Y > 0 then S := 1 else S := -1;
+    L := BoreLimit(D, Patch, S * 6);
+    Ok(Abs(Abs(L) - 2) < 1E-6, Format('a 6 foot push is held at the tunnel wall, 2 feet in (%.3f)', [L]));
+    Ok(Sign(L) = S, 'and keeps its direction');
+    Ok(Abs(BoreLimit(D, Patch, S * 1.5) - S * 1.5) < 1E-9, 'a push short of the tunnel is left alone');
+    Ok(Abs(BoreLimit(D, Patch, -S * 6) + S * 6) < 1E-9, 'a pull outward is not held by anything');
+    { a window above the tunnel is not in its way }
+    P[0] := P3(2, 0, 3.2); P[1] := P3(4, 0, 3.2); P[2] := P3(4, 0, 3.8); P[3] := P3(2, 0, 3.8);
+    D.AddFaceRaw(P, 0, False);
+    if D.FaceNormal(D.Live - 1).Y > 0 then S := 1 else S := -1;
+    Ok(Abs(BoreLimit(D, D.Live - 1, S * 6) - S * 6) < 1E-9, 'a push that clears the tunnel is not held');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArcOnFreePlane;
 var
   C, A, B, P, N: TP3;
@@ -2279,6 +2402,8 @@ begin
   TestInnerPoint;  WriteLn;
   TestArcOnFreePlane;  WriteLn;
   TestTunnel;  WriteLn;
+  TestCrossingTunnels;  WriteLn;
+  TestPushStopsAtTunnel;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));

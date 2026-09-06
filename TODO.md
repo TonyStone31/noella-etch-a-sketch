@@ -58,14 +58,21 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 5. **Elbows and 45s with offsets**, then square-to-round.  There is no house
    style for square-to-round to follow, so it takes a standard from the
    layout books and expects to be argued with.
-6. **Tunnels that cross.**  Two tunnels pushed through the same box pass
-   through each other: each one's lining runs on through the other, so you
-   look into one and see the walls of the other, blue.  SketchUp is the same
-   until Intersect Faces is run.  Ours could do it on the push: where a new
-   tunnel's walls cross an old one's, split both on the crossing and drop the
-   pieces that end up inside the other tunnel.  The region engine already
-   splits planar faces on a segment; this is that, applied at the push.
-7. **Rotate's Shift and Alt.**  Shift to hold the plane the cursor inferred,
+6. **Drill, round.**  Square tunnels cut into each other now (`uBore.pas`);
+   a round one crossing anything makes one cut piece per segment per wall,
+   which is where the segment count (next) earns its keep.  Then a tunnel
+   crossing a tunnel that was itself crossed.
+7. **Segment count for circles and arcs.**  SketchUp's `24s` after the
+   radius.  It matters now: a round tunnel crossing another makes one cut
+   piece per segment per wall, so being able to say 12 instead of 48 is the
+   difference between a clean manifold and a thicket of lines.
+8. **Snapping to what cannot be seen.**  A click on a wall can snap to an
+   edge behind it - a tunnel's crease through the wall - and land the point
+   inside the block.  SketchUp prefers what is visible.
+9. **Sliding a wall of a block with a tunnel through it** tears the block:
+   the tunnel's lining is not attached to the wall that moves.  Rare, and
+   the fix is for the lining to stretch with it or the move to be refused.
+10. **Rotate's Shift and Alt.**  Shift to hold the plane the cursor inferred,
    Alt to move the protractor off it.  The arrows do the job outright for
    now; SketchUp hands do it by feel.
 
