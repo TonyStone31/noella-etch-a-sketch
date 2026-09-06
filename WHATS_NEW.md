@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- Erasing an arc's face on the end of a box works.  The face came straight
+  back, because the check for "was there a face here" was matching a face on
+  the far end of the box - same direction, different wall.
+- A wall with a rounded bite out of it no longer grows a second, loose copy
+  of itself over the top.
+
 ## v2026.09.05.26
 
 ### New

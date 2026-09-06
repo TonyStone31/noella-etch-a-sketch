@@ -9479,6 +9479,16 @@ var
   Ink: TColor;
   Dup, HadFace, Known: Boolean;
   Sig: TRegionSig;
+
+  { whether the face that was here lies in the plane of the region being
+    looked at - same normal, and the region's middle on its plane }
+  function OnPlaneOf(W: Integer): Boolean;
+  begin
+    Result := (Abs(Abs(Dot3(Was[W].Nm, R[I].Normal)) - 1) < 1E-6) and
+      (Abs(Dot3(Was[W].Nm, P3(Mid.X - Was[W].Poly[0].X, Mid.Y - Was[W].Poly[0].Y,
+                              Mid.Z - Was[W].Poly[0].Z))) < 1E-4);
+  end;
+
 begin
   R := BuildRegionsCached(EdgeSegments, FRegionCache);
   Made := 0;
@@ -9512,12 +9522,7 @@ begin
     begin
       if Length(R[I].Holes) > 0 then Continue;
       if Abs(Abs(Dot3(Norm3(R[I].Normal), FN)) - 1) > 1E-6 then Continue;
-      Mid := P3(0, 0, 0);
-      for K := 0 to High(R[I].Outer) do
-        Mid := P3(Mid.X + R[I].Outer[K].X, Mid.Y + R[I].Outer[K].Y,
-                  Mid.Z + R[I].Outer[K].Z);
-      K := Length(R[I].Outer);
-      Mid := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
+      Mid := InnerPoint(R[I].Outer, R[I].Normal);
       if Abs(Dot3(FN, P3(Mid.X - FD.Doc[J].Poly[0].X,
                           Mid.Y - FD.Doc[J].Poly[0].Y,
                           Mid.Z - FD.Doc[J].Poly[0].Z))) > 1E-4 then Continue;
@@ -9577,12 +9582,7 @@ begin
 
   for I := 0 to High(R) do
   begin
-    Mid := P3(0, 0, 0);
-    for K := 0 to High(R[I].Outer) do
-      Mid := P3(Mid.X + R[I].Outer[K].X, Mid.Y + R[I].Outer[K].Y,
-                Mid.Z + R[I].Outer[K].Z);
-    K := Length(R[I].Outer);
-    Mid := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
+    Mid := InnerPoint(R[I].Outer, R[I].Normal);
 
     { Is this one a face the solid already has?  Same middle, same size, so
       it is the same face arrived at from the other direction.  Drawing it
@@ -9658,9 +9658,14 @@ begin
 
       An area nobody has seen before has just been closed by whatever edge
       was drawn, and that is exactly when a face should appear. }
+    { In the same plane, not merely containing the point when it is dropped
+      onto that plane.  PointInLoop projects along the normal, so a face on
+      the far end of a box "contained" the middle of an area on the near end
+      - the two ends are parallel - and an arc erased off one end was handed
+      straight back because its twin on the other end was still there. }
     HadFace := False;
     for J := 0 to NWas - 1 do
-      if PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
+      if OnPlaneOf(J) and PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
       begin
         HadFace := True;
         Break;
@@ -9680,7 +9685,7 @@ begin
 
     Ink := FInkColor;
     for J := 0 to NWas - 1 do
-      if PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
+      if OnPlaneOf(J) and PointInLoop(Mid, Was[J].Poly, Was[J].Nm) then
       begin
         Ink := Was[J].Ink;
         Break;

@@ -96,6 +96,13 @@ function LoopArea(const Loop: TP3Array; const Normal: TP3): Double;
 function PointInLoop(const P: TP3; const Loop: TP3Array; const Normal: TP3;
   Tol: Double = REGION_TOL): Boolean;
 
+{ A point that is inside the loop.  Not the average of the corners: for a
+  wall with a half-round bite out of its bottom edge the average of fifty
+  corners along the bite lands in the bite, which is outside the wall - and
+  everything that asked "is this region that face" was asking about a point
+  that was not in the region.  The middle of an edge, nudged inward, is. }
+function InnerPoint(const Loop: TP3Array; const Normal: TP3): TP3;
+
 implementation
 
 type
@@ -404,6 +411,41 @@ begin
   for I := 0 to N - 1 do
     Acc := Add3(Acc, Cross3(Loop[I], Loop[(I + 1) mod N]));
   Result := Dot3(Acc, Normal) / 2;
+end;
+
+function InnerPoint(const Loop: TP3Array; const Normal: TP3): TP3;
+var
+  I, N: Integer;
+  Mid, E, Side, N1, Q: TP3;
+  Size, Step: Double;
+begin
+  N := Length(Loop);
+  Result := P3(0, 0, 0);
+  if N = 0 then Exit;
+  for I := 0 to N - 1 do
+    Result := P3(Result.X + Loop[I].X, Result.Y + Loop[I].Y, Result.Z + Loop[I].Z);
+  Result := P3(Result.X / N, Result.Y / N, Result.Z / N);
+  if N < 3 then Exit;
+  { the average is fine when it is inside, and most of the time it is }
+  if PointInLoop(Result, Loop, Normal) then Exit;
+  N1 := Norm3(Normal);
+  Size := 0;
+  for I := 0 to N - 1 do
+    Size := Max(Size, Dist(Loop[I], Loop[0]));
+  Step := Size * 1E-4;
+  for I := 0 to N - 1 do
+  begin
+    E := Sub3(Loop[(I + 1) mod N], Loop[I]);
+    if Len3(E) < Step then Continue;
+    Mid := P3((Loop[I].X + Loop[(I + 1) mod N].X) / 2,
+              (Loop[I].Y + Loop[(I + 1) mod N].Y) / 2,
+              (Loop[I].Z + Loop[(I + 1) mod N].Z) / 2);
+    Side := Norm3(Cross3(N1, E));
+    Q := P3(Mid.X + Side.X * Step, Mid.Y + Side.Y * Step, Mid.Z + Side.Z * Step);
+    if PointInLoop(Q, Loop, Normal) then Exit(Q);
+    Q := P3(Mid.X - Side.X * Step, Mid.Y - Side.Y * Step, Mid.Z - Side.Z * Step);
+    if PointInLoop(Q, Loop, Normal) then Exit(Q);
+  end;
 end;
 
 function PointInLoop(const P: TP3; const Loop: TP3Array; const Normal: TP3;

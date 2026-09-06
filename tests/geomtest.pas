@@ -1817,6 +1817,44 @@ begin
 end;
 
 { A note's text size survives the file, and a normal note writes nothing new. }
+procedure TestInnerPoint;
+var
+  Loop: TP3Array;
+  P: TP3;
+  I: Integer;
+begin
+  WriteLn('A point inside a loop');
+  { a wall with a half-round bite out of its bottom: the average of the
+    corners falls in the bite }
+  SetLength(Loop, 4 + 47);
+  Loop[0] := P3(0, 0, 0);
+  Loop[1] := P3(2, 0, 0);
+  for I := 0 to 46 do
+    Loop[2 + I] := P3(2 + 4 * (1 - Cos(Pi * (I + 1) / 48)) / 2 + 0, 0,
+      0);   // placeholder, replaced below
+  { the bite: a half circle of radius 4 centered at (6,0,0), from (2,0,0) over to (10,0,0) }
+  for I := 0 to 46 do
+    Loop[2 + I] := P3(6 - 4 * Cos(Pi * (I + 1) / 48), 0, 4 * Sin(Pi * (I + 1) / 48));
+  Loop[49] := P3(10, 0, 0);
+  Loop[50] := P3(12, 0, 0);
+  SetLength(Loop, 53);
+  Loop[51] := P3(12, 0, 6);
+  Loop[52] := P3(0, 0, 6);
+  P := P3(0, 0, 0);
+  for I := 0 to High(Loop) do
+    P := P3(P.X + Loop[I].X, P.Y + Loop[I].Y, P.Z + Loop[I].Z);
+  P := P3(P.X / Length(Loop), P.Y / Length(Loop), P.Z / Length(Loop));
+  Ok(not PointInLoop(P, Loop, P3(0, 1, 0)), 'the corner average is in the bite, outside');
+  P := InnerPoint(Loop, P3(0, 1, 0));
+  Ok(PointInLoop(P, Loop, P3(0, 1, 0)), 'InnerPoint is inside the wall');
+  Ok(Abs(P.Y) < 1E-9, 'and on its plane');
+  { a plain square keeps its middle }
+  SetLength(Loop, 4);
+  Loop[0] := P3(0, 0, 0); Loop[1] := P3(2, 0, 0); Loop[2] := P3(2, 2, 0); Loop[3] := P3(0, 2, 0);
+  P := InnerPoint(Loop, P3(0, 0, 1));
+  Ok(Dist(P, P3(1, 1, 0)) < 1E-9, 'a square gives its center');
+end;
+
 procedure TestRotate;
 var
   D: TWorkDoc;
@@ -2146,6 +2184,7 @@ begin
   TestDrawingDxf;  WriteLn;
   TestNoteSize;  WriteLn;
   TestRotate;  WriteLn;
+  TestInnerPoint;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
