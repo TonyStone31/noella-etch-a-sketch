@@ -13,6 +13,12 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- `/select` and `/move` in the command bar, alongside the other tools.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.25' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

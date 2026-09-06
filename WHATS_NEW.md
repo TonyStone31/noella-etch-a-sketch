@@ -10,6 +10,12 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- `/select` and `/move` in the command bar, alongside the other tools.
+
 ## v2026.09.06.25
 
 ### Fixed

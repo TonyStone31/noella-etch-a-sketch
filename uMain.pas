@@ -8073,6 +8073,8 @@ begin
   end;
 
   if (W = 'line') or (W = 'l') then SetTool(ptLine)
+  else if (W = 'select') or (W = 's') then SetTool(ptSelect)
+  else if (W = 'move') or (W = 'mv') then SetTool(ptMove)
   else if (W = 'arc') or (W = 'a') then SetTool(ptArc)
   else if (W = 'circle') or (W = 'c') then SetTool(ptCircle)
   else if (W = 'text') or (W = 'note') or (W = 'n') then SetTool(ptText)
