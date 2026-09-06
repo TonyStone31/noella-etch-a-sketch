@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, LCLIntf, uWork, uFittings;
+  ComCtrls, Dialogs, LCLIntf, uWork, uFittings, uFieldElbow;
 
 type
   TTransitionForm = class(TForm)
@@ -70,6 +70,9 @@ type
     cbBranchEnd: TComboBox;
     edBranchEndAmt: TEdit;
     lblEndUnit3: TLabel;
+    btnField: TButton;
+    lblExitHint: TLabel;
+    lblBFromHint: TLabel;
     edEntryW: TEdit;
     edEntryH: TEdit;
     edExitW: TEdit;
@@ -100,6 +103,7 @@ type
     procedure btnEmailClick(Sender: TObject);
     procedure btnFilesClick(Sender: TObject);
     procedure FittingChange(Sender: TObject);
+    procedure btnFieldClick(Sender: TObject);
   private
     FUnits: TUnitSystem;
     { the controls each kind of fitting uses shown, the rest hidden, and the
@@ -196,16 +200,21 @@ begin
         Result := Result and InchesOf(edThroat.Text, T.Throat) and
           InchesOf(edLeg0.Text, T.Leg0) and InchesOf(edLeg1.Text, T.Leg1);
         T.SquareHeel := cbSquareHeel.Checked;
-        { a transition's exit is the same opening, so the shared code that
-          sizes things off it has a number to work with }
-        T.W1 := T.W0; T.H1 := T.H0;
+        { the exit opening, blank meaning the same as the entry }
+        if Trim(edExitW.Text) = '' then T.W1 := T.W0
+        else Result := Result and InchesOf(edExitW.Text, T.W1);
+        if Trim(edExitH.Text) = '' then T.H1 := T.H0
+        else Result := Result and InchesOf(edExitH.Text, T.H1);
       end;
     fkTee:
       begin
         Result := Result and InchesOf(edLen.Text, T.Len) and
           InchesOf(edBW.Text, T.BW) and InchesOf(edBH.Text, T.BH) and
-          InchesOf(edBFrom.Text, T.BranchFrom) and InchesOf(edBLen.Text, T.BranchLen);
+          InchesOf(edBLen.Text, T.BranchLen);
         T.BranchOn := TBranchSide(Max(0, rgBranchOn.ItemIndex));
+        { blank is centred along the run }
+        if Trim(edBFrom.Text) = '' then T.BranchFrom := (T.Len - T.BW) / 2
+        else Result := Result and InchesOf(edBFrom.Text, T.BranchFrom);
         { blank is centred on the wall }
         if Trim(edBUp.Text) = '' then
         begin
@@ -264,6 +273,25 @@ begin
   AnyChange(nil);
 end;
 
+{ The angle and the legs from what was measured on the job, put into the
+  elbow's fields as if they had been typed. }
+procedure TTransitionForm.btnFieldClick(Sender: TObject);
+var
+  T: TTransitionSpec;
+begin
+  if not Read(T) then
+  begin
+    lblProblem.Caption := 'The opening and the throat radius have to read first.';
+    Exit;
+  end;
+  if not TFieldElbowForm.Ask(FUnits, T) then Exit;
+  rgAngle.ItemIndex := 3;
+  edAngle.Text := FormatFloat('0.##', RadToDeg(T.Angle));
+  edLeg0.Text := FormatFloat('0.###', T.Leg0 / T.Inch);
+  edLeg1.Text := FormatFloat('0.###', T.Leg1 / T.Inch);
+  AnyChange(nil);
+end;
+
 procedure TTransitionForm.ShowKind;
 var
   K: TFittingKind;
@@ -271,8 +299,11 @@ var
 begin
   K := TFittingKind(Max(0, rgFitting.ItemIndex));
   Tr := K = fkTransition; El := K = fkElbow; Te := K = fkTee;
-  { the transition's own }
-  lblExit.Visible := Tr; edExitW.Visible := Tr; lblExitX.Visible := Tr; edExitH.Visible := Tr;
+  { the transition's own - and the exit size is the elbow's too, for a
+    reducing elbow }
+  lblExit.Visible := not Te; edExitW.Visible := not Te; lblExitX.Visible := not Te; edExitH.Visible := not Te;
+  lblExitHint.Visible := El;
+  btnField.Visible := El;
   rgSide.Visible := Tr; edSideAmount.Visible := Tr;
   rgHeight.Visible := Tr; edHeightAmount.Visible := Tr;
   { the length row is the transition's and the tee's }
@@ -286,7 +317,7 @@ begin
   { the tee's }
   lblBranch.Visible := Te; edBW.Visible := Te; lblBX.Visible := Te; edBH.Visible := Te; lblBHint.Visible := Te;
   rgBranchOn.Visible := Te;
-  lblBFrom.Visible := Te; edBFrom.Visible := Te;
+  lblBFrom.Visible := Te; edBFrom.Visible := Te; lblBFromHint.Visible := Te;
   lblBUp.Visible := Te; edBUp.Visible := Te; lblBUpHint.Visible := Te;
   lblBLen.Visible := Te; edBLen.Visible := Te;
   lblBranchEnd.Visible := Te; cbBranchEnd.Visible := Te; edBranchEndAmt.Visible := Te; lblEndUnit3.Visible := Te;
@@ -296,6 +327,7 @@ begin
       begin
         lblTitle.Caption := 'Measure the turn';
         lblEntry.Caption := 'Opening';
+        lblExit.Caption := 'Exit opening';
       end;
     fkTee:
       begin

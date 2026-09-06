@@ -106,7 +106,7 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="8">
+    <Units Count="9">
       <Unit0>
         <Filename Value="etchasketch.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -158,6 +158,14 @@
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="uTransition"/>
       </Unit7>
+      <Unit8>
+        <Filename Value="uFieldElbow.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="FieldElbowForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="uFieldElbow"/>
+      </Unit8>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

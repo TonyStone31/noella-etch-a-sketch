@@ -1,0 +1,186 @@
+object FieldElbowForm: TFieldElbowForm
+  Left = 400
+  Height = 494
+  Top = 200
+  Width = 820
+  BorderStyle = bsDialog
+  Caption = 'Elbow from field measurements'
+  ClientHeight = 494
+  ClientWidth = 820
+  Position = poMainFormCenter
+  object lblTitle: TLabel
+    Left = 24
+    Height = 24
+    Top = 16
+    Width = 400
+    Caption = 'Measure from the inside corner of the open end'
+    Font.Height = -16
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblIntro: TLabel
+    Left = 24
+    Height = 96
+    Top = 44
+    Width = 440
+    AutoSize = False
+    Caption = 'Stand at the open end of the duct that is there.  The reference is its inside corner - the corner on the side the elbow turns towards.  Measure straight ahead and across to the near inside corner of the duct it has to meet, in inches.'
+    Font.Color = clGray
+    ParentFont = False
+    WordWrap = True
+  end
+  object lblNear: TLabel
+    Left = 24
+    Height = 18
+    Top = 152
+    Width = 300
+    Caption = 'Its near inside corner'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblFwd: TLabel
+    Left = 24
+    Height = 18
+    Top = 182
+    Width = 100
+    Caption = 'Straight ahead'
+  end
+  object edFwd: TEdit
+    Left = 130
+    Height = 28
+    Top = 176
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 0
+    Text = '30'
+  end
+  object lblOver: TLabel
+    Left = 214
+    Height = 18
+    Top = 182
+    Width = 130
+    Caption = 'Across, to the turn'
+  end
+  object edOver: TEdit
+    Left = 354
+    Height = 28
+    Top = 176
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 1
+    Text = '20'
+  end
+  object rgHow: TRadioGroup
+    Left = 24
+    Height = 60
+    Top = 220
+    Width = 460
+    AutoFill = True
+    Caption = 'Which way it runs'
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 2
+    Columns = 2
+    ItemIndex = 0
+    Items.Strings = (
+      'I know the angle'
+      'A second point along its inside edge'
+    )
+    OnClick = AnyChange
+    TabOrder = 2
+  end
+  object lblAngle: TLabel
+    Left = 24
+    Height = 18
+    Top = 298
+    Width = 160
+    Caption = 'Angle off straight ahead'
+  end
+  object edAngle: TEdit
+    Left = 200
+    Height = 28
+    Top = 292
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 3
+    Text = '90'
+  end
+  object lblDeg: TLabel
+    Left = 276
+    Height = 18
+    Top = 298
+    Width = 190
+    Caption = 'degrees, towards the turn'
+  end
+  object lblFwd2: TLabel
+    Left = 24
+    Height = 18
+    Top = 334
+    Width = 160
+    Caption = 'Second point, ahead'
+  end
+  object edFwd2: TEdit
+    Left = 200
+    Height = 28
+    Top = 328
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 4
+    Text = '30'
+  end
+  object lblOver2: TLabel
+    Left = 276
+    Height = 18
+    Top = 334
+    Width = 60
+    Caption = 'across'
+  end
+  object edOver2: TEdit
+    Left = 354
+    Height = 28
+    Top = 328
+    Width = 70
+    OnChange = AnyChange
+    TabOrder = 5
+    Text = '40'
+  end
+  object lblResult: TLabel
+    Left = 24
+    Height = 56
+    Top = 376
+    Width = 400
+    AutoSize = False
+    Caption = ''
+    WordWrap = True
+  end
+  object pbSketch: TPaintBox
+    Left = 500
+    Height = 380
+    Top = 16
+    Width = 300
+    OnPaint = pbSketchPaint
+  end
+  object btnCancel: TButton
+    Left = 580
+    Height = 32
+    Top = 444
+    Width = 100
+    Cancel = True
+    Caption = 'Cancel'
+    ModalResult = 2
+    TabOrder = 6
+  end
+  object btnOK: TButton
+    Left = 690
+    Height = 32
+    Top = 444
+    Width = 110
+    Caption = 'Use these'
+    Default = True
+    ModalResult = 1
+    TabOrder = 7
+  end
+end

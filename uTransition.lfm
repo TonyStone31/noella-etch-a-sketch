@@ -635,6 +635,7 @@ object TransitionForm: TTransitionForm
     Top = 316
     Width = 170
     Caption = 'Starts, from the entry'
+    Hint = 'blank is centred along the run'
     Visible = False
   end
   object edBFrom: TEdit
@@ -644,7 +645,6 @@ object TransitionForm: TTransitionForm
     Width = 80
     OnChange = AnyChange
     TabOrder = 32
-    Text = '6'
     Visible = False
   end
   object lblBUp: TLabel
@@ -726,6 +726,36 @@ object TransitionForm: TTransitionForm
     Top = 634
     Width = 16
     Caption = 'in'
+    Visible = False
+  end
+  object lblExitHint: TLabel
+    Left = 330
+    Height = 18
+    Top = 122
+    Width = 110
+    Caption = 'blank keeps it'
+    Font.Color = clGray
+    ParentFont = False
+    Visible = False
+  end
+  object btnField: TButton
+    Left = 24
+    Height = 30
+    Top = 410
+    Width = 300
+    Caption = 'From field measurements...'
+    OnClick = btnFieldClick
+    TabOrder = 37
+    Visible = False
+  end
+  object lblBFromHint: TLabel
+    Left = 290
+    Height = 18
+    Top = 316
+    Width = 150
+    Caption = 'blank is centred'
+    Font.Color = clGray
+    ParentFont = False
     Visible = False
   end
 end

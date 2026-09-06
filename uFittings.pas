@@ -122,6 +122,18 @@ function TicketText(const T: TTransitionSpec): string;
   heel points, as x along the width and y along the run. }
 procedure ElbowCheek(const T: TTransitionSpec; out Pts: TP3Array);
 
+{ An elbow worked out from what can be measured in the field.  The
+  reference point is the inside (throat-side) corner of the entry opening.
+  Fwd and Over are to the near inside corner of the duct it has to meet,
+  measured straight ahead and across towards the turn; Theta is that
+  duct's direction off straight ahead, towards the turn, in radians.  With
+  the throat radius R fixed, the two legs are what make it land there.
+  Returns '' and the legs, or what is wrong. }
+function SolveFieldElbow(R, Fwd, Over, Theta: Double; out Leg0, Leg1: Double): string;
+{ the direction of the far duct from two points along its inside edge, the
+  second further along it }
+function FieldDirection(Fwd1, Over1, Fwd2, Over2: Double): Double;
+
 implementation
 
 function EndNotched(const E: TEndSpec): Boolean;
@@ -191,9 +203,23 @@ end;
 function ElbowProblem(const T: TTransitionSpec): string;
 var
   K: Integer;
+  W1, H1: Double;
 begin
   Result := '';
   if (T.W0 <= 0) or (T.H0 <= 0) then Exit('The opening needs a width and a height.');
+  { the exit opening: nothing given means the same as the entry.  The size
+    across the turn changes through the turn; the other size can only
+    change in straight metal, so it changes in the exit leg }
+  W1 := T.W1; H1 := T.H1;
+  if W1 <= 0 then W1 := T.W0;
+  if H1 <= 0 then H1 := T.H0;
+  if T.Turn in [tuUp, tuDown] then
+  begin
+    if (Abs(W1 - T.W0) > 1E-9) and (T.Leg1 <= 0) then
+      Exit('The width changes in the exit leg, so the exit leg needs a length.');
+  end
+  else if (Abs(H1 - T.H0) > 1E-9) and (T.Leg1 <= 0) then
+    Exit('The height changes in the exit leg, so the exit leg needs a length.');
   if (T.Angle <= 0) or (T.Angle >= Pi) then Exit('The angle has to be between 0 and 180.');
   if T.Throat < 0 then Exit('The throat radius cannot be less than nothing - 0 is a square throat.');
   if (T.Leg0 < 0) or (T.Leg1 < 0) then Exit('A leg cannot be less than nothing.');
@@ -264,13 +290,17 @@ begin
     fkElbow:
       begin
         Result := Result +
-          'Opening: ' + Ins(T.W0) + ' x ' + Ins(T.H0) + ' (width x height)' + LineEnding +
+          'Opening: ' + Ins(T.W0) + ' x ' + Ins(T.H0) + ' (width x height)' + LineEnding;
+        if (Abs(T.W1 - T.W0) > 1E-9) or (Abs(T.H1 - T.H0) > 1E-9) then
+          Result := Result + 'Reduces to: ' + Ins(T.W1) + ' x ' + Ins(T.H1) +
+            ' - across the turn through the turn, the other way in the exit leg' + LineEnding;
+        Result := Result +
           'Angle: ' + FormatFloat('0.##', RadToDeg(T.Angle)) + ' degrees, turning ' +
             LowerCase(TURN_NAMES[T.Turn]) + LineEnding;
         if T.Throat > 0 then Result := Result + 'Throat radius: ' + Ins(T.Throat) + LineEnding
         else Result := Result + 'Square throat' + LineEnding;
         if T.SquareHeel then Result := Result + 'Square heel' + LineEnding
-        else Result := Result + 'Heel radius: ' + Ins(T.Throat + T.W0) + LineEnding;
+        else Result := Result + 'Heel radius: ' + Ins(T.Throat + T.W0) + ' at the entry' + LineEnding;
         Result := Result + 'Legs: ' + Ins(T.Leg0) + ' entry, ' + Ins(T.Leg1) + ' exit' + LineEnding;
       end;
     fkTee:
@@ -585,10 +615,10 @@ end;
   run, the throat on the x = A side (the turn is towards +x), the entry
   across the bottom.  Throat points first, heel points back, so the list
   closes into the cheek outline. }
-procedure CheekOutline(const T: TTransitionSpec; A: Double;
+procedure CheekOutline(const T: TTransitionSpec; A, A1: Double;
   out Throat, Heel: TP3Array; out N: Integer);
 var
-  R, Cx, Cy, Phi, Tt: Double;
+  R, Cx, Cy, Phi, Tt, Aphi: Double;
   I: Integer;
   D, H1, Corner: TP3;
 begin
@@ -600,8 +630,11 @@ begin
   for I := 0 to N do
   begin
     Phi := T.Angle * I / N;
+    { a reducing elbow: the heel spirals in as the size across the turn
+      goes from the entry's to the exit's; the throat stays a true arc }
+    Aphi := A + (A1 - A) * I / N;
     Throat[I] := P3(Cx - R * Cos(Phi), Cy + R * Sin(Phi), 0);
-    Heel[I] := P3(Cx - (R + A) * Cos(Phi), Cy + (R + A) * Sin(Phi), 0);
+    Heel[I] := P3(Cx - (R + Aphi) * Cos(Phi), Cy + (R + Aphi) * Sin(Phi), 0);
   end;
   if T.SquareHeel then
   begin
@@ -622,11 +655,13 @@ procedure ElbowCheek(const T: TTransitionSpec; out Pts: TP3Array);
 var
   Throat, Heel: TP3Array;
   N, I, K: Integer;
-  A: Double;
+  A, A1: Double;
   D: TP3;
 begin
   if T.Turn in [tuUp, tuDown] then A := T.H0 else A := T.W0;
-  CheekOutline(T, A, Throat, Heel, N);
+  if T.Turn in [tuUp, tuDown] then A1 := T.H1 else A1 := T.W1;
+  if A1 <= 0 then A1 := A;
+  CheekOutline(T, A, A1, Throat, Heel, N);
   D := P3(Sin(T.Angle), Cos(T.Angle), 0);
   SetLength(Pts, Length(Throat) + Length(Heel) + 4);
   K := 0;
@@ -643,7 +678,7 @@ function BuildElbow(D: TWorkDoc; const T: TTransitionSpec; Ink: TColor;
   Weight: Single): Integer;
 var
   B: TBuild;
-  A, Bc, Off: Double;
+  A, A1, Bc, B1, Off: Double;
   Throat, Heel: TP3Array;
   N, I, K: Integer;
   Dir: TP3;
@@ -668,13 +703,13 @@ var
   { the four corners of an opening whose bottom edge in the cheek plane runs
     from heel point Hp to throat point Tp, in the world order the run
     builder wants: bottom-left, bottom-right, top-right, top-left }
-  function Opening(const Hp, Tp: TP3): TP3x4;
+  function Opening(const Hp, Tp: TP3; Bs: Double): TP3x4;
   var
     Raw4: TP3x4;
     J: Integer;
   begin
     Raw4[0] := Hp; Raw4[1] := Tp;
-    Raw4[2] := P3(Tp.X, Tp.Y, Bc); Raw4[3] := P3(Hp.X, Hp.Y, Bc);
+    Raw4[2] := P3(Tp.X, Tp.Y, Bs); Raw4[3] := P3(Hp.X, Hp.Y, Bs);
     for J := 0 to 3 do Result[J] := W(Raw4[Order[J]]);
   end;
 
@@ -689,25 +724,29 @@ var
 begin
   Result := D.Live;
   B := StartBuild(D, T, Ink, Weight);
-  if T.Turn in [tuUp, tuDown] then begin A := T.H0; Bc := T.W0; end
-  else begin A := T.W0; Bc := T.H0; end;
+  if T.Turn in [tuUp, tuDown] then begin A := T.H0; Bc := T.W0; A1 := T.H1; B1 := T.W1; end
+  else begin A := T.W0; Bc := T.H0; A1 := T.W1; B1 := T.H1; end;
+  if A1 <= 0 then A1 := A;
+  if B1 <= 0 then B1 := Bc;
   case T.Turn of
     tuLeft: begin Order[0] := 1; Order[1] := 0; Order[2] := 3; Order[3] := 2; end;
     tuUp, tuDown: begin Order[0] := 0; Order[1] := 3; Order[2] := 2; Order[3] := 1; end;
   else
     begin Order[0] := 0; Order[1] := 1; Order[2] := 2; Order[3] := 3; end;
   end;
-  CheekOutline(T, A, Throat, Heel, N);
+  CheekOutline(T, A, A1, Throat, Heel, N);
   Dir := P3(Sin(T.Angle), Cos(T.Angle), 0);
   Raw.Kind := deRaw; Raw.Amount := 0;
   { the entry leg }
-  E0 := Opening(P3(0, 0, 0), P3(A, 0, 0));
-  X0 := Opening(Heel[0], Throat[0]);
+  E0 := Opening(P3(0, 0, 0), P3(A, 0, 0), Bc);
+  X0 := Opening(Heel[0], Throat[0], Bc);
   if T.Leg0 > 0 then
     BuildRun(B, E0, X0, [T.Ends[0], Raw], [True, True], -1);
   { the exit leg }
-  E1 := Opening(Heel[High(Heel)], Throat[N]);
-  X1 := Opening(Add(Heel[High(Heel)], Dir, T.Leg1), Add(Throat[N], Dir, T.Leg1));
+  { the exit leg is where the other size changes, if it does: a straight
+    transition from the bend's end to the exit opening }
+  E1 := Opening(Heel[High(Heel)], Throat[N], Bc);
+  X1 := Opening(Add(Heel[High(Heel)], Dir, T.Leg1), Add(Throat[N], Dir, T.Leg1), B1);
   if T.Leg1 > 0 then
     BuildRun(B, E1, X1, [Raw, T.Ends[1]], [True, True], -1);
   { the two cheeks: throat points forward, heel points back }
@@ -762,7 +801,39 @@ begin
     BDim(B, Q[1], Q[2], P3(Off, 0, 0));
     if T.Leg0 > 0 then BDim(B, Q[1], X0[1], P3(0, 0, -Off));
     if T.Leg1 > 0 then BDim(B, E1[1], X1[1], P3(0, 0, -Off));
+    if (Abs(A1 - A) > 1E-9) or (Abs(B1 - Bc) > 1E-9) then
+    begin
+      BDim(B, X1[0], X1[1], Add(P3(0, 0, 0), W(P3(0, 0, -1)), Off));
+      BDim(B, X1[1], X1[2], Add(P3(0, 0, 0), W(Dir), Off));
+    end;
   end;
+end;
+
+function SolveFieldElbow(R, Fwd, Over, Theta: Double; out Leg0, Leg1: Double): string;
+begin
+  Leg0 := 0; Leg1 := 0;
+  Result := '';
+  if (Theta <= 1E-6) or (Theta >= Pi - 1E-6) then
+    Exit('The far duct has to point somewhere between straight ahead and straight back.');
+  if R < 0 then Exit('The throat radius cannot be less than nothing.');
+  { the throat corner leaves the reference point up the entry leg, round
+    the throat arc, and out along the exit leg; the exit leg is whatever
+    covers the sideways distance the arc did not, the entry leg whatever
+    covers the forward distance the arc and the exit leg did not }
+  Leg1 := (Over - R * (1 - Cos(Theta))) / Sin(Theta);
+  Leg0 := Fwd - R * Sin(Theta) - Leg1 * Cos(Theta);
+  if Leg1 < -1E-9 then
+    Exit('It cannot get over that far with that throat radius - make the radius smaller, ' +
+      'or the far duct is closer than a turn can reach.');
+  if Leg0 < -1E-9 then
+    Exit('The far duct is too close ahead for the turn - make the throat radius smaller.');
+  if Leg1 < 0 then Leg1 := 0;
+  if Leg0 < 0 then Leg0 := 0;
+end;
+
+function FieldDirection(Fwd1, Over1, Fwd2, Over2: Double): Double;
+begin
+  Result := ArcTan2(Over2 - Over1, Fwd2 - Fwd1);
 end;
 
 function BuildTee(D: TWorkDoc; const T: TTransitionSpec; Ink: TColor;

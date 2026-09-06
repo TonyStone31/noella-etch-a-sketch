@@ -628,6 +628,7 @@ type
     procedure SeedRegions;
     function RebuildFlatFaces: Integer;
     function FaceCount: Integer;
+    function AnyFace: Boolean;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
@@ -10116,6 +10117,20 @@ end;
   The color of a face survives because a new region inherits it from whichever
   old face its middle fell inside. }
 { How many flat faces there are, for saying what an edit changed. }
+{ Whether the drawing carries any face at all, the solids' included.
+  FaceCount leaves solids out, which is right for its other callers and
+  wrong here: a drawing that is nothing but a built duct has faces, and
+  taking it for a faceless old file worked its areas out again and capped
+  every open end. }
+function TMainForm.AnyFace: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to FD.Doc.Live - 1 do
+    if FD.Doc[I].Kind = ekFace then Exit(True);
+end;
+
 function TMainForm.FaceCount: Integer;
 var
   I: Integer;
@@ -12353,7 +12368,7 @@ begin
 
         A file with no faces in it at all predates their being written down,
         and still gets them worked out, which is what this loop was for. }
-      if FaceCount > 0 then SeedRegions else RebuildFlatFaces;
+      if AnyFace then SeedRegions else RebuildFlatFaces;
       FD := D;
     end;
     ResetTool;

@@ -2307,6 +2307,7 @@ var
   First, Faces, Lines, Dims, I, J, Holed: Integer;
   MaxX, MinX: Double;
   Found: Boolean;
+  SL: TStringList;
 begin
   WriteLn('Elbows and tees');
   D := TWorkDoc.Create;
@@ -2375,6 +2376,17 @@ begin
     for I := First to D.Live - 1 do
       if (D[I].Kind = ekFace) and (Length(D[I].Holes) = 1) then Inc(Holed);
     Ok(Holed = 1, 'the opening is a hole in the wall it comes off');
+    { and the hole survives being written down }
+    SL := TStringList.Create;
+    try
+      D.SaveTo(SL);
+      Holed := 0;
+      for I := 0 to SL.Count - 1 do
+        if Copy(SL[I], 1, 5) = 'HOLE ' then Inc(Holed);
+      Ok(Holed = 1, 'the hole is written to the file');
+    finally
+      SL.Free;
+    end;
     MaxX := -1E9;
     for I := First to D.Live - 1 do
       if D[I].Kind = ekFace then
@@ -2390,6 +2402,43 @@ begin
         for J := 0 to High(D[I].Poly) do MaxX := Max(MaxX, D[I].Poly[J].Z);
     Ok(Abs(MaxX - 28 / 12) < 1E-9, 'off the top it stands up');
     Ok(Pos('off the top', TicketText(T)) > 0, 'and the ticket says so');
+    { a reducing elbow: 20 wide in, 12 wide out, through the turn }
+    T := Default(TTransitionSpec);
+    T.Kind := fkElbow; T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 20 / 12;
+    T.Inch := 1 / 12; T.Angle := Pi / 2; T.Throat := 4 / 12; T.Leg0 := 2 / 12; T.Leg1 := 2 / 12;
+    Ok(FittingProblem(T) = '', 'a reducing elbow reads');
+    First := BuildFitting(D, T, 0, 1);
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+          if Abs(D[I].Poly[J].Y - 6 / 12) < 1E-9 then MaxX := Max(MaxX, D[I].Poly[J].X);
+    Ok(Abs(MaxX - 26 / 12) < 1E-9, 'the throat is still a true arc, the exit leg off its end');
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+          if Abs(D[I].Poly[J].Y - 18 / 12) < 1E-9 then MaxX := Max(MaxX, D[I].Poly[J].X);
+    Ok(Abs(MaxX - 26 / 12) < 1E-9, 'and the heel comes in to leave the exit 12 across');
+    { a height change needs an exit leg to happen in }
+    T.W1 := 20 / 12; T.H1 := 10 / 12; T.Leg1 := 0;
+    Ok(FittingProblem(T) <> '', 'a height change with no exit leg is refused');
+    T.Leg1 := 6 / 12;
+    Ok(FittingProblem(T) = '', 'and reads with one');
+    First := BuildFitting(D, T, 0, 1);
+    MaxX := -1E9;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+          if Abs(D[I].Poly[J].X - 30 / 12) < 1E-9 then MaxX := Max(MaxX, D[I].Poly[J].Z);
+    Ok(Abs(MaxX - 10 / 12) < 1E-9, 'the exit stands 10 high at the end of the leg');
+    { an elbow from the field: 4 throat, the far duct 30 ahead and 20 over,
+      running at 90 - the legs come out so it lands there }
+    Ok(SolveFieldElbow(4 / 12, 30 / 12, 20 / 12, Pi / 2, MaxX, MinX) = '', 'a field elbow solves');
+    Ok((Abs(MaxX - 26 / 12) < 1E-9) and (Abs(MinX - 16 / 12) < 1E-9), 'entry leg 26, exit leg 16');
+    Ok(SolveFieldElbow(4 / 12, 30 / 12, 2 / 12, Pi / 2, MaxX, MinX) <> '', 'too little over for the radius is refused');
+    Ok(Abs(FieldDirection(30 / 12, 20 / 12, 30 / 12, 40 / 12) - Pi / 2) < 1E-9,
+      'two points along the far duct give its direction');
   finally
     D.Free;
   end;
