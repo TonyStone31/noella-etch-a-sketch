@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, uWork, uFittings;
+  ComCtrls, Dialogs, LCLIntf, uWork, uFittings;
 
 type
   TTransitionForm = class(TForm)
@@ -39,6 +39,7 @@ type
     lblTagHint: TLabel;
     edTag: TEdit;
     btnEmail: TButton;
+    btnFiles: TButton;
     edEntryW: TEdit;
     edEntryH: TEdit;
     edExitW: TEdit;
@@ -67,6 +68,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure pbIsoPaint(Sender: TObject);
     procedure btnEmailClick(Sender: TObject);
+    procedure btnFilesClick(Sender: TObject);
   private
     FUnits: TUnitSystem;
     { the two drawings, at any size: the paint boxes and the pictures for
@@ -477,8 +479,30 @@ begin
   if SendByEmail(Subject, TicketText(T), Files, Err) then
     lblProblem.Caption := 'Handed to your mail program.  The files are in ' + Dir
   else
+  begin
     ShowMessage(Err + LineEnding + LineEnding + 'The plan, the corner view and the ticket ' +
       'are in ' + Dir + ' - attach them by hand.');
+    SelectInFolder(Files[0]);
+  end;
+end;
+
+{ The files without the email: written, and shown in the file manager with
+  the plan picked out, ready to drag wherever they go. }
+procedure TTransitionForm.btnFilesClick(Sender: TObject);
+var
+  Dir: string;
+  Files: TStringArray;
+begin
+  if not ExportFiles(Dir, Files) then
+  begin
+    ShowMessage('The pictures could not be written under ' + Dir);
+    Exit;
+  end;
+  if SelectInFolder(Files[0]) then
+    lblProblem.Caption := 'The plan, the corner view and the ticket are in ' + Dir
+  else
+    ShowMessage('The plan, the corner view and the ticket are in ' + Dir +
+      LineEnding + '(no file manager answered to show them)');
 end;
 
 end.

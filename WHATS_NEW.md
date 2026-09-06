@@ -22,6 +22,9 @@
 - **A tag on the fitting.**  Name it on the ticket - T-3, kitchen supply -
   and the name is written on the part when it drops into the drawing, on
   both pictures, and in the email subject.
+- **Show the files.**  The same pictures and ticket, written and shown in
+  the file manager with the plan picked out, for when they go somewhere
+  other than an email.
 - **Plan and 3D on tabs.**  The wizard's two views sit on tabs, so the form
   takes less room and either can be watched while the numbers go in.
 

@@ -374,12 +374,21 @@ object TransitionForm: TTransitionForm
     ParentFont = False
   end
   object btnEmail: TButton
-    Left = 440
+    Left = 330
     Height = 32
     Top = 676
-    Width = 130
+    Width = 110
     Caption = 'Email it...'
     OnClick = btnEmailClick
     TabOrder = 19
+  end
+  object btnFiles: TButton
+    Left = 446
+    Height = 32
+    Top = 676
+    Width = 130
+    Caption = 'Show the files'
+    OnClick = btnFilesClick
+    TabOrder = 20
   end
 end

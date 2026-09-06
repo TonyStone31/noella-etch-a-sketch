@@ -25,6 +25,9 @@ const
     '- **A tag on the fitting.**  Name it on the ticket - T-3, kitchen supply -' + LineEnding +
     '  and the name is written on the part when it drops into the drawing, on' + LineEnding +
     '  both pictures, and in the email subject.' + LineEnding +
+    '- **Show the files.**  The same pictures and ticket, written and shown in' + LineEnding +
+    '  the file manager with the plan picked out, for when they go somewhere' + LineEnding +
+    '  other than an email.' + LineEnding +
     '- **Plan and 3D on tabs.**  The wizard''s two views sit on tabs, so the form' + LineEnding +
     '  takes less room and either can be watched while the numbers go in.' + LineEnding +
     '' + LineEnding +
