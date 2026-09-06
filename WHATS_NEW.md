@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The transition wizard finishes the ends.**  Each end can be raw, notched
+  all round for a field slip, flange out, flange in, TDF flange, slip and
+  drive, or drive and slip, each with its size, and the fitting is built
+  with them - notches cut, flanges and drives bent out, the TDF fold back -
+  so the 3D part shows the connection.
+- **Height has all four moves.**  Top up by, top down by, bottom up by and
+  bottom down by, for whichever edge could be measured in the space.
+- **The sizes go on.**  A built fitting carries its dimensions: both
+  openings and the run.  A tick box in the wizard turns that off.
+- **A corner view in the wizard.**  Beside the plan sketch, the fitting as
+  it will be built, ends and all, from in front of the entry.
+
+### Fixed
+
+- Moving or turning a dimension along with other things sent its line off
+  by the whole distance moved.  The dimension's offset now travels as a
+  direction, and the line stays put against what it measures.
+
 ## v2026.09.06.17
 
 ### New

@@ -155,3 +155,40 @@ lands instead of worked out again.
 The wizard has its own **Report a problem** button, because a report from the
 main window cannot photograph a dialog that is in front of it.  The picture
 from there is the whole screen and the report carries the wizard's fields.
+
+### Ends
+
+Each end of the fitting is finished one of these ways, picked in the wizard
+with a size in inches:
+
+| End | What is built |
+|---|---|
+| Raw | The sheet cut square. |
+| Notched all round | Each corner cut back by the notch, 1" unless told otherwise, so a slip goes on all four sides in the field.  The walls step round the cut-outs and the seams stop short of the end. |
+| Flange out / in | The end bent out (or in) by the flange width, 1" unless told otherwise, on all four sides.  Each flange stops its own width short of the corners - the corner cut that lets the next side fold. |
+| TDF flange | A flange out of 1 3/8" with a 1/2" fold back along the duct, the pocket the corner piece and the cleat take hold of. |
+| Slip and drive | Slips top and bottom, drives on the sides.  The corners are notched (the slip is the notch); the drive sides get a 1/2" drive edge bent out between the notches. |
+| Drive and slip | The same the other way round: drives top and bottom, slips on the sides. |
+
+The drive edge and the TDF fold back are fixed sizes in `uFittings.pas`
+(`DRIVE_FLANGE_IN`, `TDF_RETURN_IN`); the notch and flange sizes are typed.
+The order of the words in slip-and-drive is taken as top-and-bottom first.
+If the shop says it the other way, the two names swap in one place.
+
+### Height
+
+Flat bottom, flat top, centred, and the named edge moved by an amount:
+top up, top down, bottom up, bottom down - whichever one could be measured
+in the space, with the other edge following from the exit height.
+
+### The sizes on the part
+
+A built fitting carries five dimensions: both openings' width and height,
+and the run, measured entry plane to exit plane (the seam is longer whenever
+a side comes in).  A tick box in the wizard leaves them off.
+
+### The corner view
+
+Beside the plan sketch the wizard draws the fitting as it will stand, built
+by the same code that builds it for real and projected from in front of the
+entry, to the right and above.  What is shown is what is made.

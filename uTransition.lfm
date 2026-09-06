@@ -1,13 +1,14 @@
 object TransitionForm: TTransitionForm
   Left = 360
-  Height = 520
+  Height = 700
   Top = 160
-  Width = 760
+  Width = 1064
   BorderStyle = bsDialog
   Caption = 'Build a transition'
-  ClientHeight = 520
-  ClientWidth = 760
+  ClientHeight = 700
+  ClientWidth = 1064
   Position = poMainFormCenter
+  OnCreate = FormCreate
   OnShow = FormShow
   object lblTitle: TLabel
     Left = 24
@@ -161,7 +162,7 @@ object TransitionForm: TTransitionForm
   end
   object rgHeight: TRadioGroup
     Left = 24
-    Height = 150
+    Height = 210
     Top = 312
     Width = 210
     AutoFill = True
@@ -174,6 +175,8 @@ object TransitionForm: TTransitionForm
       'Flat top  (FT)'
       'Centred'
       'Top up by'
+      'Top down by'
+      'Bottom up by'
       'Bottom down by'
     )
     OnClick = AnyChange
@@ -182,7 +185,7 @@ object TransitionForm: TTransitionForm
   object edHeightAmount: TEdit
     Left = 244
     Height = 28
-    Top = 420
+    Top = 470
     Width = 70
     TabOrder = 8
     Text = '0'
@@ -198,7 +201,7 @@ object TransitionForm: TTransitionForm
   object btnReport: TButton
     Left = 24
     Height = 32
-    Top = 470
+    Top = 656
     Width = 150
     Caption = 'Report a problem...'
     OnClick = btnReportClick
@@ -207,17 +210,17 @@ object TransitionForm: TTransitionForm
   object lblProblem: TLabel
     Left = 184
     Height = 18
-    Top = 478
-    Width = 310
+    Top = 664
+    Width = 560
     AutoSize = False
     Caption = ''
     Font.Color = clRed
     ParentFont = False
   end
   object btnBuild: TButton
-    Left = 620
+    Left = 924
     Height = 32
-    Top = 470
+    Top = 656
     Width = 116
     Caption = 'Build it'
     Default = True
@@ -225,13 +228,104 @@ object TransitionForm: TTransitionForm
     TabOrder = 9
   end
   object btnCancel: TButton
-    Left = 500
+    Left = 804
     Height = 32
-    Top = 470
+    Top = 656
     Width = 110
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 10
+  end
+  object lblEnds: TLabel
+    Left = 24
+    Height = 18
+    Top = 536
+    Width = 300
+    Caption = 'Ends - how each one is finished'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblEntryEnd: TLabel
+    Left = 24
+    Height = 18
+    Top = 566
+    Width = 70
+    Caption = 'Entry end'
+  end
+  object cbEntryEnd: TComboBox
+    Left = 100
+    Height = 28
+    Top = 560
+    Width = 250
+    ItemHeight = 0
+    OnChange = EndKindChange
+    Style = csDropDownList
+    TabOrder = 12
+  end
+  object edEntryEndAmt: TEdit
+    Left = 358
+    Height = 28
+    Top = 560
+    Width = 52
+    OnChange = AnyChange
+    TabOrder = 13
+  end
+  object lblEndUnit1: TLabel
+    Left = 414
+    Height = 18
+    Top = 566
+    Width = 16
+    Caption = 'in'
+  end
+  object lblExitEnd: TLabel
+    Left = 24
+    Height = 18
+    Top = 600
+    Width = 70
+    Caption = 'Exit end'
+  end
+  object cbExitEnd: TComboBox
+    Left = 100
+    Height = 28
+    Top = 594
+    Width = 250
+    ItemHeight = 0
+    OnChange = EndKindChange
+    Style = csDropDownList
+    TabOrder = 14
+  end
+  object edExitEndAmt: TEdit
+    Left = 358
+    Height = 28
+    Top = 594
+    Width = 52
+    OnChange = AnyChange
+    TabOrder = 15
+  end
+  object lblEndUnit2: TLabel
+    Left = 414
+    Height = 18
+    Top = 600
+    Width = 16
+    Caption = 'in'
+  end
+  object cbDims: TCheckBox
+    Left = 24
+    Height = 22
+    Top = 628
+    Width = 300
+    Caption = 'Put the sizes on it as dimensions'
+    Checked = True
+    State = cbChecked
+    OnChange = AnyChange
+    TabOrder = 16
+  end
+  object pbIso: TPaintBox
+    Left = 750
+    Height = 380
+    Top = 80
+    Width = 290
+    OnPaint = pbIsoPaint
   end
 end

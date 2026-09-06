@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The transition wizard finishes the ends.**  Each end can be raw, notched' + LineEnding +
+    '  all round for a field slip, flange out, flange in, TDF flange, slip and' + LineEnding +
+    '  drive, or drive and slip, each with its size, and the fitting is built' + LineEnding +
+    '  with them - notches cut, flanges and drives bent out, the TDF fold back -' + LineEnding +
+    '  so the 3D part shows the connection.' + LineEnding +
+    '- **Height has all four moves.**  Top up by, top down by, bottom up by and' + LineEnding +
+    '  bottom down by, for whichever edge could be measured in the space.' + LineEnding +
+    '- **The sizes go on.**  A built fitting carries its dimensions: both' + LineEnding +
+    '  openings and the run.  A tick box in the wizard turns that off.' + LineEnding +
+    '- **A corner view in the wizard.**  Beside the plan sketch, the fitting as' + LineEnding +
+    '  it will be built, ends and all, from in front of the entry.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- Moving or turning a dimension along with other things sent its line off' + LineEnding +
+    '  by the whole distance moved.  The dimension''s offset now travels as a' + LineEnding +
+    '  direction, and the line stays put against what it measures.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.17' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

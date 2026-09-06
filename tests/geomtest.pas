@@ -2147,6 +2147,16 @@ begin
   T.Height := hrFlatTop;
   TransitionCorners(T, E, X);
   Ok(Abs(X[2].Z - 20 / 12) < 1E-9, 'flat top keeps the ceiling');
+  T.Height := hrTopDown; T.HeightAmount := 3 / 12;
+  TransitionCorners(T, E, X);
+  Ok(Abs(X[2].Z - 17 / 12) < 1E-9, 'top down 3 drops the ceiling by 3');
+  T.Height := hrBottomUp; T.HeightAmount := 5 / 12;
+  TransitionCorners(T, E, X);
+  Ok(Abs(X[0].Z - 5 / 12) < 1E-9, 'bottom up 5 lifts the floor by 5');
+  T.Height := hrBottomDown; T.HeightAmount := 2 / 12;
+  TransitionCorners(T, E, X);
+  Ok(Abs(X[0].Z + 2 / 12) < 1E-9, 'bottom down 2 drops the floor by 2');
+  T.Height := hrFlatTop;
   D := TWorkDoc.Create;
   try
     First := BuildTransition(D, T, 0, 1);
@@ -2168,6 +2178,113 @@ begin
     Ok(Faces = 4, 'four sides');
     Ok(Lines = 12, 'twelve edges');
     Ok(Flat, 'every side is a true plane, of one solid');
+  finally
+    D.Free;
+  end;
+end;
+
+{ how many of each thing the fitting came out as }
+procedure CountBuilt(D: TWorkDoc; First: Integer; out Faces, Lines, Dims: Integer);
+var
+  I: Integer;
+begin
+  Faces := 0; Lines := 0; Dims := 0;
+  for I := First to D.Live - 1 do
+    case D[I].Kind of
+      ekFace: Inc(Faces);
+      ekLine: Inc(Lines);
+      ekDim: Inc(Dims);
+    end;
+end;
+
+procedure TestDuctEnds;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  First, Faces, Lines, Dims, I, Eight: Integer;
+  OnEnd: Boolean;
+  Idx: array of Integer;
+  C0: TP3;
+begin
+  WriteLn('The ends of a duct');
+  FillChar(T, SizeOf(T), 0);
+  T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 8 / 12; T.Len := 2;
+  T.Inch := 1 / 12;
+  D := TWorkDoc.Create;
+  try
+    { raw both ends, with the sizes on }
+    T.Dims := True;
+    First := BuildTransition(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok((Faces = 4) and (Lines = 12), 'raw: four sides, twelve edges');
+    Ok(Dims = 5, 'and five dimensions: two openings, the run');
+    { the sizes travel with the part: the offset of a dimension is a
+      direction, and moving or turning the part must not treat it as a
+      place }
+    SetLength(Idx, D.Live - First);
+    for I := 0 to High(Idx) do Idx[I] := First + I;
+    Eight := -1;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekDim then begin Eight := I; Break; end;
+    C0 := D[Eight].C;
+    D.TranslateEnts(Idx, P3(10, 20, 30));
+    Ok(Dist(D[Eight].C, C0) < 1E-9, 'moving the part leaves a dimension''s offset alone');
+    Ok(Abs(D[Eight].A.Y - 20) < 1E-9, 'while its points went with it');
+    D.RotateEnts(Idx, P3(10, 20, 30), P3(0, 0, 1), Pi / 2);
+    Ok(Abs(Dist(D[Eight].C, P3(0, 0, 0)) - Dist(C0, P3(0, 0, 0))) < 1E-9,
+      'turning the part keeps the offset the same length');
+    { notched all round at the entry }
+    T.Dims := False;
+    T.Ends[0].Kind := deNotch; T.Ends[0].Amount := 1 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Eight := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 8) then Inc(Eight);
+    Ok(Faces = 4, 'notched: still four sides');
+    Ok(Eight = 4, 'each stepping round two corner cut-outs');
+    Ok(Lines = 4 + 4 + 4 * 5, 'seams, exit edges, and five pieces per notched end');
+    OnEnd := False;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y) < 1E-9) and (Abs(D[I].B.Y) < 1E-9) and
+         (Abs(D[I].A.Z) < 1E-9) and (Abs(D[I].B.Z) < 1E-9) and
+         (Abs(D[I].A.X - D[I].B.X) > 19 / 12) then OnEnd := True;
+    Ok(not OnEnd, 'no edge runs the full width of the notched opening');
+    { a flange out at the exit: four more faces }
+    T.Ends[0].Kind := deRaw;
+    T.Ends[1].Kind := deFlangeOut; T.Ends[1].Amount := 1 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok(Faces = 8, 'flange out: four sides and four flanges');
+    Ok(Lines = 4 + 4 + 4 * 3 + 4 * 3, 'each flange edge in three pieces, each flange three more edges');
+    { TDF: a flange and a fold back on every side }
+    T.Ends[1].Kind := deTDF; T.Ends[1].Amount := 1.375 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok(Faces = 12, 'TDF: four sides, four flanges, four returns');
+    { slip and drive at the entry: drives on the two sides only }
+    T.Ends[1].Kind := deRaw;
+    T.Ends[0].Kind := deSlipDrive; T.Ends[0].Amount := 1 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    CountBuilt(D, First, Faces, Lines, Dims);
+    Ok(Faces = 6, 'slip and drive: four sides and two drive flanges');
+    Eight := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].Y) < 1E-9) and (Abs(D[I].Poly[1].Y) < 1E-9) and
+         (Abs(D[I].Poly[0].X - D[I].Poly[1].X) < 1E-9) then Inc(Eight);
+    Ok(Eight = 2, 'and the drives stand on the vertical sides');
+    T.Ends[0].Kind := deDriveSlip;
+    First := BuildTransition(D, T, 0, 1);
+    Eight := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].Y) < 1E-9) and (Abs(D[I].Poly[1].Y) < 1E-9) and
+         (Abs(D[I].Poly[0].Z - D[I].Poly[1].Z) < 1E-9) then Inc(Eight);
+    Ok(Eight = 2, 'drive and slip puts them top and bottom');
+    { too big a notch is refused }
+    T.Ends[0].Amount := 11 / 12;
+    Ok(TransitionProblem(T) <> '', 'a notch bigger than the opening is refused');
   finally
     D.Free;
   end;
@@ -2615,6 +2732,7 @@ begin
   TestArcSides;  WriteLn;
   TestRoundCrossing;  WriteLn;
   TestTransition;  WriteLn;
+  TestDuctEnds;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;

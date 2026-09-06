@@ -2964,10 +2964,11 @@ begin
     FEnts[I].A0 := ArcTan2(Dot3(D, AV), Dot3(D, AU));
     Exit;
   end;
-  { a dimension's third point is where its line sits, and it goes where the
-    dimension goes }
+  { a dimension's C is the offset from what it measures to where its line
+    sits - a direction, not a place - so it turns with the dimension but is
+    not swung round the centre }
   if (FEnts[I].Kind = ekDim) and (OnSet(FEnts[I].A) or OnSet(FEnts[I].B)) then
-    FEnts[I].C := RotP(FEnts[I].C, C, Axis, Ang);
+    FEnts[I].C := RotV(FEnts[I].C, Axis, Ang);
   Turn(FEnts[I].A);
   Turn(FEnts[I].B);
   for K := 0 to High(FEnts[I].Poly) do
@@ -3045,7 +3046,10 @@ begin
     if (I < 0) or (I >= FLive) then Continue;
     FEnts[I].A := Sh(FEnts[I].A);
     FEnts[I].B := Sh(FEnts[I].B);
-    if FEnts[I].Kind in [ekArc, ekDim] then FEnts[I].C := Sh(FEnts[I].C);
+    { an arc's C is its centre, a point; a dimension's C is the offset from
+      what it measures to where its line sits, a vector, which a move must
+      leave alone or the line runs off by the whole distance moved }
+    if FEnts[I].Kind = ekArc then FEnts[I].C := Sh(FEnts[I].C);
     for K := 0 to High(FEnts[I].Poly) do FEnts[I].Poly[K] := Sh(FEnts[I].Poly[K]);
     for H := 0 to High(FEnts[I].Holes) do
       for K := 0 to High(FEnts[I].Holes[H]) do FEnts[I].Holes[H][K] := Sh(FEnts[I].Holes[H][K]);

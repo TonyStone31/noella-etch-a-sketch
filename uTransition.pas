@@ -21,6 +21,17 @@ type
     btnBuild: TButton;
     btnCancel: TButton;
     btnReport: TButton;
+    cbEntryEnd: TComboBox;
+    cbExitEnd: TComboBox;
+    cbDims: TCheckBox;
+    edEntryEndAmt: TEdit;
+    edExitEndAmt: TEdit;
+    lblEnds: TLabel;
+    lblEntryEnd: TLabel;
+    lblExitEnd: TLabel;
+    lblEndUnit1: TLabel;
+    lblEndUnit2: TLabel;
+    pbIso: TPaintBox;
     edEntryW: TEdit;
     edEntryH: TEdit;
     edExitW: TEdit;
@@ -45,6 +56,9 @@ type
     procedure FormShow(Sender: TObject);
     procedure pbSketchPaint(Sender: TObject);
     procedure btnReportClick(Sender: TObject);
+    procedure EndKindChange(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure pbIsoPaint(Sender: TObject);
   private
     FUnits: TUnitSystem;
     function Read(out T: TTransitionSpec): Boolean;
@@ -72,6 +86,9 @@ begin
     ', length ' + edLen.Text + LineEnding +
     'width: ' + rgSide.Items[Max(0, rgSide.ItemIndex)] + ' ' + edSideAmount.Text + LineEnding +
     'height: ' + rgHeight.Items[Max(0, rgHeight.ItemIndex)] + ' ' + edHeightAmount.Text + LineEnding +
+    'entry end: ' + cbEntryEnd.Text + ' ' + edEntryEndAmt.Text + LineEnding +
+    'exit end: ' + cbExitEnd.Text + ' ' + edExitEndAmt.Text + LineEnding +
+    'dimensions: ' + BoolToStr(cbDims.Checked, True) + LineEnding +
     'problem shown: ' + lblProblem.Caption);
 end;
 
@@ -104,8 +121,144 @@ begin
   T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
   if T.Side <> srCentred then
     Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
-  if T.Height in [hrTopUp, hrBottomDown] then
+  if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
     Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+  T.Ends[0].Kind := TDuctEnd(Max(0, cbEntryEnd.ItemIndex));
+  T.Ends[1].Kind := TDuctEnd(Max(0, cbExitEnd.ItemIndex));
+  if T.Ends[0].Kind <> deRaw then
+    Result := Result and InchesOf(edEntryEndAmt.Text, T.Ends[0].Amount);
+  if T.Ends[1].Kind <> deRaw then
+    Result := Result and InchesOf(edExitEndAmt.Text, T.Ends[1].Amount);
+  if not InchesOf('1', T.Inch) then T.Inch := 1 / 12;
+  T.Dims := cbDims.Checked;
+end;
+
+procedure TTransitionForm.FormCreate(Sender: TObject);
+var
+  K: TDuctEnd;
+begin
+  for K := Low(TDuctEnd) to High(TDuctEnd) do
+  begin
+    cbEntryEnd.Items.Add(DUCT_END_NAMES[K]);
+    cbExitEnd.Items.Add(DUCT_END_NAMES[K]);
+  end;
+  cbEntryEnd.ItemIndex := 0;
+  cbExitEnd.ItemIndex := 0;
+end;
+
+{ A kind of end picked: its size starts at what the shop would say - a one
+  inch notch, a one inch flange, the TDF's one and three eighths - and can
+  be typed over. }
+procedure TTransitionForm.EndKindChange(Sender: TObject);
+var
+  Ed: TEdit;
+  K: TDuctEnd;
+begin
+  if Sender = cbEntryEnd then Ed := edEntryEndAmt else Ed := edExitEndAmt;
+  K := TDuctEnd(Max(0, TComboBox(Sender).ItemIndex));
+  Ed.Enabled := K <> deRaw;
+  if K = deRaw then Ed.Text := ''
+  else Ed.Text := FormatFloat('0.###', DUCT_END_DEFAULT_IN[K]);
+  AnyChange(nil);
+end;
+
+{ The corner view: the fitting as it will stand in the drawing, ends and
+  all, seen from in front of the entry, to the right and above.  Built with
+  the same code that builds it for real, so what is shown is what is
+  made. }
+procedure TTransitionForm.pbIsoPaint(Sender: TObject);
+const
+  CX = 0.866;
+var
+  C: TCanvas;
+  T: TTransitionSpec;
+  D: TWorkDoc;
+  I, J, W, H, Margin, N: Integer;
+  MinX, MaxX, MinY, MaxY, Sc: Double;
+  Order: array of Integer;
+  Depth: array of Double;
+  Pts: array of TPoint;
+  Sw: Boolean;
+
+  function PX(const P: TP3): Double; begin Result := (P.X + P.Y) * CX; end;
+  function PY(const P: TP3): Double; begin Result := -P.Z + (P.X - P.Y) * 0.5; end;
+  function SX(const P: TP3): Integer; begin Result := Round(Margin + (PX(P) - MinX) * Sc); end;
+  function SY(const P: TP3): Integer; begin Result := Round(Margin + (PY(P) - MinY) * Sc); end;
+  { nearer the viewer is larger }
+  function Near(const P: TP3): Double; begin Result := P.X - P.Y + P.Z; end;
+
+begin
+  C := pbIso.Canvas;
+  W := pbIso.Width; H := pbIso.Height;
+  C.Brush.Color := clWhite;
+  C.FillRect(0, 0, W, H);
+  C.Pen.Color := clSilver;
+  C.Rectangle(0, 0, W, H);
+  if not Read(T) or (TransitionProblem(T) <> '') then Exit;
+  T.Dims := False;
+  D := TWorkDoc.Create;
+  try
+    BuildTransition(D, T, clBlack, 1);
+    Margin := 16;
+    MinX := 1E30; MaxX := -1E30; MinY := 1E30; MaxY := -1E30;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        MinX := Min(MinX, Min(PX(D[I].A), PX(D[I].B)));
+        MaxX := Max(MaxX, Max(PX(D[I].A), PX(D[I].B)));
+        MinY := Min(MinY, Min(PY(D[I].A), PY(D[I].B)));
+        MaxY := Max(MaxY, Max(PY(D[I].A), PY(D[I].B)));
+      end;
+    if MaxX <= MinX then Exit;
+    Sc := Min((W - 2 * Margin) / Max(MaxX - MinX, 1E-9),
+              (H - 2 * Margin) / Max(MaxY - MinY, 1E-9));
+    { the sides, far ones first so the near ones paint over them }
+    SetLength(Order, 0);
+    SetLength(Depth, 0);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        SetLength(Order, Length(Order) + 1);
+        SetLength(Depth, Length(Depth) + 1);
+        Order[High(Order)] := I;
+        Depth[High(Depth)] := 0;
+        for J := 0 to High(D[I].Poly) do
+          Depth[High(Depth)] := Depth[High(Depth)] + Near(D[I].Poly[J]) / Length(D[I].Poly);
+      end;
+    repeat
+      Sw := False;
+      for I := 0 to High(Order) - 1 do
+        if Depth[I] > Depth[I + 1] then
+        begin
+          N := Order[I]; Order[I] := Order[I + 1]; Order[I + 1] := N;
+          Sc := Depth[I]; Depth[I] := Depth[I + 1]; Depth[I + 1] := Sc;
+          Sw := True;
+        end;
+    until not Sw;
+    Sc := Min((W - 2 * Margin) / Max(MaxX - MinX, 1E-9),
+              (H - 2 * Margin) / Max(MaxY - MinY, 1E-9));
+    C.Pen.Color := $00909090;
+    C.Pen.Width := 1;
+    for I := 0 to High(Order) do
+    begin
+      SetLength(Pts, Length(D[Order[I]].Poly));
+      for J := 0 to High(Pts) do
+        Pts[J] := Point(SX(D[Order[I]].Poly[J]), SY(D[Order[I]].Poly[J]));
+      C.Brush.Color := $00F0ECE6;
+      C.Brush.Style := bsSolid;
+      C.Polygon(Pts);
+    end;
+    { and every edge, so the notches and folds read }
+    C.Pen.Color := clBlack;
+    C.Brush.Style := bsClear;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+        C.Line(SX(D[I].A), SY(D[I].A), SX(D[I].B), SY(D[I].B));
+    C.Font.Color := clGray;
+    C.TextOut(8, H - 20, 'entry at the front left');
+  finally
+    D.Free;
+  end;
 end;
 
 procedure TTransitionForm.AnyChange(Sender: TObject);
@@ -114,12 +267,15 @@ var
 begin
   edSideAmount.Enabled := rgSide.ItemIndex > 0;
   edHeightAmount.Enabled := rgHeight.ItemIndex >= 3;
+  edEntryEndAmt.Enabled := cbEntryEnd.ItemIndex > 0;
+  edExitEndAmt.Enabled := cbExitEnd.ItemIndex > 0;
   if not Read(T) then
     lblProblem.Caption := 'A size did not read - 20, 20.5, 8 3/4, or 2'' with a mark.'
   else
     lblProblem.Caption := TransitionProblem(T);
   btnBuild.Enabled := lblProblem.Caption = '';
   pbSketch.Invalidate;
+  pbIso.Invalidate;
 end;
 
 procedure TTransitionForm.FormShow(Sender: TObject);
