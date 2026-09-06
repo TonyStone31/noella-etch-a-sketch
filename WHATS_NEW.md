@@ -10,6 +10,25 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- Round tunnels drill through square ones and square through round: the
+  crossing is cut on every segment.  Twelve sides makes a clean job of it.
+- How many sides a circle or an arc gets is yours: + and - while the tool is
+  in hand, or type 24s (or s24), the way SketchUp takes it.  The cursor tip
+  says the count and how to change it.  Circles start at 24, arcs at 12.
+- The cursor tip gives an example of what to type for every tool - 12'6,
+  6-8-15, 8x10, 45 or 8:12, [x,y,z] - not just "type a length".
+
+### Fixed
+
+- Snapping no longer grabs points hidden behind a face.  Drawing on a wall
+  used to catch the corner of a tunnel behind it and put the click inside
+  the block.
+- The update window pauses on each step long enough to be read.
+
 ## v2026.09.06.1
 
 ### Fixed

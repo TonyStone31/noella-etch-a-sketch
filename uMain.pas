@@ -440,6 +440,9 @@ type
     FRotAxis: TP3;
     FRotAxisIx: Integer;
     FRotRef: TP3;
+    { how many sides the next circle and the next arc get - SketchUp's
+      defaults, changed with + and - or by typing 24s }
+    FSidesCircle, FSidesArc: Integer;
     FMovePending: Boolean;
     FScreenDirty: Boolean;
     FHotMode: Integer;
@@ -1624,6 +1627,8 @@ begin
   FDimEdit := -1;
   FLenDenom := LenDenom;
   FNoteDrag := -1;
+  FSidesCircle := 24;
+  FSidesArc := 12;
   FCursorWas := crCross;
   Caption := APP_NAME + '  ' + CurrentVersion;
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
@@ -5888,9 +5893,9 @@ begin
             C.Pen.Color := PixToColor(Theme.Accent);
             PA := ScreenOf(ArcPoint(ArcC, ArcR, ArcA0, ArcPl));
             C.MoveTo(Round(PA.X), Round(PA.Y));
-            for ArcK := 1 to 48 do
+            for ArcK := 1 to FSidesArc do
             begin
-              PB := ScreenOf(ArcPoint(ArcC, ArcR, ArcA0 + ArcSw * ArcK / 48, ArcPl));
+              PB := ScreenOf(ArcPoint(ArcC, ArcR, ArcA0 + ArcSw * ArcK / FSidesArc, ArcPl));
               C.LineTo(Round(PB.X), Round(PB.Y));
             end;
             C.Pen.Width := 1;
@@ -5922,9 +5927,9 @@ begin
         if CircR > 1E-9 then
         begin
           PPrev := ScreenOf(ArcPoint(FP1, CircR, 0, FD.Plane));
-          for CircI := 1 to 48 do
+          for CircI := 1 to FSidesCircle do
           begin
-            P := ScreenOf(ArcPoint(FP1, CircR, CircI * 2 * Pi / 48, FD.Plane));
+            P := ScreenOf(ArcPoint(FP1, CircR, CircI * 2 * Pi / FSidesCircle, FD.Plane));
             C.MoveTo(Round(PPrev.X), Round(PPrev.Y));
             C.LineTo(Round(P.X), Round(P.Y));
             PPrev := P;
@@ -6143,14 +6148,22 @@ begin
     if S1 = '' then S1 := 'FREE';
     case FTool of
       ptSelect: S2 := 'pick a tool below, or press L for a line';
-      ptPush:  S2 := 'click a face to push or pull it';
-      ptDrill: S2 := 'click a face to drill through';
-      ptErase: S2 := 'click a line to delete it';
-      ptText:  S2 := 'space or click - the note points here';
+      ptLine:   S2 := 'click to start - then type 12, 12''6 or 6-8-15';
+      ptRect:   S2 := 'click a corner - then drag, or type 8x10';
+      ptCircle: S2 := Format('click the center - %d sides: + - or type 24s', [FSidesCircle]);
+      ptArc:    S2 := Format('click one end - %d segments: + - or type 12s', [FSidesArc]);
+      ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
+      ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
+      ptErase:  S2 := 'click anything to delete it';
+      ptText:   S2 := 'space or click - the note points here';
+      ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
+      ptOffset: S2 := 'click a face - then type the offset, negative goes inward';
       ptMeasure:
-        S2 := 'measure from here - it leaves a guide and a point';
-      ptRotate: S2 := 'click the center to turn about - arrows pick the plane';
-      ptProtractor: S2 := 'click the vertex of the angle - arrows pick the plane';
+        S2 := 'measure from here - type a distance to lay a guide';
+      ptDim:    S2 := 'click the first point of what you are measuring';
+      ptRotate: S2 := 'click the center - arrows pick the plane by color';
+      ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
+      ptOrbit:  S2 := 'drag to spin - Shift drags to pan';
     else
       S2 := 'space or click - start here';
     end;
@@ -6159,18 +6172,20 @@ begin
   begin
     if S1 = '' then S1 := 'DRAWING';
     case FTool of
-      ptPush, ptDrill: S2 := 'type how far, or move and click';
-      ptCircle: S2 := 'type a radius, or click';
-      ptArc:    S2 := 'pull the middle out, or type the bulge';
-      ptText:   S2 := 'type it, move away, then Enter';
+      ptPush, ptDrill: S2 := 'type how far - 2, 6", 1-6 - or rest on an edge or a face';
+      ptCircle: S2 := Format('type a radius, or click - %d sides: + - or 24s', [FSidesCircle]);
+      ptArc:    S2 := Format('pull the middle out, or type the bulge - %d segments: + - or 12s', [FSidesArc]);
+      ptText:   S2 := 'type it, move away, then Enter - Shift+Enter for a new line';
       ptDim:    S2 := 'move away to place it - shake up and down to stand it up';
-      ptMeasure: S2 := 'click the second point';
-      ptRect:   S2 := 'drag it, or type 8x10 - the pad''s slash works too';
+      ptMeasure: S2 := 'click the second point, or type a distance - 3, 2''6, 0-8-8';
+      ptRect:   S2 := 'drag it, or type 8x10, 8/10 or 2''6x4 - a minus flips a side';
+      ptMove:   S2 := 'type a length, [x,y,z] or <x,y,z> - arrows lock an axis, Ctrl copies';
+      ptOffset: S2 := 'type the offset - 6", 1-6 - negative goes inward';
       ptRotate, ptProtractor:
         if FStage = 1 then S2 := 'click a point to measure the angle from'
-        else S2 := 'swing to the angle and click, or type it - 45, or 8:12';
+        else S2 := 'swing to the angle and click, or type it - 45, 22.5, or 8:12';
     else
-      S2 := 'arrows set direction - type a length - Enter';
+      S2 := 'type a length - 12, 12''6, 6-8-15 - arrows lock an axis';
     end;
   end;
 
@@ -7350,6 +7365,7 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(C, R, A0, Sweep, ArcPl, FInkColor, FEdgeW);
+          FD.Doc.SetArcSides(FD.Doc.Live - 1, FSidesArc);
           FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
           I := FaceCount;
           if RebuildFlatFaces > I then
@@ -7370,6 +7386,7 @@ begin
         begin
           PushUndo;
           FD.Doc.AddArc(FP1, R, 0, 2 * Pi, FD.Plane, FInkColor, FEdgeW);
+          FD.Doc.SetArcSides(FD.Doc.Live - 1, FSidesCircle);
           RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
@@ -7738,6 +7755,7 @@ procedure TMainForm.CommandEnter;
 var
   L: Double;
   Why: string;
+  SidesN: Integer;
 begin
   if FDimEdit >= 0 then
   begin
@@ -7764,6 +7782,17 @@ begin
       FCmdMsg := 'I do not know "' + Copy(FInput, 2, MaxInt) + '"';
     FInput := '';
     pbCmd.Invalidate;
+    Exit;
+  end;
+
+  { 24s or s24 on the circle or arc tool: how many sides, not how big }
+  if (FTool in [ptCircle, ptArc]) and ParseSides(FInput, SidesN) then
+  begin
+    if FTool = ptCircle then FSidesCircle := SidesN else FSidesArc := SidesN;
+    FCmdMsg := Format('%d sides from now on.', [SidesN]);
+    FInput := '';
+    pbCmd.Invalidate;
+    pbScreen.Invalidate;
     Exit;
   end;
 
@@ -9555,10 +9584,8 @@ begin
 end;
 
 function TMainForm.EdgeSegments: TSegArray;
-const
-  ARC_STEPS = 48;
 var
-  I, K, N: Integer;
+  I, K, N, Steps: Integer;
   A: TP3;
 begin
   N := 0;
@@ -9588,12 +9615,13 @@ begin
       ekArc:
         begin
           A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R, FD.Doc[I].A0, FD.Doc[I].Plane, FD.Doc[I].Nm);
-          for K := 1 to ARC_STEPS do
+          Steps := ArcSteps(FD.Doc[I]);
+          for K := 1 to Steps do
           begin
             if N >= Length(Result) then SetLength(Result, N * 2);
             Result[N].A := A;
             A := ArcPoint(FD.Doc[I].C, FD.Doc[I].R,
-              FD.Doc[I].A0 + FD.Doc[I].Sweep * K / ARC_STEPS, FD.Doc[I].Plane, FD.Doc[I].Nm);
+              FD.Doc[I].A0 + FD.Doc[I].Sweep * K / Steps, FD.Doc[I].Plane, FD.Doc[I].Nm);
             Result[N].B := A;
             Inc(N);
           end;
@@ -11091,6 +11119,36 @@ begin
       [Round(FD.Doc.NoteSize(FSel[0]) * 100)]);
     RenderPro;
     RecomposeAll;
+    pbCmd.Invalidate;
+    Key := #0;
+    Exit;
+  end;
+
+  { The sides of a circle or an arc: + and - step the count while the tool
+    is in hand, and s goes into the input for SketchUp's 24s (or s24). }
+  if (FTool in [ptCircle, ptArc]) and (FInput = '') and (Key in ['+', '=', '-']) then
+  begin
+    if FTool = ptCircle then
+    begin
+      if Key = '-' then FSidesCircle := Max(3, FSidesCircle - 1)
+      else FSidesCircle := Min(360, FSidesCircle + 1);
+      FCmdMsg := Format('%d sides.  + and - change it, or type 24s.', [FSidesCircle]);
+    end
+    else
+    begin
+      if Key = '-' then FSidesArc := Max(2, FSidesArc - 1)
+      else FSidesArc := Min(360, FSidesArc + 1);
+      FCmdMsg := Format('%d segments.  + and - change it, or type 12s.', [FSidesArc]);
+    end;
+    pbScreen.Invalidate;
+    pbCmd.Invalidate;
+    Key := #0;
+    Exit;
+  end;
+  if (FTool in [ptCircle, ptArc]) and (Key in ['s', 'S']) and
+     ((FInput = '') or (FInput[1] in ['0'..'9'])) and (Pos('s', FInput) = 0) then
+  begin
+    FInput := FInput + 's';
     pbCmd.Invalidate;
     Key := #0;
     Exit;

@@ -101,6 +101,9 @@ type
       on a roof has to carry its own or it lies back down flat the moment the
       cursor moves on to something else. }
     Nm: TP3;
+    { how many straight pieces an arc is drawn and cut in; 0 is the old
+      fixed 48, so drawings from before this read as they did }
+    Sides: Integer;
     Poly: array of TP3;   // ekFace: the closed outline, in order
     { What is cut out of it.  A window in a wall, the opening a duct passes
       through, the inside of a ring left by an offset - all the same thing:
@@ -190,6 +193,7 @@ type
     function HasLine(const A, B: TP3): Boolean;
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
+    procedure SetArcSides(Index, N: Integer);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
     { A note with a leader out to Target.  Target = A means no leader, which
       is a plain label. }
@@ -421,6 +425,13 @@ function ParseLen(const S: string; U: TUnitSystem; out V: Double): Boolean;
   (34.1, -45, 90d), or a slope as rise:run (8:12).  Negative is the other way. }
 function ParseAngle(const S: string; out Deg: Double): Boolean;
 function FormatAngle(Deg: Double): string;
+
+{ The number of straight pieces this arc is walked in, everywhere it is
+  walked: drawn, picked, cut into regions, laid flat. }
+function ArcSteps(const E: TWorkEnt): Integer;
+
+{ SketchUp's way of saying how many sides: 24s, or s24.  Nothing else. }
+function ParseSides(const S: string; out N: Integer): Boolean;
 
 { P turned about the line through C along the unit vector Axis, by Ang
   radians, right-handed.  RotV does the same to a direction. }
@@ -1609,6 +1620,26 @@ begin
   Result.Z := C.Z + AU.Z * Cs + AV.Z * Sn;
 end;
 
+function ArcSteps(const E: TWorkEnt): Integer;
+begin
+  if E.Sides >= 3 then Result := E.Sides else Result := 48;
+end;
+
+function ParseSides(const S: string; out N: Integer): Boolean;
+var
+  T: string;
+begin
+  Result := False;
+  N := 0;
+  T := LowerCase(Trim(S));
+  if Length(T) < 2 then Exit;
+  if T[Length(T)] = 's' then Delete(T, Length(T), 1)
+  else if T[1] = 's' then Delete(T, 1, 1)
+  else Exit;
+  if (T = '') or not TryStrToInt(T, N) then Exit;
+  Result := (N >= 3) and (N <= 360);
+end;
+
 function ParseAngle(const S: string; out Deg: Double): Boolean;
 var
   T: string;
@@ -2172,6 +2203,14 @@ procedure TWorkDoc.SetSoft(Index: Integer; Soft: Boolean);
 begin
   if (Index < 0) or (Index >= FLive) then Exit;
   FEnts[Index].Soft := Soft;
+end;
+
+procedure TWorkDoc.SetArcSides(Index, N: Integer);
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekArc) then Exit;
+  if (N < 3) or (N > 360) then N := 0;
+  FEnts[Index].Sides := N;
+  FSnapDirty := True;
 end;
 
 procedure TWorkDoc.SetGroup(Index, G: Integer);
@@ -2936,7 +2975,7 @@ begin
   case FEnts[I].Kind of
     ekArc:
       begin
-        Steps := 48;
+        Steps := ArcSteps(FEnts[I]);
         SetLength(Result, Steps + 1);
         for K := 0 to Steps do
           Result[K] := ArcPoint(FEnts[I].C, FEnts[I].R,
@@ -3765,7 +3804,7 @@ begin
   case FEnts[I].Kind of
     ekArc:
       begin
-        Steps := 48;
+        Steps := ArcSteps(FEnts[I]);
         SetLength(Result, Steps + 1);
         for K := 0 to Steps do
         begin
@@ -3831,13 +3870,13 @@ end;
   segments the renderer walks, over the real sweep. }
 function ArcScreenDist(const V: TProjector; const E: TWorkEnt;
   SX, SY: Double): Double;
-const
-  STEPS = 48;
 var
+  STEPS: Integer;
   K: Integer;
   Ang: Double;
   PA, PB: TPointF;
 begin
+  STEPS := ArcSteps(E);
   Result := 1E30;
   PA := Project(V, ArcPoint(E.C, E.R, E.A0, E.Plane, E.Nm));
   for K := 1 to STEPS do
@@ -4237,6 +4276,12 @@ begin
     D := D - BIAS[FSnapCache[I].Kind];
     if D < Best then
     begin
+      { A point behind a panel is not one anybody is aiming at, and being
+        pulled onto one - the corner of a tunnel through the wall you are
+        drawing on - put the click inside the block.  Only the candidates
+        that would win are asked, so this costs nothing when there is nothing
+        in the way. }
+      if HiddenAt(V, FSnapCache[I].P) then Continue;
       Best := D;
       Hit := FSnapCache[I];
     end;
@@ -4362,13 +4407,18 @@ begin
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].Weight,
            Ord(FEnts[I].Dim), FEnts[I].Grp, Ord(FEnts[I].Soft)], FS));
       ekArc:
-        { The normal goes on the end, so a file written before free planes
-          existed still reads and one written now still opens in a build that
-          has never heard of them. }
-        L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f %s',
-          [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
-           Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight,
-           N3(FEnts[I].Nm)], FS));
+        begin
+          { The normal goes on the end, so a file written before free planes
+            existed still reads and one written now still opens in a build
+            that has never heard of them.  The side count follows on a line
+            of its own, for the same reason. }
+          L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f %s',
+            [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
+             Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight,
+             N3(FEnts[I].Nm)], FS));
+          if FEnts[I].Sides >= 3 then
+            L.Add(Format('SIDES %d', [FEnts[I].Sides]));
+        end;
       ekDim:
         { the written-over label goes last, so a file with none still reads
           and one written by an older build still loads }
@@ -4483,6 +4533,9 @@ begin
         if (FLive > 0) and (T.Count >= 12) then
           FEnts[FLive - 1].Soft := T[11] = '1';
       end
+      else if (Kind = 'SIDES') and (T.Count >= 2) and (FLive > 0) and
+              (FEnts[FLive - 1].Kind = ekArc) then
+        SetArcSides(FLive - 1, StrToIntDef(T[1], 0))
       else if (Kind = 'ARC') and (T.Count >= 10) then
       begin
         AddArc(P3(RdF(T[1]), RdF(T[2]), RdF(T[3])), RdF(T[4]), RdF(T[5]),
@@ -4667,7 +4720,8 @@ begin
               its own plane with its own extrusion direction, and every table
               and CAD reads a chain of lines the same way; a spool drawing
               does not need the arc to be an arc to be cut right. }
-            Steps := Max(12, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * 24));
+            if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
+            else Steps := Max(12, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * 24));
             Steps := Min(Steps, 360);
             for K := 0 to Steps - 1 do
               Seg('GEOMETRY',

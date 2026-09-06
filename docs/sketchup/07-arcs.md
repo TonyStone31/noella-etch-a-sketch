@@ -50,3 +50,9 @@ bulge in the bar - and it is built in the plane the three points are in, so an
 arc drawn up the end of a box stands on the end of the box.  A point resting
 on a face reads ON FACE.  The centre-point arc, the three-point arc and the
 pie are not built, and neither is tangency.
+
+Sides: `24s` (or `s24`) typed on the circle or arc tool sets how many
+straight pieces it is made of, as in SketchUp; `+` and `-` step it while the
+tool is in hand, and the cursor tip shows the count.  Circles start at 24,
+arcs at 12.  The count is kept with the arc and is what every later cut - a
+tunnel drilled through it - is made in.

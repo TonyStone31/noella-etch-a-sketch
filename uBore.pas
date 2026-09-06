@@ -472,7 +472,21 @@ var
         S[NS].B := Cuts[I].S1;
         Inc(NS);
       end;
-    if NS = M then Exit;                 { nothing crosses this wall }
+    if NS = M then
+    begin
+      { Nothing crosses this wall.  Either it is clear of the other bore, or
+        it lies wholly inside it - a small facet of a round tunnel sitting
+        entirely within a square one's opening - and then all of it is in
+        the void and all of it goes. }
+      if InsideBore(D, Against, InnerPoint(D[F].Poly, D.FaceNormal(F)), Tol) then
+      begin
+        SetLength(Reps, NRep + 1);
+        Reps[NRep].Face := F;
+        Reps[NRep].Pieces := nil;
+        Inc(NRep);
+      end;
+      Exit;
+    end;
     SetLength(S, NS);
     R := BuildRegions(S);
     if Length(R) < 2 then Exit;

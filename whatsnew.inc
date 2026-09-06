@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- Round tunnels drill through square ones and square through round: the' + LineEnding +
+    '  crossing is cut on every segment.  Twelve sides makes a clean job of it.' + LineEnding +
+    '- How many sides a circle or an arc gets is yours: + and - while the tool is' + LineEnding +
+    '  in hand, or type 24s (or s24), the way SketchUp takes it.  The cursor tip' + LineEnding +
+    '  says the count and how to change it.  Circles start at 24, arcs at 12.' + LineEnding +
+    '- The cursor tip gives an example of what to type for every tool - 12''6,' + LineEnding +
+    '  6-8-15, 8x10, 45 or 8:12, [x,y,z] - not just "type a length".' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- Snapping no longer grabs points hidden behind a face.  Drawing on a wall' + LineEnding +
+    '  used to catch the corner of a tunnel behind it and put the click inside' + LineEnding +
+    '  the block.' + LineEnding +
+    '- The update window pauses on each step long enough to be read.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

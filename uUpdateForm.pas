@@ -21,6 +21,7 @@ type
     procedure tmrStartTimer(Sender: TObject);
   private
     FBusy: Boolean;
+    FBytesReceived: Int64;
     FFinishing: Boolean;
     FInfo: TUpdateInfo;
     FLastPaint: QWord;
@@ -28,6 +29,7 @@ type
     FTmp: string;
     procedure DownloadProgress(BytesReceived, TotalBytes: Int64);
     procedure Fail(const Msg: string);
+    procedure PauseFor(Milliseconds: QWord);
     procedure SetStage(const Stage, Detail: string; ProgressValue: Integer);
   public
     function Run(const Info: TUpdateInfo; const TempFile: string): Boolean;
@@ -56,11 +58,23 @@ begin
   Application.ProcessMessages;
 end;
 
+procedure TUpdateForm.PauseFor(Milliseconds: QWord);
+var
+  UntilTick: QWord;
+begin
+  UntilTick := GetTickCount64 + Milliseconds;
+  repeat
+    Application.ProcessMessages;
+    Sleep(10);
+  until GetTickCount64 >= UntilTick;
+end;
+
 procedure TUpdateForm.DownloadProgress(BytesReceived, TotalBytes: Int64);
 var
   Percent: Integer;
   NowTick: QWord;
 begin
+  FBytesReceived := BytesReceived;
   if TotalBytes > 0 then
   begin
     Percent := Round(BytesReceived * 100.0 / TotalBytes);
@@ -106,6 +120,7 @@ begin
   FBusy := True;
 
   SetStage('Downloading ' + FInfo.Tag, 'Connecting...', 0);
+  PauseFor(450);
   FLastPaint := 0;
   if not Download(FInfo.AssetURL, FTmp, FInfo.Size, @DownloadProgress, Err) then
   begin
@@ -113,7 +128,10 @@ begin
     Exit;
   end;
 
+  SetStage('Download complete', ByteSize(FBytesReceived) + ' received.', 100);
+  PauseFor(650);
   SetStage('Verifying download', 'Checking the downloaded file...', 100);
+  PauseFor(500);
   Want := ExpectedSum(FInfo.SumsURL, ASSET_NAME);
   if Want <> '' then
   begin
@@ -126,8 +144,14 @@ begin
     end;
   end;
 
+  if Want <> '' then
+    SetStage('Download verified', 'The checksum matches the published file.', 100)
+  else
+    SetStage('Download ready', 'The new version is ready to install.', 100);
+  PauseFor(650);
   SetStage('Installing update',
     'Copying ' + FInfo.Tag + ' into place...', 100);
+  PauseFor(650);
   if not SwapInAndRestart(FTmp, Err) then
   begin
     DeleteFile(FTmp);
@@ -140,7 +164,7 @@ begin
   FBusy := False;
   FSucceeded := True;
   FFinishing := True;
-  tmrStart.Interval := 700;
+  tmrStart.Interval := 1200;
   tmrStart.Enabled := True;
 end;
 
@@ -164,10 +188,11 @@ function TUpdateForm.Run(const Info: TUpdateInfo;
 begin
   FInfo := Info;
   FTmp := TempFile;
+  FBytesReceived := 0;
   FSucceeded := False;
   FBusy := False;
   FFinishing := False;
-  tmrStart.Interval := 50;
+  tmrStart.Interval := 600;
   btnClose.Visible := False;
   lblStage.Caption := 'Preparing update';
   lblDetail.Caption := 'Getting ready to download ' + Info.Tag + '...';

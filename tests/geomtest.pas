@@ -2014,6 +2014,102 @@ begin
   end;
 end;
 
+procedure TestArcSides;
+var
+  D, E: TWorkDoc;
+  L: TStringList;
+  Idx, N: Integer;
+  V: TProjector;
+  Hit: TSnapHit;
+  Sq: TP3Array;
+  P: TPointF;
+begin
+  WriteLn('Sides of an arc, and hidden points not snapped to');
+  D := TWorkDoc.Create; E := TWorkDoc.Create; L := TStringList.Create;
+  try
+    D.AddArc(P3(0, 0, 0), 2, 0, 2 * Pi, plXY, 0, 2);
+    Ok(Length(D.OutlineWorld(0)) = 49, 'an arc with no count set walks 48 pieces, as it always did');
+    D.SetArcSides(0, 12);
+    Ok(Length(D.OutlineWorld(0)) = 13, 'set to 12 it walks 12');
+    Ok(ParseSides('24s', N) and (N = 24), '24s reads');
+    Ok(ParseSides('s36', N) and (N = 36), 's36 reads');
+    Ok(not ParseSides('24', N), 'a bare number is not a side count');
+    Ok(not ParseSides('2s', N), 'two sides is refused');
+    D.SaveTo(L);
+    Idx := 0;
+    E.LoadFrom(L, Idx);
+    Ok((E.Live >= 1) and (E[0].Kind = ekArc) and (E[0].Sides = 12), 'the count survives save and load');
+
+    { a corner under a panel is not snapped to from above }
+    SetLength(Sq, 4);
+    Sq[0] := P3(-5, -5, 0); Sq[1] := P3(5, -5, 0); Sq[2] := P3(5, 5, 0); Sq[3] := P3(-5, 5, 0);
+    D.AddFaceRaw(Sq, 0, False);
+    D.AddLine(P3(1, 1, -1), P3(3, 1, -1), 0, 1, False);     { under the panel }
+    D.AddLine(P3(1, 1, 1), P3(3, 3, 1), 0, 1, False);        { above it }
+    V.Kind := vkPlan; V.Ppu := 20; V.OX := 300; V.OY := 300; V.Az := 0; V.El := 0;
+    P := Project(V, P3(1, 1, 1));
+    Ok(D.BestSnap(V, P.X, P.Y, 6, Hit) and (Abs(Hit.P.Z - 1) < 1E-9), 'the corner on top is snapped to');
+    P := Project(V, P3(3, 1, -1));
+    Ok(not (D.BestSnap(V, P.X, P.Y, 6, Hit) and (Abs(Hit.P.Z + 1) < 1E-9)), 'the corner under the panel is not');
+  finally
+    L.Free; E.Free; D.Free;
+  end;
+end;
+
+procedure TestRoundCrossing;
+var
+  D: TWorkDoc;
+  Sq, Ring: TP3Array;
+  I, BoreA, BoreB, Stray, Patch: Integer;
+  Mid, N: TP3;
+begin
+  WriteLn('A round tunnel crossed by a square one');
+  D := TWorkDoc.Create;
+  try
+    SetLength(Sq, 4);
+    Sq[0] := P3(0, 0, 0); Sq[1] := P3(6, 0, 0); Sq[2] := P3(6, 6, 0); Sq[3] := P3(0, 6, 0);
+    D.AddFaceRaw(Sq, 0, False);
+    D.PushPull(0, 4);
+    { a 12-sided round opening on the x = 6 wall, radius 1 about (6,3,2) }
+    SetLength(Ring, 12);
+    for I := 0 to 11 do
+      Ring[I] := P3(6, 3 + Cos(I * Pi / 6), 2 + Sin(I * Pi / 6));
+    D.AddFaceRaw(Ring, 0, False);
+    Patch := D.Live - 1;
+    N := D.FaceNormal(Patch);
+    if N.X > 0 then D.PushPull(Patch, -6) else D.PushPull(Patch, 6);
+    BoreA := D.LastBore;
+    Ok(BoreA >= 0, 'the round tunnel went through');
+    { a square along Y, half a foot higher than the round one's middle }
+    MakeSquareTunnel(D, [P3(2, 0, 1.5), P3(4, 0, 1.5), P3(4, 0, 3.5), P3(2, 0, 3.5)], P3(0, 1, 0));
+    BoreB := D.LastBore;
+    Ok(BoreB >= 0, 'the square one went through');
+    Ok(CutCrossingBores(D, BoreB) > 0, 'they were cut against each other');
+    BoreA := -1; BoreB := -1;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekBore then
+        if BoreA < 0 then BoreA := I else BoreB := I;
+    Stray := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        Mid := InnerPoint(D[I].Poly, D.FaceNormal(I));
+        if InsideBore(D, BoreA, Mid, 1E-6) or InsideBore(D, BoreB, Mid, 1E-6) then Inc(Stray);
+      end;
+    Ok(Stray = 0, Format('no wall is left inside either bore (%d)', [Stray]));
+    Stray := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (D[I].Grp <> 0) then
+      begin
+        Mid := P3((D[I].A.X + D[I].B.X) / 2, (D[I].A.Y + D[I].B.Y) / 2, (D[I].A.Z + D[I].B.Z) / 2);
+        if InsideBore(D, BoreA, Mid, 1E-6) or InsideBore(D, BoreB, Mid, 1E-6) then Inc(Stray);
+      end;
+    Ok(Stray = 0, Format('no edge is left inside either bore (%d)', [Stray]));
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArcOnFreePlane;
 var
   C, A, B, P, N: TP3;
@@ -2413,6 +2509,8 @@ begin
   TestTunnel;  WriteLn;
   TestCrossingTunnels;  WriteLn;
   TestPushStopsAtTunnel;  WriteLn;
+  TestArcSides;  WriteLn;
+  TestRoundCrossing;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
