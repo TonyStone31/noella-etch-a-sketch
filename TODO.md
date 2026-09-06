@@ -103,6 +103,12 @@ into the drawing; hammer the general tools before the generators.
 * **Print more than one sheet** at a time.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
+* **Orbit performance with fittings.**  Measured 2026-09-06 with /rendertime
+  on a drawing of three fittings (444 things, 98 faces) at 1920x1000: 25 ms
+  a frame fitted, 33 ms zoomed in.  Not terrible, but it grows with faces
+  times edges through the covered-run walk, and six buildings of windows
+  feel it.  A dedicated pass: profile the render, then the cheap wins
+  before any threads (see the threading note).
 * **Remote-display performance.**  Motion is serviced once a tick so the
   pointer tracks over VNC.  What is left is the whole-bitmap reload.
 

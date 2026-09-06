@@ -249,3 +249,15 @@ measured corner, which fixes both legs:
 A negative leg means the far duct is too close for that radius, and the
 form says so.  The result goes into the elbow's angle and leg fields as if
 typed, so ends, tag, email and building are the same as any elbow.
+
+### Which way a face faces
+
+The renderer paints the back of a face in its own colour, so a duct wall
+wound the wrong way shows the inside colour from outside.  Every face a
+builder makes goes through `BFaceOut` with the direction that is out: run
+walls away from the run's middle, an elbow's cheeks along its height, the
+throat wrap towards the centre of the bend and the heel wrap away from it,
+a tee's holed wall outward, flanges towards the open end and a TDF's fold
+back out of the duct.  A flange lies in the plane of the end - the wall's
+outward direction with its along-the-run part removed - so on a slanted
+side the cleat still goes on straight.

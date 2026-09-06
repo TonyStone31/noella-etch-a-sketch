@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- The outside of an elbow, a tee''s walls, and some transition sides were' + LineEnding +
+    '  painted in the inside colour.  The builder wound those faces the wrong' + LineEnding +
+    '  way round; every face a fitting is built from now faces out.  Fittings' + LineEnding +
+    '  already in a drawing keep the winding they were built with - build them' + LineEnding +
+    '  again to get the new one.' + LineEnding +
+    '- A flange or a drive edge on a slanted side now lies in the plane of the' + LineEnding +
+    '  end, the way the cleat goes on, rather than square to the wall.' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- `/rendertime` in the command bar times ten frames and says how long one' + LineEnding +
+    '  takes, for chasing a slow orbit.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.24' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

@@ -2197,6 +2197,31 @@ begin
     end;
 end;
 
+{ the drive flanges at the entry that stand taller than they are wide: the
+  ones on the vertical sides.  A drive lies in the entry plane, so it is
+  the faces there that are not the walls. }
+function DrivesUpright(D: TWorkDoc; First: Integer): Integer;
+var
+  I, J: Integer;
+  MinX, MaxX, MinZ, MaxZ: Double;
+  InPlane: Boolean;
+begin
+  Result := 0;
+  for I := First to D.Live - 1 do
+    if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) then
+    begin
+      InPlane := True;
+      MinX := 1E9; MaxX := -1E9; MinZ := 1E9; MaxZ := -1E9;
+      for J := 0 to 3 do
+      begin
+        if Abs(D[I].Poly[J].Y) > 1E-9 then InPlane := False;
+        MinX := Min(MinX, D[I].Poly[J].X); MaxX := Max(MaxX, D[I].Poly[J].X);
+        MinZ := Min(MinZ, D[I].Poly[J].Z); MaxZ := Max(MaxZ, D[I].Poly[J].Z);
+      end;
+      if InPlane and (MaxZ - MinZ > MaxX - MinX) then Inc(Result);
+    end;
+end;
+
 procedure TestDuctEnds;
 var
   D: TWorkDoc;
@@ -2268,20 +2293,10 @@ begin
     First := BuildTransition(D, T, 0, 1);
     CountBuilt(D, First, Faces, Lines, Dims);
     Ok(Faces = 6, 'slip and drive: four sides and two drive flanges');
-    Eight := 0;
-    for I := First to D.Live - 1 do
-      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
-         (Abs(D[I].Poly[0].Y) < 1E-9) and (Abs(D[I].Poly[1].Y) < 1E-9) and
-         (Abs(D[I].Poly[0].X - D[I].Poly[1].X) < 1E-9) then Inc(Eight);
-    Ok(Eight = 2, 'and the drives stand on the vertical sides');
+    Ok(DrivesUpright(D, First) = 2, 'and the drives stand on the vertical sides');
     T.Ends[0].Kind := deDriveSlip;
     First := BuildTransition(D, T, 0, 1);
-    Eight := 0;
-    for I := First to D.Live - 1 do
-      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
-         (Abs(D[I].Poly[0].Y) < 1E-9) and (Abs(D[I].Poly[1].Y) < 1E-9) and
-         (Abs(D[I].Poly[0].Z - D[I].Poly[1].Z) < 1E-9) then Inc(Eight);
-    Ok(Eight = 2, 'drive and slip puts them top and bottom');
+    Ok(DrivesUpright(D, First) = 0, 'drive and slip puts them top and bottom');
     { the ticket in words, and the name on the part }
     T.Tag := 'T-3';
     Ok(Pos('TDF', TicketText(T)) = 0, 'the ticket says what the ends are');
@@ -2439,6 +2454,74 @@ begin
     Ok(SolveFieldElbow(4 / 12, 30 / 12, 2 / 12, Pi / 2, MaxX, MinX) <> '', 'too little over for the radius is refused');
     Ok(Abs(FieldDirection(30 / 12, 20 / 12, 30 / 12, 40 / 12) - Pi / 2) < 1E-9,
       'two points along the far duct give its direction');
+  finally
+    D.Free;
+  end;
+end;
+
+{ every face of a built fitting faces out of the duct: its normal, by its
+  winding, points away from the duct's own middle - tested on the parts
+  that are convex enough for that to be the whole truth }
+procedure TestFacingOut;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  First, I, J, Wrong: Integer;
+  N, Mid, Cen: TP3;
+begin
+  WriteLn('Built faces face out');
+  D := TWorkDoc.Create;
+  try
+    T := Default(TTransitionSpec);
+    T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 8 / 12; T.Len := 2; T.Inch := 1 / 12;
+    T.Ends[1].Kind := deTDF; T.Ends[1].Amount := 1.375 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    Cen := P3(10 / 12, 1, 10 / 12);
+    Wrong := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and (D[I].Grp > 0) then
+      begin
+        { the four walls only: a wall has a corner on each end plane }
+        if not ((Abs(D[I].Poly[0].Y) < 1E-9) or (Abs(D[I].Poly[0].Y - 2) < 1E-9)) then Continue;
+        if (Abs(D[I].Poly[0].Y - D[I].Poly[1].Y) < 1E-9) and (Abs(D[I].Poly[1].Y - D[I].Poly[2].Y) < 1E-9) then Continue;
+        N := D.FaceNormal(I);
+        Mid := P3(0, 0, 0);
+        for J := 0 to 3 do Mid := P3(Mid.X + D[I].Poly[J].X / 4, Mid.Y + D[I].Poly[J].Y / 4, Mid.Z + D[I].Poly[J].Z / 4);
+        if Dot3(N, P3(Mid.X - Cen.X, Mid.Y - Cen.Y, Mid.Z - Cen.Z)) < 0 then Inc(Wrong);
+      end;
+    Ok(Wrong = 0, 'a transition''s walls all face out');
+    { the elbow: both cheeks face along the height, the heel away from the
+      centre of the bend }
+    T := Default(TTransitionSpec);
+    T.Kind := fkElbow; T.W0 := 20 / 12; T.H0 := 20 / 12; T.Inch := 1 / 12;
+    T.Angle := Pi / 2; T.Throat := 4 / 12; T.Leg0 := 0; T.Leg1 := 0;
+    First := BuildFitting(D, T, 0, 1);
+    Wrong := 0;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        N := D.FaceNormal(I);
+        if Length(D[I].Poly) > 4 then
+        begin
+          { a cheek }
+          if Abs(D[I].Poly[0].Z) < 1E-9 then begin if N.Z > -0.9 then Inc(Wrong); end
+          else if N.Z < 0.9 then Inc(Wrong);
+        end
+        else
+        begin
+          Mid := P3(0, 0, 0);
+          for J := 0 to 3 do Mid := P3(Mid.X + D[I].Poly[J].X / 4, Mid.Y + D[I].Poly[J].Y / 4, 0);
+          { the throat is within the throat radius of the centre, the heel
+            beyond it }
+          Cen := P3(24 / 12, 0, 0);
+          if Dist(Mid, Cen) < 10 / 12 then
+          begin
+            if Dot3(N, P3(Cen.X - Mid.X, Cen.Y - Mid.Y, 0)) < 0 then Inc(Wrong);
+          end
+          else if Dot3(N, P3(Mid.X - Cen.X, Mid.Y - Cen.Y, 0)) < 0 then Inc(Wrong);
+        end;
+      end;
+    Ok(Wrong = 0, 'an elbow''s cheeks, throat and heel all face out');
   finally
     D.Free;
   end;
@@ -2888,6 +2971,7 @@ begin
   TestTransition;  WriteLn;
   TestDuctEnds;  WriteLn;
   TestElbowTee;  WriteLn;
+  TestFacingOut;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;

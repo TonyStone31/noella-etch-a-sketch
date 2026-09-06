@@ -373,11 +373,24 @@ begin
   B.D.SetFaceGroup(B.D.Live - 1, B.G);
 end;
 
+{ The same, wound so its normal points the way Out does.  The renderer
+  colours the back of a face differently from its front, so a duct wall
+  whose winding happened to face inwards showed the inside colour from
+  outside.  Every face built here says which way is out. }
+procedure BFaceOut(const B: TBuild; const P: array of TP3; const Out: TP3);
+var
+  I: Integer;
+begin
+  BFace(B, P);
+  I := B.D.Live - 1;
+  if Dot3(B.D.FaceNormal(I), Out) < 0 then B.D.FlipFace(I);
+end;
+
 { a flange or a lip: a face, and the three edges that are not the fold it
   hangs from }
-procedure BStrip(const B: TBuild; const A, C, C2, A2: TP3);
+procedure BStrip(const B: TBuild; const A, C, C2, A2: TP3; const Out: TP3);
 begin
-  BFace(B, [A, C, C2, A2]);
+  BFaceOut(B, [A, C, C2, A2], Out);
   BLine(B, C, C2); BLine(B, C2, A2); BLine(B, A2, A);
 end;
 
@@ -467,7 +480,7 @@ var
   procedure FinishEnd(E, K: Integer);
   var
     J: Integer;
-    CI, CJ, U, SI, Nrm, A, C2, A2, B2: TP3;
+    CI, CJ, U, SI, Nrm, EN, A, C2, A2, B2: TP3;
     Nt, F, R: Double;
     P: array[0..5] of TP3;
     N: Integer;
@@ -477,7 +490,13 @@ var
     U := Towards(CI, CJ);
     SI := Towards(CI, C[1 - E][K]);
     Nt := Notch(E);
+    { A flange lies in the plane of the end, not square to the wall: on a
+      transition's slanted side that is the difference between a cleat that
+      goes on straight and one that does not.  So the wall's outward
+      direction is taken with its along-the-run part removed. }
     Nrm := OutNormal(K);
+    EN := Norm3(Cross3(Towards(C[E][0], C[E][1]), Towards(C[E][0], C[E][3])));
+    Nrm := Norm3(Add(Nrm, EN, -Dot3(Nrm, EN)));
     case Ends[E].Kind of
       deFlangeOut, deFlangeIn, deTDF:
         begin
@@ -495,13 +514,15 @@ var
             Nrm := P3(-Nrm.X, -Nrm.Y, -Nrm.Z);
           A2 := Add(A, Nrm, F);
           B2 := Add(C2, Nrm, F);
-          BStrip(B, A, C2, B2, A2);
+          { a flange's face is the one the next piece meets: away from the
+            duct body, towards the open end }
+          BStrip(B, A, C2, B2, A2, P3(-SI.X, -SI.Y, -SI.Z));
           if Ends[E].Kind = deTDF then
           begin
             { the fold back, along the duct, that the corner piece and the
               cleat take hold of }
             R := TDF_RETURN_IN * B.Inch;
-            BStrip(B, A2, B2, Add(B2, SI, R), Add(A2, SI, R));
+            BStrip(B, A2, B2, Add(B2, SI, R), Add(A2, SI, R), Nrm);
           end;
         end;
     else
@@ -519,7 +540,7 @@ var
         if DriveWall(E, K) then
         begin
           F := DRIVE_FLANGE_IN * B.Inch;
-          BStrip(B, P[2], P[3], Add(P[3], Nrm, F), Add(P[2], Nrm, F));
+          BStrip(B, P[2], P[3], Add(P[3], Nrm, F), Add(P[2], Nrm, F), P3(-SI.X, -SI.Y, -SI.Z));
         end;
       end;
     end;
@@ -546,7 +567,7 @@ begin
     SetLength(Poly, N0 + N1);
     for I := 0 to N1 - 1 do Poly[I] := P1[I];
     for I := 0 to N0 - 1 do Poly[N1 + I] := P0[N0 - 1 - I];
-    BFace(B, Poly);
+    BFaceOut(B, Poly, OutNormal(K));
   end;
   { the seams, from cut-out to cut-out }
   for K := 0 to 3 do
@@ -719,8 +740,28 @@ var
     Hi := W(P3(P.X, P.Y, Bc));
   end;
 
+  { a canonical direction in world terms: the mapping less its shift }
+  function WD(const Dv: TP3): TP3;
+  var
+    O: TP3;
+  begin
+    O := W(P3(0, 0, 0));
+    Result := W(Dv);
+    Result := P3(Result.X - O.X, Result.Y - O.Y, Result.Z - O.Z);
+  end;
+
+  { which way is out of the duct at a point on the throat or the heel: the
+    bend's centre of curvature is inside the throat and outside the heel }
+  function AwayFromCentre(const P, Q: TP3): TP3;
+  var
+    Mid: TP3;
+  begin
+    Mid := P3((P.X + Q.X) / 2, (P.Y + Q.Y) / 2, 0);
+    Result := WD(P3(Mid.X - (A + T.Throat), Mid.Y - T.Leg0, 0));
+  end;
+
 var
-  Lo, Hi, Lo2, Hi2: TP3;
+  Lo, Hi, Lo2, Hi2, Out: TP3;
 begin
   Result := D.Live;
   B := StartBuild(D, T, Ink, Weight);
@@ -760,7 +801,8 @@ begin
       else Poly[Length(Throat) + I] := W(P3(Heel[High(Heel) - I].X, Heel[High(Heel) - I].Y, Bc));
     { a square throat has every throat point in one place; the polygon
       still closes, the doubled corners cost nothing }
-    BFace(B, Poly);
+    if K = 0 then BFaceOut(B, Poly, WD(P3(0, 0, -1)))
+    else BFaceOut(B, Poly, WD(P3(0, 0, 1)));
   end;
   { the throat wrap, gore by gore, and its edges }
   for I := 0 to High(Throat) - 1 do
@@ -768,7 +810,8 @@ begin
     if Dist(Throat[I], Throat[I + 1]) < 1E-9 then Continue;
     Lift(Throat[I], Lo, Hi);
     Lift(Throat[I + 1], Lo2, Hi2);
-    BFace(B, [Lo, Lo2, Hi2, Hi]);
+    Out := AwayFromCentre(Throat[I], Throat[I + 1]);
+    BFaceOut(B, [Lo, Lo2, Hi2, Hi], P3(-Out.X, -Out.Y, -Out.Z));
     BLine(B, Lo, Lo2); BLine(B, Hi, Hi2);
     if I > 0 then BLine(B, Lo, Hi);
   end;
@@ -777,7 +820,7 @@ begin
   begin
     Lift(Heel[I], Lo, Hi);
     Lift(Heel[I + 1], Lo2, Hi2);
-    BFace(B, [Lo, Lo2, Hi2, Hi]);
+    BFaceOut(B, [Lo, Lo2, Hi2, Hi], AwayFromCentre(Heel[I], Heel[I + 1]));
     BLine(B, Lo, Lo2); BLine(B, Hi, Hi2);
     if I > 0 then BLine(B, Lo, Hi);
   end;
@@ -878,7 +921,7 @@ begin
   { the wall with the opening in it }
   WallPoly[0] := E[Wall]; WallPoly[1] := X[Wall];
   WallPoly[2] := X[(Wall + 1) mod 4]; WallPoly[3] := E[(Wall + 1) mod 4];
-  BFace(B, WallPoly);
+  BFaceOut(B, WallPoly, Nrm);
   B.D.SetFaceHoles(B.D.Live - 1, [Hole]);
   for I := 0 to 3 do BLine(B, Hole[I], Hole[(I + 1) mod 4]);
   { the branch: its entry is the opening, ordered bottom-left, bottom-right,

@@ -574,6 +574,8 @@ type
     procedure DoUpdate;
     procedure ShowWhatsNew;
     procedure BuildTransitionWizard;
+    { /rendertime: how long a frame takes, for chasing sluggish orbits }
+    procedure RenderTiming;
     procedure ApplyArray(N: Integer; Divide: Boolean);
     function ArrayCommand(const S: string; out N: Integer; out Divide: Boolean): Boolean;
     { hand something just built to the move tool, so the next click places it }
@@ -629,6 +631,7 @@ type
     function RebuildFlatFaces: Integer;
     function FaceCount: Integer;
     function AnyFace: Boolean;
+    function SolidFaceCount: Integer;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
@@ -4735,6 +4738,27 @@ end;
 { The wizards.  Each builds a real piece from numbers, at the origin, and
   then hands it to the move tool so the next click puts it where it goes -
   the same move anything else gets, with the same snaps. }
+procedure TMainForm.RenderTiming;
+var
+  T0: QWord;
+  I, N: Integer;
+  Ms: Double;
+begin
+  N := 10;
+  T0 := GetTickCount64;
+  for I := 1 to N do
+  begin
+    FScreenDirty := True;
+    RenderPro;
+  end;
+  Ms := (GetTickCount64 - T0) / N;
+  FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).', [Ms, FD.Doc.Live, FaceCount + SolidFaceCount]);
+  WriteLn('rendertime ', Ms:0:1, ' ms/frame, ', FD.Doc.Live, ' things');
+  Flush(Output);
+  Trail(FCmdMsg);
+  pbCmd.Invalidate;
+end;
+
 procedure TMainForm.BuildTransitionWizard;
 var
   Spec: TTransitionSpec;
@@ -8063,6 +8087,7 @@ begin
   else if (W = 'drill') or (W = 'bore') or (W = 'punch') then SetTool(ptDrill)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
+  else if W = 'rendertime' then RenderTiming
   else if (W = 'update') or (W = 'upgrade') then
   begin
     if Rest = 'never' then
@@ -10122,6 +10147,15 @@ end;
   wrong here: a drawing that is nothing but a built duct has faces, and
   taking it for a faceless old file worked its areas out again and capped
   every open end. }
+function TMainForm.SolidFaceCount: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[I].Kind = ekFace) and FD.Doc[I].Solid then Inc(Result);
+end;
+
 function TMainForm.AnyFace: Boolean;
 var
   I: Integer;

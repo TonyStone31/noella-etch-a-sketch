@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- The outside of an elbow, a tee's walls, and some transition sides were
+  painted in the inside colour.  The builder wound those faces the wrong
+  way round; every face a fitting is built from now faces out.  Fittings
+  already in a drawing keep the winding they were built with - build them
+  again to get the new one.
+- A flange or a drive edge on a slanted side now lies in the plane of the
+  end, the way the cleat goes on, rather than square to the wall.
+
+### New
+
+- `/rendertime` in the command bar times ten frames and says how long one
+  takes, for chasing a slow orbit.
+
 ## v2026.09.06.24
 
 ### New
