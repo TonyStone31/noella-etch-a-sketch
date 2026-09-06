@@ -105,6 +105,45 @@ Two test suites, both green: `./tests/run.sh` (255 checks) and
 
 ---
 
+## Two things that are getting big
+
+Neither is broken and neither is urgent.  Written down because the moment to
+deal with size is before it is a problem, and because both wanted a run of
+their own rather than being folded into a fix for something else.
+
+Measured 5 September 2026, after a dead-code pass took out eleven routines and
+sixteen unused locals.
+
+* **`TWorkDoc.Render` is 591 lines** - the longest routine in the program by a
+  wide margin.  It draws faces, then lines, arcs, notes, dimensions, guides and
+  guide points, and works out depth and profiles along the way.  Those are
+  separate passes that happen to share a set of locals, so it splits along
+  seams that are already there.  It is also the code that has changed most
+  lately - holes, back faces, the edge index - which is the argument for doing
+  it first.
+
+* **`uMain.pas` is 11,621 lines**, against 4,714 for `uWork.pas` and under
+  1,500 for everything else.  The routines in it are not the problem: 240 of
+  them, median 24 lines.  It is the file that is unwieldy, not the code.
+  Pascal has no partial classes, so the honest split is include files - the
+  class declaration stays where it is and the bodies move out by the section
+  banners the file already carries (`the screen` is 1,996 lines, `mouse on the
+  screen` 2,037, `pro mode: the tools` 1,315).  Mechanical, and no behaviour
+  changes.
+
+Worth knowing before either is attempted: there is almost no duplication to
+find.  A scan for repeated eight-line blocks across the six largest units
+turned up two in twenty-one thousand lines, and the larger of the two - four
+copies of tracing an outline - has been folded into one routine.  So this is a
+tidying job, not an untangling one.
+
+An audit is worth pairing with the split: routines are easy to count, but
+nothing so far has looked for branches that can no longer be reached, or for
+rules that are still enforced somewhere after the reason for them has gone.
+That needs reading, and reading is easier in a file that fits on a screen.
+
+---
+
 ## Open questions
 
 * **Five things about the transition ticket** are listed at the end of
