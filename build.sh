@@ -371,6 +371,14 @@ do_github() {
   [ -z "$(git -C "$ROOT" status --porcelain)" ] || die \
     "working tree is dirty - commit or stash before releasing"
 
+  # Nothing ships red.  A release went out with a failing check once, because
+  # nothing here asked; now the suites run first and a failure stops the tag.
+  say "running the checks before tagging"
+  "$ROOT/tests/run.sh" 2>&1 | tail -1 | grep -q " 0 failed" || die \
+    "tests/run.sh has failures - fix them before releasing"
+  "$ROOT/tests/run-region.sh" 2>&1 | tail -1 | grep -q " 0 failed" || die \
+    "tests/run-region.sh has failures - fix them before releasing"
+
   # Date-stamped tag, with a suffix if that date already went out today.
   # The tags have to come down from the remote first: gh creates the tag on
   # GitHub's side, so a release made from here leaves nothing local to see
