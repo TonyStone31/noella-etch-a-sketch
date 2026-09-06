@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- A line hidden behind something no longer runs a little way into the face' + LineEnding +
+    '  that hides it: the visible part ends exactly at the edge.  Same for arcs' + LineEnding +
+    '  and circles.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.5' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

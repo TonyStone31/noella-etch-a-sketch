@@ -4917,6 +4917,10 @@ var
   GuideCol: TPix;
   M, Run0: Integer;
   T0, T1: Double;
+  { the stretch being tested for cover: a line's two ends, or an arc }
+  CurA, CurB: TP3;
+  CurArc: Integer;
+  RunT0, RunT1: Double;
   Vis: Boolean;
 
   { Is this model point hidden by a face drawn after the one at Slot?  Later
@@ -4963,6 +4967,33 @@ var
     if Zy > -1E29 then Grad := Max(Grad, Abs(Zy - Zb));
 
     Result := Zb > D + Grad + 1E-3 * (1 + Abs(D));
+  end;
+
+  { Where along a stretch the cover begins: TVis is a point that can be seen
+    and TCov one that cannot, as fractions of the stretch, and the answer is
+    the boundary between them to a sixty-fourth of the gap.  Sampling alone
+    left visible runs ending a whole sample past the face that hides them -
+    the lines of a plate ran a little way into the cylinders standing on it. }
+  function PtAt(T: Double): TP3;
+  begin
+    if CurArc >= 0 then
+      Result := ArcPoint(FEnts[CurArc].C, FEnts[CurArc].R,
+        FEnts[CurArc].A0 + FEnts[CurArc].Sweep * T, FEnts[CurArc].Plane, FEnts[CurArc].Nm)
+    else
+      Result := Lerp3(CurA, CurB, T);
+  end;
+
+  function Boundary(TVis, TCov: Double; Slot: Integer): Double;
+  var
+    N: Integer;
+    TM: Double;
+  begin
+    for N := 1 to 6 do
+    begin
+      TM := (TVis + TCov) / 2;
+      if Covered(PtAt(TM), Slot) then TCov := TM else TVis := TM;
+    end;
+    Result := (TVis + TCov) / 2;
   end;
 
   { A note, with a box round it and a leader out to whatever it is about.
@@ -5401,6 +5432,9 @@ begin
             at a heavy profile weight the joins showed as notches along it. }
           begin
           Run0 := -1;
+          CurA := FEnts[I].A;
+          CurB := FEnts[I].B;
+          CurArc := -1;
           for M := 0 to LINE_STEPS do
           begin
             if M < LINE_STEPS then
@@ -5412,11 +5446,19 @@ begin
             end
             else
               Vis := False;
-            if Vis and (Run0 < 0) then Run0 := M;
+            if Vis and (Run0 < 0) then
+            begin
+              Run0 := M;
+              { the run starts where the cover ends, not at the sample }
+              if M = 0 then RunT0 := 0
+              else RunT0 := Boundary((M + 0.5) / LINE_STEPS, (M - 0.5) / LINE_STEPS, J);
+            end;
             if (not Vis) and (Run0 >= 0) then
             begin
-              PA := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, Run0 / LINE_STEPS));
-              PB := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, M / LINE_STEPS));
+              if M = LINE_STEPS then RunT1 := 1
+              else RunT1 := Boundary((M - 0.5) / LINE_STEPS, (M + 0.5) / LINE_STEPS, J);
+              PA := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, RunT0));
+              PB := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, RunT1));
               S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
               Run0 := -1;
             end;
@@ -5430,6 +5472,7 @@ begin
             if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
             else Steps := Max(24, Min(180, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 6)));
             Run0 := -1;
+            CurArc := I;
             for M := 0 to Steps do
             begin
               if M < Steps then
@@ -5440,18 +5483,28 @@ begin
               end
               else
                 Vis := False;
-              if Vis and (Run0 < 0) then Run0 := M;
+              if Vis and (Run0 < 0) then
+              begin
+                Run0 := M;
+                if M = 0 then RunT0 := 0
+                else RunT0 := Boundary((M + 0.5) / Steps, (M - 0.5) / Steps, J);
+              end;
               if (not Vis) and (Run0 >= 0) then
               begin
-                PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
-                  FEnts[I].A0 + FEnts[I].Sweep * Run0 / Steps, FEnts[I].Plane, FEnts[I].Nm));
-                for K := Run0 + 1 to M do
-                begin
-                  PB := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
-                    FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane, FEnts[I].Nm));
-                  S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
-                  PA := PB;
-                end;
+                if M = Steps then RunT1 := 1
+                else RunT1 := Boundary((M - 0.5) / Steps, (M + 0.5) / Steps, J);
+                { from the refined start, through the corners between, to
+                  the refined end - a faceted circle keeps its corners }
+                PA := Project(V, PtAt(RunT0));
+                for K := 1 to Steps - 1 do
+                  if (K / Steps > RunT0 + 1E-9) and (K / Steps < RunT1 - 1E-9) then
+                  begin
+                    PB := Project(V, PtAt(K / Steps));
+                    S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
+                    PA := PB;
+                  end;
+                PB := Project(V, PtAt(RunT1));
+                S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
                 Run0 := -1;
               end;
             end;

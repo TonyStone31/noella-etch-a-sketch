@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- A line hidden behind something no longer runs a little way into the face
+  that hides it: the visible part ends exactly at the edge.  Same for arcs
+  and circles.
+
 ## v2026.09.06.5
 
 ### Fixed
