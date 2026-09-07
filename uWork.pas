@@ -25,6 +25,7 @@ unit uWork;
 interface
 
 uses
+  Contnrs,
   Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface, uDxf;
 
 type
@@ -5679,6 +5680,80 @@ begin
   end;
 end;
 
+{ Faces farthest first by depth, with faces level to within rounding
+  ordered bigger first, so a small face on a big one lands on top of it. }
+procedure SortFaces(var Order: array of Integer; var Depth, Area: array of Double; N: Integer);
+var
+  TmpO: array of Integer;
+  TmpD, TmpA: array of Double;
+  I, J, K, RunEnd: Integer;
+  Sh: Double;
+
+  procedure Merge(Lo, Mid, Hi: Integer);
+  var
+    A, B, C: Integer;
+  begin
+    A := Lo; B := Mid; C := Lo;
+    while (A < Mid) and (B < Hi) do
+    begin
+      if Depth[B] > Depth[A] then
+      begin
+        TmpO[C] := Order[B]; TmpD[C] := Depth[B]; TmpA[C] := Area[B]; Inc(B);
+      end
+      else
+      begin
+        TmpO[C] := Order[A]; TmpD[C] := Depth[A]; TmpA[C] := Area[A]; Inc(A);
+      end;
+      Inc(C);
+    end;
+    while A < Mid do begin TmpO[C] := Order[A]; TmpD[C] := Depth[A]; TmpA[C] := Area[A]; Inc(A); Inc(C); end;
+    while B < Hi do begin TmpO[C] := Order[B]; TmpD[C] := Depth[B]; TmpA[C] := Area[B]; Inc(B); Inc(C); end;
+    for C := Lo to Hi - 1 do
+    begin
+      Order[C] := TmpO[C]; Depth[C] := TmpD[C]; Area[C] := TmpA[C];
+    end;
+  end;
+
+  procedure Sort(Lo, Hi: Integer);
+  var
+    Mid: Integer;
+  begin
+    if Hi - Lo < 2 then Exit;
+    Mid := (Lo + Hi) div 2;
+    Sort(Lo, Mid);
+    Sort(Mid, Hi);
+    Merge(Lo, Mid, Hi);
+  end;
+
+begin
+  if N < 2 then Exit;
+  SetLength(TmpO, N); SetLength(TmpD, N); SetLength(TmpA, N);
+  Sort(0, N);
+  { within a run of level faces, bigger first: the runs are short, so an
+    insertion sort inside each is the right tool }
+  I := 0;
+  while I < N do
+  begin
+    RunEnd := I;
+    while (RunEnd + 1 < N) and (Abs(Depth[RunEnd + 1] - Depth[I]) <= 1E-4 * (1 + Abs(Depth[I]))) do
+      Inc(RunEnd);
+    for J := I + 1 to RunEnd do
+    begin
+      K := Order[J]; Sh := Depth[J];
+      { area is the key; depth rides along }
+      TmpD[0] := Area[J];
+      TmpO[0] := J - 1;
+      while (TmpO[0] >= I) and (Area[TmpO[0]] < TmpD[0]) do
+      begin
+        Order[TmpO[0] + 1] := Order[TmpO[0]]; Depth[TmpO[0] + 1] := Depth[TmpO[0]]; Area[TmpO[0] + 1] := Area[TmpO[0]];
+        Dec(TmpO[0]);
+      end;
+      Order[TmpO[0] + 1] := K; Depth[TmpO[0] + 1] := Sh; Area[TmpO[0] + 1] := TmpD[0];
+    end;
+    I := RunEnd + 1;
+  end;
+end;
+
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
@@ -5696,7 +5771,7 @@ var
   Ar: Double;
   Flat: array of TPointF;
   Loops: array of TPtFLoop;
-  EdgeIx: TStringList;
+  EdgeIx: TFPHashList;
   EK: string;
   HK, HJ: Integer;
   Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
@@ -5944,8 +6019,8 @@ var
   var
     Ix: Integer;
   begin
-    Ix := EdgeIx.IndexOf(EdgeKey(A, B));
-    if Ix < 0 then Result := 0 else Result := PtrInt(EdgeIx.Objects[Ix]);
+    Ix := EdgeIx.FindIndexOf(EdgeKey(A, B));
+    if Ix < 0 then Result := 0 else Result := PtrInt(EdgeIx.Items[Ix]);
   end;
 
   { A soft crease shows only where it is the outline of the surface; anywhere
@@ -5978,10 +6053,11 @@ begin
 
   PT := GetTickCount64;
   { the edge index, once, before anything asks it a question }
-  EdgeIx := TStringList.Create;
+  { a hash of edge keys to the number of visible faces along each: a sorted
+    string list did this with a binary search and a memory move per insert,
+    which on a drawing of pipe was a fifth of the frame }
+  EdgeIx := TFPHashList.Create;
   try
-    EdgeIx.Sorted := True;
-    EdgeIx.CaseSensitive := True;
     Look := ViewDir(V);
     for I := 0 to FLive - 1 do
     begin
@@ -5991,9 +6067,9 @@ begin
       for J := 0 to N - 1 do
       begin
         EK := EdgeKey(FEnts[I].Poly[J], FEnts[I].Poly[(J + 1) mod N]);
-        K := EdgeIx.IndexOf(EK);
-        if K < 0 then EdgeIx.AddObject(EK, TObject(PtrInt(1)))
-        else EdgeIx.Objects[K] := TObject(PtrInt(EdgeIx.Objects[K]) + 1);
+        K := EdgeIx.FindIndexOf(EK);
+        if K < 0 then EdgeIx.Add(EK, Pointer(PtrInt(1)))
+        else EdgeIx.Items[K] := Pointer(PtrInt(EdgeIx.Items[K]) + 1);
       end;
     end;
 
@@ -6123,25 +6199,11 @@ begin
   { Farthest from the camera first.  Where two faces are level to within
     rounding - a circle drawn on a slab is exactly that - the bigger one goes
     first, so the small one lands on top of it rather than underneath. }
-  for I := 1 to NFace - 1 do
-  begin
-    K := Order[I];
-    Sh := Depth[I];
-    Ar := Area[I];
-    J := I - 1;
-    while (J >= 0) and
-          ((Depth[J] > Sh + 1E-4 * (1 + Abs(Sh))) or
-           ((Depth[J] > Sh - 1E-4 * (1 + Abs(Sh))) and (Area[J] < Ar))) do
-    begin
-      Depth[J + 1] := Depth[J];
-      Area[J + 1] := Area[J];
-      Order[J + 1] := Order[J];
-      Dec(J);
-    end;
-    Depth[J + 1] := Sh;
-    Area[J + 1] := Ar;
-    Order[J + 1] := K;
-  end;
+  { An insertion sort here was the square of the face count, which is
+    nothing at fifty faces and most of a frame at five thousand.  Sort by
+    depth properly, then walk the runs of faces that are level with each
+    other and put the bigger ones first within each run. }
+  SortFaces(Order, Depth, Area, NFace);
 
   SetLength(Shape, NFace);
   { every face's plane, once.  The pass that puts lines back on visible

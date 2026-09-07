@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Orbiting is three times faster on big drawings.**  The faces were
+  being sorted by a method whose cost grows with the square of their
+  number, and the edge index was kept in a sorted list that shuffled
+  memory on every insert.  Both replaced.  A four-leg spool of 528 faces
+  now draws in 8 milliseconds a frame in the ordinary build, from 29 at
+  the start of the day.
+
 ## v2026.09.07.2
 
 ### New
