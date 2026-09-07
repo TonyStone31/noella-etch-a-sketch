@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Selecting everything on a huge drawing no longer stalls every mouse
+  move.**  Past a few thousand selected things the highlight is drawn
+  plainly, edges only.  On a drawing of thirty thousand things with all of
+  it selected, each repaint went from over half a second to a twenty-fifth.
+- **What is off the screen is not drawn.**  Zoomed in on a corner of a big
+  drawing, the faces and edges outside the window are skipped before any
+  work is done on them.
+
 ## v2026.09.07.11
 
 ### New

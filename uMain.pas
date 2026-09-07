@@ -6727,8 +6727,22 @@ begin
     Format('%s   (view %.0f%%)', [S1, FD.Zoom * 100]));
 
   { --- what is selected ------------------------------------------------ }
-  for AY := 0 to High(FSel) do
-    TraceOutlineVisible(C, FSel[AY], Pix(70, 130, 240), Max(3, Round(3 * FUIScale)));
+  { A selection of thousands is not traced against the depth buffer piece
+    by piece - that was half a second a repaint on thirty thousand things.
+    Past a few thousand, the edges are outlined plainly and the faces left
+    to their edges, which reads the same from any distance. }
+  if Length(FSel) > 3000 then
+  begin
+    for AY := 0 to High(FSel) do
+      if FD.Doc[FSel[AY]].Kind in [ekLine, ekArc, ekDim] then
+      begin
+        Hi := FD.Doc.Outline(Proj, FSel[AY]);
+        if Length(Hi) >= 2 then TraceOutline(C, Hi, Pix(70, 130, 240));
+      end;
+  end
+  else
+    for AY := 0 to High(FSel) do
+      TraceOutlineVisible(C, FSel[AY], Pix(70, 130, 240), Max(3, Round(3 * FUIScale)));
 
   { the edge the dimension tool would take }
   if (FTool = ptDim) and (FStage = 0) and (FHoverEnt >= 0) then

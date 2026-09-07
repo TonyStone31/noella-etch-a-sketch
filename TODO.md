@@ -142,8 +142,10 @@ into the drawing; hammer the general tools before the generators.
   frame on release or 220 ms after the wheel; ten spools zoomed in 36 ->
   23 ms, one spool 23 -> 11; /quick toggles;
   (b) FillLoops allocates two scratch arrays per face and scans four
-  sub-samples a row - keep scratch on the surface, consider two samples
-  while dragging; (c) face normal, area and centroid are model properties
+  sub-samples a row - keep scratch on the surface; when zoomed in the fill
+  is the whole frame (24 of 46 ms on the 31k drawing), so this is the next
+  one; screen culling and a plain highlight past 3000 selected went in
+  2026-09-07 (overlay 558 -> 38 ms with 31k selected); (c) face normal, area and centroid are model properties
   recomputed per frame - cache on the entity, drop with FSnapDirty;
   (d) the hover does FaceUnder, the snap, then HitFace again on some tools,
   and the select hover runs three hit tests - one walk should do.  Then

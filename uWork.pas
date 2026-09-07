@@ -6299,6 +6299,36 @@ var
       Result := EdgeW + Max(1, EdgeW * 0.35);
   end;
 
+  { Wholly off the screen, by a margin wide enough for line width and
+    anti-aliasing: nothing drawn from it can reach a pixel, so it is left
+    out of the frame.  Zoomed in on a corner of a big drawing this is most
+    of the drawing. }
+  function OffScreen(const PA, PB: TPointF): Boolean;
+  const
+    M = 8;
+  begin
+    Result := ((PA.X < -M) and (PB.X < -M)) or ((PA.X > S.Width + M) and (PB.X > S.Width + M)) or
+              ((PA.Y < -M) and (PB.Y < -M)) or ((PA.Y > S.Height + M) and (PB.Y > S.Height + M));
+  end;
+
+  function PolyOffScreen(const Poly: TP3Array): Boolean;
+  const
+    M = 8;
+  var
+    K: Integer;
+    Q: TPointF;
+    MinX, MaxX, MinY, MaxY: Double;
+  begin
+    MinX := 1E30; MaxX := -1E30; MinY := 1E30; MaxY := -1E30;
+    for K := 0 to High(Poly) do
+    begin
+      Q := Project(V, Poly[K]);
+      if Q.X < MinX then MinX := Q.X; if Q.X > MaxX then MaxX := Q.X;
+      if Q.Y < MinY then MinY := Q.Y; if Q.Y > MaxY then MaxY := Q.Y;
+    end;
+    Result := (MaxX < -M) or (MinX > S.Width + M) or (MaxY < -M) or (MinY > S.Height + M);
+  end;
+
   procedure Mark(K: Integer);
   begin
     ProfMs[K] := ProfMs[K] + (GetTickCount64 - PT);
@@ -6343,6 +6373,7 @@ begin
           if Hidden(I) then Continue;
           PA := Project(V, FEnts[I].A);
           PB := Project(V, FEnts[I].B);
+          if OffScreen(PA, PB) then Continue;
           S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
         end;
 
@@ -6450,6 +6481,7 @@ begin
       end;
       K := Length(FEnts[I].Poly);
       Cen := P3(Cen.X / K, Cen.Y / K, Cen.Z / K);
+      if PolyOffScreen(FEnts[I].Poly) then Continue;
       Order[NFace] := I;
       Depth[NFace] := Dot3(Cen, Look);
       Area[NFace] := FaceArea(I);
@@ -6575,6 +6607,8 @@ begin
     { a softened crease that is not an outline stays hidden whatever face
       it lies on - said once here, not once per face }
     if (FEnts[I].Kind = ekLine) and Hidden(I) then Continue;
+    if (FEnts[I].Kind in [ekLine, ekDim]) and
+       OffScreen(Project(V, FEnts[I].A), Project(V, FEnts[I].B)) then Continue;
     { only the faces this thing lies on, from the cache - not every face }
     for JJ := 0 to High(FOnFace[I]) do
     begin
