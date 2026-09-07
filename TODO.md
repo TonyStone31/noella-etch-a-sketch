@@ -57,10 +57,10 @@ The direction, settled 6 September: one drawing, one camera; the things that
 build a model from numbers are wizards under Create that drop the result
 into the drawing; hammer the general tools before the generators.
 
-1. **The field-sketch wizard.**  The paper grid as an input: draw the run not
-   to scale, dimension it, build the 3D drawing from the numbers and place
-   it.  The ISO and PLAN paper modes are its engine; they come off the
-   Create menu and on to the wizard when it exists.
+1. **The field-sketch wizard is the pipe spool wizard** (built 2026-09-07,
+   uPipe / uSpool, docs/pipe-spool.md).  Left on it: branches (a tee off
+   the run), rolled 45s off the twelve diagonals, reducers in the run,
+   fittings other than elbows, the pipe wall.
 2. **The transition wizard's ends**: TDF, flange out, flange in, slip, drive,
    raw, corners notched - per edge, each worth the shop's own number of
    material.  Then the offset (same size both ends) and the elbows as more
