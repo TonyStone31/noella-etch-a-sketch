@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Placing a built fitting or spool ends there.**  After the placing click
+  the part was left selected under the move tool, so the next click picked
+  it up again, which read as the click not having placed it.  It is let go
+  of now and the select tool comes back.
+
 ## v2026.09.07.8
 
 ### New

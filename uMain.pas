@@ -8002,6 +8002,7 @@ var
   ArcPl: TPlane;
   Stopped: Boolean;
   Tk: QWord;
+  WasRigid: Boolean;
 begin
   Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
   case FTool of
@@ -8241,8 +8242,18 @@ begin
         end;
         SetLength(FMoveVerts, 0);
         FMoveCopy := False;
+        WasRigid := FMoveRigid;
         ResetTool;
         FInput := '';
+        { A built part placed is done with: it is let go of and the select
+          tool comes back.  Left selected under the move tool, the next click
+          picked it up again, which read as the click not having placed it. }
+        if WasRigid then
+        begin
+          SelectNone;
+          SetTool(ptSelect);
+          FCmdMsg := 'Placed.';
+        end;
       end;
 
     ptPush, ptDrill:

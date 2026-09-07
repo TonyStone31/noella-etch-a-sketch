@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Placing a built fitting or spool ends there.**  After the placing click' + LineEnding +
+    '  the part was left selected under the move tool, so the next click picked' + LineEnding +
+    '  it up again, which read as the click not having placed it.  It is let go' + LineEnding +
+    '  of now and the select tool comes back.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
