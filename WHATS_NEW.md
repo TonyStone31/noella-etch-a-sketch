@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Scratchpad: click, type, click.**  Type a leg's length and the click
+  that starts the next leg takes it - no Enter between legs, so a hand can
+  stay on the number pad and work down the run.
+
 ## v2026.09.07.7
 
 ### Fixed

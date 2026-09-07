@@ -25,7 +25,7 @@ object SpoolForm: TSpoolForm
     Top = 38
     Width = 968
     AutoSize = False
-    Caption = 'Click where each leg ends - the paper snaps it to the three axes, Shift for a 45.  Type its length, say what it was measured between, Enter.  Click a leg to change it; right-click to take it out.'
+    Caption = 'Click where each leg ends - the paper snaps it to the three axes, Shift for a 45 - type its length, then click where the next one ends: the click takes the number.  Click a leg to change it; right-click to take it out.'
     Font.Color = clGray
     ParentFont = False
     WordWrap = True

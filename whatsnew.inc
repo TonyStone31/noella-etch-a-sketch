@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Scratchpad: click, type, click.**  Type a leg''s length and the click' + LineEnding +
+    '  that starts the next leg takes it - no Enter between legs, so a hand can' + LineEnding +
+    '  stay on the number pad and work down the run.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.7' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

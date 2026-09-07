@@ -329,6 +329,11 @@ begin
     Exit;
   end;
   if Button <> mbLeft then Exit;
+  { A number typed and not yet entered belongs to the leg in hand: the
+    click that starts the next leg takes it, so the fitter's hand can stay
+    on the number pad - click, type, click, type - with no Enter between. }
+  if (FSel >= 0) and (FSel <= High(FLegs)) and InchesOf(edLen.Text, V) and (V > 0) then
+    btnLegClick(nil);
   { a click on a leg already drawn picks it up, so its length can be given
     or changed }
   Node := P3(0, 0, 0);
@@ -365,15 +370,11 @@ begin
   FAdv[High(FAdv)] := FHoverAdv;
   FHover := False;
   FSel := High(FLegs);
-  if InchesOf(edLen.Text, V) and (V > 0) then
-    btnLegClick(nil)
-  else
-  begin
-    lblStatus.Caption := Format('Leg %d, %s.  How long, %s?  Type it and press Enter - or click on to the next leg and come back to it.',
-      [FSel + 1, DirName(FLegs[FSel].Dir), cbMeasure.Text]);
-    edLen.SetFocus;
-    Refresh;
-  end;
+  edLen.Text := '';
+  lblStatus.Caption := Format('Leg %d, %s.  How long, %s?  Type it, then click where the next leg ends.',
+    [FSel + 1, DirName(FLegs[FSel].Dir), cbMeasure.Text]);
+  edLen.SetFocus;
+  Refresh;
 end;
 
 { the leg the length box is about: its numbers into the box }
