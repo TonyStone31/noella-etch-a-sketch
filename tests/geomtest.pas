@@ -2776,6 +2776,36 @@ begin
   Ok(Pos('face to end', SpoolTicket(S)) > 0, 'and calls the flange end a face');
   S.Legs[1].Has := False;
   Ok(not SketchComplete(S) and (SpoolProblem(S) <> ''), 'a leg without a length is a sketch, not a spool yet');
+  { a reducer in a straight run: 2" down to 1", 3" long, at the end of the
+    first leg }
+  S := Default(TSpoolSpec);
+  S.Size := 5; S.LongRadius := True; S.Inch := 1 / 12;
+  SetLength(S.Legs, 2);
+  S.Legs[0].Dir := P3(0, 1, 0); S.Legs[0].Len := 2; S.Legs[0].Has := True; S.Legs[0].Steps := 3;
+  S.Legs[0].After := laReducer; S.Legs[0].NewSize := 2;
+  S.Legs[1].Dir := P3(0, 1, 0); S.Legs[1].Len := 2; S.Legs[1].Has := True; S.Legs[1].Steps := 3;
+  Ok(SpoolProblem(S) = '', 'a reducer in a straight run reads');
+  Ok(SizeOfLeg(S, 1) = 2, 'the leg after it is 1" pipe');
+  Ok(Abs(CutLength(S, 0) - 21 / 12) < 1E-9, 'the first leg cuts 3" shorter for the reducer');
+  Ok(Abs(CutLength(S, 1) - 2) < 1E-9, 'the second is whole');
+  D := TWorkDoc.Create;
+  try
+    First := BuildSpool(D, S, 0, 1);
+    Faces := 0;
+    for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 3 * PIPE_SIDES, 'two runs of pipe and the reducer between: three rings of faces');
+    Ok(Pos('reducer', SpoolTicket(S)) > 0, 'the ticket lists the reducer');
+    { a flanged joint instead }
+    S.Legs[0].After := laFlanges;
+    First := BuildSpool(D, S, 0, 1);
+    Faces := 0;
+    for I := First to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 2 * PIPE_SIDES + 2 * (PIPE_SIDES + 2), 'a flanged joint: two runs and two flange discs');
+    Ok(Abs(CutLength(S, 0) - 23 / 12) < 1E-9, 'a flange takes an inch off the leg before');
+    Ok(Abs(CutLength(S, 1) - 23 / 12) < 1E-9, 'and an inch off the leg after');
+  finally
+    D.Free;
+  end;
 end;
 
 procedure TestArrays;

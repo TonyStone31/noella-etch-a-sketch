@@ -34,6 +34,17 @@ The paper is not to scale.  Each leg is drawn as long as it was drawn, and
 labelled with the length that was typed.  That is how the paper version
 works too.
 
+## Reducers and flanged joints
+
+A leg can carry a fitting at its far end, before the elbow if there is one:
+a **reducer** to another size, after which the legs are the new size, or a
+**flanged joint**, a flange on each side of a break.  The reducer's length
+comes from a small table by the larger size, near enough to B16.9; a flange
+is an inch thick.  The leg's cut length loses the reducer, or an inch for
+the flange on its side, and the leg after a flanged joint loses the other
+inch.  The path is cut at the fitting and the pipe is swept run by run,
+with a frustum or two discs between runs.
+
 ## What is worked out
 
 * **Elbows** at every corner: long radius (1.5 x nominal) or short (1 x

@@ -142,9 +142,29 @@ object SpoolForm: TSpoolForm
     Height = 18
     Top = 400
     Width = 250
-    Caption = 'end = the pipe end, flange face, or weld'
+    Caption = 'end = pipe end, flange face, or weld'
     Font.Color = clGray
     ParentFont = False
+  end
+  object cbAfter: TComboBox
+    Left = 16
+    Height = 28
+    Top = 420
+    Width = 158
+    ItemHeight = 0
+    OnChange = AfterChange
+    Style = csDropDownList
+    TabOrder = 18
+  end
+  object cbNewSize: TComboBox
+    Left = 180
+    Height = 28
+    Top = 420
+    Width = 86
+    ItemHeight = 0
+    OnChange = AfterChange
+    Style = csDropDownList
+    TabOrder = 19
   end
   object btnLeg: TButton
     Left = 146
@@ -158,7 +178,7 @@ object SpoolForm: TSpoolForm
   object btnUndo: TButton
     Left = 16
     Height = 30
-    Top = 422
+    Top = 454
     Width = 250
     Caption = 'Take this leg off'
     OnClick = btnUndoClick
@@ -167,14 +187,14 @@ object SpoolForm: TSpoolForm
   object lblTag: TLabel
     Left = 16
     Height = 18
-    Top = 460
+    Top = 490
     Width = 40
     Caption = 'Tag'
   end
   object edTag: TEdit
     Left = 16
     Height = 28
-    Top = 480
+    Top = 510
     Width = 250
     OnChange = AnyChange
     TabOrder = 7
@@ -182,9 +202,9 @@ object SpoolForm: TSpoolForm
   object cbDims: TCheckBox
     Left = 16
     Height = 22
-    Top = 514
-    Width = 250
-    Caption = 'Put the lengths on it'
+    Top = 544
+    Width = 120
+    Caption = 'Lengths on'
     Checked = True
     State = cbChecked
     OnChange = AnyChange
@@ -192,8 +212,8 @@ object SpoolForm: TSpoolForm
   end
   object memTicket: TMemo
     Left = 16
-    Height = 106
-    Top = 568
+    Height = 102
+    Top = 572
     Width = 250
     Font.Height = -11
     Font.Name = 'Monospace'
@@ -294,13 +314,11 @@ object SpoolForm: TSpoolForm
     TabOrder = 15
   end
   object cbLines: TCheckBox
-    Left = 16
+    Left = 140
     Height = 22
-    Top = 538
-    Width = 250
-    Caption = 'Lined paper (off: dots)'
-    Checked = True
-    State = cbChecked
+    Top = 544
+    Width = 126
+    Caption = 'Lined paper'
     OnChange = AnyChange
     TabOrder = 17
   end

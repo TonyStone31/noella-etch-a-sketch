@@ -10,6 +10,30 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Reducers and flanged joints** in the fitter's scratchpad.  Under the
+  measurement, say what sits at the far end of a leg: nothing, a reducer to
+  another size, or a flanged joint.  The legs after a reducer are the new
+  size, the cut lengths lose the fitting, the 3D shows the step down or the
+  pair of flanges, and the ticket lists them with the reducer's length.
+- The scratchpad's paper is dots again, with lined paper as the other
+  choice, and the leg the cursor is about to make shows plainly on both.
+
+### Fixed
+
+- The deck's tool buttons ran over the icons on the right once Follow Me
+  joined them.  They share the width properly now.
+- Orbiting a drawing full of pipe: two passes of the renderer did far more
+  work than they needed - building the edge index, and testing every line
+  against every face with a fresh normal each time.  A four-leg spool went
+  from 29 to 21 milliseconds a frame in the ordinary build.  The checked
+  build is slower by nature; see the notes on it below.
+- The report picture taken "now" waited for nothing and caught the
+  question box still on screen.  It gives the box a moment to go.
+
 ## v2026.09.07.1
 
 ### New

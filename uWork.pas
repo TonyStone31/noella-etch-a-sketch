@@ -398,6 +398,11 @@ type
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
+  public
+    { where a frame's time went, ms, added up until cleared: setup, edges
+      drawn whole, faces gathered, faces painted, visible runs, the rest }
+    ProfMs: array[0..5] of Double;
+  public
     property Live: Integer read FLive;
     { the bore the last PushPull made, or -1 - so the caller can cut it
       against the others }
@@ -5642,19 +5647,44 @@ end;
   walked one way round one face and the other way round its neighbour is
   recognised as the one edge it is. }
 function EdgeKey(const A, B: TP3): string;
+{ The two ends to a millionth, packed as six whole numbers in a string, the
+  smaller end first so either way round is the same key.  It used to be
+  written out with Format, and building two thousand of those was a quarter
+  of every frame on a drawing full of pipe; the bytes compare just as well
+  and cost nothing to make. }
 var
-  P, Q: string;
+  P, Q: array[0..2] of Int64;
+  Swap: Boolean;
+  I: Integer;
 begin
-  P := Format('%d,%d,%d', [Round(A.X * 1E6), Round(A.Y * 1E6),
-                           Round(A.Z * 1E6)]);
-  Q := Format('%d,%d,%d', [Round(B.X * 1E6), Round(B.Y * 1E6),
-                           Round(B.Z * 1E6)]);
-  if P <= Q then Result := P + '|' + Q else Result := Q + '|' + P;
+  P[0] := Round(A.X * 1E6); P[1] := Round(A.Y * 1E6); P[2] := Round(A.Z * 1E6);
+  Q[0] := Round(B.X * 1E6); Q[1] := Round(B.Y * 1E6); Q[2] := Round(B.Z * 1E6);
+  Swap := False;
+  for I := 0 to 2 do
+    if P[I] <> Q[I] then
+    begin
+      Swap := P[I] > Q[I];
+      Break;
+    end;
+  SetLength(Result, 48);
+  if Swap then
+  begin
+    Move(Q[0], Result[1], 24);
+    Move(P[0], Result[25], 24);
+  end
+  else
+  begin
+    Move(P[0], Result[1], 24);
+    Move(Q[0], Result[25], 24);
+  end;
 end;
 
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
+  PlaneN: array of TP3;
+  PlaneD: array of Double;
+  PT: QWord;
   ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet: Double;
   ZOK: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
@@ -5673,6 +5703,7 @@ var
   GuideCol: TPix;
   M, Run0: Integer;
   T0, T1: Double;
+
   { the stretch being tested for cover: a line's two ends, or an arc }
   CurA, CurB: TP3;
   CurArc: Integer;
@@ -5935,10 +5966,17 @@ var
       Result := EdgeW + Max(1, EdgeW * 0.35);
   end;
 
+  procedure Mark(K: Integer);
+  begin
+    ProfMs[K] := ProfMs[K] + (GetTickCount64 - PT);
+    PT := GetTickCount64;
+  end;
+
 begin
   S.BlendMode := bmNormal;
   GuideCol := MixPix(LabelCol, Pix(120, 90, 190), 0.55);
 
+  PT := GetTickCount64;
   { the edge index, once, before anything asks it a question }
   EdgeIx := TStringList.Create;
   try
@@ -6037,6 +6075,7 @@ begin
   end;
 
 
+  Mark(0);
   { --- solids go on top of the edges, which is what hides the lines that
         run behind them ------------------------------------------------- }
   { --- solid faces, painter's algorithm ------------------------------- }
@@ -6080,6 +6119,7 @@ begin
       Inc(NFace);
     end;
 
+  Mark(1);
   { Farthest from the camera first.  Where two faces are level to within
     rounding - a circle drawn on a slab is exactly that - the bigger one goes
     first, so the small one lands on top of it rather than underneath. }
@@ -6104,6 +6144,16 @@ begin
   end;
 
   SetLength(Shape, NFace);
+  { every face's plane, once.  The pass that puts lines back on visible
+    faces asks every line against every face, and working the normal out
+    afresh each time was most of a frame on a drawing full of pipe. }
+  SetLength(PlaneN, NFace);
+  SetLength(PlaneD, NFace);
+  for I := 0 to NFace - 1 do
+  begin
+    PlaneN[I] := FaceNormal(Order[I]);
+    PlaneD[I] := Dot3(PlaneN[I], FEnts[Order[I]].Poly[0]);
+  end;
   S.DepthBegin;
   for I := 0 to NFace - 1 do
   begin
@@ -6188,6 +6238,7 @@ begin
   end;
 
 
+  Mark(2);
   { --- lines that live on a visible face -------------------------------
         The face pass runs after the edges so that a solid hides whatever is
         behind it, but that also buries the lines drawn ON its surface.
@@ -6196,11 +6247,14 @@ begin
   for I := 0 to FLive - 1 do
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekText]) then Continue;
+    { a softened crease that is not an outline stays hidden whatever face
+      it lies on - said once here, not once per face }
+    if (FEnts[I].Kind = ekLine) and Hidden(I) then Continue;
     for J := 0 to NFace - 1 do
     begin
       K := Order[J];
-      Nm := FaceNormal(K);
-      Sh := Dot3(Nm, FEnts[K].Poly[0]);
+      Nm := PlaneN[J];
+      Sh := PlaneD[J];
       if FEnts[I].Kind = ekArc then
       begin
         { an arc lies in a face when its middle and its rim do }
@@ -6314,6 +6368,7 @@ begin
     end;
   end;
 
+  Mark(3);
   { --- guide points, last of all ---------------------------------------
 
     A guide point is put down deliberately, to be come back to, so it is no
@@ -6339,6 +6394,7 @@ begin
   finally
     EdgeIx.Free;
   end;
+  Mark(4);
 end;
 
 end.

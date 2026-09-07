@@ -13,6 +13,30 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Reducers and flanged joints** in the fitter''s scratchpad.  Under the' + LineEnding +
+    '  measurement, say what sits at the far end of a leg: nothing, a reducer to' + LineEnding +
+    '  another size, or a flanged joint.  The legs after a reducer are the new' + LineEnding +
+    '  size, the cut lengths lose the fitting, the 3D shows the step down or the' + LineEnding +
+    '  pair of flanges, and the ticket lists them with the reducer''s length.' + LineEnding +
+    '- The scratchpad''s paper is dots again, with lined paper as the other' + LineEnding +
+    '  choice, and the leg the cursor is about to make shows plainly on both.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- The deck''s tool buttons ran over the icons on the right once Follow Me' + LineEnding +
+    '  joined them.  They share the width properly now.' + LineEnding +
+    '- Orbiting a drawing full of pipe: two passes of the renderer did far more' + LineEnding +
+    '  work than they needed - building the edge index, and testing every line' + LineEnding +
+    '  against every face with a fresh normal each time.  A four-leg spool went' + LineEnding +
+    '  from 29 to 21 milliseconds a frame in the ordinary build.  The checked' + LineEnding +
+    '  build is slower by nature; see the notes on it below.' + LineEnding +
+    '- The report picture taken "now" waited for nothing and caught the' + LineEnding +
+    '  question box still on screen.  It gives the box a moment to go.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

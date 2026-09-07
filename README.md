@@ -276,7 +276,8 @@ fitter's iso as a form: ruled iso paper you click the run onto one leg at
 a time, snapped to the three axes or with Shift to a 45, with each leg's
 length typed on and what it was measured between - center to center, end
 to center, end to end - so a tape that could only reach the weld or the
-flange face still gives the shop the right cut.
+flange face still gives the shop the right cut.  Reducers and flanged joints
+go on the legs; the pipe size changes after a reducer.
 Pick the pipe size, long or short radius elbows, and the ends - bevel,
 weld-neck flange, cap, threaded.  The ticket writes itself with every leg's
 cut length, the elbows' take-outs already off, which is the number the

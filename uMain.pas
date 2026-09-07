@@ -3307,8 +3307,10 @@ begin
       groups wide enough to read as a break rather than as spacing. }
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
     GrpGap := Round(20 * FUIScale);
-    { eight columns across the three groups }
-    SegW := (Avail - 2 * GrpGap) div 8;
+    { as many columns as the groups have between them - nine since Follow Me
+      joined the drawing tools; dividing by a number written down here is
+      what put the last group's buttons over the icons }
+    SegW := (Avail - 2 * GrpGap) div (GRP_COLS[0] + GRP_COLS[1] + GRP_COLS[2]);
     FGrpDivY0 := Y0 + Round(2 * FUIScale);
     FGrpDivY1 := Y0 + 2 * RowH + RowGap - Round(2 * FUIScale);
     GrpX := X;
@@ -4776,6 +4778,7 @@ var
   Ms: Double;
 begin
   N := 10;
+  for I := 0 to 5 do FD.Doc.ProfMs[I] := 0;
   T0 := GetTickCount64;
   for I := 1 to N do
   begin
@@ -4783,8 +4786,12 @@ begin
     RenderPro;
   end;
   Ms := (GetTickCount64 - T0) / N;
-  FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).', [Ms, FD.Doc.Live, FaceCount + SolidFaceCount]);
-  WriteLn('rendertime ', Ms:0:1, ' ms/frame, ', FD.Doc.Live, ' things');
+  FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).  setup %.0f, edges %.0f, faces gathered %.0f, faces painted %.0f, runs %.0f',
+    [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, FD.Doc.ProfMs[0] / N, FD.Doc.ProfMs[1] / N,
+     FD.Doc.ProfMs[2] / N, FD.Doc.ProfMs[3] / N, FD.Doc.ProfMs[4] / N]);
+  WriteLn('rendertime ', Ms:0:1, ' ms/frame, ', FD.Doc.Live, ' things; setup ', FD.Doc.ProfMs[0] / N:0:1,
+    ' edges ', FD.Doc.ProfMs[1] / N:0:1, ' gather ', FD.Doc.ProfMs[2] / N:0:1, ' paint ', FD.Doc.ProfMs[3] / N:0:1,
+    ' runs ', FD.Doc.ProfMs[4] / N:0:1);
   Flush(Output);
   Trail(FCmdMsg);
   pbCmd.Invalidate;
@@ -5281,6 +5288,7 @@ end;
 function TMainForm.CaptureShot(Wait: Boolean; out Bmp: TBitmap): Boolean;
 var
   WasMsg: string;
+  Until_: QWord;
 begin
   Result := False;
   Bmp := nil;
@@ -5299,7 +5307,15 @@ begin
     { Nothing about the taking of the picture may be in the picture.  The
       number goes, and so does the line in the command bar that was counting
       it down - that bar is one of the most useful things in the shot and it
-      should say what it would have said. }
+      should say what it would have said.  And the question box that asked
+      for the picture has to be off the screen: it has been closed, but the
+      window under it has not been painted yet, so give it a moment. }
+    Until_ := GetTickCount64 + 350;
+    while GetTickCount64 < Until_ do
+    begin
+      Application.ProcessMessages;
+      Sleep(15);
+    end;
     FShotCount := 0;
     FShotFlash := False;
     FCmdMsg := WasMsg;

@@ -31,6 +31,8 @@ type
     cbLines: TCheckBox;
     cbMeasure: TComboBox;
     lblMeasureHint: TLabel;
+    cbAfter: TComboBox;
+    cbNewSize: TComboBox;
     cbEnd0: TComboBox;
     cbEnd1: TComboBox;
     cbSize: TComboBox;
@@ -54,6 +56,7 @@ type
     ts3D: TTabSheet;
     procedure AnyChange(Sender: TObject);
     procedure MeasureChange(Sender: TObject);
+    procedure AfterChange(Sender: TObject);
     procedure btnEmailClick(Sender: TObject);
     procedure btnFilesClick(Sender: TObject);
     procedure btnLegClick(Sender: TObject);
@@ -131,6 +134,7 @@ var
   E: TPipeEnd;
 begin
   FGrid := 26;
+  cbLines.Checked := False;
   for I := 0 to High(NPS_NAMES) do cbSize.Items.Add(NPS_NAMES[I]);
   cbSize.ItemIndex := 5;
   for E := Low(TPipeEnd) to High(TPipeEnd) do
@@ -145,12 +149,31 @@ begin
   cbMeasure.Items.Add('center to end');
   cbMeasure.Items.Add('end to end');
   cbMeasure.ItemIndex := 0;
+  cbAfter.Items.Add(LEG_AFTER_NAMES[laNothing]);
+  cbAfter.Items.Add(LEG_AFTER_NAMES[laReducer]);
+  cbAfter.Items.Add(LEG_AFTER_NAMES[laFlanges]);
+  cbAfter.ItemIndex := 0;
+  for I := 0 to High(NPS_NAMES) do cbNewSize.Items.Add(NPS_NAMES[I]);
+  cbNewSize.ItemIndex := 4;
+  cbNewSize.Visible := False;
   FSel := -1;
   lblStatus.Caption := 'Click where the first leg ends.';
 end;
 
 { the measurement kind picked applies to the leg in hand, and is remembered
   for the next }
+{ the fitting at the far end of the leg in hand }
+procedure TSpoolForm.AfterChange(Sender: TObject);
+begin
+  cbNewSize.Visible := cbAfter.ItemIndex = 1;
+  if (FSel >= 0) and (FSel <= High(FLegs)) then
+  begin
+    FLegs[FSel].After := TLegAfter(Max(0, cbAfter.ItemIndex));
+    FLegs[FSel].NewSize := Max(0, cbNewSize.ItemIndex);
+  end;
+  Refresh;
+end;
+
 procedure TSpoolForm.MeasureChange(Sender: TObject);
 begin
   if (FSel >= 0) and (FSel <= High(FLegs)) then
@@ -363,6 +386,13 @@ begin
   cbMeasure.OnChange := nil;
   cbMeasure.ItemIndex := Ord(FLegs[I].FromEnd) + 2 * Ord(FLegs[I].ToEnd);
   cbMeasure.OnChange := @MeasureChange;
+  cbAfter.OnChange := nil;
+  cbNewSize.OnChange := nil;
+  cbAfter.ItemIndex := Ord(FLegs[I].After);
+  if FLegs[I].After = laReducer then cbNewSize.ItemIndex := FLegs[I].NewSize;
+  cbNewSize.Visible := FLegs[I].After = laReducer;
+  cbAfter.OnChange := @AfterChange;
+  cbNewSize.OnChange := @AfterChange;
   lblStatus.Caption := Format('Leg %d, %s: type its length and press Enter.', [I + 1, DirName(FLegs[I].Dir)]);
   edLen.SetFocus;
   edLen.SelectAll;
@@ -514,6 +544,29 @@ begin
       Label_(A, B, '?', False);
     if I = 0 then EndWord(A, cbEnd0.ItemIndex, True);
     if I = High(FLegs) then EndWord(B, cbEnd1.ItemIndex, False);
+    { a reducer is a wedge near the far end, a flanged joint two bars }
+    if FLegs[I].After = laReducer then
+    begin
+      C.Pen.Color := $00A05020;
+      C.Brush.Style := bsClear;
+      C.Polygon([Point(B.X - (B.X - A.X) div 5 - 6, B.Y - (B.Y - A.Y) div 5 - 6),
+                 Point(B.X - (B.X - A.X) div 5 + 6, B.Y - (B.Y - A.Y) div 5 + 6),
+                 Point(B.X - (B.X - A.X) div 10 + 3, B.Y - (B.Y - A.Y) div 10 + 3),
+                 Point(B.X - (B.X - A.X) div 10 - 3, B.Y - (B.Y - A.Y) div 10 - 3)]);
+      C.Font.Color := clGray;
+      C.TextOut(B.X - (B.X - A.X) div 6 + 8, B.Y - (B.Y - A.Y) div 6 + 8,
+        'red. ' + NPS_NAMES[EnsureRange(FLegs[I].NewSize, 0, High(NPS_NAMES))]);
+    end
+    else if FLegs[I].After = laFlanges then
+    begin
+      C.Pen.Color := $00A05020;
+      C.Pen.Width := 3;
+      C.Line(B.X - 7, B.Y - 6, B.X + 7, B.Y + 6);
+      C.Line(B.X - 7 - 5, B.Y - 6 + 3, B.X + 7 - 5, B.Y + 6 + 3);
+      C.Pen.Width := 1;
+      C.Font.Color := clGray;
+      C.TextOut(B.X + 10, B.Y - 22, 'flanges');
+    end;
   end;
   if Length(FLegs) = 0 then
   begin
@@ -530,11 +583,17 @@ begin
     A := Scr(Node);
     B := Scr(P3(Node.X + FHoverAdv.X * FHoverSteps, Node.Y + FHoverAdv.Y * FHoverSteps,
                 Node.Z + FHoverAdv.Z * FHoverSteps));
-    C.Pen.Color := $00C0C0C0;
-    C.Pen.Style := psDot;
+    C.Pen.Color := $00F09040;
+    C.Pen.Style := psDash;
+    C.Pen.Width := 2;
     C.Line(A.X, A.Y, B.X, B.Y);
     C.Pen.Style := psSolid;
-    Label_(A, B, DirName(FHoverAdv), True);
+    C.Pen.Width := 1;
+    C.Brush.Color := $00F09040;
+    C.Brush.Style := bsSolid;
+    C.Ellipse(B.X - 4, B.Y - 4, B.X + 5, B.Y + 5);
+    C.Brush.Style := bsClear;
+    Label_(A, B, DirName(FHoverAdv) + ', ' + IntToStr(FHoverSteps) + ' steps', True);
   end;
   C.Brush.Style := bsClear;
   C.Font.Color := clGray;

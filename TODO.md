@@ -58,9 +58,9 @@ build a model from numbers are wizards under Create that drop the result
 into the drawing; hammer the general tools before the generators.
 
 1. **The field-sketch wizard is the pipe spool wizard** (built 2026-09-07,
-   uPipe / uSpool, docs/pipe-spool.md).  Left on it: branches (a tee off
-   the run), rolled 45s off the twelve diagonals, reducers in the run,
-   fittings other than elbows, the pipe wall.
+   uPipe / uSpool, docs/pipe-spool.md).  Reducers and flanged joints went
+   in 2026-09-07.  Left on it: branches (a tee off the run), rolled 45s
+   off the twelve diagonals, valves and other fittings, the pipe wall.
 2. **The transition wizard's ends**: TDF, flange out, flange in, slip, drive,
    raw, corners notched - per edge, each worth the shop's own number of
    material.  Then the offset (same size both ends) and the elbows as more
@@ -112,12 +112,16 @@ into the drawing; hammer the general tools before the generators.
 * **Print more than one sheet** at a time.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
-* **Orbit performance with fittings.**  Measured 2026-09-06 with /rendertime
-  on a drawing of three fittings (444 things, 98 faces) at 1920x1000: 25 ms
-  a frame fitted, 33 ms zoomed in.  Not terrible, but it grows with faces
-  times edges through the covered-run walk, and six buildings of windows
-  feel it.  A dedicated pass: profile the render, then the cheap wins
-  before any threads (see the threading note).
+* **Orbit performance with fittings.**  /rendertime now prints where a frame
+  goes: index and edges, faces, visible runs.  On a 528-face spool at
+  1920x1000, release build, 2026-09-07: 29 ms before, 21 after packing the
+  edge-index keys and caching face planes for the line-on-face pass.  The
+  checked build is 3-4x slower on the same work, and is meant for finding
+  faults, not for drawing.  Next cheap wins, in order: the insertion sort of
+  faces is O(n^2) (fine at 500, not at 5000); the edge index is a sorted
+  string list with O(n) inserts; the face fill scans four sub-samples a
+  row.  Threads after that: the face paint is per face into a depth buffer
+  and splits by screen band; the visible-runs pass splits by line.
 * **Remote-display performance.**  Motion is serviced once a tick so the
   pointer tracks over VNC.  What is left is the whole-bitmap reload.
 
