@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs,
   uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition;
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -577,6 +577,7 @@ type
     procedure DoUpdate;
     procedure ShowWhatsNew;
     procedure BuildTransitionWizard;
+    procedure BuildSpoolWizard;
     function ArcNormal(I: Integer): TP3;
     procedure DoRevolve(const AxisP, AxisDir: TP3);
     { the chain of edges joined end to end through edge I, as points, and
@@ -4981,6 +4982,28 @@ begin
   FInput := '';
 end;
 
+{ The pipe fitter's iso: the spool drawn as legs with lengths, built as one
+  solid and placed like a fitting. }
+procedure TMainForm.BuildSpoolWizard;
+var
+  Spec: TSpoolSpec;
+  First: Integer;
+begin
+  if not TSpoolForm.Ask(FD.Units, Spec) then Exit;
+  if FD.View = vkPlan then EnterFreeCamera(True);
+  PushUndo;
+  First := BuildSpool(FD.Doc, Spec, FInkColor, FEdgeW);
+  if First < 0 then
+  begin
+    FCmdMsg := 'The spool could not be built.';
+    Exit;
+  end;
+  SeedRegions;
+  RenderPro;
+  RecomposeAll;
+  PlaceBuilt(First, P3(0, 0, 0));
+end;
+
 procedure TMainForm.BuildTransitionWizard;
 var
   Spec: TTransitionSpec;
@@ -8393,6 +8416,7 @@ begin
   else if (W = 'followme') or (W = 'follow') or (W = 'revolve') or (W = 'lathe') then SetTool(ptFollow)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
+  else if (W = 'spool') or (W = 'pipe') then BuildSpoolWizard
   else if W = 'rendertime' then RenderTiming
   else if (W = 'update') or (W = 'upgrade') then
   begin
@@ -9485,7 +9509,7 @@ begin
     POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 7;
-    POP_SHOP: Result := 3;
+    POP_SHOP: Result := 4;
     POP_PREC: Result := Length(PREC_DENOMS);
   else
     Result := 0;
@@ -9504,6 +9528,7 @@ begin
       case I of
         0: Result := 'Lay a piece out flat';
         1: Result := 'Build a fitting...';
+        2: Result := 'Pipe spool...';
       else
         Result := 'Field sketch, on iso paper';
       end;
@@ -9541,6 +9566,7 @@ begin
       case I of
         0: StartUnfold;
         1: BuildTransitionWizard;
+        2: BuildSpoolWizard;
       else
         begin
           { The paper-grid sketch, kept for the day it becomes a wizard of

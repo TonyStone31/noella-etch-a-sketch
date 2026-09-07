@@ -271,8 +271,19 @@ a duct you pushed up, say - and unfolds it into a pattern: solid where it
 gets cut, dashed where it gets folded, brake notches marked, the sheet size
 written on it, and a DXF for the table.
 
-**Field sketch** puts you on isometric paper for a rough sketch the way a
-pipe fitter draws one.  Turning that sketch into a built run is on the list.
+**Pipe spool** (`/spool`, `/pipe`) is the pipe fitter's iso as a form: iso
+paper you click the run onto one leg at a time, snapped to the three axes
+or with Shift to a 45, with the centre-to-centre length typed on each.
+Pick the pipe size, long or short radius elbows, and the ends - bevel,
+weld-neck flange, cap, threaded.  The ticket writes itself with every leg's
+cut length, the elbows' take-outs already off, which is the number the
+welder wants; the 3D tab shows the spool built from the same numbers by
+Follow Me; Email it sends the iso, the picture and the ticket to the shop;
+Build it drops the spool into the drawing.
+[`docs/pipe-spool.md`](docs/pipe-spool.md) has the details.
+
+**Field sketch** puts you on isometric paper inside the main drawing for a
+rough sketch.
 
 [`docs/transition-ticket.md`](docs/transition-ticket.md) is the fitting
 wizard's own notebook - the notation, the end types with their assumed
@@ -295,6 +306,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | `/text` `/note` `/n` | a note |
 | `/orbit` `/spin` | the orbit tool |
 | `/transition` `/trans` `/fitting` `/elbow` `/tee` | the fitting wizard |
+| `/spool` `/pipe` | the pipe spool wizard |
 | `/unfold` `/layout` | lay a piece out flat |
 | `/view` | the next view preset (the VIEW button) |
 | `/corner` `/front` `/right` `/back` `/left` `/top` `/down` | go straight to that view |

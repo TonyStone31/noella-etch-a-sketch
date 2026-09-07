@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Pipe spool.**  SHOP > Pipe spool..., or /spool: the pipe fitter''s iso' + LineEnding +
+    '  as a form.  Iso paper you click the run onto, one leg at a time - each' + LineEnding +
+    '  leg snaps to the three axes, or with Shift to a 45 - and type the' + LineEnding +
+    '  centre-to-centre length on.  Pick the pipe size, long or short radius' + LineEnding +
+    '  elbows, and what each end is: bevelled, a weld-neck flange, a cap, or' + LineEnding +
+    '  threaded.  The ticket writes itself underneath with every leg''s cut' + LineEnding +
+    '  length, the elbows'' take-outs already off, and the 3D tab shows the' + LineEnding +
+    '  spool built from the same numbers.  Email it to the shop, or Build it' + LineEnding +
+    '  into the drawing with the lengths on it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.30' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

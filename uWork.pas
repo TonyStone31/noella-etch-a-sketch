@@ -208,7 +208,8 @@ type
       path comes back to its start, in which case there are no caps and the
       profile is consumed.  Returns the index of the first thing made, or
       -1. }
-    function Sweep(Face: Integer; const Path: TP3Array; Closed: Boolean): Integer;
+    function Sweep(Face: Integer; const Path: TP3Array; Closed: Boolean;
+      Caps: Boolean = True): Integer;
     { the points of an arc or a line, in order, for building a path }
     procedure EdgePoints(I: Integer; out Pts: TP3Array);
     { where a dimension's line sits: the offset from what it measures }
@@ -2372,7 +2373,7 @@ begin
     PrevE := Norm3(P3(Poly[K].X - Poly[(K + N - 1) mod N].X, Poly[K].Y - Poly[(K + N - 1) mod N].Y,
                       Poly[K].Z - Poly[(K + N - 1) mod N].Z));
     E := Norm3(P3(Poly[K2].X - Poly[K].X, Poly[K2].Y - Poly[K].Y, Poly[K2].Z - Poly[K].Z));
-    Turn := ArcCos(Max(-1, Min(1, Dot3(PrevE, E))));
+    Turn := ArcCos(EnsureRange(Dot3(PrevE, E), -1.0, 1.0));
     for S := 0 to Steps - 1 do
       Edge(Rings[S][K], Rings[S + 1][K], Turn < SOFT_TURN);
   end;
@@ -2439,7 +2440,8 @@ begin
   end;
 end;
 
-function TWorkDoc.Sweep(Face: Integer; const Path: TP3Array; Closed: Boolean): Integer;
+function TWorkDoc.Sweep(Face: Integer; const Path: TP3Array; Closed: Boolean;
+  Caps: Boolean): Integer;
 const
   SOFT_TURN = 30 * Pi / 180;
 var
@@ -2538,7 +2540,7 @@ begin
       DirOut := Norm3(Sub(Pts[(S + 1) mod M], Pts[S mod M]));
       B := P3(DirIn.X + DirOut.X, DirIn.Y + DirOut.Y, DirIn.Z + DirOut.Z);
       if Dist(B, P3(0, 0, 0)) < 1E-9 then B := DirIn else B := Norm3(B);
-      Turn := ArcCos(Max(-1, Min(1, Dot3(DirIn, DirOut))));
+      Turn := ArcCos(EnsureRange(Dot3(DirIn, DirOut), -1.0, 1.0));
     end
     else
     begin
@@ -2586,7 +2588,7 @@ begin
     K2 := (K + 1) mod N;
     PrevE := Norm3(Sub(Poly[K], Poly[(K + N - 1) mod N]));
     E := Norm3(Sub(Poly[K2], Poly[K]));
-    Turn := ArcCos(Max(-1, Min(1, Dot3(PrevE, E))));
+    Turn := ArcCos(EnsureRange(Dot3(PrevE, E), -1.0, 1.0));
     for S := 0 to High(Rings) - 1 do
       Edge(Rings[S][K], Rings[S + 1][K], Turn < SOFT_TURN);
   end;
@@ -2611,7 +2613,7 @@ begin
         Break;
       end;
   end
-  else
+  else if Caps then
   begin
     { the profile is the near cap; the far cap is the last ring }
     FEnts[Face].Solid := True;
@@ -2626,6 +2628,21 @@ begin
       I := LineAt(Poly[K], Poly[(K + 1) mod N]);
       if I >= 0 then SetGroup(I, G);
     end;
+  end
+  else
+  begin
+    { open at both ends, like a pipe: the rings at the ends are hard edges
+      and the profile face goes, its edges staying as the near ring }
+    for K := 0 to N - 1 do
+      Edge(Rings[High(Rings)][K], Rings[High(Rings)][(K + 1) mod N], False);
+    for K := 0 to N - 1 do
+    begin
+      I := LineAt(Poly[K], Poly[(K + 1) mod N]);
+      if I >= 0 then SetGroup(I, G)
+      else Edge(Poly[K], Poly[(K + 1) mod N], False);
+    end;
+    Delete(Face);
+    if Face < First then Dec(First);
   end;
   FSnapDirty := True;
   Result := First;
@@ -4402,7 +4419,7 @@ var
     for S := -1 to 1 do
     begin
       if S = 0 then Continue;
-      Th := Phi + S * ArcCos(Max(-1, Min(1, Cc / Rr)));
+      Th := Phi + S * ArcCos(EnsureRange(Cc / Rr, -1.0, 1.0));
       Pt := At(FEnts[Idx[AJ]], Th);
       if Abs(Dist(Pt, FEnts[Idx[AI]].C) - FEnts[Idx[AI]].R) > 1E-6 then Continue;
       Crossing(Pt, AI, AJ);

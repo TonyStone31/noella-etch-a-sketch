@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold, uBore, uFittings;
+  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe;
 
 var
   Fails: Integer = 0;
@@ -2718,6 +2718,53 @@ begin
   end;
 end;
 
+{ ------------------------------------------------------ the pipe spool - }
+procedure TestSpool;
+var
+  D: TWorkDoc;
+  S: TSpoolSpec;
+  Pts: TP3Array;
+  First, I, Faces: Integer;
+begin
+  WriteLn('A pipe spool from the fitter''s iso');
+  S := Default(TSpoolSpec);
+  S.Size := 5; S.LongRadius := True; S.Inch := 1 / 12;
+  SetLength(S.Legs, 2);
+  S.Legs[0].Dir := P3(0, 1, 0); S.Legs[0].Len := 2; S.Legs[0].Steps := 3;
+  S.Legs[1].Dir := P3(1, 0, 0); S.Legs[1].Len := 2; S.Legs[1].Steps := 3;
+  Ok(SpoolProblem(S) = '', 'two legs of 2" pipe at a 90 read');
+  Ok(Abs(ElbowRadius(S) - 3 / 12) < 1E-9, 'a long radius 2" elbow is 3" radius');
+  Ok(Abs(CutLength(S, 0) - 21 / 12) < 1E-9, 'the first leg cuts at 21"');
+  Ok(Abs(CutLength(S, 1) - 21 / 12) < 1E-9, 'and so does the second');
+  SpoolPath(S, Pts);
+  Ok(Length(Pts) = 9, 'the centreline: two straights and a 90 in six');
+  Ok(Dist(Pts[High(Pts)], P3(2, 2, 0)) < 1E-9, 'ending where the fitter said');
+  Ok(Abs(Pts[1].Y - 21 / 12) < 1E-9, 'the bend starting 3" back from the corner');
+  D := TWorkDoc.Create;
+  try
+    First := BuildSpool(D, S, 0, 1);
+    Faces := 0;
+    for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 8 * PIPE_SIDES, 'the pipe: eight rings of twenty-four, open at both ends');
+    S.Ends[0] := peFlange;
+    First := BuildSpool(D, S, 0, 1);
+    Faces := 0;
+    for I := First to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 8 * PIPE_SIDES + PIPE_SIDES + 2, 'a flange at the start is a solid disc');
+    Ok(Pos('1 x 90', SpoolTicket(S)) > 0, 'the ticket counts the elbow');
+    Ok(Pos('cut 21"', SpoolTicket(S)) > 0, 'and gives the cut length');
+  finally
+    D.Free;
+  end;
+  { a leg too short for its elbow }
+  S.Legs[1].Len := 2 / 12;
+  Ok(SpoolProblem(S) <> '', 'a 2" leg on a 3" radius elbow is refused');
+  { a 45 }
+  S.Legs[1].Len := 2; S.Legs[1].Dir := Norm3(P3(1, 1, 0));
+  Ok(Abs(RadToDeg(TurnAfter(S, 0)) - 45) < 1E-6, 'a leg on the diagonal turns 45');
+  Ok(Abs(TakeOut(S, TurnAfter(S, 0)) - 3 / 12 * Tan(Pi / 8)) < 1E-9, 'and its take-out is R tan 22.5');
+end;
+
 procedure TestArrays;
 var
   D: TWorkDoc;
@@ -3166,6 +3213,7 @@ begin
   TestArcSnaps;  WriteLn;
   TestRevolve;  WriteLn;
   TestSweep;  WriteLn;
+  TestSpool;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;

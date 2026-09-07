@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Pipe spool.**  SHOP > Pipe spool..., or /spool: the pipe fitter's iso
+  as a form.  Iso paper you click the run onto, one leg at a time - each
+  leg snaps to the three axes, or with Shift to a 45 - and type the
+  centre-to-centre length on.  Pick the pipe size, long or short radius
+  elbows, and what each end is: bevelled, a weld-neck flange, a cap, or
+  threaded.  The ticket writes itself underneath with every leg's cut
+  length, the elbows' take-outs already off, and the 3D tab shows the
+  spool built from the same numbers.  Email it to the shop, or Build it
+  into the drawing with the lengths on it.
+
 ## v2026.09.06.30
 
 ### New
