@@ -49,7 +49,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
-  Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs,
+  Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
@@ -4775,7 +4775,7 @@ procedure TMainForm.RenderTiming;
 var
   T0: QWord;
   I, N: Integer;
-  Ms: Double;
+  Ms, Ov: Double;
 begin
   N := 10;
   for I := 0 to 5 do FD.Doc.ProfMs[I] := 0;
@@ -4786,12 +4786,17 @@ begin
     RenderPro;
   end;
   Ms := (GetTickCount64 - T0) / N;
+  { and the overlay on top - the selection outlines above all }
+  T0 := GetTickCount64;
+  for I := 1 to N do pbScreen.Repaint;
+  Ov := (GetTickCount64 - T0) / N;
   FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).  setup %.0f, edges %.0f, faces gathered %.0f, faces painted %.0f, runs %.0f',
     [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, FD.Doc.ProfMs[0] / N, FD.Doc.ProfMs[1] / N,
      FD.Doc.ProfMs[2] / N, FD.Doc.ProfMs[3] / N, FD.Doc.ProfMs[4] / N]);
+  FCmdMsg := FCmdMsg + Format('; overlay %.0f ms with %d selected', [Ov, Length(FSel)]);
   WriteLn('rendertime ', Ms:0:1, ' ms/frame, ', FD.Doc.Live, ' things; setup ', FD.Doc.ProfMs[0] / N:0:1,
     ' edges ', FD.Doc.ProfMs[1] / N:0:1, ' gather ', FD.Doc.ProfMs[2] / N:0:1, ' paint ', FD.Doc.ProfMs[3] / N:0:1,
-    ' runs ', FD.Doc.ProfMs[4] / N:0:1);
+    ' runs ', FD.Doc.ProfMs[4] / N:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected');
   Flush(Output);
   Trail(FCmdMsg);
   pbCmd.Invalidate;
@@ -8434,6 +8439,14 @@ begin
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard
   else if W = 'rendertime' then RenderTiming
+  else if (W = 'all') or (W = 'selectall') then
+  begin
+    SelectNone;
+    for I := 0 to FD.Doc.Live - 1 do
+      if FD.Doc[I].Kind in [ekLine, ekArc, ekFace, ekDim, ekText] then SelectAdd(I);
+    FCmdMsg := Format('%d things selected.', [Length(FSel)]);
+    pbScreen.Invalidate;
+  end
   else if (W = 'update') or (W = 'upgrade') then
   begin
     if Rest = 'never' then
@@ -9857,24 +9870,98 @@ end;
 { Triple click: everything joined on, however far it runs.  Grows the set a
   corner at a time until nothing new turns up. }
 procedure TMainForm.SelectConnected(I: Integer);
+{ A flood from I over shared corners.  It used to grow the set a pass at a
+  time, testing every unselected thing against every corner of everything
+  selected so far - the cube of the drawing's size on a part of a thousand
+  edges, and the program went away for a minute.  Now every corner is put
+  in a hash once, with the things that have it, and the flood walks that.
+  A solid's own members come along in one step, since a built part is by
+  definition all joined. }
 var
-  J, N, Before: Integer;
+  Have: array of Boolean;
+  Queue: array of Integer;
+  QHead, QTail, J, K, N, E: Integer;
   Pts: TP3Array;
+  Map: TFPHashList;
+  Key: shortstring;
+  Lists: array of TIntArrayW;
+  ListIx: Integer;
+
+  function KeyOf(const P: TP3): shortstring;
+  var
+    Q: array[0..2] of Int64;
+  begin
+    Q[0] := Round(P.X * 1E7); Q[1] := Round(P.Y * 1E7); Q[2] := Round(P.Z * 1E7);
+    SetLength(Result, 24);
+    Move(Q[0], Result[1], 24);
+  end;
+
+  procedure Take(E: Integer);
+  begin
+    if (E < 0) or Have[E] then Exit;
+    Have[E] := True;
+    if QTail >= Length(Queue) then SetLength(Queue, Max(64, QTail * 2));
+    Queue[QTail] := E;
+    Inc(QTail);
+  end;
+
 begin
   SelectOnly(I);
   if I < 0 then Exit;
-  repeat
-    Before := Length(FSel);
-    FD.Doc.VertsOf(FSel, Pts);
-    for J := 0 to FD.Doc.Live - 1 do
-      if not IsSelected(J) then
-        for N := 0 to High(Pts) do
-          if EntHasPoint(J, Pts[N]) then
-          begin
-            SelectAdd(J);
-            Break;
-          end;
-  until Length(FSel) = Before;
+  N := FD.Doc.Live;
+  SetLength(Have, N);
+  SetLength(Queue, 64);
+  QHead := 0; QTail := 0;
+  { every corner, once, with the list of things that have it }
+  Map := TFPHashList.Create;
+  try
+    for J := 0 to N - 1 do
+    begin
+      FD.Doc.VertsOf([J], Pts);
+      for K := 0 to High(Pts) do
+      begin
+        Key := KeyOf(Pts[K]);
+        ListIx := Map.FindIndexOf(Key);
+        if ListIx < 0 then
+        begin
+          SetLength(Lists, Length(Lists) + 1);
+          ListIx := High(Lists);
+          Map.Add(Key, Pointer(PtrInt(ListIx)));
+        end
+        else
+          ListIx := PtrInt(Map.Items[ListIx]);
+        if (Length(Lists[ListIx]) = 0) or (Lists[ListIx][High(Lists[ListIx])] <> J) then
+        begin
+          SetLength(Lists[ListIx], Length(Lists[ListIx]) + 1);
+          Lists[ListIx][High(Lists[ListIx])] := J;
+        end;
+      end;
+    end;
+    Take(I);
+    while QHead < QTail do
+    begin
+      E := Queue[QHead];
+      Inc(QHead);
+      { the rest of its solid, in one go }
+      if FD.Doc[E].Grp > 0 then
+        for J := 0 to N - 1 do
+          if (not Have[J]) and (FD.Doc[J].Grp = FD.Doc[E].Grp) then Take(J);
+      { and whatever shares a corner with it }
+      FD.Doc.VertsOf([E], Pts);
+      for K := 0 to High(Pts) do
+      begin
+        ListIx := Map.FindIndexOf(KeyOf(Pts[K]));
+        if ListIx < 0 then Continue;
+        ListIx := PtrInt(Map.Items[ListIx]);
+        for J := 0 to High(Lists[ListIx]) do Take(Lists[ListIx][J]);
+      end;
+    end;
+  finally
+    Map.Free;
+  end;
+  SetLength(FSel, QTail);
+  for J := 0 to QTail - 1 do FSel[J] := Queue[J];
+  FScreenDirty := True;
 end;
 
 { SketchUp's modifiers: Ctrl adds, Shift toggles, both together takes away,

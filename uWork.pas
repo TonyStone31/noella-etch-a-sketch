@@ -403,6 +403,15 @@ type
     { where a frame's time went, ms, added up until cleared: setup, edges
       drawn whole, faces gathered, faces painted, visible runs, the rest }
     ProfMs: array[0..5] of Double;
+    { The surface and the projector of the last render.  Its depth buffer
+      answers "is this point hidden" in one lookup for anything asked with
+      the same projector - the selection outline, the hover, the snap - where
+      walking every face was the cube of the drawing on a big part. }
+    LastSurf: TArtSurface;
+    LastV: TProjector;
+    { the one-lookup form of HiddenAt; only valid straight after a render
+      with the same projector }
+    function DepthHidden(const P: TP3): Boolean;
   public
     property Live: Integer read FLive;
     { the bore the last PushPull made, or -1 - so the caller can cut it
@@ -4845,6 +4854,32 @@ end;
   The renderer has known this all along and has its own version, working off
   the depth sort it has already done.  This is the same test standing on its
   own, for the times something needs asking outside a repaint. }
+function TWorkDoc.DepthHidden(const P: TP3): Boolean;
+var
+  SP: TPointF;
+  D, Zb, Zx, Zy, Grad: Double;
+  Look: TP3;
+begin
+  Result := False;
+  if (LastSurf = nil) or not LastSurf.DepthOn then Exit;
+  SP := Project(LastV, P);
+  Zb := LastSurf.DepthAt(Round(SP.X), Round(SP.Y));
+  if Zb < -1E29 then Exit;
+  Look := ViewDir(LastV);
+  D := Dot3(P, Look);
+  { the same reading as the renderer's own Covered: half the local slope of
+    depth either way, capped, plus a little for the precision of the buffer }
+  Zx := LastSurf.DepthAt(Round(SP.X) + 1, Round(SP.Y));
+  if Zx < -1E29 then Zx := LastSurf.DepthAt(Round(SP.X) - 1, Round(SP.Y));
+  Zy := LastSurf.DepthAt(Round(SP.X), Round(SP.Y) + 1);
+  if Zy < -1E29 then Zy := LastSurf.DepthAt(Round(SP.X), Round(SP.Y) - 1);
+  Grad := 0;
+  if Zx > -1E29 then Grad := Grad + 0.5 * Abs(Zx - Zb) else Grad := Grad + 0.5 / Max(1E-9, LastV.Ppu);
+  if Zy > -1E29 then Grad := Grad + 0.5 * Abs(Zy - Zb) else Grad := Grad + 0.5 / Max(1E-9, LastV.Ppu);
+  Grad := Min(Grad, 6 / Max(1E-9, LastV.Ppu));
+  Result := Zb > D + Grad + 2E-4 * (1 + Abs(D)) + 0.02 / Max(1E-9, LastV.Ppu);
+end;
+
 function TWorkDoc.HiddenAt(const V: TProjector; const P: TP3): Boolean;
 var
   I, A, B, N, H, M: Integer;
@@ -4855,6 +4890,16 @@ var
   Poly, HP: array of TPointF;
 begin
   Result := False;
+  { the depth buffer of the last render answers this in one lookup when the
+    question is asked the way the render was made; anything else - another
+    projector, no render yet - walks the faces as before }
+  { field by field: the record has padding after its first byte that no
+    two copies need agree on, so a byte compare said "different" every time
+    and the fast path was never taken }
+  if (LastSurf <> nil) and LastSurf.DepthOn and (V.Kind = LastV.Kind) and
+     (V.Ppu = LastV.Ppu) and (V.OX = LastV.OX) and (V.OY = LastV.OY) and
+     (V.Az = LastV.Az) and (V.El = LastV.El) then
+    Exit(DepthHidden(P));
   SP := Project(V, P);
   Look := ViewDir(V);
   for I := 0 to FLive - 1 do
@@ -6457,6 +6502,8 @@ begin
     EdgeIx.Free;
   end;
   Mark(4);
+  LastSurf := S;
+  LastV := V;
 end;
 
 end.

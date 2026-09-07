@@ -112,16 +112,16 @@ into the drawing; hammer the general tools before the generators.
 * **Print more than one sheet** at a time.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
-* **Orbit performance with fittings.**  /rendertime prints where a frame
-  goes.  On a 528-face spool at 1920x1000, release build, 2026-09-07: 29 ms
-  at the start of the day, 8 ms after four single-thread fixes - packed
-  edge-index keys, face planes cached for the line-on-face pass, a merge
-  sort of faces instead of insertion, a hash list for the edge index.  The
-  checked build is 3-4x slower on the same work by nature.  Left: the face
-  fill scans four sub-samples a row (anti-aliasing; keep unless it shows);
-  the move ghost traces every selected entity per tick while placing a big
-  part.  Threads only after these: the face paint splits by screen band,
-  the visible-runs pass by line.
+* **Performance with fittings.**  /rendertime prints where a frame goes and
+  how long the overlay takes with the current selection.  On a 528-face
+  spool at 1920x1000, release build, 2026-09-07: a frame went from 29 ms
+  to 8 through the day (packed edge keys, cached face planes, a merge sort
+  of faces, a hashed edge index); the overlay with everything selected from
+  950 ms to 41 (HiddenAt from the depth buffer - and a projector compared
+  byte for byte never matched because of record padding); connected select
+  from a minute to a blink (a hash flood).  Left: MoveVerts is points times
+  entities on a move commit (a quarter second on a spool); the face fill
+  scans four sub-samples a row.  Threads only after these.
 * **Remote-display performance.**  Motion is serviced once a tick so the
   pointer tracks over VNC.  What is left is the whole-bitmap reload.
 

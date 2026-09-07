@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Selecting and moving a big fitting no longer freezes the program.**' + LineEnding +
+    '  Two things were wrong.  Taking everything joined to a click grew the' + LineEnding +
+    '  selection a pass at a time, testing everything against everything, which' + LineEnding +
+    '  on a spool of sixteen hundred pieces took the program away for a minute.' + LineEnding +
+    '  And painting the selection asked "is this point hidden" by walking every' + LineEnding +
+    '  face, a hundred times per selected piece per frame.  The first is a' + LineEnding +
+    '  proper flood now; the second reads the depth the renderer already worked' + LineEnding +
+    '  out.  A whole spool selects in a blink and its highlight paints in a' + LineEnding +
+    '  fortieth of a second.' + LineEnding +
+    '- `/all` selects everything on the sheet.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.4' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

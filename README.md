@@ -305,7 +305,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | --- | --- |
 | `/line` `/l`, `/rect` `/r`, `/arc` `/a`, `/circle` `/c` | the drawing tools |
 | `/push` `/pull` `/p`, `/drill` `/bore` `/punch`, `/followme` `/follow` `/revolve` `/lathe`, `/offset` `/f` | the solid tools |
-| `/select` `/s`, `/move` `/mv`, `/rotate` `/q` `/turn`, `/erase` `/e` `/del` | select, move, turn, erase |
+| `/select` `/s`, `/all`, `/move` `/mv`, `/rotate` `/q` `/turn`, `/erase` `/e` `/del` | select, select everything, move, turn, erase |
 | `/measure` `/m` `/tape`, `/protractor` `/angle`, `/dimension` `/dim` | measuring |
 | `/text` `/note` `/n` | a note |
 | `/orbit` `/spin` | the orbit tool |

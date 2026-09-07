@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Selecting and moving a big fitting no longer freezes the program.**
+  Two things were wrong.  Taking everything joined to a click grew the
+  selection a pass at a time, testing everything against everything, which
+  on a spool of sixteen hundred pieces took the program away for a minute.
+  And painting the selection asked "is this point hidden" by walking every
+  face, a hundred times per selected piece per frame.  The first is a
+  proper flood now; the second reads the depth the renderer already worked
+  out.  A whole spool selects in a blink and its highlight paints in a
+  fortieth of a second.
+- `/all` selects everything on the sheet.
+
 ## v2026.09.07.4
 
 ### Fixed
