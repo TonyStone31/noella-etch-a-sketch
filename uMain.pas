@@ -4789,24 +4789,27 @@ var
 begin
   N := 10;
   for I := 0 to 5 do FD.Doc.ProfMs[I] := 0;
+  { a whole frame as an orbit makes one: paper, the drawing, the composite }
   T0 := GetTickCount64;
   for I := 1 to N do
   begin
     FScreenDirty := True;
+    RepaintPaper;
     RenderPro;
+    RecomposeAll;
   end;
   Ms := (GetTickCount64 - T0) / N;
   { and the overlay on top - the selection outlines above all }
   T0 := GetTickCount64;
   for I := 1 to N do pbScreen.Repaint;
   Ov := (GetTickCount64 - T0) / N;
-  FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).  setup %.0f, edges %.0f, faces gathered %.0f, faces painted %.0f, runs %.0f',
-    [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, FD.Doc.ProfMs[0] / N, FD.Doc.ProfMs[1] / N,
-     FD.Doc.ProfMs[2] / N, FD.Doc.ProfMs[3] / N, FD.Doc.ProfMs[4] / N]);
+  FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).  index and edges %.0f, faces sorted and painted %.0f, lines on faces %.0f, the rest %.0f',
+    [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, FD.Doc.ProfMs[0] / N,
+     (FD.Doc.ProfMs[1] + FD.Doc.ProfMs[2]) / N, FD.Doc.ProfMs[3] / N, FD.Doc.ProfMs[4] / N]);
   FCmdMsg := FCmdMsg + Format('; overlay %.0f ms with %d selected', [Ov, Length(FSel)]);
-  WriteLn('rendertime ', Ms:0:1, ' ms/frame, ', FD.Doc.Live, ' things; setup ', FD.Doc.ProfMs[0] / N:0:1,
-    ' edges ', FD.Doc.ProfMs[1] / N:0:1, ' gather ', FD.Doc.ProfMs[2] / N:0:1, ' paint ', FD.Doc.ProfMs[3] / N:0:1,
-    ' runs ', FD.Doc.ProfMs[4] / N:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected');
+  WriteLn('rendertime ', Ms:0:1, ' ms/frame (paper+render+composite), ', FD.Doc.Live, ' things; index+edges ',
+    FD.Doc.ProfMs[0] / N:0:1, ' faces ', (FD.Doc.ProfMs[1] + FD.Doc.ProfMs[2]) / N:0:1, ' lines-on-faces ',
+    FD.Doc.ProfMs[3] / N:0:1, ' rest ', FD.Doc.ProfMs[4] / N:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds);
   Flush(Output);
   Trail(FCmdMsg);
   pbCmd.Invalidate;

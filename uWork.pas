@@ -410,6 +410,14 @@ type
       walking every face was the cube of the drawing on a big part. }
     LastSurf: TArtSurface;
     LastV: TProjector;
+    { Which faces each line, arc, dimension or note lies in the plane of,
+      over the face's own extent.  The render asks this for every such
+      thing against every face, every frame; it depends on the geometry
+      alone, so it is worked out once when the drawing changes. }
+    FOnFace: array of TIntArrayW;
+    FOnFaceOK: Boolean;
+    OnFaceBuilds: Integer;
+    procedure EnsureOnFace;
     { the one-lookup form of HiddenAt; only valid straight after a render
       with the same projector }
     function DepthHidden(const P: TP3): Boolean;
@@ -1897,7 +1905,7 @@ begin
   FEnts[FLive].Weight := Weight;
   FEnts[FLive].Dim := Dim;
   Inc(FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
@@ -1923,7 +1931,7 @@ begin
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := Weight;
   Inc(FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.AddText(const A: TP3; const S: string; Ink: TColor);
@@ -1943,7 +1951,7 @@ begin
   FEnts[FLive].Ink := Ink;
   FEnts[FLive].Weight := 1;
   Inc(FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.AddBore(const Loop: TP3Array; const FarOfFirst: TP3; G: Integer);
@@ -1978,7 +1986,7 @@ begin
   FEnts[FLive].B := B;
   FEnts[FLive].Weight := 1;
   Inc(FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 function TWorkDoc.GuideCount: Integer;
@@ -2024,7 +2032,7 @@ begin
   FEnts[FLive].Dim := True;
   FEnts[FLive].Txt := Note;
   Inc(FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.Delete(I: Integer);
@@ -2036,14 +2044,14 @@ begin
     FEnts[K] := FEnts[K + 1];
   Dec(FLive);
   SetLength(FEnts, FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.Clear;
 begin
   SetLength(FEnts, 0);
   FLive := 0;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 
@@ -2082,7 +2090,7 @@ begin
   for I := 0 to High(A) do
     FEnts[I] := CopyEnt(A[I]);
   FLive := Length(A);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 function TWorkDoc.FirstOfChain: Integer;
@@ -2193,7 +2201,7 @@ begin
   FEnts[FLive].Weight := 1;
   FEnts[FLive].Solid := Solid;
   Inc(FLive);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
@@ -2247,7 +2255,7 @@ begin
     for I := 0 to N - 1 do T[I] := FEnts[Index].Holes[H][N - 1 - I];
     FEnts[Index].Holes[H] := T;
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.SetSoft(Index: Integer; Soft: Boolean);
@@ -2542,7 +2550,7 @@ begin
       if I >= 0 then SetGroup(I, G);
     end;
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
   Result := First;
 end;
 
@@ -2780,7 +2788,7 @@ begin
     Delete(Face);
     if Face < First then Dec(First);
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
   Result := First;
 end;
 
@@ -2789,7 +2797,7 @@ begin
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekArc) then Exit;
   if (N < 3) or (N > 360) then N := 0;
   FEnts[Index].Sides := N;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 function TWorkDoc.NewGroup: Integer;
@@ -2824,7 +2832,7 @@ begin
     for K := 0 to High(H[I]) do
       FEnts[Index].Holes[I][K] := H[I][K];
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 { Newell's method, which copes with slightly non-planar loops. }
@@ -3193,7 +3201,7 @@ begin
   end
   else
     AddFace(H2, Ink, False);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
   Result := True;
 end;
 
@@ -3397,7 +3405,7 @@ begin
     for K := 0 to High(FEnts[I].Poly) do
       Shift(FEnts[I].Poly[K]);
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.VertsOf(const Idx: array of Integer; out Pts: TP3Array);
@@ -3458,7 +3466,7 @@ begin
   finally
     Moving.Free;
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 { Rotation is the one change that has to know what an arc is.  A line is its
@@ -3535,7 +3543,7 @@ begin
   if (Length(Pts) = 0) or (Abs(Ang) < 1E-12) then Exit;
   for I := 0 to FLive - 1 do
     RotateEnt(I, Pts, C, Axis, Ang, False);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.ArrayMove(const Src: array of Integer; const D: TP3; N: Integer;
@@ -3604,7 +3612,7 @@ begin
     for H := 0 to High(FEnts[I].Holes) do
       for K := 0 to High(FEnts[I].Holes[H]) do FEnts[I].Holes[H][K] := Sh(FEnts[I].Holes[H][K]);
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.RotateEnts(const Idx: array of Integer; const C, Axis: TP3; Ang: Double);
@@ -3614,7 +3622,7 @@ begin
   for J := 0 to High(Idx) do
     if (Idx[J] >= 0) and (Idx[J] < FLive) then
       RotateEnt(Idx[J], nil, C, Axis, Ang, True);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 function TWorkDoc.OutlineWorld(I: Integer): TP3Array;
@@ -3699,7 +3707,7 @@ begin
     FEnts[FLive].Grp := G;
     Inc(FLive);
   end;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.ScreenBounds(const V: TProjector; I: Integer;
@@ -3986,7 +3994,7 @@ begin
   { and the pushed face is the hole now }
   Delete(Index);
   Dec(FLastBore);
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
   Result := True;
 end;
 
@@ -4193,7 +4201,7 @@ begin
     end;
   end;
 
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
   Result := True;
 end;
 
@@ -4668,7 +4676,7 @@ end;
 constructor TWorkDoc.Create;
 begin
   inherited Create;
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 procedure TWorkDoc.SnapPoints(out Pts: TP3Array);
@@ -4971,6 +4979,87 @@ end;
   The renderer has known this all along and has its own version, working off
   the depth sort it has already done.  This is the same test standing on its
   own, for the times something needs asking outside a repaint. }
+procedure TWorkDoc.EnsureOnFace;
+const
+  SLACK = 1E-3;
+var
+  F, I, K: Integer;
+  N, P0, Lo, Hi, A, B: TP3;
+  D: Double;
+  ELo, EHi: array of TP3;
+  Take: Boolean;
+
+  procedure Grow(var L, H: TP3; const P: TP3);
+  begin
+    if P.X < L.X then L.X := P.X; if P.Y < L.Y then L.Y := P.Y; if P.Z < L.Z then L.Z := P.Z;
+    if P.X > H.X then H.X := P.X; if P.Y > H.Y then H.Y := P.Y; if P.Z > H.Z then H.Z := P.Z;
+  end;
+
+  function OnPlane(const P: TP3): Boolean;
+  begin
+    Result := Abs(Dot3(N, P) - D) < 1E-6;
+  end;
+
+begin
+  if FOnFaceOK and (Length(FOnFace) = FLive) then Exit;
+  Inc(OnFaceBuilds);
+  SetLength(FOnFace, FLive);
+  SetLength(ELo, FLive);
+  SetLength(EHi, FLive);
+  for I := 0 to FLive - 1 do
+  begin
+    SetLength(FOnFace[I], 0);
+    { the extent of each thing that could lie on a face }
+    case FEnts[I].Kind of
+      ekLine, ekDim, ekText:
+        begin
+          ELo[I] := FEnts[I].A; EHi[I] := FEnts[I].A;
+          Grow(ELo[I], EHi[I], FEnts[I].B);
+        end;
+      ekArc:
+        begin
+          ELo[I] := P3(FEnts[I].C.X - FEnts[I].R, FEnts[I].C.Y - FEnts[I].R, FEnts[I].C.Z - FEnts[I].R);
+          EHi[I] := P3(FEnts[I].C.X + FEnts[I].R, FEnts[I].C.Y + FEnts[I].R, FEnts[I].C.Z + FEnts[I].R);
+        end;
+    end;
+  end;
+  for F := 0 to FLive - 1 do
+  begin
+    if (FEnts[F].Kind <> ekFace) or (Length(FEnts[F].Poly) < 3) then Continue;
+    N := FaceNormal(F);
+    P0 := FEnts[F].Poly[0];
+    D := Dot3(N, P0);
+    Lo := P0; Hi := P0;
+    for K := 1 to High(FEnts[F].Poly) do Grow(Lo, Hi, FEnts[F].Poly[K]);
+    Lo := P3(Lo.X - SLACK, Lo.Y - SLACK, Lo.Z - SLACK);
+    Hi := P3(Hi.X + SLACK, Hi.Y + SLACK, Hi.Z + SLACK);
+    for I := 0 to FLive - 1 do
+    begin
+      if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekText]) then Continue;
+      { only what reaches over the face at all }
+      if (EHi[I].X < Lo.X) or (ELo[I].X > Hi.X) or (EHi[I].Y < Lo.Y) or (ELo[I].Y > Hi.Y) or
+         (EHi[I].Z < Lo.Z) or (ELo[I].Z > Hi.Z) then Continue;
+      if FEnts[I].Kind = ekArc then
+      begin
+        A := FEnts[I].C;
+        B := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm);
+      end
+      else
+      begin
+        A := FEnts[I].A;
+        B := FEnts[I].B;
+      end;
+      Take := OnPlane(A) and OnPlane(B);
+      if Take then
+      begin
+        SetLength(FOnFace[I], Length(FOnFace[I]) + 1);
+        FOnFace[I][High(FOnFace[I])] := F;
+      end;
+    end;
+  end;
+  FOnFaceOK := True;
+end;
+
 function TWorkDoc.DepthHidden(const P: TP3): Boolean;
 var
   SP: TPointF;
@@ -5079,7 +5168,7 @@ begin
   FEnts[Index].A := P3(From.X + (ToPt.X - Grab.X),
                        From.Y + (ToPt.Y - Grab.Y),
                        From.Z + (ToPt.Z - Grab.Z));
-  FSnapDirty := True;
+  FSnapDirty := True; FOnFaceOK := False;
 end;
 
 function TWorkDoc.HitNote(SX, SY: Double): Integer;
@@ -5919,6 +6008,8 @@ end;
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
+  SlotOf: array of Integer;
+  JJ: Integer;
   PlaneN: array of TP3;
   PlaneD: array of Double;
   PT: QWord;
@@ -5936,7 +6027,6 @@ var
   EdgeIx: TFPHashList;
   EK: string;
   HK, HJ: Integer;
-  Shape: array of TPointFArray;   { each drawn face, as it lands on screen }
   GuideCol: TPix;
   M, Run0: Integer;
   T0, T1: Double;
@@ -6368,17 +6458,20 @@ begin
     other and put the bigger ones first within each run. }
   SortFaces(Order, Depth, Area, NFace);
 
-  SetLength(Shape, NFace);
   { every face's plane, once.  The pass that puts lines back on visible
     faces asks every line against every face, and working the normal out
     afresh each time was most of a frame on a drawing full of pipe. }
   SetLength(PlaneN, NFace);
   SetLength(PlaneD, NFace);
+  SetLength(SlotOf, FLive);
+  for I := 0 to FLive - 1 do SlotOf[I] := -1;
   for I := 0 to NFace - 1 do
   begin
     PlaneN[I] := FaceNormal(Order[I]);
     PlaneD[I] := Dot3(PlaneN[I], FEnts[Order[I]].Poly[0]);
+    SlotOf[Order[I]] := I;
   end;
+  EnsureOnFace;
   S.DepthBegin;
   for I := 0 to NFace - 1 do
   begin
@@ -6386,7 +6479,6 @@ begin
     SetLength(Flat, Length(FEnts[K].Poly));
     for J := 0 to High(FEnts[K].Poly) do
       Flat[J] := Project(V, FEnts[K].Poly[J]);
-    Shape[I] := Copy(Flat, 0, Length(Flat));
     Nm := FaceNormal(K);
     Col := ColorToPix(FEnts[K].Ink);
     { A face is a surface with a material on it, not a stroke of ink.  It
@@ -6475,9 +6567,12 @@ begin
     { a softened crease that is not an outline stays hidden whatever face
       it lies on - said once here, not once per face }
     if (FEnts[I].Kind = ekLine) and Hidden(I) then Continue;
-    for J := 0 to NFace - 1 do
+    { only the faces this thing lies on, from the cache - not every face }
+    for JJ := 0 to High(FOnFace[I]) do
     begin
-      K := Order[J];
+      K := FOnFace[I][JJ];
+      J := SlotOf[K];
+      if J < 0 then Continue;
       Nm := PlaneN[J];
       Sh := PlaneD[J];
       if FEnts[I].Kind = ekArc then

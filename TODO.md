@@ -127,16 +127,26 @@ into the drawing; hammer the general tools before the generators.
 * **Print more than one sheet** at a time.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
-* **Performance with fittings.**  /rendertime prints where a frame goes and
-  the overlay's cost with the current selection; /timings prints the steps
-  of each edit.  On a 528-face spool at 1920x1000, release build,
-  2026-09-07: a frame from 29 ms to 8; the overlay with everything
-  selected from 950 ms to 41; connected select from a minute to a blink; a
-  move of the whole spool from 330 ms to 60, of which the region engine
-  itself is 34 (BuildRegionsCached over 1080 segments on 500 planes - the
-  next thing to look at, in uRegion: PlanesOf and SegsInPlane are planes
-  times segments).  The face fill's four sub-samples a row stay.  Every fix
-  so far is local data built per call, which is what threads will want.
+* **Performance with fittings.**  /rendertime times a whole frame (paper,
+  drawing, composite) and the overlay with the current selection; /timings
+  prints the steps of each edit.  Through 2026-09-07, release build at
+  1920x1000: a 528-face spool from 29 ms a render to about 8; ten spools
+  (5280 faces, 10800 lines) at 41 ms a whole frame, of which the face fill
+  is 20 and the lines-on-faces pass 10 (was 18 before FOnFace cached the
+  edge-to-face relation).  An outside review (Codex, 2026-09-07) agreed
+  with the direction and listed, in its order: a dead per-frame face copy
+  (removed), the lines-times-faces search (cached), the whole-frame timer
+  (done), and four still open, which are the list before threads:
+  (a) a cheaper frame while the camera is moving - skip the lines-on-faces
+  pass and the anti-aliasing during a drag, full redraw on release;
+  (b) FillLoops allocates two scratch arrays per face and scans four
+  sub-samples a row - keep scratch on the surface, consider two samples
+  while dragging; (c) face normal, area and centroid are model properties
+  recomputed per frame - cache on the entity, drop with FSnapDirty;
+  (d) the hover does FaceUnder, the snap, then HitFace again on some tools,
+  and the select hover runs three hit tests - one walk should do.  Then
+  the region engine (PlanesOf / SegsInPlane are planes times segments).
+  Threads after that; see the note at the top of Next up.
 * **Remote-display performance.**  Motion is serviced once a tick so the
   pointer tracks over VNC.  What is left is the whole-bitmap reload.
 

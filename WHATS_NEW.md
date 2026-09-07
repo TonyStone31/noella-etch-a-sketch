@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Big drawings orbit faster again.**  Which faces each edge lies on is
+  now worked out once when the drawing changes rather than for every frame,
+  and a copy of every face the renderer made each frame and never used is
+  gone.  On ten spools - five thousand faces - the edge pass halved.
+
 ## v2026.09.07.9
 
 ### Fixed

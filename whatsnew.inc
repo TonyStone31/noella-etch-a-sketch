@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Big drawings orbit faster again.**  Which faces each edge lies on is' + LineEnding +
+    '  now worked out once when the drawing changes rather than for every frame,' + LineEnding +
+    '  and a copy of every face the renderer made each frame and never used is' + LineEnding +
+    '  gone.  On ten spools - five thousand faces - the edge pass halved.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.9' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
