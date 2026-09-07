@@ -8496,6 +8496,17 @@ begin
     pbDeck.Invalidate;
   end
   else if W = 'regions' then ReportRegions
+  else if W = 'forget' then
+  begin
+    { for testing: forget every area ever seen, then work the faces out
+      again - what a move or a turn of a built part used to amount to }
+    PushUndo;
+    SetLength(FD.Seen, 0);
+    I := RebuildFlatFaces;
+    RenderPro;
+    RecomposeAll;
+    FCmdMsg := Format('Forgot what was seen and worked the faces out again: %d.', [I]);
+  end
   else if W = 'rebuild' then
   begin
     PushUndo;
@@ -10606,6 +10617,36 @@ var
     Result := Dist(P, Q) < 1E-6;
   end;
 
+  { every edge round the region belongs to a solid: the run of lines that
+    covers each side of the outline all carry a group, and one group }
+  function OpeningOfSolid(const Rg: TRegion): Boolean;
+  var
+    E, L, Grp: Integer;
+    P, Q: TP3;
+    Found: Boolean;
+  begin
+    Result := False;
+    Grp := 0;
+    for E := 0 to High(Rg.Outer) do
+    begin
+      P := Rg.Outer[E];
+      Q := Rg.Outer[(E + 1) mod Length(Rg.Outer)];
+      Found := False;
+      for L := 0 to FD.Doc.Live - 1 do
+        if (FD.Doc[L].Kind = ekLine) and OnSegment(P, FD.Doc[L].A, FD.Doc[L].B) and
+           OnSegment(Q, FD.Doc[L].A, FD.Doc[L].B) then
+        begin
+          if FD.Doc[L].Grp <= 0 then Exit(False);
+          if (Grp > 0) and (FD.Doc[L].Grp <> Grp) then Exit(False);
+          Grp := FD.Doc[L].Grp;
+          Found := True;
+          Break;
+        end;
+      if not Found then Exit(False);
+    end;
+    Result := Grp > 0;
+  end;
+
   { whether the face that was here lies in the plane of the region being
     looked at - same normal, and the region's middle on its plane }
   function OnPlaneOf(W: Integer): Boolean;
@@ -10827,6 +10868,13 @@ begin
       end;
     if not HadFace then
     begin
+      { An opening of a built solid - a duct end, a pipe end, a hole rubbed
+        out of a box - is edged entirely by that solid's own edges.  It is
+        never a place for a face, however it got here: moved, turned, copied,
+        or read back from a file, none of which leave a note that it was
+        seen before.  Something drawn across it is a loose edge, and then it
+        is a new area like any other. }
+      if OpeningOfSolid(R[I]) then Continue;
       Sig := RegionSig(R[I]);
       Known := False;
       for J := 0 to High(FD.Seen) do

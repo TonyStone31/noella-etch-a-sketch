@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Built fittings stay hollow whatever you do to them.**  Moving, turning' + LineEnding +
+    '  or copying a fitting after placing it capped its open ends - the program' + LineEnding +
+    '  worked the flat areas out again and took the ends for newly closed' + LineEnding +
+    '  areas.  An opening edged entirely by a solid''s own edges is now never' + LineEnding +
+    '  given a face: a duct end, a pipe end, a hole rubbed out of a box.  Ends' + LineEnding +
+    '  already capped in a drawing are ordinary faces; the eraser takes them.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

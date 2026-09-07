@@ -329,7 +329,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | `/whatsnew` `/changes` | the release notes |
 | `/version` | which build this is |
 | `/help` `/?` | about |
-| `/regions`, `/rebuild`, `/rendertime` | for debugging: report the flat areas, work them out again, time a frame |
+| `/regions`, `/rebuild`, `/forget`, `/rendertime` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame |
 
 While a tool is in hand the command bar also takes the tool's own input: a
 length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.

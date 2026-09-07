@@ -261,3 +261,14 @@ a tee's holed wall outward, flanges towards the open end and a TDF's fold
 back out of the duct.  A flange lies in the plane of the end - the wall's
 outward direction with its along-the-run part removed - so on a slanted
 side the cleat still goes on straight.
+
+### Openings stay open
+
+The flat areas are worked out again after most edits, and an area nobody
+has seen before gets a face.  A built fitting's open ends are areas too,
+and moving, turning or copying the fitting changes where they are, so they
+used to come back capped.  The rule now: an area whose outline is covered
+entirely by lines belonging to one solid group is an opening and never
+gets a face.  A loose edge drawn across it makes it a new area again, which
+is what drawing on a duct end should do.  `/forget` clears the memory of
+seen areas and rebuilds, to test this.
