@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Under the hood' + LineEnding +
+    '' + LineEnding +
+    '- **The worker''s result is taken as soon as it is done.**  A result' + LineEnding +
+    '  queued back to the main thread was only delivered when the program was' + LineEnding +
+    '  idle, and a program painting frame after frame never was: on a drawing' + LineEnding +
+    '  of fifty thousand things a cache that took a second to build waited' + LineEnding +
+    '  nearly three more before it was used.  The renderer now looks at the' + LineEnding +
+    '  queue itself.  `/rendertime` also says how long the last cache build' + LineEnding +
+    '  took and where it ran, how long its result waited, and what a frame' + LineEnding +
+    '  without the cache spent on lines-on-faces.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.14' + LineEnding +
     '' + LineEnding +
     '### Under the hood' + LineEnding +

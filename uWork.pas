@@ -436,7 +436,15 @@ type
     Threads: Boolean;
     FEditSeq: Integer;
     FOnFaceWorker: TThread;
+    { the last build of the cache: how long, and where it ran }
     OnFaceWorkerMs: Double;
+    OnFaceBuiltOn: string;
+    { how long the finished result waited in the queue before the main
+      thread took it, and how much a frame without the cache spent on the
+      lines-on-faces pass - the two numbers that say whether a worker is
+      worth it }
+    OnFaceLagMs: Double;
+    OnFaceFallbackMs: Double;
     OnFaceDiscarded, OnFaceFailed, OnFaceFallbacks: Integer;
     { The quick frame: while the camera is moving, lines on faces are
       sampled a quarter as often and the cover edge is not bisected.  The
@@ -5132,6 +5140,7 @@ type
     Ents: array of TWorkEnt;
     Lists: TIntArrayWArray;
     Ms: Double;
+    DoneAt: QWord;
     Failed: Boolean;
     procedure Execute; override;
   end;
@@ -5147,6 +5156,7 @@ begin
   except
     Failed := True;
   end;
+  DoneAt := GetTickCount64;
   { back on the main thread, when it next looks at its messages }
   Queue(@Doc.OnFaceArrived);
 end;
@@ -5167,6 +5177,8 @@ begin
     FOnFace := W.Lists;
     FOnFaceOK := True;
     OnFaceWorkerMs := W.Ms;
+    OnFaceBuiltOn := 'a worker';
+    OnFaceLagMs := GetTickCount64 - W.DoneAt;
     Inc(OnFaceBuilds);
   end;
   FOnFaceWorker := nil;
@@ -5182,14 +5194,28 @@ procedure TWorkDoc.EnsureOnFace;
 var
   W: TOnFaceWorker;
   I: Integer;
+  T0: QWord;
 begin
   if OnFaceReady then Exit;
   if not Threads then
   begin
     Inc(OnFaceBuilds);
+    T0 := GetTickCount64;
     ComputeOnFace(FEnts, FLive, FOnFace);
+    OnFaceWorkerMs := GetTickCount64 - T0;
+    OnFaceBuiltOn := 'the main thread';
     FOnFaceOK := True;
     Exit;
+  end;
+  { A queued result is only delivered when the main loop is idle, and a
+    main thread painting frame after frame is never idle: measured on a
+    drawing of fifty thousand things, a result that took 0.9 s to build
+    waited 2.6 s more to be taken.  So look at the queue here, on the main
+    thread, before deciding there is no cache. }
+  if FOnFaceWorker <> nil then
+  begin
+    CheckSynchronize(0);
+    if OnFaceReady then Exit;
   end;
   { one worker at a time; a change while it runs is caught by the sequence
     and the next call starts another }
@@ -6887,6 +6913,7 @@ begin
     end;
   end;
 
+  if not OnFaceOK then OnFaceFallbackMs := GetTickCount64 - PT;
   Mark(3);
   { --- guide points, last of all ---------------------------------------
 

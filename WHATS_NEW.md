@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Under the hood
+
+- **The worker's result is taken as soon as it is done.**  A result
+  queued back to the main thread was only delivered when the program was
+  idle, and a program painting frame after frame never was: on a drawing
+  of fifty thousand things a cache that took a second to build waited
+  nearly three more before it was used.  The renderer now looks at the
+  queue itself.  `/rendertime` also says how long the last cache build
+  took and where it ran, how long its result waited, and what a frame
+  without the cache spent on lines-on-faces.
+
 ## v2026.09.07.14
 
 ### Under the hood

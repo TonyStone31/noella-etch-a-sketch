@@ -4846,7 +4846,7 @@ begin
   WriteLn('rendertime ', Ms:0:1, ' ms/frame (paper+render+composite), ', FD.Doc.Live, ' things; index+edges ',
     Ph[0]:0:1, ' faces ', (Ph[1] + Ph[2]):0:1, ' lines-on-faces ',
     Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds,
-    '; threads ', FD.Doc.Threads, ' worker ', FD.Doc.OnFaceWorkerMs:0:0, ' ms, frames without cache ',
+    '; threads ', FD.Doc.Threads, ' last cache build ', FD.Doc.OnFaceWorkerMs:0:0, ' ms on ', FD.Doc.OnFaceBuiltOn, ', taken ', FD.Doc.OnFaceLagMs:0:0, ' ms after done; a frame without the cache spent ', FD.Doc.OnFaceFallbackMs:0:0, ' ms on lines-on-faces; frames without cache ',
     FD.Doc.OnFaceFallbacks, ', discarded ', FD.Doc.OnFaceDiscarded, ', failed ', FD.Doc.OnFaceFailed);
   Flush(Output);
   Trail(FCmdMsg);
