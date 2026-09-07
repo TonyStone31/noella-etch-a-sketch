@@ -3307,29 +3307,102 @@ begin
   SetLength(Pts, N);
 end;
 
+{ A set of points that answers "is P one of these, to within a hair" in
+  one hash lookup instead of a walk down the list.  The hash is on a coarse
+  grid, and the cells round P's are looked in as well, so a point a hair
+  over a cell edge is still found.  Moving and turning ask this for every
+  corner of every thing in the drawing, times every moving corner; with a
+  thousand of each that walk was most of a second. }
+type
+  TPointSet = class
+  private
+    FMap: TFPHashList;
+    FLists: array of TP3Array;
+    function KeyAt(X, Y, Z: Int64): shortstring;
+  public
+    constructor Create(const Pts: TP3Array);
+    destructor Destroy; override;
+    function Has(const P: TP3; Tol: Double): Boolean;
+  end;
+
+const
+  PSET_CELL = 1E-5;
+
+function TPointSet.KeyAt(X, Y, Z: Int64): shortstring;
+var
+  Q: array[0..2] of Int64;
+begin
+  Q[0] := X; Q[1] := Y; Q[2] := Z;
+  SetLength(Result, 24);
+  Move(Q[0], Result[1], 24);
+end;
+
+constructor TPointSet.Create(const Pts: TP3Array);
+var
+  I, Ix: Integer;
+  K: shortstring;
+begin
+  FMap := TFPHashList.Create;
+  for I := 0 to High(Pts) do
+  begin
+    K := KeyAt(Floor(Pts[I].X / PSET_CELL), Floor(Pts[I].Y / PSET_CELL), Floor(Pts[I].Z / PSET_CELL));
+    { the item is the list's index plus one: TFPHashList takes a nil item
+      for an empty slot and will not find it again }
+    Ix := FMap.FindIndexOf(K);
+    if Ix < 0 then
+    begin
+      SetLength(FLists, Length(FLists) + 1);
+      Ix := High(FLists);
+      FMap.Add(K, Pointer(PtrInt(Ix + 1)));
+    end
+    else
+      Ix := PtrInt(FMap.Items[Ix]) - 1;
+    SetLength(FLists[Ix], Length(FLists[Ix]) + 1);
+    FLists[Ix][High(FLists[Ix])] := Pts[I];
+  end;
+end;
+
+destructor TPointSet.Destroy;
+begin
+  FMap.Free;
+  inherited;
+end;
+
+function TPointSet.Has(const P: TP3; Tol: Double): Boolean;
+var
+  X, Y, Z, DX, DY, DZ: Int64;
+  Ix, J: Integer;
+begin
+  Result := False;
+  X := Floor(P.X / PSET_CELL); Y := Floor(P.Y / PSET_CELL); Z := Floor(P.Z / PSET_CELL);
+  for DX := -1 to 1 do
+    for DY := -1 to 1 do
+      for DZ := -1 to 1 do
+      begin
+        Ix := FMap.FindIndexOf(KeyAt(X + DX, Y + DY, Z + DZ));
+        if Ix < 0 then Continue;
+        Ix := PtrInt(FMap.Items[Ix]) - 1;
+        for J := 0 to High(FLists[Ix]) do
+          if Dist(P, FLists[Ix][J]) < Tol then Exit(True);
+      end;
+end;
+
 procedure TWorkDoc.MoveVerts(const Pts: TP3Array; const D: TP3);
 const
   TOL = 1E-7;
 var
   I, K, H: Integer;
-
-  function OnSet(const P: TP3): Boolean;
-  var
-    J: Integer;
-  begin
-    Result := True;
-    for J := 0 to High(Pts) do
-      if Dist(P, Pts[J]) < TOL then Exit;
-    Result := False;
-  end;
+  Moving: TPointSet;
 
   procedure Shift(var P: TP3);
   begin
-    if OnSet(P) then P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
+    if Moving.Has(P, TOL) then P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
   end;
 
 begin
   if Length(Pts) = 0 then Exit;
+  Moving := TPointSet.Create(Pts);
+  try
   for I := 0 to FLive - 1 do
   begin
     Shift(FEnts[I].A);
@@ -3340,6 +3413,9 @@ begin
     for H := 0 to High(FEnts[I].Holes) do
       for K := 0 to High(FEnts[I].Holes[H]) do
         Shift(FEnts[I].Holes[H][K]);
+  end;
+  finally
+    Moving.Free;
   end;
   FSnapDirty := True;
 end;

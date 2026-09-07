@@ -113,15 +113,15 @@ into the drawing; hammer the general tools before the generators.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
 * **Performance with fittings.**  /rendertime prints where a frame goes and
-  how long the overlay takes with the current selection.  On a 528-face
-  spool at 1920x1000, release build, 2026-09-07: a frame went from 29 ms
-  to 8 through the day (packed edge keys, cached face planes, a merge sort
-  of faces, a hashed edge index); the overlay with everything selected from
-  950 ms to 41 (HiddenAt from the depth buffer - and a projector compared
-  byte for byte never matched because of record padding); connected select
-  from a minute to a blink (a hash flood).  Left: MoveVerts is points times
-  entities on a move commit (a quarter second on a spool); the face fill
-  scans four sub-samples a row.  Threads only after these.
+  the overlay's cost with the current selection; /timings prints the steps
+  of each edit.  On a 528-face spool at 1920x1000, release build,
+  2026-09-07: a frame from 29 ms to 8; the overlay with everything
+  selected from 950 ms to 41; connected select from a minute to a blink; a
+  move of the whole spool from 330 ms to 60, of which the region engine
+  itself is 34 (BuildRegionsCached over 1080 segments on 500 planes - the
+  next thing to look at, in uRegion: PlanesOf and SegsInPlane are planes
+  times segments).  The face fill's four sub-samples a row stay.  Every fix
+  so far is local data built per call, which is what threads will want.
 * **Remote-display performance.**  Motion is serviced once a tick so the
   pointer tracks over VNC.  What is left is the whole-bitmap reload.
 

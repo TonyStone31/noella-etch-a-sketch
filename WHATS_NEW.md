@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Moving a big fitting is quick again.**  The move itself asked every
+  corner in the drawing whether it was one of the moving ones, one at a
+  time, and working the faces out afterwards compared every area against
+  every face twice over.  Both now look things up instead of walking for
+  them.  Moving a whole spool went from a third of a second to a sixteenth.
+
 ## v2026.09.07.5
 
 ### Fixed

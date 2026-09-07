@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Moving a big fitting is quick again.**  The move itself asked every' + LineEnding +
+    '  corner in the drawing whether it was one of the moving ones, one at a' + LineEnding +
+    '  time, and working the faces out afterwards compared every area against' + LineEnding +
+    '  every face twice over.  Both now look things up instead of walking for' + LineEnding +
+    '  them.  Moving a whole spool went from a third of a second to a sixteenth.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.5' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

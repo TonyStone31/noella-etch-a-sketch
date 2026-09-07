@@ -462,6 +462,7 @@ type
     FAxisA: TP3;
     { what a dialog reported from inside itself, for the report body }
     FReportExtra: string;
+    FTimings: Boolean;
     { the dimension the move tool has hold of by its line: only where the
       line sits changes, never what it measures }
     FDimMove: Integer;
@@ -586,6 +587,7 @@ type
     procedure DoSweep(const Path: TP3Array; Closed: Boolean);
     { /rendertime: how long a frame takes, for chasing sluggish orbits }
     procedure RenderTiming;
+    procedure Took(const What: string; T0: QWord);
     procedure ApplyArray(N: Integer; Divide: Boolean);
     function ArrayCommand(const S: string; out N: Integer; out Divide: Boolean): Boolean;
     { hand something just built to the move tool, so the next click places it }
@@ -4771,6 +4773,14 @@ end;
 { The wizards.  Each builds a real piece from numbers, at the origin, and
   then hands it to the move tool so the next click puts it where it goes -
   the same move anything else gets, with the same snaps. }
+{ /timings: say on the console how long the steps of an edit took }
+procedure TMainForm.Took(const What: string; T0: QWord);
+begin
+  if not FTimings then Exit;
+  WriteLn('took ', GetTickCount64 - T0, ' ms: ', What);
+  Flush(Output);
+end;
+
 procedure TMainForm.RenderTiming;
 var
   T0: QWord;
@@ -7984,6 +7994,7 @@ var
   Copies: array of Integer;
   ArcPl: TPlane;
   Stopped: Boolean;
+  Tk: QWord;
 begin
   Trail('commit ' + TOOL_NAMES[FTool] + ' stage=' + IntToStr(FStage));
   case FTool of
@@ -8199,7 +8210,9 @@ begin
           begin
             { every corner that sits where a moving one sat travels too, so
               whatever was joined on stretches to follow }
+            Tk := GetTickCount64;
             FD.Doc.MoveVerts(FMoveVerts, T);
+            Took('move the corners', Tk);
             FCmdMsg := 'Moved ' + FormatLen(
               Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units);
           end;
@@ -8209,9 +8222,15 @@ begin
             exception: its openings are the four edges of a duct end, and
             working the areas out again would cap them.  They are taken as
             seen where they now sit instead. }
+          Tk := GetTickCount64;
           if FMoveRigid then SeedRegions else RebuildFlatFaces;
+          Took('work the faces out', Tk);
+          Tk := GetTickCount64;
           RenderPro;
+          Took('render', Tk);
+          Tk := GetTickCount64;
           RecomposeAll;
+          Took('recompose', Tk);
         end;
         SetLength(FMoveVerts, 0);
         FMoveCopy := False;
@@ -8439,6 +8458,11 @@ begin
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard
   else if W = 'rendertime' then RenderTiming
+  else if W = 'timings' then
+  begin
+    FTimings := not FTimings;
+    FCmdMsg := 'Step timings on the console: ' + BoolToStr(FTimings, True);
+  end
   else if (W = 'all') or (W = 'selectall') then
   begin
     SelectNone;
@@ -9921,15 +9945,16 @@ begin
       for K := 0 to High(Pts) do
       begin
         Key := KeyOf(Pts[K]);
+        { one up: a nil item is an empty slot to TFPHashList }
         ListIx := Map.FindIndexOf(Key);
         if ListIx < 0 then
         begin
           SetLength(Lists, Length(Lists) + 1);
           ListIx := High(Lists);
-          Map.Add(Key, Pointer(PtrInt(ListIx)));
+          Map.Add(Key, Pointer(PtrInt(ListIx + 1)));
         end
         else
-          ListIx := PtrInt(Map.Items[ListIx]);
+          ListIx := PtrInt(Map.Items[ListIx]) - 1;
         if (Length(Lists[ListIx]) = 0) or (Lists[ListIx][High(Lists[ListIx])] <> J) then
         begin
           SetLength(Lists[ListIx], Length(Lists[ListIx]) + 1);
@@ -9952,7 +9977,7 @@ begin
       begin
         ListIx := Map.FindIndexOf(KeyOf(Pts[K]));
         if ListIx < 0 then Continue;
-        ListIx := PtrInt(Map.Items[ListIx]);
+        ListIx := PtrInt(Map.Items[ListIx]) - 1;
         for J := 0 to High(Lists[ListIx]) do Take(Lists[ListIx][J]);
       end;
     end;
@@ -10689,6 +10714,15 @@ var
   Ink: TColor;
   Dup, HadFace, Known: Boolean;
   Sig: TRegionSig;
+  SolidIx: TIntArrayW;
+  SolidN: array of TP3;
+  SolidArea: array of Double;
+  SI: Integer;
+  LineIx, PlaneIx, RegionIx: TFPHashList;
+  LineLists, PlaneLists, RegionLists: array of TIntArrayW;
+  Cands, RCands: TIntArrayW;
+  CI, RC: Integer;
+  Tk: QWord;
 
   { is P on the segment AB, within a hair }
   function OnSegment(const P, A, B: TP3): Boolean;
@@ -10706,11 +10740,175 @@ var
 
   { every edge round the region belongs to a solid: the run of lines that
     covers each side of the outline all carry a group, and one group }
+  function EndKey(const P: TP3): shortstring;
+  var
+    Q: array[0..2] of Int64;
+  begin
+    Q[0] := Round(P.X * 1E6); Q[1] := Round(P.Y * 1E6); Q[2] := Round(P.Z * 1E6);
+    SetLength(Result, 24);
+    Move(Q[0], Result[1], 24);
+  end;
+
+  procedure NoteLine(const P: TP3; L: Integer);
+  var
+    Ix: Integer;
+  begin
+    Ix := LineIx.FindIndexOf(EndKey(P));
+    if Ix < 0 then
+    begin
+      SetLength(LineLists, Length(LineLists) + 1);
+      Ix := High(LineLists);
+      LineIx.Add(EndKey(P), Pointer(PtrInt(Ix + 1)));
+    end
+    else
+      Ix := PtrInt(LineIx.Items[Ix]) - 1;
+    SetLength(LineLists[Ix], Length(LineLists[Ix]) + 1);
+    LineLists[Ix][High(LineLists[Ix])] := L;
+  end;
+
+  { the solid line, if any, that runs along P-Q, looked up by either end -
+    an opening's edges are whole lines of the solid, so one end of the line
+    is one end of the edge }
+  function GroupLineAlong(const P, Q: TP3): Integer;
+  var
+    Pass, Ix, K, L: Integer;
+    Key: shortstring;
+  begin
+    Result := -1;
+    for Pass := 0 to 1 do
+    begin
+      if Pass = 0 then Key := EndKey(P) else Key := EndKey(Q);
+      Ix := LineIx.FindIndexOf(Key);
+      if Ix < 0 then Continue;
+      Ix := PtrInt(LineIx.Items[Ix]) - 1;
+      for K := 0 to High(LineLists[Ix]) do
+      begin
+        L := LineLists[Ix][K];
+        if OnSegment(P, FD.Doc[L].A, FD.Doc[L].B) and OnSegment(Q, FD.Doc[L].A, FD.Doc[L].B) then
+          Exit(L);
+      end;
+    end;
+  end;
+
+  { a plane as a key: the normal made to point one way, both it and the
+    offset rounded coarsely, so faces on one plane land on one key.  The
+    fine test still runs on what comes back; this only says who to ask. }
+  function PlaneKey(const N, P: TP3): shortstring;
+  var
+    Nm: TP3;
+    Q: array[0..3] of Int64;
+  begin
+    Nm := Norm3(N);
+    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
+       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
+      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    Q[3] := Round(Dot3(Nm, P) * 1000);
+    SetLength(Result, 32);
+    Move(Q[0], Result[1], 32);
+  end;
+
+  procedure NotePlane(const Key: shortstring; SI: Integer);
+  var
+    Ix: Integer;
+  begin
+    Ix := PlaneIx.FindIndexOf(Key);
+    if Ix < 0 then
+    begin
+      SetLength(PlaneLists, Length(PlaneLists) + 1);
+      Ix := High(PlaneLists);
+      PlaneIx.Add(Key, Pointer(PtrInt(Ix + 1)));
+    end
+    else
+      Ix := PtrInt(PlaneIx.Items[Ix]) - 1;
+    SetLength(PlaneLists[Ix], Length(PlaneLists[Ix]) + 1);
+    PlaneLists[Ix][High(PlaneLists[Ix])] := SI;
+  end;
+
+  procedure NoteRegion(const Key: shortstring; RI: Integer);
+  var
+    Ix: Integer;
+  begin
+    Ix := RegionIx.FindIndexOf(Key);
+    if Ix < 0 then
+    begin
+      SetLength(RegionLists, Length(RegionLists) + 1);
+      Ix := High(RegionLists);
+      RegionIx.Add(Key, Pointer(PtrInt(Ix + 1)));
+    end
+    else
+      Ix := PtrInt(RegionIx.Items[Ix]) - 1;
+    SetLength(RegionLists[Ix], Length(RegionLists[Ix]) + 1);
+    RegionLists[Ix][High(RegionLists[Ix])] := RI;
+  end;
+
+  { the regions on the plane through P with normal N, neighbours of the
+    coarse offset included }
+  function RegionsOnPlane(const N, P: TP3): TIntArrayW;
+  var
+    Nm: TP3;
+    Ix, K, D: Integer;
+    Key: shortstring;
+    Q: array[0..3] of Int64;
+  begin
+    Result := nil;
+    Nm := Norm3(N);
+    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
+       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
+      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    for D := -1 to 1 do
+    begin
+      Q[3] := Round(Dot3(Nm, P) * 1000) + D;
+      SetLength(Key, 32);
+      Move(Q[0], Key[1], 32);
+      Ix := RegionIx.FindIndexOf(Key);
+      if Ix < 0 then Continue;
+      Ix := PtrInt(RegionIx.Items[Ix]) - 1;
+      for K := 0 to High(RegionLists[Ix]) do
+      begin
+        SetLength(Result, Length(Result) + 1);
+        Result[High(Result)] := RegionLists[Ix][K];
+      end;
+    end;
+  end;
+
+  { the solids on the plane through P with normal N - the key is coarse, so
+    a plane a hair off lands on a neighbouring key: the offset's neighbours
+    are asked too }
+  function SolidsOnPlane(const N, P: TP3): TIntArrayW;
+  var
+    Nm: TP3;
+    Ix, K, D: Integer;
+    Key: shortstring;
+    Q: array[0..3] of Int64;
+  begin
+    Result := nil;
+    Nm := Norm3(N);
+    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
+       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
+      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    for D := -1 to 1 do
+    begin
+      Q[3] := Round(Dot3(Nm, P) * 1000) + D;
+      SetLength(Key, 32);
+      Move(Q[0], Key[1], 32);
+      Ix := PlaneIx.FindIndexOf(Key);
+      if Ix < 0 then Continue;
+      Ix := PtrInt(PlaneIx.Items[Ix]) - 1;
+      for K := 0 to High(PlaneLists[Ix]) do
+      begin
+        SetLength(Result, Length(Result) + 1);
+        Result[High(Result)] := PlaneLists[Ix][K];
+      end;
+    end;
+  end;
+
   function OpeningOfSolid(const Rg: TRegion): Boolean;
   var
     E, L, Grp: Integer;
     P, Q: TP3;
-    Found: Boolean;
   begin
     Result := False;
     Grp := 0;
@@ -10718,18 +10916,10 @@ var
     begin
       P := Rg.Outer[E];
       Q := Rg.Outer[(E + 1) mod Length(Rg.Outer)];
-      Found := False;
-      for L := 0 to FD.Doc.Live - 1 do
-        if (FD.Doc[L].Kind = ekLine) and OnSegment(P, FD.Doc[L].A, FD.Doc[L].B) and
-           OnSegment(Q, FD.Doc[L].A, FD.Doc[L].B) then
-        begin
-          if FD.Doc[L].Grp <= 0 then Exit(False);
-          if (Grp > 0) and (FD.Doc[L].Grp <> Grp) then Exit(False);
-          Grp := FD.Doc[L].Grp;
-          Found := True;
-          Break;
-        end;
-      if not Found then Exit(False);
+      L := GroupLineAlong(P, Q);
+      if L < 0 then Exit(False);
+      if (Grp > 0) and (FD.Doc[L].Grp <> Grp) then Exit(False);
+      Grp := FD.Doc[L].Grp;
     end;
     Result := Grp > 0;
   end;
@@ -10758,8 +10948,48 @@ var
   end;
 
 begin
+  Tk := GetTickCount64;
   R := BuildRegionsCached(EdgeSegments, FRegionCache);
+  Took('  regions', Tk);
+  Tk := GetTickCount64;
   Made := 0;
+  { the solids' faces, their planes and areas, once - the check below asks
+    every region against every one of them, and on a drawing of pipe that
+    is a few hundred against a few hundred }
+  SetLength(SolidIx, 0);
+  for J := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[J].Kind = ekFace) and FD.Doc[J].Solid and (Length(FD.Doc[J].Poly) >= 3) then
+    begin
+      SetLength(SolidIx, Length(SolidIx) + 1);
+      SolidIx[High(SolidIx)] := J;
+    end;
+  SetLength(SolidN, Length(SolidIx));
+  SetLength(SolidArea, Length(SolidIx));
+  PlaneIx := TFPHashList.Create;
+  SetLength(PlaneLists, 0);
+  for J := 0 to High(SolidIx) do
+  begin
+    SolidN[J] := FD.Doc.FaceNormal(SolidIx[J]);
+    SolidArea[J] := Abs(LoopArea(FD.Doc[SolidIx[J]].Poly, SolidN[J]));
+    { by plane, so a region meets only the solids lying in its own plane
+      rather than every solid in the drawing }
+    NotePlane(PlaneKey(SolidN[J], FD.Doc[SolidIx[J]].Poly[0]), J);
+  end;
+  { and the regions by plane, for the same reason the other way round }
+  RegionIx := TFPHashList.Create;
+  SetLength(RegionLists, 0);
+  for I := 0 to High(R) do
+    if Length(R[I].Outer) >= 3 then
+      NoteRegion(PlaneKey(R[I].Normal, R[I].Outer[0]), I);
+  { and the solids' lines by their ends, for the opening test }
+  LineIx := TFPHashList.Create;
+  SetLength(LineLists, 0);
+  for J := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[J].Kind = ekLine) and (FD.Doc[J].Grp > 0) then
+    begin
+      NoteLine(FD.Doc[J].A, J);
+      NoteLine(FD.Doc[J].B, J);
+    end;
 
   { A solid's face divided by what has been drawn on it.
 
@@ -10786,8 +11016,10 @@ begin
     SetLength(Pieces, 0);
     PiecesArea := 0;
     Shares := False;
-    for I := 0 to High(R) do
+    RCands := RegionsOnPlane(FN, FD.Doc[J].Poly[0]);
+    for RC := 0 to High(RCands) do
     begin
+      I := RCands[RC];
       if Length(R[I].Holes) > 0 then Continue;
       if Abs(Abs(Dot3(Norm3(R[I].Normal), FN)) - 1) > 1E-6 then Continue;
       Mid := InnerPoint(R[I].Outer, R[I].Normal);
@@ -10881,11 +11113,13 @@ begin
       been divided into. }
     Dup := False;
     DupAt := -1;
-    for J := 0 to FD.Doc.Live - 1 do
-      if (FD.Doc[J].Kind = ekFace) and FD.Doc[J].Solid and
-         (Length(FD.Doc[J].Poly) >= 3) then
+    RegArea := -1;
+    Cands := SolidsOnPlane(R[I].Normal, R[I].Outer[0]);
+    for CI := 0 to High(Cands) do
       begin
-        Other := FD.Doc.FaceNormal(J);
+        SI := Cands[CI];
+        J := SolidIx[SI];
+        Other := SolidN[SI];
         if Abs(Abs(Dot3(Other, R[I].Normal)) - 1) > 1E-6 then Continue;
         { the same plane, not merely a parallel one }
         if Abs(Dot3(Other, P3(FD.Doc[J].Poly[0].X - R[I].Outer[0].X,
@@ -10902,8 +11136,8 @@ begin
           the solid's own face without it, 68 against 80, so they never
           matched, and the hand-off below that gives the solid's face its
           opening never ran.  The window drew, and the wall stayed solid. }
-        RegArea := Abs(LoopArea(R[I].Outer, R[I].Normal));
-        if Abs(RegArea - Abs(LoopArea(FD.Doc[J].Poly, Other))) > 1E-3 then
+        if RegArea < 0 then RegArea := Abs(LoopArea(R[I].Outer, R[I].Normal));
+        if Abs(RegArea - SolidArea[SI]) > 1E-3 then
           Continue;
         if PointInLoop(Mid, FD.Doc[J].Poly, Other) then
         begin
@@ -10988,11 +11222,17 @@ begin
       FD.Doc.SetFaceHoles(FD.Doc.Live - 1, R[I].Holes);
     Inc(Made);
   end;
+  LineIx.Free;
+  PlaneIx.Free;
+  RegionIx.Free;
+  Took('  the region loop', Tk);
+  Tk := GetTickCount64;
   { and this is what the sheet has seen, for the next rebuild to compare
     against }
   SetLength(FD.Seen, Length(R));
   for I := 0 to High(R) do
     FD.Seen[I] := RegionSig(R[I]);
+  Took('  seen signatures', Tk);
 
   Result := Made;
 end;
