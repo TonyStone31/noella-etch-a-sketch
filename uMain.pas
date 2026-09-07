@@ -11028,43 +11028,13 @@ begin
   Took('  regions', Tk);
   Tk := GetTickCount64;
   Made := 0;
-  { the solids' faces, their planes and areas, once - the check below asks
-    every region against every one of them, and on a drawing of pipe that
-    is a few hundred against a few hundred }
-  SetLength(SolidIx, 0);
-  for J := 0 to FD.Doc.Live - 1 do
-    if (FD.Doc[J].Kind = ekFace) and FD.Doc[J].Solid and (Length(FD.Doc[J].Poly) >= 3) then
-    begin
-      SetLength(SolidIx, Length(SolidIx) + 1);
-      SolidIx[High(SolidIx)] := J;
-    end;
-  SetLength(SolidN, Length(SolidIx));
-  SetLength(SolidArea, Length(SolidIx));
-  PlaneIx := TFPHashList.Create;
-  SetLength(PlaneLists, 0);
-  for J := 0 to High(SolidIx) do
-  begin
-    SolidN[J] := FD.Doc.FaceNormal(SolidIx[J]);
-    SolidArea[J] := Abs(LoopArea(FD.Doc[SolidIx[J]].Poly, SolidN[J]));
-    { by plane, so a region meets only the solids lying in its own plane
-      rather than every solid in the drawing }
-    NotePlane(PlaneKey(SolidN[J], FD.Doc[SolidIx[J]].Poly[0]), J);
-  end;
-  { and the regions by plane, for the same reason the other way round }
+  { the regions by plane, for the pass below and the loop after it; the
+    regions do not shift when faces are deleted, so this can be built now }
   RegionIx := TFPHashList.Create;
   SetLength(RegionLists, 0);
   for I := 0 to High(R) do
     if Length(R[I].Outer) >= 3 then
       NoteRegion(PlaneKey(R[I].Normal, R[I].Outer[0]), I);
-  { and the solids' lines by their ends, for the opening test }
-  LineIx := TFPHashList.Create;
-  SetLength(LineLists, 0);
-  for J := 0 to FD.Doc.Live - 1 do
-    if (FD.Doc[J].Kind = ekLine) and (FD.Doc[J].Grp > 0) then
-    begin
-      NoteLine(FD.Doc[J].A, J);
-      NoteLine(FD.Doc[J].B, J);
-    end;
 
   { A solid's face divided by what has been drawn on it.
 
@@ -11170,8 +11140,45 @@ begin
     if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid then
       FD.Doc.Delete(I);
 
+  { The solids' faces, their planes and areas, and the solids' lines by
+    their ends, once - the loop below asks every region against them.
+    Built here, after the pass above, and not before it: that pass deletes
+    faces and adds pieces, which shifts every index after the deleted one,
+    and a table built earlier pointed at the wrong things - which on a big
+    drawing was an access violation in the middle of a move. }
+  SetLength(SolidIx, 0);
+  for J := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[J].Kind = ekFace) and FD.Doc[J].Solid and (Length(FD.Doc[J].Poly) >= 3) then
+    begin
+      SetLength(SolidIx, Length(SolidIx) + 1);
+      SolidIx[High(SolidIx)] := J;
+    end;
+  SetLength(SolidN, Length(SolidIx));
+  SetLength(SolidArea, Length(SolidIx));
+  PlaneIx := TFPHashList.Create;
+  SetLength(PlaneLists, 0);
+  for J := 0 to High(SolidIx) do
+  begin
+    SolidN[J] := FD.Doc.FaceNormal(SolidIx[J]);
+    SolidArea[J] := Abs(LoopArea(FD.Doc[SolidIx[J]].Poly, SolidN[J]));
+    { by plane, so a region meets only the solids lying in its own plane
+      rather than every solid in the drawing }
+    NotePlane(PlaneKey(SolidN[J], FD.Doc[SolidIx[J]].Poly[0]), J);
+  end;
+  { and the solids' lines by their ends, for the opening test }
+  LineIx := TFPHashList.Create;
+  SetLength(LineLists, 0);
+  for J := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[J].Kind = ekLine) and (FD.Doc[J].Grp > 0) then
+    begin
+      NoteLine(FD.Doc[J].A, J);
+      NoteLine(FD.Doc[J].B, J);
+    end;
+
+  { a region with no outline is nothing to look at }
   for I := 0 to High(R) do
   begin
+    if Length(R[I].Outer) < 3 then Continue;
     Mid := InnerPointOf(R[I].Outer, R[I].Holes, R[I].Normal);
 
     { Is this one a face the solid already has?  Same middle, same size, so

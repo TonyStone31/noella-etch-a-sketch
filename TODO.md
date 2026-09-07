@@ -44,7 +44,8 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
-**Threads - a weekend job, soon.**  Agreed 2026-09-07: no threads until the
+**Threads - a weekend job, soon.**  The rules and the OpenGL discussion are
+in docs/render-acceleration.md.  Agreed 2026-09-07: no threads until the
 single-thread wins are taken, and they nearly are.  Left before threading:
 the region engine on a big drawing (uRegion: PlanesOf and SegsInPlane are
 planes times segments; 34 ms of a 60 ms move on a 528-face spool), and

@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A crash while moving on a big drawing.**  Working the faces out after' + LineEnding +
+    '  a move could read the wrong entity once a face had been divided, and on' + LineEnding +
+    '  a drawing of thousands of things that was an access violation.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.12' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

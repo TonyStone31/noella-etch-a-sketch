@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A crash while moving on a big drawing.**  Working the faces out after
+  a move could read the wrong entity once a face had been divided, and on
+  a drawing of thousands of things that was an access violation.
+
 ## v2026.09.07.12
 
 ### Fixed
