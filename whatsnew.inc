@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.07.15' + LineEnding +
     '' + LineEnding +
     '### Under the hood' + LineEnding +
     '' + LineEnding +
