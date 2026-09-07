@@ -44,6 +44,21 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
+**Threads - a weekend job, soon.**  Agreed 2026-09-07: no threads until the
+single-thread wins are taken, and they nearly are.  Left before threading:
+the region engine on a big drawing (uRegion: PlanesOf and SegsInPlane are
+planes times segments; 34 ms of a 60 ms move on a 528-face spool), and
+nothing else measured over 10 ms.  Then, in this order, each one behind a
+"threads" toggle so it can be switched off if it misbehaves: (1) the face
+paint in Render, split by screen band - every face is projected and filled
+into the depth buffer, and bands do not overlap; (2) the visible-runs pass,
+split by line - it only reads the depth buffer; (3) RebuildSnapCache off
+the main thread after an edit, swapped in when done.  Everything these
+touch is built per call from the document with no globals, which is why
+it can be split.  What must stay on the main thread: anything LCL, the
+document itself while a tool is mid-edit, and the undo stack.
+
+
 0. **Follow Me is in, both halves** (2026-09-06: TWorkDoc.Revolve and
    TWorkDoc.Sweep).  Left over: the two-circles-make-a-ball offer if still
    wanted (two circles sharing a centre on two planes, same radius: offer

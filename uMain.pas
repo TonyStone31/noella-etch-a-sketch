@@ -580,7 +580,7 @@ type
     procedure BuildTransitionWizard;
     procedure BuildSpoolWizard;
     function ArcNormal(I: Integer): TP3;
-    procedure DoRevolve(const AxisP, AxisDir: TP3);
+    procedure DoRevolve(const AxisP, AxisDir: TP3; PathArc: Integer = -1);
     { the chain of edges joined end to end through edge I, as points, and
       whether it closes on itself }
     function ChainFrom(I: Integer; out Closed: Boolean): TP3Array;
@@ -4828,7 +4828,7 @@ end;
 { Follow Me round an axis: the angle typed in degrees, or all the way; the
   gores from the circle side count, so a full turn has as many as a circle
   does and a quarter turn a quarter of them. }
-procedure TMainForm.DoRevolve(const AxisP, AxisDir: TP3);
+procedure TMainForm.DoRevolve(const AxisP, AxisDir: TP3; PathArc: Integer);
 var
   Deg, Ang: Double;
   Steps, First, Made: Integer;
@@ -4846,6 +4846,13 @@ begin
     Exit;
   end;
   Made := FD.Doc.Live - Made;
+  { the circle that was followed round lies on the surface it made: a seam
+    of the solid now, not a hard ring drawn across it }
+  if (PathArc >= 0) and (PathArc < FD.Doc.Live) and (First < FD.Doc.Live) then
+  begin
+    FD.Doc.SetSoft(PathArc, True);
+    FD.Doc.SetGroup(PathArc, FD.Doc[First].Grp);
+  end;
   SeedRegions;
   SelectNone;
   RenderPro;
@@ -7738,7 +7745,7 @@ begin
             if (I >= 0) and (FD.Doc[I].Kind = ekArc) and (I <> FFollowFace) and
                (Abs(FD.Doc[I].Sweep) >= 2 * Pi - 1E-9) then
             begin
-              DoRevolve(FD.Doc[I].C, ArcNormal(I));
+              DoRevolve(FD.Doc[I].C, ArcNormal(I), I);
               Exit;
             end;
             if (I >= 0) and (FD.Doc[I].Kind in [ekLine, ekArc]) then

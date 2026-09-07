@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **No more black ring on a ball or a donut.**  The circle a Follow Me was
+  made from - the profile, or the circle followed round - stayed drawn as
+  a hard line across the surface.  It becomes a seam of the surface now,
+  soft and hidden like the seams between gores.
+
 ## v2026.09.07.6
 
 ### Fixed

@@ -213,6 +213,7 @@ type
       Caps: Boolean = True): Integer;
     { the points of an arc or a line, in order, for building a path }
     procedure EdgePoints(I: Integer; out Pts: TP3Array);
+    procedure MarkProfileArcs(const Poly: TP3Array; G: Integer);
     { where a dimension's line sits: the offset from what it measures }
     procedure SetDimOffset(Index: Integer; const Off: TP3);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
@@ -2261,6 +2262,123 @@ begin
   FEnts[Index].C := Off;
 end;
 
+{ A set of points that answers "is P one of these, to within a hair" in
+  one hash lookup instead of a walk down the list.  The hash is on a coarse
+  grid, and the cells round P's are looked in as well, so a point a hair
+  over a cell edge is still found.  Moving and turning ask this for every
+  corner of every thing in the drawing, times every moving corner; with a
+  thousand of each that walk was most of a second. }
+type
+  TPointSet = class
+  private
+    FMap: TFPHashList;
+    FLists: array of TP3Array;
+    function KeyAt(X, Y, Z: Int64): shortstring;
+  public
+    constructor Create(const Pts: TP3Array);
+    destructor Destroy; override;
+    function Has(const P: TP3; Tol: Double): Boolean;
+  end;
+
+const
+  PSET_CELL = 1E-5;
+
+function TPointSet.KeyAt(X, Y, Z: Int64): shortstring;
+var
+  Q: array[0..2] of Int64;
+begin
+  Q[0] := X; Q[1] := Y; Q[2] := Z;
+  SetLength(Result, 24);
+  Move(Q[0], Result[1], 24);
+end;
+
+constructor TPointSet.Create(const Pts: TP3Array);
+var
+  I, Ix: Integer;
+  K: shortstring;
+begin
+  FMap := TFPHashList.Create;
+  for I := 0 to High(Pts) do
+  begin
+    K := KeyAt(Floor(Pts[I].X / PSET_CELL), Floor(Pts[I].Y / PSET_CELL), Floor(Pts[I].Z / PSET_CELL));
+    { the item is the list's index plus one: TFPHashList takes a nil item
+      for an empty slot and will not find it again }
+    Ix := FMap.FindIndexOf(K);
+    if Ix < 0 then
+    begin
+      SetLength(FLists, Length(FLists) + 1);
+      Ix := High(FLists);
+      FMap.Add(K, Pointer(PtrInt(Ix + 1)));
+    end
+    else
+      Ix := PtrInt(FMap.Items[Ix]) - 1;
+    SetLength(FLists[Ix], Length(FLists[Ix]) + 1);
+    FLists[Ix][High(FLists[Ix])] := Pts[I];
+  end;
+end;
+
+destructor TPointSet.Destroy;
+begin
+  FMap.Free;
+  inherited;
+end;
+
+function TPointSet.Has(const P: TP3; Tol: Double): Boolean;
+var
+  X, Y, Z, DX, DY, DZ: Int64;
+  Ix, J: Integer;
+begin
+  Result := False;
+  X := Floor(P.X / PSET_CELL); Y := Floor(P.Y / PSET_CELL); Z := Floor(P.Z / PSET_CELL);
+  for DX := -1 to 1 do
+    for DY := -1 to 1 do
+      for DZ := -1 to 1 do
+      begin
+        Ix := FMap.FindIndexOf(KeyAt(X + DX, Y + DY, Z + DZ));
+        if Ix < 0 then Continue;
+        Ix := PtrInt(FMap.Items[Ix]) - 1;
+        for J := 0 to High(FLists[Ix]) do
+          if Dist(P, FLists[Ix][J]) < Tol then Exit(True);
+      end;
+end;
+
+{ The arcs whose points are all corners of the profile - a circle drawn
+  with the circle tool that became the face - are the profile's own edges:
+  when the face is consumed by a full turn or a closed path they become
+  soft seams of the surface and members of the solid, or they would stay
+  drawn as a hard black ring across it. }
+procedure TWorkDoc.MarkProfileArcs(const Poly: TP3Array; G: Integer);
+var
+  I, K: Integer;
+  Pts: TP3Array;
+  Corners: TPointSet;
+  All: Boolean;
+begin
+  Corners := TPointSet.Create(Poly);
+  try
+    for I := 0 to FLive - 1 do
+      if FEnts[I].Kind = ekArc then
+      begin
+        EdgePoints(I, Pts);
+        if Length(Pts) < 2 then Continue;
+        All := True;
+        for K := 0 to High(Pts) do
+          if not Corners.Has(Pts[K], 1E-6) then
+          begin
+            All := False;
+            Break;
+          end;
+        if All then
+        begin
+          SetSoft(I, True);
+          SetGroup(I, G);
+        end;
+      end;
+  finally
+    Corners.Free;
+  end;
+end;
+
 function TWorkDoc.Revolve(Face: Integer; const AxisP, AxisDir: TP3; Angle: Double;
   Steps: Integer): Integer;
 const
@@ -2404,6 +2522,7 @@ begin
         SetSoft(I, True);
       end;
     end;
+    MarkProfileArcs(Poly, G);
     Delete(Face);
     if Face < First then Dec(First);
   end
@@ -2618,6 +2737,7 @@ begin
       drawn in their place }
     for K := 0 to N - 1 do
       Edge(Rings[0][K], Rings[0][(K + 1) mod N], not Hard[0]);
+    MarkProfileArcs(Poly, G);
     for I := FLive - 1 downto 0 do
       if (FEnts[I].Kind = ekFace) and (I = Face) then Delete(I);
     First := -1;
@@ -2656,6 +2776,7 @@ begin
       if I >= 0 then SetGroup(I, G)
       else Edge(Poly[K], Poly[(K + 1) mod N], False);
     end;
+    MarkProfileArcs(Poly, G);
     Delete(Face);
     if Face < First then Dec(First);
   end;
@@ -3305,86 +3426,6 @@ begin
       Put(FEnts[I].Poly[K]);
   end;
   SetLength(Pts, N);
-end;
-
-{ A set of points that answers "is P one of these, to within a hair" in
-  one hash lookup instead of a walk down the list.  The hash is on a coarse
-  grid, and the cells round P's are looked in as well, so a point a hair
-  over a cell edge is still found.  Moving and turning ask this for every
-  corner of every thing in the drawing, times every moving corner; with a
-  thousand of each that walk was most of a second. }
-type
-  TPointSet = class
-  private
-    FMap: TFPHashList;
-    FLists: array of TP3Array;
-    function KeyAt(X, Y, Z: Int64): shortstring;
-  public
-    constructor Create(const Pts: TP3Array);
-    destructor Destroy; override;
-    function Has(const P: TP3; Tol: Double): Boolean;
-  end;
-
-const
-  PSET_CELL = 1E-5;
-
-function TPointSet.KeyAt(X, Y, Z: Int64): shortstring;
-var
-  Q: array[0..2] of Int64;
-begin
-  Q[0] := X; Q[1] := Y; Q[2] := Z;
-  SetLength(Result, 24);
-  Move(Q[0], Result[1], 24);
-end;
-
-constructor TPointSet.Create(const Pts: TP3Array);
-var
-  I, Ix: Integer;
-  K: shortstring;
-begin
-  FMap := TFPHashList.Create;
-  for I := 0 to High(Pts) do
-  begin
-    K := KeyAt(Floor(Pts[I].X / PSET_CELL), Floor(Pts[I].Y / PSET_CELL), Floor(Pts[I].Z / PSET_CELL));
-    { the item is the list's index plus one: TFPHashList takes a nil item
-      for an empty slot and will not find it again }
-    Ix := FMap.FindIndexOf(K);
-    if Ix < 0 then
-    begin
-      SetLength(FLists, Length(FLists) + 1);
-      Ix := High(FLists);
-      FMap.Add(K, Pointer(PtrInt(Ix + 1)));
-    end
-    else
-      Ix := PtrInt(FMap.Items[Ix]) - 1;
-    SetLength(FLists[Ix], Length(FLists[Ix]) + 1);
-    FLists[Ix][High(FLists[Ix])] := Pts[I];
-  end;
-end;
-
-destructor TPointSet.Destroy;
-begin
-  FMap.Free;
-  inherited;
-end;
-
-function TPointSet.Has(const P: TP3; Tol: Double): Boolean;
-var
-  X, Y, Z, DX, DY, DZ: Int64;
-  Ix, J: Integer;
-begin
-  Result := False;
-  X := Floor(P.X / PSET_CELL); Y := Floor(P.Y / PSET_CELL); Z := Floor(P.Z / PSET_CELL);
-  for DX := -1 to 1 do
-    for DY := -1 to 1 do
-      for DZ := -1 to 1 do
-      begin
-        Ix := FMap.FindIndexOf(KeyAt(X + DX, Y + DY, Z + DZ));
-        if Ix < 0 then Continue;
-        Ix := PtrInt(FMap.Items[Ix]) - 1;
-        for J := 0 to High(FLists[Ix]) do
-          if Dist(P, FLists[Ix][J]) < Tol then Exit(True);
-      end;
 end;
 
 procedure TWorkDoc.MoveVerts(const Pts: TP3Array; const D: TP3);
@@ -6209,6 +6250,7 @@ begin
 
       ekArc:
         begin
+          if FEnts[I].Soft then Continue;   { a seam of a spun or swept surface }
           if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
           else Steps := Max(10, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 4));
           Steps := Min(Steps, 1500);
@@ -6500,6 +6542,7 @@ begin
             the side of a box was painted over by the box and looked as though
             it had landed somewhere else entirely }
           begin
+          if FEnts[I].Soft then Continue;   { a seam of a spun or swept surface }
             if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
             else Steps := Max(24, Min(180, Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 6)));
             Run0 := -1;

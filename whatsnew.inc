@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **No more black ring on a ball or a donut.**  The circle a Follow Me was' + LineEnding +
+    '  made from - the profile, or the circle followed round - stayed drawn as' + LineEnding +
+    '  a hard line across the surface.  It becomes a seam of the surface now,' + LineEnding +
+    '  soft and hidden like the seams between gores.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.6' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

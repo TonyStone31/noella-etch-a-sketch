@@ -2645,6 +2645,16 @@ begin
       end;
     Ok(Faces = 12 * 24, 'a ball: twelve bands of twenty-four, the diameter on the axis sweeping nothing');
     Ok(Wrong = 0, 'every face of the ball looks outward');
+    { a circle drawn with the circle tool, made into a face and spun: the
+      circle is a seam of the surface afterwards, not a ring across it }
+    D.Free; D := TWorkDoc.Create;
+    D.AddArc(P3(3, 0, 0), 1, 0, 2 * Pi, plXZ, 0, 1);
+    D.SetArcSides(0, 24);
+    SetLength(Poly, 24);
+    for K := 0 to 23 do Poly[K] := ArcPoint(P3(3, 0, 0), 1, 2 * Pi * K / 24, plXZ);
+    D.AddFaceRaw(Poly, 0, False);
+    First := D.Revolve(1, P3(0, 0, 0), P3(0, 0, 1), 2 * Pi, 24);
+    Ok(D[0].Soft and (D[0].Grp > 0), 'the profile circle becomes a soft seam of the solid');
   finally
     D.Free;
   end;
