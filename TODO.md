@@ -44,6 +44,15 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
+**Threads - the first one is in.**  The lines-on-faces cache (`EnsureOnFace`)
+is built by `TOnFaceWorker` from a deep copy of the entities and queued back
+with `TThread.Queue`; the main thread takes it only if `FEditSeq` has not
+moved.  That is the pattern for the rest: copy in, compute, queue out, check
+the sequence, fall back meanwhile.  `DefaultThreads` is off for the tests and
+the tools, on in the program; `/threads` toggles, `/rendertime` reports.
+Next candidates in order: the snap cache (`RebuildSnapCache`, same shape),
+then the face fill by bands, then lines-on-faces by line.
+
 **Threads - a weekend job, soon.**  The rules and the OpenGL discussion are
 in docs/render-acceleration.md.  Agreed 2026-09-07: no threads until the
 single-thread wins are taken, and they nearly are.  Left before threading:

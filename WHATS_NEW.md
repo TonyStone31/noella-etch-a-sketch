@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Under the hood
+
+- **The first worker thread.**  Working out which lines lie on which
+  faces - a cache the renderer keeps - is now done off the main thread on
+  a big drawing, from a copy of the drawing.  While it is being built the
+  renderer searches every face as it did before, so nothing waits on it
+  and nothing is wrong if it is late.  `/threads` turns the workers off,
+  and `/rendertime` says how long the worker took and how many frames went
+  without the cache.
+
 ## v2026.09.07.13
 
 ### Fixed

@@ -468,6 +468,8 @@ type
       frame is drawn when it stops.  FQuickFrames turns the whole idea off. }
     FCameraMoving: Boolean;
     FQuickFrames: Boolean;
+    { worker threads for the caches (docs/render-acceleration.md); /threads }
+    FThreads: Boolean;
     FLastWheel: QWord;
     { the dimension the move tool has hold of by its line: only where the
       line sits changes, never what it measures }
@@ -1737,6 +1739,9 @@ begin
   FNoteDrag := -1;
   FSidesCircle := 24;
   FQuickFrames := True;
+  { the program uses workers; the tests and tools, which never render, do not }
+  FThreads := True;
+  DefaultThreads := True;
   FSidesArc := 12;
   FCursorWas := crCross;
   Caption := APP_NAME + '  ' + CurrentVersion;
@@ -4840,7 +4845,9 @@ begin
   FCmdMsg := FCmdMsg + Format('; quick frame %.0f ms; overlay %.0f ms with %d selected', [Qk, Ov, Length(FSel)]);
   WriteLn('rendertime ', Ms:0:1, ' ms/frame (paper+render+composite), ', FD.Doc.Live, ' things; index+edges ',
     Ph[0]:0:1, ' faces ', (Ph[1] + Ph[2]):0:1, ' lines-on-faces ',
-    Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds);
+    Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds,
+    '; threads ', FD.Doc.Threads, ' worker ', FD.Doc.OnFaceWorkerMs:0:0, ' ms, frames without cache ',
+    FD.Doc.OnFaceFallbacks, ', discarded ', FD.Doc.OnFaceDiscarded, ', failed ', FD.Doc.OnFaceFailed);
   Flush(Output);
   Trail(FCmdMsg);
   pbCmd.Invalidate;
@@ -8531,6 +8538,15 @@ begin
     RepaintPaper; RenderPro; RecomposeAll; Invalidate;
     if FQuickFrames then FCmdMsg := 'Quick frames while the camera moves: on.'
     else FCmdMsg := 'Quick frames while the camera moves: off - every frame at full quality.';
+  end
+  else if W = 'threads' then
+  begin
+    FThreads := not FThreads;
+    DefaultThreads := FThreads;
+    for I := 0 to High(FDrawings) do FDrawings[I].Doc.Threads := FThreads;
+    RenderPro; RecomposeAll; Invalidate;
+    if FThreads then FCmdMsg := 'Worker threads: on - the lines-on-faces cache is built off the main thread.'
+    else FCmdMsg := 'Worker threads: off - everything on the main thread.';
   end
   else if W = 'timings' then
   begin

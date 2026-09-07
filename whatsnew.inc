@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Under the hood' + LineEnding +
+    '' + LineEnding +
+    '- **The first worker thread.**  Working out which lines lie on which' + LineEnding +
+    '  faces - a cache the renderer keeps - is now done off the main thread on' + LineEnding +
+    '  a big drawing, from a copy of the drawing.  While it is being built the' + LineEnding +
+    '  renderer searches every face as it did before, so nothing waits on it' + LineEnding +
+    '  and nothing is wrong if it is late.  `/threads` turns the workers off,' + LineEnding +
+    '  and `/rendertime` says how long the worker took and how many frames went' + LineEnding +
+    '  without the cache.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.13' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

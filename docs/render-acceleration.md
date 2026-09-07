@@ -61,3 +61,16 @@ in the LCL, the document, the undo stack or the surface is touched from a
 worker; results come back through `TThread.Queue`; every worker catches
 everything and reports through a counter, never a dialog; counters and
 timings show in `/rendertime` and `/timings` so a thread can be watched.
+
+## What is done
+
+- **Lines-on-faces cache on a worker** (`TOnFaceWorker` in uWork.pas).
+  The worker owns a deep copy of the entities, computes with a pure
+  procedure (`ComputeOnFace`), and queues one method back to the main
+  thread.  The main thread checks the edit sequence before taking the
+  result, and the renderer searches every face while the cache is not
+  there.  Nothing but that method touches the document, and nothing
+  touches the screen.  `DefaultThreads` is off outside the program so the
+  tests and tools never start a thread; `/threads` toggles it live and
+  `/rendertime` prints worker time, frames without the cache, results
+  discarded and failures.
