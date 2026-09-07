@@ -417,6 +417,11 @@ type
     FOnFace: array of TIntArrayW;
     FOnFaceOK: Boolean;
     OnFaceBuilds: Integer;
+    { The quick frame: while the camera is moving, lines on faces are
+      sampled a quarter as often and the cover edge is not bisected.  The
+      picture is complete, only rougher at the ends of hidden runs; the
+      full frame comes when the camera stops. }
+    Quick: Boolean;
     procedure EnsureOnFace;
     { the one-lookup form of HiddenAt; only valid straight after a render
       with the same projector }
@@ -6008,6 +6013,7 @@ end;
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
+  LSteps, Bisect: Integer;
   SlotOf: array of Integer;
   JJ: Integer;
   PlaneN: array of TP3;
@@ -6140,7 +6146,7 @@ var
     N: Integer;
     TM: Double;
   begin
-    for N := 1 to 6 do
+    for N := 1 to Bisect do
     begin
       TM := (TVis + TCov) / 2;
       if Covered(PtAt(TM), Slot) then TCov := TM else TVis := TM;
@@ -6303,6 +6309,8 @@ begin
   S.BlendMode := bmNormal;
   GuideCol := MixPix(LabelCol, Pix(120, 90, 190), 0.55);
 
+  if Quick then begin LSteps := 8; Bisect := 1; end
+  else begin LSteps := LINE_STEPS; Bisect := 6; end;
   PT := GetTickCount64;
   { the edge index, once, before anything asks it a question }
   { a hash of edge keys to the number of visible faces along each: a sorted
@@ -6603,12 +6611,12 @@ begin
           CurA := FEnts[I].A;
           CurB := FEnts[I].B;
           CurArc := -1;
-          for M := 0 to LINE_STEPS do
+          for M := 0 to LSteps do
           begin
-            if M < LINE_STEPS then
+            if M < LSteps then
             begin
-              T0 := M / LINE_STEPS;
-              T1 := (M + 1) / LINE_STEPS;
+              T0 := M / LSteps;
+              T1 := (M + 1) / LSteps;
               Vis := not Covered(Lerp3(FEnts[I].A, FEnts[I].B,
                 (T0 + T1) / 2), J);
             end
@@ -6623,7 +6631,7 @@ begin
             end;
             if (not Vis) and (Run0 >= 0) then
             begin
-              if M = LINE_STEPS then RunT1 := 1
+              if M = LSteps then RunT1 := 1
               else RunT1 := Boundary((M - 0.5) / LINE_STEPS, (M + 0.5) / LINE_STEPS, J);
               PA := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, RunT0));
               PB := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, RunT1));

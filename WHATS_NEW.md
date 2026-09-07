@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Quicker frames while you orbit, pan or zoom.**  While the camera is
+  moving the drawing is redrawn a cheaper way - the hidden-line work is
+  sampled coarser and the faces are filled without anti-aliasing - and the
+  full-quality frame is drawn the moment you let go, or a fifth of a second
+  after the wheel stops.  The picture stays complete while it moves, just
+  a touch rougher at the ends of hidden lines.  A big drawing orbits in
+  about half the time.  If you would rather every frame were the full one,
+  `/quick` turns it off and on.
+
 ## v2026.09.07.10
 
 ### Fixed

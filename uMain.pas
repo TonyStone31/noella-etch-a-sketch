@@ -463,6 +463,12 @@ type
     { what a dialog reported from inside itself, for the report body }
     FReportExtra: string;
     FTimings: Boolean;
+    { The camera is moving - an orbit or pan in progress, or a wheel zoom
+      within the last moment - so frames are drawn quick, and one full
+      frame is drawn when it stops.  FQuickFrames turns the whole idea off. }
+    FCameraMoving: Boolean;
+    FQuickFrames: Boolean;
+    FLastWheel: QWord;
     { the dimension the move tool has hold of by its line: only where the
       line sits changes, never what it measures }
     FDimMove: Integer;
@@ -1730,6 +1736,7 @@ begin
   FLenDenom := LenDenom;
   FNoteDrag := -1;
   FSidesCircle := 24;
+  FQuickFrames := True;
   FSidesArc := 12;
   FCursorWas := crCross;
   Caption := APP_NAME + '  ' + CurrentVersion;
@@ -2736,6 +2743,8 @@ end;
   to calling this again - nothing is ever resampled. }
 procedure TMainForm.RenderPro;
 begin
+  FD.Doc.Quick := FCameraMoving and FQuickFrames;
+  FInkPro.QuickFill := FD.Doc.Quick;
   FInkPro.ClearTransparent;
   { A fault while drawing used to take the program down, and since the
     drawing is drawn again every frame it took it down again the moment it
@@ -2813,6 +2822,12 @@ begin
   P := Project(Proj, W);
   FD.ViewX := FD.ViewX + (AnchorSX - P.X);
   FD.ViewY := FD.ViewY + (AnchorSY - P.Y);
+  { a wheel zoom is a moving camera too: quick now, full when it settles }
+  if FQuickFrames then
+  begin
+    FCameraMoving := True;
+    FLastWheel := GetTickCount64;
+  end;
   RepaintPaper;
   RenderPro;
   RecomposeAll;
@@ -4785,7 +4800,9 @@ procedure TMainForm.RenderTiming;
 var
   T0: QWord;
   I, N: Integer;
-  Ms, Ov: Double;
+  Ms, Ov, Qk: Double;
+  Ph: array[0..5] of Double;
+  WasMoving: Boolean;
 begin
   N := 10;
   for I := 0 to 5 do FD.Doc.ProfMs[I] := 0;
@@ -4799,17 +4816,31 @@ begin
     RecomposeAll;
   end;
   Ms := (GetTickCount64 - T0) / N;
+  for I := 0 to 5 do Ph[I] := FD.Doc.ProfMs[I] / N;
+  { the same frame the quick way, as an orbit in progress draws it }
+  WasMoving := FCameraMoving;
+  FCameraMoving := FQuickFrames;
+  T0 := GetTickCount64;
+  for I := 1 to N do
+  begin
+    FScreenDirty := True;
+    RepaintPaper;
+    RenderPro;
+    RecomposeAll;
+  end;
+  Qk := (GetTickCount64 - T0) / N;
+  FCameraMoving := WasMoving;
+  RepaintPaper; RenderPro; RecomposeAll;
   { and the overlay on top - the selection outlines above all }
   T0 := GetTickCount64;
   for I := 1 to N do pbScreen.Repaint;
   Ov := (GetTickCount64 - T0) / N;
   FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).  index and edges %.0f, faces sorted and painted %.0f, lines on faces %.0f, the rest %.0f',
-    [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, FD.Doc.ProfMs[0] / N,
-     (FD.Doc.ProfMs[1] + FD.Doc.ProfMs[2]) / N, FD.Doc.ProfMs[3] / N, FD.Doc.ProfMs[4] / N]);
-  FCmdMsg := FCmdMsg + Format('; overlay %.0f ms with %d selected', [Ov, Length(FSel)]);
+    [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, Ph[0], Ph[1] + Ph[2], Ph[3], Ph[4]]);
+  FCmdMsg := FCmdMsg + Format('; quick frame %.0f ms; overlay %.0f ms with %d selected', [Qk, Ov, Length(FSel)]);
   WriteLn('rendertime ', Ms:0:1, ' ms/frame (paper+render+composite), ', FD.Doc.Live, ' things; index+edges ',
-    FD.Doc.ProfMs[0] / N:0:1, ' faces ', (FD.Doc.ProfMs[1] + FD.Doc.ProfMs[2]) / N:0:1, ' lines-on-faces ',
-    FD.Doc.ProfMs[3] / N:0:1, ' rest ', FD.Doc.ProfMs[4] / N:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds);
+    Ph[0]:0:1, ' faces ', (Ph[1] + Ph[2]):0:1, ' lines-on-faces ',
+    Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds);
   Flush(Output);
   Trail(FCmdMsg);
   pbCmd.Invalidate;
@@ -8479,6 +8510,14 @@ begin
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard
   else if W = 'rendertime' then RenderTiming
+  else if W = 'quick' then
+  begin
+    FQuickFrames := not FQuickFrames;
+    FCameraMoving := False;
+    RepaintPaper; RenderPro; RecomposeAll; Invalidate;
+    if FQuickFrames then FCmdMsg := 'Quick frames while the camera moves: on.'
+    else FCmdMsg := 'Quick frames while the camera moves: off - every frame at full quality.';
+  end
   else if W = 'timings' then
   begin
     FTimings := not FTimings;
@@ -9267,6 +9306,7 @@ begin
           FD.ViewY := FD.ViewY + (FOrbitAnchor.Y - OP.Y);
         end;
       end;
+      FCameraMoving := True;
       RepaintPaper;
       RenderPro;
       RecomposeAll;
@@ -11508,6 +11548,15 @@ begin
     FOrbiting := False;
     if FTool = ptOrbit then pbScreen.Cursor := crSizeAll
     else pbScreen.Cursor := crCross;
+    { the camera has stopped: one full frame over the quick ones }
+    if FCameraMoving then
+    begin
+      FCameraMoving := False;
+      RepaintPaper;
+      RenderPro;
+      RecomposeAll;
+      Invalidate;
+    end;
     { A right button that went down and came up in the same place was a
       click, not a pan, and a click on a dimension edits its text.  The pan
       still owns the right button everywhere else, which is why this has to
@@ -12224,6 +12273,15 @@ begin
   end;
 
   FollowScreenSize;
+  { the wheel has settled: the full frame }
+  if FCameraMoving and not (FOrbiting or FPanning) and (GetTickCount64 - FLastWheel > 220) then
+  begin
+    FCameraMoving := False;
+    RepaintPaper;
+    RenderPro;
+    RecomposeAll;
+    Invalidate;
+  end;
   ServiceMotion;
   ServiceHover;
 
@@ -13162,6 +13220,7 @@ begin
     begin
       { the drawing still has to be put on the paper - framing it was doing
         that as a side effect, and skipping the framing skipped the render }
+      FCameraMoving := True;
       RepaintPaper;
       RenderPro;
       RecomposeAll;

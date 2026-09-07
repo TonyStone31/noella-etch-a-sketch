@@ -108,6 +108,11 @@ type
 
     { Depth: start a pass, say what plane the next shape lies in, ask what
       depth a pixel ended up at.  Depth counts up towards the eye. }
+  public
+    { one coverage sample a row instead of four - the quick frame while the
+      camera is moving; the full frame comes when it stops }
+    QuickFill: Boolean;
+  public
     procedure DepthBegin;
     procedure DepthPlane(A, B, C: Double);
     function DepthAt(X, Y: Integer): Single;
@@ -1065,7 +1070,9 @@ var
   T: Single;
   Z: Double;
   Any: Boolean;
+  Smp: Integer;
 begin
+  if QuickFill then Smp := 1 else Smp := SAMPLES;
   Any := False;
   Total := 0;
   MinY := 0; MaxY := 0; MinX := 0; MaxX := 0;
@@ -1107,9 +1114,9 @@ begin
     for X := 0 to High(Cov) do
       Cov[X] := 0;
 
-    for K := 0 to SAMPLES - 1 do
+    for K := 0 to Smp - 1 do
     begin
-      SY := Y + (K + 0.5) / SAMPLES;
+      SY := Y + (K + 0.5) / Smp;
       Cnt := 0;
       for L := 0 to High(Loops) do
       begin
@@ -1156,7 +1163,7 @@ begin
           { how much of this pixel the span covers horizontally }
           T := Min(XB, X + 1.0) - Max(XA, X * 1.0);
           if T > 0 then
-            Cov[X - X0] := Cov[X - X0] + T / SAMPLES;
+            Cov[X - X0] := Cov[X - X0] + T / Smp;
         end;
       end;
     end;

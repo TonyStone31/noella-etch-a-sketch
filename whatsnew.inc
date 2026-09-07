@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Quicker frames while you orbit, pan or zoom.**  While the camera is' + LineEnding +
+    '  moving the drawing is redrawn a cheaper way - the hidden-line work is' + LineEnding +
+    '  sampled coarser and the faces are filled without anti-aliasing - and the' + LineEnding +
+    '  full-quality frame is drawn the moment you let go, or a fifth of a second' + LineEnding +
+    '  after the wheel stops.  The picture stays complete while it moves, just' + LineEnding +
+    '  a touch rougher at the ends of hidden lines.  A big drawing orbits in' + LineEnding +
+    '  about half the time.  If you would rather every frame were the full one,' + LineEnding +
+    '  `/quick` turns it off and on.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.10' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

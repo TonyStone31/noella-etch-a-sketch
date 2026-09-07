@@ -137,8 +137,10 @@ into the drawing; hammer the general tools before the generators.
   with the direction and listed, in its order: a dead per-frame face copy
   (removed), the lines-times-faces search (cached), the whole-frame timer
   (done), and four still open, which are the list before threads:
-  (a) a cheaper frame while the camera is moving - skip the lines-on-faces
-  pass and the anti-aliasing during a drag, full redraw on release;
+  (a) done 2026-09-07: quick frames while the camera moves - lines on faces
+  sampled at 8 not 32 with no bisection, one coverage sample a row - full
+  frame on release or 220 ms after the wheel; ten spools zoomed in 36 ->
+  23 ms, one spool 23 -> 11; /quick toggles;
   (b) FillLoops allocates two scratch arrays per face and scans four
   sub-samples a row - keep scratch on the surface, consider two samples
   while dragging; (c) face normal, area and centroid are model properties
