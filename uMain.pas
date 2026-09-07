@@ -579,6 +579,10 @@ type
     procedure BuildTransitionWizard;
     function ArcNormal(I: Integer): TP3;
     procedure DoRevolve(const AxisP, AxisDir: TP3);
+    { the chain of edges joined end to end through edge I, as points, and
+      whether it closes on itself }
+    function ChainFrom(I: Integer; out Closed: Boolean): TP3Array;
+    procedure DoSweep(const Path: TP3Array; Closed: Boolean);
     { /rendertime: how long a frame takes, for chasing sluggish orbits }
     procedure RenderTiming;
     procedure ApplyArray(N: Integer; Divide: Boolean);
@@ -4829,6 +4833,154 @@ begin
   FInput := '';
 end;
 
+{ Follow the edges joined to edge I as far as they go each way, while there
+  is exactly one edge to follow: a path drawn as a run of lines and arcs.
+  The points come back in order from one end to the other, or round and back
+  to the start when the chain closes. }
+function TMainForm.ChainFrom(I: Integer; out Closed: Boolean): TP3Array;
+var
+  Used: array of Boolean;
+  Pts, More: TP3Array;
+  J, K, Found, Guard: Integer;
+  Tail: TP3;
+  Fwd: Boolean;
+
+  function Tip(J: Integer; AtA: Boolean): TP3;
+  begin
+    if AtA then Result := FD.Doc[J].A else Result := FD.Doc[J].B;
+  end;
+
+  { the one unused edge whose end sits at P, or -1 when there is none or
+    more than one }
+  function NextAt(const P: TP3; out AtA: Boolean): Integer;
+  var
+    E, Count: Integer;
+  begin
+    Result := -1;
+    Count := 0;
+    AtA := True;
+    for E := 0 to FD.Doc.Live - 1 do
+      if (not Used[E]) and (FD.Doc[E].Kind in [ekLine, ekArc]) then
+      begin
+        if Dist(FD.Doc[E].A, P) < 1E-6 then begin Inc(Count); Result := E; AtA := True; end
+        else if Dist(FD.Doc[E].B, P) < 1E-6 then begin Inc(Count); Result := E; AtA := False; end;
+      end;
+    if Count <> 1 then Result := -1;
+  end;
+
+  procedure Append(var L: TP3Array; const P: TP3Array; Reverse: Boolean);
+  var
+    Q: Integer;
+  begin
+    for Q := 0 to High(P) do
+    begin
+      if Reverse then K := High(P) - Q else K := Q;
+      if (Length(L) > 0) and (Dist(L[High(L)], P[K]) < 1E-9) then Continue;
+      SetLength(L, Length(L) + 1);
+      L[High(L)] := P[K];
+    end;
+  end;
+
+begin
+  Result := nil;
+  Closed := False;
+  SetLength(Used, FD.Doc.Live);
+  Used[I] := True;
+  FD.Doc.EdgePoints(I, Pts);
+  if Length(Pts) < 2 then Exit;
+  { forward from the end of I }
+  Guard := 0;
+  repeat
+    Tail := Pts[High(Pts)];
+    if Dist(Tail, Pts[0]) < 1E-6 then
+    begin
+      Closed := True;
+      Break;
+    end;
+    Found := NextAt(Tail, Fwd);
+    if Found < 0 then Break;
+    Used[Found] := True;
+    FD.Doc.EdgePoints(Found, More);
+    Append(Pts, More, not Fwd);
+    Inc(Guard);
+  until Guard > 10000;
+  if not Closed then
+  begin
+    { and backward from the start of I }
+    Guard := 0;
+    repeat
+      Found := NextAt(Pts[0], Fwd);
+      if Found < 0 then Break;
+      Used[Found] := True;
+      FD.Doc.EdgePoints(Found, More);
+      { reverse the whole chain, append, reverse back }
+      for J := 0 to High(Pts) div 2 do
+      begin
+        Tail := Pts[J]; Pts[J] := Pts[High(Pts) - J]; Pts[High(Pts) - J] := Tail;
+      end;
+      Append(Pts, More, not Fwd);
+      for J := 0 to High(Pts) div 2 do
+      begin
+        Tail := Pts[J]; Pts[J] := Pts[High(Pts) - J]; Pts[High(Pts) - J] := Tail;
+      end;
+      if Dist(Pts[0], Pts[High(Pts)]) < 1E-6 then
+      begin
+        Closed := True;
+        Break;
+      end;
+      Inc(Guard);
+    until Guard > 10000;
+  end;
+  Result := Pts;
+end;
+
+{ Follow Me along a path.  The profile rides from whichever end of the path
+  is nearer to it, so a path can be drawn from either end. }
+procedure TMainForm.DoSweep(const Path: TP3Array; Closed: Boolean);
+var
+  P: TP3Array;
+  Cen: TP3;
+  I, First: Integer;
+  DA, DB: Double;
+begin
+  if Length(Path) < 2 then
+  begin
+    FCmdMsg := 'That path has nothing to follow.';
+    Exit;
+  end;
+  P := Copy(Path);
+  if not Closed then
+  begin
+    Cen := P3(0, 0, 0);
+    for I := 0 to High(FD.Doc[FFollowFace].Poly) do
+      Cen := P3(Cen.X + FD.Doc[FFollowFace].Poly[I].X / Length(FD.Doc[FFollowFace].Poly),
+                Cen.Y + FD.Doc[FFollowFace].Poly[I].Y / Length(FD.Doc[FFollowFace].Poly),
+                Cen.Z + FD.Doc[FFollowFace].Poly[I].Z / Length(FD.Doc[FFollowFace].Poly));
+    DA := Dist(Cen, P[0]);
+    DB := Dist(Cen, P[High(P)]);
+    if DB < DA then
+      for I := 0 to High(P) div 2 do
+      begin
+        Cen := P[I]; P[I] := P[High(P) - I]; P[High(P) - I] := Cen;
+      end;
+  end;
+  PushUndo;
+  First := FD.Doc.Sweep(FFollowFace, P, Closed);
+  if First < 0 then
+  begin
+    FCmdMsg := 'That could not be followed - it needs a face and a path of some length.';
+    Exit;
+  end;
+  SeedRegions;
+  SelectNone;
+  RenderPro;
+  RecomposeAll;
+  if Closed then FCmdMsg := 'Followed the path all the way round.'
+  else FCmdMsg := Format('Followed the path, %d legs.', [Length(P) - 1]);
+  ResetTool;
+  FInput := '';
+end;
+
 procedure TMainForm.BuildTransitionWizard;
 var
   Spec: TTransitionSpec;
@@ -7261,7 +7413,7 @@ var
   I, J: Integer;
   P: TPointF;
   T: TP3;
-  WasLine: Boolean;
+  WasLine, Closed: Boolean;
 begin
   { a click on anything is the end of the copy that could have become an
     array - except the copy's own placing click, which is what set it up }
@@ -7506,22 +7658,38 @@ begin
             I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
             if I < 0 then
             begin
-              FCmdMsg := 'Click the face to spin - that is the profile.';
+              FCmdMsg := 'Click the face to follow - that is the profile.';
               Exit;
             end;
             FFollowFace := I;
             FStage := 1;
             FInput := '';
-            FCmdMsg := 'Now the axis: click two points on it, or click a circle to follow round.';
+            { edges picked beforehand are the path, SketchUp's first way of
+              using the tool }
+            for J := 0 to High(FSel) do
+              if FD.Doc[FSel[J]].Kind in [ekLine, ekArc] then
+              begin
+                DoSweep(ChainFrom(FSel[J], Closed), Closed);
+                Exit;
+              end;
+            FCmdMsg := 'Now the path: click a line or arc to follow along, a circle to ' +
+              'follow round, or two points for an axis to spin on.';
           end;
         1:
           begin
-            { a circle under the cursor is the path: SketchUp's own gesture,
-              and the axis is through its centre }
+            { a circle under the cursor is a turn about its centre - which is
+              what following round it comes to; a line or an open arc is the
+              start of a path }
             I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
-            if (I >= 0) and (FD.Doc[I].Kind = ekArc) and (I <> FFollowFace) then
+            if (I >= 0) and (FD.Doc[I].Kind = ekArc) and (I <> FFollowFace) and
+               (Abs(FD.Doc[I].Sweep) >= 2 * Pi - 1E-9) then
             begin
               DoRevolve(FD.Doc[I].C, ArcNormal(I));
+              Exit;
+            end;
+            if (I >= 0) and (FD.Doc[I].Kind in [ekLine, ekArc]) then
+            begin
+              DoSweep(ChainFrom(I, Closed), Closed);
               Exit;
             end;
             FAxisA := FCur;

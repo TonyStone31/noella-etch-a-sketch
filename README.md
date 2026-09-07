@@ -179,11 +179,14 @@ The same idea taken seriously.  The program starts here, in the 3D view.
 * **Drill.**  Where push/pull stops, the drill goes on: a second tunnel cuts
   clean through the first, square or round, from any side, so a block can be
   bored in several directions like a manifold.
-* **Follow Me.**  Spin a face round an axis into a solid: click the face,
-  then two points on the axis or a circle to follow round, and type an
-  angle first for a part turn.  A half circle on its diameter is a ball, a
-  profile on its edge is a cone or a round reducer.  Following a path of
-  lines and arcs, for round elbows and spools, is the half still to come.
+* **Follow Me.**  SketchUp's tool for round work.  Click the face, then
+  click a line or arc to push it along every edge joined to that one,
+  mitred at the corners: a circle along a run with a 90 arc in it is a
+  round elbow with legs, a whole spool from a centreline.  Or click two
+  points for an axis, or a circle, to spin the face round: a half circle on
+  its diameter is a ball, a profile on its edge is a cone or a round
+  reducer.  Type an angle first for a part turn.  Selecting the path
+  before clicking the face works too.
 * **Shake the mouse to say which way you meant it.**  Drawing in mid air and
   the shape keeps standing up when you wanted it flat?  Jerk the mouse side
   to side and it lies down; jerk it up and down and it stands up.

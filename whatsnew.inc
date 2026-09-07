@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Follow Me follows a path.**  Click the face, then click a line or an' + LineEnding +
+    '  arc: the face is pushed along every edge joined to it, end to end, and' + LineEnding +
+    '  mitred at each corner - a square along an L is an L of square tube, a' + LineEnding +
+    '  circle along a line with a 90 arc in it is a round elbow with straight' + LineEnding +
+    '  legs, a circle round a rectangle of lines is a rectangular ring of pipe.' + LineEnding +
+    '  Or select the path first and then click the face, SketchUp''s own way.  A' + LineEnding +
+    '  closed path has no caps; an open one keeps the profile as one cap and' + LineEnding +
+    '  adds the other.  A whole circle clicked as the path still spins the face' + LineEnding +
+    '  round its centre.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.06.29' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

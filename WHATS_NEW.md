@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Follow Me follows a path.**  Click the face, then click a line or an
+  arc: the face is pushed along every edge joined to it, end to end, and
+  mitred at each corner - a square along an L is an L of square tube, a
+  circle along a line with a 90 arc in it is a round elbow with straight
+  legs, a circle round a rectangle of lines is a rectangular ring of pipe.
+  Or select the path first and then click the face, SketchUp's own way.  A
+  closed path has no caps; an open one keeps the profile as one cap and
+  adds the other.  A whole circle clicked as the path still spins the face
+  round its centre.
+
 ## v2026.09.06.29
 
 ### New

@@ -203,6 +203,14 @@ type
       profile face; a part turn keeps it as one cap and makes the other. }
     function Revolve(Face: Integer; const AxisP, AxisDir: TP3; Angle: Double;
       Steps: Integer): Integer;
+    { Follow Me, the path half: push the face Face along Path, a chain of
+      points, mitring it at every corner, into one solid.  Closed says the
+      path comes back to its start, in which case there are no caps and the
+      profile is consumed.  Returns the index of the first thing made, or
+      -1. }
+    function Sweep(Face: Integer; const Path: TP3Array; Closed: Boolean): Integer;
+    { the points of an arc or a line, in order, for building a path }
+    procedure EdgePoints(I: Integer; out Pts: TP3Array);
     { where a dimension's line sits: the offset from what it measures }
     procedure SetDimOffset(Index: Integer; const Off: TP3);
     procedure AddText(const A: TP3; const S: string; Ink: TColor);
@@ -2393,6 +2401,226 @@ begin
     FaceOut(Rings[Steps], RotV(Tang, Ax, Angle));
     for K := 0 to N - 1 do
       Edge(Rings[Steps][K], Rings[Steps][(K + 1) mod N], False);
+    for K := 0 to N - 1 do
+    begin
+      I := LineAt(Poly[K], Poly[(K + 1) mod N]);
+      if I >= 0 then SetGroup(I, G);
+    end;
+  end;
+  FSnapDirty := True;
+  Result := First;
+end;
+
+procedure TWorkDoc.EdgePoints(I: Integer; out Pts: TP3Array);
+var
+  K, N: Integer;
+begin
+  Pts := nil;
+  if (I < 0) or (I >= FLive) then Exit;
+  case FEnts[I].Kind of
+    ekLine:
+      begin
+        SetLength(Pts, 2);
+        Pts[0] := FEnts[I].A;
+        Pts[1] := FEnts[I].B;
+      end;
+    ekArc:
+      begin
+        N := ArcSteps(FEnts[I]);
+        SetLength(Pts, N + 1);
+        for K := 0 to N do
+          if FEnts[I].Plane = plFree then
+            Pts[K] := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0 + FEnts[I].Sweep * K / N,
+              FEnts[I].Plane, FEnts[I].Nm)
+          else
+            Pts[K] := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0 + FEnts[I].Sweep * K / N,
+              FEnts[I].Plane);
+      end;
+  end;
+end;
+
+function TWorkDoc.Sweep(Face: Integer; const Path: TP3Array; Closed: Boolean): Integer;
+const
+  SOFT_TURN = 30 * Pi / 180;
+var
+  Poly: TP3Array;
+  Pts: TP3Array;
+  N, M, S, K, K2, G, I, First: Integer;
+  Rings: array of array of TP3;
+  DirIn, DirOut, B, Q, Cen, E, PrevE, Out, RingCen: TP3;
+  T, Turn: Double;
+  Hard: array of Boolean;
+
+  function Near(const A, C: TP3): Boolean;
+  begin
+    Result := Dist(A, C) < 1E-9;
+  end;
+
+  function Sub(const A, C: TP3): TP3;
+  begin
+    Result := P3(A.X - C.X, A.Y - C.Y, A.Z - C.Z);
+  end;
+
+  procedure FaceOut(const P: array of TP3; const Want: TP3);
+  begin
+    AddFaceRaw(P, FEnts[Face].Ink, True);
+    SetFaceGroup(FLive - 1, G);
+    if Dot3(FaceNormal(FLive - 1), Want) < 0 then FlipFace(FLive - 1);
+  end;
+
+  procedure Edge(const A, C: TP3; Soft: Boolean);
+  begin
+    if Near(A, C) then Exit;
+    AddLine(A, C, FEnts[Face].Ink, FEnts[Face].Weight, False);
+    SetGroup(FLive - 1, G);
+    SetSoft(FLive - 1, Soft);
+  end;
+
+  function LineAt(const A, C: TP3): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to FLive - 1 do
+      if (FEnts[J].Kind = ekLine) and
+         ((Near(FEnts[J].A, A) and Near(FEnts[J].B, C)) or
+          (Near(FEnts[J].A, C) and Near(FEnts[J].B, A))) then Exit(J);
+  end;
+
+  { where the line through P along D meets the plane through O with normal Nm }
+  function Meet(const P, D, O, Nm: TP3): TP3;
+  var
+    Den: Double;
+  begin
+    Den := Dot3(D, Nm);
+    if Abs(Den) < 1E-12 then Exit(P);
+    T := Dot3(Sub(O, P), Nm) / Den;
+    Result := P3(P.X + D.X * T, P.Y + D.Y * T, P.Z + D.Z * T);
+  end;
+
+begin
+  Result := -1;
+  if (Face < 0) or (Face >= FLive) or (FEnts[Face].Kind <> ekFace) then Exit;
+  { the path without repeated points }
+  Pts := nil;
+  for I := 0 to High(Path) do
+    if (Length(Pts) = 0) or not Near(Pts[High(Pts)], Path[I]) then
+    begin
+      SetLength(Pts, Length(Pts) + 1);
+      Pts[High(Pts)] := Path[I];
+    end;
+  M := Length(Pts);
+  if Closed and (M > 1) and Near(Pts[0], Pts[M - 1]) then
+  begin
+    SetLength(Pts, M - 1);
+    M := M - 1;
+  end;
+  if (M < 2) or (Closed and (M < 3)) then Exit;
+  Poly := Copy(FEnts[Face].Poly);
+  N := Length(Poly);
+  if N < 3 then Exit;
+  First := FLive;
+  G := NewGroup;
+  { The profile at every path point.  Along each leg the points travel with
+    the leg; at a corner they are cut off on the plane that halves the
+    corner, which is the mitre - so the ring there is the same ring seen
+    from either leg.  A closed path has a mitre at its start too. }
+  if Closed then SetLength(Rings, M + 1) else SetLength(Rings, M);
+  SetLength(Hard, Length(Rings));
+  Rings[0] := Copy(Poly);
+  Hard[0] := True;
+  for S := 1 to High(Rings) do
+  begin
+    SetLength(Rings[S], N);
+    DirIn := Norm3(Sub(Pts[S mod M], Pts[(S - 1) mod M]));
+    if Closed or (S < M - 1) then
+    begin
+      DirOut := Norm3(Sub(Pts[(S + 1) mod M], Pts[S mod M]));
+      B := P3(DirIn.X + DirOut.X, DirIn.Y + DirOut.Y, DirIn.Z + DirOut.Z);
+      if Dist(B, P3(0, 0, 0)) < 1E-9 then B := DirIn else B := Norm3(B);
+      Turn := ArcCos(Max(-1, Min(1, Dot3(DirIn, DirOut))));
+    end
+    else
+    begin
+      B := DirIn;
+      Turn := Pi;
+    end;
+    Hard[S] := Turn >= SOFT_TURN;
+    for K := 0 to N - 1 do
+      Rings[S][K] := Meet(Rings[S - 1][K], DirIn, Pts[S mod M], B);
+  end;
+  if Closed then
+  begin
+    { the ring at the start, mitred like the rest, replaces the profile as
+      drawn - which sat square to nothing in particular }
+    Rings[0] := Copy(Rings[M]);
+    Hard[0] := Hard[M];
+  end;
+  { the surface: a strip of quads per profile edge, each facing away from
+    the middle of its own ring }
+  for S := 0 to High(Rings) - 1 do
+  begin
+    RingCen := P3(0, 0, 0);
+    for K := 0 to N - 1 do
+      RingCen := P3(RingCen.X + (Rings[S][K].X + Rings[S + 1][K].X) / (2 * N),
+                    RingCen.Y + (Rings[S][K].Y + Rings[S + 1][K].Y) / (2 * N),
+                    RingCen.Z + (Rings[S][K].Z + Rings[S + 1][K].Z) / (2 * N));
+    for K := 0 to N - 1 do
+    begin
+      K2 := (K + 1) mod N;
+      Q := P3((Rings[S][K].X + Rings[S][K2].X + Rings[S + 1][K2].X + Rings[S + 1][K].X) / 4,
+              (Rings[S][K].Y + Rings[S][K2].Y + Rings[S + 1][K2].Y + Rings[S + 1][K].Y) / 4,
+              (Rings[S][K].Z + Rings[S][K2].Z + Rings[S + 1][K2].Z + Rings[S + 1][K].Z) / 4);
+      Out := Sub(Q, RingCen);
+      FaceOut([Rings[S][K], Rings[S][K2], Rings[S + 1][K2], Rings[S + 1][K]], Out);
+    end;
+    { the seam at the far ring: hard at a corner, soft along a curve }
+    if (S + 1 <= High(Rings)) and (Closed or (S + 1 < High(Rings))) then
+      for K := 0 to N - 1 do
+        Edge(Rings[S + 1][K], Rings[S + 1][(K + 1) mod N], not Hard[S + 1]);
+  end;
+  { the lines each profile corner draws along the path: hard where the
+    profile has a corner, soft where it only bends }
+  for K := 0 to N - 1 do
+  begin
+    K2 := (K + 1) mod N;
+    PrevE := Norm3(Sub(Poly[K], Poly[(K + N - 1) mod N]));
+    E := Norm3(Sub(Poly[K2], Poly[K]));
+    Turn := ArcCos(Max(-1, Min(1, Dot3(PrevE, E))));
+    for S := 0 to High(Rings) - 1 do
+      Edge(Rings[S][K], Rings[S + 1][K], Turn < SOFT_TURN);
+  end;
+  if Closed then
+  begin
+    for K := 0 to N - 1 do
+    begin
+      I := LineAt(Poly[K], Poly[(K + 1) mod N]);
+      if I >= 0 then Delete(I);
+    end;
+    { the profile's own edges and face are gone; the start ring, mitred, is
+      drawn in their place }
+    for K := 0 to N - 1 do
+      Edge(Rings[0][K], Rings[0][(K + 1) mod N], not Hard[0]);
+    for I := FLive - 1 downto 0 do
+      if (FEnts[I].Kind = ekFace) and (I = Face) then Delete(I);
+    First := -1;
+    for I := 0 to FLive - 1 do
+      if (FEnts[I].Kind = ekFace) and FEnts[I].Solid and (FEnts[I].Grp = G) then
+      begin
+        First := I;
+        Break;
+      end;
+  end
+  else
+  begin
+    { the profile is the near cap; the far cap is the last ring }
+    FEnts[Face].Solid := True;
+    SetFaceGroup(Face, G);
+    DirIn := Norm3(Sub(Pts[1], Pts[0]));
+    if Dot3(FaceNormal(Face), DirIn) > 0 then FlipFace(Face);
+    FaceOut(Rings[High(Rings)], Norm3(Sub(Pts[M - 1], Pts[M - 2])));
+    for K := 0 to N - 1 do
+      Edge(Rings[High(Rings)][K], Rings[High(Rings)][(K + 1) mod N], False);
     for K := 0 to N - 1 do
     begin
       I := LineAt(Poly[K], Poly[(K + 1) mod N]);

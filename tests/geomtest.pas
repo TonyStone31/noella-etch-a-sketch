@@ -2650,6 +2650,74 @@ begin
   end;
 end;
 
+{ ------------------------------------------------ follow me, the path half - }
+procedure TestSweep;
+var
+  D: TWorkDoc;
+  Path: TP3Array;
+  First, I, J, Faces, Wrong: Integer;
+  Mid, N: TP3;
+  OnMitre: Boolean;
+begin
+  WriteLn('Follow Me along a path');
+  D := TWorkDoc.Create;
+  try
+    { a unit square standing in XZ at the origin, pushed 4 along +Y then 4
+      along +X: an L of square tube }
+    D.AddFaceRaw([P3(-0.5, 0, 0), P3(0.5, 0, 0), P3(0.5, 0, 1), P3(-0.5, 0, 1)], 0, False);
+    SetLength(Path, 3);
+    Path[0] := P3(0, 0, 0.5); Path[1] := P3(0, 4, 0.5); Path[2] := P3(4, 4, 0.5);
+    First := D.Sweep(0, Path, False);
+    Ok(First >= 0, 'a square follows an L');
+    Faces := 0;
+    for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 4 * 2 + 2, 'four sides times two legs, and two caps');
+    { the corner ring lies on the plane that halves the corner, x = y at
+      the corner: every vertex on it has x - 0 = y - 4 }
+    OnMitre := True; Wrong := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        Mid := P3(0, 0, 0);
+        for J := 0 to High(D[I].Poly) do
+          Mid := P3(Mid.X + D[I].Poly[J].X / Length(D[I].Poly), Mid.Y + D[I].Poly[J].Y / Length(D[I].Poly),
+                    Mid.Z + D[I].Poly[J].Z / Length(D[I].Poly));
+        for J := 0 to High(D[I].Poly) do
+          if (Abs(D[I].Poly[J].Y - 4) < 1E-9) and (Abs(D[I].Poly[J].X) < 1) and (Abs(D[I].Poly[J].X) > 1E-9) then
+            OnMitre := False;
+        { the far cap faces +X, the near cap faces -Y }
+        N := D.FaceNormal(I);
+        if (Abs(Mid.X - 4) < 1E-9) and (N.X < 0.9) then Inc(Wrong);
+        if (Abs(Mid.Y) < 1E-9) and (Abs(Mid.X) < 1E-9) and (N.Y > -0.9) then Inc(Wrong);
+      end;
+    Ok(Wrong = 0, 'the caps face out along the path');
+    { the top of the first leg faces up }
+    Wrong := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) then
+      begin
+        Mid := P3(0, 0, 0);
+        for J := 0 to 3 do
+          Mid := P3(Mid.X + D[I].Poly[J].X / 4, Mid.Y + D[I].Poly[J].Y / 4, Mid.Z + D[I].Poly[J].Z / 4);
+        if (Abs(Mid.Z - 1) < 1E-9) and (D.FaceNormal(I).Z < 0.9) then Inc(Wrong);
+        if (Abs(Mid.Z) < 1E-9) and (D.FaceNormal(I).Z > -0.9) then Inc(Wrong);
+      end;
+    Ok(Wrong = 0, 'tops face up and bottoms face down along both legs');
+    { a closed square path: a square ring of square tube, no caps }
+    D.Free; D := TWorkDoc.Create;
+    D.AddFaceRaw([P3(-0.5, 0, 0), P3(0.5, 0, 0), P3(0.5, 0, 1), P3(-0.5, 0, 1)], 0, False);
+    SetLength(Path, 5);
+    Path[0] := P3(0, 0, 0.5); Path[1] := P3(0, 6, 0.5); Path[2] := P3(6, 6, 0.5);
+    Path[3] := P3(6, 0, 0.5); Path[4] := P3(0, 0, 0.5);
+    First := D.Sweep(0, Path, True);
+    Faces := 0;
+    for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
+    Ok(Faces = 4 * 4, 'round a closed square: four sides times four legs, no caps, the profile consumed');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestArrays;
 var
   D: TWorkDoc;
@@ -3097,6 +3165,7 @@ begin
   TestFacingOut;  WriteLn;
   TestArcSnaps;  WriteLn;
   TestRevolve;  WriteLn;
+  TestSweep;  WriteLn;
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
