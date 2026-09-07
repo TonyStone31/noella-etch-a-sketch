@@ -144,7 +144,7 @@ object TransitionForm: TTransitionForm
     ClientWidth = 206
     ItemIndex = 0
     Items.Strings = (
-      'Centred'
+      'Centered'
       'Left side in by'
       'Right side in by'
     )
@@ -173,7 +173,7 @@ object TransitionForm: TTransitionForm
     Items.Strings = (
       'Flat bottom  (FB)'
       'Flat top  (FT)'
-      'Centred'
+      'Centered'
       'Top up by'
       'Top down by'
       'Bottom up by'
@@ -635,7 +635,7 @@ object TransitionForm: TTransitionForm
     Top = 316
     Width = 170
     Caption = 'Starts, from the entry'
-    Hint = 'blank is centred along the run'
+    Hint = 'blank is centered along the run'
     Visible = False
   end
   object edBFrom: TEdit
@@ -669,7 +669,7 @@ object TransitionForm: TTransitionForm
     Height = 18
     Top = 350
     Width = 150
-    Caption = 'blank is centred'
+    Caption = 'blank is centered'
     Font.Color = clGray
     ParentFont = False
     Visible = False
@@ -753,7 +753,7 @@ object TransitionForm: TTransitionForm
     Height = 18
     Top = 316
     Width = 150
-    Caption = 'blank is centred'
+    Caption = 'blank is centered'
     Font.Color = clGray
     ParentFont = False
     Visible = False

@@ -266,9 +266,9 @@ end;
 
 function TicketText(const T: TTransitionSpec): string;
 const
-  SideWords: array[TSideRule] of string = ('Centred', 'Left side in by', 'Right side in by');
+  SideWords: array[TSideRule] of string = ('Centered', 'Left side in by', 'Right side in by');
   HeightWords: array[THeightRule] of string = ('Flat bottom (FB)', 'Flat top (FT)',
-    'Centred', 'Top up by', 'Top down by', 'Bottom up by', 'Bottom down by');
+    'Centered', 'Top up by', 'Top down by', 'Bottom up by', 'Bottom down by');
 var
   Inch: Double;
   function Ins(V: Double): string;

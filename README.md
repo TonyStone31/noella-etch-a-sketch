@@ -182,7 +182,7 @@ The same idea taken seriously.  The program starts here, in the 3D view.
 * **Follow Me.**  SketchUp's tool for round work.  Click the face, then
   click a line or arc to push it along every edge joined to that one,
   mitred at the corners: a circle along a run with a 90 arc in it is a
-  round elbow with legs, a whole spool from a centreline.  Or click two
+  round elbow with legs, a whole spool from a centerline.  Or click two
   points for an axis, or a circle, to spin the face round: a half circle on
   its diameter is a ball, a profile on its edge is a cone or a round
   reducer.  Type an angle first for a part turn.  Selecting the path
@@ -238,7 +238,7 @@ hands the shop.  Radio buttons at the top pick the kind:
 
 * **Transition.**  Entry opening, exit opening, the length, which side comes
   in and by how much, and what the height does: flat bottom, flat top,
-  centred, or the top or bottom moved up or down by an amount - whichever
+  centered, or the top or bottom moved up or down by an amount - whichever
   edge you could actually get a tape on.
 * **Elbow.**  The opening, the angle - 22.5, 45, 90 or any other - which way
   it turns seen from the entry, the throat radius (0 is a square throat), a
@@ -249,7 +249,7 @@ hands the shop.  Radio buttons at the top pick the kind:
   standing at the open end - ahead and across to the duct it has to meet,
   and that duct's direction - so the elbow lands where it has to.
 * **Tee.**  The run, the branch opening, which wall it comes off, where it
-  starts, and how long the branch is.  Blanks centre it.
+  starts, and how long the branch is.  Blanks center it.
 
 Every fitting takes an **end type for each end**: raw, notched all round for
 a field slip, flange out, flange in, TDF flange, slip and drive, or drive
@@ -271,9 +271,12 @@ a duct you pushed up, say - and unfolds it into a pattern: solid where it
 gets cut, dashed where it gets folded, brake notches marked, the sheet size
 written on it, and a DXF for the table.
 
-**Pipe spool** (`/spool`, `/pipe`) is the pipe fitter's iso as a form: iso
-paper you click the run onto one leg at a time, snapped to the three axes
-or with Shift to a 45, with the centre-to-centre length typed on each.
+**Fitter's scratchpad** (`/spool`, `/pipe`, `/scratchpad`) is the pipe
+fitter's iso as a form: ruled iso paper you click the run onto one leg at
+a time, snapped to the three axes or with Shift to a 45, with each leg's
+length typed on and what it was measured between - center to center, end
+to center, end to end - so a tape that could only reach the weld or the
+flange face still gives the shop the right cut.
 Pick the pipe size, long or short radius elbows, and the ends - bevel,
 weld-neck flange, cap, threaded.  The ticket writes itself with every leg's
 cut length, the elbows' take-outs already off, which is the number the

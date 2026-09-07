@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The fitter's scratchpad** is what the pipe spool wizard is called now,
+  and it works the way a tape does.  Each leg says what its length was
+  measured between: center to center, end to center, center to end, or
+  end to end - an end being the pipe end, the flange face, or the weld at
+  an elbow.  The ticket turns that into center-to-center and cut lengths
+  with the elbows' take-outs already off.  A leg can be drawn without a
+  length and given one later by clicking it, and a sketch with lengths
+  still to come can be emailed as it stands; the 3D view and Build it wait
+  until every leg has its number.  The paper is ruled like iso paper, with
+  dots as the other choice.
+- Center, not centre: the wizards' words are American now.
+
 ## v2026.09.07
 
 ### New

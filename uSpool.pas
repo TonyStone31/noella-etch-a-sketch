@@ -5,7 +5,7 @@ unit uSpool;
   A sheet of iso paper the fitter draws the run on, one leg at a time: click
   where the leg ends and the paper snaps it to one of the three axes - or,
   with Shift held, to a 45 between two of them - then type the
-  centre-to-centre length.  The paper is not to scale; the numbers are.  A
+  center-to-center length.  The paper is not to scale; the numbers are.  A
   corner view of the spool builds itself on the other tab from the same
   numbers, the ticket writes itself underneath with every cut length, and
   the whole thing goes to the office by email or drops into the drawing. }
@@ -28,6 +28,9 @@ type
     btnReport: TButton;
     btnUndo: TButton;
     cbDims: TCheckBox;
+    cbLines: TCheckBox;
+    cbMeasure: TComboBox;
+    lblMeasureHint: TLabel;
     cbEnd0: TComboBox;
     cbEnd1: TComboBox;
     cbSize: TComboBox;
@@ -50,6 +53,7 @@ type
     tsIso: TTabSheet;
     ts3D: TTabSheet;
     procedure AnyChange(Sender: TObject);
+    procedure MeasureChange(Sender: TObject);
     procedure btnEmailClick(Sender: TObject);
     procedure btnFilesClick(Sender: TObject);
     procedure btnLegClick(Sender: TObject);
@@ -68,9 +72,7 @@ type
     { the paper advance of each leg per step, whole numbers, so the paper
       stays on its lattice }
     FAdv: array of TP3;
-    FPending: Boolean;        { a leg drawn and waiting for its length }
-    FPendAdv: TP3;
-    FPendSteps: Integer;
+    FSel: Integer;            { the leg the length box is about, or -1 }
     FHover: Boolean;          { the leg the cursor would make }
     FHoverAdv: TP3;
     FHoverSteps: Integer;
@@ -84,6 +86,8 @@ type
     procedure PaintSketch(C: TCanvas; W, H: Integer);
     procedure Paint3D(C: TCanvas; W, H: Integer);
     function ExportFiles(out Dir: string; out Files: TStringArray): Boolean;
+    procedure Select(I: Integer);
+    function SpecOf: TSpoolSpec;
   public
     class function Ask(Units: TUnitSystem; out Spec: TSpoolSpec): Boolean;
   end;
@@ -136,7 +140,25 @@ begin
   end;
   cbEnd0.ItemIndex := 0;
   cbEnd1.ItemIndex := 0;
+  cbMeasure.Items.Add('center to center');
+  cbMeasure.Items.Add('end to center');
+  cbMeasure.Items.Add('center to end');
+  cbMeasure.Items.Add('end to end');
+  cbMeasure.ItemIndex := 0;
+  FSel := -1;
   lblStatus.Caption := 'Click where the first leg ends.';
+end;
+
+{ the measurement kind picked applies to the leg in hand, and is remembered
+  for the next }
+procedure TSpoolForm.MeasureChange(Sender: TObject);
+begin
+  if (FSel >= 0) and (FSel <= High(FLegs)) then
+  begin
+    FLegs[FSel].FromEnd := cbMeasure.ItemIndex in [1, 3];
+    FLegs[FSel].ToEnd := cbMeasure.ItemIndex in [2, 3];
+  end;
+  Refresh;
 end;
 
 function TSpoolForm.Read(out S: TSpoolSpec): Boolean;
@@ -151,6 +173,11 @@ begin
   S.Tag := Trim(edTag.Text);
   S.Dims := cbDims.Checked;
   Result := True;
+end;
+
+function TSpoolForm.SpecOf: TSpoolSpec;
+begin
+  Read(Result);
 end;
 
 function TSpoolForm.Origin: TPoint;
@@ -184,11 +211,13 @@ var
 begin
   Read(S);
   Err := SpoolProblem(S);
-  if Err = '' then memTicket.Text := SpoolTicket(S)
-  else memTicket.Text := Err;
+  if Length(S.Legs) = 0 then memTicket.Text := Err
+  else if Err = '' then memTicket.Text := SpoolTicket(S)
+  else memTicket.Text := Err + LineEnding + LineEnding + SpoolTicket(S);
   btnBuild.Enabled := Err = '';
-  btnEmail.Enabled := Err = '';
-  btnFiles.Enabled := Err = '';
+  { a sketch with lengths still to come can still go to the office }
+  btnEmail.Enabled := Length(S.Legs) > 0;
+  btnFiles.Enabled := Length(S.Legs) > 0;
   pbSketch.Invalidate;
   pb3D.Invalidate;
 end;
@@ -206,7 +235,6 @@ var
   V: TPoint;
   Cand: TP3;
 begin
-  if FPending then Exit;
   E := Scr(EndNode);
   DX := X - E.X; DY := Y - E.Y;
   FHover := False;
@@ -270,36 +298,84 @@ begin
       end;
       SetLength(FLegs, Length(FLegs) - 1);
       SetLength(FAdv, Length(FAdv) - 1);
+      FSel := -1;
+      edLen.Text := '';
       lblStatus.Caption := 'Leg taken out.';
       Refresh;
     end;
     Exit;
   end;
   if Button <> mbLeft then Exit;
+  { a click on a leg already drawn picks it up, so its length can be given
+    or changed }
+  Node := P3(0, 0, 0);
+  Best := -1; BestD := 14;
+  for I := 0 to High(FLegs) do
+  begin
+    A := Scr(Node);
+    Node := P3(Node.X + FAdv[I].X * FLegs[I].Steps, Node.Y + FAdv[I].Y * FLegs[I].Steps,
+               Node.Z + FAdv[I].Z * FLegs[I].Steps);
+    B := Scr(Node);
+    L2 := Sqr(B.X - A.X) + Sqr(B.Y - A.Y);
+    if L2 < 1 then Continue;
+    T := EnsureRange(((X - A.X) * (B.X - A.X) + (Y - A.Y) * (B.Y - A.Y)) / L2, 0, 1);
+    { the far end of the last leg is where the next one starts, not a pick }
+    if (I = High(FLegs)) and (T > 0.85) then Continue;
+    D := Sqrt(Sqr(X - (A.X + (B.X - A.X) * T)) + Sqr(Y - (A.Y + (B.Y - A.Y) * T)));
+    if D < BestD then begin BestD := D; Best := I; end;
+  end;
+  if Best >= 0 then
+  begin
+    Select(Best);
+    Exit;
+  end;
   pbSketchMouseMove(Sender, Shift, X, Y);
   if not FHover then Exit;
-  FPending := True;
-  FPendAdv := FHoverAdv;
-  FPendSteps := FHoverSteps;
+  { a new leg, with no length yet; a length already typed is its }
+  SetLength(FLegs, Length(FLegs) + 1);
+  SetLength(FAdv, Length(FAdv) + 1);
+  FLegs[High(FLegs)] := Default(TSpoolLeg);
+  FLegs[High(FLegs)].Dir := Norm3(FHoverAdv);
+  FLegs[High(FLegs)].Steps := FHoverSteps;
+  FLegs[High(FLegs)].FromEnd := cbMeasure.ItemIndex in [1, 3];
+  FLegs[High(FLegs)].ToEnd := cbMeasure.ItemIndex in [2, 3];
+  FAdv[High(FAdv)] := FHoverAdv;
   FHover := False;
-  { a length already typed is this leg's }
+  FSel := High(FLegs);
   if InchesOf(edLen.Text, V) and (V > 0) then
     btnLegClick(nil)
   else
   begin
-    lblStatus.Caption := 'How long, centre to centre?  Type it and press Enter.';
+    lblStatus.Caption := Format('Leg %d, %s.  How long, %s?  Type it and press Enter - or click on to the next leg and come back to it.',
+      [FSel + 1, DirName(FLegs[FSel].Dir), cbMeasure.Text]);
     edLen.SetFocus;
+    Refresh;
   end;
-  pbSketch.Invalidate;
+end;
+
+{ the leg the length box is about: its numbers into the box }
+procedure TSpoolForm.Select(I: Integer);
+begin
+  FSel := I;
+  if (I < 0) or (I > High(FLegs)) then Exit;
+  if FLegs[I].Has then edLen.Text := FormatFloat('0.###', FLegs[I].Len * 12)
+  else edLen.Text := '';
+  cbMeasure.OnChange := nil;
+  cbMeasure.ItemIndex := Ord(FLegs[I].FromEnd) + 2 * Ord(FLegs[I].ToEnd);
+  cbMeasure.OnChange := @MeasureChange;
+  lblStatus.Caption := Format('Leg %d, %s: type its length and press Enter.', [I + 1, DirName(FLegs[I].Dir)]);
+  edLen.SetFocus;
+  edLen.SelectAll;
+  Refresh;
 end;
 
 procedure TSpoolForm.btnLegClick(Sender: TObject);
 var
   V: Double;
 begin
-  if not FPending then
+  if (FSel < 0) or (FSel > High(FLegs)) then
   begin
-    lblStatus.Caption := 'Click where the leg ends first, then give its length.';
+    lblStatus.Caption := 'Click where a leg ends first, or click a leg, then give its length.';
     Exit;
   end;
   if not InchesOf(edLen.Text, V) or (V <= 0) then
@@ -307,16 +383,17 @@ begin
     lblStatus.Caption := 'The length did not read - 24, 30.5, 2''6".';
     Exit;
   end;
-  SetLength(FLegs, Length(FLegs) + 1);
-  SetLength(FAdv, Length(FAdv) + 1);
-  FLegs[High(FLegs)].Dir := Norm3(FPendAdv);
-  FLegs[High(FLegs)].Len := V;
-  FLegs[High(FLegs)].Steps := FPendSteps;
-  FAdv[High(FAdv)] := FPendAdv;
-  FPending := False;
-  edLen.Text := '';
-  lblStatus.Caption := Format('Leg %d: %s.  Click where the next one ends, or Build it.',
-    [Length(FLegs), DirName(FLegs[High(FLegs)].Dir)]);
+  FLegs[FSel].Len := V;
+  FLegs[FSel].Has := True;
+  FLegs[FSel].FromEnd := cbMeasure.ItemIndex in [1, 3];
+  FLegs[FSel].ToEnd := cbMeasure.ItemIndex in [2, 3];
+  lblStatus.Caption := Format('Leg %d: %s, %s %s.  Click where the next one ends, or Build it.',
+    [FSel + 1, DirName(FLegs[FSel].Dir), edLen.Text + '"', cbMeasure.Text]);
+  if FSel = High(FLegs) then
+  begin
+    FSel := -1;
+    edLen.Text := '';
+  end;
   Refresh;
 end;
 
@@ -330,18 +407,21 @@ begin
 end;
 
 procedure TSpoolForm.btnUndoClick(Sender: TObject);
+var
+  K, Which: Integer;
 begin
-  if FPending then
+  if Length(FLegs) = 0 then Exit;
+  if (FSel >= 0) and (FSel <= High(FLegs)) then Which := FSel else Which := High(FLegs);
+  for K := Which to High(FLegs) - 1 do
   begin
-    FPending := False;
-    lblStatus.Caption := 'That leg is dropped.';
-  end
-  else if Length(FLegs) > 0 then
-  begin
-    SetLength(FLegs, Length(FLegs) - 1);
-    SetLength(FAdv, Length(FAdv) - 1);
-    lblStatus.Caption := 'Last leg taken off.';
+    FLegs[K] := FLegs[K + 1];
+    FAdv[K] := FAdv[K + 1];
   end;
+  SetLength(FLegs, Length(FLegs) - 1);
+  SetLength(FAdv, Length(FAdv) - 1);
+  FSel := -1;
+  edLen.Text := '';
+  lblStatus.Caption := Format('Leg %d taken off.', [Which + 1]);
   Refresh;
 end;
 
@@ -379,17 +459,28 @@ var
 begin
   C.Brush.Color := clWhite;
   C.FillRect(0, 0, W, H);
-  { the paper: a dot on every point of the iso lattice }
-  C.Pen.Color := $00D8D8D8;
   O := Origin;
-  for I := -60 to 60 do
-    for J := -60 to 60 do
+  if cbLines.Checked then
+  begin
+    { iso paper: light lines along the three axes through every lattice
+      point, the way the printed sheet is ruled }
+    C.Pen.Color := $00E4E4E4;
+    for I := -80 to 80 do
     begin
-      A := Scr(P3(I, J, 0));
-      if (A.X < 0) or (A.X >= W) or (A.Y < 0) or (A.Y >= H) then Continue;
-      C.Pixels[A.X, A.Y] := $00B8B8B8;
-      C.Pixels[A.X + 1, A.Y] := $00D8D8D8;
+      A := Scr(P3(I, -80, 0)); B := Scr(P3(I, 80, 0)); C.Line(A.X, A.Y, B.X, B.Y);
+      A := Scr(P3(-80, I, 0)); B := Scr(P3(80, I, 0)); C.Line(A.X, A.Y, B.X, B.Y);
+      A := Scr(P3(I, -I, -80)); B := Scr(P3(I, -I, 80)); C.Line(A.X, A.Y, B.X, B.Y);
     end;
+  end
+  else
+    for I := -60 to 60 do
+      for J := -60 to 60 do
+      begin
+        A := Scr(P3(I, J, 0));
+        if (A.X < 0) or (A.X >= W) or (A.Y < 0) or (A.Y >= H) then Continue;
+        C.Pixels[A.X, A.Y] := $00B8B8B8;
+        C.Pixels[A.X + 1, A.Y] := $00D8D8D8;
+      end;
   { the three axes off the start, faintly, so the paper says which way is up }
   C.Pen.Color := $00E0C8C8; C.Line(O.X, O.Y, Scr(P3(3, 0, 0)).X, Scr(P3(3, 0, 0)).Y);
   C.Pen.Color := $00C8E0C8; C.Line(O.X, O.Y, Scr(P3(0, 3, 0)).X, Scr(P3(0, 3, 0)).Y);
@@ -404,15 +495,23 @@ begin
     Node := P3(Node.X + FAdv[I].X * FLegs[I].Steps, Node.Y + FAdv[I].Y * FLegs[I].Steps,
                Node.Z + FAdv[I].Z * FLegs[I].Steps);
     B := Scr(Node);
-    C.Pen.Color := $00A05020;
-    C.Pen.Width := 3;
+    if I = FSel then C.Pen.Color := $000080FF else C.Pen.Color := $00A05020;
+    if I = FSel then C.Pen.Width := 5 else C.Pen.Width := 3;
     C.Line(A.X, A.Y, B.X, B.Y);
     C.Pen.Width := 1;
     C.Brush.Color := $00A05020;
     C.Brush.Style := bsSolid;
     C.Ellipse(A.X - 3, A.Y - 3, A.X + 4, A.Y + 4);
     C.Ellipse(B.X - 3, B.Y - 3, B.X + 4, B.Y + 4);
-    Label_(A, B, FormatFloat('0.###', FLegs[I].Len * 12) + '"', False);
+    if FLegs[I].Has then
+    begin
+      S := FormatFloat('0.###', FLegs[I].Len * 12) + '"';
+      if FLegs[I].FromEnd or FLegs[I].ToEnd then
+        S := S + ' ' + StringReplace(StringReplace(MeasureWords(SpecOf, I), 'center', 'c', [rfReplaceAll]), ' to ', '-', []);
+      Label_(A, B, S, False);
+    end
+    else
+      Label_(A, B, '?', False);
     if I = 0 then EndWord(A, cbEnd0.ItemIndex, True);
     if I = High(FLegs) then EndWord(B, cbEnd1.ItemIndex, False);
   end;
@@ -425,21 +524,8 @@ begin
     C.Font.Color := clGray;
     C.TextOut(O.X + 8, O.Y + 6, 'start');
   end;
-  { the leg waiting for its length, and the one the cursor would make }
-  if FPending then
-  begin
-    A := Scr(Node);
-    B := Scr(P3(Node.X + FPendAdv.X * FPendSteps, Node.Y + FPendAdv.Y * FPendSteps,
-                Node.Z + FPendAdv.Z * FPendSteps));
-    C.Pen.Color := $00A05020;
-    C.Pen.Style := psDash;
-    C.Pen.Width := 2;
-    C.Line(A.X, A.Y, B.X, B.Y);
-    C.Pen.Style := psSolid;
-    C.Pen.Width := 1;
-    Label_(A, B, '? ' + DirName(FPendAdv), False);
-  end
-  else if FHover then
+  { the leg the cursor would make }
+  if FHover then
   begin
     A := Scr(Node);
     B := Scr(P3(Node.X + FHoverAdv.X * FHoverSteps, Node.Y + FHoverAdv.Y * FHoverSteps,
@@ -452,7 +538,7 @@ begin
   end;
   C.Brush.Style := bsClear;
   C.Font.Color := clGray;
-  C.TextOut(8, H - 20, 'iso paper - not to scale; the numbers are the drawing.  Shift for a 45.');
+  C.TextOut(8, H - 20, 'iso paper - not to scale; the numbers are the drawing.  Shift for a 45.  Click a leg to change its length.');
 end;
 
 procedure TSpoolForm.pbSketchPaint(Sender: TObject);
@@ -470,7 +556,12 @@ begin
   C.Pen.Color := clSilver;
   C.Rectangle(0, 0, W, H);
   Read(S);
-  if SpoolProblem(S) <> '' then Exit;
+  if SpoolProblem(S) <> '' then
+  begin
+    C.Font.Color := clGray;
+    C.TextOut(16, 16, 'The 3D view needs a length on every leg: ' + SpoolProblem(S));
+    Exit;
+  end;
   S.Dims := False;
   D := TWorkDoc.Create;
   try
@@ -491,7 +582,7 @@ var
   S: TSpoolSpec;
 begin
   Read(S);
-  MainForm.ReportFromDialog('Pipe spool', SpoolTicket(S) + LineEnding +
+  MainForm.ReportFromDialog('Fitter''s scratchpad', SpoolTicket(S) + LineEnding +
     'problem shown: ' + memTicket.Text);
 end;
 
@@ -524,7 +615,7 @@ begin
   Result := False;
   Files := nil;
   Read(S);
-  if SpoolProblem(S) <> '' then Exit;
+  if Length(S.Legs) = 0 then Exit;
   Dir := IncludeTrailingPathDelimiter(GetUserDir) + 'Heckers Sketch' + PathDelim +
     'fittings' + PathDelim;
   if not ForceDirectories(Dir) then Exit;
@@ -533,17 +624,24 @@ begin
     if not (Name_[I] in ['A'..'Z', 'a'..'z', '0'..'9', '-', '_']) then Name_[I] := '_';
   if Name_ = '' then Name_ := 'spool';
   Base := Dir + Name_ + '-' + FormatDateTime('yyyymmdd-hhnnss', Now);
+  { the iso always; the corner view only when there is one to draw }
   SetLength(Files, 3);
   Files[0] := Base + '-iso.png';
   Files[1] := Base + '-3d.png';
   Files[2] := Base + '.txt';
   Picture(Files[0], False);
-  Picture(Files[1], True);
+  if SpoolProblem(S) = '' then Picture(Files[1], True)
+  else
+  begin
+    Files[1] := Files[2];
+    SetLength(Files, 2);
+    Files[1] := Base + '.txt';
+  end;
   L := TStringList.Create;
   try
     L.Text := SpoolTicket(S) + LineEnding + 'Drawn with Heckers Sketch, ' +
       FormatDateTime('yyyy-mm-dd hh:nn', Now);
-    L.SaveToFile(Files[2]);
+    L.SaveToFile(Files[High(Files)]);
   finally
     L.Free;
   end;
@@ -557,13 +655,14 @@ var
   Files: TStringArray;
 begin
   Read(S);
-  if SpoolProblem(S) <> '' then Exit;
+  if Length(S.Legs) = 0 then Exit;
   if not ExportFiles(Dir, Files) then
   begin
     ShowMessage('The pictures could not be written under ' + Dir);
     Exit;
   end;
   Subject := 'Pipe spool';
+  if not SketchComplete(S) then Subject := 'Pipe spool sketch';
   if S.Tag <> '' then Subject := Subject + ' ' + S.Tag;
   Subject := Subject + ': ' + NPS_NAMES[S.Size] + ' with ' + IntToStr(Length(S.Legs)) + ' legs';
   if SendByEmail(Subject, SpoolTicket(S), Files, Err) then

@@ -648,7 +648,7 @@ begin
   case T.Height of
     hrFlatBottom: S := 'FB';
     hrFlatTop:    S := 'FT';
-    hrCentred:    S := 'centred';
+    hrCentred:    S := 'centered';
     hrTopUp:      S := 'top up ' + FormatLen(T.HeightAmount, FUnits);
   else
     S := 'bottom down ' + FormatLen(T.HeightAmount, FUnits);

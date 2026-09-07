@@ -8416,7 +8416,7 @@ begin
   else if (W = 'followme') or (W = 'follow') or (W = 'revolve') or (W = 'lathe') then SetTool(ptFollow)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
-  else if (W = 'spool') or (W = 'pipe') then BuildSpoolWizard
+  else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard
   else if W = 'rendertime' then RenderTiming
   else if (W = 'update') or (W = 'upgrade') then
   begin
@@ -9528,7 +9528,7 @@ begin
       case I of
         0: Result := 'Lay a piece out flat';
         1: Result := 'Build a fitting...';
-        2: Result := 'Pipe spool...';
+        2: Result := 'Fitter''s scratchpad - pipe spool...';
       else
         Result := 'Field sketch, on iso paper';
       end;

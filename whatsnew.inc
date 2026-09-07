@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The fitter''s scratchpad** is what the pipe spool wizard is called now,' + LineEnding +
+    '  and it works the way a tape does.  Each leg says what its length was' + LineEnding +
+    '  measured between: center to center, end to center, center to end, or' + LineEnding +
+    '  end to end - an end being the pipe end, the flange face, or the weld at' + LineEnding +
+    '  an elbow.  The ticket turns that into center-to-center and cut lengths' + LineEnding +
+    '  with the elbows'' take-outs already off.  A leg can be drawn without a' + LineEnding +
+    '  length and given one later by clicking it, and a sketch with lengths' + LineEnding +
+    '  still to come can be emailed as it stands; the 3D view and Build it wait' + LineEnding +
+    '  until every leg has its number.  The paper is ruled like iso paper, with' + LineEnding +
+    '  dots as the other choice.' + LineEnding +
+    '- Center, not centre: the wizards'' words are American now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

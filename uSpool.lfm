@@ -4,7 +4,7 @@ object SpoolForm: TSpoolForm
   Top = 120
   Width = 1000
   BorderStyle = bsDialog
-  Caption = 'Pipe spool'
+  Caption = 'Fitter''s scratchpad - pipe spool'
   ClientHeight = 740
   ClientWidth = 1000
   Position = poMainFormCenter
@@ -14,7 +14,7 @@ object SpoolForm: TSpoolForm
     Height = 24
     Top = 12
     Width = 400
-    Caption = 'Pipe spool - the fitter''s iso'
+    Caption = 'Fitter''s scratchpad - the pipe iso'
     Font.Height = -16
     Font.Style = [fsBold]
     ParentFont = False
@@ -25,7 +25,7 @@ object SpoolForm: TSpoolForm
     Top = 38
     Width = 968
     AutoSize = False
-    Caption = 'Click where each leg ends - the paper snaps it to the three axes, Shift for a 45.  Type the centre-to-centre length, Enter.  Right-click a leg to take it out.'
+    Caption = 'Click where each leg ends - the paper snaps it to the three axes, Shift for a 45.  Type its length, say what it was measured between, Enter.  Click a leg to change it; right-click to take it out.'
     Font.Color = clGray
     ParentFont = False
     WordWrap = True
@@ -108,7 +108,7 @@ object SpoolForm: TSpoolForm
     Height = 18
     Top = 316
     Width = 200
-    Caption = 'Length, centre to centre'
+    Caption = 'Length'
     Font.Style = [fsBold]
     ParentFont = False
   end
@@ -116,46 +116,65 @@ object SpoolForm: TSpoolForm
     Left = 16
     Height = 28
     Top = 336
-    Width = 120
+    Width = 100
     OnKeyPress = edLenKeyPress
     TabOrder = 4
   end
   object lblLenUnit: TLabel
-    Left = 142
+    Left = 122
     Height = 18
     Top = 342
     Width = 16
     Caption = 'in'
   end
+  object cbMeasure: TComboBox
+    Left = 16
+    Height = 28
+    Top = 370
+    Width = 250
+    ItemHeight = 0
+    OnChange = MeasureChange
+    Style = csDropDownList
+    TabOrder = 16
+  end
+  object lblMeasureHint: TLabel
+    Left = 16
+    Height = 18
+    Top = 400
+    Width = 250
+    Caption = 'end = the pipe end, flange face, or weld'
+    Font.Color = clGray
+    ParentFont = False
+  end
   object btnLeg: TButton
-    Left = 170
+    Left = 146
     Height = 30
     Top = 335
-    Width = 96
-    Caption = 'Add the leg'
+    Width = 120
+    Caption = 'Set the length'
     OnClick = btnLegClick
     TabOrder = 5
   end
   object btnUndo: TButton
     Left = 16
     Height = 30
-    Top = 372
+    Top = 422
     Width = 250
-    Caption = 'Take the last leg off'
+    Caption = 'Take this leg off'
     OnClick = btnUndoClick
     TabOrder = 6
   end
   object lblTag: TLabel
     Left = 16
     Height = 18
-    Top = 414
+    Top = 460
     Width = 40
     Caption = 'Tag'
   end
   object edTag: TEdit
     Left = 16
     Height = 28
-    Top = 434
+    Top = 480
     Width = 250
     OnChange = AnyChange
     TabOrder = 7
@@ -163,9 +182,9 @@ object SpoolForm: TSpoolForm
   object cbDims: TCheckBox
     Left = 16
     Height = 22
-    Top = 470
+    Top = 514
     Width = 250
-    Caption = 'Put the lengths on it as dimensions'
+    Caption = 'Put the lengths on it'
     Checked = True
     State = cbChecked
     OnChange = AnyChange
@@ -173,8 +192,8 @@ object SpoolForm: TSpoolForm
   end
   object memTicket: TMemo
     Left = 16
-    Height = 174
-    Top = 500
+    Height = 106
+    Top = 568
     Width = 250
     Font.Height = -11
     Font.Name = 'Monospace'
@@ -273,5 +292,16 @@ object SpoolForm: TSpoolForm
     Caption = 'Build it'
     ModalResult = 1
     TabOrder = 15
+  end
+  object cbLines: TCheckBox
+    Left = 16
+    Height = 22
+    Top = 538
+    Width = 250
+    Caption = 'Lined paper (off: dots)'
+    Checked = True
+    State = cbChecked
+    OnChange = AnyChange
+    TabOrder = 17
   end
 end

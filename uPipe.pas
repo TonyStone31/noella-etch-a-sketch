@@ -3,12 +3,12 @@ unit uPipe;
 { A pipe spool from a fitter's iso.
 
   The fitter draws the run as legs - each one along an axis, or on a 45
-  between two axes - and writes a centre-to-centre length on each.  The
+  between two axes - and writes a center-to-center length on each.  The
   paper is not to scale; the numbers are the drawing.  From that, with the
-  pipe size and the kind of elbow, this works out the centreline with its
-  bends, the cut length of every straight piece (centre to centre less the
+  pipe size and the kind of elbow, this works out the centerline with its
+  bends, the cut length of every straight piece (center to center less the
   elbows' take-outs), and builds the spool as one solid by pushing a circle
-  along the centreline. }
+  along the centerline. }
 
 {$mode objfpc}{$H+}
 
@@ -22,7 +22,15 @@ type
 
   TSpoolLeg = record
     Dir: TP3;        { a unit direction: an axis, or a 45 between two }
-    Len: Double;     { centre to centre, in drawing units }
+    Len: Double;     { what the fitter measured, in drawing units }
+    Has: Boolean;    { whether a length has been given at all }
+    { What the measurement runs between.  A fitter measures what can be
+      reached: center of elbow to center of elbow, or from the end of the
+      pipe - the flange face, the weld - to the next center, or end to end.
+      The shop wants center to center and cut lengths; the elbows' take-outs
+      make one from the other. }
+    FromEnd: Boolean;   { measured from the pipe end at the start, not the center }
+    ToEnd: Boolean;     { measured to the pipe end at the finish, not the center }
     Steps: Integer;  { how long it was drawn on the paper, in grid steps }
   end;
 
@@ -56,11 +64,20 @@ function ElbowRadius(const S: TSpoolSpec): Double;
 function TurnAfter(const S: TSpoolSpec; I: Integer): Double;
 { what an elbow of that turn takes off each leg it joins }
 function TakeOut(const S: TSpoolSpec; Turn: Double): Double;
-{ the cut length of leg I: centre to centre less its elbows }
+{ the take-out at the start of leg I and at its end: 0 at the run's ends }
+function TakeOutBefore(const S: TSpoolSpec; I: Integer): Double;
+function TakeOutAfterLeg(const S: TSpoolSpec; I: Integer): Double;
+{ leg I center to center, whatever the fitter measured between }
+function CCLength(const S: TSpoolSpec; I: Integer): Double;
+{ the cut length of leg I: center to center less its elbows }
 function CutLength(const S: TSpoolSpec; I: Integer): Double;
+{ whether every leg has its length, so the spool can be worked out }
+function SketchComplete(const S: TSpoolSpec): Boolean;
+{ the measurement in the fitter's words: center to center, end to center... }
+function MeasureWords(const S: TSpoolSpec; I: Integer): string;
 { what is wrong, or '' }
 function SpoolProblem(const S: TSpoolSpec): string;
-{ the centreline: straight legs with the bends drawn in as arcs }
+{ the centerline: straight legs with the bends drawn in as arcs }
 procedure SpoolPath(const S: TSpoolSpec; out Pts: TP3Array);
 { the spool as one solid; returns the index of its first entity }
 function BuildSpool(D: TWorkDoc; const S: TSpoolSpec; Ink: TColor; Weight: Single): Integer;
@@ -100,11 +117,48 @@ begin
   else Result := ElbowRadius(S) * Tan(Turn / 2);
 end;
 
-function CutLength(const S: TSpoolSpec; I: Integer): Double;
+function TakeOutBefore(const S: TSpoolSpec; I: Integer): Double;
+begin
+  if I <= 0 then Result := 0 else Result := TakeOut(S, TurnAfter(S, I - 1));
+end;
+
+function TakeOutAfterLeg(const S: TSpoolSpec; I: Integer): Double;
+begin
+  if I >= High(S.Legs) then Result := 0 else Result := TakeOut(S, TurnAfter(S, I));
+end;
+
+function CCLength(const S: TSpoolSpec; I: Integer): Double;
 begin
   Result := S.Legs[I].Len;
-  if I > 0 then Result := Result - TakeOut(S, TurnAfter(S, I - 1));
-  if I < High(S.Legs) then Result := Result - TakeOut(S, TurnAfter(S, I));
+  if S.Legs[I].FromEnd then Result := Result + TakeOutBefore(S, I);
+  if S.Legs[I].ToEnd then Result := Result + TakeOutAfterLeg(S, I);
+end;
+
+function CutLength(const S: TSpoolSpec; I: Integer): Double;
+begin
+  Result := CCLength(S, I) - TakeOutBefore(S, I) - TakeOutAfterLeg(S, I);
+end;
+
+function SketchComplete(const S: TSpoolSpec): Boolean;
+var
+  I: Integer;
+begin
+  Result := Length(S.Legs) > 0;
+  for I := 0 to High(S.Legs) do
+    if not S.Legs[I].Has or (S.Legs[I].Len <= 0) then Exit(False);
+end;
+
+function MeasureWords(const S: TSpoolSpec; I: Integer): string;
+  function EndWord(AtStart: Boolean): string;
+  begin
+    if AtStart and (I = 0) and (S.Ends[0] = peFlange) then Exit('face');
+    if (not AtStart) and (I = High(S.Legs)) and (S.Ends[1] = peFlange) then Exit('face');
+    Result := 'end';
+  end;
+begin
+  if S.Legs[I].FromEnd then Result := EndWord(True) else Result := 'center';
+  Result := Result + ' to ';
+  if S.Legs[I].ToEnd then Result := Result + EndWord(False) else Result := Result + 'center';
 end;
 
 function SpoolProblem(const S: TSpoolSpec): string;
@@ -115,6 +169,7 @@ begin
   if Length(S.Legs) = 0 then Exit('Draw the run: at least one leg with a length on it.');
   for I := 0 to High(S.Legs) do
   begin
+    if not S.Legs[I].Has then Exit(Format('Leg %d has no length yet.', [I + 1]));
     if S.Legs[I].Len <= 0 then Exit(Format('Leg %d needs a length.', [I + 1]));
     if Dist(S.Legs[I].Dir, P3(0, 0, 0)) < 1E-9 then Exit(Format('Leg %d has no direction.', [I + 1]));
   end;
@@ -123,8 +178,8 @@ begin
       Exit(Format('Legs %d and %d double straight back on each other.', [I + 1, I + 2]));
   for I := 0 to High(S.Legs) do
     if CutLength(S, I) < -1E-9 then
-      Exit(Format('Leg %d is shorter than its elbows take out - it needs at least %s.',
-        [I + 1, FormatFloat('0.##', (S.Legs[I].Len - CutLength(S, I)) / Inch(S)) + '"']));
+      Exit(Format('Leg %d is shorter than its elbows take out - it needs at least %s center to center.',
+        [I + 1, FormatFloat('0.##', (CCLength(S, I) - CutLength(S, I)) / Inch(S)) + '"']));
 end;
 
 procedure SpoolPath(const S: TSpoolSpec; out Pts: TP3Array);
@@ -149,7 +204,7 @@ begin
   for I := 0 to High(S.Legs) do
   begin
     A := Norm3(S.Legs[I].Dir);
-    P := P3(P.X + A.X * S.Legs[I].Len, P.Y + A.Y * S.Legs[I].Len, P.Z + A.Z * S.Legs[I].Len);
+    P := P3(P.X + A.X * CCLength(S, I), P.Y + A.Y * CCLength(S, I), P.Z + A.Z * CCLength(S, I));
     Turn := TurnAfter(S, I);
     if (I = High(S.Legs)) or (Turn <= 0) then
     begin
@@ -229,7 +284,7 @@ begin
   First := D.Live;
   G := D.NewGroup;
   OD := NPS_OD[EnsureRange(S.Size, 0, High(NPS_OD))] * Inch(S);
-  { the pipe: a circle pushed along the centreline, open at both ends }
+  { the pipe: a circle pushed along the centerline, open at both ends }
   A := Norm3(S.Legs[0].Dir);
   CircleAt(Path[0], A, OD, Circle);
   D.AddFaceRaw(Circle, Ink, False);
@@ -264,14 +319,14 @@ begin
     D.AddText(P3(P0.X, P0.Y, P0.Z + OD * 1.5), S.Tag, Ink);
     D.SetGroup(D.Live - 1, G);
   end;
-  { the lengths the fitter wrote, centre to centre, beside each leg }
+  { the lengths the fitter wrote, center to center, beside each leg }
   if S.Dims then
   begin
     P0 := P3(0, 0, 0);
     for I := 0 to High(S.Legs) do
     begin
       A := Norm3(S.Legs[I].Dir);
-      P1 := P3(P0.X + A.X * S.Legs[I].Len, P0.Y + A.Y * S.Legs[I].Len, P0.Z + A.Z * S.Legs[I].Len);
+      P1 := P3(P0.X + A.X * CCLength(S, I), P0.Y + A.Y * CCLength(S, I), P0.Z + A.Z * CCLength(S, I));
       if Abs(A.Z) < 0.9 then Off := Norm3(Cross3(A, P3(0, 0, 1))) else Off := P3(1, 0, 0);
       Off := P3(Off.X * OD * 1.5, Off.Y * OD * 1.5, Off.Z * OD * 1.5);
       D.AddDim(P0, P1, Ink, Off);
@@ -323,12 +378,15 @@ begin
   Result := Result + Ins(ElbowRadius(S)) + LineEnding +
     'Start end: ' + PIPE_END_NAMES[S.Ends[0]] + LineEnding +
     'Far end: ' + PIPE_END_NAMES[S.Ends[1]] + LineEnding + LineEnding +
-    'Legs, centre to centre, then the cut length:' + LineEnding;
+    'Legs, as measured, then center to center, then the cut length:' + LineEnding;
   Total := 0;
   for I := 0 to High(S.Legs) do
   begin
-    Result := Result + Format('  %d. %s  %s  c-c, cut %s', [I + 1, DirName(S.Legs[I].Dir),
-      Ins(S.Legs[I].Len), Ins(Max(0, CutLength(S, I)))]);
+    if S.Legs[I].Has then
+      Result := Result + Format('  %d. %s  %s %s  (c-c %s, cut %s)', [I + 1, DirName(S.Legs[I].Dir),
+        Ins(S.Legs[I].Len), MeasureWords(S, I), Ins(CCLength(S, I)), Ins(Max(0, CutLength(S, I)))])
+    else
+      Result := Result + Format('  %d. %s  ? - no length yet', [I + 1, DirName(S.Legs[I].Dir)]);
     if I < High(S.Legs) then
     begin
       Turn := TurnAfter(S, I);
@@ -336,7 +394,7 @@ begin
         Result := Result + Format('  then a %s elbow', [FormatFloat('0.#', RadToDeg(Turn))]);
     end;
     Result := Result + LineEnding;
-    Total := Total + S.Legs[I].Len;
+    if S.Legs[I].Has then Total := Total + CCLength(S, I);
   end;
   N90 := 0; N45 := 0; NOther := 0;
   for I := 0 to High(S.Legs) - 1 do
@@ -351,7 +409,7 @@ begin
   if NOther > 0 then Result := Result + Format(', %d other', [NOther]);
   if S.Ends[0] = peFlange then Result := Result + ', flange at the start';
   if S.Ends[1] = peFlange then Result := Result + ', flange at the far end';
-  Result := Result + LineEnding + 'Centre-to-centre total: ' + Ins(Total) + LineEnding;
+  Result := Result + LineEnding + 'Center-to-center total: ' + Ins(Total) + LineEnding;
 end;
 
 end.

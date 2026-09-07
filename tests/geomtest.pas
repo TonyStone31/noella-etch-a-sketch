@@ -2730,8 +2730,8 @@ begin
   S := Default(TSpoolSpec);
   S.Size := 5; S.LongRadius := True; S.Inch := 1 / 12;
   SetLength(S.Legs, 2);
-  S.Legs[0].Dir := P3(0, 1, 0); S.Legs[0].Len := 2; S.Legs[0].Steps := 3;
-  S.Legs[1].Dir := P3(1, 0, 0); S.Legs[1].Len := 2; S.Legs[1].Steps := 3;
+  S.Legs[0].Dir := P3(0, 1, 0); S.Legs[0].Len := 2; S.Legs[0].Steps := 3; S.Legs[0].Has := True;
+  S.Legs[1].Dir := P3(1, 0, 0); S.Legs[1].Len := 2; S.Legs[1].Steps := 3; S.Legs[1].Has := True;
   Ok(SpoolProblem(S) = '', 'two legs of 2" pipe at a 90 read');
   Ok(Abs(ElbowRadius(S) - 3 / 12) < 1E-9, 'a long radius 2" elbow is 3" radius');
   Ok(Abs(CutLength(S, 0) - 21 / 12) < 1E-9, 'the first leg cuts at 21"');
@@ -2763,6 +2763,19 @@ begin
   S.Legs[1].Len := 2; S.Legs[1].Dir := Norm3(P3(1, 1, 0));
   Ok(Abs(RadToDeg(TurnAfter(S, 0)) - 45) < 1E-6, 'a leg on the diagonal turns 45');
   Ok(Abs(TakeOut(S, TurnAfter(S, 0)) - 3 / 12 * Tan(Pi / 8)) < 1E-9, 'and its take-out is R tan 22.5');
+  { what the fitter measured: end to center, the weld to the next elbow's
+    center - the center-to-center length is that plus the take-out }
+  S.Legs[1].Dir := P3(1, 0, 0);
+  S.Legs[0].Len := 21 / 12; S.Legs[0].FromEnd := False; S.Legs[0].ToEnd := True;
+  Ok(Abs(CCLength(S, 0) - 2) < 1E-9, 'center to end 21" on a 3" take-out is 24" center to center');
+  Ok(Abs(CutLength(S, 0) - 21 / 12) < 1E-9, 'and cuts at 21"');
+  S.Legs[1].Len := 21 / 12; S.Legs[1].FromEnd := True; S.Legs[1].ToEnd := False;
+  Ok(Abs(CCLength(S, 1) - 2) < 1E-9, 'end to center the other side of the elbow likewise');
+  Ok(Pos('end to center', SpoolTicket(S)) > 0, 'the ticket says what was measured');
+  S.Ends[0] := peFlange; S.Legs[0].FromEnd := True;
+  Ok(Pos('face to end', SpoolTicket(S)) > 0, 'and calls the flange end a face');
+  S.Legs[1].Has := False;
+  Ok(not SketchComplete(S) and (SpoolProblem(S) <> ''), 'a leg without a length is a sketch, not a spool yet');
 end;
 
 procedure TestArrays;
