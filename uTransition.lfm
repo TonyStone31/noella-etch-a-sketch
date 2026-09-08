@@ -866,4 +866,33 @@ object TransitionForm: TTransitionForm
     Font.Color = clGrayText
     ParentFont = False
   end
+  object lblFlex: TLabel
+    Left = 440
+    Height = 18
+    Top = 544
+    Width = 340
+    Caption = 'With a flex connector, its far strip finished as above'
+    Font.Color = clGrayText
+    ParentFont = False
+  end
+  object cbEntryFlex: TComboBox
+    Left = 440
+    Height = 28
+    Top = 560
+    Width = 340
+    ItemHeight = 0
+    Style = csDropDownList
+    OnChange = AnyChange
+    TabOrder = 37
+  end
+  object cbExitFlex: TComboBox
+    Left = 440
+    Height = 28
+    Top = 594
+    Width = 340
+    ItemHeight = 0
+    Style = csDropDownList
+    OnChange = AnyChange
+    TabOrder = 38
+  end
 end

@@ -103,6 +103,9 @@ type
     edRefW0: TEdit;
     edRefW1: TEdit;
     lblRefHint: TLabel;
+    lblFlex: TLabel;
+    cbEntryFlex: TComboBox;
+    cbExitFlex: TComboBox;
     procedure AnyChange(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure pbSketchPaint(Sender: TObject);
@@ -287,6 +290,11 @@ begin
   end;
   T.Ends[0].Kind := TDuctEnd(Max(0, cbEntryEnd.ItemIndex));
   T.Ends[1].Kind := TDuctEnd(Max(0, cbExitEnd.ItemIndex));
+  if T.Kind = fkTransition then
+  begin
+    T.Ends[0].Flex := TFlexSize(Max(0, cbEntryFlex.ItemIndex));
+    T.Ends[1].Flex := TFlexSize(Max(0, cbExitFlex.ItemIndex));
+  end;
   if T.Ends[0].Kind <> deRaw then
     Result := Result and InchesOf(edEntryEndAmt.Text, T.Ends[0].Amount);
   if T.Ends[1].Kind <> deRaw then
@@ -299,6 +307,7 @@ end;
 procedure TTransitionForm.FormCreate(Sender: TObject);
 var
   K: TDuctEnd;
+  FX: TFlexSize;
 begin
   for K := Low(TDuctEnd) to High(TDuctEnd) do
   begin
@@ -309,6 +318,13 @@ begin
   cbEntryEnd.ItemIndex := 0;
   cbExitEnd.ItemIndex := 0;
   cbBranchEnd.ItemIndex := 0;
+  for FX := Low(TFlexSize) to High(TFlexSize) do
+  begin
+    cbEntryFlex.Items.Add(FLEX_NAMES[FX]);
+    cbExitFlex.Items.Add(FLEX_NAMES[FX]);
+  end;
+  cbEntryFlex.ItemIndex := 0;
+  cbExitFlex.ItemIndex := 0;
   ShowKind;
 end;
 
@@ -356,6 +372,7 @@ begin
   lblExitHint.Visible := El;
   btnField.Visible := El;
   cbFromRef.Visible := Tr;
+  lblFlex.Visible := Tr; cbEntryFlex.Visible := Tr; cbExitFlex.Visible := Tr;
   rgSide.Visible := Tr and not cbFromRef.Checked; edSideAmount.Visible := rgSide.Visible;
   rgHeight.Visible := rgSide.Visible; edHeightAmount.Visible := rgSide.Visible;
   lblRefEntry.Visible := Tr and cbFromRef.Checked; lblRefExit.Visible := lblRefEntry.Visible;

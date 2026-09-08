@@ -298,3 +298,16 @@ checked against the paper.
 The reference has to be the same for both ends of an axis: a floor
 reading at one end and a ceiling reading at the other cannot be related
 without the room height.
+
+## Flex connectors
+
+Either end of a transition can have a canvas flex connector between the
+body and the finish.  Three are offered, by their strip and fabric widths:
+the Junior (1 3/4" metal, 3" fabric, 1 3/4" metal), the 3-3-3 and the
+3-6-3.  The finish chosen for the end - the notch, the drive, the TDF - is
+on the flex's far strip, because that strip is what gets worked; the near
+strip laps the body.  The fabric goes in squashed to about half, so a flex
+takes strip + half the fabric + strip out of the overall length: 5" for a
+Junior, 7 1/2" for a 3-3-3, 9" for a 3-6-3.  The length typed is the whole
+assembly; the ticket prints the sheet metal left, flex to flex, so the
+shop cuts one number and the flex makes up the rest.

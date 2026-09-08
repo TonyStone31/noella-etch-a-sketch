@@ -40,9 +40,18 @@ type
     on the sides. }
   TDuctEnd = (deRaw, deNotch, deFlangeOut, deFlangeIn, deTDF, deSlipDrive,
     deDriveSlip);
+  { A canvas flex connector on an end: two strips of metal with fabric
+    between, sold by the strip and fabric widths.  The Junior is the
+    residential grade; 3-3-3 the commercial standard; 3-6-3 for more
+    travel.  Installed, the fabric is squashed to about half. }
+  TFlexSize = (fxNone, fxJunior, fx333, fx363);
+
   TEndSpec = record
     Kind: TDuctEnd;
     Amount: Double;         { the notch depth or the flange width }
+    { a flex connector between the body and this finish: the finish is on
+      the flex's far strip, and the sheet-metal body is that much shorter }
+    Flex: TFlexSize;
   end;
 
   { what the wizard builds }
@@ -97,12 +106,20 @@ const
     'Drive and slip - drives top and bottom, slips on the sides');
   { the size each kind starts at, in inches: a notch, a flange, the TDF }
   DUCT_END_DEFAULT_IN: array[TDuctEnd] of Double = (0, 1, 1, 1, 1.375, 1, 1);
+  FLEX_NAMES: array[TFlexSize] of string = (
+    'No flex connector', 'Junior flex connector, 1 3/4 - 3 - 1 3/4',
+    'Flex connector 3 - 3 - 3', 'Flex connector 3 - 6 - 3');
+  FLEX_STRIP_IN: array[TFlexSize] of Double = (0, 1.75, 3, 3);
+  FLEX_FABRIC_IN: array[TFlexSize] of Double = (0, 3, 3, 6);
   FITTING_NAMES: array[TFittingKind] of string = ('Transition', 'Elbow', 'Tee');
   TURN_NAMES: array[TTurn] of string = ('Right', 'Left', 'Up', 'Down');
   BRANCH_NAMES: array[TBranchSide] of string = ('Left side', 'Right side', 'Top', 'Bottom');
 
 { whether that end's corners are cut back }
 function EndNotched(const E: TEndSpec): Boolean;
+{ what a flex connector takes out of the overall length, in inches: strip,
+  half the fabric, strip }
+function FlexInstalledIn(F: TFlexSize): Double;
 
 { The fitting's corners.  Entry at y = 0, flow along +Y, the entry's
   bottom-left corner at the origin: E0..E3 round the entry opening,
@@ -151,6 +168,11 @@ implementation
 function EndNotched(const E: TEndSpec): Boolean;
 begin
   Result := E.Kind in [deNotch, deSlipDrive, deDriveSlip];
+end;
+
+function FlexInstalledIn(F: TFlexSize): Double;
+begin
+  Result := 2 * FLEX_STRIP_IN[F] + FLEX_FABRIC_IN[F] / 2;
 end;
 
 procedure TransitionCorners(const T: TTransitionSpec; out E, X: array of TP3);
@@ -213,6 +235,9 @@ begin
   end;
   Result := EndProblem(T, 0, T.W0, T.H0);
   if Result = '' then Result := EndProblem(T, 1, T.W1, T.H1);
+  if (Result = '') and (T.Kind = fkTransition) then
+    if (FlexInstalledIn(T.Ends[0].Flex) + FlexInstalledIn(T.Ends[1].Flex)) * T.Inch >= T.Len then
+      Result := 'The flex connectors take up the whole length - nothing is left for the metal.';
 end;
 
 function ElbowProblem(const T: TTransitionSpec): string;
@@ -311,6 +336,11 @@ var
   begin
     Result := DUCT_END_NAMES[E.Kind];
     if E.Kind <> deRaw then Result := Result + ', ' + Ins(E.Amount);
+    if E.Flex <> fxNone then
+      Result := FLEX_NAMES[E.Flex] + ' (fabric squashed to ' +
+        FormatFloat('0.##', FLEX_FABRIC_IN[E.Flex] / 2) + '", takes ' +
+        FormatFloat('0.##', FlexInstalledIn(E.Flex)) + '" of the length), its far strip ' +
+        LowerCase(Result);
   end;
 begin
   Inch := T.Inch;
@@ -370,6 +400,9 @@ begin
   Result := Result +
     'Entry end: ' + EndWords(T.Ends[0]) + LineEnding +
     'Exit end: ' + EndWords(T.Ends[1]) + LineEnding;
+  if (T.Kind = fkTransition) and ((T.Ends[0].Flex <> fxNone) or (T.Ends[1].Flex <> fxNone)) then
+    Result := Result + 'Sheet metal body, flex to flex: ' +
+      Ins(T.Len - (FlexInstalledIn(T.Ends[0].Flex) + FlexInstalledIn(T.Ends[1].Flex)) * Inch) + LineEnding;
   if T.Kind = fkTee then
     Result := Result + 'Branch end: ' + EndWords(T.Ends[2]) + LineEnding;
 end;
@@ -645,17 +678,89 @@ end;
 
 { ------------------------------------------------------------------------ }
 
+{ The three pieces of a flex connector on end EndIx, whose opening corners
+  are C: the far strip with the finish, the squashed fabric, and the strip
+  that laps the body.  Straight along the run, the section constant. }
+procedure FlexPieces(const B: TBuild; const C: TP3x4; EndIx: Integer; const E: TEndSpec);
+var
+  Dir, Strip, Fabric: Double;
+  Raw: TEndSpec;
+  FB: TBuild;
+  P0, P1: TP3x4;
+
+  procedure Section(var S: TP3x4; At: Double);
+  var
+    J: Integer;
+  begin
+    for J := 0 to 3 do
+    begin
+      S[J] := C[J];
+      S[J].Y := C[J].Y + Dir * At;
+    end;
+  end;
+
+begin
+  { the entry end runs into the body along +Y; the exit end back along -Y }
+  if EndIx = 0 then Dir := 1 else Dir := -1;
+  Strip := FLEX_STRIP_IN[E.Flex] * B.Inch;
+  Fabric := FLEX_FABRIC_IN[E.Flex] / 2 * B.Inch;
+  Raw := Default(TEndSpec);
+  { the far strip, at the opening, the finish on its open end }
+  Section(P0, 0);
+  Section(P1, Strip);
+  if EndIx = 0 then BuildRun(B, P0, P1, [E, Raw], [True, True], -1)
+  else BuildRun(B, P1, P0, [Raw, E], [True, True], -1);
+  { the fabric, in canvas, squashed to half }
+  FB := B;
+  FB.Ink := $00A8C4D8;
+  Section(P0, Strip);
+  Section(P1, Strip + Fabric);
+  if EndIx = 0 then BuildRun(FB, P0, P1, [Raw, Raw], [False, True], -1)
+  else BuildRun(FB, P1, P0, [Raw, Raw], [True, False], -1);
+  { the near strip, lapping the body }
+  Section(P0, Strip + Fabric);
+  Section(P1, Strip + Fabric + Strip);
+  if EndIx = 0 then BuildRun(B, P0, P1, [Raw, Raw], [False, False], -1)
+  else BuildRun(B, P1, P0, [Raw, Raw], [False, False], -1);
+end;
+
 function BuildTransition(D: TWorkDoc; const T: TTransitionSpec; Ink: TColor;
   Weight: Single): Integer;
 var
   B: TBuild;
-  E, X: TP3x4;
-  Off: Double;
+  E, X, BodyE, BodyX: TP3x4;
+  BodyEnds: array[0..1] of TEndSpec;
+  Off, L0, L1: Double;
+  K: Integer;
 begin
   Result := D.Live;
   B := StartBuild(D, T, Ink, Weight);
   TransitionCorners(T, E, X);
-  BuildRun(B, E, X, [T.Ends[0], T.Ends[1]], [True, True], -1);
+  { A flex connector on an end sits between the body and the finish: its
+    near strip laps the body, its far strip carries the notch or flange,
+    and the fabric between is drawn squashed to half.  The sheet-metal
+    body is that much shorter; the overall length is what was typed. }
+  L0 := FlexInstalledIn(T.Ends[0].Flex) * B.Inch;
+  L1 := FlexInstalledIn(T.Ends[1].Flex) * B.Inch;
+  BodyE := E;
+  BodyX := X;
+  BodyEnds[0] := T.Ends[0];
+  BodyEnds[1] := T.Ends[1];
+  if L0 > 0 then
+  begin
+    for K := 0 to 3 do BodyE[K].Y := E[K].Y + L0;
+    BodyEnds[0].Kind := deRaw;
+    BodyEnds[0].Flex := fxNone;
+  end;
+  if L1 > 0 then
+  begin
+    for K := 0 to 3 do BodyX[K].Y := X[K].Y - L1;
+    BodyEnds[1].Kind := deRaw;
+    BodyEnds[1].Flex := fxNone;
+  end;
+  BuildRun(B, BodyE, BodyX, [BodyEnds[0], BodyEnds[1]], [True, True], -1);
+  if L0 > 0 then FlexPieces(B, E, 0, T.Ends[0]);
+  if L1 > 0 then FlexPieces(B, X, 1, T.Ends[1]);
   Off := StandOff(B, T);
   { its name, above the entry, so ten of them on a job can be told apart }
   BTag(B, T, P3(E[3].X, E[3].Y, E[3].Z + Off));

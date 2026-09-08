@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Flex connectors on a transition.**  Either end can carry a canvas
+  flex connector - the Junior, 1 3/4-3-1 3/4; the 3-3-3; the 3-6-3 - with
+  the end's finish on the flex's far strip, since that strip is what gets
+  notched for an S-lock, bent for a drive or for a TDF flange.  The
+  fabric is drawn squashed to half, the way it goes in, and the
+  sheet-metal body is that much shorter: the length typed is the whole
+  thing.  The ticket names the flex, what it takes out of the length, and
+  the metal left flex to flex.
+
 ## v2026.09.08.2
 
 ### New

@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Flex connectors on a transition.**  Either end can carry a canvas' + LineEnding +
+    '  flex connector - the Junior, 1 3/4-3-1 3/4; the 3-3-3; the 3-6-3 - with' + LineEnding +
+    '  the end''s finish on the flex''s far strip, since that strip is what gets' + LineEnding +
+    '  notched for an S-lock, bent for a drive or for a TDF flange.  The' + LineEnding +
+    '  fabric is drawn squashed to half, the way it goes in, and the' + LineEnding +
+    '  sheet-metal body is that much shorter: the length typed is the whole' + LineEnding +
+    '  thing.  The ticket names the flex, what it takes out of the length, and' + LineEnding +
+    '  the metal left flex to flex.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

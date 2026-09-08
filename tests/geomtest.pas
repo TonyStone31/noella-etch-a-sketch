@@ -2222,6 +2222,55 @@ begin
     end;
 end;
 
+{ A flex connector on an end: the metal body gives up the strip, half the
+  fabric and the strip; the far strip carries the finish; the ticket says
+  what is left for metal. }
+procedure TestFlexEnds;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  First, Plain, I: Integer;
+  MaxBodyY, Y: Double;
+  Tk: string;
+begin
+  WriteLn('Flex connectors on a duct');
+  Ok(Abs(FlexInstalledIn(fxJunior) - 5) < 1E-9, 'a Junior takes 5" installed');
+  Ok(Abs(FlexInstalledIn(fx333) - 7.5) < 1E-9, 'a 3-3-3 takes 7 1/2"');
+  Ok(Abs(FlexInstalledIn(fx363) - 9) < 1E-9, 'a 3-6-3 takes 9"');
+  T := Default(TTransitionSpec);
+  T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 1; T.Len := 2;
+  T.Inch := 1 / 12;
+  D := TWorkDoc.Create;
+  try
+    First := BuildTransition(D, T, 0, 1);
+    Plain := D.Live - First;
+    D.Clear;
+    T.Ends[1].Flex := fx333;
+    T.Ends[1].Kind := deTDF;
+    T.Ends[1].Amount := 1.375 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    Ok(D.Live - First > Plain + 12, 'the flex adds its three pieces');
+    { the body stops short: no body line reaches past Len - 7.5", but the
+      far strip does reach Len }
+    MaxBodyY := 0;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        Y := Max(D[I].A.Y, D[I].B.Y);
+        if Y > MaxBodyY then MaxBodyY := Y;
+      end;
+    Ok(Abs(MaxBodyY - T.Len) < 1E-6, 'the far strip reaches the full length');
+    Tk := TicketText(T);
+    Ok(Pos('Sheet metal body, flex to flex: 16.5"', Tk) > 0, 'the ticket gives the metal left: 16 1/2"');
+    Ok(Pos('Flex connector 3 - 3 - 3', Tk) > 0, 'and names the flex');
+    T.Len := 0.5;
+    T.Ends[0].Flex := fx333;
+    Ok(FittingProblem(T) <> '', 'two flexes on a 6" length leave nothing for metal, and it says so');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestDuctEnds;
 var
   D: TWorkDoc;
@@ -3261,6 +3310,7 @@ begin
   TestRoundCrossing;  WriteLn;
   TestTransition;  WriteLn;
   TestDuctEnds;  WriteLn;
+  TestFlexEnds;  WriteLn;
   TestElbowTee;  WriteLn;
   TestFacingOut;  WriteLn;
   TestArcSnaps;  WriteLn;
