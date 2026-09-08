@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Dimensions showing through a duct.**  A dimension lying in the plane
+  of a face was put back whole once its middle was in the clear, so the
+  parts of it behind the walls showed through them.  A dimension is drawn
+  like a line now: only the stretches of its three lines that nothing
+  stands in front of, and its ticks and figure only where their place is
+  clear.
+
 ## v2026.09.07.19
 
 ### Fixed

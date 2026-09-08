@@ -6225,6 +6225,10 @@ procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
 var
   LSteps, Bisect: Integer;
+  DG: TDimGeom;
+  DA, DB: TP3;
+  DSz: TSize;
+  DTP: TPoint;
   Cand, AllFaces: TIntArrayW;
   OnFaceOK: Boolean;
   SlotOf: array of Integer;
@@ -6540,6 +6544,47 @@ var
       if Q.Y < MinY then MinY := Q.Y; if Q.Y > MaxY then MaxY := Q.Y;
     end;
     Result := (MaxX < -M) or (MinX > S.Width + M) or (MaxY < -M) or (MinY > S.Height + M);
+  end;
+
+  { The visible stretches of any world segment against face Slot - the
+    sampling a line gets in the runs pass, for anything else that has to
+    stop at a wall.  A dimension is three lines, and it used to come back
+    whole once its middle was clear, so the parts behind a duct's walls
+    showed through them. }
+  procedure RunSeg(const WA, WB: TP3; W, Alpha: Single; const Col: TPix; Slot: Integer);
+  var
+    M, Run0: Integer;
+    Vis: Boolean;
+    RunT0, RunT1: Double;
+    PA, PB: TPointF;
+  begin
+    Run0 := -1;
+    RunT0 := 0;
+    CurA := WA;
+    CurB := WB;
+    CurArc := -1;
+    for M := 0 to LSteps do
+    begin
+      if M < LSteps then
+        Vis := not Covered(Lerp3(WA, WB, (M + 0.5) / LSteps), Slot)
+      else
+        Vis := False;
+      if Vis and (Run0 < 0) then
+      begin
+        Run0 := M;
+        if M = 0 then RunT0 := 0
+        else RunT0 := Boundary((M + 0.5) / LSteps, (M - 0.5) / LSteps, Slot);
+      end;
+      if (not Vis) and (Run0 >= 0) then
+      begin
+        if M = LSteps then RunT1 := 1
+        else RunT1 := Boundary((M - 0.5) / LSteps, (M + 0.5) / LSteps, Slot);
+        PA := Project(V, Lerp3(WA, WB, RunT0));
+        PB := Project(V, Lerp3(WA, WB, RunT1));
+        S.Line(PA.X, PA.Y, PB.X, PB.Y, W, Col, Alpha);
+        Run0 := -1;
+      end;
+    end;
   end;
 
   procedure Mark(K: Integer);
@@ -6883,12 +6928,12 @@ begin
               Run0 := M;
               { the run starts where the cover ends, not at the sample }
               if M = 0 then RunT0 := 0
-              else RunT0 := Boundary((M + 0.5) / LINE_STEPS, (M - 0.5) / LINE_STEPS, J);
+              else RunT0 := Boundary((M + 0.5) / LSteps, (M - 0.5) / LSteps, J);
             end;
             if (not Vis) and (Run0 >= 0) then
             begin
               if M = LSteps then RunT1 := 1
-              else RunT1 := Boundary((M - 0.5) / LINE_STEPS, (M + 0.5) / LINE_STEPS, J);
+              else RunT1 := Boundary((M - 0.5) / LSteps, (M + 0.5) / LSteps, J);
               PA := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, RunT0));
               PB := Project(V, Lerp3(FEnts[I].A, FEnts[I].B, RunT1));
               S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), Col);
@@ -6943,8 +6988,27 @@ begin
             end;
           end;
         ekDim:
-          if not Covered(Lerp3(FEnts[I].A, FEnts[I].B, 0.5), J) then
-            Dimension(FEnts[I].A, FEnts[I].B, FEnts[I].C, FEnts[I].Txt);
+          { like a line: the stretches of its three lines that nothing
+            stands in front of, the ticks and the figure where their place
+            is clear }
+          if DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, U, DG, FEnts[I].Txt) then
+          begin
+            DA := P3(FEnts[I].A.X + FEnts[I].C.X, FEnts[I].A.Y + FEnts[I].C.Y, FEnts[I].A.Z + FEnts[I].C.Z);
+            DB := P3(FEnts[I].B.X + FEnts[I].C.X, FEnts[I].B.Y + FEnts[I].C.Y, FEnts[I].B.Z + FEnts[I].C.Z);
+            RunSeg(FEnts[I].A, DA, 1.0, 0.5, LabelCol, J);
+            RunSeg(FEnts[I].B, DB, 1.0, 0.5, LabelCol, J);
+            RunSeg(DA, DB, 1.2, 0.85, LabelCol, J);
+            if not Covered(DA, J) then
+              S.Line(DG.S1A.X, DG.S1A.Y, DG.S1B.X, DG.S1B.Y, 1.4, LabelCol, 0.9);
+            if not Covered(DB, J) then
+              S.Line(DG.S2A.X, DG.S2A.Y, DG.S2B.X, DG.S2B.Y, 1.4, LabelCol, 0.9);
+            if not Covered(Lerp3(DA, DB, 0.5), J) then
+            begin
+              DSz := S.TextExtent(DG.Txt, AFont);
+              DTP := DimTextTopLeft(DG, DSz.cx, DSz.cy);
+              S.TextOut(DTP.X, DTP.Y, DG.Txt, AFont, LabelCol);
+            end;
+          end;
         ekText:
           if not Covered(FEnts[I].A, J) then
             Note(I, FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);

@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Dimensions showing through a duct.**  A dimension lying in the plane' + LineEnding +
+    '  of a face was put back whole once its middle was in the clear, so the' + LineEnding +
+    '  parts of it behind the walls showed through them.  A dimension is drawn' + LineEnding +
+    '  like a line now: only the stretches of its three lines that nothing' + LineEnding +
+    '  stands in front of, and its ticks and figure only where their place is' + LineEnding +
+    '  clear.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.19' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
