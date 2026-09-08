@@ -758,4 +758,112 @@ object TransitionForm: TTransitionForm
     ParentFont = False
     Visible = False
   end
+  object cbFromRef: TCheckBox
+    Left = 24
+    Height = 22
+    Top = 178
+    Width = 400
+    Caption = 'Taped from a floor or ceiling and a wall'
+    OnChange = RefModeChange
+    TabOrder = 30
+  end
+  object lblRefEntry: TLabel
+    Left = 244
+    Height = 18
+    Top = 206
+    Width = 70
+    Caption = 'entry'
+    Font.Color = clGrayText
+    ParentFont = False
+  end
+  object lblRefExit: TLabel
+    Left = 324
+    Height = 18
+    Top = 206
+    Width = 70
+    Caption = 'exit'
+    Font.Color = clGrayText
+    ParentFont = False
+  end
+  object rgRefH: TRadioGroup
+    Left = 24
+    Height = 76
+    Top = 224
+    Width = 210
+    AutoFill = True
+    Caption = 'Height, taped from'
+    ClientHeight = 56
+    ClientWidth = 206
+    ItemIndex = 0
+    Items.Strings = (
+      'floor to the bottom'
+      'ceiling to the top'
+    )
+    OnClick = AnyChange
+    TabOrder = 31
+  end
+  object edRefH0: TEdit
+    Left = 244
+    Height = 28
+    Top = 246
+    Width = 70
+    TabOrder = 32
+    Text = '0'
+    OnChange = AnyChange
+  end
+  object edRefH1: TEdit
+    Left = 324
+    Height = 28
+    Top = 246
+    Width = 70
+    TabOrder = 33
+    Text = '0'
+    OnChange = AnyChange
+  end
+  object rgRefW: TRadioGroup
+    Left = 24
+    Height = 76
+    Top = 310
+    Width = 210
+    AutoFill = True
+    Caption = 'Width, taped from'
+    ClientHeight = 56
+    ClientWidth = 206
+    ItemIndex = 0
+    Items.Strings = (
+      'left wall to the left side'
+      'right wall to the right side'
+    )
+    OnClick = AnyChange
+    TabOrder = 34
+  end
+  object edRefW0: TEdit
+    Left = 244
+    Height = 28
+    Top = 332
+    Width = 70
+    TabOrder = 35
+    Text = '0'
+    OnChange = AnyChange
+  end
+  object edRefW1: TEdit
+    Left = 324
+    Height = 28
+    Top = 332
+    Width = 70
+    TabOrder = 36
+    Text = '0'
+    OnChange = AnyChange
+  end
+  object lblRefHint: TLabel
+    Left = 24
+    Height = 54
+    Top = 396
+    Width = 400
+    AutoSize = False
+    WordWrap = True
+    Caption = 'The entry reads 0 when it sits against the reference.  An exit that runs past the wall or the ceiling reads as a negative number.  Sizes and length as above.'
+    Font.Color = clGrayText
+    ParentFont = False
+  end
 end

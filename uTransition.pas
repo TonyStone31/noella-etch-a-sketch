@@ -93,6 +93,16 @@ type
     pbSketch: TPaintBox;
     rgSide: TRadioGroup;
     rgHeight: TRadioGroup;
+    cbFromRef: TCheckBox;
+    lblRefEntry: TLabel;
+    lblRefExit: TLabel;
+    rgRefH: TRadioGroup;
+    edRefH0: TEdit;
+    edRefH1: TEdit;
+    rgRefW: TRadioGroup;
+    edRefW0: TEdit;
+    edRefW1: TEdit;
+    lblRefHint: TLabel;
     procedure AnyChange(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure pbSketchPaint(Sender: TObject);
@@ -104,6 +114,7 @@ type
     procedure btnFilesClick(Sender: TObject);
     procedure FittingChange(Sender: TObject);
     procedure btnFieldClick(Sender: TObject);
+    procedure RefModeChange(Sender: TObject);
   private
     FUnits: TUnitSystem;
     { the controls each kind of fitting uses shown, the rest hidden, and the
@@ -182,7 +193,7 @@ end;
 
 function TTransitionForm.Read(out T: TTransitionSpec): Boolean;
 var
-  Deg: Double;
+  Deg, Off: Double;
 begin
   T := Default(TTransitionSpec);
   T.Kind := TFittingKind(Max(0, rgFitting.ItemIndex));
@@ -236,12 +247,42 @@ begin
     begin
       Result := Result and InchesOf(edExitW.Text, T.W1) and InchesOf(edExitH.Text, T.H1) and
                 InchesOf(edLen.Text, T.Len);
-      T.Side := TSideRule(Max(0, rgSide.ItemIndex));
-      T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
-      if T.Side <> srCentred then
-        Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
-      if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
-        Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+      if cbFromRef.Checked then
+      begin
+        { From the tape.  One reference per axis, a reading at each end;
+          the rules fall out as differences, and the other edge follows
+          from the size once one edge is fixed. }
+        T.FromRef := True;
+        T.RefH := TRefHeight(Max(0, rgRefH.ItemIndex));
+        T.RefW := TRefWidth(Max(0, rgRefW.ItemIndex));
+        Result := Result and InchesOf(edRefH0.Text, T.RefH0) and InchesOf(edRefH1.Text, T.RefH1) and
+          InchesOf(edRefW0.Text, T.RefW0) and InchesOf(edRefW1.Text, T.RefW1);
+        Off := T.RefH1 - T.RefH0;
+        if T.RefH = rhFloor then
+        begin
+          if Abs(Off) < 1E-9 then T.Height := hrFlatBottom
+          else if Off > 0 then begin T.Height := hrBottomUp; T.HeightAmount := Off; end
+          else begin T.Height := hrBottomDown; T.HeightAmount := -Off; end;
+        end
+        else
+        begin
+          if Abs(Off) < 1E-9 then T.Height := hrFlatTop
+          else if Off > 0 then begin T.Height := hrTopDown; T.HeightAmount := Off; end
+          else begin T.Height := hrTopUp; T.HeightAmount := -Off; end;
+        end;
+        Off := T.RefW1 - T.RefW0;
+        if T.RefW = rwLeft then T.Side := srLeftIn else T.Side := srRightIn;
+        T.SideAmount := Off;
+      end
+      else
+      begin
+        T.Side := TSideRule(Max(0, rgSide.ItemIndex));
+        T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
+        if T.Side <> srCentred then
+          Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
+        if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
+          Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+      end;
     end;
   end;
   T.Ends[0].Kind := TDuctEnd(Max(0, cbEntryEnd.ItemIndex));
@@ -279,6 +320,12 @@ end;
 
 { The angle and the legs from what was measured on the job, put into the
   elbow's fields as if they had been typed. }
+procedure TTransitionForm.RefModeChange(Sender: TObject);
+begin
+  ShowKind;
+  AnyChange(nil);
+end;
+
 procedure TTransitionForm.btnFieldClick(Sender: TObject);
 var
   T: TTransitionSpec;
@@ -308,8 +355,13 @@ begin
   lblExit.Visible := not Te; edExitW.Visible := not Te; lblExitX.Visible := not Te; edExitH.Visible := not Te;
   lblExitHint.Visible := El;
   btnField.Visible := El;
-  rgSide.Visible := Tr; edSideAmount.Visible := Tr;
-  rgHeight.Visible := Tr; edHeightAmount.Visible := Tr;
+  cbFromRef.Visible := Tr;
+  rgSide.Visible := Tr and not cbFromRef.Checked; edSideAmount.Visible := rgSide.Visible;
+  rgHeight.Visible := rgSide.Visible; edHeightAmount.Visible := rgSide.Visible;
+  lblRefEntry.Visible := Tr and cbFromRef.Checked; lblRefExit.Visible := lblRefEntry.Visible;
+  rgRefH.Visible := lblRefEntry.Visible; edRefH0.Visible := lblRefEntry.Visible; edRefH1.Visible := lblRefEntry.Visible;
+  rgRefW.Visible := lblRefEntry.Visible; edRefW0.Visible := lblRefEntry.Visible; edRefW1.Visible := lblRefEntry.Visible;
+  lblRefHint.Visible := lblRefEntry.Visible;
   { the length row is the transition's and the tee's }
   lblLen.Visible := not El; edLen.Visible := not El; lblLenHint.Visible := not El;
   { the elbow's }
@@ -652,8 +704,8 @@ procedure TTransitionForm.PaintPlan(C: TCanvas; W, H: Integer);
 var
   T: TTransitionSpec;
   E, X: array[0..3] of TP3;
-  Margin: Integer;
-  Sc, Wmax, OX: Double;
+  Margin, TopRoom: Integer;
+  Sc, Wmax, OX, WX: Double;
   S: string;
 
   function SX(V: Double): Integer; begin Result := Round(Margin + (V - OX) * Sc); end;
@@ -677,9 +729,18 @@ begin
     Exit;
   end;
   TransitionCorners(T, E, X);
-  Wmax := Max(Max(E[1].X, X[1].X) - Min(0, X[0].X), 1E-6);
   OX := Min(0, X[0].X);
-  Sc := Min((W - 2 * Margin) / Wmax, (H - 2 * Margin) / Max(T.Len, 1E-6));
+  Wmax := Max(E[1].X, X[1].X);
+  if T.FromRef then
+  begin
+    { room for the wall the tape was hooked on }
+    if T.RefW = rwLeft then OX := Min(OX, E[0].X - T.RefW0 - 0.05 * T.W0)
+    else Wmax := Max(Wmax, E[1].X + T.RefW0 + 0.05 * T.W0);
+  end;
+  Wmax := Max(Wmax - OX, 1E-6);
+  { taped: a second line of heading at the top, so the drawing sits lower }
+  if T.FromRef then TopRoom := 44 else TopRoom := 0;
+  Sc := Min((W - 2 * Margin) / Wmax, (H - 2 * Margin - TopRoom) / Max(T.Len, 1E-6));
   { the fitting, entry along the bottom }
   C.Pen.Color := clBlack;
   C.Pen.Width := 2;
@@ -712,6 +773,8 @@ begin
     hrFlatTop:    S := 'FT';
     hrCentred:    S := 'centered';
     hrTopUp:      S := 'top up ' + FormatLen(T.HeightAmount, FUnits);
+    hrTopDown:    S := 'top down ' + FormatLen(T.HeightAmount, FUnits);
+    hrBottomUp:   S := 'bottom up ' + FormatLen(T.HeightAmount, FUnits);
   else
     S := 'bottom down ' + FormatLen(T.HeightAmount, FUnits);
   end;
@@ -719,6 +782,38 @@ begin
   C.TextOut(8, 8, S);
   C.Font.Style := [];
   C.TextOut(8, H - 20, Format('length %s', [FormatLen(T.Len, FUnits)]));
+  if T.FromRef then
+  begin
+    { the wall the tape was hooked on, and the two readings to it; the
+      floor or ceiling readings cannot be drawn in plan, so they are said }
+    C.Pen.Color := $00606060;
+    C.Pen.Width := 3;
+    if T.RefW = rwLeft then WX := E[0].X - T.RefW0 else WX := E[1].X + T.RefW0;
+    C.Line(SX(WX), SY(-T.Len * 0.1), SX(WX), SY(T.Len * 1.1));
+    C.Pen.Width := 1;
+    C.Pen.Color := $00A06030;
+    C.Font.Color := $00A06030;
+    if T.RefW = rwLeft then
+    begin
+      C.Line(SX(WX), SY(T.Len * 0.22), SX(E[0].X), SY(T.Len * 0.22));
+      C.Line(SX(WX), SY(T.Len * 0.78), SX(X[0].X), SY(T.Len * 0.78));
+      C.TextOut(SX(WX) + 4, SY(T.Len * 0.22) + 2, FormatLen(T.RefW0, FUnits));
+      C.TextOut(SX(WX) + 4, SY(T.Len * 0.78) - 18, FormatLen(T.RefW1, FUnits));
+    end
+    else
+    begin
+      C.Line(SX(E[1].X), SY(T.Len * 0.22), SX(WX), SY(T.Len * 0.22));
+      C.Line(SX(X[1].X), SY(T.Len * 0.78), SX(WX), SY(T.Len * 0.78));
+      S := FormatLen(T.RefW0, FUnits);
+      C.TextOut(SX(WX) - C.TextWidth(S) - 4, SY(T.Len * 0.22) + 2, S);
+      S := FormatLen(T.RefW1, FUnits);
+      C.TextOut(SX(WX) - C.TextWidth(S) - 4, SY(T.Len * 0.78) - 18, S);
+    end;
+    if T.RefH = rhFloor then S := 'floor to bottom: ' else S := 'ceiling to top: ';
+    S := S + FormatLen(T.RefH0, FUnits) + ' in, ' + FormatLen(T.RefH1, FUnits) + ' out';
+    C.Font.Color := clBlack;
+    C.TextOut(8, 26, S);
+  end;
 end;
 
 class function TTransitionForm.Ask(Units: TUnitSystem; out Spec: TTransitionSpec): Boolean;

@@ -272,3 +272,29 @@ entirely by lines belonging to one solid group is an opening and never
 gets a face.  A loose edge drawn across it makes it a new area again, which
 is what drawing on a duct end should do.  `/forget` clears the memory of
 seen areas and rebuilds, to test this.
+
+## Taped from a floor and a wall
+
+The other way in, for a transition measured in the field.  Tick *Taped
+from a floor or ceiling and a wall* and the side and height rules go, and
+four readings take their place: one reference per axis, one reading at
+each end, sizes and length as usual.
+
+* Height: from the floor to the bottom of the opening, or from the ceiling
+  to the top.  Entry reading, exit reading.
+* Width: from the left wall to the left side, or from the right wall to
+  the right side.  Entry reading, exit reading.
+
+The rules are differences.  Exit bottom minus entry bottom is the height
+rule: 0 is flat bottom, positive is bottom up by, negative bottom down by;
+from the ceiling the same with the top.  Exit side minus entry side is the
+side rule on the wall side.  The other edge follows from the size once one
+edge is fixed, so everything downstream - plan, 3D, ticket, the built
+part - runs off the ordinary rules.  An exit that runs past the reference
+gives a negative amount, printed as "out by".  The ticket prints the four
+readings and which reference they were taken from, so the tape can be
+checked against the paper.
+
+The reference has to be the same for both ends of an axis: a floor
+reading at one end and a ceiling reading at the other cannot be related
+without the room height.

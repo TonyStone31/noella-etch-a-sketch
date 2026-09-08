@@ -13,6 +13,26 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A transition taped from the floor and a wall.**  A tick on the' + LineEnding +
+    '  builder swaps the side and height rules for four tape readings: from the' + LineEnding +
+    '  floor to the bottom of the opening or from the ceiling to the top, and' + LineEnding +
+    '  from the left wall to the left side or the right wall to the right side,' + LineEnding +
+    '  one reading at each end, the entry usually 0.  The rules come out as' + LineEnding +
+    '  differences - entry tight to the ceiling and the exit 4" down is top' + LineEnding +
+    '  down by 4 - so nobody does the arithmetic in the field.  The plan shows' + LineEnding +
+    '  the wall the tape was hooked on with both readings, and the ticket' + LineEnding +
+    '  prints the readings under the rules.  An exit that runs past the wall' + LineEnding +
+    '  or ceiling reads negative and prints as "out by".  Untick it and the' + LineEnding +
+    '  builder is exactly as before.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- The builder''s plan said "bottom down" for a top-down or bottom-up rule.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.1' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

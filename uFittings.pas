@@ -23,6 +23,10 @@ uses
 type
   { which edge is called out on the width, and on the height }
   TSideRule = (srCentred, srLeftIn, srRightIn);
+  { the tape's other end: the floor or the ceiling for height, the left or
+    the right wall for width }
+  TRefHeight = (rhFloor, rhCeiling);
+  TRefWidth = (rwLeft, rwRight);
   THeightRule = (hrFlatBottom, hrFlatTop, hrCentred, hrTopUp, hrTopDown,
     hrBottomUp, hrBottomDown);
 
@@ -73,6 +77,14 @@ type
     BranchFrom: Double;     { entry to the near edge of the branch }
     BranchUp: Double;       { bottom (or left, for top and bottom) to the branch }
     BranchLen: Double;      { the branch collar }
+    { A transition taped from a floor or ceiling and a wall: one reading
+      per end for each, the entry's usually 0.  The rules above are worked
+      out from them, and with this set an amount may be negative - the
+      exit runs past the reference - which the ticket says as "out by". }
+    FromRef: Boolean;
+    RefH: TRefHeight;
+    RefW: TRefWidth;
+    RefH0, RefH1, RefW0, RefW1: Double;
   end;
 
 const
@@ -192,10 +204,13 @@ begin
   if (T.W0 <= 0) or (T.H0 <= 0) then Exit('The entry opening needs a width and a height.');
   if (T.W1 <= 0) or (T.H1 <= 0) then Exit('The exit opening needs a width and a height.');
   if T.Len <= 0 then Exit('The length has to be more than nothing.');
-  if (T.Side in [srLeftIn, srRightIn]) and (T.SideAmount < 0) then
-    Exit('A side comes in by a positive amount - name the other side to go the other way.');
-  if (T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown]) and (T.HeightAmount < 0) then
-    Exit('Up and down take a positive amount - name the other way to go the other way.');
+  if not T.FromRef then
+  begin
+    if (T.Side in [srLeftIn, srRightIn]) and (T.SideAmount < 0) then
+      Exit('A side comes in by a positive amount - name the other side to go the other way.');
+    if (T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown]) and (T.HeightAmount < 0) then
+      Exit('Up and down take a positive amount - name the other way to go the other way.');
+  end;
   Result := EndProblem(T, 0, T.W0, T.H0);
   if Result = '' then Result := EndProblem(T, 1, T.W1, T.H1);
 end;
@@ -275,6 +290,23 @@ var
   begin
     Result := FormatFloat('0.###', V / Inch) + '"';
   end;
+  { "Left side in by 4"", or "Left side out by 2"" when the amount came out
+    negative from the tape readings }
+  function OutBy(const Words: string; HasAmount: Boolean; Amount: Double): string;
+  begin
+    Result := Words;
+    if not HasAmount then Exit;
+    if Amount < -1E-9 then
+      Result := StringReplace(Result, ' in by', ' out by', []);
+    if Amount < -1E-9 then
+    begin
+      Result := StringReplace(Result, 'up by', 'down by', []);
+      if Pos('down by', Words) > 0 then Result := StringReplace(Words, 'down by', 'up by', []);
+      if Pos(' in by', Words) > 0 then Result := StringReplace(Words, ' in by', ' out by', []);
+    end;
+    Result := Result + ' ' + Ins(Abs(Amount));
+  end;
+
   function EndWords(const E: TEndSpec): string;
   begin
     Result := DUCT_END_NAMES[E.Kind];
@@ -319,12 +351,20 @@ begin
         'Entry opening: ' + Ins(T.W0) + ' x ' + Ins(T.H0) + ' (width x height)' + LineEnding +
         'Exit opening: ' + Ins(T.W1) + ' x ' + Ins(T.H1) + LineEnding +
         'Length, entry to exit: ' + Ins(T.Len) + LineEnding +
-        'Width: ' + SideWords[T.Side];
-      if T.Side <> srCentred then Result := Result + ' ' + Ins(T.SideAmount);
-      Result := Result + LineEnding + 'Height: ' + HeightWords[T.Height];
-      if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
-        Result := Result + ' ' + Ins(T.HeightAmount);
-      Result := Result + LineEnding;
+        'Width: ' + OutBy(SideWords[T.Side], T.Side <> srCentred, T.SideAmount) + LineEnding +
+        'Height: ' + OutBy(HeightWords[T.Height],
+          T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown], T.HeightAmount) + LineEnding;
+      if T.FromRef then
+      begin
+        Result := Result + 'Taped from ';
+        if T.RefH = rhFloor then Result := Result + 'the floor to the bottom: '
+        else Result := Result + 'the ceiling to the top: ';
+        Result := Result + Ins(T.RefH0) + ' at the entry, ' + Ins(T.RefH1) + ' at the exit' + LineEnding;
+        Result := Result + 'Taped from ';
+        if T.RefW = rwLeft then Result := Result + 'the left wall to the left side: '
+        else Result := Result + 'the right wall to the right side: ';
+        Result := Result + Ins(T.RefW0) + ' at the entry, ' + Ins(T.RefW1) + ' at the exit' + LineEnding;
+      end;
     end;
   end;
   Result := Result +
