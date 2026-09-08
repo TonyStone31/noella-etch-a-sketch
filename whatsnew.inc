@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Notches are cut on the angle.**  A notched or slip-and-drive end used' + LineEnding +
+    '  to step in square at each corner.  The cut now runs from the notch depth' + LineEnding +
+    '  along the opening edge back on the angle to an eighth of an inch from' + LineEnding +
+    '  the corner along the seam, which is how the corner is actually cut, and' + LineEnding +
+    '  leaves the tab a sharper corner.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.4' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

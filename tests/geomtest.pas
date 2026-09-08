@@ -2314,10 +2314,18 @@ begin
     CountBuilt(D, First, Faces, Lines, Dims);
     Eight := 0;
     for I := First to D.Live - 1 do
-      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 8) then Inc(Eight);
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 6) then Inc(Eight);
     Ok(Faces = 4, 'notched: still four sides');
-    Ok(Eight = 4, 'each stepping round two corner cut-outs');
-    Ok(Lines = 4 + 4 + 4 * 5, 'seams, exit edges, and five pieces per notched end');
+    Ok(Eight = 4, 'each cut on the angle at its two entry corners');
+    { the cut runs from an eighth along the seam to the notch depth along
+      the edge: a line that is neither along the seam nor along the edge }
+    Eight := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y - D[I].B.Y) > 1E-9) and
+         (Abs(D[I].A.Y - D[I].B.Y) < 0.2) and
+         (Dist(P3(D[I].A.X, 0, D[I].A.Z), P3(D[I].B.X, 0, D[I].B.Z)) > 1E-9) then Inc(Eight);
+    Ok(Eight = 8, Format('eight angled cuts, two a wall (%d)', [Eight]));
+    Ok(Lines = 4 + 4 + 4 * 3, 'seams, exit edges, and three pieces per notched end: cut, edge, cut');
     OnEnd := False;
     for I := First to D.Live - 1 do
       if (D[I].Kind = ekLine) and (Abs(D[I].A.Y) < 1E-9) and (Abs(D[I].B.Y) < 1E-9) and

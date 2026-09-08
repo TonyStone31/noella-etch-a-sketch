@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Notches are cut on the angle.**  A notched or slip-and-drive end used
+  to step in square at each corner.  The cut now runs from the notch depth
+  along the opening edge back on the angle to an eighth of an inch from
+  the corner along the seam, which is how the corner is actually cut, and
+  leaves the tab a sharper corner.
+
 ## v2026.09.08.4
 
 ### New

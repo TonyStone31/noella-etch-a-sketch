@@ -99,6 +99,11 @@ type
 const
   DRIVE_FLANGE_IN = 0.5;    { the drive edge, bent out: inches }
   TDF_RETURN_IN = 0.5;      { the fold back on a TDF flange: inches }
+  { A notch is cut on the angle, from the notch depth along the opening
+    edge back almost to the corner: a short straight along the seam first,
+    then the diagonal.  A square step-in was what it used to be, and the
+    tab it left had a corner to it that the real cut does not. }
+  NOTCH_STRAIGHT_IN = 0.125;
   DUCT_END_NAMES: array[TDuctEnd] of string = (
     'Raw', 'Notched all round - slip it in the field', 'Flange out',
     'Flange in', 'TDF flange',
@@ -509,14 +514,20 @@ var
       Result := P3(-Result.X, -Result.Y, -Result.Z);
   end;
 
+  { how far along the seam from the corner the angled cut starts }
+  function Straight(EndIx: Integer): Double;
+  begin
+    Result := Min(NOTCH_STRAIGHT_IN * B.Inch, Notch(EndIx) / 2);
+  end;
   { The run of wall K along end E, from the seam at its first corner to the
-    seam at its second.  Square-cut it is the two corners; notched it steps
-    in round the cut-out at each corner. }
+    seam at its second.  Square-cut it is the two corners; notched, it
+    comes a short straight along the seam, cuts on the angle out to the
+    notch depth along the opening edge, runs the edge, and cuts back. }
   procedure EndPath(E, K: Integer; var P: array of TP3; out N: Integer);
   var
     J: Integer;
     CI, CJ, U, SI, SJ: TP3;
-    Nt: Double;
+    Nt, St: Double;
   begin
     J := (K + 1) mod 4;
     CI := C[E][K]; CJ := C[E][J];
@@ -526,16 +537,15 @@ var
       P[0] := CI; P[1] := CJ; N := 2;
       Exit;
     end;
+    St := Straight(E);
     U := Towards(CI, CJ);
     SI := Towards(CI, C[1 - E][K]);
     SJ := Towards(CJ, C[1 - E][J]);
-    P[0] := Add(CI, SI, Nt);
-    P[1] := Add(P[0], U, Nt);
-    P[2] := Add(CI, U, Nt);
-    P[3] := Add(CJ, U, -Nt);
-    P[4] := Add(P[3], SJ, Nt);
-    P[5] := Add(CJ, SJ, Nt);
-    N := 6;
+    P[0] := Add(CI, SI, St);
+    P[1] := Add(CI, U, Nt);
+    P[2] := Add(CJ, U, -Nt);
+    P[3] := Add(CJ, SJ, St);
+    N := 4;
   end;
 
   function DriveWall(E, K: Integer): Boolean;
@@ -603,17 +613,15 @@ var
         EndPath(E, K, P, N);
         if Nt > 0 then
         begin
-          { the cut-outs, and the opening edge between them }
-          BLine(B, P[0], P[1]); BLine(B, P[1], P[2]);
-          BLine(B, P[2], P[3]);
-          BLine(B, P[3], P[4]); BLine(B, P[4], P[5]);
+          { the angled cut at each corner, and the opening edge between }
+          BLine(B, P[0], P[1]); BLine(B, P[1], P[2]); BLine(B, P[2], P[3]);
         end
         else if Draw[E] then
           BLine(B, CI, CJ);
         if DriveWall(E, K) then
         begin
           F := DRIVE_FLANGE_IN * B.Inch;
-          BStrip(B, P[2], P[3], Add(P[3], Nrm, F), Add(P[2], Nrm, F), P3(-SI.X, -SI.Y, -SI.Z));
+          BStrip(B, P[1], P[2], Add(P[2], Nrm, F), Add(P[1], Nrm, F), P3(-SI.X, -SI.Y, -SI.Z));
         end;
       end;
     end;
@@ -642,10 +650,10 @@ begin
     for I := 0 to N0 - 1 do Poly[N1 + I] := P0[N0 - 1 - I];
     BFaceOut(B, Poly, OutNormal(K));
   end;
-  { the seams, from cut-out to cut-out }
+  { the seams, from the start of one angled cut to the start of the other }
   for K := 0 to 3 do
-    BLine(B, Add(C[0][K], Towards(C[0][K], C[1][K]), Notch(0)),
-             Add(C[1][K], Towards(C[1][K], C[0][K]), Notch(1)));
+    BLine(B, Add(C[0][K], Towards(C[0][K], C[1][K]), Straight(0)),
+             Add(C[1][K], Towards(C[1][K], C[0][K]), Straight(1)));
   { and each end of each wall, finished the way it was asked for }
   for EndIx := 0 to 1 do
     for K := 0 to 3 do
