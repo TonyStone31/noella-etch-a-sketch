@@ -106,7 +106,7 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="11">
+    <Units Count="12">
       <Unit0>
         <Filename Value="etchasketch.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -182,6 +182,14 @@
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="uSplash"/>
       </Unit10>
+      <Unit11>
+        <Filename Value="uSysInfo.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="SpoolForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="uSysInfo"/>
+      </Unit11>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

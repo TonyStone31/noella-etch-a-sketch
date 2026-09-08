@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uWork, uSplash, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uWork, uSplash, uSysInfo, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -479,6 +479,7 @@ type
     FLoading, FLoadSkipped: Boolean;
     { worker threads for the caches (docs/render-acceleration.md); /threads }
     FThreads: Boolean;
+    FStartedAt: QWord;
     FLastWheel: QWord;
     { the dimension the move tool has hold of by its line: only where the
       line sits changes, never what it measures }
@@ -806,6 +807,7 @@ type
     procedure BuildSession(L: TStrings);
     procedure SaveDraft;
     function OnProgress(const What: string; Frac: Double): Boolean;
+    function MachineText: string;
     function LoadedWords: string;
     procedure EndBusy;
     procedure RestoreDraft;
@@ -1752,6 +1754,7 @@ begin
   FSidesCircle := 24;
   FQuickFrames := True;
   { the program uses workers; the tests and tools, which never render, do not }
+  FStartedAt := GetTickCount64;
   FThreads := True;
   DefaultThreads := True;
   uWork.Progress := @OnProgress;
@@ -5547,11 +5550,15 @@ begin
     if Preamble <> '' then
       Lbl.Caption := 'It crashed last time.  What were you doing when it ' +
         'went?  A line or two is plenty - the crash report itself is ' +
-        'attached automatically, along with what the program was doing.'
+        'attached automatically, along with what the program was doing and ' +
+        'what machine this is - RAM, processor, graphics, operating system; ' +
+        'nothing about you.'
     else
       Lbl.Caption := 'What were you doing, and what happened?  A line or ' +
-        'two is plenty.  What the program was doing is added automatically ' +
-        '- the tool, the view, and the last few dozen things that happened.';
+        'two is plenty.  Added automatically: what the program was doing ' +
+        '- the tool, the view, the last few dozen things that happened - ' +
+        'and what machine this is: RAM, processor, graphics, operating ' +
+        'system.  Nothing about you.';
 
     Memo := TMemo.Create(Dlg);
     Memo.Parent := Dlg;
@@ -5683,7 +5690,8 @@ begin
       'what they said:' + LineEnding +
       specialize IfThen<string>(Note = '', '(nothing written)', Note) +
       LineEnding + LineEnding +
-      'state:' + LineEnding + DiagnosticText;
+      'state:' + LineEnding + DiagnosticText +
+      LineEnding + 'machine:' + LineEnding + MachineText;
     if FReportExtra <> '' then
       Body := Body + LineEnding + 'in the dialog:' + LineEnding + FReportExtra;
     if Preamble <> '' then
@@ -8600,6 +8608,16 @@ begin
     if FThreads then FCmdMsg := 'Worker threads: on - the lines-on-faces cache is built off the main thread.'
     else FCmdMsg := 'Worker threads: off - everything on the main thread.';
   end
+  else if (W = 'sysinfo') or (W = 'machine') then
+  begin
+    { what a report would say about this machine - so anyone can see it
+      before sending one }
+    FCmdMsg := MachineText;
+    WriteLn(FCmdMsg);
+    Flush(Output);
+    Trail('machine:' + LineEnding + FCmdMsg);
+    FCmdMsg := StringReplace(Trim(FCmdMsg), LineEnding, '  |  ', [rfReplaceAll]);
+  end
   else if W = 'timings' then
   begin
     FTimings := not FTimings;
@@ -9077,6 +9095,22 @@ begin
   end;
 end;
 
+{ The machine, for the report: what uSysInfo can tell without asking or
+  running anything, and what the program itself is using.  No path, no
+  name, nothing about the person - see the note at the top of uSysInfo. }
+function TMainForm.MachineText: string;
+begin
+  try
+    Result := SystemFacts +
+      'program memory: ' + ProgramMemory + LineEnding +
+      Format('program: up %d s, threads=%s, quick frames=%s',
+        [(GetTickCount64 - FStartedAt) div 1000, BoolToStr(FThreads, True),
+         BoolToStr(FQuickFrames, True)]) + LineEnding;
+  except
+    on E: Exception do Result := 'machine facts failed: ' + E.ClassName + LineEnding;
+  end;
+end;
+
 function TMainForm.DiagnosticText: string;
 begin
   { Names, not numbers.  A report that says tool=8 needs the source open to
@@ -9193,6 +9227,7 @@ begin
     CurrentVersion, ' built ', BUILD_STAMP);
       WriteLn(F, E.ClassName, ': ', E.Message);
       Write(F, DiagnosticText);
+      Write(F, MachineText);
       WriteLn(F, BackTraceStrFunc(ExceptAddr));
       if ExceptFrameCount > 0 then
         for I := 0 to ExceptFrameCount - 1 do

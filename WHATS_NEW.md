@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Reports say what machine they came from.**  A bug report, and the
+  crash file, now carry the operating system, the processor and how many
+  cores, the RAM and how much of it is free, the graphics driver and
+  whether an OpenGL library is there, the display size, the toolkit the
+  program was built with, and how much memory the program itself is
+  using.  Nothing about the person: no name, no path, no serial number,
+  nothing that needs asking for, and no other program is run to find it
+  out.  `/sysinfo` shows exactly what would be sent.
+
 ## v2026.09.07.16
 
 ### New
