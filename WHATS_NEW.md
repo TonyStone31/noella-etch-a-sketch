@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A crash after switching sheets.**  The selection was kept across a
+  tab switch, still pointing at the things on the sheet just left, and a
+  move on the new sheet then read past its end.  Switching, adding or
+  closing a sheet now lets go of the selection and the hover, and a move
+  drops anything selected that is not on the sheet.
+
 ## v2026.09.07.18
 
 ### Faster

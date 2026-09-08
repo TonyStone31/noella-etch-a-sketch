@@ -676,6 +676,8 @@ type
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
+    procedure LeaveSheet;
+    procedure PruneSelection;
     procedure BeginBulkSelect;
     procedure EndBulkSelect;
     procedure EnsureSelLayer;
@@ -3024,6 +3026,7 @@ begin
     FDrawings[N].View := FD.View;
   end;
   FTabIdx := N;
+  LeaveSheet;
   FD := FDrawings[N];
   FD.ViewX := Round(FArt.Width * 0.10);
   FD.ViewY := Round(FArt.Height * 0.88);
@@ -3041,6 +3044,7 @@ end;
 procedure TMainForm.SelectDrawing(I: Integer);
 begin
   if (I < 0) or (I > High(FDrawings)) or (I = FTabIdx) then Exit;
+  LeaveSheet;
   FTabIdx := I;
   FD := FDrawings[I];
   ResetTool;
@@ -3070,6 +3074,7 @@ begin
     FDrawings[K] := FDrawings[K + 1];
   SetLength(FDrawings, Length(FDrawings) - 1);
 
+  LeaveSheet;
   FTabIdx := EnsureRange(FTabIdx, 0, High(FDrawings));
   FD := FDrawings[FTabIdx];
   ResetTool;
@@ -7640,6 +7645,7 @@ begin
             'Click where it goes, or type a distance.';
           Exit;
         end;
+        PruneSelection;
         if Length(FSel) = 0 then
         begin
           I := PickAt(FMouseSX, FMouseSY);
@@ -10036,8 +10042,8 @@ begin
     Sum := Sum + FSel[K];
     X := X xor (Int64(FSel[K]) * (K + 1));
   end;
-  Key := Format('%d|%d|%d|%d|%.6f|%.6f|%.6f|%.3f|%.3f|%d|%d|%d|%.3f',
-    [FD.Doc.FEditSeq, Length(FSel), Sum, X, FD.Az, FD.El, FD.Zoom, FD.ViewX, FD.ViewY,
+  Key := Format('%p|%d|%d|%d|%d|%.6f|%.6f|%.6f|%.3f|%.3f|%d|%d|%d|%.3f',
+    [Pointer(FD.Doc), FD.Doc.FEditSeq, Length(FSel), Sum, X, FD.Az, FD.El, FD.Zoom, FD.ViewX, FD.ViewY,
      Ord(FD.View), FArt.Width, FArt.Height, FUIScale]);
   if (FSelLayer <> nil) and (Key = FSelLayerKey) then Exit;
   if FSelLayer = nil then FSelLayer := TArtSurface.Create(FArt.Width, FArt.Height)
@@ -10053,6 +10059,41 @@ begin
         FSelLayer.Line(Hi[K - 1].X, Hi[K - 1].Y, Hi[K].X, Hi[K].Y, W, Pix(70, 130, 240), 1.0);
     end;
   FSelLayerKey := Key;
+end;
+
+{ Whatever pointed into the sheet being left: the selection, the doomed
+  list, the hover.  Kept across a tab switch, the selection indexed the
+  other sheet's things - and a move on an empty sheet with a selection
+  from a full one read past its end. }
+procedure TMainForm.LeaveSheet;
+begin
+  SetLength(FSel, 0);
+  SetLength(FDoomed, 0);
+  FHoverEnt := -1;
+  FHoverFace := -1;
+  FPushFace := -1;
+  FOffFace := -1;
+  FSelLayerKey := '';
+  FScreenDirty := True;
+end;
+
+{ drop anything in the selection that is not in this sheet }
+procedure TMainForm.PruneSelection;
+var
+  I, N: Integer;
+begin
+  N := 0;
+  for I := 0 to High(FSel) do
+    if (FSel[I] >= 0) and (FSel[I] < FD.Doc.Live) then
+    begin
+      FSel[N] := FSel[I];
+      Inc(N);
+    end;
+  if N <> Length(FSel) then
+  begin
+    SetLength(FSel, N);
+    FScreenDirty := True;
+  end;
 end;
 
 procedure TMainForm.BeginBulkSelect;
