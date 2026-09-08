@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The notch is cut the way the snips cut it.**  The point is on the' + LineEnding +
+    '  seam, the notch depth back from the end; the cut comes into it from' + LineEnding +
+    '  about three quarters of that out along the opening edge.  The last' + LineEnding +
+    '  release had the triangle the other way round.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.5' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

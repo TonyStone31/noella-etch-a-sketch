@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The notch is cut the way the snips cut it.**  The point is on the
+  seam, the notch depth back from the end; the cut comes into it from
+  about three quarters of that out along the opening edge.  The last
+  release had the triangle the other way round.
+
 ## v2026.09.08.5
 
 ### Fixed
