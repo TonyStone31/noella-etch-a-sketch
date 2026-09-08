@@ -16,7 +16,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, LCLIntf, LCLType, Types, uWork, uPipe, uPreview;
+  ComCtrls, Dialogs, LCLIntf, LCLType, Types, uPaths, uWork, uPipe, uPreview;
 
 type
   TSpoolForm = class(TForm)
@@ -676,8 +676,9 @@ begin
   Files := nil;
   Read(S);
   if Length(S.Legs) = 0 then Exit;
-  Dir := IncludeTrailingPathDelimiter(GetUserDir) + 'Heckers Sketch' + PathDelim +
-    'fittings' + PathDelim;
+  { beside the program, with the settings and the draft: it all has to run
+    from a USB stick and leave nothing behind }
+  Dir := AppDataDir + 'fittings' + PathDelim;
   if not ForceDirectories(Dir) then Exit;
   Name_ := S.Tag;
   for I := 1 to Length(Name_) do

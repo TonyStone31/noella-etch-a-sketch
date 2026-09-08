@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, LCLIntf, uWork, uFittings, uFieldElbow;
+  ComCtrls, Dialogs, LCLIntf, uPaths, uWork, uFittings, uFieldElbow;
 
 type
   TTransitionForm = class(TForm)
@@ -706,8 +706,9 @@ begin
   Result := False;
   Files := nil;
   if not Read(T) or (FittingProblem(T) <> '') then Exit;
-  Dir := IncludeTrailingPathDelimiter(GetUserDir) + 'Heckers Sketch' + PathDelim +
-    'fittings' + PathDelim;
+  { beside the program, with the settings and the draft: it all has to run
+    from a USB stick and leave nothing behind }
+  Dir := AppDataDir + 'fittings' + PathDelim;
   if not ForceDirectories(Dir) then Exit;
   Name_ := T.Tag;
   for I := 1 to Length(Name_) do

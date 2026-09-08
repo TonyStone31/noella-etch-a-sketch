@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Everything stays with the program.**  The fitting and spool tickets
+  used to be written under the user's home folder; they go beside the
+  program now, in a `fittings` folder next to the settings and the draft,
+  so a copy on a USB stick leaves nothing behind.  And every bug report
+  sent is kept there too, text and picture under the name it was sent as,
+  in `reports-sent`.
+
 ## v2026.09.07.20
 
 ### Fixed

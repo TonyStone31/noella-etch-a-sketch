@@ -824,6 +824,7 @@ type
     procedure SaveDraft;
     function OnProgress(const What: string; Frac: Double): Boolean;
     function MachineText: string;
+    procedure KeepReportCopy(const AName, Body: string; Shot: TStream);
     function LoadedWords: string;
     procedure EndBusy;
     procedure RestoreDraft;
@@ -5760,6 +5761,7 @@ begin
       end;
     end;
     if Shot.Size = 0 then WantShot := False;
+    KeepReportCopy(Name_, Body, Shot);
 
     FCmdMsg := 'Sending...';
   pbCmd.Invalidate;
@@ -9126,6 +9128,40 @@ end;
 { The machine, for the report: what uSysInfo can tell without asking or
   running anything, and what the program itself is using.  No path, no
   name, nothing about the person - see the note at the top of uSysInfo. }
+{ Every report that goes out is kept beside the program too, text and
+  picture under the same name, so what was sent can be read back on the
+  machine it came from. }
+procedure TMainForm.KeepReportCopy(const AName, Body: string; Shot: TStream);
+var
+  Dir: string;
+  L: TStringList;
+  F: TFileStream;
+begin
+  try
+    Dir := AppDataDir + 'reports-sent' + PathDelim;
+    if not ForceDirectories(Dir) then Exit;
+    L := TStringList.Create;
+    try
+      L.Text := Body;
+      L.SaveToFile(Dir + AName);
+    finally
+      L.Free;
+    end;
+    if (Shot <> nil) and (Shot.Size > 0) then
+    begin
+      F := TFileStream.Create(Dir + ChangeFileExt(AName, '.png'), fmCreate);
+      try
+        Shot.Position := 0;
+        F.CopyFrom(Shot, Shot.Size);
+      finally
+        F.Free;
+      end;
+    end;
+  except
+    { a copy that could not be written is not a reason to keep the report }
+  end;
+end;
+
 function TMainForm.MachineText: string;
 begin
   try

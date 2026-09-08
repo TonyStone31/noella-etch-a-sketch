@@ -461,7 +461,9 @@ and it carries its work with it.  Only when the program's own folder cannot
 be written to (installed under `/usr/bin`, say) does it fall back to the
 usual per-user place.  The pictures and tickets the fitting wizard writes
 go under `Heckers Sketch/fittings` in your home folder, where a mail program
-and a file manager can find them.
+and a file manager can find them.  The fitting and
+spool tickets go in a `fittings` folder there, and a copy of every bug
+report sent in `reports-sent`.
 
 **One copy at a time.**  Two would share the same draft and take turns
 overwriting each other's work.  A second launch says so and stops.

@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Everything stays with the program.**  The fitting and spool tickets' + LineEnding +
+    '  used to be written under the user''s home folder; they go beside the' + LineEnding +
+    '  program now, in a `fittings` folder next to the settings and the draft,' + LineEnding +
+    '  so a copy on a USB stick leaves nothing behind.  And every bug report' + LineEnding +
+    '  sent is kept there too, text and picture under the name it was sent as,' + LineEnding +
+    '  in `reports-sent`.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.20' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
