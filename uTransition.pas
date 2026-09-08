@@ -771,8 +771,8 @@ procedure TTransitionForm.PaintPlan(C: TCanvas; W, H: Integer);
 var
   T: TTransitionSpec;
   E, X: array[0..3] of TP3;
-  Margin, TopRoom: Integer;
-  Sc, Wmax, OX, WX: Double;
+  Margin: Integer;
+  Sc, Wmax, OX: Double;
   S: string;
 
   function SX(V: Double): Integer; begin Result := Round(Margin + (V - OX) * Sc); end;
@@ -797,17 +797,8 @@ begin
   end;
   TransitionCorners(T, E, X);
   OX := Min(0, X[0].X);
-  Wmax := Max(E[1].X, X[1].X);
-  if T.FromRef then
-  begin
-    { room for the wall the tape was hooked on }
-    if T.RefW = rwLeft then OX := Min(OX, E[0].X - T.RefW0 - 0.05 * T.W0)
-    else Wmax := Max(Wmax, E[1].X + T.RefW0 + 0.05 * T.W0);
-  end;
-  Wmax := Max(Wmax - OX, 1E-6);
-  { taped: a second line of heading at the top, so the drawing sits lower }
-  if T.FromRef then TopRoom := 44 else TopRoom := 0;
-  Sc := Min((W - 2 * Margin) / Wmax, (H - 2 * Margin - TopRoom) / Max(T.Len, 1E-6));
+  Wmax := Max(Max(E[1].X, X[1].X) - OX, 1E-6);
+  Sc := Min((W - 2 * Margin) / Wmax, (H - 2 * Margin) / Max(T.Len, 1E-6));
   { the fitting, entry along the bottom }
   C.Pen.Color := clBlack;
   C.Pen.Width := 2;
@@ -849,38 +840,8 @@ begin
   C.TextOut(8, 8, S);
   C.Font.Style := [];
   C.TextOut(8, H - 20, Format('length %s', [FormatLen(T.Len, FUnits)]));
-  if T.FromRef then
-  begin
-    { the wall the tape was hooked on, and the two readings to it; the
-      floor or ceiling readings cannot be drawn in plan, so they are said }
-    C.Pen.Color := $00606060;
-    C.Pen.Width := 3;
-    if T.RefW = rwLeft then WX := E[0].X - T.RefW0 else WX := E[1].X + T.RefW0;
-    C.Line(SX(WX), SY(-T.Len * 0.1), SX(WX), SY(T.Len * 1.1));
-    C.Pen.Width := 1;
-    C.Pen.Color := $00A06030;
-    C.Font.Color := $00A06030;
-    if T.RefW = rwLeft then
-    begin
-      C.Line(SX(WX), SY(T.Len * 0.22), SX(E[0].X), SY(T.Len * 0.22));
-      C.Line(SX(WX), SY(T.Len * 0.78), SX(X[0].X), SY(T.Len * 0.78));
-      C.TextOut(SX(WX) + 4, SY(T.Len * 0.22) + 2, FormatLen(T.RefW0, FUnits));
-      C.TextOut(SX(WX) + 4, SY(T.Len * 0.78) - 18, FormatLen(T.RefW1, FUnits));
-    end
-    else
-    begin
-      C.Line(SX(E[1].X), SY(T.Len * 0.22), SX(WX), SY(T.Len * 0.22));
-      C.Line(SX(X[1].X), SY(T.Len * 0.78), SX(WX), SY(T.Len * 0.78));
-      S := FormatLen(T.RefW0, FUnits);
-      C.TextOut(SX(WX) - C.TextWidth(S) - 4, SY(T.Len * 0.22) + 2, S);
-      S := FormatLen(T.RefW1, FUnits);
-      C.TextOut(SX(WX) - C.TextWidth(S) - 4, SY(T.Len * 0.78) - 18, S);
-    end;
-    if T.RefH = rhFloor then S := 'floor to bottom: ' else S := 'ceiling to top: ';
-    S := S + FormatLen(T.RefH0, FUnits) + ' in, ' + FormatLen(T.RefH1, FUnits) + ' out';
-    C.Font.Color := clBlack;
-    C.TextOut(8, 26, S);
-  end;
+  { taped from a wall or not, the plan shows the result - the offset - and
+    not the readings; the wall was only where the tape was hooked }
 end;
 
 class function TTransitionForm.Ask(Units: TUnitSystem; out Spec: TTransitionSpec): Boolean;

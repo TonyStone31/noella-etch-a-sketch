@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The taped transition''s plan shows the result, not the tape.**  The' + LineEnding +
+    '  wall and the two readings to it are gone from the plan; the wall was only' + LineEnding +
+    '  where the tape was hooked.  What shows is the offset it comes to - right' + LineEnding +
+    '  side in by 7, bottom up by 4 - the same as a transition entered the' + LineEnding +
+    '  usual way.  The readings still print on the ticket.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.6' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

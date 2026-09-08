@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The taped transition's plan shows the result, not the tape.**  The
+  wall and the two readings to it are gone from the plan; the wall was only
+  where the tape was hooked.  What shows is the offset it comes to - right
+  side in by 7, bottom up by 4 - the same as a transition entered the
+  usual way.  The readings still print on the ticket.
+
 ## v2026.09.08.6
 
 ### Fixed
