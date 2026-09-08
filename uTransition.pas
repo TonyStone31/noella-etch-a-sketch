@@ -533,6 +533,10 @@ var
   Depth: array of Double;
   Pts: array of TPoint;
   Sw: Boolean;
+  Lo, Hi: TP3;
+  K: Integer;
+  Crate: array[0..7] of TP3;
+  S: string;
 
   function PX(const P: TP3): Double; begin Result := (P.X + P.Y) * CX; end;
   function PY(const P: TP3): Double; begin Result := -P.Z + (P.X - P.Y) * 0.5; end;
@@ -540,6 +544,11 @@ var
   function SY(const P: TP3): Integer; begin Result := Round(Margin + (PY(P) - MinY) * Sc); end;
   { nearer the viewer is larger }
   function Near(const P: TP3): Double; begin Result := P.X - P.Y + P.Z; end;
+
+  procedure Edge(A, B: Integer);
+  begin
+    C.Line(SX(Crate[A]), SY(Crate[A]), SX(Crate[B]), SY(Crate[B]));
+  end;
 
 begin
   C.Brush.Color := clWhite;
@@ -551,17 +560,29 @@ begin
   D := TWorkDoc.Create;
   try
     BuildFitting(D, T, clBlack, 1);
-    Margin := 16;
+    Margin := 30;
     MinX := 1E30; MaxX := -1E30; MinY := 1E30; MaxY := -1E30;
+    Lo := P3(1E30, 1E30, 1E30);
+    Hi := P3(-1E30, -1E30, -1E30);
     for I := 0 to D.Live - 1 do
       if D[I].Kind = ekLine then
       begin
+        Lo := P3(Min(Lo.X, Min(D[I].A.X, D[I].B.X)), Min(Lo.Y, Min(D[I].A.Y, D[I].B.Y)), Min(Lo.Z, Min(D[I].A.Z, D[I].B.Z)));
+        Hi := P3(Max(Hi.X, Max(D[I].A.X, D[I].B.X)), Max(Hi.Y, Max(D[I].A.Y, D[I].B.Y)), Max(Hi.Z, Max(D[I].A.Z, D[I].B.Z)));
         MinX := Min(MinX, Min(PX(D[I].A), PX(D[I].B)));
         MaxX := Max(MaxX, Max(PX(D[I].A), PX(D[I].B)));
         MinY := Min(MinY, Min(PY(D[I].A), PY(D[I].B)));
         MaxY := Max(MaxY, Max(PY(D[I].A), PY(D[I].B)));
       end;
     if MaxX <= MinX then Exit;
+    Crate[0] := P3(Lo.X, Lo.Y, Lo.Z); Crate[1] := P3(Hi.X, Lo.Y, Lo.Z);
+    Crate[2] := P3(Hi.X, Hi.Y, Lo.Z); Crate[3] := P3(Lo.X, Hi.Y, Lo.Z);
+    for K := 0 to 3 do Crate[K + 4] := P3(Crate[K].X, Crate[K].Y, Hi.Z);
+    for K := 0 to 7 do
+    begin
+      MinX := Min(MinX, PX(Crate[K])); MaxX := Max(MaxX, PX(Crate[K]));
+      MinY := Min(MinY, PY(Crate[K])); MaxY := Max(MaxY, PY(Crate[K]));
+    end;
     Sc := Min((W - 2 * Margin) / Max(MaxX - MinX, 1E-9),
               (H - 2 * Margin) / Max(MaxY - MinY, 1E-9));
     { the sides, far ones first so the near ones paint over them }
@@ -589,6 +610,15 @@ begin
     until not Sw;
     Sc := Min((W - 2 * Margin) / Max(MaxX - MinX, 1E-9),
               (H - 2 * Margin) / Max(MaxY - MinY, 1E-9));
+    { The crate: the box the fitting fits in, so a strange one orbited or
+      looked at from below still says which way is up and which end is the
+      entry.  Drawn, not built - nothing of it goes into the drawing. }
+    C.Pen.Style := psClear;
+    C.Brush.Style := bsSolid;
+    C.Brush.Color := $00E4EEE4;
+    C.Polygon([Point(SX(Crate[0]), SY(Crate[0])), Point(SX(Crate[1]), SY(Crate[1])),
+               Point(SX(Crate[2]), SY(Crate[2])), Point(SX(Crate[3]), SY(Crate[3]))]);
+    C.Pen.Style := psSolid;
     C.Pen.Color := $00909090;
     C.Pen.Width := 1;
     for I := 0 to High(Order) do
@@ -606,8 +636,28 @@ begin
     for I := 0 to D.Live - 1 do
       if D[I].Kind = ekLine then
         C.Line(SX(D[I].A), SY(D[I].A), SX(D[I].B), SY(D[I].B));
+    { the crate's edges over everything, dashed and light }
+    C.Pen.Style := psDash;
+    C.Pen.Color := $00B0B0B0;
+    C.Brush.Style := bsClear;
+    Edge(0, 1); Edge(1, 2); Edge(2, 3); Edge(3, 0);
+    Edge(4, 5); Edge(5, 6); Edge(6, 7); Edge(7, 4);
+    Edge(0, 4); Edge(1, 5); Edge(2, 6); Edge(3, 7);
+    C.Pen.Style := psSolid;
+    C.Font.Color := $00507050;
+    C.Font.Style := [fsBold];
+    S := 'IN';
+    C.TextOut((SX(Crate[0]) + SX(Crate[5])) div 2 - C.TextWidth(S) div 2,
+      (SY(Crate[0]) + SY(Crate[5])) div 2 - 8, S);
+    S := 'OUT';
+    C.TextOut((SX(Crate[3]) + SX(Crate[6])) div 2 - C.TextWidth(S) div 2,
+      (SY(Crate[3]) + SY(Crate[6])) div 2 - 8, S);
+    S := 'TOP';
+    C.TextOut((SX(Crate[4]) + SX(Crate[6])) div 2 - C.TextWidth(S) div 2,
+      (SY(Crate[4]) + SY(Crate[6])) div 2 - 8, S);
+    C.Font.Style := [];
     C.Font.Color := clGray;
-    C.TextOut(8, H - 20, 'entry at the front left');
+    C.TextOut(8, H - 20, 'entry at the front left; the crate is drawn, not built');
     if T.Tag <> '' then
     begin
       C.Font.Color := clBlack;

@@ -10769,6 +10769,9 @@ var
   I, K: Integer;
   D: TP3;
   Hi: TPointFArray;
+  Lo, Hi3: TP3;
+  Crate: array[0..7] of TP3;
+  CS: array[0..7] of TPointF;
   PA, PB: TPointF;
 begin
   if (FTool <> ptMove) or (FStage <> 1) then Exit;
@@ -10789,6 +10792,43 @@ begin
     C.MoveTo(Round(Hi[0].X + PA.X - PB.X), Round(Hi[0].Y + PA.Y - PB.Y));
     for K := 1 to High(Hi) do
       C.LineTo(Round(Hi[K].X + PA.X - PB.X), Round(Hi[K].Y + PA.Y - PB.Y));
+  end;
+  { A built part being placed comes in its crate: the box round it, the
+    floor marked with its diagonals, IN at the entry end, OUT at the exit,
+    TOP on the lid - so it can be set down the right way round.  Drawn
+    only; nothing of it goes into the drawing. }
+  if FMoveRigid and (Length(FMoveVerts) > 0) then
+  begin
+    Lo := FMoveVerts[0];
+    Hi3 := FMoveVerts[0];
+    for I := 1 to High(FMoveVerts) do
+    begin
+      Lo := P3(Min(Lo.X, FMoveVerts[I].X), Min(Lo.Y, FMoveVerts[I].Y), Min(Lo.Z, FMoveVerts[I].Z));
+      Hi3 := P3(Max(Hi3.X, FMoveVerts[I].X), Max(Hi3.Y, FMoveVerts[I].Y), Max(Hi3.Z, FMoveVerts[I].Z));
+    end;
+    Lo := P3(Lo.X + D.X, Lo.Y + D.Y, Lo.Z + D.Z);
+    Hi3 := P3(Hi3.X + D.X, Hi3.Y + D.Y, Hi3.Z + D.Z);
+    Crate[0] := P3(Lo.X, Lo.Y, Lo.Z); Crate[1] := P3(Hi3.X, Lo.Y, Lo.Z);
+    Crate[2] := P3(Hi3.X, Hi3.Y, Lo.Z); Crate[3] := P3(Lo.X, Hi3.Y, Lo.Z);
+    for K := 0 to 3 do Crate[K + 4] := P3(Crate[K].X, Crate[K].Y, Hi3.Z);
+    for K := 0 to 7 do CS[K] := ScreenOf(Crate[K]);
+    C.Pen.Style := psDash;
+    C.Pen.Width := 1;
+    C.Pen.Color := PixToColor(Pix(150, 160, 150));
+    for K := 0 to 3 do
+    begin
+      C.MoveTo(Round(CS[K].X), Round(CS[K].Y)); C.LineTo(Round(CS[(K + 1) mod 4].X), Round(CS[(K + 1) mod 4].Y));
+      C.MoveTo(Round(CS[K + 4].X), Round(CS[K + 4].Y)); C.LineTo(Round(CS[(K + 1) mod 4 + 4].X), Round(CS[(K + 1) mod 4 + 4].Y));
+      C.MoveTo(Round(CS[K].X), Round(CS[K].Y)); C.LineTo(Round(CS[K + 4].X), Round(CS[K + 4].Y));
+    end;
+    C.MoveTo(Round(CS[0].X), Round(CS[0].Y)); C.LineTo(Round(CS[2].X), Round(CS[2].Y));
+    C.MoveTo(Round(CS[1].X), Round(CS[1].Y)); C.LineTo(Round(CS[3].X), Round(CS[3].Y));
+    C.Pen.Style := psSolid;
+    UIFont(C, 10, True, Pix(80, 110, 80));
+    C.Brush.Style := bsClear;
+    C.TextOut(Round((CS[0].X + CS[5].X) / 2) - C.TextWidth('IN') div 2, Round((CS[0].Y + CS[5].Y) / 2) - 7, 'IN');
+    C.TextOut(Round((CS[3].X + CS[6].X) / 2) - C.TextWidth('OUT') div 2, Round((CS[3].Y + CS[6].Y) / 2) - 7, 'OUT');
+    C.TextOut(Round((CS[4].X + CS[6].X) / 2) - C.TextWidth('TOP') div 2, Round((CS[4].Y + CS[6].Y) / 2) - 7, 'TOP');
   end;
   C.Pen.Width := 1;
 

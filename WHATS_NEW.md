@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A fitting comes in its crate.**  The builder's 3D tab, and the ghost
+  while a built fitting is being placed, draw the box the fitting fits in:
+  the floor marked, IN at the entry end, OUT at the exit, TOP on the lid.
+  A strange transition orbited or seen from below then still says which
+  way is up and which end goes first.  The crate is drawn, not built -
+  nothing of it goes into the drawing, so there is nothing to delete.
+
 ## v2026.09.08.3
 
 ### New
