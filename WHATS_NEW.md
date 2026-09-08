@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The report form takes the picture first.**  No question before the
+  form: it opens with a picture of the window as it was, in view while
+  you write.  On the form, `Snap now` takes it again with the form out of
+  the way, `Snap in 10 s` gives time to set something up to show and
+  brings the form straight back, and `Discard picture` sends the report
+  without one.  Enter while writing no longer sends the report - one
+  arrived cut off in the middle of a word that way.  `/report` opens the
+  form from the command bar.
+- **`/sysinfo` shows its facts in a box** in the program's own style,
+  instead of squeezing them into the command bar.
+
 ## v2026.09.07.21
 
 ### Changed

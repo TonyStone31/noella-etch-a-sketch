@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The report form takes the picture first.**  No question before the' + LineEnding +
+    '  form: it opens with a picture of the window as it was, in view while' + LineEnding +
+    '  you write.  On the form, `Snap now` takes it again with the form out of' + LineEnding +
+    '  the way, `Snap in 10 s` gives time to set something up to show and' + LineEnding +
+    '  brings the form straight back, and `Discard picture` sends the report' + LineEnding +
+    '  without one.  Enter while writing no longer sends the report - one' + LineEnding +
+    '  arrived cut off in the middle of a word that way.  `/report` opens the' + LineEnding +
+    '  form from the command bar.' + LineEnding +
+    '- **`/sysinfo` shows its facts in a box** in the program''s own style,' + LineEnding +
+    '  instead of squeezing them into the command bar.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.21' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

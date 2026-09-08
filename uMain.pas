@@ -833,6 +833,7 @@ type
     procedure FollowScreenSize;
     procedure SaveSettings;
     procedure ShowAbout;
+    procedure ShowFacts(const Title, AText: string);
   end;
 
 var
@@ -5492,7 +5493,8 @@ var
   Memo: TMemo;
   Lbl, Fine: TLabel;
   WithDoc: TCheckBox;
-  BtnOK, BtnNo, BtnAgain: TButton;
+  BtnOK, BtnNo, BtnAgain, BtnLater, BtnDrop: TButton;
+  NoPic: TLabel;
   Shown: TImage;
   ShotBmp: TBitmap;
   Png: TPortableNetworkGraphic;
@@ -5500,7 +5502,7 @@ var
   Res: Integer;
   Body, Name_, Err, Note, ShotErr: string;
   WantShot: Boolean;
-  ShotWay, NThings: Integer;
+  NThings: Integer;
   Shot: TMemoryStream;
   L: TStringList;
 begin
@@ -5517,33 +5519,26 @@ begin
     front of somebody while they write, means the words and the picture are
     about the same thing.  Taking another is a button on the form and costs
     nothing that was typed. }
+  { The picture is taken straight away, of the window as it is, and the
+    form opens with it in view - no question first.  From the form it can
+    be taken again now, in ten seconds after something has been set up to
+    show, or dropped. }
   Application.ProcessMessages;
-  ShotWay := QuestionDlg('A picture first?',
-    'A picture of this window shows which tool was in hand and what the ' +
-    'settings were.  You write the report next, with the picture in front ' +
-    'of you, and you can take another from there.',
-    mtConfirmation,
-    [mrYes, 'Give me 10 seconds', 'IsDefault',
-     mrAll, 'Take it now',
-     mrNo,  'No picture'], 0);
-  WantShot := ShotWay in [mrYes, mrAll];
-
   ShotBmp := nil;
-  if WantShot then
+  if (ShotFile <> '') and FileExists(ShotFile) then
   begin
-    { A crash brings its own picture, from when it happened - a fresh one now
-      would only show whatever is on screen after the restart. }
-    if (ShotFile <> '') and FileExists(ShotFile) then
-      try
-        ShotBmp := TBitmap.Create;
-        ShotBmp.LoadFromFile(ShotFile);
-      except
-        FreeAndNil(ShotBmp);
-      end
-    else
-      CaptureShot(ShotWay = mrYes, ShotBmp);
-    WantShot := ShotBmp <> nil;
-  end;
+    { for a crash, the picture saved when it happened; what is on screen
+      now is the restart }
+    try
+      ShotBmp := TBitmap.Create;
+      ShotBmp.LoadFromFile(ShotFile);
+    except
+      FreeAndNil(ShotBmp);
+    end;
+  end
+  else
+    CaptureShot(False, ShotBmp);
+  WantShot := ShotBmp <> nil;
 
   Note := '';
   DocOn := True;
@@ -5555,8 +5550,7 @@ begin
     Dlg.Position := poMainFormCenter;
     Dlg.BorderStyle := bsDialog;
     Dlg.ClientWidth := Round(600 * FUIScale);
-    if WantShot then Dlg.ClientHeight := Round(560 * FUIScale)
-    else Dlg.ClientHeight := Round(384 * FUIScale);
+    Dlg.ClientHeight := Round(560 * FUIScale);
 
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
@@ -5652,20 +5646,46 @@ begin
       Shown.Proportional := True;
       Shown.Center := True;
       Shown.Picture.Assign(ShotBmp);
-
-      BtnAgain := TButton.Create(Dlg);
-      BtnAgain.Parent := Dlg;
-      BtnAgain.Caption := 'Take another';
-      BtnAgain.ModalResult := mrRetry;
-      BtnAgain.SetBounds(Round(12 * FUIScale), Dlg.ClientHeight -
-        Round(42 * FUIScale), Round(140 * FUIScale), Round(30 * FUIScale));
+    end
+    else
+    begin
+      NoPic := TLabel.Create(Dlg);
+      NoPic.Parent := Dlg;
+      NoPic.Caption := 'No picture with this report.';
+      NoPic.Alignment := taCenter;
+      NoPic.AutoSize := False;
+      NoPic.SetBounds(Round(12 * FUIScale), Round(410 * FUIScale),
+        Dlg.ClientWidth - Round(24 * FUIScale), Round(22 * FUIScale));
     end;
+
+    { the picture: again now, in ten seconds so something can be set up to
+      show, or not at all }
+    BtnAgain := TButton.Create(Dlg);
+    BtnAgain.Parent := Dlg;
+    BtnAgain.Caption := 'Snap now';
+    BtnAgain.ModalResult := mrRetry;
+    BtnAgain.SetBounds(Round(12 * FUIScale), Dlg.ClientHeight -
+      Round(42 * FUIScale), Round(100 * FUIScale), Round(30 * FUIScale));
+    BtnLater := TButton.Create(Dlg);
+    BtnLater.Parent := Dlg;
+    BtnLater.Caption := 'Snap in 10 s';
+    BtnLater.ModalResult := mrAll;
+    BtnLater.SetBounds(Round(120 * FUIScale), Dlg.ClientHeight -
+      Round(42 * FUIScale), Round(110 * FUIScale), Round(30 * FUIScale));
+    BtnDrop := TButton.Create(Dlg);
+    BtnDrop.Parent := Dlg;
+    BtnDrop.Caption := 'Discard picture';
+    BtnDrop.ModalResult := mrIgnore;
+    BtnDrop.Enabled := WantShot;
+    BtnDrop.SetBounds(Round(238 * FUIScale), Dlg.ClientHeight -
+      Round(42 * FUIScale), Round(120 * FUIScale), Round(30 * FUIScale));
 
     BtnOK := TButton.Create(Dlg);
     BtnOK.Parent := Dlg;
     BtnOK.Caption := 'Send';
     BtnOK.ModalResult := mrOK;
-    BtnOK.Default := True;
+    { not the default button: Enter while writing the note must not send
+      it - a report arrived cut off in the middle of a word that way }
     BtnOK.SetBounds(Dlg.ClientWidth - Round(224 * FUIScale),
       Dlg.ClientHeight - Round(42 * FUIScale),
       Round(100 * FUIScale), Round(30 * FUIScale));
@@ -5688,13 +5708,18 @@ begin
     Dlg.Free;
   end;
 
-  if Res = mrRetry then
+  if Res in [mrRetry, mrAll] then
   begin
     FreeAndNil(ShotBmp);
-    CaptureShot(True, ShotBmp);
+    CaptureShot(Res = mrAll, ShotBmp);
     WantShot := ShotBmp <> nil;
+  end
+  else if Res = mrIgnore then
+  begin
+    FreeAndNil(ShotBmp);
+    WantShot := False;
   end;
-  until Res <> mrRetry;
+  until not (Res in [mrRetry, mrAll, mrIgnore]);
 
   if Res <> mrOK then
   begin
@@ -8636,15 +8661,16 @@ begin
     if FThreads then FCmdMsg := 'Worker threads: on - the lines-on-faces cache is built off the main thread.'
     else FCmdMsg := 'Worker threads: off - everything on the main thread.';
   end
+  else if (W = 'report') or (W = 'bug') then ReportBug('', '', '')
   else if (W = 'sysinfo') or (W = 'machine') then
   begin
     { what a report would say about this machine - so anyone can see it
       before sending one }
-    FCmdMsg := MachineText;
-    WriteLn(FCmdMsg);
+    FCmdMsg := 'That is what goes with a report about this machine.';
+    WriteLn(MachineText);
     Flush(Output);
-    Trail('machine:' + LineEnding + FCmdMsg);
-    FCmdMsg := StringReplace(Trim(FCmdMsg), LineEnding, '  |  ', [rfReplaceAll]);
+    Trail('machine:' + LineEnding + MachineText);
+    ShowFacts('This machine, as a report says it', MachineText);
   end
   else if W = 'timings' then
   begin
@@ -14496,6 +14522,132 @@ procedure TAboutBox.BoxKey(Sender: TObject; var Key: word; Shift: TShiftState);
 begin
   Close;
   Key := 0;
+end;
+
+{ ======================================================================== }
+{ a box of plain lines in the same style - what /sysinfo shows             }
+{ ======================================================================== }
+
+type
+  TFactsBox = class(TForm)
+  private
+    FSkin: TArtSurface;
+    FTheme: TTheme;
+    FScale: Single;
+    FTitle: string;
+    FLines: TStringList;
+    procedure BoxPaint(Sender: TObject);
+    procedure BoxClick(Sender: TObject);
+    procedure BoxKey(Sender: TObject; var Key: word; Shift: TShiftState);
+  public
+    constructor CreateStyled(AOwner: TComponent; const ATheme: TTheme; AScale: Single;
+      const ATitle, AText: string);
+    destructor Destroy; override;
+  end;
+
+constructor TFactsBox.CreateStyled(AOwner: TComponent; const ATheme: TTheme;
+  AScale: Single; const ATitle, AText: string);
+begin
+  inherited CreateNew(AOwner);
+  FTheme := ATheme;
+  FScale := AScale;
+  FTitle := ATitle;
+  FLines := TStringList.Create;
+  FLines.Text := AText;
+  while (FLines.Count > 0) and (Trim(FLines[FLines.Count - 1]) = '') do
+    FLines.Delete(FLines.Count - 1);
+  BorderStyle := bsNone;
+  Position := poMainFormCenter;
+  ClientWidth := Round(760 * FScale);
+  ClientHeight := Round((124 + 22 * FLines.Count) * FScale);
+  Color := PixToColor(FTheme.Shell2);
+  KeyPreview := True;
+  DoubleBuffered := True;
+  FSkin := TArtSurface.Create(ClientWidth, ClientHeight);
+  OnPaint := @BoxPaint;
+  OnClick := @BoxClick;
+  OnKeyDown := @BoxKey;
+end;
+
+destructor TFactsBox.Destroy;
+begin
+  FLines.Free;
+  FSkin.Free;
+  inherited Destroy;
+end;
+
+procedure TFactsBox.BoxPaint(Sender: TObject);
+var
+  I, Y, Pad, Colon: Integer;
+  S, K: string;
+begin
+  Pad := Round(30 * FScale);
+  PaintShell(FSkin, FTheme);
+  FSkin.RoundFrame(Rect(1, 1, ClientWidth - 1, ClientHeight - 1),
+    Round(14 * FScale), 2.0, FTheme.Accent, 0.85);
+  FSkin.Line(Pad, Round(58 * FScale), ClientWidth - Pad, Round(58 * FScale),
+    1.4, FTheme.Accent, 0.6);
+  FSkin.DrawTo(Canvas, 0, 0);
+
+  Canvas.Brush.Style := bsClear;
+  Canvas.Font.Name := {$IFDEF WINDOWS}'Segoe UI'{$ELSE}'Sans'{$ENDIF};
+  Canvas.Font.Height := -Round(18 * FScale);
+  Canvas.Font.Style := [fsBold];
+  Canvas.Font.Color := PixToColor(FTheme.Text);
+  Canvas.TextOut(Pad, Round(22 * FScale), FTitle);
+
+  Canvas.Font.Height := -Round(13 * FScale);
+  Canvas.Font.Style := [];
+  Y := Round(74 * FScale);
+  for I := 0 to FLines.Count - 1 do
+  begin
+    S := FLines[I];
+    Colon := Pos(': ', S);
+    if Colon > 0 then
+    begin
+      { the name in the accent, the value in plain text }
+      K := Copy(S, 1, Colon);
+      Canvas.Font.Color := PixToColor(FTheme.Accent);
+      Canvas.TextOut(Pad, Y, K);
+      Canvas.Font.Color := PixToColor(FTheme.Text);
+      Canvas.TextOut(Pad + Round(150 * FScale), Y, Trim(Copy(S, Colon + 1, MaxInt)));
+    end
+    else
+    begin
+      Canvas.Font.Color := PixToColor(FTheme.Text);
+      Canvas.TextOut(Pad, Y, S);
+    end;
+    Inc(Y, Round(22 * FScale));
+  end;
+
+  Canvas.Font.Height := -Round(12 * FScale);
+  Canvas.Font.Color := PixToColor(FTheme.TextDim);
+  S := 'this goes with every report - click anywhere, or press Esc, to close';
+  Canvas.TextOut((ClientWidth - Canvas.TextWidth(S)) div 2,
+    ClientHeight - Round(28 * FScale), S);
+end;
+
+procedure TFactsBox.BoxClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TFactsBox.BoxKey(Sender: TObject; var Key: word; Shift: TShiftState);
+begin
+  Close;
+  Key := 0;
+end;
+
+procedure TMainForm.ShowFacts(const Title, AText: string);
+var
+  Box: TFactsBox;
+begin
+  Box := TFactsBox.CreateStyled(Self, Theme, FUIScale, Title, AText);
+  try
+    Box.ShowModal;
+  finally
+    Box.Free;
+  end;
 end;
 
 procedure TMainForm.ShowAbout;
