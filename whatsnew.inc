@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The fitting builder remembers the last fitting.**  It opens the way' + LineEnding +
+    '  it was when the last one was built - sizes, rules, ends, angle, branch,' + LineEnding +
+    '  all of it - since one fitting is usually much like the one before.  Only' + LineEnding +
+    '  the tag starts blank.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The fitting builder remembers the last fitting.**  It opens the way
+  it was when the last one was built - sizes, rules, ends, angle, branch,
+  all of it - since one fitting is usually much like the one before.  Only
+  the tag starts blank.
+
 ## v2026.09.08
 
 ### New

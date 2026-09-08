@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, LCLIntf, uPaths, uWork, uFittings, uFieldElbow;
+  ComCtrls, Dialogs, LCLIntf, IniFiles, uPaths, uWork, uFittings, uFieldElbow;
 
 type
   TTransitionForm = class(TForm)
@@ -119,6 +119,10 @@ type
     function ExportFiles(out Dir: string; out Files: TStringArray): Boolean;
     function Read(out T: TTransitionSpec): Boolean;
     function InchesOf(const S: string; out V: Double): Boolean;
+    { the form as it was for the last fitting built, kept in the settings:
+      one fitting is usually much like the one before it }
+    procedure LoadLast;
+    procedure SaveLast;
   public
     { the whole exchange: returns True with the spec when Build was pressed }
     class function Ask(Units: TUnitSystem; out Spec: TTransitionSpec): Boolean;
@@ -566,6 +570,64 @@ begin
   pbIso.Invalidate;
 end;
 
+{ Every edit, combo, radio group and checkbox on the form, by name, under
+  [fitting] in the settings.  The tag is left out: it names one part. }
+procedure TTransitionForm.SaveLast;
+var
+  Ini: TIniFile;
+  I: Integer;
+  C: TComponent;
+begin
+  try
+    Ini := TIniFile.Create(ConfigFile);
+    try
+      for I := 0 to ComponentCount - 1 do
+      begin
+        C := Components[I];
+        if C = edTag then Continue;
+        if C is TEdit then Ini.WriteString('fitting', C.Name, TEdit(C).Text)
+        else if C is TComboBox then Ini.WriteInteger('fitting', C.Name, TComboBox(C).ItemIndex)
+        else if C is TRadioGroup then Ini.WriteInteger('fitting', C.Name, TRadioGroup(C).ItemIndex)
+        else if C is TCheckBox then Ini.WriteBool('fitting', C.Name, TCheckBox(C).Checked);
+      end;
+    finally
+      Ini.Free;
+    end;
+  except
+    { a settings file that will not take it is not a reason to stop }
+  end;
+end;
+
+procedure TTransitionForm.LoadLast;
+var
+  Ini: TIniFile;
+  I: Integer;
+  C: TComponent;
+begin
+  try
+    Ini := TIniFile.Create(ConfigFile);
+    try
+      if not Ini.SectionExists('fitting') then Exit;
+      for I := 0 to ComponentCount - 1 do
+      begin
+        C := Components[I];
+        if C = edTag then Continue;
+        if not Ini.ValueExists('fitting', C.Name) then Continue;
+        if C is TEdit then TEdit(C).Text := Ini.ReadString('fitting', C.Name, TEdit(C).Text)
+        else if C is TComboBox then
+          TComboBox(C).ItemIndex := EnsureRange(Ini.ReadInteger('fitting', C.Name, 0), 0, TComboBox(C).Items.Count - 1)
+        else if C is TRadioGroup then
+          TRadioGroup(C).ItemIndex := EnsureRange(Ini.ReadInteger('fitting', C.Name, 0), 0, TRadioGroup(C).Items.Count - 1)
+        else if C is TCheckBox then TCheckBox(C).Checked := Ini.ReadBool('fitting', C.Name, TCheckBox(C).Checked);
+      end;
+    finally
+      Ini.Free;
+    end;
+  except
+  end;
+  ShowKind;
+end;
+
 procedure TTransitionForm.FormShow(Sender: TObject);
 begin
   AnyChange(nil);
@@ -667,8 +729,10 @@ begin
   F := TTransitionForm.Create(nil);
   try
     F.FUnits := Units;
+    F.LoadLast;
     if F.ShowModal <> mrOK then Exit;
     Result := F.Read(Spec) and (FittingProblem(Spec) = '');
+    if Result then F.SaveLast;
   finally
     F.Free;
   end;
