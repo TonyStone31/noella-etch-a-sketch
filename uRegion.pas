@@ -32,7 +32,7 @@ unit uRegion;
 interface
 
 uses
-  Classes, SysUtils, Math, uWork;
+  Classes, SysUtils, Math, Contnrs, uWork;
 
 const
   { One tolerance for the whole pipeline.  Model units are feet, so this is
@@ -545,6 +545,14 @@ end;
   alone - no splitting, no welding.  Cheap enough to run on every edit, which
   is what lets the planes that did not change be left alone. }
 function PlanesOf(const Segs: TSegArray; Tol: Double): TPlaneArray;
+{ Both lookups here used to be linear scans, and on a drawing of two hundred
+  thousand things that was sixteen seconds before a single region existed.
+  The ends and the planes go in hash grids instead: a cell well wider than
+  the tolerance, the neighbouring cells looked at too, and the entries in a
+  cell chained through Next.  Nothing else about the answer changes. }
+const
+  CELL = 1E-4;       { ends: the grid cell; the tolerance is far inside it }
+  PCELL = 1E-3;      { planes: the cell along the offset }
 var
   I, J, K, N, NP: Integer;
   Ends: TP3Array;
@@ -552,17 +560,119 @@ var
   AtEnd: array of TIntArray;
   Key: TPlaneKey;
   Dir1, Dir2: TP3;
+  EndHead, PlaneHead: TFPHashList;
+  EndNext, PlaneNext: TIntArray;
+  Found: TPlaneArray;
+
+  function CellKey(X, Y, Z, W: Int64): shortstring;
+  begin
+    SetLength(Result, 32);
+    Move(X, Result[1], 8);
+    Move(Y, Result[9], 8);
+    Move(Z, Result[17], 8);
+    Move(W, Result[25], 8);
+  end;
+
+  { the entry chained at the head of a cell, or -1 }
+  function HeadOf(H: TFPHashList; const K: shortstring): Integer;
+  begin
+    Result := PtrInt(H.Find(K)) - 1;
+  end;
+
+  procedure Chain(H: TFPHashList; var Next: TIntArray; const K: shortstring; Ix: Integer);
+  var
+    At: Integer;
+  begin
+    if Ix >= Length(Next) then SetLength(Next, Max(16, Ix * 2));
+    At := H.FindIndexOf(K);
+    if At < 0 then
+    begin
+      Next[Ix] := -1;
+      H.Add(K, Pointer(PtrInt(Ix + 1)));
+    end
+    else
+    begin
+      Next[Ix] := PtrInt(H.Items[At]) - 1;
+      H.Items[At] := Pointer(PtrInt(Ix + 1));
+    end;
+  end;
 
   function EndOf(const P: TP3): Integer;
   var
+    CX, CY, CZ, DX, DY, DZ: Int64;
     Q: Integer;
   begin
-    for Q := 0 to NEnds - 1 do
-      if Dist(Ends[Q], P) < Tol then Exit(Q);
+    CX := Floor(P.X / CELL);
+    CY := Floor(P.Y / CELL);
+    CZ := Floor(P.Z / CELL);
+    for DX := -1 to 1 do
+      for DY := -1 to 1 do
+        for DZ := -1 to 1 do
+        begin
+          Q := HeadOf(EndHead, CellKey(CX + DX, CY + DY, CZ + DZ, 0));
+          while Q >= 0 do
+          begin
+            if Dist(Ends[Q], P) < Tol then Exit(Q);
+            Q := EndNext[Q];
+          end;
+        end;
     if NEnds >= Length(Ends) then SetLength(Ends, Max(16, NEnds * 2));
     Ends[NEnds] := P;
     Result := NEnds;
     Inc(NEnds);
+    Chain(EndHead, EndNext, CellKey(CX, CY, CZ, 0), Result);
+  end;
+
+  { is this plane already in the list?  The normal is rounded to a
+    thousandth; a component sitting within the tolerance of a rounding
+    boundary is looked for on both sides of it. }
+  function KnownPlane(const Kp: TPlaneKey): Boolean;
+  var
+    NX, NY, NZ, D0: Int64;
+    AX, AY, AZ: array[0..1] of Int64;
+    CX, CY, CZ: Integer;
+    IX, IY, IZ, ID: Integer;
+    Q: Integer;
+
+    procedure Cands(V: Double; var A: array of Int64; out C: Integer);
+    var
+      S: Double;
+    begin
+      S := V * 1000;
+      A[0] := Round(S);
+      C := 1;
+      if Abs(Frac(S)) > 0.5 - 2E-3 then
+      begin
+        if S >= A[0] then A[1] := A[0] + 1 else A[1] := A[0] - 1;
+        C := 2;
+      end;
+    end;
+
+  begin
+    Cands(Kp.N.X, AX, CX);
+    Cands(Kp.N.Y, AY, CY);
+    Cands(Kp.N.Z, AZ, CZ);
+    D0 := Floor(Kp.D / PCELL);
+    for IX := 0 to CX - 1 do
+      for IY := 0 to CY - 1 do
+        for IZ := 0 to CZ - 1 do
+          for ID := -1 to 1 do
+          begin
+            Q := HeadOf(PlaneHead, CellKey(AX[IX], AY[IY], AZ[IZ], D0 + ID));
+            while Q >= 0 do
+            begin
+              if SamePlane(Found[Q], Kp, Tol) then Exit(True);
+              Q := PlaneNext[Q];
+            end;
+          end;
+    Result := False;
+  end;
+
+  procedure NotePlane(const Kp: TPlaneKey; Ix: Integer);
+  begin
+    Chain(PlaneHead, PlaneNext,
+      CellKey(Round(Kp.N.X * 1000), Round(Kp.N.Y * 1000), Round(Kp.N.Z * 1000),
+              Floor(Kp.D / PCELL)), Ix);
   end;
 
 begin
@@ -572,34 +682,47 @@ begin
   NEnds := 0;
   SetLength(Ends, N * 2);
   SetLength(AtEnd, N * 2);
-  for I := 0 to N - 1 do
-  begin
-    J := EndOf(Segs[I].A);
-    SetLength(AtEnd[J], Length(AtEnd[J]) + 1);
-    AtEnd[J][High(AtEnd[J])] := I;
-    J := EndOf(Segs[I].B);
-    SetLength(AtEnd[J], Length(AtEnd[J]) + 1);
-    AtEnd[J][High(AtEnd[J])] := I;
-  end;
+  EndHead := TFPHashList.Create;
+  PlaneHead := TFPHashList.Create;
+  try
+    for I := 0 to N - 1 do
+    begin
+      if Assigned(Progress) and (N > 20000) and ((I and 8191) = 0) then
+        if not Progress('Sorting the lines by plane', 0.5 * I / N) then Exit;
+      J := EndOf(Segs[I].A);
+      SetLength(AtEnd[J], Length(AtEnd[J]) + 1);
+      AtEnd[J][High(AtEnd[J])] := I;
+      J := EndOf(Segs[I].B);
+      SetLength(AtEnd[J], Length(AtEnd[J]) + 1);
+      AtEnd[J][High(AtEnd[J])] := I;
+    end;
 
-  NP := 0;
-  SetLength(Result, 8);
-  for K := 0 to NEnds - 1 do
-    for I := 0 to High(AtEnd[K]) - 1 do
-      for J := I + 1 to High(AtEnd[K]) do
-      begin
-        Dir1 := Sub3(Segs[AtEnd[K][I]].B, Segs[AtEnd[K][I]].A);
-        Dir2 := Sub3(Segs[AtEnd[K][J]].B, Segs[AtEnd[K][J]].A);
-        if Len3(Cross3(Dir1, Dir2)) < 1E-9 then Continue;
-        Key := MakePlane(Cross3(Dir1, Dir2), Ends[K]);
-        for N := 0 to NP - 1 do
-          if SamePlane(Result[N], Key, Tol) then Key.D := 1E300;
-        if Key.D > 1E299 then Continue;
-        if NP >= Length(Result) then SetLength(Result, NP * 2);
-        Result[NP] := Key;
-        Inc(NP);
-      end;
-  SetLength(Result, NP);
+    NP := 0;
+    SetLength(Found, 8);
+    for K := 0 to NEnds - 1 do
+    begin
+      if Assigned(Progress) and (N > 20000) and ((K and 4095) = 0) then
+        if not Progress('Sorting the lines by plane', 0.5 + 0.5 * K / NEnds) then Break;
+      for I := 0 to High(AtEnd[K]) - 1 do
+        for J := I + 1 to High(AtEnd[K]) do
+        begin
+          Dir1 := Sub3(Segs[AtEnd[K][I]].B, Segs[AtEnd[K][I]].A);
+          Dir2 := Sub3(Segs[AtEnd[K][J]].B, Segs[AtEnd[K][J]].A);
+          if Len3(Cross3(Dir1, Dir2)) < 1E-9 then Continue;
+          Key := MakePlane(Cross3(Dir1, Dir2), Ends[K]);
+          if KnownPlane(Key) then Continue;
+          if NP >= Length(Found) then SetLength(Found, NP * 2);
+          Found[NP] := Key;
+          NotePlane(Key, NP);
+          Inc(NP);
+        end;
+    end;
+    SetLength(Found, NP);
+    Result := Found;
+  finally
+    EndHead.Free;
+    PlaneHead.Free;
+  end;
 end;
 
 { The segments lying in one plane, and a number that changes whenever they do.
@@ -663,6 +786,10 @@ begin
 
   for I := 0 to N - 1 do
   begin
+    { a big drawing is a long time in here; say how far, plane by plane, and
+      stop if told to.  The caller treats a short result as any other. }
+    if Assigned(Progress) and (N > 20) and ((I and 7) = 0) then
+      if not Progress('Finding the flat areas', I / N) then Break;
     Mine := SegsInPlane(Segs, Keys[I], Tol, Sig);
     Fresh.Keys[I] := Keys[I];
     Fresh.Sig[I] := Sig;

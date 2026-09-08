@@ -44,6 +44,15 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
+**Start-up screen and the busy bar (2026-09-07).**  `uSplash.pas`; the
+`Progress` hook in uWork is the one channel long work reports through
+(uRegion and uMain call it; the tests leave it nil).  Two GTK3 lessons paid
+for: an `fsSplash` form is hidden by the LCL the moment the main window
+shows, so the card is `fsSystemStayOnTop`; and a busy main thread's repaint
+only reaches a maximized window if the messages are let through *before*
+the Repaint (a pending configure keeps the window's updates frozen).
+`PlanesOf` in uRegion now uses hash grids for ends and planes.
+
 **Fifty thousand things (measured 2026-09-07, release build, 1920x1000).**
 2500 cubes with a diagonal drawn on two faces each: 15000 faces, 35000 lines.
 A frame with everything on screen is 160-200 ms.  Drawing one line on the

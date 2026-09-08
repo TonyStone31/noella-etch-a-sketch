@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uWork, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uWork, uSplash, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -468,6 +468,15 @@ type
       frame is drawn when it stops.  FQuickFrames turns the whole idea off. }
     FCameraMoving: Boolean;
     FQuickFrames: Boolean;
+    { Long work in progress on the main thread: what and how far, shown on
+      the command bar, and the input handlers stand down until it is over.
+      FBusyAt is when it last reported; the tick clears a stale flag. }
+    FBusy: Boolean;
+    FBusyMsg: string;
+    FBusyFrac: Double;
+    FBusyAt: QWord;
+    { a document was being read and the splash screen's skip was pressed }
+    FLoading, FLoadSkipped: Boolean;
     { worker threads for the caches (docs/render-acceleration.md); /threads }
     FThreads: Boolean;
     FLastWheel: QWord;
@@ -796,6 +805,9 @@ type
 
     procedure BuildSession(L: TStrings);
     procedure SaveDraft;
+    function OnProgress(const What: string; Frac: Double): Boolean;
+    function LoadedWords: string;
+    procedure EndBusy;
     procedure RestoreDraft;
     procedure LoadSettings;
     procedure ApplyCommandLine;
@@ -1742,6 +1754,7 @@ begin
   { the program uses workers; the tests and tools, which never render, do not }
   FThreads := True;
   DefaultThreads := True;
+  uWork.Progress := @OnProgress;
   FSidesArc := 12;
   FCursorWas := crCross;
   Caption := APP_NAME + '  ' + CurrentVersion;
@@ -1919,6 +1932,7 @@ begin
     asked for by name always wins - it is a clear instruction, and the draft
     is only a safety net. }
   if not Opened then RestoreDraft;
+  SplashLoaded(LoadedWords);
 
   { Housekeeping from last time.  Nothing here may put a dialog on screen:
     this runs before the window has painted, so a dialog would sit in front
@@ -4271,7 +4285,7 @@ end;
   memorised.  It also takes typed lengths and typed commands. }
 procedure TMainForm.pbCmdPaint(Sender: TObject);
 var
-  W, H, X, TW: Integer;
+  W, H, X, TW, I: Integer;
   S: string;
   Caret: string;
 begin
@@ -4286,6 +4300,44 @@ begin
   FCmdSkin.DrawTo(pbCmd.Canvas, 0, 0);
 
   X := Round(22 * FUIScale);
+  if FBusy then
+  begin
+    { long work on the main thread: what it is and how far, in place of the
+      prompt, so a drawing of fifty thousand things visibly gets on with it }
+    UIFont(pbCmd.Canvas, 11, True, Theme.Accent);
+    S := 'WORKING';
+    pbCmd.Canvas.TextOut(X, (H - pbCmd.Canvas.TextHeight(S)) div 2, S);
+    Inc(X, pbCmd.Canvas.TextWidth(S) + Round(14 * FUIScale));
+    UIFont(pbCmd.Canvas, 11, False, Theme.Text);
+    S := FBusyMsg;
+    if FBusyFrac >= 0 then S := S + Format('  %d%%', [Round(EnsureRange(FBusyFrac, 0, 1) * 100)]);
+    pbCmd.Canvas.TextOut(X, (H - pbCmd.Canvas.TextHeight(S)) div 2, S);
+    Inc(X, pbCmd.Canvas.TextWidth(S) + Round(18 * FUIScale));
+    TW := W - X - Round(24 * FUIScale);
+    if TW > Round(80 * FUIScale) then
+    begin
+      pbCmd.Canvas.Pen.Style := psClear;
+      pbCmd.Canvas.Brush.Style := bsSolid;
+      pbCmd.Canvas.Brush.Color := PixToColor(Theme.Panel);
+      pbCmd.Canvas.RoundRect(X, H div 2 - Round(4 * FUIScale), X + TW, H div 2 + Round(4 * FUIScale),
+        Round(8 * FUIScale), Round(8 * FUIScale));
+      pbCmd.Canvas.Brush.Color := PixToColor(Theme.Accent);
+      if FBusyFrac >= 0 then
+        pbCmd.Canvas.RoundRect(X, H div 2 - Round(4 * FUIScale),
+          X + Max(Round(8 * FUIScale), Round(TW * EnsureRange(FBusyFrac, 0, 1))), H div 2 + Round(4 * FUIScale),
+          Round(8 * FUIScale), Round(8 * FUIScale))
+      else
+      begin
+        { no idea how far: a light running along the track }
+        I := Round((TW - TW div 5) * (0.5 - 0.5 * Cos(((GetTickCount64 mod 1400) / 1400) * 2 * Pi)));
+        pbCmd.Canvas.RoundRect(X + I, H div 2 - Round(4 * FUIScale), X + I + TW div 5, H div 2 + Round(4 * FUIScale),
+          Round(8 * FUIScale), Round(8 * FUIScale));
+      end;
+      pbCmd.Canvas.Pen.Style := psSolid;
+      pbCmd.Canvas.Brush.Style := bsClear;
+    end;
+    Exit;
+  end;
 
   UIFont(pbCmd.Canvas, 11, True, Theme.Accent);
   S := ToolName(FTool);
@@ -8789,6 +8841,7 @@ procedure TMainForm.pbScreenMouseDown(Sender: TObject; Button: TMouseButton;
 var
   I, Which: Integer;
 begin
+  if FBusy then Exit;
   { a press supersedes whatever motion has not been serviced yet }
   FMoveX := X;
   FMoveY := Y;
@@ -9208,6 +9261,7 @@ end;
   hit-test or snap.  See ServiceMotion, which the tick calls. }
 procedure TMainForm.pbScreenMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 begin
+  if FBusy then Exit;
   FMoveX := X;
   FMoveY := Y;
   FMoveShift := Shift;
@@ -10781,7 +10835,11 @@ begin
   R := BuildRegionsCached(EdgeSegments, FRegionCache);
   SetLength(FD.Seen, Length(R));
   for I := 0 to High(R) do
+  begin
+    if ((I and 63) = 0) and (Length(R) > 500) then
+      if not OnProgress('Working out the faces', I / Length(R)) then Break;
     FD.Seen[I] := RegionSig(R[I]);
+  end;
 end;
 
 function TMainForm.RebuildFlatFaces: Integer;
@@ -11194,6 +11252,8 @@ begin
   { a region with no outline is nothing to look at }
   for I := 0 to High(R) do
   begin
+    if ((I and 63) = 0) and (Length(R) > 500) then
+      if not OnProgress('Working out the faces', I / Length(R)) then Break;
     if Length(R[I].Outer) < 3 then Continue;
     Mid := InnerPointOf(R[I].Outer, R[I].Holes, R[I].Normal);
 
@@ -11323,6 +11383,7 @@ begin
   LineIx.Free;
   PlaneIx.Free;
   RegionIx.Free;
+  if not FLoading then EndBusy;
   Took('  the region loop', Tk);
   Tk := GetTickCount64;
   { and this is what the sheet has seen, for the next rebuild to compare
@@ -11519,6 +11580,7 @@ procedure TMainForm.pbScreenMouseUp(Sender: TObject; Button: TMouseButton;
 var
   NoteI: Integer;
 begin
+  if FBusy then Exit;
   { let go of a note being carried }
   if FNoteDrag >= 0 then
   begin
@@ -11614,6 +11676,7 @@ end;
 procedure TMainForm.pbScreenMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 begin
+  if FBusy then Exit;
   if FMode <> mdPro then Exit;
   if WheelDelta > 0 then
     ZoomAt(1.15, MousePos.X, MousePos.Y)
@@ -12303,6 +12366,21 @@ var
 begin
   Dt := TICK_MS / 1000;
 
+  { the start-up screen comes down once the loading is over and it has had
+    its few seconds; while it is up nothing else here matters }
+  if SplashUp then
+  begin
+    if SplashFinished and (SplashAge >= SPLASH_MIN_MS) then SplashHide
+    else Exit;
+  end;
+  { long work lets the messages through to paint its progress, and this
+    fires then too: stand down, unless the work is long over and forgot }
+  if FBusy then
+  begin
+    if GetTickCount64 - FBusyAt > 600 then EndBusy;
+    Exit;
+  end;
+
   if FCrashToOffer and (FPopup = POP_NONE) then
   begin
     FCrashToOffer := False;
@@ -12469,6 +12547,7 @@ end;
 
 procedure TMainForm.FormKeyPress(Sender: TObject; var Key: char);
 begin
+  if FBusy then Exit;
   if FMode <> mdPro then Exit;
 
   { while a note or a dimension's label is being typed, everything is text }
@@ -12700,6 +12779,7 @@ var
   end;
 
 begin
+  if FBusy then Exit;
   Handled := True;
 
   if ssCtrl in Shift then
@@ -13121,6 +13201,10 @@ begin
     while (Head < L.Count) and
           ((Trim(L[Head]) = '') or (Copy(Trim(L[Head]), 1, 1) = '#')) do
       Inc(Head);
+    FLoading := True;
+    FLoadSkipped := False;
+    SplashSkipReset;
+    OnProgress('Reading ' + ExtractFileName(FileName), 0);
 
     if (Head >= L.Count) or
        (Copy(Trim(L[Head]), 1, Length(DOC_MAGIC)) <> DOC_MAGIC) then
@@ -13211,6 +13295,7 @@ begin
           Inc(Idx);
         end;
         D.Doc.LoadFrom(L, Idx);
+        if FLoadSkipped then Break;
       end;
     end;
 
@@ -13231,6 +13316,11 @@ begin
       way until something else happened to trigger a rebuild. }
     for I := 0 to High(FDrawings) do
     begin
+      if FLoadSkipped then Break;
+      if Length(FDrawings) > 1 then
+        OnProgress(Format('Working out the faces on sheet %d of %d', [I + 1, Length(FDrawings)]), -1)
+      else
+        OnProgress('Working out the faces', -1);
       D := FD;
       FD := FDrawings[I];
       { A file that carries faces is telling us which areas are filled, and
@@ -13244,6 +13334,20 @@ begin
       if AnyFace then SeedRegions else RebuildFlatFaces;
       FD := D;
     end;
+    if FLoadSkipped then
+    begin
+      { the skip button: whatever came in goes, and the file is untouched }
+      for I := High(FDrawings) downto 0 do
+        FDrawings[I].Free;
+      SetLength(FDrawings, 1);
+      FDrawings[0] := TDrawing.Create('Sheet 1');
+      FTabIdx := 0;
+      FD := FDrawings[0];
+      FDocPath := '';
+      Trail('skipped loading ' + FileName);
+    end;
+    FLoading := False;
+    EndBusy;
     ResetTool;
     Relayout;
     { Frame the drawing only when the file could not say where the camera
@@ -13267,8 +13371,12 @@ begin
       FitView;
     LayoutTabs;
     RefreshChrome;
-    FCmdMsg := 'Opened ' + ExtractFileName(FDocPath) +
-      Format(' - %d sheet(s)', [Length(FDrawings)]);
+    if FLoadSkipped then
+      FCmdMsg := 'Loading ' + ExtractFileName(FileName) +
+        ' was skipped.  The file is untouched, and can be opened.'
+    else
+      FCmdMsg := 'Opened ' + ExtractFileName(FDocPath) +
+        Format(' - %d sheet(s)', [Length(FDrawings)]);
     FHint := FDocPath;
     Result := True;
   finally
@@ -13503,6 +13611,64 @@ end;
   the crash you want protecting from is the one between two saves.  Written
   to a temporary and renamed, so a crash mid-write cannot leave a half a
   draft where the good one was. }
+{ Long work reports here.  While the splash screen is up it goes there,
+  with the skip button; afterwards it is the command bar, painted by letting
+  the messages through - which is why every input handler checks FBusy.
+  False back means stop: the skip was pressed. }
+function TMainForm.OnProgress(const What: string; Frac: Double): Boolean;
+var
+  T: QWord;
+begin
+  Result := True;
+  if SplashUp then
+  begin
+    SplashStatus(What, Frac, FLoading);
+    if SplashSkipAsked then
+    begin
+      FLoadSkipped := True;
+      Result := False;
+    end;
+    Exit;
+  end;
+  T := GetTickCount64;
+  if FBusy and (T - FBusyAt < 80) then Exit;
+  FBusy := True;
+  FBusyAt := T;
+  FBusyMsg := What;
+  FBusyFrac := Frac;
+  { Invalidate and ProcessMessages were not enough: GTK3 paints on its frame
+    clock, which a busy main thread never reaches, so the bar never showed.
+    Repaint on the window the bar sits in forces the paint through
+    (gdk_window_process_updates), and the messages are let through for the
+    rest - which is why every input handler checks FBusy. }
+  Application.ProcessMessages;
+  pbCmd.Invalidate;
+  if pbCmd.Parent <> nil then pbCmd.Parent.Repaint;
+  Application.ProcessMessages;
+end;
+
+{ what the start-up screen says when the loading is over }
+function TMainForm.LoadedWords: string;
+var
+  I, N: Integer;
+begin
+  if FLoadSkipped then Exit('Skipped that drawing - starting with a clean sheet.');
+  N := 0;
+  for I := 0 to High(FDrawings) do N := N + FDrawings[I].Doc.Live;
+  if N = 0 then Exit('Ready.');
+  if Length(FDrawings) = 1 then
+    Result := Format('Ready.  %d things on one sheet.', [N])
+  else
+    Result := Format('Ready.  %d things on %d sheets.', [N, Length(FDrawings)]);
+end;
+
+procedure TMainForm.EndBusy;
+begin
+  if not FBusy then Exit;
+  FBusy := False;
+  pbCmd.Invalidate;
+end;
+
 procedure TMainForm.SaveDraft;
 var
   L: TStringList;
@@ -13659,6 +13825,18 @@ begin
     finally
       Free;
     end;
+  end;
+  if FLoadSkipped then
+  begin
+    { Skipped on the start-up screen.  Left where it is, it would be back
+      next time and, worse, written over by the first new line drawn; so it
+      is kept beside the settings under a name that can be opened. }
+    Aside := ChangeFileExt(DraftFile, '') + '-skipped.hsk';
+    if FileExists(Aside) then DeleteFile(Aside);
+    RenameFile(DraftFile, Aside);
+    FCmdMsg := 'Skipped loading the last drawing.  It is kept beside the ' +
+      'settings as ' + ExtractFileName(Aside) + ' and can be opened.';
+    Exit;
   end;
   { LoadDocument quite reasonably puts the file it read in the title.  This
     is not a file anyone opened, so take it back out: showing the draft's

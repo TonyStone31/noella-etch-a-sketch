@@ -13,6 +13,30 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A start-up screen.**  The program now puts up a card the moment it' + LineEnding +
+    '  starts, with the version on it, and says what it is doing while a' + LineEnding +
+    '  drawing comes in - reading it, sorting the lines by plane, finding the' + LineEnding +
+    '  flat areas, working out the faces - with a progress bar.  A drawing that' + LineEnding +
+    '  is taking too long can be skipped with the button on the card; the file' + LineEnding +
+    '  is left untouched, and a skipped draft is kept beside the settings as' + LineEnding +
+    '  `heckers-sketch-draft-skipped.hsk`.  The card stays up four seconds even' + LineEnding +
+    '  when there was nothing to wait for, so it never just flashes.' + LineEnding +
+    '- **A progress bar on the command bar.**  Long work on a big drawing -' + LineEnding +
+    '  the faces being worked out after a move, say - now shows what it is' + LineEnding +
+    '  doing and how far along it is, in place of the prompt, instead of the' + LineEnding +
+    '  program looking hung.  Clicks and keys wait until it is done.' + LineEnding +
+    '' + LineEnding +
+    '### Faster' + LineEnding +
+    '' + LineEnding +
+    '- **Opening a big drawing.**  Sorting the lines by plane looked every end' + LineEnding +
+    '  up against every other end, and every plane against every plane.  On a' + LineEnding +
+    '  drawing of two hundred thousand things that was sixteen of the twenty' + LineEnding +
+    '  seconds it took to open; it is well under a second now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.15' + LineEnding +
     '' + LineEnding +
     '### Under the hood' + LineEnding +

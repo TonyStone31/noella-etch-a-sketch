@@ -227,6 +227,10 @@ The same idea taken seriously.  The program starts here, in the 3D view.
 * **Zoom and pan are independent of the drawing scale**, so zooming in to
   place something does not change what prints.
 
+A start-up card shows what is being read and how far along it is, and a
+drawing that is taking too long can be skipped from it; long work on a big
+drawing shows its progress on the command bar the same way.
+
 ## The shop tools
 
 This is the part no general program has, and the reason the project kept

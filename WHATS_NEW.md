@@ -10,6 +10,30 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A start-up screen.**  The program now puts up a card the moment it
+  starts, with the version on it, and says what it is doing while a
+  drawing comes in - reading it, sorting the lines by plane, finding the
+  flat areas, working out the faces - with a progress bar.  A drawing that
+  is taking too long can be skipped with the button on the card; the file
+  is left untouched, and a skipped draft is kept beside the settings as
+  `heckers-sketch-draft-skipped.hsk`.  The card stays up four seconds even
+  when there was nothing to wait for, so it never just flashes.
+- **A progress bar on the command bar.**  Long work on a big drawing -
+  the faces being worked out after a move, say - now shows what it is
+  doing and how far along it is, in place of the prompt, instead of the
+  program looking hung.  Clicks and keys wait until it is done.
+
+### Faster
+
+- **Opening a big drawing.**  Sorting the lines by plane looked every end
+  up against every other end, and every plane against every plane.  On a
+  drawing of two hundred thousand things that was sixteen of the twenty
+  seconds it took to open; it is well under a second now.
+
 ## v2026.09.07.15
 
 ### Under the hood

@@ -83,7 +83,12 @@ type
   TIntArrayW = array of Integer;
   TIntArrayWArray = array of TIntArrayW;
 
+  { Long work says how far it is through this, and stops if told to.  Set
+    by the program; the tests and tools leave it nil. }
+  TProgressHook = function(const What: string; Frac: Double): Boolean of object;
+
 var
+  Progress: TProgressHook = nil;
   { what a new document's Threads starts as; off, so that the tests and the
     command line tools never start a thread.  The program turns it on. }
   DefaultThreads: Boolean = False;
@@ -5703,6 +5708,8 @@ begin
       Line := Trim(L[Idx]);
       if (Line = 'ENDSHEET') or (Copy(Line, 1, 6) = 'SHEET ') then Break;
       Inc(Idx);
+      if Assigned(Progress) and ((Idx and 1023) = 0) then
+        if not Progress('Reading the drawing', Idx / L.Count) then Break;
       if Line = '' then Continue;
       T.DelimitedText := Line;
       if T.Count < 1 then Continue;

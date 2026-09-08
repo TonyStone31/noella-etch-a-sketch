@@ -12,7 +12,7 @@ uses
   Interfaces, // this includes the LCL widgetset
   Forms, SysUtils, printer4lazarus,
   {$IFDEF WINDOWS}Windows,{$ENDIF}
-  uSurface, uSkin, uWork, uPaths, uSingle, uMain;
+  uSurface, uSkin, uWork, uPaths, uSingle, uSplash, uMain;
 
 {$R *.res}
 
@@ -120,6 +120,8 @@ begin
   Application.Scaled := True;
   Application.Title := 'Heckers Sketch';
   Application.Initialize;
+  { up before the window, so a slow drawing is visibly being read }
+  SplashShow;
   Application.CreateForm(TMainForm, MainForm);
   Application.Run;
 end.
