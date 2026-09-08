@@ -53,16 +53,17 @@ only reaches a maximized window if the messages are let through *before*
 the Repaint (a pending configure keeps the window's updates frozen).
 `PlanesOf` in uRegion now uses hash grids for ends and planes.
 
-**Fifty thousand things (measured 2026-09-07, release build, 1920x1000).**
-2500 cubes with a diagonal drawn on two faces each: 15000 faces, 35000 lines.
-A frame with everything on screen is 160-200 ms.  Drawing one line on the
-ground: the region pass 1.1 s, **the region loop 18-22 s**, the lines-on-faces
-cache 1.0 s.  With the worker the cache costs the main thread nothing and six
-frames go without it at +75 ms each; without it the first frame waits the
-whole second.  Either way the region loop is a hundred times everything else,
-so `RebuildFlatFaces` on a big drawing is the next performance target, before
-any more threads: the touched-plane shortcut, and the per-region work
-(`InnerPointOf`, the solid tiling, `Between`) profiled with `/timings`.
+**Fifty thousand things (2026-09-07, release build, 1920x1000).**  2500
+cubes with a diagonal on two faces each: 15000 faces, 35000 lines.  A frame
+with everything on screen is 160-200 ms.  Everything selected and moved:
+working the faces out went from 65 s to 1.5 s (bulk delete of the old faces,
+old faces and seen areas indexed by plane, box and middle rejects in the
+tiling pass and the duplicate check, the busy bar throttled to a paint every
+quarter second).  Delete of the selection: a minute to nothing.  Hover with
+everything selected: 117 ms to 23 ms (the outlines cached in a layer).
+What is left on a move of everything: `regions` 0.5-3 s (BuildRegions per
+plane, all planes touched) and the duplicate check 0.5-0.9 s.  `/timings`
+prints the phases (`loop phases ms`).
 
 **Threads - the first one is in.**  The lines-on-faces cache (`EnsureOnFace`)
 is built by `TOnFaceWorker` from a deep copy of the entities and queued back

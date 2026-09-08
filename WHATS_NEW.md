@@ -10,6 +10,25 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Faster
+
+- **Moving, selecting and deleting on a big drawing.**  Measured on fifty
+  thousand things - 2,500 boxes with a line across two faces of each -
+  everything selected: a move took 65 seconds to work the faces out
+  afterwards; it takes 1.5 now.  Deleting the selection took a minute; it
+  is instant.  Hovering with everything selected redrew fifty thousand
+  outlines through the canvas on every mouse move, 117 ms a frame; the
+  outlines are drawn once into a layer now, 23 ms.  Select-all and box
+  select no longer walk the whole selection for every thing they add.
+  The things fixed underneath: old faces were deleted one at a time, each
+  shifting everything after it; every region asked every old face and
+  every seen area instead of the ones in its own plane; the pass that
+  divides a solid's face asked every region on the plane instead of the
+  ones inside the face; and the busy bar was repainting the whole window
+  every few dozen regions, which was thirty of those seconds by itself.
+
 ## v2026.09.07.17
 
 ### New

@@ -339,6 +339,9 @@ type
     function FaceNormal(Index: Integer): TP3;
     function FaceArea(Index: Integer): Double;
     procedure Delete(I: Integer);
+    { every entity marked True goes, in one pass; the rest keep their order }
+    procedure DeleteMarked(const Doomed: array of Boolean);
+    procedure Room;
     procedure Clear;
     function Snapshot: TWorkEntArray;
     procedure RestoreSnap(const A: TWorkEntArray);
@@ -1915,7 +1918,7 @@ end;
 
 function TWorkDoc.Stored: Integer;
 begin
-  Result := Length(FEnts);
+  Result := FLive;
 end;
 
 { Anything in redo space is dropped the moment you draw again. }
@@ -1937,7 +1940,7 @@ end;
 procedure TWorkDoc.AddLine(const A, B: TP3; Ink: TColor; Weight: Single;
   Dim: Boolean);
 begin
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekLine;
@@ -1955,7 +1958,7 @@ procedure TWorkDoc.AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
 var
   FreeO, FreeU, FreeV: TP3;
 begin
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekArc;
@@ -1983,7 +1986,7 @@ end;
 
 procedure TWorkDoc.AddNote(const A, Target: TP3; const S: string; Ink: TColor);
 begin
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekText;
@@ -2006,7 +2009,7 @@ begin
     it - so it is copied before anything else happens }
   Own := Copy(Loop, 0, Length(Loop));
   Far := FarOfFirst;
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekBore;
@@ -2020,7 +2023,7 @@ end;
 
 procedure TWorkDoc.AddGuide(const A, B: TP3);
 begin
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekGuide;
@@ -2062,7 +2065,7 @@ end;
 procedure TWorkDoc.AddDim(const A, B: TP3; Ink: TColor; const Off: TP3;
   const Note: string);
 begin
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekDim;
@@ -2077,6 +2080,15 @@ begin
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
+{ FEnts is capacity and FLive the count: adding one no longer reallocates
+  the whole array, and deleting one no longer shrinks it.  Fifteen thousand
+  faces added one at a time to fifty thousand things used to be fifteen
+  thousand copies of the lot. }
+procedure TWorkDoc.Room;
+begin
+  if FLive >= Length(FEnts) then SetLength(FEnts, Max(16, Length(FEnts) * 2));
+end;
+
 procedure TWorkDoc.Delete(I: Integer);
 var
   K: Integer;
@@ -2085,7 +2097,28 @@ begin
   for K := I to FLive - 2 do
     FEnts[K] := FEnts[K + 1];
   Dec(FLive);
-  SetLength(FEnts, FLive);
+  Finalize(FEnts[FLive]);
+  FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+  FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+end;
+
+procedure TWorkDoc.DeleteMarked(const Doomed: array of Boolean);
+var
+  K, W: Integer;
+begin
+  W := 0;
+  for K := 0 to FLive - 1 do
+    if (K > High(Doomed)) or not Doomed[K] then
+    begin
+      if W <> K then FEnts[W] := FEnts[K];
+      Inc(W);
+    end;
+  for K := W to FLive - 1 do
+  begin
+    Finalize(FEnts[K]);
+    FillChar(FEnts[K], SizeOf(TWorkEnt), 0);
+  end;
+  FLive := W;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
@@ -2230,7 +2263,7 @@ var
   I: Integer;
 begin
   if Length(Pts) < 3 then Exit;
-  SetLength(FEnts, FLive + 1);
+  Room;
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekFace;
@@ -3734,7 +3767,7 @@ begin
   begin
     I := Idx[J];
     if (I < 0) or (I >= Base) then Continue;
-    SetLength(FEnts, FLive + 1);
+    Room;
     Finalize(FEnts[FLive]);
     FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
     FEnts[FLive] := FEnts[I];

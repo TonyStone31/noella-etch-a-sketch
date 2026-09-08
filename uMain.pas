@@ -71,6 +71,8 @@ type
     edge and gives it another corner without the wall having changed.  The
     middle is carried too, so two identical windows in one wall are told
     apart. }
+  TIntListsW = array of TIntArrayW;
+
   TRegionSig = record
     Nm: TP3;
     D: Double;
@@ -474,7 +476,16 @@ type
     FBusy: Boolean;
     FBusyMsg: string;
     FBusyFrac: Double;
-    FBusyAt: QWord;
+    FBusyAt, FBusyPaintMs: QWord;
+    { a bulk select - all, or a box - marks what is in FSel once instead of
+      asking IsSelected, which walks the whole selection, for every thing }
+    FSelBulk: array of Boolean;
+    FSelBulkOn: Boolean;
+    { the outlines of a selection past a few thousand, drawn once into a
+      layer and composited on every paint, rather than fifty thousand lines
+      through the canvas each time the mouse moves }
+    FSelLayer, FSelShot: TArtSurface;
+    FSelLayerKey: string;
     { a document was being read and the splash screen's skip was pressed }
     FLoading, FLoadSkipped: Boolean;
     { worker threads for the caches (docs/render-acceleration.md); /threads }
@@ -665,6 +676,9 @@ type
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
+    procedure BeginBulkSelect;
+    procedure EndBulkSelect;
+    procedure EnsureSelLayer;
     procedure SelectOnly(I: Integer);
     procedure SelectToggle(I: Integer);
     procedure SelectAdd(I: Integer);
@@ -6800,12 +6814,7 @@ begin
     to their edges, which reads the same from any distance. }
   if Length(FSel) > 3000 then
   begin
-    for AY := 0 to High(FSel) do
-      if FD.Doc[FSel[AY]].Kind in [ekLine, ekArc, ekDim] then
-      begin
-        Hi := FD.Doc.Outline(Proj, FSel[AY]);
-        if Length(Hi) >= 2 then TraceOutline(C, Hi, Pix(70, 130, 240));
-      end;
+    { already on screen, from the layer pbScreenPaint composited in }
   end
   else
     for AY := 0 to High(FSel) do
@@ -7009,7 +7018,18 @@ begin
     pbScreen.Canvas.FillRect(0, 0, pbScreen.Width, pbScreen.Height);
   end;
 
-  FArt.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
+  if (FMode = mdPro) and (Length(FSel) > 3000) and not FErasing then
+  begin
+    { a big selection comes from its cached layer, composited over the
+      picture - see EnsureSelLayer }
+    EnsureSelLayer;
+    if FSelShot = nil then FSelShot := TArtSurface.Create(FArt.Width, FArt.Height)
+    else FSelShot.SetSize(FArt.Width, FArt.Height);
+    FSelShot.CompositeOver(FArt, FSelLayer, Rect(0, 0, FArt.Width, FArt.Height));
+    FSelShot.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
+  end
+  else
+    FArt.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
   if FErasing then Exit;
 
   if FMode = mdPro then
@@ -8626,8 +8646,10 @@ begin
   else if (W = 'all') or (W = 'selectall') then
   begin
     SelectNone;
+    BeginBulkSelect;
     for I := 0 to FD.Doc.Live - 1 do
       if FD.Doc[I].Kind in [ekLine, ekArc, ekFace, ekDim, ekText] then SelectAdd(I);
+    EndBulkSelect;
     FCmdMsg := Format('%d things selected.', [Length(FSel)]);
     pbScreen.Invalidate;
   end
@@ -9994,9 +10016,71 @@ begin
   Result := False;
 end;
 
+{ The outlines of a big selection, drawn once into a transparent layer and
+  kept while nothing they depend on has changed: the drawing, the selection,
+  the camera, the screen size.  Tracing fifty thousand of them through the
+  canvas was over a hundred milliseconds on every mouse move. }
+procedure TMainForm.EnsureSelLayer;
+var
+  Key: string;
+  AY, K: Integer;
+  Hi: TPointFArray;
+  W: Single;
+  Sum, X: Int64;
+  P: TProjector;
+begin
+  Sum := 0;
+  X := 0;
+  for K := 0 to High(FSel) do
+  begin
+    Sum := Sum + FSel[K];
+    X := X xor (Int64(FSel[K]) * (K + 1));
+  end;
+  Key := Format('%d|%d|%d|%d|%.6f|%.6f|%.6f|%.3f|%.3f|%d|%d|%d|%.3f',
+    [FD.Doc.FEditSeq, Length(FSel), Sum, X, FD.Az, FD.El, FD.Zoom, FD.ViewX, FD.ViewY,
+     Ord(FD.View), FArt.Width, FArt.Height, FUIScale]);
+  if (FSelLayer <> nil) and (Key = FSelLayerKey) then Exit;
+  if FSelLayer = nil then FSelLayer := TArtSurface.Create(FArt.Width, FArt.Height)
+  else FSelLayer.SetSize(FArt.Width, FArt.Height);
+  FSelLayer.ClearTransparent;
+  W := Max(3, Round(3 * FUIScale));
+  P := Proj;
+  for AY := 0 to High(FSel) do
+    if FD.Doc[FSel[AY]].Kind in [ekLine, ekArc, ekDim] then
+    begin
+      Hi := FD.Doc.Outline(P, FSel[AY]);
+      for K := 1 to High(Hi) do
+        FSelLayer.Line(Hi[K - 1].X, Hi[K - 1].Y, Hi[K].X, Hi[K].Y, W, Pix(70, 130, 240), 1.0);
+    end;
+  FSelLayerKey := Key;
+end;
+
+procedure TMainForm.BeginBulkSelect;
+var
+  K: Integer;
+begin
+  SetLength(FSelBulk, FD.Doc.Live);
+  for K := 0 to High(FSelBulk) do FSelBulk[K] := False;
+  for K := 0 to High(FSel) do
+    if (FSel[K] >= 0) and (FSel[K] < Length(FSelBulk)) then FSelBulk[FSel[K]] := True;
+  FSelBulkOn := True;
+end;
+
+procedure TMainForm.EndBulkSelect;
+begin
+  FSelBulkOn := False;
+  SetLength(FSelBulk, 0);
+end;
+
 procedure TMainForm.SelectAdd(I: Integer);
 begin
-  if (I < 0) or IsSelected(I) then Exit;
+  if I < 0 then Exit;
+  if FSelBulkOn and (I < Length(FSelBulk)) then
+  begin
+    if FSelBulk[I] then Exit;
+    FSelBulk[I] := True;
+  end
+  else if IsSelected(I) then Exit;
   SetLength(FSel, Length(FSel) + 1);
   FSel[High(FSel)] := I;
   FScreenDirty := True;
@@ -10212,11 +10296,14 @@ end;
 procedure TMainForm.SelectInBox(X0, Y0, X1, Y1: Integer; Crossing, Add: Boolean);
 var
   I, T: Integer;
+  Tk: QWord;
   BX0, BY0, BX1, BY1: Double;
 begin
   if X1 < X0 then begin T := X0; X0 := X1; X1 := T; end;
   if Y1 < Y0 then begin T := Y0; Y0 := Y1; Y1 := T; end;
   if not Add then SetLength(FSel, 0);
+  Tk := GetTickCount64;
+  BeginBulkSelect;
   for I := 0 to FD.Doc.Live - 1 do
   begin
     FD.Doc.ScreenBounds(Proj, I, BX0, BY0, BX1, BY1);
@@ -10229,24 +10316,30 @@ begin
     else if (BX0 >= X0) and (BX1 <= X1) and (BY0 >= Y0) and (BY1 <= Y1) then
       SelectAdd(I);
   end;
+  EndBulkSelect;
+  Took('box select', Tk);
   FScreenDirty := True;
 end;
 
 procedure TMainForm.DeleteSelection;
 var
-  I, J, T, N: Integer;
+  I, N: Integer;
+  Doomed: array of Boolean;
+  Tk: QWord;
 begin
   N := Length(FSel);
   if N = 0 then Exit;
   PushUndo;
-  for I := 0 to N - 2 do
-    for J := 0 to N - 2 - I do
-      if FSel[J] < FSel[J + 1] then
-      begin
-        T := FSel[J]; FSel[J] := FSel[J + 1]; FSel[J + 1] := T;
-      end;
+  Tk := GetTickCount64;
+  { marked and taken out in one pass.  Sorting the selection by hand and
+    deleting one at a time was two quadratic passes over fifty thousand
+    things, and a full minute. }
+  SetLength(Doomed, FD.Doc.Live);
+  for I := 0 to High(Doomed) do Doomed[I] := False;
   for I := 0 to N - 1 do
-    FD.Doc.Delete(FSel[I]);
+    if (FSel[I] >= 0) and (FSel[I] < Length(Doomed)) then Doomed[FSel[I]] := True;
+  FD.Doc.DeleteMarked(Doomed);
+  Took('delete selection', Tk);
   SetLength(FSel, 0);
   RebuildFlatFaces;
   FCmdMsg := Format('Deleted %d thing%s.', [N, IfThen(N = 1, '', 's')]);
@@ -10899,11 +10992,20 @@ var
   Dup, HadFace, Known: Boolean;
   Sig: TRegionSig;
   SolidIx: TIntArrayW;
-  SolidN: array of TP3;
+  SolidN, SolidP0, SolidMid, RMid: array of TP3;
+  SolidRad: array of Double;
+  RMidOK: array of Boolean;
+  FE: TWorkEnt;
+  FLo, FHi: TP3;
   SolidArea: array of Double;
   SI: Integer;
   LineIx, PlaneIx, RegionIx: TFPHashList;
-  LineLists, PlaneLists, RegionLists: array of TIntArrayW;
+  LineLists, PlaneLists, RegionLists, WasLists, SeenLists: array of TIntArrayW;
+  WasIx, SeenIx: TFPHashList;
+  WasOn, SeenOn: TIntArrayW;
+  Doomed: array of Boolean;
+  Acc: array[0..5] of QWord;
+  TL: QWord;
   Cands, RCands: TIntArrayW;
   CI, RC: Integer;
   Tk: QWord;
@@ -11028,6 +11130,62 @@ var
 
   { the regions on the plane through P with normal N, neighbours of the
     coarse offset included }
+  { the same shape of index for anything filed by plane: a list per plane
+    key, the entries of the three neighbouring offsets returned together }
+  procedure NoteInto(H: TFPHashList; var Lists: TIntListsW; const Key: shortstring; Ix: Integer);
+  var
+    At: Integer;
+  begin
+    At := H.FindIndexOf(Key);
+    if At < 0 then
+    begin
+      SetLength(Lists, Length(Lists) + 1);
+      At := High(Lists);
+      H.Add(Key, Pointer(PtrInt(At + 1)));
+    end
+    else
+      At := PtrInt(H.Items[At]) - 1;
+    SetLength(Lists[At], Length(Lists[At]) + 1);
+    Lists[At][High(Lists[At])] := Ix;
+  end;
+
+  function OnPlaneIn(H: TFPHashList; const Lists: TIntListsW; const N, P: TP3): TIntArrayW;
+  var
+    Nm: TP3;
+    Ix, K, D, Have: Integer;
+    Key: shortstring;
+    Q: array[0..3] of Int64;
+  begin
+    Result := nil;
+    Have := 0;
+    Nm := Norm3(N);
+    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
+       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
+      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    for D := -1 to 1 do
+    begin
+      Q[3] := Round(Dot3(Nm, P) * 1000) + D;
+      SetLength(Key, 32);
+      Move(Q[0], Key[1], 32);
+      Ix := H.FindIndexOf(Key);
+      if Ix < 0 then Continue;
+      Ix := PtrInt(H.Items[Ix]) - 1;
+      SetLength(Result, Have + Length(Lists[Ix]));
+      for K := 0 to High(Lists[Ix]) do
+      begin
+        Result[Have] := Lists[Ix][K];
+        Inc(Have);
+      end;
+    end;
+  end;
+
+  procedure Lap(K: Integer);
+  begin
+    Acc[K] := Acc[K] + (GetTickCount64 - TL);
+    TL := GetTickCount64;
+  end;
+
   function RegionsOnPlane(const N, P: TP3): TIntArrayW;
   var
     Nm: TP3;
@@ -11160,27 +11318,54 @@ begin
     cut from a window drawn in the middle - the face is replaced by the
     pieces, each one a face of the same solid.  Then push finds a piece and
     lifts it, which is the whole point. }
+  SetLength(Doomed, FD.Doc.Live);
+  for J := 0 to High(Doomed) do Doomed[J] := False;
+  SetLength(RMid, Length(R));
+  SetLength(RMidOK, Length(R));
+  for J := 0 to High(RMidOK) do RMidOK[J] := False;
   for J := FD.Doc.Live - 1 downto 0 do
   begin
     if (FD.Doc[J].Kind <> ekFace) or not FD.Doc[J].Solid then Continue;
     if Length(FD.Doc[J].Holes) > 0 then Continue;
+    { one copy of the face, not one per corner per candidate: the indexer
+      hands back a copy of the whole record every time }
+    FE := FD.Doc[J];
     FN := FD.Doc.FaceNormal(J);
-    FArea := Abs(LoopArea(FD.Doc[J].Poly, FN));
+    FArea := Abs(LoopArea(FE.Poly, FN));
     if FArea < 1E-9 then Continue;
+    FLo := FE.Poly[0];
+    FHi := FE.Poly[0];
+    for K := 1 to High(FE.Poly) do
+    begin
+      FLo := P3(Min(FLo.X, FE.Poly[K].X), Min(FLo.Y, FE.Poly[K].Y), Min(FLo.Z, FE.Poly[K].Z));
+      FHi := P3(Max(FHi.X, FE.Poly[K].X), Max(FHi.Y, FE.Poly[K].Y), Max(FHi.Z, FE.Poly[K].Z));
+    end;
     SetLength(Pieces, 0);
     PiecesArea := 0;
     Shares := False;
-    RCands := RegionsOnPlane(FN, FD.Doc[J].Poly[0]);
+    RCands := RegionsOnPlane(FN, FE.Poly[0]);
     for RC := 0 to High(RCands) do
     begin
       I := RCands[RC];
       if Length(R[I].Holes) > 0 then Continue;
+      { a region's middle, once - the plane has thousands of regions and
+        every face on it asks about all of them }
+      if not RMidOK[I] then
+      begin
+        RMid[I] := InnerPoint(R[I].Outer, R[I].Normal);
+        RMidOK[I] := True;
+      end;
+      Mid := RMid[I];
+      { outside the box round the face is not on it; this is what makes
+        the pass cheap on a plane full of faces }
+      if (Mid.X < FLo.X - 1E-4) or (Mid.X > FHi.X + 1E-4) or
+         (Mid.Y < FLo.Y - 1E-4) or (Mid.Y > FHi.Y + 1E-4) or
+         (Mid.Z < FLo.Z - 1E-4) or (Mid.Z > FHi.Z + 1E-4) then Continue;
       if Abs(Abs(Dot3(Norm3(R[I].Normal), FN)) - 1) > 1E-6 then Continue;
-      Mid := InnerPoint(R[I].Outer, R[I].Normal);
-      if Abs(Dot3(FN, P3(Mid.X - FD.Doc[J].Poly[0].X,
-                          Mid.Y - FD.Doc[J].Poly[0].Y,
-                          Mid.Z - FD.Doc[J].Poly[0].Z))) > 1E-4 then Continue;
-      if not PointInLoop(Mid, FD.Doc[J].Poly, FN) then Continue;
+      if Abs(Dot3(FN, P3(Mid.X - FE.Poly[0].X,
+                          Mid.Y - FE.Poly[0].Y,
+                          Mid.Z - FE.Poly[0].Z))) > 1E-4 then Continue;
+      if not PointInLoop(Mid, FE.Poly, FN) then Continue;
       { the whole face is itself a region; that is not a division }
       if Abs(Abs(LoopArea(R[I].Outer, R[I].Normal)) - FArea) < 1E-3 then
         Continue;
@@ -11195,11 +11380,11 @@ begin
         for a bite drawn on it. }
       if not Shares then
         for K := 0 to High(R[I].Outer) do
-          for M := 0 to High(FD.Doc[J].Poly) do
-            if OnSegment(R[I].Outer[K], FD.Doc[J].Poly[M],
-                         FD.Doc[J].Poly[(M + 1) mod Length(FD.Doc[J].Poly)]) and
-               OnSegment(R[I].Outer[(K + 1) mod Length(R[I].Outer)], FD.Doc[J].Poly[M],
-                         FD.Doc[J].Poly[(M + 1) mod Length(FD.Doc[J].Poly)]) then
+          for M := 0 to High(FE.Poly) do
+            if OnSegment(R[I].Outer[K], FE.Poly[M],
+                         FE.Poly[(M + 1) mod Length(FE.Poly)]) and
+               OnSegment(R[I].Outer[(K + 1) mod Length(R[I].Outer)], FE.Poly[M],
+                         FE.Poly[(M + 1) mod Length(FE.Poly)]) then
               Shares := True;
     end;
     if (Length(Pieces) < 2) or not Shares then Continue;
@@ -11208,7 +11393,7 @@ begin
     { replace it: the pieces become faces of the same solid }
     G := FD.Doc[J].Grp;
     Ink := FD.Doc[J].Ink;
-    FD.Doc.Delete(J);
+    Doomed[J] := True;
     for I := 0 to High(Pieces) do
     begin
       FD.Doc.AddFaceRaw(R[Pieces[I]].Outer, Ink, True);
@@ -11221,6 +11406,11 @@ begin
     end;
   end;
 
+  { the faces that were divided go now, in one pass - one at a time each
+    shifted everything after it }
+  FD.Doc.DeleteMarked(Doomed);
+  Took('  tiling', Tk);
+  Tk := GetTickCount64;
   { remember what was there, so the new faces can take their colors }
   NWas := 0;
   SetLength(Was, FD.Doc.Live);
@@ -11243,11 +11433,26 @@ begin
       Inc(NWas);
     end;
   SetLength(Was, NWas);
+  { the old faces by plane, so a region asks only the ones in its own plane
+    - not all fifteen thousand of them, fifteen thousand times }
+  WasIx := TFPHashList.Create;
+  SetLength(WasLists, 0);
+  for J := 0 to NWas - 1 do
+    NoteInto(WasIx, WasLists, PlaneKey(Was[J].Nm, Was[J].Mid), J);
+  { and what the sheet had seen, the same way }
+  SeenIx := TFPHashList.Create;
+  SetLength(SeenLists, 0);
+  for J := 0 to High(FD.Seen) do
+    NoteInto(SeenIx, SeenLists, PlaneKey(FD.Seen[J].Nm, FD.Seen[J].Mid), J);
 
-  { out with the old, highest first so the numbers below do not shift }
-  for I := FD.Doc.Live - 1 downto 0 do
-    if (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid then
-      FD.Doc.Delete(I);
+  { out with the old, in one pass; one at a time each shifted everything
+    after it, which on a big drawing was most of a minute }
+  SetLength(Doomed, FD.Doc.Live);
+  for I := 0 to FD.Doc.Live - 1 do
+    Doomed[I] := (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid;
+  FD.Doc.DeleteMarked(Doomed);
+  Took('  old faces out', Tk);
+  Tk := GetTickCount64;
 
   { The solids' faces, their planes and areas, and the solids' lines by
     their ends, once - the loop below asks every region against them.
@@ -11263,12 +11468,25 @@ begin
       SolidIx[High(SolidIx)] := J;
     end;
   SetLength(SolidN, Length(SolidIx));
+  SetLength(SolidP0, Length(SolidIx));
+  SetLength(SolidMid, Length(SolidIx));
+  SetLength(SolidRad, Length(SolidIx));
   SetLength(SolidArea, Length(SolidIx));
   PlaneIx := TFPHashList.Create;
   SetLength(PlaneLists, 0);
   for J := 0 to High(SolidIx) do
   begin
     SolidN[J] := FD.Doc.FaceNormal(SolidIx[J]);
+    FE := FD.Doc[SolidIx[J]];
+    SolidP0[J] := FE.Poly[0];
+    Mid := P3(0, 0, 0);
+    for K := 0 to High(FE.Poly) do
+      Mid := P3(Mid.X + FE.Poly[K].X, Mid.Y + FE.Poly[K].Y, Mid.Z + FE.Poly[K].Z);
+    K := Length(FE.Poly);
+    SolidMid[J] := P3(Mid.X / K, Mid.Y / K, Mid.Z / K);
+    SolidRad[J] := 0;
+    for K := 0 to High(FE.Poly) do
+      SolidRad[J] := Max(SolidRad[J], Dist(SolidMid[J], FE.Poly[K]));
     SolidArea[J] := Abs(LoopArea(FD.Doc[SolidIx[J]].Poly, SolidN[J]));
     { by plane, so a region meets only the solids lying in its own plane
       rather than every solid in the drawing }
@@ -11284,13 +11502,18 @@ begin
       NoteLine(FD.Doc[J].B, J);
     end;
 
+  Took('  tables', Tk);
+  Tk := GetTickCount64;
+  FillChar(Acc, SizeOf(Acc), 0);
   { a region with no outline is nothing to look at }
   for I := 0 to High(R) do
   begin
     if ((I and 63) = 0) and (Length(R) > 500) then
       if not OnProgress('Working out the faces', I / Length(R)) then Break;
     if Length(R[I].Outer) < 3 then Continue;
+    TL := GetTickCount64;
     Mid := InnerPointOf(R[I].Outer, R[I].Holes, R[I].Normal);
+    Lap(0);
 
     { Is this one a face the solid already has?  Same middle, same size, so
       it is the same face arrived at from the other direction.  Drawing it
@@ -11315,9 +11538,9 @@ begin
         Other := SolidN[SI];
         if Abs(Abs(Dot3(Other, R[I].Normal)) - 1) > 1E-6 then Continue;
         { the same plane, not merely a parallel one }
-        if Abs(Dot3(Other, P3(FD.Doc[J].Poly[0].X - R[I].Outer[0].X,
-                              FD.Doc[J].Poly[0].Y - R[I].Outer[0].Y,
-                              FD.Doc[J].Poly[0].Z - R[I].Outer[0].Z))) > 1E-4
+        if Abs(Dot3(Other, P3(SolidP0[SI].X - R[I].Outer[0].X,
+                              SolidP0[SI].Y - R[I].Outer[0].Y,
+                              SolidP0[SI].Z - R[I].Outer[0].Z))) > 1E-4
           then Continue;
         { Outline against outline, with the openings left out of both.
 
@@ -11329,6 +11552,10 @@ begin
           the solid's own face without it, 68 against 80, so they never
           matched, and the hand-off below that gives the solid's face its
           opening never ran.  The window drew, and the wall stayed solid. }
+        { further from the solid's middle than any of its corners is not
+          inside it - and on a plane of a thousand same-sized faces this is
+          what keeps PointInLoop to the one that could be }
+        if Dist(Mid, SolidMid[SI]) > SolidRad[SI] + 1E-4 then Continue;
         if RegArea < 0 then RegArea := Abs(LoopArea(R[I].Outer, R[I].Normal));
         if Abs(RegArea - SolidArea[SI]) > 1E-3 then
           Continue;
@@ -11339,6 +11566,7 @@ begin
           Break;
         end;
       end;
+    Lap(1);
     if Dup then
     begin
       { The solid already has this face, so no second one is made - but the
@@ -11374,8 +11602,9 @@ begin
       - the two ends are parallel - and an arc erased off one end was handed
       straight back because its twin on the other end was still there. }
     HadFace := False;
-    for J := 0 to NWas - 1 do
-      if WasCovering(J) then
+    WasOn := OnPlaneIn(WasIx, WasLists, R[I].Normal, Mid);
+    for J := 0 to High(WasOn) do
+      if WasCovering(WasOn[J]) then
       begin
         HadFace := True;
         Break;
@@ -11388,23 +11617,27 @@ begin
         or read back from a file, none of which leave a note that it was
         seen before.  Something drawn across it is a loose edge, and then it
         is a new area like any other. }
-      if OpeningOfSolid(R[I]) then Continue;
+      Lap(2);
+      if OpeningOfSolid(R[I]) then begin Lap(3); Continue; end;
+      Lap(3);
       Sig := RegionSig(R[I]);
       Known := False;
-      for J := 0 to High(FD.Seen) do
-        if SameRegion(Sig, FD.Seen[J]) then
+      SeenOn := OnPlaneIn(SeenIx, SeenLists, Sig.Nm, Sig.Mid);
+      for J := 0 to High(SeenOn) do
+        if SameRegion(Sig, FD.Seen[SeenOn[J]]) then
         begin
           Known := True;
           Break;
         end;
+      Lap(4);
       if Known then Continue;
     end;
 
     Ink := FInkColor;
-    for J := 0 to NWas - 1 do
-      if WasCovering(J) then
+    for J := 0 to High(WasOn) do
+      if WasCovering(WasOn[J]) then
       begin
-        Ink := Was[J].Ink;
+        Ink := Was[WasOn[J]].Ink;
         Break;
       end;
     FD.Doc.AddFaceRaw(R[I].Outer, Ink, False);
@@ -11414,10 +11647,14 @@ begin
     if Length(R[I].Holes) > 0 then
       FD.Doc.SetFaceHoles(FD.Doc.Live - 1, R[I].Holes);
     Inc(Made);
+    Lap(5);
   end;
+  if FTimings then WriteLn('region loop phases ms: inner ', Acc[0], ' dup ', Acc[1], ' was ', Acc[2], ' opening ', Acc[3], ' seen ', Acc[4], ' add ', Acc[5]);
   LineIx.Free;
   PlaneIx.Free;
   RegionIx.Free;
+  WasIx.Free;
+  SeenIx.Free;
   if not FLoading then EndBusy;
   Took('  the region loop', Tk);
   Tk := GetTickCount64;
@@ -13666,7 +13903,12 @@ begin
     Exit;
   end;
   T := GetTickCount64;
-  if FBusy and (T - FBusyAt < 80) then Exit;
+  { A paint of the whole window is not free - a hundred milliseconds and
+    more with a big drawing on it - and the loop that reports here calls
+    every few dozen regions.  Fifteen thousand regions once cost thirty
+    seconds of painting the bar.  So: a quarter of a second between paints,
+    and longer when the last one was dear. }
+  if FBusy and (T - FBusyAt < Max(250, 4 * FBusyPaintMs)) then Exit;
   FBusy := True;
   FBusyAt := T;
   FBusyMsg := What;
@@ -13680,6 +13922,8 @@ begin
   pbCmd.Invalidate;
   if pbCmd.Parent <> nil then pbCmd.Parent.Repaint;
   Application.ProcessMessages;
+  FBusyPaintMs := GetTickCount64 - T;
+  FBusyAt := GetTickCount64;
 end;
 
 { what the start-up screen says when the loading is over }

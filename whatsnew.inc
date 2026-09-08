@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Faster' + LineEnding +
+    '' + LineEnding +
+    '- **Moving, selecting and deleting on a big drawing.**  Measured on fifty' + LineEnding +
+    '  thousand things - 2,500 boxes with a line across two faces of each -' + LineEnding +
+    '  everything selected: a move took 65 seconds to work the faces out' + LineEnding +
+    '  afterwards; it takes 1.5 now.  Deleting the selection took a minute; it' + LineEnding +
+    '  is instant.  Hovering with everything selected redrew fifty thousand' + LineEnding +
+    '  outlines through the canvas on every mouse move, 117 ms a frame; the' + LineEnding +
+    '  outlines are drawn once into a layer now, 23 ms.  Select-all and box' + LineEnding +
+    '  select no longer walk the whole selection for every thing they add.' + LineEnding +
+    '  The things fixed underneath: old faces were deleted one at a time, each' + LineEnding +
+    '  shifting everything after it; every region asked every old face and' + LineEnding +
+    '  every seen area instead of the ones in its own plane; the pass that' + LineEnding +
+    '  divides a solid''s face asked every region on the plane instead of the' + LineEnding +
+    '  ones inside the face; and the busy bar was repainting the whole window' + LineEnding +
+    '  every few dozen regions, which was thirty of those seconds by itself.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.17' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
