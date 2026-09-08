@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Touch on Linux.**  The drawing now takes fingers from a touchscreen:' + LineEnding +
+    '  a tap is a click, a finger dragged is the mouse, two fingers pan, and a' + LineEnding +
+    '  pinch zooms about the point between them.  The toolkit was being given' + LineEnding +
+    '  the touch events and throwing them away, which is why the drawing got' + LineEnding +
+    '  nothing while the buttons and the window frame worked.  `/touch` says' + LineEnding +
+    '  whether the hook is in.  Windows is unchanged for now: it turns a finger' + LineEnding +
+    '  into a mouse by itself.  What comes next for touch, tablets and the' + LineEnding +
+    '  remote desktop is written down in `docs/touch.md`.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.07.22' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

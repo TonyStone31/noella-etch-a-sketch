@@ -44,6 +44,14 @@ Two test suites, both green: `./tests/run.sh` (333 checks) and
 
 ## Next up, in order
 
+**Touch (2026-09-08).**  `uTouch.pas` hooks GTK3's touch-event; the gesture
+layer is `OnTouch` in uMain: tap, drag, two-finger pan, pinch.  Untested on
+real glass here - Xephyr has no fingers - so the first report from the
+all-in-one decides the thresholds (8 px, 180 ms).  Next: Windows touch
+messages into the same layer, touch-down showing what hover would, the
+one-button-and-wheel rules for a remote desktop, then the point-setting
+controller.  See docs/touch.md.
+
 **Start-up screen and the busy bar (2026-09-07).**  `uSplash.pas`; the
 `Progress` hook in uWork is the one channel long work reports through
 (uRegion and uMain call it; the tests leave it nil).  Two GTK3 lessons paid

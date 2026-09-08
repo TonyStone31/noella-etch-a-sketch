@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Touch on Linux.**  The drawing now takes fingers from a touchscreen:
+  a tap is a click, a finger dragged is the mouse, two fingers pan, and a
+  pinch zooms about the point between them.  The toolkit was being given
+  the touch events and throwing them away, which is why the drawing got
+  nothing while the buttons and the window frame worked.  `/touch` says
+  whether the hook is in.  Windows is unchanged for now: it turns a finger
+  into a mouse by itself.  What comes next for touch, tablets and the
+  remote desktop is written down in `docs/touch.md`.
+
 ## v2026.09.07.22
 
 ### Changed

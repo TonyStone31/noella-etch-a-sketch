@@ -335,6 +335,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | `/help` `/?` | about |
 | `/quick` | quick frames while the camera moves, on or off |
 | `/regions`, `/rebuild`, `/forget`, `/rendertime`, `/timings` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame, print the steps of each edit |
+| `/touch` | whether the touchscreen hook is in, and how many finger events have come |
 | `/report` | open the report form: what happened, with a picture of the window |
 | `/sysinfo` | what a report would say about this machine: OS, processor, RAM, graphics, memory in use |
 

@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uWork, uSplash, uSysInfo, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -72,6 +72,17 @@ type
     middle is carried too, so two identical windows in one wall are told
     apart. }
   TIntListsW = array of TIntArrayW;
+
+  { a finger on the screen, in drawing-area coordinates }
+  TTouchPt = record
+    Seq: Pointer;
+    X, Y, X0, Y0: Integer;
+    T0: QWord;
+  end;
+  { what the fingers are doing: nothing; one finger down and not yet
+    known to be a tap or a drag; one finger being the mouse; two fingers
+    panning and pinching; a gesture over, the finger still down ignored }
+  TTouchMode = (tmNone, tmPending, tmMouse, tmGesture, tmSpent);
 
   TRegionSig = record
     Nm: TP3;
@@ -486,6 +497,13 @@ type
       through the canvas each time the mouse moves }
     FSelLayer, FSelShot: TArtSurface;
     FSelLayerKey: string;
+    { touch, from uTouch's hook: the fingers and what they are doing }
+    FTouches: array of TTouchPt;
+    FTouchMode: TTouchMode;
+    FTouchDown: Boolean;
+    FTouchOn: Boolean;
+    FTouchCount: Integer;
+    FGestMidX, FGestMidY, FGestDist: Double;
     { a document was being read and the splash screen's skip was pressed }
     FLoading, FLoadSkipped: Boolean;
     { worker threads for the caches (docs/render-acceleration.md); /threads }
@@ -677,6 +695,11 @@ type
     function PickAt(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
     procedure LeaveSheet;
+    procedure OnTouch(Kind: TTouchKind; Seq: Pointer; SX, SY: Double);
+    procedure TouchTick;
+    procedure TouchSendDown;
+    procedure GestureStart;
+    procedure GestureMove;
     procedure PruneSelection;
     procedure BeginBulkSelect;
     procedure EndBulkSelect;
@@ -1954,6 +1977,9 @@ begin
     is only a safety net. }
   if not Opened then RestoreDraft;
   SplashLoaded(LoadedWords);
+  { fingers on the drawing, where the platform gives them to us }
+  FTouchOn := HookTouch(Self, @OnTouch);
+  Trail('touch hook: ' + BoolToStr(FTouchOn, True));
 
   { Housekeeping from last time.  Nothing here may put a dialog on screen:
     this runs before the window has painted, so a dialog would sit in front
@@ -8662,6 +8688,9 @@ begin
     else FCmdMsg := 'Worker threads: off - everything on the main thread.';
   end
   else if (W = 'report') or (W = 'bug') then ReportBug('', '', '')
+  else if W = 'touch' then
+    FCmdMsg := Format('Touch: hook %s, %d events so far, %d fingers down.',
+      [BoolToStr(FTouchOn, True), FTouchCount, Length(FTouches)])
   else if (W = 'sysinfo') or (W = 'machine') then
   begin
     { what a report would say about this machine - so anyone can see it
@@ -10121,6 +10150,166 @@ begin
         FSelLayer.Line(Hi[K - 1].X, Hi[K - 1].Y, Hi[K].X, Hi[K].Y, W, Pix(70, 130, 240), 1.0);
     end;
   FSelLayerKey := Key;
+end;
+
+{ ---- touch --------------------------------------------------------------
+
+  One finger is the mouse, but not straight away: a finger that a second
+  one joins within a moment was never a click, it was the start of a
+  two-finger gesture, so the press waits until the finger moves, or has
+  been held a moment, or lifts - a lift with no press sent is a tap, and
+  gets a press and a release together.  Two fingers pan by their middle
+  and zoom by their spread, through the same PanBy and ZoomAt the mouse
+  uses, in quick frames while they move.  When one of the two lifts the
+  gesture is over and the finger left behind is ignored until it lifts
+  too, so a hand coming off the glass does not draw. }
+procedure TMainForm.OnTouch(Kind: TTouchKind; Seq: Pointer; SX, SY: Double);
+var
+  P: TPoint;
+  I, K, N: Integer;
+begin
+  if FBusy then Exit;
+  Inc(FTouchCount);
+  P := pbScreen.ScreenToClient(Point(Round(SX), Round(SY)));
+  I := -1;
+  for K := 0 to High(FTouches) do
+    if FTouches[K].Seq = Seq then I := K;
+  if FTimings then
+    WriteLn('touch ', Ord(Kind), ' at ', P.X, ',', P.Y, ' finger ', I, ' of ', Length(FTouches), ' mode ', Ord(FTouchMode));
+  case Kind of
+    tkBegin:
+      begin
+        if I < 0 then
+        begin
+          SetLength(FTouches, Length(FTouches) + 1);
+          I := High(FTouches);
+          FTouches[I].Seq := Seq;
+          FTouches[I].X0 := P.X;
+          FTouches[I].Y0 := P.Y;
+          FTouches[I].T0 := GetTickCount64;
+        end;
+        FTouches[I].X := P.X;
+        FTouches[I].Y := P.Y;
+        N := Length(FTouches);
+        if N = 1 then
+        begin
+          FTouchMode := tmPending;
+          FTouchDown := False;
+          { the hover first, so the snap and the readout are for this spot }
+          pbScreenMouseMove(pbScreen, [], P.X, P.Y);
+        end
+        else if (N = 2) and (FTouchMode in [tmPending, tmMouse]) then
+        begin
+          if FTouchDown then
+          begin
+            pbScreenMouseUp(pbScreen, mbLeft, [ssLeft], FTouches[0].X, FTouches[0].Y);
+            FTouchDown := False;
+          end;
+          FTouchMode := tmGesture;
+          GestureStart;
+        end;
+      end;
+    tkUpdate:
+      if I >= 0 then
+      begin
+        FTouches[I].X := P.X;
+        FTouches[I].Y := P.Y;
+        case FTouchMode of
+          tmPending:
+            if (Abs(P.X - FTouches[0].X0) > 8) or (Abs(P.Y - FTouches[0].Y0) > 8) then
+            begin
+              TouchSendDown;
+              pbScreenMouseMove(pbScreen, [ssLeft], P.X, P.Y);
+            end;
+          tmMouse:
+            if I = 0 then pbScreenMouseMove(pbScreen, [ssLeft], P.X, P.Y);
+          tmGesture:
+            if Length(FTouches) >= 2 then GestureMove;
+        end;
+      end;
+    tkEnd, tkCancel:
+      if I >= 0 then
+      begin
+        FTouches[I].X := P.X;
+        FTouches[I].Y := P.Y;
+        case FTouchMode of
+          tmPending:
+            if (Kind = tkEnd) and (I = 0) then
+            begin
+              { a tap: the press and the release, here }
+              TouchSendDown;
+              pbScreenMouseUp(pbScreen, mbLeft, [ssLeft], P.X, P.Y);
+              FTouchDown := False;
+            end;
+          tmMouse:
+            if (I = 0) and FTouchDown then
+            begin
+              pbScreenMouseUp(pbScreen, mbLeft, [ssLeft], P.X, P.Y);
+              FTouchDown := False;
+            end;
+          tmGesture:
+            begin
+              { the full frame comes when the camera settles }
+              FLastWheel := GetTickCount64;
+              FTouchMode := tmSpent;
+            end;
+        end;
+        for K := I to High(FTouches) - 1 do FTouches[K] := FTouches[K + 1];
+        SetLength(FTouches, Length(FTouches) - 1);
+        if Length(FTouches) = 0 then
+        begin
+          FTouchMode := tmNone;
+          FTouchDown := False;
+        end;
+      end;
+  end;
+end;
+
+{ the press for the first finger, where it landed }
+procedure TMainForm.TouchSendDown;
+begin
+  if FTouchDown or (Length(FTouches) = 0) then Exit;
+  pbScreenMouseDown(pbScreen, mbLeft, [ssLeft], FTouches[0].X0, FTouches[0].Y0);
+  FTouchDown := True;
+  FTouchMode := tmMouse;
+end;
+
+{ from the tick: a finger held still long enough is a press, not a tap }
+procedure TMainForm.TouchTick;
+begin
+  if (FTouchMode = tmPending) and (Length(FTouches) > 0) and
+     (GetTickCount64 - FTouches[0].T0 > 180) then
+    TouchSendDown;
+end;
+
+procedure TMainForm.GestureStart;
+begin
+  if Length(FTouches) < 2 then Exit;
+  FGestMidX := (FTouches[0].X + FTouches[1].X) / 2;
+  FGestMidY := (FTouches[0].Y + FTouches[1].Y) / 2;
+  FGestDist := Sqrt(Sqr(FTouches[0].X - FTouches[1].X) + Sqr(FTouches[0].Y - FTouches[1].Y));
+end;
+
+procedure TMainForm.GestureMove;
+var
+  MX, MY, D: Double;
+begin
+  if Length(FTouches) < 2 then Exit;
+  MX := (FTouches[0].X + FTouches[1].X) / 2;
+  MY := (FTouches[0].Y + FTouches[1].Y) / 2;
+  D := Sqrt(Sqr(FTouches[0].X - FTouches[1].X) + Sqr(FTouches[0].Y - FTouches[1].Y));
+  if FQuickFrames then FCameraMoving := True;
+  FLastWheel := GetTickCount64;
+  if (Abs(MX - FGestMidX) >= 1) or (Abs(MY - FGestMidY) >= 1) then
+    PanBy(MX - FGestMidX, MY - FGestMidY);
+  { a pinch: the spread, about the middle - fingers too close together
+    give a ratio that jumps about, so they only pan }
+  if (FGestDist > 30) and (D > 30) and (Abs(D / FGestDist - 1) > 0.01) then
+    ZoomAt(D / FGestDist, MX, MY);
+  FGestMidX := MX;
+  FGestMidY := MY;
+  FGestDist := D;
+  Invalidate;
 end;
 
 { Whatever pointed into the sheet being left: the selection, the doomed
@@ -12761,6 +12950,7 @@ begin
     FCrashToOffer := False;
     OfferCrashReport(True);
   end;
+  TouchTick;
 
   FollowScreenSize;
   { the wheel has settled: the full frame }
