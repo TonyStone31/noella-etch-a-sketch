@@ -26,6 +26,15 @@ type
     FUnits: TUnitSystem;
     FSpec: TTransitionSpec;
     FPage: Integer;
+    { the scene, worked out by Scene: the hall in feet, the perspective, and
+      the duct's two openings in hall coordinates (x from the left wall, y
+      above the floor) }
+    FHallW, FHallH, FVPx, FVPy, FFar: Double;
+    FML, FMT, FMB: Integer;
+    FSceneW, FSceneH: Integer;
+    FL0, FB0, FL1, FB1: Double;
+    FT0, FT1: Double;
+    FDimA0, FDimA1, FDimB0, FDimB1: TPoint;   { the two tape lines, ends }
     pbPic: TPaintBox;
     lblStep, lblSay, lblResult: TLabel;
     edA, edB: TEdit;
@@ -40,8 +49,10 @@ type
     procedure ShowPage;
     function ReadPage: Boolean;
     function InchesOf(const S: string; out V: Double): Boolean;
-    procedure PaintHeight(C: TCanvas; W, H: Integer);
-    procedure PaintWidth(C: TCanvas; W, H: Integer);
+    { the hallway: where everything is on screen, from the readings }
+    procedure Scene(W, H: Integer);
+    procedure PaintScene(C: TCanvas; W, H: Integer);
+    procedure PlaceBoxes;
     procedure PaintResult(C: TCanvas; W, H: Integer);
   public
     constructor CreateWizard(AOwner: TComponent; Units: TUnitSystem; const Spec: TTransitionSpec);
@@ -53,7 +64,7 @@ type
 implementation
 
 const
-  TAPE = $00A06030;
+  TAPE_COL = $00A06030;
   INKG = $00505050;
 
 constructor TTapeWizard.CreateWizard(AOwner: TComponent; Units: TUnitSystem; const Spec: TTransitionSpec);
@@ -194,8 +205,8 @@ begin
     0:
       begin
         lblStep.Caption := 'Step 1 of 3 - the height, from the floor or the ceiling';
-        lblSay.Caption := 'Hook the tape on the floor, or on the ceiling, and read to whichever edge of ' +
-          'the duct you can reach at each end.  Say which edge under each box.  The entry usually reads 0.';
+        lblSay.Caption := 'The duct hangs in a hallway, entry end nearest.  Hook the tape on the floor, or on ' +
+          'the ceiling, and read to whichever edge of the duct you can reach at each end - say which under each box.';
         if FSpec.RefH = rhFloor then btnRef.Caption := 'taped from the floor' else btnRef.Caption := 'taped from the ceiling';
         edA.Text := FormatFloat('0.###', FSpec.RefH0 / FSpec.Inch);
         edB.Text := FormatFloat('0.###', FSpec.RefH1 / FSpec.Inch);
@@ -223,12 +234,8 @@ begin
         btnNext.Caption := 'Use these';
       end;
   end;
-  { the boxes sit on the tape lines: entry at the left, exit at the right }
-  edA.SetBounds(pbPic.Left + 118, pbPic.Top + 150, 70, 28);
-  btnEdgeA.SetBounds(pbPic.Left + 98, pbPic.Top + 182, 110, 26);
-  edB.SetBounds(pbPic.Left + 574, pbPic.Top + 150, 70, 28);
-  btnEdgeB.SetBounds(pbPic.Left + 554, pbPic.Top + 182, 110, 26);
-  btnRef.SetBounds(pbPic.Left + 285, pbPic.Top + 344, 150, 26);
+  PlaceBoxes;
+  btnRef.SetBounds(pbPic.Left + (pbPic.Width - 170) div 2, pbPic.Top + pbPic.Height - 34, 170, 26);
   T := FSpec;
   T.FromRef := True;
   TapeRules(T);
@@ -249,6 +256,7 @@ begin
   T.FromRef := True;
   TapeRules(T);
   lblResult.Caption := 'So far: ' + TapeWords(T);
+  PlaceBoxes;
   pbPic.Invalidate;
 end;
 
@@ -302,208 +310,288 @@ end;
 
 procedure TTapeWizard.PicPaint(Sender: TObject);
 begin
-  case FPage of
-    0: PaintHeight(pbPic.Canvas, pbPic.Width, pbPic.Height);
-    1: PaintWidth(pbPic.Canvas, pbPic.Width, pbPic.Height);
-  else
-    PaintResult(pbPic.Canvas, pbPic.Width, pbPic.Height);
-  end;
+  if FPage < 2 then PaintScene(pbPic.Canvas, pbPic.Width, pbPic.Height)
+  else PaintResult(pbPic.Canvas, pbPic.Width, pbPic.Height);
 end;
 
-{ a stick figure standing on Y, reaching a hand to (HX, HY) }
-procedure Figure(C: TCanvas; X, Y, HX, HY: Integer);
-begin
-  C.Pen.Color := INKG;
-  C.Pen.Width := 2;
-  C.Brush.Style := bsClear;
-  C.Ellipse(X - 9, Y - 118, X + 9, Y - 100);
-  C.Line(X, Y - 100, X, Y - 48);
-  C.Line(X, Y - 48, X - 14, Y);
-  C.Line(X, Y - 48, X + 14, Y);
-  C.Line(X, Y - 90, HX, HY);
-  C.Line(X, Y - 90, X - 16, Y - 60);
-  C.Pen.Width := 1;
-end;
+{ ---- the hallway ---------------------------------------------------------
 
-{ a tape line from Y0 to Y1 at X, the case at the near end }
-procedure TapeLine(C: TCanvas; X, Y0, Y1: Integer);
-begin
-  C.Pen.Color := TAPE;
-  C.Pen.Width := 2;
-  C.Line(X, Y0, X, Y1);
-  C.Line(X - 6, Y0, X + 6, Y0);
-  C.Line(X - 6, Y1, X + 6, Y1);
-  C.Pen.Width := 1;
-  C.Brush.Color := TAPE;
-  C.Brush.Style := bsSolid;
-  C.Rectangle(X - 7, Y0 - 7, X + 7, Y0 + 7);
-  C.Brush.Style := bsClear;
-end;
+  A cartoon: a hallway seen from the entry end, one-point perspective, a
+  smooth ceiling above, tiles below, brick either side, and the duct
+  floating in it where the readings put it - the entry opening near, the
+  exit opening further down the hall.  The tape lines go from the
+  reference to the edge each reading was taken to, on the opening it was
+  taken at.  Both pages are this one picture with different tape lines. }
 
-procedure TTapeWizard.PaintHeight(C: TCanvas; W, H: Integer);
+const
+  DEPTH0 = 0.16;      { how far down the hall the entry opening sits }
+  DEPTH1 = 0.55;      { and the exit }
+
+procedure TTapeWizard.Scene(W, H: Integer);
 var
-  RefY, X0, X1, TX0, TX1, Ya0, Yb0, Ya1, Yb1, Y0, Y1: Integer;
-  A0, A1, Ext, Sc: Double;
-  Ceiling: Boolean;
-  function YOf(V: Double): Integer;
-  begin
-    if Ceiling then Result := Round(RefY + V * Sc) else Result := Round(RefY - V * Sc);
-  end;
+  T: TTransitionSpec;
+  E, X: array[0..3] of TP3;
+  Lo, Hi: Double;
 begin
+  FSceneW := W;
+  FSceneH := H;
+  FML := 16; FMT := 12; FMB := 16;
+  FFar := 0.36;
+  { The duct hangs where a duct hangs: a foot below the ceiling, in the
+    middle of the hall, entry end nearest.  The exit sits off the entry by
+    whatever the readings come to, so the picture shows the offset going
+    the right way; the readings themselves are the numbers on the tapes,
+    not the height it is drawn at. }
+  FHallW := 8;
+  FHallH := 9;
+  FB0 := FHallH - 1 - FSpec.H0;
+  FL0 := (FHallW - FSpec.W0) / 2;
+  T := FSpec;
+  T.FromRef := True;
+  TapeRules(T);
+  TransitionCorners(T, E, X);
+  FB1 := FB0 + X[0].Z;
+  FL1 := FL0 + X[0].X;
+  { a big offset gets a bigger hall rather than a duct through the wall }
+  Lo := Min(FB0, FB1); Hi := Max(FB0 + FSpec.H0, FB1 + FSpec.H1);
+  if Lo < 0.5 then
+  begin
+    FHallH := FHallH + (0.5 - Lo);
+    FB0 := FB0 + (0.5 - Lo); FB1 := FB1 + (0.5 - Lo);
+  end;
+  if Hi > FHallH - 0.5 then FHallH := Hi + 0.5;
+  Lo := Min(FL0, FL1); Hi := Max(FL0 + FSpec.W0, FL1 + FSpec.W1);
+  if Lo < 0.5 then
+  begin
+    FHallW := FHallW + (0.5 - Lo);
+    FL0 := FL0 + (0.5 - Lo); FL1 := FL1 + (0.5 - Lo);
+  end;
+  if Hi > FHallW - 0.5 then FHallW := Hi + 0.5;
+  { the eye a little above the middle of the hall }
+  FVPx := W / 2;
+  FVPy := (H - FMB) - 0.55 * (H - FMB - FMT);
+  FT0 := DEPTH0;
+  FT1 := DEPTH1;
+end;
+
+procedure TTapeWizard.PaintScene(C: TCanvas; W, H: Integer);
+var
+  S: Double;
+
+  function P(X, Y, T: Double): TPoint;
+  var
+    NX, NY, Sc: Double;
+  begin
+    Sc := 1 - T * (1 - FFar);
+    NX := FML + X / FHallW * (W - 2 * FML);
+    NY := (H - FMB) - Y / FHallH * (H - FMB - FMT);
+    Result := Point(Round(FVPx + (NX - FVPx) * Sc), Round(FVPy + (NY - FVPy) * Sc));
+  end;
+
+  procedure Quad(const A, B, CC, D: TPoint; Fill: TColor);
+  begin
+    C.Brush.Color := Fill;
+    C.Brush.Style := bsSolid;
+    C.Pen.Color := Fill;
+    C.Polygon([A, B, CC, D]);
+  end;
+
+  procedure Seg(const A, B: TPoint; Col: TColor; Wd: Integer);
+  begin
+    C.Pen.Color := Col;
+    C.Pen.Width := Wd;
+    C.Line(A.X, A.Y, B.X, B.Y);
+    C.Pen.Width := 1;
+  end;
+
+  { a tape line between two hall points, its ticks, and a label }
+  procedure Tape(const A, B: TPoint; const Txt: string; Horizontal: Boolean);
+  var
+    TX, TY: Integer;
+  begin
+    C.Pen.Color := TAPE_COL;
+    C.Pen.Width := 3;
+    C.Line(A.X, A.Y, B.X, B.Y);
+    if Horizontal then
+    begin
+      C.Line(A.X, A.Y - 7, A.X, A.Y + 7);
+      C.Line(B.X, B.Y - 7, B.X, B.Y + 7);
+    end
+    else
+    begin
+      C.Line(A.X - 7, A.Y, A.X + 7, A.Y);
+      C.Line(B.X - 7, B.Y, B.X + 7, B.Y);
+    end;
+    C.Pen.Width := 1;
+    { the tape case at the reference end }
+    C.Brush.Color := TAPE_COL;
+    C.Brush.Style := bsSolid;
+    C.Pen.Color := TAPE_COL;
+    C.Rectangle(A.X - 6, A.Y - 6, A.X + 6, A.Y + 6);
+    C.Brush.Style := bsClear;
+    C.Font.Color := TAPE_COL;
+    C.Font.Size := 9;
+    C.Font.Style := [fsBold];
+    TX := (A.X + B.X) div 2; TY := (A.Y + B.Y) div 2;
+    if Horizontal then C.TextOut(TX - C.TextWidth(Txt) div 2, TY - 22, Txt)
+    else C.TextOut(TX + 10, TY - 8, Txt);
+    C.Font.Style := [];
+  end;
+
+var
+  I, J: Integer;
+  T, X, Y: Double;
+  E0, E1, E2, E3, X0, X1, X2, X3: TPoint;
+  Fl, Ce, Lw, Rw: TColor;
+  Txt: string;
+begin
+  Scene(W, H);
   C.Brush.Color := clWhite;
   C.FillRect(0, 0, W, H);
-  Ceiling := FSpec.RefH = rhCeiling;
-  { everything to one edge: the bottom from the floor, the top from the ceiling }
-  if not Ceiling then
+  Fl := $00D2CCC2; Ce := $00F4F2EE; Lw := $007A92C6; Rw := $006E86BA;
+  { the end of the hall, then the four surfaces }
+  Quad(P(0, 0, 1), P(FHallW, 0, 1), P(FHallW, FHallH, 1), P(0, FHallH, 1), $00B0B8C4);
+  Quad(P(0, FHallH, 0), P(FHallW, FHallH, 0), P(FHallW, FHallH, 1), P(0, FHallH, 1), Ce);
+  Quad(P(0, 0, 0), P(FHallW, 0, 0), P(FHallW, 0, 1), P(0, 0, 1), Fl);
+  Quad(P(0, 0, 0), P(0, FHallH, 0), P(0, FHallH, 1), P(0, 0, 1), Lw);
+  Quad(P(FHallW, 0, 0), P(FHallW, FHallH, 0), P(FHallW, FHallH, 1), P(FHallW, 0, 1), Rw);
+  { tiles: lines down the hall a foot apart, and across it closing up }
+  X := 0;
+  while X <= FHallW + 1E-9 do
   begin
-    if FSpec.RefH0Top then A0 := FSpec.RefH0 - FSpec.H0 else A0 := FSpec.RefH0;
-    if FSpec.RefH1Top then A1 := FSpec.RefH1 - FSpec.H1 else A1 := FSpec.RefH1;
-  end
-  else
-  begin
-    if FSpec.RefH0Top then A0 := FSpec.RefH0 else A0 := FSpec.RefH0 - FSpec.H0;
-    if FSpec.RefH1Top then A1 := FSpec.RefH1 else A1 := FSpec.RefH1 - FSpec.H1;
+    Seg(P(X, 0, 0), P(X, 0, 1), $00B4AC9E, 1);
+    X := X + 1;
   end;
-  Ext := Max(Max(A0 + FSpec.H0, A1 + FSpec.H1), Max(FSpec.RefH0, FSpec.RefH1));
-  if Ext < 1E-9 then Ext := 1;
-  Sc := (H - 130) / Ext;
-  if Ceiling then RefY := 40 else RefY := H - 60;
-  X0 := 280; X1 := 470;
-  TX0 := 210; TX1 := 545;
-  { the reference: a heavy line with hatching on its far side }
-  C.Pen.Color := INKG;
-  C.Pen.Width := 4;
-  C.Line(20, RefY, W - 20, RefY);
-  C.Pen.Width := 1;
-  C.Pen.Color := $00B0B0B0;
-  if Ceiling then
+  for I := 1 to 14 do
   begin
-    C.Brush.Color := $00E8E8E8; C.Brush.Style := bsSolid;
-    C.FillRect(20, RefY - 14, W - 20, RefY - 2);
-  end
-  else
-  begin
-    C.Brush.Color := $00E8E8E8; C.Brush.Style := bsSolid;
-    C.FillRect(20, RefY + 2, W - 20, RefY + 14);
+    T := 1 - 1 / (1 + I * 0.28);
+    Seg(P(0, 0, T), P(FHallW, 0, T), $00B4AC9E, 1);
   end;
+  { brick courses on both walls, and a few joints }
+  Y := 0;
+  while Y <= FHallH do
+  begin
+    Seg(P(0, Y, 0), P(0, Y, 1), $00A0B4D8, 1);
+    Seg(P(FHallW, Y, 0), P(FHallW, Y, 1), $00A0B4D8, 1);
+    Y := Y + 0.33;
+  end;
+  for I := 1 to 12 do
+  begin
+    T := 1 - 1 / (1 + I * 0.28);
+    J := I mod 2;
+    Y := J * 0.33;
+    while Y <= FHallH do
+    begin
+      Seg(P(0, Y, T), P(0, Y + 0.33, T), $00A0B4D8, 1);
+      Seg(P(FHallW, Y, T), P(FHallW, Y + 0.33, T), $00A0B4D8, 1);
+      Y := Y + 0.66;
+    end;
+  end;
+  { a light in the ceiling, and its seams }
+  Quad(P(FHallW / 2 - 1, FHallH, 0.3), P(FHallW / 2 + 1, FHallH, 0.3),
+       P(FHallW / 2 + 1, FHallH, 0.42), P(FHallW / 2 - 1, FHallH, 0.42), $00FFFDF6);
+  C.Font.Size := 9;
+  C.Font.Color := $00606060;
   C.Brush.Style := bsClear;
-  C.Font.Color := INKG;
-  C.Font.Size := 10;
-  if Ceiling then C.TextOut(24, RefY + 16, 'ceiling') else C.TextOut(24, RefY - 32, 'floor');
-  Ya0 := YOf(A0); Yb0 := YOf(A0 + FSpec.H0);
-  Ya1 := YOf(A1); Yb1 := YOf(A1 + FSpec.H1);
-  { the duct, side on: the two openings and the body between }
-  C.Pen.Color := $00A0A0A0;
-  C.Brush.Color := $00F0ECE6; C.Brush.Style := bsSolid;
-  C.Polygon([Point(X0, Ya0), Point(X1, Ya1), Point(X1, Yb1), Point(X0, Yb0)]);
-  C.Brush.Style := bsClear;
-  C.Pen.Color := clBlack; C.Pen.Width := 3;
-  C.Line(X0, Ya0, X0, Yb0);
-  C.Line(X1, Ya1, X1, Yb1);
-  C.Pen.Width := 1;
-  C.Font.Color := clGray;
-  C.TextOut(X0 - 16, Min(Ya0, Yb0) - 20, 'entry');
-  C.TextOut(X1 - 12, Min(Ya1, Yb1) - 20, 'exit');
-  { the tapes: from the reference to the edge each reading was taken to }
-  if FSpec.RefH0Top = Ceiling then Y0 := Ya0 else Y0 := Yb0;
-  if FSpec.RefH1Top = Ceiling then Y1 := Ya1 else Y1 := Yb1;
-  { from the floor: the near edge is the bottom (Ya); to the top means Yb }
-  if not Ceiling then
-  begin
-    if FSpec.RefH0Top then Y0 := Yb0 else Y0 := Ya0;
-    if FSpec.RefH1Top then Y1 := Yb1 else Y1 := Ya1;
-  end
-  else
-  begin
-    if FSpec.RefH0Top then Y0 := Ya0 else Y0 := Yb0;
-    if FSpec.RefH1Top then Y1 := Ya1 else Y1 := Yb1;
-  end;
-  TapeLine(C, TX0, RefY, Y0);
-  TapeLine(C, TX1, RefY, Y1);
-  { the leaders from the tapes to their boxes }
-  C.Pen.Color := TAPE;
-  C.Line(TX0, (RefY + Y0) div 2, 190, 164);
-  C.Line(TX1, (RefY + Y1) div 2, 572, 164);
-  { and the one holding the tape }
-  if Ceiling then Figure(C, 110, H - 20, TX0 - 8, RefY + 8)
-  else Figure(C, 110, RefY, TX0 - 8, Y0);
-end;
-
-procedure TTapeWizard.PaintWidth(C: TCanvas; W, H: Integer);
-var
-  RefY, X0, X1, TX0, TX1, Ya0, Yb0, Ya1, Yb1, Y0, Y1: Integer;
-  A0, A1, Ext, Sc: Double;
-  LeftWall: Boolean;
-  function YOf(V: Double): Integer;
-  begin
-    if LeftWall then Result := Round(RefY + V * Sc) else Result := Round(RefY - V * Sc);
-  end;
-begin
-  C.Brush.Color := clWhite;
-  C.FillRect(0, 0, W, H);
-  LeftWall := FSpec.RefW = rwLeft;
-  if LeftWall then
-  begin
-    if FSpec.RefW0Right then A0 := FSpec.RefW0 - FSpec.W0 else A0 := FSpec.RefW0;
-    if FSpec.RefW1Right then A1 := FSpec.RefW1 - FSpec.W1 else A1 := FSpec.RefW1;
-  end
-  else
-  begin
-    if FSpec.RefW0Right then A0 := FSpec.RefW0 else A0 := FSpec.RefW0 - FSpec.W0;
-    if FSpec.RefW1Right then A1 := FSpec.RefW1 else A1 := FSpec.RefW1 - FSpec.W1;
-  end;
-  Ext := Max(Max(A0 + FSpec.W0, A1 + FSpec.W1), Max(FSpec.RefW0, FSpec.RefW1));
-  if Ext < 1E-9 then Ext := 1;
-  Sc := (H - 130) / Ext;
-  { seen from above, entry on the left: the left of the run is the top }
-  if LeftWall then RefY := 40 else RefY := H - 60;
-  X0 := 280; X1 := 470;
-  TX0 := 210; TX1 := 545;
-  C.Pen.Color := INKG;
-  C.Pen.Width := 6;
-  C.Line(20, RefY, W - 20, RefY);
-  C.Pen.Width := 1;
-  C.Font.Color := INKG;
-  C.Font.Size := 10;
-  if LeftWall then C.TextOut(24, RefY + 8, 'left wall  (looking from the entry to the exit)')
-  else C.TextOut(24, RefY - 26, 'right wall  (looking from the entry to the exit)');
-  Ya0 := YOf(A0); Yb0 := YOf(A0 + FSpec.W0);
-  Ya1 := YOf(A1); Yb1 := YOf(A1 + FSpec.W1);
-  C.Pen.Color := $00A0A0A0;
-  C.Brush.Color := $00F0ECE6; C.Brush.Style := bsSolid;
-  C.Polygon([Point(X0, Ya0), Point(X1, Ya1), Point(X1, Yb1), Point(X0, Yb0)]);
-  C.Brush.Style := bsClear;
-  C.Pen.Color := clBlack; C.Pen.Width := 3;
-  C.Line(X0, Ya0, X0, Yb0);
-  C.Line(X1, Ya1, X1, Yb1);
-  C.Pen.Width := 1;
-  C.Font.Color := clGray;
-  C.TextOut(X0 - 16, Max(Ya0, Yb0) + 6, 'entry');
-  C.TextOut(X1 - 12, Max(Ya1, Yb1) + 6, 'exit');
-  C.TextOut(X0 + 60, (Ya0 + Yb0 + Ya1 + Yb1) div 4 - 8, 'plan - from above');
-  if LeftWall then
-  begin
-    if FSpec.RefW0Right then Y0 := Yb0 else Y0 := Ya0;
-    if FSpec.RefW1Right then Y1 := Yb1 else Y1 := Ya1;
-  end
-  else
-  begin
-    if FSpec.RefW0Right then Y0 := Ya0 else Y0 := Yb0;
-    if FSpec.RefW1Right then Y1 := Ya1 else Y1 := Yb1;
-  end;
-  TapeLine(C, TX0, RefY, Y0);
-  TapeLine(C, TX1, RefY, Y1);
-  C.Pen.Color := TAPE;
-  C.Line(TX0, (RefY + Y0) div 2, 190, 164);
-  C.Line(TX1, (RefY + Y1) div 2, 572, 164);
-  { the one with the tape, seen from above: a head and shoulders }
-  C.Pen.Color := INKG;
+  C.TextOut(P(FHallW / 2, FHallH, 0.06).X - 22, P(FHallW / 2, FHallH, 0.06).Y + 4, 'ceiling');
+  C.TextOut(P(FHallW / 2, 0, 0.06).X - 14, P(FHallW / 2, 0, 0.06).Y - 20, 'floor');
+  C.TextOut(P(0, FHallH * 0.5, 0.04).X + 6, P(0, FHallH * 0.5, 0.04).Y - 8, 'left wall');
+  Txt := 'right wall';
+  C.TextOut(P(FHallW, FHallH * 0.5, 0.04).X - 6 - C.TextWidth(Txt), P(FHallW, FHallH * 0.5, 0.04).Y - 8, Txt);
+  { the duct: exit opening far, entry near, the sides between }
+  X0 := P(FL1, FB1, FT1); X1 := P(FL1 + FSpec.W1, FB1, FT1);
+  X2 := P(FL1 + FSpec.W1, FB1 + FSpec.H1, FT1); X3 := P(FL1, FB1 + FSpec.H1, FT1);
+  E0 := P(FL0, FB0, FT0); E1 := P(FL0 + FSpec.W0, FB0, FT0);
+  E2 := P(FL0 + FSpec.W0, FB0 + FSpec.H0, FT0); E3 := P(FL0, FB0 + FSpec.H0, FT0);
+  Quad(X0, X1, X2, X3, $00A8AEB4);                { the far opening, closed }
+  Quad(E3, E2, X2, X3, $00DCE0E4);                { top }
+  Quad(E0, E1, X1, X0, $00A0A6AC);                { bottom }
+  Quad(E0, E3, X3, X0, $00C4C9CE);                { left side }
+  Quad(E1, E2, X2, X1, $00B4BABF);                { right side }
+  Quad(E0, E1, E2, E3, $00505860);                { the entry opening, dark inside }
+  C.Pen.Color := $00404448;
   C.Pen.Width := 2;
   C.Brush.Style := bsClear;
-  C.Ellipse(100, (RefY + Y0) div 2 - 10, 120, (RefY + Y0) div 2 + 10);
-  C.Arc(88, (RefY + Y0) div 2 - 22, 132, (RefY + Y0) div 2 + 22, 132, (RefY + Y0) div 2, 88, (RefY + Y0) div 2);
-  C.Line(120, (RefY + Y0) div 2, TX0 - 8, (RefY + Y0) div 2);
+  C.Polygon([E0, E1, E2, E3]);
+  C.Polygon([X0, X1, X2, X3]);
+  Seg(E0, X0, $00404448, 1); Seg(E1, X1, $00404448, 1); Seg(E2, X2, $00404448, 1); Seg(E3, X3, $00404448, 1);
+  { the exit opening seen through the entry, dashed, so the offset and
+    the smaller size read even when the entry hides it }
+  C.Pen.Style := psDash;
+  C.Pen.Color := $00E0E4E8;
+  C.Polygon([X0, X1, X2, X3]);
+  C.Pen.Style := psSolid;
   C.Pen.Width := 1;
+  C.Font.Color := clWhite;
+  C.Font.Size := 9;
+  C.TextOut(E0.X + 6, E3.Y + 4, 'entry');
+  C.Font.Color := $00E0E4E8;
+  C.TextOut(X1.X - 26, X1.Y - 16, 'exit');
+  { the tapes }
+  if FPage = 0 then
+  begin
+    if FSpec.RefH = rhFloor then
+    begin
+      if FSpec.RefH0Top then Y := FB0 + FSpec.H0 else Y := FB0;
+      FDimA0 := P(FL0 - 0.7, 0, FT0); FDimA1 := P(FL0 - 0.7, Y, FT0);
+      if FSpec.RefH1Top then Y := FB1 + FSpec.H1 else Y := FB1;
+      FDimB0 := P(FL1 + FSpec.W1 + 0.7, 0, FT1); FDimB1 := P(FL1 + FSpec.W1 + 0.7, Y, FT1);
+    end
+    else
+    begin
+      if FSpec.RefH0Top then Y := FB0 + FSpec.H0 else Y := FB0;
+      FDimA0 := P(FL0 - 0.7, FHallH, FT0); FDimA1 := P(FL0 - 0.7, Y, FT0);
+      if FSpec.RefH1Top then Y := FB1 + FSpec.H1 else Y := FB1;
+      FDimB0 := P(FL1 + FSpec.W1 + 0.7, FHallH, FT1); FDimB1 := P(FL1 + FSpec.W1 + 0.7, Y, FT1);
+    end;
+    { a dotted reach from the tape's end to the edge it lands on }
+    C.Pen.Style := psDot;
+    Seg(FDimA1, Point(E0.X, FDimA1.Y), TAPE_COL, 1);
+    Seg(FDimB1, Point(X1.X, FDimB1.Y), TAPE_COL, 1);
+    C.Pen.Style := psSolid;
+    Tape(FDimA0, FDimA1, FormatLen(FSpec.RefH0, FUnits), False);
+    Tape(FDimB0, FDimB1, FormatLen(FSpec.RefH1, FUnits), False);
+  end
+  else
+  begin
+    Y := FB0 + FSpec.H0 * 0.5;
+    if FSpec.RefW = rwLeft then
+    begin
+      if FSpec.RefW0Right then X := FL0 + FSpec.W0 else X := FL0;
+      FDimA0 := P(0, Y, FT0); FDimA1 := P(X, Y, FT0);
+      Y := FB1 + FSpec.H1 * 0.5;
+      if FSpec.RefW1Right then X := FL1 + FSpec.W1 else X := FL1;
+      FDimB0 := P(0, Y, FT1); FDimB1 := P(X, Y, FT1);
+    end
+    else
+    begin
+      if FSpec.RefW0Right then X := FL0 + FSpec.W0 else X := FL0;
+      FDimA0 := P(FHallW, Y, FT0); FDimA1 := P(X, Y, FT0);
+      Y := FB1 + FSpec.H1 * 0.5;
+      if FSpec.RefW1Right then X := FL1 + FSpec.W1 else X := FL1;
+      FDimB0 := P(FHallW, Y, FT1); FDimB1 := P(X, Y, FT1);
+    end;
+    Tape(FDimA0, FDimA1, FormatLen(FSpec.RefW0, FUnits), True);
+    Tape(FDimB0, FDimB1, FormatLen(FSpec.RefW1, FUnits), True);
+  end;
+end;
+
+{ the reading boxes and their edge buttons beside their tape lines }
+procedure TTapeWizard.PlaceBoxes;
+var
+  MX, MY: Integer;
+begin
+  if FPage >= 2 then Exit;
+  Scene(pbPic.Width, pbPic.Height);
+  { the tape ends are only known after a paint; place by the openings'
+    positions instead, which Scene knows }
+  MX := pbPic.Left + 12;
+  MY := pbPic.Top + 60;
+  edA.SetBounds(MX, MY, 70, 28);
+  btnEdgeA.SetBounds(MX, MY + 32, 120, 26);
+  MX := pbPic.Left + pbPic.Width - 132;
+  edB.SetBounds(MX + 50, MY, 70, 28);
+  btnEdgeB.SetBounds(MX, MY + 32, 120, 26);
 end;
 
 procedure TTapeWizard.PaintResult(C: TCanvas; W, H: Integer);

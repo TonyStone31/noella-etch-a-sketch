@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The tape wizard's pictures are a hallway.**  Both tape pages are one
+  cartoon: a hallway seen from the entry end, a smooth ceiling with a
+  light, a tile floor, brick walls either side, and the duct hanging a
+  foot below the ceiling the way it would on the job, its exit end
+  further down the hall and offset the way the readings say.  The tape
+  lines run from the floor or the ceiling, or from a wall, to the edge
+  each reading was taken to, with the reading on the line.  The exit
+  shows dashed through the entry so the offset and the smaller size read.
+
 ## v2026.09.08.9
 
 ### Changed
