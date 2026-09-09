@@ -4,7 +4,7 @@
 #
 #   ./build.sh            -> Linux, Debug. The dev loop. Range checks ON.
 #   ./build.sh release    -> Linux, Release. -O3, smart linked, no debug info.
-#   ./build.sh windows    -> Windows x86_64 .exe, Release. Zipped and uploaded.
+#   ./build.sh windows    -> Windows x86_64 .exe, Release, zipped into dist/.
 #   ./build.sh windbg     -> Windows x86_64 .exe, DEBUG. Range checks on and
 #                            line numbers in the crash log. Slower and fatter,
 #                            and the one to test with while a crash is open.
@@ -14,12 +14,10 @@
 #   ./build.sh fresh      -> clean, then build both. The gate before handing
 #                            a build to anybody.
 #   ./build.sh dist       -> Release both, stamped with the date and commit,
-#                            into dist/, zipped and uploaded.
+#                            zipped into dist/.
 #   ./build.sh crossrtl   -> rebuild the FPC win64 cross RTL. Needed once, and
 #                            again after every FPC update. See below.
-#   ./build.sh upload F   -> put one file on a no-account file host and record
-#                            the URL.
-#   ./build.sh nozip      -> prefix: build without zipping or uploading, e.g.
+#   ./build.sh nozip      -> prefix: build without zipping, e.g.
 #                            ./build.sh nozip windows
 set -e
 
@@ -42,9 +40,9 @@ DIST="$ROOT/dist"
 MODE_DEV=Debug
 MODE_SHIP=Release
 
-# Every Windows build gets zipped and put on catbox, because the exe has to
-# reach a Windows machine somehow and a URL is the shortest path. NOZIP=1, or
-# the nozip prefix, turns it off for a build you are only checking compiles.
+# Every Windows build gets zipped into dist/, readme beside it; the GitHub
+# release attaches the zip.  NOZIP=1, or the nozip prefix, turns it off for a
+# build you are only checking compiles.
 NOZIP="${NOZIP:-0}"
 
 # Windows will not run a .exe out of a browser download without a fight, and
@@ -92,14 +90,11 @@ TXT
   ( cd "$tmp" && zip -q -9 -r "$zipname" . )
   rm -rf "$tmp"
   if [ ! -s "$zipname" ]; then
-    say "the zip came out empty - not uploading"
+    say "the zip came out empty"
     return 1
   fi
   say "zipped $(du -h "$zipname" | cut -f1) -> $(basename "$zipname")"
   say "$(unzip -l "$zipname" | tail -n +4 | head -6)"
-  # A GitHub release attaches the zip itself, so there is nothing to gain from
-  # a paste-site upload on that path.
-  [ "${NOUPLOAD:-0}" = "1" ] || do_upload "$zipname"
 }
 
 # THE WINDOWS CROSS RTL, AND WHY IT GOES STALE.
@@ -256,50 +251,6 @@ do_crossrtl() {
   say "win64 cross RTL is good"
 }
 
-# NO-ACCOUNT FILE HOSTS.
-#
-# catbox keeps a file until it is deleted and takes 200 MB, which is the only
-# one of these that matches "keeps each file". 0x0.st keeps smaller files for
-# something close to a year and is the fallback. Neither has folders, so the
-# record of what was uploaded lives in dist/uploads.txt here rather than there.
-#
-# Anyone with the URL can download it. That is the deal with every host of this
-# kind, and it is why this is never part of a build.
-do_upload() {
-  local f="$1" host="${UPLOAD_HOST:-catbox}" url
-  [ -n "$f" ] || die "usage: ./build.sh upload <file>"
-  [ -f "$f" ] || die "no such file: $f"
-  command -v curl >/dev/null || die "curl is needed to upload"
-  say "uploading $(basename "$f") ($(du -h "$f" | cut -f1)) to $host"
-  case "$host" in
-    catbox)
-      # A zip with four binaries in it is twenty megabytes, and the upload
-      # times out often enough to be worth retrying rather than failing the
-      # build over.
-      local try
-      for try in 1 2 3; do
-        url="$(curl -sS --connect-timeout 20 --max-time 900 \
-               -F reqtype=fileupload -F "fileToUpload=@$f" \
-               https://catbox.moe/user/api.php)" || url=""
-        case "$url" in http*) break ;; esac
-        say "upload attempt $try did not take - trying again"
-        sleep 3
-      done ;;
-    0x0)
-      url="$(curl -sS -F "file=@$f" https://0x0.st)" ;;
-    *) die "unknown UPLOAD_HOST: $host   (catbox, 0x0)" ;;
-  esac
-  case "$url" in
-    http*) ;;
-    *) die "upload failed: $url" ;;
-  esac
-  mkdir -p "$DIST"
-  printf '%s  %s  %s\n' "$(date -Is)" "$(basename "$f")" "$url" \
-    >> "$DIST/uploads.txt"
-  say "$url"
-  echo "recorded in dist/uploads.txt"
-}
-
 # Build all four and put them in one zip: the fast pair to run, and the
 # checked pair beside them.  The checked ones are stashed under dist/dbg
 # first, because both modes write to the same place in the tree.
@@ -397,7 +348,16 @@ do_github() {
   # file back afterwards - the tree has to stay clean for the next release.
   # On a trap as well as on the way out, or a release that falls over half
   # way leaves the tree dirty and the next one refuses to start.
-  trap 'git -C "$ROOT" checkout -- version.inc 2>/dev/null || true' RETURN
+  trap 'git -C "$ROOT" checkout -- version.inc etchasketch.lpi 2>/dev/null || true' RETURN
+  # The Windows version resource carries the tag as numbers - 2026.9.9.1 -
+  # which is what a code signature and SmartScreen read.
+  local vy vm vd vn
+  IFS=. read -r vy vm vd vn <<< "${tag#v}"
+  vn="${vn:-0}"
+  sed -i -e "s|<MajorVersionNr Value=\"[0-9]*\"/>|<MajorVersionNr Value=\"${vy}\"/>|" \
+         -e "s|<MinorVersionNr Value=\"[0-9]*\"/>|<MinorVersionNr Value=\"$((10#$vm))\"/>|" \
+         -e "s|<RevisionNr Value=\"[0-9]*\"/>|<RevisionNr Value=\"$((10#$vd))\"/>|" \
+         -e "s|<BuildNr Value=\"[0-9]*\"/>|<BuildNr Value=\"${vn}\"/>|" "$PROJ"
   printf '%s\n' \
     '{ Written by build.sh at release time.  A hand-built copy keeps the' \
     '  dev value, which is older than any real tag so it never claims to be' \
@@ -405,7 +365,7 @@ do_github() {
     'const' \
     "  APP_VERSION = '$tag';" > "$ROOT/version.inc"
 
-  NOUPLOAD=1 do_ship
+  do_ship
 
   # Keep this release's symbols under its tag.  The fixed-name copies are
   # overwritten by the next release, and a crash report from the build before
@@ -504,7 +464,6 @@ case "${1:-}" in
   fresh)          do_clean; build_linux "$MODE_DEV"; build_windows "$MODE_SHIP" ;;
   dist)           do_dist ;;
   crossrtl)       do_crossrtl ;;
-  upload)         do_upload "${2:-}" ;;
   github|gh)      do_github "${2:-}" ;;
   *)              sed -n '2,20p' "$0"; exit 1 ;;
 esac
