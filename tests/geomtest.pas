@@ -2271,6 +2271,55 @@ begin
   end;
 end;
 
+{ The metal: the gauge the size calls for, and the stiffening drawn on the
+  big panels. }
+procedure TestMetal;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  First, Plain, I, Diag: Integer;
+begin
+  WriteLn('Gauge and stiffening');
+  T := Default(TTransitionSpec);
+  T.Inch := 1 / 12;
+  T.W0 := 1; T.H0 := 1; T.W1 := 1; T.H1 := 1; T.Len := 2;
+  Ok(SuggestGauge(T) = 26, '12" duct: 26 gauge');
+  T.W0 := 30 / 12; Ok(SuggestGauge(T) = 24, '30" side: 24 gauge');
+  T.W0 := 54 / 12; Ok(SuggestGauge(T) = 22, '54" side: 22 gauge');
+  T.W0 := 60 / 12; Ok(SuggestGauge(T) = 20, '60" side: 20 gauge');
+  T.Gauge := 22; T.W0 := 1;
+  Ok(Pos('22 gauge (chosen; the size calls for 26)', MetalWords(T)) > 0, 'a chosen gauge says what the size called for');
+  T.Gauge := 0;
+  D := TWorkDoc.Create;
+  try
+    T.Stiffen := stNone;
+    First := BuildTransition(D, T, 0, 1);
+    Plain := D.Live - First;
+    D.Clear;
+    { 30 x 30, 24" long: every wall wants a cross break }
+    T.W0 := 30 / 12; T.H0 := 30 / 12; T.W1 := 30 / 12; T.H1 := 30 / 12;
+    T.Stiffen := stAuto;
+    First := BuildTransition(D, T, 0, 1);
+    Ok(D.Live - First = Plain + 8, 'auto on a 30" duct: two diagonals on each of four walls');
+    Ok(Pos('cross break the bottom, right side, top, left side', MetalWords(T)) > 0, 'and the ticket names the walls');
+    D.Clear;
+    T.Len := 4;
+    First := BuildTransition(D, T, 0, 1);
+    Ok(Pos('beads every 12"', MetalWords(T)) > 0, 'a 48" run gets beads instead');
+    Diag := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y - D[I].B.Y) < 1E-9) and (Abs(D[I].A.Y - 1) < 1E-9) then Inc(Diag);
+    Ok(Diag = 4, Format('a bead across each wall a foot in (%d)', [Diag]));
+    D.Clear;
+    T.Stiffen := stNone;
+    T.Len := 2;
+    First := BuildTransition(D, T, 0, 1);
+    Ok(D.Live - First = Plain, 'no stiffening when told none');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestDuctEnds;
 var
   D: TWorkDoc;
@@ -3319,6 +3368,7 @@ begin
   TestTransition;  WriteLn;
   TestDuctEnds;  WriteLn;
   TestFlexEnds;  WriteLn;
+  TestMetal;  WriteLn;
   TestElbowTee;  WriteLn;
   TestFacingOut;  WriteLn;
   TestArcSnaps;  WriteLn;

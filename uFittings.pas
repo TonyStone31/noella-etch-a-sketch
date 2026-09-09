@@ -18,7 +18,7 @@ unit uFittings;
 interface
 
 uses
-  Classes, SysUtils, Math, Graphics, uWork;
+  Classes, SysUtils, Math, StrUtils, Graphics, uWork;
 
 type
   { which edge is called out on the width, and on the height }
@@ -56,6 +56,10 @@ type
 
   { what the wizard builds }
   TFittingKind = (fkTransition, fkElbow, fkTee);
+  { how a flat panel is kept from drumming: left as is, cross broken -
+    the two diagonals put in on the brake - or beaded across every foot }
+  TStiffen = (stNone, stAuto, stCrossBreak, stBeads);   { none first: a spec
+    made in code stiffens nothing unless asked }
   { which way an elbow turns, seen from the entry }
   TTurn = (tuRight, tuLeft, tuUp, tuDown);
   { which wall of a tee the branch comes off }
@@ -102,6 +106,10 @@ type
       is the duct's front and its bottom the back, the furnace laid on its
       back.  Only the words change. }
     Vertical: Boolean;
+    { the metal: the gauge, 0 for whatever the size calls for, and how the
+      big panels are stiffened }
+    Gauge: Integer;
+    Stiffen: TStiffen;
   end;
 
 const
@@ -123,6 +131,13 @@ const
     'No flex connector', 'Junior flex connector, 1 3/4 - 3 - 1 3/4',
     'Flex connector 3 - 3 - 3', 'Flex connector 3 - 6 - 3');
   FLEX_STRIP_IN: array[TFlexSize] of Double = (0, 1.75, 3, 3);
+  STIFFEN_NAMES: array[TStiffen] of string = (
+    'No stiffening', 'Stiffen as needed', 'Cross breaks', 'Beads every 12"');
+  GAUGES: array[0..6] of Integer = (28, 26, 24, 22, 20, 18, 16);
+  { a panel this wide and this long wants stiffening, in inches }
+  STIFFEN_WIDTH_IN = 18;
+  STIFFEN_LENGTH_IN = 12;
+  BEAD_SPACING_IN = 12;
   FLEX_FABRIC_IN: array[TFlexSize] of Double = (0, 3, 3, 6);
   FITTING_NAMES: array[TFittingKind] of string = ('Transition', 'Elbow', 'Tee');
   TURN_NAMES: array[TTurn] of string = ('Right', 'Left', 'Up', 'Down');
@@ -137,6 +152,17 @@ function FlexInstalledIn(F: TFlexSize): Double;
   brought to one edge, the difference taken, and the rule named the way the
   shop says it - up or down, in or out.  Sizes and readings must be set. }
 procedure TapeRules(var T: TTransitionSpec);
+{ The gauge the largest side calls for, the usual commercial table for
+  low-pressure rectangular duct: 26 to 12", 24 to 30", 22 to 54", 20 to
+  84", 18 beyond.  Residential work runs a step lighter; a shop that
+  does is one override away. }
+function SuggestGauge(const T: TTransitionSpec): Integer;
+{ the gauge in force: chosen, or suggested when 0 }
+function GaugeOf(const T: TTransitionSpec): Integer;
+{ whether a panel this size wants stiffening, and which kind when auto }
+function StiffenFor(const T: TTransitionSpec; WidthIn, LengthIn: Double): TStiffen;
+{ what the metal line of the ticket says }
+function MetalWords(const T: TTransitionSpec): string;
 { the rules in shop words: "Bottom up by 4", Right side in by 7" }
 function TapeWords(const T: TTransitionSpec): string;
 
@@ -192,6 +218,75 @@ end;
 function FlexInstalledIn(F: TFlexSize): Double;
 begin
   Result := 2 * FLEX_STRIP_IN[F] + FLEX_FABRIC_IN[F] / 2;
+end;
+
+function SuggestGauge(const T: TTransitionSpec): Integer;
+var
+  Side, Inch: Double;
+begin
+  Inch := T.Inch;
+  if Inch <= 0 then Inch := 1 / 12;
+  Side := Max(Max(T.W0, T.H0), Max(T.W1, T.H1));
+  if T.Kind = fkTee then Side := Max(Side, Max(T.BW, T.BH));
+  Side := Side / Inch;
+  if Side <= 12 then Result := 26
+  else if Side <= 30 then Result := 24
+  else if Side <= 54 then Result := 22
+  else if Side <= 84 then Result := 20
+  else Result := 18;
+end;
+
+function GaugeOf(const T: TTransitionSpec): Integer;
+begin
+  if T.Gauge > 0 then Result := T.Gauge else Result := SuggestGauge(T);
+end;
+
+function StiffenFor(const T: TTransitionSpec; WidthIn, LengthIn: Double): TStiffen;
+begin
+  Result := T.Stiffen;
+  if Result = stNone then Exit;
+  if (WidthIn < STIFFEN_WIDTH_IN) or (LengthIn < STIFFEN_LENGTH_IN) then Exit(stNone);
+  { asked for nothing in particular: a cross break on a panel up to a yard
+    long, beads on a longer one, which is what most shops do }
+  if Result = stAuto then
+    if LengthIn <= 36 then Result := stCrossBreak else Result := stBeads;
+end;
+
+function MetalWords(const T: TTransitionSpec): string;
+var
+  Inch, W, L: Double;
+  K: Integer;
+  S: TStiffen;
+  Names: array[0..3] of string;
+  Breaks, Beads: string;
+begin
+  Inch := T.Inch;
+  if Inch <= 0 then Inch := 1 / 12;
+  Result := Format('%d gauge', [GaugeOf(T)]);
+  if T.Gauge = 0 then Result := Result + ' (what the size calls for)'
+  else if T.Gauge <> SuggestGauge(T) then
+    Result := Result + Format(' (chosen; the size calls for %d)', [SuggestGauge(T)]);
+  if T.Kind <> fkTransition then Exit;
+  Names[0] := 'bottom'; Names[1] := 'right side'; Names[2] := 'top'; Names[3] := 'left side';
+  Breaks := ''; Beads := '';
+  for K := 0 to 3 do
+  begin
+    if K in [0, 2] then W := Max(T.W0, T.W1) else W := Max(T.H0, T.H1);
+    L := T.Len;
+    S := StiffenFor(T, W / Inch, L / Inch);
+    case S of
+      stCrossBreak: Breaks := Breaks + IfThen(Breaks = '', '', ', ') + Names[K];
+      stBeads: Beads := Beads + IfThen(Beads = '', '', ', ') + Names[K];
+    end;
+  end;
+  if (Breaks = '') and (Beads = '') then
+  begin
+    if T.Stiffen = stNone then Result := Result + '; no stiffening'
+    else Result := Result + '; no stiffening needed at this size';
+    Exit;
+  end;
+  if Breaks <> '' then Result := Result + '; cross break the ' + Breaks;
+  if Beads <> '' then Result := Result + Format('; beads every %d" on the ', [BEAD_SPACING_IN]) + Beads;
 end;
 
 procedure TapeRules(var T: TTransitionSpec);
@@ -520,6 +615,7 @@ begin
       end;
     end;
   end;
+  Result := Result + 'Metal: ' + MetalWords(T) + LineEnding;
   Result := Result +
     'Entry end: ' + EndWords(T.Ends[0]) + LineEnding +
     'Exit end: ' + EndWords(T.Ends[1]) + LineEnding;
@@ -544,6 +640,7 @@ type
     Ink: TColor;
     Weight: Single;
     Inch: Double;
+    Spec: TTransitionSpec;     { for the stiffening, wall by wall }
   end;
 
 function Add(const A, B: TP3; F: Double): TP3;
@@ -672,6 +769,42 @@ var
     end;
   end;
 
+  { The stiffening drawn on wall K, in a lighter line: a cross break is the
+    two diagonals, beads are lines across the panel every foot along the
+    run.  Only on a panel big enough to want it. }
+  procedure Stiffen(K: Integer);
+  var
+    J, N, I: Integer;
+    Wd, Ln, T: Double;
+    S: TStiffen;
+    Thin: TBuild;
+  begin
+    J := (K + 1) mod 4;
+    Wd := Max(Dist(C[0][K], C[0][J]), Dist(C[1][K], C[1][J]));
+    Ln := Min(Dist(C[0][K], C[1][K]), Dist(C[0][J], C[1][J]));
+    S := StiffenFor(B.Spec, Wd / B.Inch, Ln / B.Inch);
+    if S = stNone then Exit;
+    Thin := B;
+    Thin.Weight := Max(0.5, B.Weight * 0.6);
+    case S of
+      stCrossBreak:
+        begin
+          BLine(Thin, C[0][K], C[1][J]);
+          BLine(Thin, C[0][J], C[1][K]);
+        end;
+      stBeads:
+        begin
+          N := Trunc(Ln / (BEAD_SPACING_IN * B.Inch));
+          for I := 1 to N do
+          begin
+            T := I * BEAD_SPACING_IN * B.Inch / Ln;
+            if T >= 0.98 then Break;
+            BLine(Thin, Lerp3(C[0][K], C[1][K], T), Lerp3(C[0][J], C[1][J], T));
+          end;
+        end;
+    end;
+  end;
+
   { everything at end E of wall K that is not the wall itself: the opening
     edge in its pieces, the notch cuts, the flange }
   procedure FinishEnd(E, K: Integer);
@@ -763,6 +896,7 @@ begin
     for I := 0 to N1 - 1 do Poly[I] := P1[I];
     for I := 0 to N0 - 1 do Poly[N1 + I] := P0[N0 - 1 - I];
     BFaceOut(B, Poly, OutNormal(K));
+    Stiffen(K);
   end;
   { the seams, from the point of one cut to the point of the other }
   for K := 0 to 3 do
@@ -783,6 +917,7 @@ begin
   Result.Weight := Weight;
   Result.Inch := T.Inch;
   if Result.Inch <= 0 then Result.Inch := 1 / 12;
+  Result.Spec := T;
 end;
 
 { the offset the dimensions and the tag stand off by }

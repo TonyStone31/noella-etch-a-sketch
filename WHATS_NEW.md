@@ -10,6 +10,29 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Gauge and stiffening on the fitting builder.**  A Metal row: the
+  gauge, left as "as needed" for what the size calls for - 26 to 12",
+  24 to 30", 22 to 54", 20 to 84", 18 beyond, the usual low-pressure
+  table - or picked outright, and how the big panels are stiffened: as
+  needed, none, cross breaks, or beads every foot.  As needed means a
+  panel over 18" wide and a foot long gets a cross break up to a yard
+  long and beads beyond that.  The breaks and beads are drawn on the
+  walls in a lighter line, the builder says what it chose under the row,
+  and the ticket carries a Metal line naming the gauge and which walls
+  are broken or beaded.  The thresholds are the common ones; a shop that
+  runs lighter or heavier picks its own.
+
+### Changed
+
+- **Two menus cleaned up.**  The VIEW menu no longer offers the plan and
+  iso paper modes - this is a 3D model, and a flat layout tool is for
+  another day - and the SHOP menu loses "Field sketch, on iso paper",
+  which the Fitter's scratchpad replaced.
+
 ## v2026.09.09.2
 
 ### Fixed

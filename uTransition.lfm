@@ -796,4 +796,42 @@ object TransitionForm: TTransitionForm
     OnClick = btnTapeClick
     TabOrder = 30
   end
+  object lblMetal: TLabel
+    Left = 440
+    Height = 18
+    Top = 632
+    Width = 40
+    Caption = 'Metal'
+  end
+  object cbGauge: TComboBox
+    Left = 484
+    Height = 28
+    Top = 626
+    Width = 140
+    ItemHeight = 0
+    Style = csDropDownList
+    OnChange = AnyChange
+    TabOrder = 44
+  end
+  object cbStiffen: TComboBox
+    Left = 632
+    Height = 28
+    Top = 626
+    Width = 148
+    ItemHeight = 0
+    Style = csDropDownList
+    OnChange = AnyChange
+    TabOrder = 45
+  end
+  object lblMetalHint: TLabel
+    Left = 440
+    Height = 36
+    Top = 658
+    Width = 340
+    AutoSize = False
+    WordWrap = True
+    Caption = ''
+    Font.Color = clGrayText
+    ParentFont = False
+  end
 end

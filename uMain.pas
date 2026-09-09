@@ -4197,17 +4197,9 @@ begin
     M.OnClick := @ViewMenuClick;
     pmView.Items.Add(M);
   end;
-  M := TMenuItem.Create(pmView);
-  M.Caption := '-';
-  pmView.Items.Add(M);
-  for I := 0 to FIRST_CAMERA_PRESET - 1 do
-  begin
-    M := TMenuItem.Create(pmView);
-    M.Caption := VIEW_PRESETS[I].Name + ' paper';
-    M.Tag := I;
-    M.OnClick := @ViewMenuClick;
-    pmView.Items.Add(M);
-  end;
+  { The plan and iso paper modes are not offered here any more: this is a
+    3D model, and a flat layout tool is a job for another day.  The modes
+    themselves stay in the code for old files and for that day. }
 end;
 
 procedure TMainForm.ViewMenuClick(Sender: TObject);
@@ -9894,7 +9886,7 @@ begin
     POP_COLOR: Result := Length(PALETTE);
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 7;
-    POP_SHOP: Result := 4;
+    POP_SHOP: Result := 3;
     POP_PREC: Result := Length(PREC_DENOMS);
   else
     Result := 0;
@@ -9915,7 +9907,7 @@ begin
         1: Result := 'Build a fitting...';
         2: Result := 'Fitter''s scratchpad - pipe spool...';
       else
-        Result := 'Field sketch, on iso paper';
+        Result := '';
       end;
     POP_PREC:
       if PREC_DENOMS[I] = 100 then Result := 'hundredths of an inch'
@@ -9952,14 +9944,6 @@ begin
         0: StartUnfold;
         1: BuildTransitionWizard;
         2: BuildSpoolWizard;
-      else
-        begin
-          { The paper-grid sketch, kept for the day it becomes a wizard of
-            its own: draw the run not to scale, dimension it, build it. }
-          SetView(vkIso);
-          FCmdMsg := 'Iso paper.  Draw the run, put dimensions on it.  ' +
-            'Building the 3D drawing from it is coming; /3d goes back.';
-        end;
       end;
     POP_PREC: SetLenPrecision(PREC_DENOMS[EnsureRange(I, 0, High(PREC_DENOMS))]);
     POP_HELP:

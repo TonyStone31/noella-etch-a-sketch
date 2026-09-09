@@ -95,6 +95,10 @@ type
     rgHeight: TRadioGroup;
     btnTape: TButton;
     lblFlex: TLabel;
+    lblMetal: TLabel;
+    cbGauge: TComboBox;
+    cbStiffen: TComboBox;
+    lblMetalHint: TLabel;
     cbEntryFlex: TComboBox;
     cbExitFlex: TComboBox;
     procedure AnyChange(Sender: TObject);
@@ -279,6 +283,9 @@ begin
   if T.Ends[1].Kind <> deRaw then
     Result := Result and InchesOf(edExitEndAmt.Text, T.Ends[1].Amount);
   if not InchesOf('1', T.Inch) then T.Inch := 1 / 12;
+  if cbGauge.ItemIndex > 0 then T.Gauge := GAUGES[EnsureRange(cbGauge.ItemIndex - 1, 0, High(GAUGES))]
+  else T.Gauge := 0;
+  T.Stiffen := TStiffen(Max(0, cbStiffen.ItemIndex));
   T.Dims := cbDims.Checked;
   T.Tag := Trim(edTag.Text);
 end;
@@ -287,6 +294,8 @@ procedure TTransitionForm.FormCreate(Sender: TObject);
 var
   K: TDuctEnd;
   FX: TFlexSize;
+  ST: TStiffen;
+  I: Integer;
 begin
   for K := Low(TDuctEnd) to High(TDuctEnd) do
   begin
@@ -304,6 +313,11 @@ begin
   end;
   cbEntryFlex.ItemIndex := 0;
   cbExitFlex.ItemIndex := 0;
+  cbGauge.Items.Add('gauge as needed');
+  for I := 0 to High(GAUGES) do cbGauge.Items.Add(Format('%d gauge', [GAUGES[I]]));
+  cbGauge.ItemIndex := 0;
+  for ST := Low(TStiffen) to High(TStiffen) do cbStiffen.Items.Add(STIFFEN_NAMES[ST]);
+  cbStiffen.ItemIndex := Ord(stAuto);
   ShowKind;
 end;
 
@@ -682,9 +696,15 @@ begin
   edBranchEndAmt.Enabled := cbBranchEnd.ItemIndex > 0;
   edAngle.Enabled := rgAngle.ItemIndex = 3;
   if not Read(T) then
-    lblProblem.Caption := 'A size did not read - 20, 20.5, 8 3/4, or 2'' with a mark.'
+  begin
+    lblProblem.Caption := 'A size did not read - 20, 20.5, 8 3/4, or 2'' with a mark.';
+    lblMetalHint.Caption := '';
+  end
   else
+  begin
     lblProblem.Caption := FittingProblem(T);
+    lblMetalHint.Caption := MetalWords(T);
+  end;
   btnBuild.Enabled := lblProblem.Caption = '';
   pbSketch.Invalidate;
   pbIso.Invalidate;

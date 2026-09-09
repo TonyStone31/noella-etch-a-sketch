@@ -13,6 +13,29 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Gauge and stiffening on the fitting builder.**  A Metal row: the' + LineEnding +
+    '  gauge, left as "as needed" for what the size calls for - 26 to 12",' + LineEnding +
+    '  24 to 30", 22 to 54", 20 to 84", 18 beyond, the usual low-pressure' + LineEnding +
+    '  table - or picked outright, and how the big panels are stiffened: as' + LineEnding +
+    '  needed, none, cross breaks, or beads every foot.  As needed means a' + LineEnding +
+    '  panel over 18" wide and a foot long gets a cross break up to a yard' + LineEnding +
+    '  long and beads beyond that.  The breaks and beads are drawn on the' + LineEnding +
+    '  walls in a lighter line, the builder says what it chose under the row,' + LineEnding +
+    '  and the ticket carries a Metal line naming the gauge and which walls' + LineEnding +
+    '  are broken or beaded.  The thresholds are the common ones; a shop that' + LineEnding +
+    '  runs lighter or heavier picks its own.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Two menus cleaned up.**  The VIEW menu no longer offers the plan and' + LineEnding +
+    '  iso paper modes - this is a 3D model, and a flat layout tool is for' + LineEnding +
+    '  another day - and the SHOP menu loses "Field sketch, on iso paper",' + LineEnding +
+    '  which the Fitter''s scratchpad replaced.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.09.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

@@ -321,3 +321,16 @@ takes strip + half the fabric + strip out of the overall length: 5" for a
 Junior, 7 1/2" for a 3-3-3, 9" for a 3-6-3.  The length typed is the whole
 assembly; the ticket prints the sheet metal left, flex to flex, so the
 shop cuts one number and the flex makes up the rest.
+
+## The metal
+
+A Metal row on the builder: the gauge and the stiffening.  The gauge is
+suggested from the fitting's largest side by the common low-pressure table
+- 26 gauge to 12", 24 to 30", 22 to 54", 20 to 84", 18 beyond - and can be
+picked outright; the ticket says which, and what the size called for when
+they differ.  Stiffening as needed means a panel 18" wide and 12" long or
+more gets a cross break when the run is up to 36" and beads every 12"
+when it is longer; cross breaks or beads can be asked for outright, or
+none.  They are drawn on the walls in a lighter line and the ticket names
+the walls.  Residential work often runs a gauge lighter than the table;
+that is the override.
