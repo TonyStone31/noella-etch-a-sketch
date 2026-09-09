@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The tape readings are a wizard now.**  The builder's form is back to
+  the way the shop says a transition - centered, left side in by, bottom
+  up by - and a button beside the length, *From the tape...*, opens three
+  pictures: the duct against the floor or the ceiling with a figure
+  holding the tape, the duct against a wall seen from above, and what it
+  comes to.  A box sits on each tape line for the reading and a word
+  under it for the edge the tape landed on; the reference flips with one
+  button, and the picture follows.  *Use these* puts the offsets into the
+  form in shop words, and the readings go on the ticket.  The tick box,
+  the readings panel and the Tape tab from the last two releases are gone.
+
 ## v2026.09.08.8
 
 ### New

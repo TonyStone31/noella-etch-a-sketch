@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The tape readings are a wizard now.**  The builder''s form is back to' + LineEnding +
+    '  the way the shop says a transition - centered, left side in by, bottom' + LineEnding +
+    '  up by - and a button beside the length, *From the tape...*, opens three' + LineEnding +
+    '  pictures: the duct against the floor or the ceiling with a figure' + LineEnding +
+    '  holding the tape, the duct against a wall seen from above, and what it' + LineEnding +
+    '  comes to.  A box sits on each tape line for the reading and a word' + LineEnding +
+    '  under it for the edge the tape landed on; the reference flips with one' + LineEnding +
+    '  button, and the picture follows.  *Use these* puts the offsets into the' + LineEnding +
+    '  form in shop words, and the readings go on the ticket.  The tick box,' + LineEnding +
+    '  the readings panel and the Tape tab from the last two releases are gone.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

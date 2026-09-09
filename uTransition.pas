@@ -14,7 +14,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, LCLIntf, IniFiles, uPaths, uWork, uFittings, uFieldElbow;
+  ComCtrls, Dialogs, LCLIntf, IniFiles, uPaths, uWork, uFittings, uFieldElbow, uTapeWizard;
 
 type
   TTransitionForm = class(TForm)
@@ -93,23 +93,8 @@ type
     pbSketch: TPaintBox;
     rgSide: TRadioGroup;
     rgHeight: TRadioGroup;
-    cbFromRef: TCheckBox;
-    lblRefEntry: TLabel;
-    lblRefExit: TLabel;
-    rgRefH: TRadioGroup;
-    edRefH0: TEdit;
-    edRefH1: TEdit;
-    rgRefW: TRadioGroup;
-    edRefW0: TEdit;
-    edRefW1: TEdit;
-    lblRefHint: TLabel;
+    btnTape: TButton;
     lblFlex: TLabel;
-    cbRefH0Edge: TComboBox;
-    cbRefH1Edge: TComboBox;
-    cbRefW0Edge: TComboBox;
-    cbRefW1Edge: TComboBox;
-    tsTape: TTabSheet;
-    pbTape: TPaintBox;
     cbEntryFlex: TComboBox;
     cbExitFlex: TComboBox;
     procedure AnyChange(Sender: TObject);
@@ -123,10 +108,13 @@ type
     procedure btnFilesClick(Sender: TObject);
     procedure FittingChange(Sender: TObject);
     procedure btnFieldClick(Sender: TObject);
-    procedure RefModeChange(Sender: TObject);
-    procedure pbTapePaint(Sender: TObject);
+    procedure btnTapeClick(Sender: TObject);
   private
     FUnits: TUnitSystem;
+    { what the tape wizard last handed back, for the ticket; it holds while
+      the rules on the form are still the ones it set }
+    FTape: TTransitionSpec;
+    FTapeOn: Boolean;
     { the controls each kind of fitting uses shown, the rest hidden, and the
       shared ones relabelled }
     procedure ShowKind;
@@ -136,7 +124,6 @@ type
     procedure PaintElbowPlan(C: TCanvas; W, H: Integer; const T: TTransitionSpec);
     procedure PaintTeePlan(C: TCanvas; W, H: Integer; const T: TTransitionSpec);
     procedure PaintIso(C: TCanvas; W, H: Integer);
-    procedure PaintTape(C: TCanvas; W, H: Integer);
     { the pictures and the ticket written to disk; the files made, and where }
     function ExportFiles(out Dir: string; out Files: TStringArray): Boolean;
     function Read(out T: TTransitionSpec): Boolean;
@@ -204,7 +191,7 @@ end;
 
 function TTransitionForm.Read(out T: TTransitionSpec): Boolean;
 var
-  Deg, Off, A0, A1: Double;
+  Deg: Double;
 begin
   T := Default(TTransitionSpec);
   T.Kind := TFittingKind(Max(0, rgFitting.ItemIndex));
@@ -258,69 +245,24 @@ begin
     begin
       Result := Result and InchesOf(edExitW.Text, T.W1) and InchesOf(edExitH.Text, T.H1) and
                 InchesOf(edLen.Text, T.Len);
-      if cbFromRef.Checked then
+      T.Side := TSideRule(Max(0, rgSide.ItemIndex));
+      T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
+      if T.Side <> srCentred then
+        Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
+      if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
+        Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+      { the tape's readings ride along for the ticket while the rules are
+        still the ones the wizard set }
+      if FTapeOn and (T.Side = FTape.Side) and (T.Height = FTape.Height) and
+         (Abs(T.SideAmount - FTape.SideAmount) < 1E-6) and
+         (Abs(T.HeightAmount - FTape.HeightAmount) < 1E-6) then
       begin
-        { From the tape.  One reference per axis, a reading at each end;
-          the rules fall out as differences, and the other edge follows
-          from the size once one edge is fixed. }
         T.FromRef := True;
-        T.RefH := TRefHeight(Max(0, rgRefH.ItemIndex));
-        T.RefW := TRefWidth(Max(0, rgRefW.ItemIndex));
-        Result := Result and InchesOf(edRefH0.Text, T.RefH0) and InchesOf(edRefH1.Text, T.RefH1) and
-          InchesOf(edRefW0.Text, T.RefW0) and InchesOf(edRefW1.Text, T.RefW1);
-        T.RefH0Top := cbRefH0Edge.ItemIndex = 1;
-        T.RefH1Top := cbRefH1Edge.ItemIndex = 1;
-        T.RefW0Right := cbRefW0Edge.ItemIndex = 1;
-        T.RefW1Right := cbRefW1Edge.ItemIndex = 1;
-        { Brought to one edge before the difference is taken: from the
-          floor everything is said as the bottom, a reading to the top
-          less the height; from the ceiling everything as the top, a
-          reading to the bottom less the height.  The sides the same. }
-        if T.RefH = rhFloor then
-        begin
-          if T.RefH0Top then A0 := T.RefH0 - T.H0 else A0 := T.RefH0;
-          if T.RefH1Top then A1 := T.RefH1 - T.H1 else A1 := T.RefH1;
-        end
-        else
-        begin
-          if T.RefH0Top then A0 := T.RefH0 else A0 := T.RefH0 - T.H0;
-          if T.RefH1Top then A1 := T.RefH1 else A1 := T.RefH1 - T.H1;
-        end;
-        Off := A1 - A0;
-        if T.RefH = rhFloor then
-        begin
-          if Abs(Off) < 1E-9 then T.Height := hrFlatBottom
-          else if Off > 0 then begin T.Height := hrBottomUp; T.HeightAmount := Off; end
-          else begin T.Height := hrBottomDown; T.HeightAmount := -Off; end;
-        end
-        else
-        begin
-          if Abs(Off) < 1E-9 then T.Height := hrFlatTop
-          else if Off > 0 then begin T.Height := hrTopDown; T.HeightAmount := Off; end
-          else begin T.Height := hrTopUp; T.HeightAmount := -Off; end;
-        end;
-        if T.RefW = rwLeft then
-        begin
-          if T.RefW0Right then A0 := T.RefW0 - T.W0 else A0 := T.RefW0;
-          if T.RefW1Right then A1 := T.RefW1 - T.W1 else A1 := T.RefW1;
-        end
-        else
-        begin
-          if T.RefW0Right then A0 := T.RefW0 else A0 := T.RefW0 - T.W0;
-          if T.RefW1Right then A1 := T.RefW1 else A1 := T.RefW1 - T.W1;
-        end;
-        Off := A1 - A0;
-        if T.RefW = rwLeft then T.Side := srLeftIn else T.Side := srRightIn;
-        T.SideAmount := Off;
-      end
-      else
-      begin
-        T.Side := TSideRule(Max(0, rgSide.ItemIndex));
-        T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
-        if T.Side <> srCentred then
-          Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
-        if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
-          Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
+        T.RefH := FTape.RefH; T.RefW := FTape.RefW;
+        T.RefH0 := FTape.RefH0; T.RefH1 := FTape.RefH1;
+        T.RefW0 := FTape.RefW0; T.RefW1 := FTape.RefW1;
+        T.RefH0Top := FTape.RefH0Top; T.RefH1Top := FTape.RefH1Top;
+        T.RefW0Right := FTape.RefW0Right; T.RefW1Right := FTape.RefW1Right;
       end;
     end;
   end;
@@ -372,17 +314,35 @@ end;
 
 { The angle and the legs from what was measured on the job, put into the
   elbow's fields as if they had been typed. }
-procedure TTransitionForm.RefModeChange(Sender: TObject);
+{ The tape wizard: the offsets worked out from tape readings against a
+  floor or ceiling and a wall, handed back as the rules the form already
+  has.  The readings are kept for the ticket. }
+procedure TTransitionForm.btnTapeClick(Sender: TObject);
+var
+  T: TTransitionSpec;
 begin
-  ShowKind;
-  if cbFromRef.Checked and tsTape.TabVisible then pcViews.ActivePage := tsTape
-  else if pcViews.ActivePage = tsTape then pcViews.ActivePage := tsPlan;
+  if not Read(T) or (T.W0 <= 0) or (T.H0 <= 0) or (T.W1 <= 0) or (T.H1 <= 0) then
+  begin
+    lblProblem.Caption := 'The two openings have to read first - the tape is worked against their sizes.';
+    Exit;
+  end;
+  if FTapeOn then
+  begin
+    T.RefH := FTape.RefH; T.RefW := FTape.RefW;
+    T.RefH0 := FTape.RefH0; T.RefH1 := FTape.RefH1;
+    T.RefW0 := FTape.RefW0; T.RefW1 := FTape.RefW1;
+    T.RefH0Top := FTape.RefH0Top; T.RefH1Top := FTape.RefH1Top;
+    T.RefW0Right := FTape.RefW0Right; T.RefW1Right := FTape.RefW1Right;
+  end;
+  if not TTapeWizard.Ask(FUnits, T) then Exit;
+  rgSide.ItemIndex := Ord(T.Side);
+  edSideAmount.Text := FormatFloat('0.###', T.SideAmount / T.Inch);
+  rgHeight.ItemIndex := Ord(T.Height);
+  if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
+    edHeightAmount.Text := FormatFloat('0.###', T.HeightAmount / T.Inch);
+  FTape := T;
+  FTapeOn := True;
   AnyChange(nil);
-end;
-
-procedure TTransitionForm.pbTapePaint(Sender: TObject);
-begin
-  PaintTape(pbTape.Canvas, pbTape.Width, pbTape.Height);
 end;
 
 procedure TTransitionForm.btnFieldClick(Sender: TObject);
@@ -414,17 +374,10 @@ begin
   lblExit.Visible := not Te; edExitW.Visible := not Te; lblExitX.Visible := not Te; edExitH.Visible := not Te;
   lblExitHint.Visible := El;
   btnField.Visible := El;
-  cbFromRef.Visible := Tr;
+  btnTape.Visible := Tr;
+  rgSide.Visible := Tr; edSideAmount.Visible := Tr;
+  rgHeight.Visible := Tr; edHeightAmount.Visible := Tr;
   lblFlex.Visible := Tr; cbEntryFlex.Visible := Tr; cbExitFlex.Visible := Tr;
-  rgSide.Visible := Tr and not cbFromRef.Checked; edSideAmount.Visible := rgSide.Visible;
-  rgHeight.Visible := rgSide.Visible; edHeightAmount.Visible := rgSide.Visible;
-  lblRefEntry.Visible := Tr and cbFromRef.Checked; lblRefExit.Visible := lblRefEntry.Visible;
-  rgRefH.Visible := lblRefEntry.Visible; edRefH0.Visible := lblRefEntry.Visible; edRefH1.Visible := lblRefEntry.Visible;
-  rgRefW.Visible := lblRefEntry.Visible; edRefW0.Visible := lblRefEntry.Visible; edRefW1.Visible := lblRefEntry.Visible;
-  lblRefHint.Visible := lblRefEntry.Visible;
-  cbRefH0Edge.Visible := lblRefEntry.Visible; cbRefH1Edge.Visible := lblRefEntry.Visible;
-  cbRefW0Edge.Visible := lblRefEntry.Visible; cbRefW1Edge.Visible := lblRefEntry.Visible;
-  tsTape.TabVisible := lblRefEntry.Visible;
   { the length row is the transition's and the tee's }
   lblLen.Visible := not El; edLen.Visible := not El; lblLenHint.Visible := not El;
   { the elbow's }
@@ -460,7 +413,7 @@ begin
       lblTitle.Caption := 'Measure the gap it fills';
       lblEntry.Caption := 'Entry opening';
       lblLen.Caption := 'Length';
-      lblLenHint.Caption := 'the gap, entry to exit';
+      lblLenHint.Caption := 'the gap';
     end;
   end;
 end;
@@ -733,7 +686,6 @@ begin
   btnBuild.Enabled := lblProblem.Caption = '';
   pbSketch.Invalidate;
   pbIso.Invalidate;
-  pbTape.Invalidate;
 end;
 
 { Every edit, combo, radio group and checkbox on the form, by name, under
@@ -812,140 +764,6 @@ end;
 procedure TTransitionForm.pbIsoPaint(Sender: TObject);
 begin
   PaintIso(pbIso.Canvas, pbIso.Width, pbIso.Height);
-end;
-
-{ The Tape tab: where the tape went.  Two schematics of a horizontal duct,
-  entry on the left, exit on the right - an elevation against the floor or
-  ceiling above, a plan against the wall below - with a dimension line
-  from the reference to whichever edge each reading was taken to.  Change
-  the edge and the line jumps; the fitting comes out the same. }
-procedure TTransitionForm.PaintTape(C: TCanvas; W, H: Integer);
-var
-  T: TTransitionSpec;
-  Half, Margin, EX0, EX1: Integer;
-  RefTop: Boolean;
-  A0, A1, B0, B1, Ext: Double;
-  S: string;
-
-  { a dimension line from the reference (Y0) to the edge (Y1), its words
-    beside its middle - or, when it is too short for that, just past the
-    reference on the side away from the duct }
-  procedure Dim(X, Y0, Y1: Integer; const Txt: string; Col: TColor; RefAtTop, Rightward: Boolean);
-  var
-    TY, TX: Integer;
-  begin
-    C.Pen.Color := Col;
-    C.Font.Color := Col;
-    C.Line(X, Y0, X, Y1);
-    C.Line(X - 4, Y0, X + 4, Y0);
-    C.Line(X - 4, Y1, X + 4, Y1);
-    { a short line's words go just below the reference, where the far end
-      of the band is empty whichever edge the reference is on }
-    if Abs(Y1 - Y0) >= 22 then TY := (Y0 + Y1) div 2 - 8
-    else TY := Y0 + 4;
-    if Rightward then TX := X + 6 else TX := X - 6 - C.TextWidth(Txt);
-    C.TextOut(TX, TY, Txt);
-  end;
-
-  { one schematic in the band Top..Top+Hgt: the reference line along one
-    edge, the two openings as vertical bars joined by the body, and the
-    two dimension lines.  A0/B0 are the entry's near and far edge from
-    the reference, A1/B1 the exit's, Reading0/1 what was typed, To0/To1
-    whether the reading was to the far edge. }
-  procedure Band(Top, Hgt: Integer; const RefName, NearName, FarName: string;
-    A0, B0, A1, B1, Reading0, Reading1: Double; To0, To1: Boolean; RefAtTop: Boolean);
-  var
-    Y0, Y1, Ya0, Yb0, Ya1, Yb1, RefY: Integer;
-    Sc: Double;
-    function YOf(V: Double): Integer;
-    begin
-      if RefAtTop then Result := Round(RefY + V * Sc) else Result := Round(RefY - V * Sc);
-    end;
-  begin
-    Ext := Max(Max(B0, B1), Max(A0, A1));
-    if Ext < 1E-9 then Ext := 1;
-    Sc := (Hgt - 2 * Margin - 16) / Ext;
-    if RefAtTop then RefY := Top + Margin else RefY := Top + Hgt - Margin;
-    { the reference }
-    C.Pen.Color := $00505050;
-    C.Pen.Width := 3;
-    C.Line(Margin div 2, RefY, W - Margin div 2, RefY);
-    C.Pen.Width := 1;
-    C.Font.Color := $00505050;
-    if RefAtTop then C.TextOut((W - C.TextWidth(RefName)) div 2, RefY - 19, RefName)
-    else C.TextOut((W - C.TextWidth(RefName)) div 2, RefY + 4, RefName);
-    Ya0 := YOf(A0); Yb0 := YOf(B0); Ya1 := YOf(A1); Yb1 := YOf(B1);
-    { the body and the two openings }
-    C.Pen.Color := $00B0B0B0;
-    C.Brush.Color := $00F0ECE6;
-    C.Brush.Style := bsSolid;
-    C.Polygon([Point(EX0, Ya0), Point(EX1, Ya1), Point(EX1, Yb1), Point(EX0, Yb0)]);
-    C.Brush.Style := bsClear;
-    C.Pen.Color := clBlack;
-    C.Pen.Width := 3;
-    C.Line(EX0, Ya0, EX0, Yb0);
-    C.Line(EX1, Ya1, EX1, Yb1);
-    C.Pen.Width := 1;
-    C.Font.Color := clGray;
-    C.TextOut(EX0 - 14, Top + 4, 'entry');
-    C.TextOut(EX1 - 10, Top + 4, 'exit');
-    { the tape: from the reference to the edge it was taken to }
-    if To0 then Y0 := Yb0 else Y0 := Ya0;
-    if To1 then Y1 := Yb1 else Y1 := Ya1;
-    { the tape lines at the outer edges, their words toward the duct }
-    if To0 then S := ' to ' + FarName else S := ' to ' + NearName;
-    Dim(Margin div 2 + 4, RefY, Y0, FormatLen(Reading0, FUnits) + S, $00A06030, RefAtTop, True);
-    if To1 then S := ' to ' + FarName else S := ' to ' + NearName;
-    Dim(W - Margin div 2 - 4, RefY, Y1, FormatLen(Reading1, FUnits) + S, $00A06030, RefAtTop, False);
-  end;
-
-begin
-  C.Brush.Color := clWhite;
-  C.FillRect(0, 0, W, H);
-  C.Pen.Color := clSilver;
-  C.Rectangle(0, 0, W, H);
-  if not Read(T) or (FittingProblem(T) <> '') or not T.FromRef then
-  begin
-    C.Font.Color := clGray;
-    C.TextOut(8, 8, 'Tick "Taped from..." and the tape shows here.');
-    Exit;
-  end;
-  Margin := 22;
-  Half := H div 2;
-  EX0 := Round(W * 0.36);
-  EX1 := Round(W * 0.66);
-  C.Font.Style := [];
-  { height, against the floor or the ceiling: near edge is the bottom from
-    the floor and the top from the ceiling }
-  RefTop := T.RefH = rhCeiling;
-  if not RefTop then
-  begin
-    if T.RefH0Top then A0 := T.RefH0 - T.H0 else A0 := T.RefH0;
-    if T.RefH1Top then A1 := T.RefH1 - T.H1 else A1 := T.RefH1;
-    Band(0, Half, 'floor', 'bottom', 'top', A0, A0 + T.H0, A1, A1 + T.H1, T.RefH0, T.RefH1, T.RefH0Top, T.RefH1Top, False);
-  end
-  else
-  begin
-    if T.RefH0Top then A0 := T.RefH0 else A0 := T.RefH0 - T.H0;
-    if T.RefH1Top then A1 := T.RefH1 else A1 := T.RefH1 - T.H1;
-    Band(0, Half, 'ceiling', 'top', 'bottom', A0, A0 + T.H0, A1, A1 + T.H1, T.RefH0, T.RefH1, not T.RefH0Top, not T.RefH1Top, True);
-  end;
-  C.Pen.Color := clSilver;
-  C.Line(0, Half, W, Half);
-  { width, against a wall: seen from above with the entry on the left, the
-    left side of the flow is the top of the picture }
-  if T.RefW = rwLeft then
-  begin
-    if T.RefW0Right then B0 := T.RefW0 - T.W0 else B0 := T.RefW0;
-    if T.RefW1Right then B1 := T.RefW1 - T.W1 else B1 := T.RefW1;
-    Band(Half, H - Half, 'left wall', 'left side', 'right side', B0, B0 + T.W0, B1, B1 + T.W1, T.RefW0, T.RefW1, T.RefW0Right, T.RefW1Right, True);
-  end
-  else
-  begin
-    if T.RefW0Right then B0 := T.RefW0 else B0 := T.RefW0 - T.W0;
-    if T.RefW1Right then B1 := T.RefW1 else B1 := T.RefW1 - T.W1;
-    Band(Half, H - Half, 'right wall', 'right side', 'left side', B0, B0 + T.W0, B1, B1 + T.W1, T.RefW0, T.RefW1, not T.RefW0Right, not T.RefW1Right, False);
-  end;
 end;
 
 procedure TTransitionForm.PaintPlan(C: TCanvas; W, H: Integer);

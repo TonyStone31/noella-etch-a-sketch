@@ -128,8 +128,8 @@ object TransitionForm: TTransitionForm
     Left = 226
     Height = 18
     Top = 156
-    Width = 200
-    Caption = 'the gap, entry to exit'
+    Width = 66
+    Caption = 'the gap'
     Font.Color = clGrayText
     ParentFont = False
   end
@@ -346,19 +346,6 @@ object TransitionForm: TTransitionForm
         Width = 332
         Align = alClient
         OnPaint = pbIsoPaint
-      end
-    end
-    object tsTape: TTabSheet
-      Caption = 'Tape'
-      ClientHeight = 366
-      ClientWidth = 332
-      object pbTape: TPaintBox
-        Left = 0
-        Height = 366
-        Top = 0
-        Width = 332
-        Align = alClient
-        OnPaint = pbTapePaint
       end
     end
   end
@@ -771,114 +758,6 @@ object TransitionForm: TTransitionForm
     ParentFont = False
     Visible = False
   end
-  object cbFromRef: TCheckBox
-    Left = 24
-    Height = 22
-    Top = 178
-    Width = 400
-    Caption = 'Taped from a floor or ceiling and a wall'
-    OnChange = RefModeChange
-    TabOrder = 30
-  end
-  object lblRefEntry: TLabel
-    Left = 244
-    Height = 18
-    Top = 206
-    Width = 70
-    Caption = 'entry'
-    Font.Color = clGrayText
-    ParentFont = False
-  end
-  object lblRefExit: TLabel
-    Left = 324
-    Height = 18
-    Top = 206
-    Width = 70
-    Caption = 'exit'
-    Font.Color = clGrayText
-    ParentFont = False
-  end
-  object rgRefH: TRadioGroup
-    Left = 24
-    Height = 76
-    Top = 224
-    Width = 210
-    AutoFill = True
-    Caption = 'Height, taped from'
-    ClientHeight = 56
-    ClientWidth = 206
-    ItemIndex = 0
-    Items.Strings = (
-      'floor to the bottom'
-      'ceiling to the top'
-    )
-    OnClick = AnyChange
-    TabOrder = 31
-  end
-  object edRefH0: TEdit
-    Left = 244
-    Height = 28
-    Top = 246
-    Width = 70
-    TabOrder = 32
-    Text = '0'
-    OnChange = AnyChange
-  end
-  object edRefH1: TEdit
-    Left = 324
-    Height = 28
-    Top = 246
-    Width = 70
-    TabOrder = 33
-    Text = '0'
-    OnChange = AnyChange
-  end
-  object rgRefW: TRadioGroup
-    Left = 24
-    Height = 76
-    Top = 310
-    Width = 210
-    AutoFill = True
-    Caption = 'Width, taped from'
-    ClientHeight = 56
-    ClientWidth = 206
-    ItemIndex = 0
-    Items.Strings = (
-      'left wall to the left side'
-      'right wall to the right side'
-    )
-    OnClick = AnyChange
-    TabOrder = 34
-  end
-  object edRefW0: TEdit
-    Left = 244
-    Height = 28
-    Top = 332
-    Width = 70
-    TabOrder = 35
-    Text = '0'
-    OnChange = AnyChange
-  end
-  object edRefW1: TEdit
-    Left = 324
-    Height = 28
-    Top = 332
-    Width = 70
-    TabOrder = 36
-    Text = '0'
-    OnChange = AnyChange
-  end
-  object lblRefHint: TLabel
-    Left = 24
-    Height = 54
-    Top = 402
-    Width = 400
-    AutoSize = False
-    WordWrap = True
-    Caption = 'Say which edge each tape reading landed on.  The entry reads 0 when it sits against the reference; past the wall or the ceiling reads negative.  The Tape tab shows it.'
-    Font.Color = clGrayText
-    ParentFont = False
-  end
   object lblFlex: TLabel
     Left = 440
     Height = 18
@@ -908,68 +787,13 @@ object TransitionForm: TTransitionForm
     OnChange = AnyChange
     TabOrder = 38
   end
-  object cbRefH0Edge: TComboBox
-    Left = 244
-    Height = 28
-    Top = 278
-    Width = 78
-    ItemHeight = 0
-    ItemIndex = 0
-    Items.Strings = (
-      'bottom'
-      'top'
-    )
-    Style = csDropDownList
-    Text = 'bottom'
-    OnChange = AnyChange
-    TabOrder = 40
-  end
-  object cbRefH1Edge: TComboBox
-    Left = 324
-    Height = 28
-    Top = 278
-    Width = 78
-    ItemHeight = 0
-    ItemIndex = 0
-    Items.Strings = (
-      'bottom'
-      'top'
-    )
-    Style = csDropDownList
-    Text = 'bottom'
-    OnChange = AnyChange
-    TabOrder = 41
-  end
-  object cbRefW0Edge: TComboBox
-    Left = 244
-    Height = 28
-    Top = 364
-    Width = 78
-    ItemHeight = 0
-    ItemIndex = 0
-    Items.Strings = (
-      'left'
-      'right'
-    )
-    Style = csDropDownList
-    Text = 'left side'
-    OnChange = AnyChange
-    TabOrder = 42
-  end
-  object cbRefW1Edge: TComboBox
-    Left = 324
-    Height = 28
-    Top = 364
-    Width = 78
-    ItemHeight = 0
-    ItemIndex = 0
-    Items.Strings = (
-      'left'
-      'right'
-    )
-    Style = csDropDownList
-    Text = 'left side'
-    OnChange = AnyChange
-    TabOrder = 43
+  object btnTape: TButton
+    Left = 296
+    Height = 30
+    Top = 150
+    Width = 140
+    Caption = 'From the tape...'
+    OnClick = btnTapeClick
+    TabOrder = 30
   end
 end

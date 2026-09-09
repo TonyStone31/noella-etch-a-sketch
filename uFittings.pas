@@ -129,6 +129,12 @@ function EndNotched(const E: TEndSpec): Boolean;
 { what a flex connector takes out of the overall length, in inches: strip,
   half the fabric, strip }
 function FlexInstalledIn(F: TFlexSize): Double;
+{ The side and height rules from the tape readings in the spec: both ends
+  brought to one edge, the difference taken, and the rule named the way the
+  shop says it - up or down, in or out.  Sizes and readings must be set. }
+procedure TapeRules(var T: TTransitionSpec);
+{ the rules in shop words: "Bottom up by 4", Right side in by 7" }
+function TapeWords(const T: TTransitionSpec): string;
 
 { The fitting's corners.  Entry at y = 0, flow along +Y, the entry's
   bottom-left corner at the origin: E0..E3 round the entry opening,
@@ -182,6 +188,93 @@ end;
 function FlexInstalledIn(F: TFlexSize): Double;
 begin
   Result := 2 * FLEX_STRIP_IN[F] + FLEX_FABRIC_IN[F] / 2;
+end;
+
+procedure TapeRules(var T: TTransitionSpec);
+var
+  A0, A1, Off: Double;
+begin
+  { height: from the floor everything is said as the bottom, a reading to
+    the top less the height; from the ceiling everything as the top }
+  if T.RefH = rhFloor then
+  begin
+    if T.RefH0Top then A0 := T.RefH0 - T.H0 else A0 := T.RefH0;
+    if T.RefH1Top then A1 := T.RefH1 - T.H1 else A1 := T.RefH1;
+    Off := A1 - A0;
+    if Abs(Off) < 1E-9 then T.Height := hrFlatBottom
+    else if Off > 0 then begin T.Height := hrBottomUp; T.HeightAmount := Off; end
+    else begin T.Height := hrBottomDown; T.HeightAmount := -Off; end;
+  end
+  else
+  begin
+    if T.RefH0Top then A0 := T.RefH0 else A0 := T.RefH0 - T.H0;
+    if T.RefH1Top then A1 := T.RefH1 else A1 := T.RefH1 - T.H1;
+    Off := A1 - A0;
+    if Abs(Off) < 1E-9 then T.Height := hrFlatTop
+    else if Off > 0 then begin T.Height := hrTopDown; T.HeightAmount := Off; end
+    else begin T.Height := hrTopUp; T.HeightAmount := -Off; end;
+  end;
+  { width: the wall side in by the difference; when that would be out,
+    the other side in by its own difference if that is not out too }
+  if T.RefW = rwLeft then
+  begin
+    if T.RefW0Right then A0 := T.RefW0 - T.W0 else A0 := T.RefW0;
+    if T.RefW1Right then A1 := T.RefW1 - T.W1 else A1 := T.RefW1;
+    Off := A1 - A0;
+    T.Side := srLeftIn;
+    T.SideAmount := Off;
+    if Off < -1E-9 then
+    begin
+      { the exit runs past the wall side: say it from the other side }
+      if T.W0 - T.W1 - Off >= -1E-9 then
+      begin
+        T.Side := srRightIn;
+        T.SideAmount := T.W0 - T.W1 - Off;
+      end;
+    end;
+  end
+  else
+  begin
+    if T.RefW0Right then A0 := T.RefW0 else A0 := T.RefW0 - T.W0;
+    if T.RefW1Right then A1 := T.RefW1 else A1 := T.RefW1 - T.W1;
+    Off := A1 - A0;
+    T.Side := srRightIn;
+    T.SideAmount := Off;
+    if Off < -1E-9 then
+      if T.W0 - T.W1 - Off >= -1E-9 then
+      begin
+        T.Side := srLeftIn;
+        T.SideAmount := T.W0 - T.W1 - Off;
+      end;
+  end;
+  if Abs(T.SideAmount) < 1E-9 then T.SideAmount := 0;
+end;
+
+function TapeWords(const T: TTransitionSpec): string;
+const
+  SideWords: array[TSideRule] of string = ('Centered', 'Left side in by', 'Right side in by');
+  HeightWords: array[THeightRule] of string = ('Flat bottom (FB)', 'Flat top (FT)',
+    'Centered', 'Top up by', 'Top down by', 'Bottom up by', 'Bottom down by');
+var
+  Inch: Double;
+  function Ins(V: Double): string;
+  begin
+    Result := FormatFloat('0.###', V / Inch) + '"';
+  end;
+begin
+  Inch := T.Inch;
+  if Inch <= 0 then Inch := 1 / 12;
+  Result := HeightWords[T.Height];
+  if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
+    Result := Result + ' ' + Ins(T.HeightAmount);
+  Result := Result + ',  ';
+  if T.Side = srCentred then Result := Result + 'Centered'
+  else if T.SideAmount < -1E-9 then
+    Result := Result + StringReplace(SideWords[T.Side], ' in by', ' out by', []) + ' ' + Ins(-T.SideAmount)
+  else if Abs(T.SideAmount) < 1E-9 then
+    Result := Result + StringReplace(SideWords[T.Side], ' in by', ' flush', [])
+  else
+    Result := Result + SideWords[T.Side] + ' ' + Ins(T.SideAmount);
 end;
 
 procedure TransitionCorners(const T: TTransitionSpec; out E, X: array of TP3);

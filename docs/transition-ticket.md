@@ -275,10 +275,11 @@ seen areas and rebuilds, to test this.
 
 ## Taped from a floor and a wall
 
-The other way in, for a transition measured in the field.  Tick *Taped
-from a floor or ceiling and a wall* and the side and height rules go, and
-four readings take their place: one reference per axis, one reading at
-each end, sizes and length as usual.
+The other way in, for a transition measured in the field: the *From the
+tape...* button beside the length opens a three-step wizard (uTapeWizard)
+that asks for four readings against pictures - one reference per axis,
+one reading at each end, the sizes taken from the form - and hands the
+offsets back in shop words.
 
 * Height: from the floor to the bottom of the opening, or from the ceiling
   to the top.  Entry reading, exit reading.
@@ -302,8 +303,8 @@ end - to the top or the bottom, the left side or the right - because the
 size closes the gap: a reading to the top less the height is the reading
 to the bottom.  That is what lets a duct measured to its bottom from a
 ladder and equipment measured to its top a few feet away come out right.
-The Tape tab draws both readings against their reference so the choice
-can be seen.  All of this assumes a horizontal run; a vertical one is for
+The wizard's pictures draw both readings against their reference so the
+choice can be seen.  All of this assumes a horizontal run; a vertical one is for
 later.
 
 ## Flex connectors
