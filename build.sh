@@ -319,6 +319,10 @@ do_github() {
   gh auth status >/dev/null 2>&1 || die \
     "gh is not logged in.  Run 'gh auth login' first."
 
+  # etchasketch.res is a build product that happens to be tracked: every
+  # build rewrites it, so it is put back before the dirty-tree check and
+  # again after the release, along with version.inc and the .lpi.
+  git -C "$ROOT" checkout -- etchasketch.res 2>/dev/null || true
   [ -z "$(git -C "$ROOT" status --porcelain)" ] || die \
     "working tree is dirty - commit or stash before releasing"
 
@@ -348,7 +352,7 @@ do_github() {
   # file back afterwards - the tree has to stay clean for the next release.
   # On a trap as well as on the way out, or a release that falls over half
   # way leaves the tree dirty and the next one refuses to start.
-  trap 'git -C "$ROOT" checkout -- version.inc etchasketch.lpi 2>/dev/null || true' RETURN
+  trap 'git -C "$ROOT" checkout -- version.inc etchasketch.lpi etchasketch.res 2>/dev/null || true' RETURN
   # The Windows version resource carries the tag as numbers - 2026.9.9.1 -
   # which is what a code signature and SmartScreen read.
   local vy vm vd vn
