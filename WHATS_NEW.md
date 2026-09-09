@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Orbiting when zoomed in.**  With the cursor on paper rather than on a
+  face, the view turned about the middle of the whole drawing - a point a
+  hundred feet away when you are zoomed in on one fitting - and the
+  fitting swung straight out of the view.  The pivot is now the nearest
+  drawn thing to the cursor on screen, from the last frame's depth buffer,
+  then whatever is selected, and only then the drawing's middle.
+
 ## v2026.09.09.1
 
 ### New

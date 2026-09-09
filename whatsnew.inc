@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Orbiting when zoomed in.**  With the cursor on paper rather than on a' + LineEnding +
+    '  face, the view turned about the middle of the whole drawing - a point a' + LineEnding +
+    '  hundred feet away when you are zoomed in on one fitting - and the' + LineEnding +
+    '  fitting swung straight out of the view.  The pivot is now the nearest' + LineEnding +
+    '  drawn thing to the cursor on screen, from the last frame''s depth buffer,' + LineEnding +
+    '  then whatever is selected, and only then the drawing''s middle.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.09.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

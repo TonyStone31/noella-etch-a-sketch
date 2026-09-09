@@ -9811,6 +9811,7 @@ function TMainForm.PivotAt(SX, SY: Integer): TP3;
 var
   F: Integer;
   P, Lo, Hi: TP3;
+  Pts: TP3Array;
 
   function Sane(const Q: TP3): Boolean;
   begin
@@ -9848,8 +9849,29 @@ var
   end;
 
 begin
+  { The thing under the cursor first; failing that, the nearest drawn thing
+    to it, off the last frame's depth buffer - a fitting zoomed in on is
+    mostly edges and hollow, and the cursor is seldom exactly on a face.
+    Then what is selected, then the point under the middle of the screen.
+    The middle of the whole drawing comes last: zoomed in on one fitting of
+    a big drawing, turning about a point a hundred feet away swung the
+    fitting straight out of the view, which is what orbiting at a zoom
+    felt like. }
   if FD.Doc.FaceUnder(Proj, SX, SY, F, P) and Grabbable(P) then
     Exit(P);
+  if FD.Doc.DepthPointNear(SX, SY, 4000, P) and Grabbable(P) then
+    Exit(P);
+  if Length(FSel) > 0 then
+  begin
+    FD.Doc.VertsOf(FSel, Pts);
+    if Length(Pts) > 0 then
+    begin
+      P := P3(0, 0, 0);
+      for F := 0 to High(Pts) do P := P3(P.X + Pts[F].X, P.Y + Pts[F].Y, P.Z + Pts[F].Z);
+      P := P3(P.X / Length(Pts), P.Y / Length(Pts), P.Z / Length(Pts));
+      if Grabbable(P) then Exit(P);
+    end;
+  end;
   if FD.Doc.Bounds(Lo, Hi) then
   begin
     Result := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);

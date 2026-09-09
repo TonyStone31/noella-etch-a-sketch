@@ -466,6 +466,10 @@ type
     { the one-lookup form of HiddenAt; only valid straight after a render
       with the same projector }
     function DepthHidden(const P: TP3): Boolean;
+    { the nearest drawn thing within Radius pixels of a screen point, as a
+      world point, from the last frame's depth buffer - what the eye is
+      looking at, whether or not a face is exactly under the cursor }
+    function DepthPointNear(SX, SY, Radius: Integer; out P: TP3): Boolean;
   public
     property Live: Integer read FLive;
     { the bore the last PushPull made, or -1 - so the caller can cut it
@@ -5272,6 +5276,42 @@ begin
   end;
   FOnFaceWorker := W;
   W.Start;
+end;
+
+function TWorkDoc.DepthPointNear(SX, SY, Radius: Integer; out P: TP3): Boolean;
+var
+  R, DX, DY, BX, BY: Integer;
+  Z, Best, D2: Double;
+  Q0, Look: TP3;
+begin
+  Result := False;
+  P := P3(0, 0, 0);
+  if (LastSurf = nil) or not LastSurf.DepthOn then Exit;
+  Best := 1E30;
+  BX := 0; BY := 0;
+  { the nearest drawn pixel to the point, within Radius - a straight scan
+    of the frame, a few milliseconds, once per press }
+  for DY := Max(0, SY - Radius) to Min(LastSurf.Height - 1, SY + Radius) do
+    for DX := Max(0, SX - Radius) to Min(LastSurf.Width - 1, SX + Radius) do
+    begin
+      D2 := Sqr(DX - SX) + Sqr(DY - SY);
+      if D2 >= Best then Continue;
+      Z := LastSurf.DepthAt(DX, DY);
+      if Z < -1E29 then Continue;
+      Best := D2; BX := DX; BY := DY;
+    end;
+  if Best >= 1E29 then Exit;
+  R := 0;
+  Z := LastSurf.DepthAt(BX, BY);
+  { the depth is the distance along the view direction; a point on the
+    ray through that pixel, slid to that depth, is the surface }
+  Look := ViewDir(LastV);
+  Q0 := Unproject(LastV, BX, BY, plXY, P3(0, 0, 0));
+  if IsNan(Q0.X) or IsNan(Q0.Y) or IsNan(Q0.Z) then Exit;
+  P := P3(Q0.X + Look.X * (Z - Dot3(Q0, Look)),
+          Q0.Y + Look.Y * (Z - Dot3(Q0, Look)),
+          Q0.Z + Look.Z * (Z - Dot3(Q0, Look)));
+  Result := True;
 end;
 
 function TWorkDoc.DepthHidden(const P: TP3): Boolean;
