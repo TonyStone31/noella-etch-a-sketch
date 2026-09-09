@@ -358,10 +358,11 @@ do_github() {
   local vy vm vd vn
   IFS=. read -r vy vm vd vn <<< "${tag#v}"
   vn="${vn:-0}"
-  sed -i -e "s|<MajorVersionNr Value=\"[0-9]*\"/>|<MajorVersionNr Value=\"${vy}\"/>|" \
-         -e "s|<MinorVersionNr Value=\"[0-9]*\"/>|<MinorVersionNr Value=\"$((10#$vm))\"/>|" \
-         -e "s|<RevisionNr Value=\"[0-9]*\"/>|<RevisionNr Value=\"$((10#$vd))\"/>|" \
-         -e "s|<BuildNr Value=\"[0-9]*\"/>|<BuildNr Value=\"${vn}\"/>|" "$PROJ"
+  # The IDE drops the number lines when they are zero, so they are taken
+  # out and put back fresh after UseVersionInfo rather than substituted.
+  sed -i -e '/<MajorVersionNr Value=/d' -e '/<MinorVersionNr Value=/d' \
+         -e '/<RevisionNr Value=/d' -e '/<BuildNr Value=/d' "$PROJ"
+  sed -i -e "s|<UseVersionInfo Value=\"True\"/>|<UseVersionInfo Value=\"True\"/>\n      <MajorVersionNr Value=\"${vy}\"/>\n      <MinorVersionNr Value=\"$((10#$vm))\"/>\n      <RevisionNr Value=\"$((10#$vd))\"/>\n      <BuildNr Value=\"${vn}\"/>|" "$PROJ"
   printf '%s\n' \
     '{ Written by build.sh at release time.  A hand-built copy keeps the' \
     '  dev value, which is older than any real tag so it never claims to be' \

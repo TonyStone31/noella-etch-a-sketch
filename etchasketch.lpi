@@ -1,11 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="12"/>
+    <Version Value="13"/>
     <General>
-      <Flags>
-        <CompatibilityMode Value="True"/>
-      </Flags>
       <SessionStorage Value="InProjectDir"/>
       <Title Value="Heckers Sketch"/>
       <Scaled Value="True"/>
@@ -18,16 +15,11 @@
     </General>
     <VersionInfo>
       <UseVersionInfo Value="True"/>
-      <AutoIncrementBuild Value="False"/>
-      <MajorVersionNr Value="0"/>
-      <MinorVersionNr Value="0"/>
-      <RevisionNr Value="0"/>
-      <BuildNr Value="0"/>
       <StringTable CompanyName="NozelFab Incorporated" FileDescription="Heckers Sketch" LegalCopyright="NozelFab Incorporated" ProductName="Heckers Sketch"/>
     </VersionInfo>
-    <BuildModes Count="3">
-      <Item1 Name="Default" Default="True"/>
-      <Item2 Name="Debug">
+    <BuildModes>
+      <Item Name="Default" Default="True"/>
+      <Item Name="Debug">
         <CompilerOptions>
           <Version Value="11"/>
           <Target>
@@ -65,8 +57,8 @@
             </Options>
           </Linking>
         </CompilerOptions>
-      </Item2>
-      <Item3 Name="Release">
+      </Item>
+      <Item Name="Release">
         <CompilerOptions>
           <Version Value="11"/>
           <Target>
@@ -95,7 +87,7 @@
             </Options>
           </Linking>
         </CompilerOptions>
-      </Item3>
+      </Item>
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
@@ -107,114 +99,101 @@
     <RunParams>
       <FormatVersion Value="2"/>
     </RunParams>
-    <RequiredPackages Count="2">
-      <Item1>
+    <RequiredPackages>
+      <Item>
         <PackageName Value="Printer4Lazarus"/>
-      </Item1>
-      <Item2>
+      </Item>
+      <Item>
         <PackageName Value="LCL"/>
-      </Item2>
+      </Item>
     </RequiredPackages>
-    <Units Count="14">
-      <Unit0>
+    <Units>
+      <Unit>
         <Filename Value="etchasketch.lpr"/>
         <IsPartOfProject Value="True"/>
-      </Unit0>
-      <Unit1>
+      </Unit>
+      <Unit>
         <Filename Value="uMain.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="MainForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uMain"/>
-      </Unit1>
-      <Unit2>
+      </Unit>
+      <Unit>
         <Filename Value="uSurface.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="uSurface"/>
-      </Unit2>
-      <Unit3>
+      </Unit>
+      <Unit>
         <Filename Value="uSkin.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="uSkin"/>
-      </Unit3>
-      <Unit4>
+      </Unit>
+      <Unit>
         <Filename Value="uWork.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="uWork"/>
-      </Unit4>
-      <Unit5>
+      </Unit>
+      <Unit>
         <Filename Value="uUpdateForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="UpdateForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uUpdateForm"/>
-      </Unit5>
-      <Unit6>
+      </Unit>
+      <Unit>
         <Filename Value="uWhatsNew.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="WhatsNewForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uWhatsNew"/>
-      </Unit6>
-      <Unit7>
+      </Unit>
+      <Unit>
         <Filename Value="uTransition.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="TransitionForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uTransition"/>
-      </Unit7>
-      <Unit8>
+      </Unit>
+      <Unit>
         <Filename Value="uFieldElbow.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="FieldElbowForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uFieldElbow"/>
-      </Unit8>
-      <Unit9>
+      </Unit>
+      <Unit>
         <Filename Value="uSpool.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SpoolForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uSpool"/>
-      </Unit9>
-      <Unit10>
+      </Unit>
+      <Unit>
         <Filename Value="uSplash.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SpoolForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uSplash"/>
-      </Unit10>
-      <Unit11>
+      </Unit>
+      <Unit>
         <Filename Value="uSysInfo.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SpoolForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uSysInfo"/>
-      </Unit11>
-      <Unit12>
+      </Unit>
+      <Unit>
         <Filename Value="uTouch.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SpoolForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uTouch"/>
-      </Unit12>
-      <Unit13>
+      </Unit>
+      <Unit>
         <Filename Value="uTapeWizard.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SpoolForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uTapeWizard"/>
-      </Unit13>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

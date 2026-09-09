@@ -9903,9 +9903,9 @@ begin
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
     POP_SHOP:
       case I of
-        0: Result := 'Lay a piece out flat';
-        1: Result := 'Build a fitting...';
-        2: Result := 'Fitter''s scratchpad - pipe spool...';
+        0: Result := 'Lay a selection out flat(incomplete)';
+        1: Result := 'Build a duct fitting...';
+        2: Result := 'Fitter''s ISO spool scratchpad';
       else
         Result := '';
       end;
