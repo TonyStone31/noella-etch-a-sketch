@@ -94,6 +94,10 @@ type
     RefH: TRefHeight;
     RefW: TRefWidth;
     RefH0, RefH1, RefW0, RefW1: Double;
+    { which edge each reading landed on: the top rather than the bottom,
+      the right side rather than the left.  The reference is the same for
+      both ends; the edge is whatever could be reached. }
+    RefH0Top, RefH1Top, RefW0Right, RefW1Right: Boolean;
   end;
 
 const
@@ -337,6 +341,11 @@ var
     Result := Result + ' ' + Ins(Abs(Amount));
   end;
 
+  function Edge(B: Boolean; const Yes, No: string): string;
+  begin
+    if B then Result := Yes else Result := No;
+  end;
+
   function EndWords(const E: TEndSpec): string;
   begin
     Result := DUCT_END_NAMES[E.Kind];
@@ -391,14 +400,14 @@ begin
           T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown], T.HeightAmount) + LineEnding;
       if T.FromRef then
       begin
-        Result := Result + 'Taped from ';
-        if T.RefH = rhFloor then Result := Result + 'the floor to the bottom: '
-        else Result := Result + 'the ceiling to the top: ';
-        Result := Result + Ins(T.RefH0) + ' at the entry, ' + Ins(T.RefH1) + ' at the exit' + LineEnding;
-        Result := Result + 'Taped from ';
-        if T.RefW = rwLeft then Result := Result + 'the left wall to the left side: '
-        else Result := Result + 'the right wall to the right side: ';
-        Result := Result + Ins(T.RefW0) + ' at the entry, ' + Ins(T.RefW1) + ' at the exit' + LineEnding;
+        if T.RefH = rhFloor then Result := Result + 'Taped from the floor: '
+        else Result := Result + 'Taped from the ceiling: ';
+        Result := Result + Ins(T.RefH0) + ' to the ' + Edge(T.RefH0Top, 'top', 'bottom') + ' of the entry, ' +
+          Ins(T.RefH1) + ' to the ' + Edge(T.RefH1Top, 'top', 'bottom') + ' of the exit' + LineEnding;
+        if T.RefW = rwLeft then Result := Result + 'Taped from the left wall: '
+        else Result := Result + 'Taped from the right wall: ';
+        Result := Result + Ins(T.RefW0) + ' to the ' + Edge(T.RefW0Right, 'right side', 'left side') + ' of the entry, ' +
+          Ins(T.RefW1) + ' to the ' + Edge(T.RefW1Right, 'right side', 'left side') + ' of the exit' + LineEnding;
       end;
     end;
   end;

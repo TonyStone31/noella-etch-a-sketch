@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The tape can land on either edge.**  Each tape reading now says
+  which edge it was taken to - the bottom or the top from the floor or
+  ceiling, the left or the right side from the wall - so a duct measured
+  to its bottom at one end and the equipment measured to its top at the
+  other still gives the true offset.  A **Tape** tab in the builder shows
+  where the tape went: the duct against the floor or ceiling above, and
+  against the wall below, with a dimension line from the reference to the
+  edge each reading landed on.  Change the edge and the line jumps.  The
+  ticket says which edge each reading was to.
+
 ## v2026.09.08.7
 
 ### Changed

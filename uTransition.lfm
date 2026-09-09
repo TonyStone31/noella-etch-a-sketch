@@ -348,6 +348,19 @@ object TransitionForm: TTransitionForm
         OnPaint = pbIsoPaint
       end
     end
+    object tsTape: TTabSheet
+      Caption = 'Tape'
+      ClientHeight = 366
+      ClientWidth = 332
+      object pbTape: TPaintBox
+        Left = 0
+        Height = 366
+        Top = 0
+        Width = 332
+        Align = alClient
+        OnPaint = pbTapePaint
+      end
+    end
   end
   object lblTag: TLabel
     Left = 440
@@ -858,11 +871,11 @@ object TransitionForm: TTransitionForm
   object lblRefHint: TLabel
     Left = 24
     Height = 54
-    Top = 396
+    Top = 402
     Width = 400
     AutoSize = False
     WordWrap = True
-    Caption = 'The entry reads 0 when it sits against the reference.  An exit that runs past the wall or the ceiling reads as a negative number.  Sizes and length as above.'
+    Caption = 'Say which edge each tape reading landed on.  The entry reads 0 when it sits against the reference; past the wall or the ceiling reads negative.  The Tape tab shows it.'
     Font.Color = clGrayText
     ParentFont = False
   end
@@ -894,5 +907,69 @@ object TransitionForm: TTransitionForm
     Style = csDropDownList
     OnChange = AnyChange
     TabOrder = 38
+  end
+  object cbRefH0Edge: TComboBox
+    Left = 244
+    Height = 28
+    Top = 278
+    Width = 78
+    ItemHeight = 0
+    ItemIndex = 0
+    Items.Strings = (
+      'bottom'
+      'top'
+    )
+    Style = csDropDownList
+    Text = 'bottom'
+    OnChange = AnyChange
+    TabOrder = 40
+  end
+  object cbRefH1Edge: TComboBox
+    Left = 324
+    Height = 28
+    Top = 278
+    Width = 78
+    ItemHeight = 0
+    ItemIndex = 0
+    Items.Strings = (
+      'bottom'
+      'top'
+    )
+    Style = csDropDownList
+    Text = 'bottom'
+    OnChange = AnyChange
+    TabOrder = 41
+  end
+  object cbRefW0Edge: TComboBox
+    Left = 244
+    Height = 28
+    Top = 364
+    Width = 78
+    ItemHeight = 0
+    ItemIndex = 0
+    Items.Strings = (
+      'left'
+      'right'
+    )
+    Style = csDropDownList
+    Text = 'left side'
+    OnChange = AnyChange
+    TabOrder = 42
+  end
+  object cbRefW1Edge: TComboBox
+    Left = 324
+    Height = 28
+    Top = 364
+    Width = 78
+    ItemHeight = 0
+    ItemIndex = 0
+    Items.Strings = (
+      'left'
+      'right'
+    )
+    Style = csDropDownList
+    Text = 'left side'
+    OnChange = AnyChange
+    TabOrder = 43
   end
 end

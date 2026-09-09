@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The tape can land on either edge.**  Each tape reading now says' + LineEnding +
+    '  which edge it was taken to - the bottom or the top from the floor or' + LineEnding +
+    '  ceiling, the left or the right side from the wall - so a duct measured' + LineEnding +
+    '  to its bottom at one end and the equipment measured to its top at the' + LineEnding +
+    '  other still gives the true offset.  A **Tape** tab in the builder shows' + LineEnding +
+    '  where the tape went: the duct against the floor or ceiling above, and' + LineEnding +
+    '  against the wall below, with a dimension line from the reference to the' + LineEnding +
+    '  edge each reading landed on.  Change the edge and the line jumps.  The' + LineEnding +
+    '  ticket says which edge each reading was to.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.08.7' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

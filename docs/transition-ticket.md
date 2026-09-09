@@ -297,7 +297,14 @@ checked against the paper.
 
 The reference has to be the same for both ends of an axis: a floor
 reading at one end and a ceiling reading at the other cannot be related
-without the room height.
+without the room height.  Which *edge* the tape landed on is free at each
+end - to the top or the bottom, the left side or the right - because the
+size closes the gap: a reading to the top less the height is the reading
+to the bottom.  That is what lets a duct measured to its bottom from a
+ladder and equipment measured to its top a few feet away come out right.
+The Tape tab draws both readings against their reference so the choice
+can be seen.  All of this assumes a horizontal run; a vertical one is for
+later.
 
 ## Flex connectors
 
