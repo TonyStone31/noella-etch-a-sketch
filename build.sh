@@ -395,7 +395,9 @@ do_github() {
   ( cd "$stage" && sha256sum * > SHA256SUMS ) 2>/dev/null || \
     ( cd "$stage" && shasum -a 256 * > SHA256SUMS )
 
-  git -C "$ROOT" checkout -- version.inc 2>/dev/null || true
+  # the binaries are built and staged; the files the release wrote its tag
+  # into go back before the tree has to be clean for the pull
+  git -C "$ROOT" checkout -- version.inc etchasketch.lpi etchasketch.res 2>/dev/null || true
 
   # The bin-rotating Action commits to main on its own schedule, so origin
   # can easily have moved since this branch was last level with it.  Catch up
