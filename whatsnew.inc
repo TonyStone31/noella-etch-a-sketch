@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The tape wizard does a vertical run off a furnace.**  A button on the' + LineEnding +
+    '  wizard switches between the hallway and a furnace room: the furnace on' + LineEnding +
+    '  the floor against a brick wall, its collar on top as the entry, the' + LineEnding +
+    '  trunk above with the opening the transition rises to as the exit, and' + LineEnding +
+    '  the transition dashed between.  Two views: from the side for front to' + LineEnding +
+    '  back, taped from the wall behind the furnace, and from the front for' + LineEnding +
+    '  left to right, taped from a wall beside it.  The same four readings, the' + LineEnding +
+    '  same shop words - the furnace laid on its back, so the builder''s top is' + LineEnding +
+    '  the duct''s front and its bottom the back - and the ticket says so.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- The duct in the hallway is galvanized grey now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.09' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

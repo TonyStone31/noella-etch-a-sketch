@@ -263,6 +263,7 @@ begin
         T.RefW0 := FTape.RefW0; T.RefW1 := FTape.RefW1;
         T.RefH0Top := FTape.RefH0Top; T.RefH1Top := FTape.RefH1Top;
         T.RefW0Right := FTape.RefW0Right; T.RefW1Right := FTape.RefW1Right;
+        T.Vertical := FTape.Vertical;
       end;
     end;
   end;
@@ -333,6 +334,7 @@ begin
     T.RefW0 := FTape.RefW0; T.RefW1 := FTape.RefW1;
     T.RefH0Top := FTape.RefH0Top; T.RefH1Top := FTape.RefH1Top;
     T.RefW0Right := FTape.RefW0Right; T.RefW1Right := FTape.RefW1Right;
+    T.Vertical := FTape.Vertical;
   end;
   if not TTapeWizard.Ask(FUnits, T) then Exit;
   rgSide.ItemIndex := Ord(T.Side);

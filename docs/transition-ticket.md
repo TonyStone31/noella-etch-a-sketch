@@ -304,8 +304,10 @@ size closes the gap: a reading to the top less the height is the reading
 to the bottom.  That is what lets a duct measured to its bottom from a
 ladder and equipment measured to its top a few feet away come out right.
 The wizard's pictures draw both readings against their reference so the
-choice can be seen.  All of this assumes a horizontal run; a vertical one is for
-later.
+choice can be seen.  A vertical run - off a furnace - is the same four readings against two
+flat pictures, side and front, with the furnace laid on its back in the
+builder's words: top is the duct's front, bottom its back, left and right
+unchanged.  The ticket says which it was.
 
 ## Flex connectors
 

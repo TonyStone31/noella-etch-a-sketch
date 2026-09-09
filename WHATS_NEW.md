@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The tape wizard does a vertical run off a furnace.**  A button on the
+  wizard switches between the hallway and a furnace room: the furnace on
+  the floor against a brick wall, its collar on top as the entry, the
+  trunk above with the opening the transition rises to as the exit, and
+  the transition dashed between.  Two views: from the side for front to
+  back, taped from the wall behind the furnace, and from the front for
+  left to right, taped from a wall beside it.  The same four readings, the
+  same shop words - the furnace laid on its back, so the builder's top is
+  the duct's front and its bottom the back - and the ticket says so.
+
+### Changed
+
+- The duct in the hallway is galvanized grey now.
+
 ## v2026.09.09
 
 ### Changed

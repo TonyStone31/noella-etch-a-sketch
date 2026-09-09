@@ -98,6 +98,10 @@ type
       the right side rather than the left.  The reference is the same for
       both ends; the edge is whatever could be reached. }
     RefH0Top, RefH1Top, RefW0Right, RefW1Right: Boolean;
+    { a vertical run - off a furnace - taped standing up: the builder's top
+      is the duct's front and its bottom the back, the furnace laid on its
+      back.  Only the words change. }
+    Vertical: Boolean;
   end;
 
 const
@@ -491,7 +495,19 @@ begin
         'Width: ' + OutBy(SideWords[T.Side], T.Side <> srCentred, T.SideAmount) + LineEnding +
         'Height: ' + OutBy(HeightWords[T.Height],
           T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown], T.HeightAmount) + LineEnding;
-      if T.FromRef then
+      if T.FromRef and T.Vertical then
+      begin
+        Result := Result + 'A vertical run, taped standing up - the furnace laid on its back: top is the front, bottom the back' + LineEnding;
+        if T.RefH = rhFloor then Result := Result + 'Taped from the back wall: '
+        else Result := Result + 'Taped from the front: ';
+        Result := Result + Ins(T.RefH0) + ' to the ' + Edge(T.RefH0Top, 'front', 'back') + ' of the entry, ' +
+          Ins(T.RefH1) + ' to the ' + Edge(T.RefH1Top, 'front', 'back') + ' of the exit' + LineEnding;
+        if T.RefW = rwLeft then Result := Result + 'Taped from the left wall: '
+        else Result := Result + 'Taped from the right wall: ';
+        Result := Result + Ins(T.RefW0) + ' to the ' + Edge(T.RefW0Right, 'right side', 'left side') + ' of the entry, ' +
+          Ins(T.RefW1) + ' to the ' + Edge(T.RefW1Right, 'right side', 'left side') + ' of the exit' + LineEnding;
+      end
+      else if T.FromRef then
       begin
         if T.RefH = rhFloor then Result := Result + 'Taped from the floor: '
         else Result := Result + 'Taped from the ceiling: ';

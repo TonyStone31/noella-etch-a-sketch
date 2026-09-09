@@ -38,11 +38,13 @@ type
     pbPic: TPaintBox;
     lblStep, lblSay, lblResult: TLabel;
     edA, edB: TEdit;
-    btnRef, btnEdgeA, btnEdgeB: TButton;
+    btnRef, btnEdgeA, btnEdgeB, btnRun: TButton;
     btnBack, btnNext, btnCancel: TButton;
     procedure PicPaint(Sender: TObject);
     procedure Changed(Sender: TObject);
     procedure RefClick(Sender: TObject);
+    procedure RunClick(Sender: TObject);
+    procedure PaintFurnace(C: TCanvas; W, H: Integer);
     procedure EdgeClick(Sender: TObject);
     procedure BackClick(Sender: TObject);
     procedure NextClick(Sender: TObject);
@@ -103,6 +105,8 @@ begin
   btnEdgeA := TButton.Create(Self); btnEdgeA.Parent := Self; btnEdgeA.Width := 110; btnEdgeA.Height := 26; btnEdgeA.OnClick := @EdgeClick;
   btnEdgeB := TButton.Create(Self); btnEdgeB.Parent := Self; btnEdgeB.Width := 110; btnEdgeB.Height := 26; btnEdgeB.OnClick := @EdgeClick;
   btnRef := TButton.Create(Self); btnRef.Parent := Self; btnRef.Width := 150; btnRef.Height := 26; btnRef.OnClick := @RefClick;
+  btnRun := TButton.Create(Self); btnRun.Parent := Self; btnRun.OnClick := @RunClick;
+  btnRun.SetBounds(560, 10, 180, 28);
 
   lblResult := TLabel.Create(Self);
   lblResult.Parent := Self;
@@ -204,21 +208,42 @@ begin
   case FPage of
     0:
       begin
-        lblStep.Caption := 'Step 1 of 3 - the height, from the floor or the ceiling';
-        lblSay.Caption := 'The duct hangs in a hallway, entry end nearest.  Hook the tape on the floor, or on ' +
-          'the ceiling, and read to whichever edge of the duct you can reach at each end - say which under each box.';
-        if FSpec.RefH = rhFloor then btnRef.Caption := 'taped from the floor' else btnRef.Caption := 'taped from the ceiling';
+        if FSpec.Vertical then
+        begin
+          lblStep.Caption := 'Step 1 of 3 - front to back, from the wall behind the furnace';
+          lblSay.Caption := 'Seen from the side.  The entry is the collar on top of the furnace, the exit the ' +
+            'opening in the trunk above.  Hook the tape on the back wall and read to the back or the front of each.';
+          if FSpec.RefH = rhFloor then btnRef.Caption := 'taped from the back wall' else btnRef.Caption := 'taped from the front';
+          if FSpec.RefH0Top then btnEdgeA.Caption := 'to the front' else btnEdgeA.Caption := 'to the back';
+          if FSpec.RefH1Top then btnEdgeB.Caption := 'to the front' else btnEdgeB.Caption := 'to the back';
+        end
+        else
+        begin
+          lblStep.Caption := 'Step 1 of 3 - the height, from the floor or the ceiling';
+          lblSay.Caption := 'The duct hangs in a hallway, entry end nearest.  Hook the tape on the floor, or on ' +
+            'the ceiling, and read to whichever edge of the duct you can reach at each end - say which under each box.';
+          if FSpec.RefH = rhFloor then btnRef.Caption := 'taped from the floor' else btnRef.Caption := 'taped from the ceiling';
+          if FSpec.RefH0Top then btnEdgeA.Caption := 'to the top' else btnEdgeA.Caption := 'to the bottom';
+          if FSpec.RefH1Top then btnEdgeB.Caption := 'to the top' else btnEdgeB.Caption := 'to the bottom';
+        end;
         edA.Text := FormatFloat('0.###', FSpec.RefH0 / FSpec.Inch);
         edB.Text := FormatFloat('0.###', FSpec.RefH1 / FSpec.Inch);
-        if FSpec.RefH0Top then btnEdgeA.Caption := 'to the top' else btnEdgeA.Caption := 'to the bottom';
-        if FSpec.RefH1Top then btnEdgeB.Caption := 'to the top' else btnEdgeB.Caption := 'to the bottom';
         btnNext.Caption := 'Next >';
       end;
     1:
       begin
-        lblStep.Caption := 'Step 2 of 3 - the width, from a wall';
-        lblSay.Caption := 'Hook the tape on the wall to the left or the right of the run, looking from the ' +
-          'entry to the exit, and read to whichever side you can reach at each end.';
+        if FSpec.Vertical then
+        begin
+          lblStep.Caption := 'Step 2 of 3 - left to right, from a wall beside the furnace';
+          lblSay.Caption := 'Seen from the front.  Hook the tape on the wall to the left or the right and read ' +
+            'to whichever side of the collar, and of the trunk opening, you can reach.';
+        end
+        else
+        begin
+          lblStep.Caption := 'Step 2 of 3 - the width, from a wall';
+          lblSay.Caption := 'Hook the tape on the wall to the left or the right of the run, looking from the ' +
+            'entry to the exit, and read to whichever side you can reach at each end.';
+        end;
         if FSpec.RefW = rwLeft then btnRef.Caption := 'taped from the left wall' else btnRef.Caption := 'taped from the right wall';
         edA.Text := FormatFloat('0.###', FSpec.RefW0 / FSpec.Inch);
         edB.Text := FormatFloat('0.###', FSpec.RefW1 / FSpec.Inch);
@@ -236,6 +261,8 @@ begin
   end;
   PlaceBoxes;
   btnRef.SetBounds(pbPic.Left + (pbPic.Width - 170) div 2, pbPic.Top + pbPic.Height - 34, 170, 26);
+  if FSpec.Vertical then btnRun.Caption := 'vertical run, off a furnace' else btnRun.Caption := 'horizontal run, in a hall';
+  btnRun.Visible := FPage < 2;
   T := FSpec;
   T.FromRef := True;
   TapeRules(T);
@@ -268,6 +295,13 @@ begin
     if FSpec.RefH = rhFloor then FSpec.RefH := rhCeiling else FSpec.RefH := rhFloor;
   end
   else if FSpec.RefW = rwLeft then FSpec.RefW := rwRight else FSpec.RefW := rwLeft;
+  ShowPage;
+end;
+
+procedure TTapeWizard.RunClick(Sender: TObject);
+begin
+  ReadPage;
+  FSpec.Vertical := not FSpec.Vertical;
   ShowPage;
 end;
 
@@ -310,8 +344,9 @@ end;
 
 procedure TTapeWizard.PicPaint(Sender: TObject);
 begin
-  if FPage < 2 then PaintScene(pbPic.Canvas, pbPic.Width, pbPic.Height)
-  else PaintResult(pbPic.Canvas, pbPic.Width, pbPic.Height);
+  if FPage >= 2 then PaintResult(pbPic.Canvas, pbPic.Width, pbPic.Height)
+  else if FSpec.Vertical then PaintFurnace(pbPic.Canvas, pbPic.Width, pbPic.Height)
+  else PaintScene(pbPic.Canvas, pbPic.Width, pbPic.Height);
 end;
 
 { ---- the hallway ---------------------------------------------------------
@@ -503,12 +538,12 @@ begin
   X2 := P(FL1 + FSpec.W1, FB1 + FSpec.H1, FT1); X3 := P(FL1, FB1 + FSpec.H1, FT1);
   E0 := P(FL0, FB0, FT0); E1 := P(FL0 + FSpec.W0, FB0, FT0);
   E2 := P(FL0 + FSpec.W0, FB0 + FSpec.H0, FT0); E3 := P(FL0, FB0 + FSpec.H0, FT0);
-  Quad(X0, X1, X2, X3, $00A8AEB4);                { the far opening, closed }
-  Quad(E3, E2, X2, X3, $00DCE0E4);                { top }
-  Quad(E0, E1, X1, X0, $00A0A6AC);                { bottom }
-  Quad(E0, E3, X3, X0, $00C4C9CE);                { left side }
-  Quad(E1, E2, X2, X1, $00B4BABF);                { right side }
-  Quad(E0, E1, E2, E3, $00505860);                { the entry opening, dark inside }
+  Quad(X0, X1, X2, X3, $00A4A8AA);                { the far opening, closed }
+  Quad(E3, E2, X2, X3, $00E2E4E4);                { top, catching the light }
+  Quad(E0, E1, X1, X0, $00909496);                { bottom }
+  Quad(E0, E3, X3, X0, $00C8CBCC);                { left side }
+  Quad(E1, E2, X2, X1, $00B2B6B8);                { right side }
+  Quad(E0, E1, E2, E3, $00585C60);                { the entry opening, dark inside }
   C.Pen.Color := $00404448;
   C.Pen.Width := 2;
   C.Brush.Style := bsClear;
@@ -576,6 +611,161 @@ begin
   end;
 end;
 
+{ ---- the furnace -----------------------------------------------------------
+
+  A vertical run: the furnace standing on the floor against a wall, its
+  collar on top - the entry - and the trunk above with the opening the
+  transition rises to - the exit.  Two flat cartoons: the side view for
+  front-to-back, the front view for left-to-right, the furnace laid on its
+  back in the builder's words - top is front, bottom is back. }
+procedure TTapeWizard.PaintFurnace(C: TCanvas; W, H: Integer);
+const
+  FURN_W = 2.2; FURN_D = 2.6; FURN_H = 3.8; COLLAR_H = 0.5; GAP = 1.3; TRUNK_H = 1.0;
+var
+  T: TTransitionSpec;
+  E, X: array[0..3] of TP3;
+  Room, Tall, ScX, ScY, XOff: Double;
+  Side: Boolean;                 { the side view (page 0) or the front (page 1) }
+  FX, FW, DA, DB, EntA, EntB, ExA, ExB, Shift: Double;
+  FloorY, RefX, I: Integer;
+  Y0, Y1, TX0, TX1: Integer;
+  Txt: string;
+
+  function SX(V: Double): Integer; begin Result := Round(XOff + V * ScX); end;
+  function SY(V: Double): Integer; begin Result := Round(FloorY - V * ScY); end;
+
+  procedure Box(X0, Y0, X1, Y1: Integer; Fill: TColor);
+  begin
+    C.Brush.Color := Fill; C.Brush.Style := bsSolid;
+    C.Pen.Color := $00404448;
+    C.Rectangle(X0, Y0, X1, Y1);
+  end;
+
+  procedure Tape(X0, Y, X1: Integer; const S: string);
+  begin
+    C.Pen.Color := TAPE_COL; C.Pen.Width := 3;
+    C.Line(X0, Y, X1, Y);
+    C.Line(X0, Y - 7, X0, Y + 7);
+    C.Line(X1, Y - 7, X1, Y + 7);
+    C.Pen.Width := 1;
+    C.Brush.Color := TAPE_COL; C.Brush.Style := bsSolid;
+    C.Rectangle(X0 - 6, Y - 6, X0 + 6, Y + 6);
+    C.Brush.Style := bsClear;
+    C.Font.Color := TAPE_COL; C.Font.Style := [fsBold]; C.Font.Size := 9;
+    C.TextOut((X0 + X1) div 2 - C.TextWidth(S) div 2, Y - 22, S);
+    C.Font.Style := [];
+  end;
+
+begin
+  C.Brush.Color := clWhite;
+  C.FillRect(0, 0, W, H);
+  Side := FPage = 0;
+  T := FSpec;
+  T.FromRef := True;
+  TapeRules(T);
+  TransitionCorners(T, E, X);
+  { the room, in feet: the furnace a foot and a half off the reference
+    wall, the collar centred on it, the trunk above with its opening off
+    the collar by what the readings come to }
+  Tall := FURN_H + COLLAR_H + GAP + TRUNK_H + 0.8;
+  if Side then begin FW := FURN_D; DA := FSpec.H0; DB := FSpec.H1; end
+  else begin FW := FURN_W; DA := FSpec.W0; DB := FSpec.W1; end;
+  FX := 1.5;
+  EntA := FX + (FW - DA) / 2;
+  EntB := EntA + DA;
+  if Side then ExA := EntA + X[0].Z else ExA := EntA + X[0].X;
+  ExB := ExA + DB;
+  Shift := 0.4 - Min(Min(EntA, ExA), FX);
+  if Shift > 0 then
+  begin
+    FX := FX + Shift; EntA := EntA + Shift; EntB := EntB + Shift; ExA := ExA + Shift; ExB := ExB + Shift;
+  end;
+  Room := Max(FX + FW, Max(EntB, ExB)) + 1.5;
+  { a cartoon: the heights to their own scale, the widths stretched a
+    little so the room fills the picture }
+  ScY := (H - 60) / Tall;
+  ScX := Min((W - 60) / Room, ScY * 1.6);
+  XOff := (W - Room * ScX) / 2;
+  FloorY := H - 28;
+  { the wall behind - brick - and the floor }
+  C.Brush.Color := $007A92C6; C.Brush.Style := bsSolid; C.Pen.Style := psClear;
+  C.Rectangle(0, 0, W, FloorY);
+  C.Pen.Style := psSolid;
+  C.Pen.Color := $00A0B4D8;
+  Y0 := FloorY;
+  I := 0;
+  while Y0 > 0 do
+  begin
+    C.Line(0, Y0, W, Y0);
+    TX0 := (I mod 2) * 22;
+    while TX0 < W do begin C.Line(TX0, Y0 - 12, TX0, Y0); Inc(TX0, 44); end;
+    Dec(Y0, 12); Inc(I);
+  end;
+  C.Brush.Color := $00D6D0C6; C.Pen.Color := $00B4AC9E;
+  C.Rectangle(0, FloorY, W, H);
+  Y0 := 0;
+  while Y0 < W do begin C.Line(Y0, FloorY, Y0, H); Inc(Y0, 40); end;
+  { the reference wall, drawn as the room's end: at the left or the right }
+  if (Side and (FSpec.RefH = rhFloor)) or ((not Side) and (FSpec.RefW = rwLeft)) then RefX := SX(0)
+  else RefX := SX(Room);
+  C.Brush.Color := $00606468; C.Brush.Style := bsSolid; C.Pen.Style := psClear;
+  if RefX < W div 2 then C.Rectangle(0, 0, RefX, FloorY) else C.Rectangle(RefX, 0, W, FloorY);
+  C.Pen.Style := psSolid;
+  C.Font.Color := clWhite; C.Font.Size := 9;
+  if Side then begin if FSpec.RefH = rhFloor then Txt := 'back wall' else Txt := 'front'; end
+  else begin if FSpec.RefW = rwLeft then Txt := 'left wall' else Txt := 'right wall'; end;
+  C.Brush.Style := bsClear;
+  if RefX < W div 2 then C.TextOut(6, 8, Txt) else C.TextOut(W - 6 - C.TextWidth(Txt), 8, Txt);
+  { the furnace: a cabinet with two panels and a little badge }
+  Box(SX(FX), SY(FURN_H), SX(FX + FW), SY(0), $00B8BCC0);
+  Box(SX(FX) + 8, SY(FURN_H) + 10, SX(FX + FW) - 8, SY(FURN_H * 0.55), $00A8ACB0);
+  Box(SX(FX) + 8, SY(FURN_H * 0.5), SX(FX + FW) - 8, SY(0) - 8, $00B0B4B8);
+  C.Brush.Style := bsClear;
+  C.Font.Color := $00404448;
+  C.TextOut(SX(FX) + 14, SY(FURN_H * 0.28), 'furnace');
+  { the collar on top - the entry }
+  Box(SX(EntA), SY(FURN_H + COLLAR_H), SX(EntB), SY(FURN_H), $00CACDCE);
+  { the trunk above, and the opening in its underside - the exit }
+  Box(SX(0.3), SY(FURN_H + COLLAR_H + GAP + TRUNK_H), SX(Room - 0.3), SY(FURN_H + COLLAR_H + GAP), $00C2C6C8);
+  C.Pen.Color := $00404448;
+  C.Brush.Color := $00585C60; C.Brush.Style := bsSolid;
+  C.Rectangle(SX(ExA), SY(FURN_H + COLLAR_H + GAP) - 8, SX(ExB), SY(FURN_H + COLLAR_H + GAP) + 3);
+  C.Brush.Style := bsClear;
+  C.Font.Color := $00404448;
+  C.TextOut(SX(0.3) + 8, SY(FURN_H + COLLAR_H + GAP + TRUNK_H) + 4, 'trunk');
+  { the transition to be, dashed, collar to opening }
+  C.Pen.Style := psDash;
+  C.Pen.Color := $00606468;
+  C.Polygon([Point(SX(EntA), SY(FURN_H + COLLAR_H)), Point(SX(EntB), SY(FURN_H + COLLAR_H)),
+             Point(SX(ExB), SY(FURN_H + COLLAR_H + GAP)), Point(SX(ExA), SY(FURN_H + COLLAR_H + GAP))]);
+  C.Pen.Style := psSolid;
+  C.Font.Color := $00404448;
+  C.TextOut(SX(EntB) + 6, SY(FURN_H + COLLAR_H / 2) - 8, 'entry');
+  C.TextOut(SX(ExB) + 6, SY(FURN_H + COLLAR_H + GAP) - 6, 'exit');
+  { the tapes: along the collar, and along the opening }
+  Y0 := SY(FURN_H + COLLAR_H / 2);
+  Y1 := SY(FURN_H + COLLAR_H + GAP) + 16;
+  if Side then
+  begin
+    if FSpec.RefH0Top then TX0 := SX(EntB) else TX0 := SX(EntA);
+    if FSpec.RefH1Top then TX1 := SX(ExB) else TX1 := SX(ExA);
+    if FSpec.RefH = rhCeiling then
+    begin
+      { from the front: the far edge is the back }
+      if FSpec.RefH0Top then TX0 := SX(EntB) else TX0 := SX(EntA);
+    end;
+    Tape(RefX, Y0, TX0, FormatLen(FSpec.RefH0, FUnits));
+    Tape(RefX, Y1, TX1, FormatLen(FSpec.RefH1, FUnits));
+  end
+  else
+  begin
+    if FSpec.RefW0Right then TX0 := SX(EntB) else TX0 := SX(EntA);
+    if FSpec.RefW1Right then TX1 := SX(ExB) else TX1 := SX(ExA);
+    Tape(RefX, Y0, TX0, FormatLen(FSpec.RefW0, FUnits));
+    Tape(RefX, Y1, TX1, FormatLen(FSpec.RefW1, FUnits));
+  end;
+end;
+
 { the reading boxes and their edge buttons beside their tape lines }
 procedure TTapeWizard.PlaceBoxes;
 var
@@ -614,16 +804,33 @@ begin
   C.Font.Color := INKG;
   Y := 90;
   C.TextOut(30, Y, 'From the readings:'); Inc(Y, 26);
-  if T.RefH = rhFloor then S := 'from the floor' else S := 'from the ceiling';
-  C.TextOut(50, Y, Format('%s: %s to the %s of the entry, %s to the %s of the exit',
-    [S, FormatLen(T.RefH0, FUnits), Pick(T.RefH0Top, 'top', 'bottom'),
-     FormatLen(T.RefH1, FUnits), Pick(T.RefH1Top, 'top', 'bottom')])); Inc(Y, 22);
+  if T.Vertical then
+  begin
+    if T.RefH = rhFloor then S := 'from the back wall' else S := 'from the front';
+    C.TextOut(50, Y, Format('%s: %s to the %s of the entry, %s to the %s of the exit',
+      [S, FormatLen(T.RefH0, FUnits), Pick(T.RefH0Top, 'front', 'back'),
+       FormatLen(T.RefH1, FUnits), Pick(T.RefH1Top, 'front', 'back')])); Inc(Y, 22);
+  end
+  else
+  begin
+    if T.RefH = rhFloor then S := 'from the floor' else S := 'from the ceiling';
+    C.TextOut(50, Y, Format('%s: %s to the %s of the entry, %s to the %s of the exit',
+      [S, FormatLen(T.RefH0, FUnits), Pick(T.RefH0Top, 'top', 'bottom'),
+       FormatLen(T.RefH1, FUnits), Pick(T.RefH1Top, 'top', 'bottom')])); Inc(Y, 22);
+  end;
   if T.RefW = rwLeft then S := 'from the left wall' else S := 'from the right wall';
   C.TextOut(50, Y, Format('%s: %s to the %s side of the entry, %s to the %s side of the exit',
     [S, FormatLen(T.RefW0, FUnits), Pick(T.RefW0Right, 'right', 'left'),
      FormatLen(T.RefW1, FUnits), Pick(T.RefW1Right, 'right', 'left')])); Inc(Y, 34);
   C.TextOut(30, Y, Format('With the entry %s x %s and the exit %s x %s.',
     [FormatLen(T.W0, FUnits), FormatLen(T.H0, FUnits), FormatLen(T.W1, FUnits), FormatLen(T.H1, FUnits)]));
+  if T.Vertical then
+  begin
+    Inc(Y, 30);
+    C.TextOut(30, Y, 'A vertical run is said the way the builder says it, the furnace laid on its back:');
+    Inc(Y, 22);
+    C.TextOut(50, Y, 'top is the front of the duct, bottom is the back; left and right stay left and right.');
+  end;
 end;
 
 end.
