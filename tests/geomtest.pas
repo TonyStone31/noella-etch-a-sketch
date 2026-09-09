@@ -2300,7 +2300,8 @@ begin
     T.W0 := 30 / 12; T.H0 := 30 / 12; T.W1 := 30 / 12; T.H1 := 30 / 12;
     T.Stiffen := stAuto;
     First := BuildTransition(D, T, 0, 1);
-    Ok(D.Live - First = Plain + 8, 'auto on a 30" duct: two diagonals on each of four walls');
+    { a ridge is three facets, four edges along and three across each end }
+    Ok(D.Live - First = Plain + 8 * (3 + 4 + 6), 'auto on a 30" duct: two ridges on each of four walls');
     Ok(Pos('cross break the bottom, right side, top, left side', MetalWords(T)) > 0, 'and the ticket names the walls');
     D.Clear;
     T.Len := 4;
@@ -2308,8 +2309,8 @@ begin
     Ok(Pos('beads every 12"', MetalWords(T)) > 0, 'a 48" run gets beads instead');
     Diag := 0;
     for I := First to D.Live - 1 do
-      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y - D[I].B.Y) < 1E-9) and (Abs(D[I].A.Y - 1) < 1E-9) then Inc(Diag);
-    Ok(Diag = 4, Format('a bead across each wall a foot in (%d)', [Diag]));
+      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y - D[I].B.Y) < 1E-9) and (Abs(D[I].A.Y - 1) < 0.05) then Inc(Diag);
+    Ok(Diag = 16, Format('a bead across each wall a foot in, four edges each (%d)', [Diag]));
     D.Clear;
     T.Stiffen := stNone;
     T.Len := 2;

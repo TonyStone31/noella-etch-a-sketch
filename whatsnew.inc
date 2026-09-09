@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Beads and cross breaks look like the metal.**  A rolled bead is a' + LineEnding +
+    '  ridge now, three quarters wide and standing a fat eighth proud, built' + LineEnding +
+    '  in three facets so it shades the way rolled metal does, with its edges' + LineEnding +
+    '  drawn along it and its profile at each end; it stops an inch short of' + LineEnding +
+    '  the seams where the roll stops.  A cross break is the same ridge made' + LineEnding +
+    '  shallower and narrower, the crease of the brake, stopping short of the' + LineEnding +
+    '  corners.  They were single lines before.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.09.3' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

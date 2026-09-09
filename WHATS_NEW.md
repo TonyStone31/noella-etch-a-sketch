@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Beads and cross breaks look like the metal.**  A rolled bead is a
+  ridge now, three quarters wide and standing a fat eighth proud, built
+  in three facets so it shades the way rolled metal does, with its edges
+  drawn along it and its profile at each end; it stops an inch short of
+  the seams where the roll stops.  A cross break is the same ridge made
+  shallower and narrower, the crease of the brake, stopping short of the
+  corners.  They were single lines before.
+
 ## v2026.09.09.3
 
 ### New

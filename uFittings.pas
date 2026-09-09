@@ -138,6 +138,10 @@ const
   STIFFEN_WIDTH_IN = 18;
   STIFFEN_LENGTH_IN = 12;
   BEAD_SPACING_IN = 12;
+  { the ridges as drawn: a rolled bead is three quarters wide and stands a
+    fat eighth proud; a cross break is a shallower, narrower crease }
+  BEAD_WIDTH_IN = 0.75;  BEAD_HEIGHT_IN = 0.19;
+  BREAK_WIDTH_IN = 0.5;  BREAK_HEIGHT_IN = 0.06;
   FLEX_FABRIC_IN: array[TFlexSize] of Double = (0, 3, 3, 6);
   FITTING_NAMES: array[TFittingKind] of string = ('Transition', 'Elbow', 'Tee');
   TURN_NAMES: array[TTurn] of string = ('Right', 'Left', 'Up', 'Down');
@@ -769,28 +773,67 @@ var
     end;
   end;
 
-  { The stiffening drawn on wall K, in a lighter line: a cross break is the
-    two diagonals, beads are lines across the panel every foot along the
-    run.  Only on a panel big enough to want it. }
+  { A ridge raised out of a wall from A to B: the rolled bead, or the crease
+    of a cross break.  Three facets across it - up, over the crest, down -
+    so it shades like the rolled metal does, its four edges drawn along
+    it, and its profile at each end in three short lines. }
+  procedure Ridge(const From, Till: TP3; WidthIn, HeightIn: Double; const Nrm: TP3);
+  var
+    Dir, Side: TP3;
+    PA, PB: array[0..3] of TP3;
+    Off: array[0..3] of Double;
+    Up: array[0..3] of Double;
+    I: Integer;
+    Thin: TBuild;
+  begin
+    Dir := Towards(From, Till);
+    Side := Norm3(Cross3(Nrm, Dir));
+    Off[0] := -WidthIn / 2; Off[1] := -WidthIn / 5; Off[2] := WidthIn / 5; Off[3] := WidthIn / 2;
+    Up[0] := 0; Up[1] := HeightIn; Up[2] := HeightIn; Up[3] := 0;
+    for I := 0 to 3 do
+    begin
+      PA[I] := Add(Add(From, Side, Off[I] * B.Inch), Nrm, Up[I] * B.Inch);
+      PB[I] := Add(Add(Till, Side, Off[I] * B.Inch), Nrm, Up[I] * B.Inch);
+    end;
+    Thin := B;
+    Thin.Weight := Max(0.5, B.Weight * 0.6);
+    for I := 0 to 2 do
+      BFaceOut(B, [PA[I], PB[I], PB[I + 1], PA[I + 1]], Nrm);
+    for I := 0 to 3 do BLine(Thin, PA[I], PB[I]);
+    for I := 0 to 2 do
+    begin
+      BLine(Thin, PA[I], PA[I + 1]);
+      BLine(Thin, PB[I], PB[I + 1]);
+    end;
+  end;
+
+  { The stiffening on wall K: a cross break is the two diagonals as low
+    creases, beads are rolled ridges across the panel every foot along the
+    run, a little in from the seams.  Only on a panel big enough to want
+    it. }
   procedure Stiffen(K: Integer);
   var
     J, N, I: Integer;
-    Wd, Ln, T: Double;
+    Wd, Ln, T, Inset: Double;
     S: TStiffen;
-    Thin: TBuild;
+    Nrm, A, Bp: TP3;
   begin
     J := (K + 1) mod 4;
     Wd := Max(Dist(C[0][K], C[0][J]), Dist(C[1][K], C[1][J]));
     Ln := Min(Dist(C[0][K], C[1][K]), Dist(C[0][J], C[1][J]));
     S := StiffenFor(B.Spec, Wd / B.Inch, Ln / B.Inch);
     if S = stNone then Exit;
-    Thin := B;
-    Thin.Weight := Max(0.5, B.Weight * 0.6);
+    Nrm := OutNormal(K);
     case S of
       stCrossBreak:
         begin
-          BLine(Thin, C[0][K], C[1][J]);
-          BLine(Thin, C[0][J], C[1][K]);
+          { the creases stop short of the corners, where the brake cannot
+            reach and the ends would pile up }
+          Inset := 0.06;
+          Ridge(Lerp3(C[0][K], C[1][J], Inset), Lerp3(C[0][K], C[1][J], 1 - Inset),
+            BREAK_WIDTH_IN, BREAK_HEIGHT_IN, Nrm);
+          Ridge(Lerp3(C[0][J], C[1][K], Inset), Lerp3(C[0][J], C[1][K], 1 - Inset),
+            BREAK_WIDTH_IN, BREAK_HEIGHT_IN, Nrm);
         end;
       stBeads:
         begin
@@ -799,7 +842,11 @@ var
           begin
             T := I * BEAD_SPACING_IN * B.Inch / Ln;
             if T >= 0.98 then Break;
-            BLine(Thin, Lerp3(C[0][K], C[1][K], T), Lerp3(C[0][J], C[1][J], T));
+            A := Lerp3(C[0][K], C[1][K], T);
+            Bp := Lerp3(C[0][J], C[1][J], T);
+            { an inch in from each seam, where the roll stops }
+            Ridge(Add(A, Towards(A, Bp), B.Inch), Add(Bp, Towards(Bp, A), B.Inch),
+              BEAD_WIDTH_IN, BEAD_HEIGHT_IN, Nrm);
           end;
         end;
     end;
