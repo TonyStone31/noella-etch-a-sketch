@@ -290,9 +290,6 @@ Follow Me; Email it sends the iso, the picture and the ticket to the shop;
 Build it drops the spool into the drawing.
 [`docs/pipe-spool.md`](docs/pipe-spool.md) has the details.
 
-**Field sketch** puts you on isometric paper inside the main drawing for a
-rough sketch.
-
 [`docs/transition-ticket.md`](docs/transition-ticket.md) is the fitting
 wizard's own notebook - the notation, the end types with their assumed
 sizes, the elbow geometry, the field-measurement solve.
@@ -318,7 +315,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | `/unfold` `/layout` | lay a piece out flat |
 | `/view` | the next view preset (the VIEW button) |
 | `/corner` `/front` `/right` `/back` `/left` `/top` `/down` | go straight to that view |
-| `/3d` `/orbit`, `/iso`, `/plan` `/2d` `/flat` | the 3D camera, isometric paper, plan paper |
+| `/3d` `/orbit`, `/iso`, `/plan` `/2d` `/flat` | the 3D camera; the old isometric and plan paper modes, kept for old drawings and not on the VIEW menu any more |
 | `/fit` `/zoom` | zoom to fit the drawing |
 | `/plane xy` `/plane xz` `/plane yz` | the working plane; `/plane` alone cycles |
 | `/origin` `/o` | move the origin to the cursor |
@@ -396,7 +393,7 @@ length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
 | Alt (held) | suspend snapping |
 | Ctrl (held) while moving or turning | leave a copy behind |
 | V / Shift+V | next / previous view preset |
-| I | isometric paper / plan paper |
+| I | isometric paper / plan paper (the old flat modes) |
 | K | cycle the working plane (XY / XZ / YZ) |
 | Shift+F | zoom to fit |
 | U | feet-and-inches / metric |
