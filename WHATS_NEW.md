@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A footing of concentric rings works right again with `/rebuildfaces`.**
+  A drawing saved by an older build could hold its faces the wrong way -
+  four concentric rectangles kept as four solid faces stacked on each
+  other rather than three rings and a middle - and the ordinary rebuild
+  keeps a drawing's faces on purpose, so it did not repair them.  The new
+  `/rebuildfaces` command throws every face away and works them all out
+  fresh from the lines: the rings come back, each its own face to push,
+  pull or delete.  It is for flat work and has undo.
+
 ## v2026.09.10
 
 ### Fixed

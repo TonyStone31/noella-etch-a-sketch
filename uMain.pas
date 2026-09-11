@@ -8663,6 +8663,7 @@ end;
 { A handful of typed words, so the command bar is useful and not decorative. }
 function TMainForm.RunCommand(const S: string): Boolean;
 var
+  ReDoomed: array of Boolean;
   W, Rest: string;
   P, I: Integer;
 begin
@@ -8822,6 +8823,25 @@ begin
     RenderPro;
     RecomposeAll;
     FCmdMsg := Format('Worked the faces out again: %d.', [I]);
+  end
+  else if (W = 'rebuildfaces') or (W = 'reface') then
+  begin
+    { Throw every face away and work them all out fresh from the lines,
+      as if none had ever been drawn.  A file saved by an older build can
+      hold faces that no longer match what the lines make of the area -
+      concentric rings saved as stacked solids, say - and the ordinary
+      rebuild keeps what is there on purpose.  This one does not.  It is
+      for flat work; a pushed-up solid's faces go too, and only the flat
+      faces come back, so undo is right there if that was not wanted. }
+    PushUndo;
+    SetLength(ReDoomed, FD.Doc.Live);
+    for I := 0 to FD.Doc.Live - 1 do ReDoomed[I] := FD.Doc[I].Kind = ekFace;
+    FD.Doc.DeleteMarked(ReDoomed);
+    SetLength(FD.Seen, 0);
+    I := RebuildFlatFaces;
+    RenderPro;
+    RecomposeAll;
+    FCmdMsg := Format('Threw the faces away and worked them out from the lines: %d.', [I]);
   end
   else if (W = 'guides') or (W = 'noguides') then
   begin

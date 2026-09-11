@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A footing of concentric rings works right again with `/rebuildfaces`.**' + LineEnding +
+    '  A drawing saved by an older build could hold its faces the wrong way -' + LineEnding +
+    '  four concentric rectangles kept as four solid faces stacked on each' + LineEnding +
+    '  other rather than three rings and a middle - and the ordinary rebuild' + LineEnding +
+    '  keeps a drawing''s faces on purpose, so it did not repair them.  The new' + LineEnding +
+    '  `/rebuildfaces` command throws every face away and works them all out' + LineEnding +
+    '  fresh from the lines: the rings come back, each its own face to push,' + LineEnding +
+    '  pull or delete.  It is for flat work and has undo.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.10' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
