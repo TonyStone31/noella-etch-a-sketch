@@ -384,6 +384,9 @@ type
       settings, and the next launch picks it back up.  FDraftSeq is what was
       last written, FDraftAge counts ticks since the last change. }
     FEditSeq, FDraftSeq: Int64;
+    { the edit the named file was last written at; anything past it is
+      unsaved, and the header says so }
+    FSavedSeq: Int64;
     { unique to this run of the program, so two copies open at once cannot
       write the same temporary file over each other }
     FRunTag: string;
@@ -3040,11 +3043,21 @@ end;
 
 procedure TMainForm.NewDrawing;
 var
-  N: Integer;
+  N, K, Nm: Integer;
+  Taken: Boolean;
 begin
   N := Length(FDrawings);
   SetLength(FDrawings, N + 1);
-  FDrawings[N] := TDrawing.Create(Format('Sheet %d', [N + 1]));
+  { the lowest 'Sheet k' that no sheet already has, so a file whose sheets
+    were named out of order does not get two of the same }
+  Nm := 1;
+  repeat
+    Taken := False;
+    for K := 0 to N - 1 do
+      if FDrawings[K].Name = Format('Sheet %d', [Nm]) then Taken := True;
+    if Taken then Inc(Nm);
+  until not Taken;
+  FDrawings[N] := TDrawing.Create(Format('Sheet %d', [Nm]));
   if N > 0 then
   begin
     { a new sheet inherits how you were working }
@@ -3087,7 +3100,7 @@ end;
 
 procedure TMainForm.CloseDrawing(I: Integer);
 var
-  K: Integer;
+  K, Ans: Integer;
 begin
   if Length(FDrawings) <= 1 then
   begin
@@ -3096,6 +3109,27 @@ begin
     Exit;
   end;
   if (I < 0) or (I > High(FDrawings)) then Exit;
+  { A sheet with anything on it is asked about, the way a document is.
+    Save writes the whole drawing - a sheet is part of one file - and asks
+    for a name if it has none; declining that keeps the sheet.  Close
+    without saving means exactly that: the sheet is gone from the drawing,
+    and the draft follows the drawing. }
+  if FDrawings[I].Doc.Live > 0 then
+  begin
+    Ans := QuestionDlg('Close this sheet',
+      Format('"%s" has %d things on it.  Save the drawing before closing it?',
+        [FDrawings[I].Name, FDrawings[I].Doc.Live]),
+      mtConfirmation,
+      [mrYes, 'Save the drawing', 'IsDefault',
+       mrNo, 'Close without saving',
+       mrCancel, 'Keep it open', 'IsCancel'], 0);
+    if Ans = mrCancel then Exit;
+    if Ans = mrYes then
+    begin
+      DoSave;
+      if (FDocPath = '') or (FEditSeq <> FSavedSeq) then Exit;   { save as was declined, or failed }
+    end;
+  end;
 
   FDrawings[I].Free;
   for K := I to High(FDrawings) - 1 do
@@ -3475,7 +3509,7 @@ begin
     AddIconRow6(Y0 + RowH + RowGap,
       [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_PRINT, ACT_ORIGIN],
       [ikOpen, ikSave, ikExport, ikUnits, ikPrint, ikOrigin],
-      ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S)',
+      ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S; Shift+Ctrl+S saves as)',
        'Export a picture - PNG or SVG  (Ctrl+E)',
        'Feet-and-inches or metric  (U)',
        'Print  (Ctrl+P)',
@@ -8810,6 +8844,7 @@ begin
   else if W = 'close' then CloseDrawing(FTabIdx)
   else if W = 'clear' then StartErase
   else if W = 'save' then DoSave
+  else if (W = 'saveas') or (W = 'save-as') then DoSaveAs
   else if W = 'print' then DoPrint
   else if W = 'scale' then
   begin
@@ -12990,6 +13025,13 @@ begin
     if GetTickCount64 - FBusyAt > 600 then EndBusy;
     Exit;
   end;
+  { a named drawing with changes since it was written says so in the
+    header, so a closed window is never a surprise }
+  if (FDocPath <> '') and (FEditSeq <> FSavedSeq) and (Pos('unsaved', FHint) = 0) and
+     (GetTickCount64 - FLastWheel > 3000) then
+    FHint := FDocPath + '   -   unsaved changes  (Ctrl+S)';
+  if (FDocPath <> '') and (FEditSeq = FSavedSeq) and (Pos('unsaved', FHint) > 0) then
+    FHint := FDocPath;
 
   if FCrashToOffer and (FPopup = POP_NONE) then
   begin
@@ -13989,6 +14031,7 @@ begin
       FCmdMsg := 'Opened ' + ExtractFileName(FDocPath) +
         Format(' - %d sheet(s)', [Length(FDrawings)]);
     FHint := FDocPath;
+    FSavedSeq := FEditSeq;
     Result := True;
   finally
     L.Free;
@@ -14031,6 +14074,7 @@ begin
     BuildSession(L);
     try
       L.SaveToFile(FDocPath);
+      FSavedSeq := FEditSeq;
       FCmdMsg := 'Saved ' + ExtractFileName(FDocPath);
       FHint := 'Saved to ' + FDocPath;
     except

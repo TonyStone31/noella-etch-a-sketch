@@ -10,6 +10,26 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Closing a sheet asks first.**  A sheet with anything on it now puts up
+  a question when you close it: save the drawing, close without saving, or
+  keep it open.  Close without saving discards it; keep it open leaves it.
+  Nothing is thrown away silently.
+- **The header says when a drawing has unsaved changes.**  A named drawing
+  that has been edited since it was last written shows "unsaved changes
+  (Ctrl+S)" next to its path.
+- **Two new sheets no longer share a name.**  A drawing whose sheets were
+  named out of order could get two "Sheet 2"s; a new sheet takes the
+  lowest free number now.
+
+### Changed
+
+- `/saveas` from the command bar, and the save button's tip mentions
+  Shift+Ctrl+S for save-as.
+
 ## v2026.09.09.4
 
 ### Changed

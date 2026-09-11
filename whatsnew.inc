@@ -13,6 +13,26 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Closing a sheet asks first.**  A sheet with anything on it now puts up' + LineEnding +
+    '  a question when you close it: save the drawing, close without saving, or' + LineEnding +
+    '  keep it open.  Close without saving discards it; keep it open leaves it.' + LineEnding +
+    '  Nothing is thrown away silently.' + LineEnding +
+    '- **The header says when a drawing has unsaved changes.**  A named drawing' + LineEnding +
+    '  that has been edited since it was last written shows "unsaved changes' + LineEnding +
+    '  (Ctrl+S)" next to its path.' + LineEnding +
+    '- **Two new sheets no longer share a name.**  A drawing whose sheets were' + LineEnding +
+    '  named out of order could get two "Sheet 2"s; a new sheet takes the' + LineEnding +
+    '  lowest free number now.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- `/saveas` from the command bar, and the save button''s tip mentions' + LineEnding +
+    '  Shift+Ctrl+S for save-as.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.09.4' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
