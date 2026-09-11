@@ -240,6 +240,28 @@ begin
   EqF(NetArea(R), 144, 'the two rings and the middle make the whole square');
 end;
 
+procedure TestFourNested;
+var
+  R: TRegionArray;
+  I, One, None: Integer;
+begin
+  Say('four squares one inside the other - a stepped footing');
+  Clear;
+  Box(0, 0, 16, 16, 0);
+  Box(2, 2, 14, 14, 0);
+  Box(4, 4, 12, 12, 0);
+  Box(6, 6, 10, 10, 0);
+  R := Built;
+  EqI(Length(R), 4, 'four regions: three rings and the middle');
+  One := 0; None := 0;
+  for I := 0 to High(R) do
+    if Length(R[I].Holes) = 1 then Inc(One)
+    else if Length(R[I].Holes) = 0 then Inc(None);
+  EqI(One, 3, 'each ring has exactly one hole');
+  EqI(None, 1, 'and the middle has none');
+  EqF(NetArea(R), 256, 'the three rings and the middle make the whole square');
+end;
+
 procedure TestSquareInSquare;
 var
   R: TRegionArray;
@@ -720,7 +742,8 @@ begin
   TestTicTacToe;        WriteLn;
   TestTJunctions;       WriteLn;
   TestSquareInSquare;   WriteLn;
-  TestThreeNested;
+  TestThreeNested;      WriteLn;
+  TestFourNested;
   TestUpright;          WriteLn;
   TestTilted;           WriteLn;
   TestTwoPlanes;        WriteLn;
