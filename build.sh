@@ -379,6 +379,19 @@ do_github() {
     [ -f "$DIST/syms/$APP-$f.dbg" ] && cp "$DIST/syms/$APP-$f.dbg" "$DIST/syms/$APP-$tag-$f.dbg"
   done
 
+  # And prune the tagged symbols to the three most recent releases.  A crash
+  # report only ever comes from a build somebody is running, which in practice
+  # is the last release or two; more than three is gigabytes of dead weight.
+  # The fixed-name copies (no tag) are left alone.
+  ( cd "$DIST/syms" 2>/dev/null &&
+    ls -t etchasketch-v*.dbg 2>/dev/null |
+      sed -E 's/^etchasketch-(v[0-9.]+)-.*/\1/' | awk '!seen[$0]++' | tail -n +4 |
+      while read -r old_tag; do rm -f "etchasketch-$old_tag-"*.dbg; done )
+
+  # The zips are attached to the GitHub release below, so none need to stay
+  # in dist/ afterwards - clear the ones this run made.
+  rm -f "$DIST"/heckers-sketch-*.zip
+
   local s zipfile stage
   s="$(stamp)"
   zipfile="$DIST/heckers-sketch-$s.zip"
