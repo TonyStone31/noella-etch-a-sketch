@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Faster' + LineEnding +
+    '' + LineEnding +
+    '- **Hover on a big drawing.**  Finding the snap point under the cursor' + LineEnding +
+    '  used to project every snap point on the drawing to the screen on every' + LineEnding +
+    '  mouse move - a hundred and twenty thousand of them on a fifty-thousand' + LineEnding +
+    '  thing drawing, every time the mouse twitched.  The projected positions' + LineEnding +
+    '  are kept now and reused while the camera is still, with a box round the' + LineEnding +
+    '  cursor throwing out the far ones before the distance is worked out, so' + LineEnding +
+    '  a hover while placing a point costs almost nothing after the first move.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.10.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

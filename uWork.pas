@@ -197,6 +197,9 @@ type
     FEnts: array of TWorkEnt;
     FLive: Integer;      // entities in play; anything past this is redo space
     FSnapCache: array of TSnapHit;
+    FSnapScreen: array of TPointF;
+    FSnapScreenV: TProjector;
+    FSnapScreenOK: Boolean;
     FSnapDirty: Boolean;
     FGuidesHidden: Boolean;
     FNextGrp: Integer;
@@ -565,6 +568,7 @@ function Lerp3(const A, B: TP3; T: Double): TP3;
 function SamePt(const A, B: TP3; Tol: Double): Boolean; inline;
 
 { --- projection ---------------------------------------------------------- }
+function SameProjector(const A, B: TProjector): Boolean;
 function Project(const V: TProjector; const P: TP3): TPointF;
 
 { Screen point back to the model, on the working plane through Base.  In PLAN
@@ -1187,6 +1191,12 @@ end;
   said about which way red or green ran was only true in one of them.  They
   are one document seen three ways; they had better agree about which way is
   which. }
+function SameProjector(const A, B: TProjector): Boolean;
+begin
+  Result := (A.Kind = B.Kind) and (A.Ppu = B.Ppu) and (A.OX = B.OX) and
+            (A.OY = B.OY) and (A.Az = B.Az) and (A.El = B.El);
+end;
+
 function Project(const V: TProjector; const P: TP3): TPointF;
 var
   R, U: TP3;
@@ -4394,6 +4404,7 @@ var
 begin
   N := 0;
   SetLength(FSnapCache, 128);
+  FSnapScreenOK := False;
 
   { The origin is always there, drawing or no drawing.  Put in with everything
     else rather than tested for separately, so it wins and loses contests by
@@ -5356,9 +5367,7 @@ begin
   { field by field: the record has padding after its first byte that no
     two copies need agree on, so a byte compare said "different" every time
     and the fast path was never taken }
-  if (LastSurf <> nil) and LastSurf.DepthOn and (V.Kind = LastV.Kind) and
-     (V.Ppu = LastV.Ppu) and (V.OX = LastV.OX) and (V.OY = LastV.OY) and
-     (V.Az = LastV.Az) and (V.El = LastV.El) then
+  if (LastSurf <> nil) and LastSurf.DepthOn and SameProjector(V, LastV) then
     Exit(DepthHidden(P));
   SP := Project(V, P);
   Look := ViewDir(V);
@@ -5531,13 +5540,23 @@ var
 begin
   if FSnapDirty then RebuildSnapCache;
 
+  if (not FSnapScreenOK) or (Length(FSnapScreen) <> Length(FSnapCache)) or
+     (not SameProjector(V, FSnapScreenV)) then
+  begin
+    SetLength(FSnapScreen, Length(FSnapCache));
+    for I := 0 to High(FSnapCache) do FSnapScreen[I] := Project(V, FSnapCache[I].P);
+    FSnapScreenV := V;
+    FSnapScreenOK := True;
+  end;
+
   Best := 1E30;
   Hit.Kind := snNone;
   Hit.P := P3(0, 0, 0);
 
   for I := 0 to High(FSnapCache) do
   begin
-    P := Project(V, FSnapCache[I].P);
+    P := FSnapScreen[I];
+    if (Abs(SX - P.X) > TolPx) or (Abs(SY - P.Y) > TolPx) then Continue;
     D := Sqrt(Sqr(SX - P.X) + Sqr(SY - P.Y));
     if D > TolPx then Continue;
     D := D - BIAS[FSnapCache[I].Kind];

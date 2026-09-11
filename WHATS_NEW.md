@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Faster
+
+- **Hover on a big drawing.**  Finding the snap point under the cursor
+  used to project every snap point on the drawing to the screen on every
+  mouse move - a hundred and twenty thousand of them on a fifty-thousand
+  thing drawing, every time the mouse twitched.  The projected positions
+  are kept now and reused while the camera is still, with a box round the
+  cursor throwing out the far ones before the distance is worked out, so
+  a hover while placing a point costs almost nothing after the first move.
+
 ## v2026.09.10.1
 
 ### Fixed
