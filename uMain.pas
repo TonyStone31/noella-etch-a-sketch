@@ -434,6 +434,22 @@ type
       was being done and not only where it landed.  A ring, so it costs
       nothing and never grows. }
     FTrail: array[0..63] of string;
+    { The same session as the trail above, written so the program can read it
+      back rather than so a person can.
+
+      The trail says what happened in words and is for whoever opens the
+      report.  This says it in coordinates and is for replaying: load the
+      drawing that came with the report, run these, and the fault happens
+      again in front of you.
+
+      Recorded from inside the program, out of handlers it already has, so
+      nothing is hooked and nothing outside this window is ever seen - it
+      cannot record what it is not given.  And world coordinates rather than
+      pixels, so a session from a 2142x844 window at 1.25 scaling replays on
+      any screen at any size: 40'-2" means the same thing everywhere, and
+      1432,311 does not. }
+    FActs: array[0..511] of string;
+    FActsN: Integer;
     FTrailN: Integer;
     { The newer version there is, if there is one.  Kept rather than
       announced: a line in the status bar is written over by the next thing
@@ -656,6 +672,10 @@ type
       const ShotFile: string = ''; const DocFile: string = ''): Boolean;
     { Note something worth knowing if this run ends badly. }
     procedure Trail(const S: string);
+    procedure Act(const S: string);
+    function ActsText: string;
+    function ReplayActs(const Script: string): Integer;
+    procedure DoReplayFile(const FileName: string);
     function TrailText: string;
     { How many of each kind are on the sheet - a crash that only happens with
       a face, or only with a note, says so here. }
@@ -1093,6 +1113,14 @@ const
 { ======================================================================== }
 { small helpers                                                             }
 { ======================================================================== }
+
+{ A dot for a decimal point whatever the machine is set to - one report came
+  from a comma locale, and a log it could not parse back would be no log. }
+function ActFS: TFormatSettings;
+begin
+  Result := DefaultFormatSettings;
+  Result.DecimalSeparator := '.';
+end;
 
 function TMainForm.Theme: TTheme;
 begin
@@ -2929,6 +2957,7 @@ var
   W: TP3;
   P: TPointF;
 begin
+  Act('scale ' + IntToStr(I));
   I := EnsureRange(I, 0, SCALE_COUNT - 1);
   if I = FD.ScaleIdx then Exit;
   CX := FArt.Width / 2;
@@ -3955,7 +3984,12 @@ begin
       { clicking the open one shuts it, which is what a menu button does }
       if FPopup = It.Value then ClosePopup else OpenPopup(It.Value);
     GRP_SCALE: SetScaleIdx(It.Value);
-    GRP_SNAP:  begin FD.SnapIdx := It.Value; pbDeck.Invalidate; pbCmd.Invalidate; end;
+    GRP_SNAP:  begin
+                 FD.SnapIdx := It.Value;
+                 Act('snap ' + IntToStr(It.Value));
+                 pbDeck.Invalidate;
+                 pbCmd.Invalidate;
+               end;
     GRP_ICON:
       case It.Value of
         ACT_UNDO:   DoUndo;
@@ -4168,6 +4202,7 @@ begin
   FViewPreset := -1;
   if V = FD.View then Exit;
   Trail('view ' + VIEW_NAMES[V]);
+  Act('view ' + VIEW_NAMES[V]);
   FD.View := V;
   if V <> vkOrbit then FD.Plane := plXY;
   FitView;
@@ -7396,6 +7431,7 @@ end;
 procedure TMainForm.SetTool(T: TProTool);
 begin
   Trail('tool ' + TOOL_NAMES[T]);
+  Act('tool ' + TOOL_NAMES[T]);
   FArray.Live := False;
   { Push/pull along a face normal that points at the camera can only move the
     face away from you, which plan cannot draw and you cannot judge. Rather
@@ -8955,6 +8991,28 @@ begin
       end;
     FCmdMsg := 'Scales: 1/16" 1/8" 1/4" 1/2" 1"';
   end
+  else if W = 'replay' then
+    DoReplayFile(Rest)
+  else if (W = 'session') or (W = 'acts') then
+  begin
+    { What has been recorded so far, without filing a report to see it.  The
+      same lines a report carries, so a session can be kept, sent on its own,
+      or handed straight back to /replay. }
+    Rest := Trim(Rest);
+    if Rest = '' then Rest := 'session.txt';
+    try
+      with TStringList.Create do
+      try
+        Text := ActsText;
+        SaveToFile(Rest);
+        FCmdMsg := Format('%d actions written to %s', [Count, Rest]);
+      finally
+        Free;
+      end;
+    except
+      on E: Exception do FCmdMsg := 'Could not write it: ' + E.Message;
+    end;
+  end
   else if (W = 'help') or (W = '?') then ShowAbout
   else
     Result := False;
@@ -8967,6 +9025,18 @@ var
   SidesN, ArrN: Integer;
   ArrDiv: Boolean;
 begin
+  { What was typed, and then the Enter - the two together are what turns a
+    direction into a measured run, and a replay without them draws nothing.
+
+    A /command is left out.  Whatever it changes - the tool, the view, the
+    scale - is recorded by the setter it goes through, so logging the typing
+    as well would replay it twice; and /session and /replay themselves have
+    no business running again inside a replay. }
+  if Copy(FInput, 1, 1) <> '/' then
+  begin
+    if FInput <> '' then Act('input ' + FInput);
+    Act('enter');
+  end;
   if FDimEdit >= 0 then
   begin
     CommitDimNote;
@@ -9220,6 +9290,7 @@ begin
       [TOOL_NAMES[FTool], FStage, X, Y,
        FormatLen(FCur.X, FD.Units), FormatLen(FCur.Y, FD.Units),
        FormatLen(FCur.Z, FD.Units), Ord(FSnapKind)]));
+    Act(Format('press %.6f %.6f %.6f', [FCur.X, FCur.Y, FCur.Z], ActFS));
     { A run of lines is the one case where the press does not decide.  It
       might be a click - another point - or it might be a hold, which lets go
       of the run and places nothing.  Which one it was is not known until the
@@ -9253,6 +9324,201 @@ begin
   FTrail[FTrailN mod Length(FTrail)] :=
     FormatDateTime('hh:nn:ss.zzz', Now) + '  ' + S;
   Inc(FTrailN);
+end;
+
+{ Numbers, not feet and inches: this is parsed back, and a rounded figure
+  would replay somewhere slightly else every time. }
+procedure TMainForm.Act(const S: string);
+begin
+  FActs[FActsN mod Length(FActs)] := S;
+  Inc(FActsN);
+end;
+
+function TMainForm.ActsText: string;
+var
+  I, First, N: Integer;
+begin
+  Result := '';
+  N := FActsN;
+  if N > Length(FActs) then N := Length(FActs);
+  First := FActsN - N;
+  for I := First to FActsN - 1 do
+    Result := Result + '  ' + FActs[I mod Length(FActs)] + LineEnding;
+end;
+
+{ Play a recorded session back into the program.
+
+  Not by synthesising mouse events - by handing the same world points to the
+  same entry points the mouse feeds.  That is what makes a session recorded on
+  somebody else's screen replay here: nothing in it is measured in pixels, so
+  nothing depends on the window being the size it was.
+
+  It stops at the first line it does not understand rather than carrying on
+  and producing a different drawing, because a replay that quietly diverges is
+  worse than one that stops and says where. }
+{ Replay a session out of a bug report.
+
+  The whole report is handed over, not a trimmed-out fragment, because asking
+  somebody to cut the right lines out of a text file is asking for the one
+  mistake that makes it not work.  The section is found by its heading and
+  read to the end of the indented block. }
+procedure TMainForm.DoReplayFile(const FileName: string);
+const
+  MARK = 'to replay';
+var
+  L, Body: TStringList;
+  I: Integer;
+  Fn: string;
+  Inside: Boolean;
+begin
+  Fn := Trim(FileName);
+  if Fn = '' then Fn := 'replay.txt';
+  if not FileExists(Fn) then Fn := ExtractFilePath(ParamStr(0)) + Fn;
+  if not FileExists(Fn) then
+  begin
+    FCmdMsg := 'No such file: ' + Trim(FileName) +
+      '  - /replay <a report .txt, or a file of session lines>';
+    pbCmd.Invalidate;
+    Exit;
+  end;
+
+  L := TStringList.Create;
+  Body := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(Fn);
+    except
+      on E: Exception do
+      begin
+        FCmdMsg := 'Could not read it: ' + E.Message;
+        pbCmd.Invalidate;
+        Exit;
+      end;
+    end;
+
+    Inside := False;
+    for I := 0 to L.Count - 1 do
+    begin
+      if not Inside then
+      begin
+        if Pos(MARK, LowerCase(L[I])) > 0 then Inside := True;
+        Continue;
+      end;
+      { the block runs while the lines stay indented; the next heading ends it }
+      if (Trim(L[I]) <> '') and (Copy(L[I], 1, 1) <> ' ') then Break;
+      if Trim(L[I]) <> '' then Body.Add(Trim(L[I]));
+    end;
+
+    { a bare file of session lines works too }
+    if Body.Count = 0 then
+      for I := 0 to L.Count - 1 do
+        if Trim(L[I]) <> '' then Body.Add(Trim(L[I]));
+
+    if Body.Count = 0 then
+      FCmdMsg := 'Nothing in there that looks like a session.'
+    else
+      FCmdMsg := Format('replayed %d of %d', [ReplayActs(Body.Text), Body.Count]);
+  finally
+    Body.Free;
+    L.Free;
+  end;
+  pbCmd.Invalidate;
+end;
+
+function TMainForm.ReplayActs(const Script: string): Integer;
+var
+  L: TStringList;
+  P: TStringList;
+  I: Integer;
+  Cmd, Rest: string;
+  T: TProTool;
+  Fired: Boolean;
+
+  function Num(K: Integer): Double;
+  begin
+    if not TryStrToFloat(P[K], Result, ActFS) then Result := 0;
+  end;
+
+begin
+  Result := 0;
+  L := TStringList.Create;
+  P := TStringList.Create;
+  try
+    L.Text := Script;
+    P.Delimiter := ' ';
+    P.StrictDelimiter := True;
+
+    for I := 0 to L.Count - 1 do
+    begin
+      P.DelimitedText := Trim(L[I]);
+      if P.Count = 0 then Continue;
+      Cmd := LowerCase(P[0]);
+      Rest := Trim(Copy(Trim(L[I]), Length(P[0]) + 1, MaxInt));
+      Fired := True;
+
+      if (Cmd = 'press') and (P.Count >= 4) then
+      begin
+        FCur := P3(Num(1), Num(2), Num(3));
+        FSnapKind := snGrid;
+        ProClick;
+      end
+      else if Cmd = 'tool' then
+      begin
+        Fired := False;
+        for T := Low(TProTool) to High(TProTool) do
+          if SameText(TOOL_NAMES[T], Rest) then
+          begin
+            SetTool(T);
+            Fired := True;
+            Break;
+          end;
+      end
+      else if Cmd = 'input' then
+        FInput := Rest
+      else if (Cmd = 'dir') and (P.Count >= 2) then
+        FDirLock := StrToIntDef(P[1], -1)
+      else if Cmd = 'enter' then
+        CommandEnter
+      else if Cmd = 'undo' then
+        DoUndo
+      else if Cmd = 'redo' then
+        DoRedo
+      else if Cmd = 'clear' then
+        StartErase
+      else if Cmd = 'view' then
+      begin
+        if SameText(Rest, 'PLAN') then SetView(vkPlan)
+        else if SameText(Rest, 'ISO') then SetView(vkIso)
+        else if SameText(Rest, '3D') then SetView(vkOrbit)
+        else Fired := False;
+      end
+      else if (Cmd = 'scale') and (P.Count >= 2) then
+        SetScaleIdx(StrToIntDef(P[1], FD.ScaleIdx))
+      else if (Cmd = 'snap') and (P.Count >= 2) then
+        FD.SnapIdx := EnsureRange(StrToIntDef(P[1], FD.SnapIdx), 0, SNAP_COUNT - 1)
+      else if (Cmd = 'units') and (P.Count >= 2) then
+        SetUnits(TUnitSystem(EnsureRange(StrToIntDef(P[1], 0), 0, 1)))
+      else
+        Fired := False;
+
+      if not Fired then
+      begin
+        FCmdMsg := Format('replay stopped at line %d: %s', [I + 1, Trim(L[I])]);
+        Break;
+      end;
+      Inc(Result);
+    end;
+  finally
+    P.Free;
+    L.Free;
+  end;
+
+  { the replay wrote its own actions into the log as it went; drop them so the
+    next report carries the session, not the session played twice }
+  FActsN := 0;
+  RenderPro;
+  RecomposeAll;
+  RefreshChrome;
 end;
 
 function TMainForm.TrailText: string;
@@ -9399,7 +9665,14 @@ begin
        FInkPro.Width, FInkPro.Height, FInkPro.Stride,
        FInkToy.Width, FInkToy.Height, FInkToy.Stride,
        TArtSurface.Repairs]) + LineEnding +
-    'what was happening, most recent last:' + LineEnding + TrailText;
+    'what was happening, most recent last:' + LineEnding + TrailText +
+    { The same session again, in world coordinates, so it can be played back
+      rather than read.  With the drawing below it a report is self-contained:
+      load one, run the other, and the fault happens here instead of being
+      described.  Recorded only from this window's own handlers - it has never
+      been able to see anything typed anywhere else. }
+    LineEnding + 'the same session, to replay - /replay after loading the ' +
+    'drawing below:' + LineEnding + ActsText;
 end;
 
 { Put everything down.
@@ -12691,6 +12964,7 @@ end;
 
 procedure TMainForm.SetUnits(U: TUnitSystem);
 begin
+  Act('units ' + IntToStr(Ord(U)));
   FD.Units := U;
   RenderPro;
   RecomposeAll;
@@ -12954,6 +13228,7 @@ end;
 procedure TMainForm.DoUndo;
 begin
   Trail('undo');
+  Act('undo');
   SelectNone;   // the numbers it held mean something else now
   if not CanUndo then Exit;
   if FMode = mdPro then
@@ -12985,6 +13260,7 @@ end;
 procedure TMainForm.DoRedo;
 begin
   Trail('redo');
+  Act('redo');
   SelectNone;
   if not CanRedo then Exit;
   if FMode = mdPro then
@@ -13020,6 +13296,7 @@ end;
 procedure TMainForm.StartErase;
 begin
   if FErasing then Exit;
+  Act('clear');
   PushUndo;
   FErasing := True;
   FEraseT := 0;
@@ -13487,6 +13764,9 @@ var
     if (FTool in [ptLine, ptMove]) and (FStage = 1) then
     begin
       FDirLock := ArrowAxis(K);
+      { half of "type twelve and press up" is the up; without it a replay
+        knows the length and not the way it went }
+      Act('dir ' + IntToStr(FDirLock));
       if FDirLock < 0 then FCmdMsg := 'Free again.'
       else FCmdMsg := 'Locked to ' + AxisName(FDirLock) + '.';
     end

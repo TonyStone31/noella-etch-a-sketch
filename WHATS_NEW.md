@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A bug report now carries the session that caused it.**  Alongside the
+  drawing, a report holds what you did to it - the tool you picked, the points
+  you clicked, the lengths you typed - written so the program can read it back.
+  Open the drawing, type `/replay report.txt`, and it happens again in front
+  of you instead of being described.
+
+  It records only what this window was given.  There is no system-wide hook,
+  it cannot see another program, and nothing typed anywhere else can reach it.
+  Points are kept as real coordinates rather than pixels, so a session
+  recorded on one screen replays on any other.
+
+- **`/session [file]`** writes what has been recorded so far to a file,
+  without filing a report - for keeping a sequence you want to run again.
+
 ## v2026.09.12
 
 ### Fixed
