@@ -388,10 +388,6 @@ do_github() {
       sed -E 's/^etchasketch-(v[0-9.]+)-.*/\1/' | awk '!seen[$0]++' | tail -n +4 |
       while read -r old_tag; do rm -f "etchasketch-$old_tag-"*.dbg; done )
 
-  # The zips are attached to the GitHub release below, so none need to stay
-  # in dist/ afterwards - clear the ones this run made.
-  rm -f "$DIST"/heckers-sketch-*.zip
-
   local s zipfile stage
   s="$(stamp)"
   zipfile="$DIST/heckers-sketch-$s.zip"
@@ -457,6 +453,13 @@ do_github() {
     "$stage"/* || die "gh release create failed"
 
   rm -rf "$stage" "$notes"
+
+  # The zips are attached to the release now, so none need to stay in dist/.
+  # This used to run before the zip was looked for, which deleted the very
+  # file the next line went looking for and stopped every release with "no
+  # zip at ...".  Afterwards is what the comment always meant.
+  rm -f "$DIST"/heckers-sketch-*.zip
+
   # The notes written under "Next release" were this release.  Name them, so
   # the next build knows they are behind it and an update from here shows
   # only what comes after.  One commit, by this script, right after the tag.
