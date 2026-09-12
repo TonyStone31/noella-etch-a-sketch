@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.12.1' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A bug report now carries the session that caused it.**  Alongside the' + LineEnding +
+    '  drawing, a report holds what you did to it - the tool you picked, the points' + LineEnding +
+    '  you clicked, the lengths you typed - written so the program can read it back.' + LineEnding +
+    '  Open the drawing, type `/replay report.txt`, and it happens again in front' + LineEnding +
+    '  of you instead of being described.' + LineEnding +
+    '' + LineEnding +
+    '  It records only what this window was given.  There is no system-wide hook,' + LineEnding +
+    '  it cannot see another program, and nothing typed anywhere else can reach it.' + LineEnding +
+    '  Points are kept as real coordinates rather than pixels, so a session' + LineEnding +
+    '  recorded on one screen replays on any other.' + LineEnding +
+    '' + LineEnding +
+    '- **`/session [file]`** writes what has been recorded so far to a file,' + LineEnding +
+    '  without filing a report - for keeping a sequence you want to run again.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.12' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
