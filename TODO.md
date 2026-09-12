@@ -238,7 +238,44 @@ That needs reading, and reading is easier in a file that fits on a screen.
 
 ---
 
+## Python, on the way out
+
+Two bits of it are left, and neither needs to be.
+
+* **`tools/fetch-reports.py`** should be a small Pascal program.  It is a
+  fetch, a name check, a size cap and a file write - nothing that wants a
+  language runtime.  It also has to keep working, so this is a port with the
+  old one kept alongside until the new one has collected a day's reports and
+  agreed with it.
+
+* **`build.sh` turns `WHATS_NEW.md` into `whatsnew.inc`** with an inline
+  python3 heredoc.  That one is worth killing first: it puts Python on the
+  critical path of a release, on any machine that cuts one.  It is a read, a
+  split on headings and a write.
+
+The GUI driver was the third and is gone - `tools/drive/hsdrive` does that
+job in Pascal now, through LazHIDControl.
+
+---
+
 ## Open questions
+
+* **A perspective camera, for looking only.**  A report on 11 September asked
+  whether the far end of a hundred foot barn should not look narrower than the
+  near end.  It should, to the eye - and it does not, because the 3D view is a
+  parallel projection and `docs/isometric-views.md` turned perspective off on
+  purpose so that lengths stay to scale.  SketchUp has both and defaults to
+  perspective, which is where the expectation comes from; its Parallel
+  Projection behaves exactly as ours does.
+
+  The shape of it, if we do it: perspective is a *viewing* mode, never a
+  working one.  Turn it on to show somebody the model, turn it off to draw,
+  and never let a dimension be read off a perspective view.  `Project` would
+  gain a divide by depth and `Unproject` a matching one, both behind the same
+  `TProjector`, so the tools would not need to know.  What has to be decided
+  first is what the tools do while it is on: refuse to draw, or quietly snap
+  back to parallel for the duration.  Until that is answered this is not
+  ready to build.
 
 * **Five things about the transition ticket** are listed at the end of
   `docs/transition-ticket.md` and want checking against a real one - the first

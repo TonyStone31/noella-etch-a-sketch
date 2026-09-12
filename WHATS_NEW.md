@@ -10,6 +10,38 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Lines drawn in mid air no longer disappear behind solids.**  Drawing the
+  ridge of a roof, or any line that does not lie flat on a face, showed the
+  parts of it over empty background and swallowed the parts crossing anything
+  solid.  The line was being painted before the faces and only put back if it
+  lay in the plane of one.  Lines are now tested against the depth of the
+  solids per pixel, so a line in front of something shows and a line behind it
+  is properly hidden.
+
+- **Drawing straight up off a face works again.**  Starting a line on a face
+  and running it up the blue axis said LOCKED TO BLUE and then drew nothing -
+  the point was being pulled back down onto the face as fast as the axis took
+  it up, so the line had no length.  Picking the tool again was the only way
+  out.  Running up an axis now leaves the face, which is what standing a gable
+  up means.
+
+- **Bug report pictures show the mouse pointer.**  An arrow and a red ring are
+  drawn where the cursor was, so a report about what was under the mouse can
+  be read without guessing.
+
+### Better
+
+- **A wrong row stride can no longer wander into a wild pointer.**  Nine times
+  in one session a drawing surface was found holding a stride that was really
+  a floating point number - already caught and repaired, but caught after the
+  fact.  The arithmetic that turns a row into an address now refuses a stride
+  that could not be one, and a decoy field sits where the stray write keeps
+  landing so the next report says plainly what is doing it.
+
 ## v2026.09.10.2
 
 ### Faster

@@ -6296,7 +6296,7 @@ var
   PlaneD: array of Double;
   PT: QWord;
   ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet: Double;
-  ZOK: Boolean;  I, J, K, N, Steps, NFace: Integer;
+  ZOK, Drew: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
   Ang, Sh: Double;
   Col: TPix;
@@ -6935,6 +6935,7 @@ begin
        OffScreen(Project(V, FEnts[I].A), Project(V, FEnts[I].B)) then Continue;
     { the faces this thing lies on, from the cache; every face while the
       cache is still being built on its worker }
+    Drew := False;
     if OnFaceOK then Cand := FOnFace[I] else Cand := AllFaces;
     for JJ := 0 to High(Cand) do
     begin
@@ -7072,7 +7073,60 @@ begin
           if not Covered(FEnts[I].A, J) then
             Note(I, FEnts[I].A, FEnts[I].B, FEnts[I].Txt, Col);
       end;
+      Drew := True;
       Break;
+    end;
+
+    { --- and the ones that lie on no face at all ----------------------
+
+      A line drawn in mid air - the ridge of a roof, a brace across a bay -
+      is coplanar with nothing.  It was drawn in the pass before the faces
+      and then painted over by them, and the loop above only puts back what
+      lies *in* a face's plane, so it never came back.  On screen the line
+      stopped dead at the edge of the nearest solid and carried on past the
+      far side of it, which is exactly what two reports described while
+      trying to draw a gable.
+
+      It cannot be put back wholesale either: some of it really is behind
+      the geometry.  The depth buffer the faces just filled already knows
+      which, per pixel, so the line is drawn through that instead of
+      through a coplanarity test it can never pass. }
+    if not Drew then
+    begin
+      S.DepthTest(True);
+      case FEnts[I].Kind of
+        ekLine:
+          begin
+            PA := Project(V, FEnts[I].A);
+            PB := Project(V, FEnts[I].B);
+            S.DepthAlong(PA.X, PA.Y, Dot3(FEnts[I].A, Look),
+                         PB.X, PB.Y, Dot3(FEnts[I].B, Look));
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), ColorToPix(FEnts[I].Ink));
+          end;
+        ekArc:
+          if not FEnts[I].Soft then
+          begin
+            if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
+            else Steps := Max(24, Min(180,
+              Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 6)));
+            DA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0,
+                           FEnts[I].Plane, FEnts[I].Nm);
+            PA := Project(V, DA);
+            for K := 1 to Steps do
+            begin
+              DB := ArcPoint(FEnts[I].C, FEnts[I].R,
+                FEnts[I].A0 + FEnts[I].Sweep * K / Steps,
+                FEnts[I].Plane, FEnts[I].Nm);
+              PB := Project(V, DB);
+              S.DepthAlong(PA.X, PA.Y, Dot3(DA, Look),
+                           PB.X, PB.Y, Dot3(DB, Look));
+              S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), ColorToPix(FEnts[I].Ink));
+              PA := PB;
+              DA := DB;
+            end;
+          end;
+      end;
+      S.DepthTest(False);
     end;
   end;
 

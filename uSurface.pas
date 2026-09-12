@@ -60,6 +60,22 @@ type
     FBitmap: TBitmap;
     FBitmapValid: Boolean;
     FWidth, FHeight: Integer;
+    { A tripwire, and a shield.
+
+      Nine times in one session a surface was found carrying a stride that
+      was not a stride but the bit pattern of a double around 0.14 - a zoom,
+      by the look of it - while the bits pointer beside it was untouched.  An
+      eight byte store landing on one field and not its neighbour is not a
+      buffer running over; it is something writing through a pointer of the
+      wrong type, and at this object's offset 40 sat FStride while at a
+      TDrawing's offset 40 sits Zoom.
+
+      So offset 40 is given to a field nothing reads.  If the writer is aiming
+      at an offset, it now lands here and the next report says so by name
+      instead of by wild pointer.  If FStride is hit anyway at its new home,
+      the writer follows the field and the guess was wrong.  Either answer is
+      worth more than the one we have. }
+    FGuard: PtrInt;
     FStride: PtrInt;
     FBits: PByte;
     FMode: TBlendMode;
@@ -71,6 +87,10 @@ type
       whole overlap.  With a depth per pixel the question never arises. }
     FZ: array of Single;
     FZOn: Boolean;
+    { Lines read the depth buffer but never write it.  A line is not a
+      surface: it has no area to own, and letting one claim depth would have
+      it hide the very face it was drawn on. }
+    FZTest: Boolean;
     FZa, FZb, FZc: Double;
     FDirty: TRect;
     procedure Allocate(AWidth, AHeight: Integer);
@@ -117,6 +137,8 @@ type
     procedure DepthPlane(A, B, C: Double);
     function DepthAt(X, Y: Integer): Single;
     function DepthOn: Boolean;
+    procedure DepthTest(B: Boolean);
+    procedure DepthAlong(X0, Y0, Z0, X1, Y1, Z1: Double);
 
     { --- whole-surface effects ------------------------------------------- }
     procedure ClearTransparent;
@@ -166,6 +188,10 @@ var
   OnSurfaceRepair: procedure(const What: string) = nil;
 
 implementation
+
+const
+  { An unlikely thing to be written by accident, and unmistakable in a report. }
+  GUARD_WORD = PtrInt($5AFE5AFE5AFE5AFE);
 
 const
   DEG = Pi / 180;
@@ -303,6 +329,7 @@ begin
   FImage := TLazIntfImage.Create(0, 0);
   FBitmap := TBitmap.Create;
   FMode := bmNormal;
+  FGuard := GUARD_WORD;
   Allocate(Max(1, AWidth), Max(1, AHeight));
 end;
 
@@ -315,6 +342,19 @@ end;
 
 var
   GRepairs: Integer = 0;
+
+{ A corrupt stride has twice now turned out to be a floating point number
+  wearing an integer's clothes, so the report says what it would be as one.
+  A value that reads as a plausible zoom or coordinate names the culprit; one
+  that reads as nonsense says to look elsewhere. }
+function AsDouble(V: PtrInt): string;
+var
+  D: Double;
+begin
+  Move(V, D, SizeOf(D));
+  if IsNan(D) or IsInfinite(D) then Exit('not a number');
+  Result := Format('as a double %.6g', [D]);
+end;
 
 class function TArtSurface.Repairs: Integer;
 begin
@@ -349,12 +389,22 @@ begin
   else
     St := FWidth * 4;
   if St < FWidth * 4 then Exit;      { the image is talking nonsense too }
+  if FGuard <> GUARD_WORD then
+  begin
+    Inc(GRepairs);
+    if Assigned(OnSurfaceRepair) then
+      OnSurfaceRepair(Format('surface guard hit: %d (%s), stride %s',
+        [FGuard, AsDouble(FGuard),
+         specialize IfThen<string>(St = FStride, 'untouched', 'also wrong')]));
+    FGuard := GUARD_WORD;
+  end;
   if (P <> FBits) or (St <> FStride) then
   begin
     Inc(GRepairs);
     if Assigned(OnSurfaceRepair) then
-      OnSurfaceRepair(Format('surface repaired: stride %d -> %d, bits %s',
-        [FStride, St, specialize IfThen<string>(P = FBits, 'same', 'moved')]));
+      OnSurfaceRepair(Format('surface repaired: stride %d (%s) -> %d, bits %s',
+        [FStride, AsDouble(FStride), St,
+         specialize IfThen<string>(P = FBits, 'same', 'moved')]));
     FBits := P;
     FStride := St;
   end;
@@ -504,9 +554,20 @@ begin
   end;
 end;
 
+{ Verify puts a drifted stride right, but only when it is called, and every
+  pixel in between is addressed with whatever the field holds.  One bad value
+  is all it takes, so the arithmetic that turns a row into an address refuses
+  a stride that could not be one.  Falling back to the packed width draws a
+  sheared picture; following four and a half quintillion writes into whatever
+  is there. }
 function TArtSurface.ScanLine(Y: Integer): PPix;
+var
+  St: PtrInt;
 begin
-  Result := PPix(FBits + FStride * Y);
+  St := FStride;
+  if (St < FWidth * 4) or (St > PtrInt(FWidth) * 4 + 4096) then
+    St := PtrInt(FWidth) * 4;
+  Result := PPix(FBits + St * Y);
 end;
 
 procedure TArtSurface.BlendPixel(X, Y: Integer; const C: TPix; Cover: Single);
@@ -946,9 +1007,21 @@ begin
       RX0 := Max(IX0, LoBound(XA - Pad, FWidth));
       RX1 := Min(IX1, HiBound(XB + Pad, FWidth));
     end;
-    for X := RX0 to RX1 do
-      BlendPixel(X, Y, C,
-        Coverage(SdSegment(X + 0.5, Y + 0.5, X0, Y0, X1, Y1) - HW) * Alpha);
+    if FZOn and FZTest then
+      for X := RX0 to RX1 do
+      begin
+        { behind a face that is already down, so this stretch is not seen.
+          The slack is a hair wider than the one the fill uses: a line drawn
+          on a face works out to the same depth by a different route, and
+          rounding must not be allowed to bury it. }
+        if FZa * X + FZb * Y + FZc < FZ[Y * FWidth + X] - 1E-4 then Continue;
+        BlendPixel(X, Y, C,
+          Coverage(SdSegment(X + 0.5, Y + 0.5, X0, Y0, X1, Y1) - HW) * Alpha);
+      end
+    else
+      for X := RX0 to RX1 do
+        BlendPixel(X, Y, C,
+          Coverage(SdSegment(X + 0.5, Y + 0.5, X0, Y0, X1, Y1) - HW) * Alpha);
   end;
   Invalidate;
 end;
@@ -1026,6 +1099,7 @@ begin
   if Length(FZ) <> FWidth * FHeight then SetLength(FZ, FWidth * FHeight);
   for I := 0 to High(FZ) do FZ[I] := -1E30;
   FZOn := True;
+  FZTest := False;
   FZa := 0; FZb := 0; FZc := -1E30;
 end;
 
@@ -1033,6 +1107,35 @@ end;
 function TArtSurface.DepthOn: Boolean;
 begin
   Result := FZOn;
+end;
+
+procedure TArtSurface.DepthTest(B: Boolean);
+begin
+  FZTest := B;
+end;
+
+{ The depth of a line, as the same flat function of screen position that a
+  face gets.  A parallel projection makes depth linear along the segment, so
+  one plane fits it exactly: the gradient runs along the line, and there is
+  no slope across it - which is what keeps a line lying on a face at the
+  face's own depth rather than tilting through it. }
+procedure TArtSurface.DepthAlong(X0, Y0, Z0, X1, Y1, Z1: Double);
+var
+  DX, DY, L2: Double;
+begin
+  DX := X1 - X0;
+  DY := Y1 - Y0;
+  L2 := DX * DX + DY * DY;
+  if L2 < 1E-12 then
+  begin
+    FZa := 0;
+    FZb := 0;
+    FZc := Z0;
+    Exit;
+  end;
+  FZa := (Z1 - Z0) * DX / L2;
+  FZb := (Z1 - Z0) * DY / L2;
+  FZc := Z0 - FZa * X0 - FZb * Y0;
 end;
 
 procedure TArtSurface.DepthPlane(A, B, C: Double);

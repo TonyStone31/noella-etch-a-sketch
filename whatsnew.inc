@@ -13,6 +13,31 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Lines drawn in mid air no longer disappear behind solids.**  Drawing the' + LineEnding +
+    '  ridge of a roof, or any line that does not lie flat on a face, showed the' + LineEnding +
+    '  parts of it over empty background and swallowed the parts crossing anything' + LineEnding +
+    '  solid.  The line was being painted before the faces and only put back if it' + LineEnding +
+    '  lay in the plane of one.  Lines are now tested against the depth of the' + LineEnding +
+    '  solids per pixel, so a line in front of something shows and a line behind it' + LineEnding +
+    '  is properly hidden.' + LineEnding +
+    '' + LineEnding +
+    '- **Bug report pictures show the mouse pointer.**  An arrow and a red ring are' + LineEnding +
+    '  drawn where the cursor was, so a report about what was under the mouse can' + LineEnding +
+    '  be read without guessing.' + LineEnding +
+    '' + LineEnding +
+    '### Better' + LineEnding +
+    '' + LineEnding +
+    '- **A wrong row stride can no longer wander into a wild pointer.**  Nine times' + LineEnding +
+    '  in one session a drawing surface was found holding a stride that was really' + LineEnding +
+    '  a floating point number - already caught and repaired, but caught after the' + LineEnding +
+    '  fact.  The arithmetic that turns a row into an address now refuses a stride' + LineEnding +
+    '  that could not be one, and a decoy field sits where the stray write keeps' + LineEnding +
+    '  landing so the next report says plainly what is doing it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.10.2' + LineEnding +
     '' + LineEnding +
     '### Faster' + LineEnding +

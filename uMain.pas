@@ -648,6 +648,7 @@ type
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
     function WindowShot(out B: TBitmap): Boolean;
+    procedure DrawPointerOn(B: TBitmap; ScreenCoords: Boolean);
     function CaptureShot(Wait: Boolean; out Bmp: TBitmap): Boolean;
     procedure ShotCountdown(Seconds: Integer);
     procedure PaintShotOverlay(C: TCanvas);
@@ -1692,7 +1693,26 @@ var
   HF: Integer;
   HP, N: TP3;
 begin
-  Result := HeldToFace(ResolveSnapRaw(SX, SY));
+  Result := ResolveSnapRaw(SX, SY);
+  { Held to the face - unless the point got where it is by running up an
+    axis, in which case the two constraints contradict each other and the
+    axis is the one that was asked for.
+
+    Being on a horizontal face and on the blue axis are not both possible,
+    and flattening won: the point came back off the axis onto the face while
+    FAxisLock still said it was on it.  The reading said LOCKED TO BLUE, the
+    guide was drawn along the axis, and the line itself went nowhere - anchor
+    and point landed on the same spot, which is the zero length one report
+    came in carrying.  Picking the tool again cleared the held plane and it
+    worked, which is exactly the shape of a fault that lives in tool state
+    rather than in the axis code.
+
+    Standing a gable up off the floor you just drew is the ordinary thing to
+    want, and it is what SketchUp does: infer up the blue axis and you leave
+    the face.  So the axis wins.  When the axis lies in the plane anyway the
+    hold would have changed nothing, so nothing is lost by skipping it. }
+  if FAxisLock < 0 then
+    Result := HeldToFace(Result);
   { A free point that is resting on a face is On Face, and says so - the way
     SketchUp does.  Only when the point really is on that face's plane: a
     cursor drawing in mid air with a face somewhere behind it is not on it. }
@@ -5348,9 +5368,11 @@ end;
 function TMainForm.WindowShot(out B: TBitmap): Boolean;
 var
   DC: HDC;
+  Grabbed: Boolean;
 begin
   { From inside a dialog the picture is of the screen, because a picture of
     this window alone would leave out the one thing being reported. }
+  Grabbed := False;
   if FReportExtra <> '' then
   begin
     B := TBitmap.Create;
@@ -5361,9 +5383,12 @@ begin
       finally
         ReleaseDC(0, DC);
       end;
+      Grabbed := True;
     except
       FreeAndNil(B);
     end;
+    { the fallback is a picture of the window, not of the screen, and the
+      pointer has to be placed in whichever of the two this turned out to be }
     if B = nil then B := GetFormImage;
   end
   else
@@ -5373,7 +5398,61 @@ begin
   begin
     B.Free;
     B := nil;
+  end
+  else
+    DrawPointerOn(B, Grabbed);
+end;
+
+{ Neither a screen grab nor a form image brings the mouse pointer with it, and
+  a report about what the cursor was doing is hard to read without it: "you
+  can't tell where my mouse is in the picture" was the whole of one report.
+  The state text carries the coordinates, so this only has to put an arrow
+  where they say.
+
+  Screen shots are in screen coordinates and a form image is in the window's,
+  which is the one thing this has to get right. }
+procedure TMainForm.DrawPointerOn(B: TBitmap; ScreenCoords: Boolean);
+var
+  P: TPoint;
+  Arrow: array[0..6] of TPoint;
+  I: Integer;
+begin
+  if B = nil then Exit;
+  try
+    P := Mouse.CursorPos;
+    if not ScreenCoords then P := ScreenToClient(P);
+  except
+    Exit;
   end;
+  if (P.X < 0) or (P.Y < 0) or (P.X >= B.Width) or (P.Y >= B.Height) then Exit;
+
+  { the ordinary pointer shape, at the size the system draws it }
+  Arrow[0] := Point(0, 0);
+  Arrow[1] := Point(0, 17);
+  Arrow[2] := Point(4, 13);
+  Arrow[3] := Point(7, 20);
+  Arrow[4] := Point(10, 18);
+  Arrow[5] := Point(7, 12);
+  Arrow[6] := Point(12, 12);
+  for I := 0 to High(Arrow) do
+    Arrow[I] := Point(Arrow[I].X + P.X, Arrow[I].Y + P.Y);
+
+  B.Canvas.Pen.Color := clWhite;
+  B.Canvas.Pen.Width := 3;
+  B.Canvas.Brush.Style := bsClear;
+  B.Canvas.Polygon(Arrow);
+  B.Canvas.Pen.Color := clBlack;
+  B.Canvas.Pen.Width := 1;
+  B.Canvas.Brush.Style := bsSolid;
+  B.Canvas.Brush.Color := clBlack;
+  B.Canvas.Polygon(Arrow);
+
+  { a ring as well, because an arrow on a busy drawing is easy to lose }
+  B.Canvas.Brush.Style := bsClear;
+  B.Canvas.Pen.Color := clRed;
+  B.Canvas.Pen.Width := 2;
+  B.Canvas.Ellipse(P.X - 13, P.Y - 13, P.X + 14, P.Y + 14);
+  B.Canvas.Pen.Width := 1;
 end;
 
 { Ten down to one, with the program still usable throughout.

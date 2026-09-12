@@ -1,0 +1,32 @@
+# Standing a gable up off a face.
+#
+# Start a line on a face and run it up the blue axis.  The reading used to
+# say LOCKED TO BLUE while the point was pulled straight back down onto the
+# face, so the line had no length at all - report of 11 September 2026.
+# What this proves is that Z and LEN both move.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+# frame the slab
+key escape
+key slash
+type fit
+key return
+wait 1200
+
+key l
+# rest on the face, so the working plane is held to it
+at 750 381
+wait 500
+# the near corner, and start there
+at 785 495
+wait 500
+click
+wait 400
+# straight up the blue axis
+at 785 430
+at 785 340
+wait 900
+shot /tmp/hsk-gable.png
