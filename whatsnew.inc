@@ -25,6 +25,13 @@ const
     '  solids per pixel, so a line in front of something shows and a line behind it' + LineEnding +
     '  is properly hidden.' + LineEnding +
     '' + LineEnding +
+    '- **Drawing straight up off a face works again.**  Starting a line on a face' + LineEnding +
+    '  and running it up the blue axis said LOCKED TO BLUE and then drew nothing -' + LineEnding +
+    '  the point was being pulled back down onto the face as fast as the axis took' + LineEnding +
+    '  it up, so the line had no length.  Picking the tool again was the only way' + LineEnding +
+    '  out.  Running up an axis now leaves the face, which is what standing a gable' + LineEnding +
+    '  up means.' + LineEnding +
+    '' + LineEnding +
     '- **Bug report pictures show the mouse pointer.**  An arrow and a red ring are' + LineEnding +
     '  drawn where the cursor was, so a report about what was under the mouse can' + LineEnding +
     '  be read without guessing.' + LineEnding +

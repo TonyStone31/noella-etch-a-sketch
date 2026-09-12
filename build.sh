@@ -407,7 +407,12 @@ do_github() {
 
   # the binaries are built and staged; the files the release wrote its tag
   # into go back before the tree has to be clean for the pull
-  git -C "$ROOT" checkout -- version.inc etchasketch.lpi etchasketch.res 2>/dev/null || true
+  # whatsnew.inc among them: it is generated from WHATS_NEW.md by every build,
+  # so a tree whose committed copy is a build behind is dirty here through no
+  # fault of the release, and the rebase below refuses to run.  It is written
+  # again and committed properly once the notes have been renamed to the tag.
+  git -C "$ROOT" checkout -- version.inc etchasketch.lpi etchasketch.res \
+    whatsnew.inc 2>/dev/null || true
 
   # The bin-rotating Action commits to main on its own schedule, so origin
   # can easily have moved since this branch was last level with it.  Catch up
