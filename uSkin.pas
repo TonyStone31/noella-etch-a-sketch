@@ -41,7 +41,10 @@ type
     { one per tool, so a button and the cursor can both say which is which }
     ikTPoint, ikTLine, ikTRect, ikTArc, ikTCircle, ikTPush, ikTText,
     ikTErase, ikTMeasure, ikTOrbit, ikChevron, ikTSelect, ikTMove,
-    ikTOffset, ikTRotate, ikTProtractor, ikTDrill, ikTFollow
+    ikTOffset, ikTRotate, ikTProtractor, ikTDrill, ikTFollow,
+    { the shop door - a spanner, so it cannot be mistaken for the plain
+      chevron that means "more of the same kind" }
+    ikShop
   );
 
 const
@@ -573,6 +576,17 @@ begin
     ikChevron:
       S.Poly([PtF(CX - U * 0.16, CY - U * 0.08), PtF(CX, CY + U * 0.10),
               PtF(CX + U * 0.16, CY - U * 0.08)], LW, C, False, Alpha);
+
+    { A spanner: a ring at the top left with a bite out of it, and a shaft
+      running down to the right.  It only has to read at sixteen pixels and
+      it only has to not be an arrow. }
+    ikShop:
+      begin
+        S.Arc(CX - U * 0.16, CY - U * 0.16, U * 0.15, Pi * 0.15, Pi * 1.75,
+              LW, C, Alpha);
+        S.Line(CX - U * 0.08, CY - U * 0.06, CX + U * 0.24, CY + U * 0.26,
+               LW * 1.6, C, Alpha);
+      end;
 
     ikUndo, ikRedo:
       begin

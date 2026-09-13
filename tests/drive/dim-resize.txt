@@ -22,7 +22,7 @@ wait 800
 shot /tmp/hsk-dim-before.png
 
 # the dimension line itself, between the two arrows
-at 785 597
+at 810 615
 wait 400
 click
 wait 600

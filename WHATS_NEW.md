@@ -10,6 +10,43 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Hover anything and it tells you what it is.**  There were never any
+  tooltips: the hover text went to a line at the top of the window, in the
+  smallest type on it, seven hundred pixels from the pointer.  Now a card
+  appears beside whatever you are pointing at, with the name and a sentence
+  about what it does.
+
+- **Open, Save, Export, Print, Undo and Redo are at the top left**, with
+  their names on them, where every other program keeps them.  They were in
+  the bottom right corner among twelve identical squares.  The Heckers Sketch
+  name has moved to the middle of that line to make room, and Undo and Redo
+  grey out when there is nothing to undo.
+
+### Changed
+
+- **The tools are in groups now**, with a line between them: pick, then the
+  four shapes, then push/pull on its own, then move and erase, then measure,
+  protractor, dimension and text, then orbit.  **Measure and the protractor
+  have come back out of MORE** - measuring is most of why anybody opens this.
+
+- **SHOP is at the foot of the strip on its own, with a spanner on it.**  It
+  is a door into the trade wizards, not a drawing tool, and it had the same
+  arrow as MORE which made two quite different doors look like one thing.
+  The duplicate SHOP button along the bottom has gone.
+
+- **The settings say what they are** - PRINT SCALE, SNAP TO, LINE COLOUR,
+  LINE WIDTH, ROUNDED TO.  "PREC" is gone; so is "SET".  The buttons beside
+  them have names too: FIT, ORIGIN, GRID, UNITS, THEME, HELP.
+
+- **The row along the bottom is one row deep** instead of three.  All of that
+  height is drawing now.
+
+- The collapse arrow says **COLLAPSE** and **EXPAND**, which is what it does.
+
 ## v2026.09.13
 
 ### New

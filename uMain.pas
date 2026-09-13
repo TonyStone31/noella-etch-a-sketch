@@ -152,6 +152,7 @@ type
     pbView: TPaintBox;
     pbSlice: TPaintBox;
     pbTools: TPaintBox;
+    pbQuick: TPaintBox;
     pmView: TPopupMenu;
     pmCanvas: TPopupMenu;
     pbDeck: TPaintBox;
@@ -177,6 +178,14 @@ type
     procedure pbTabsMouseLeave(Sender: TObject);
     procedure pbTabsMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbTabsPaint(Sender: TObject);
+    procedure pbQuickPaint(Sender: TObject);
+    procedure pbQuickMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure pbQuickMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure pbQuickMouseLeave(Sender: TObject);
+    procedure RebuildQuick;
+    function QuickHit(X, Y: Integer): Integer;
+    function QuickWidth: Integer;
     procedure pbToolsPaint(Sender: TObject);
     procedure pbToolsMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -185,6 +194,7 @@ type
     procedure RebuildTools;
     function ToolsHit(X, Y: Integer): Integer;
     function ToolStripWidth: Integer;
+    procedure PaintChromeTip(C: TCanvas);
     procedure pbSlicePaint(Sender: TObject);
     procedure pbSliceMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -589,6 +599,17 @@ type
     FTools: array of TDeckItem; // the vertical tool strip down the left
     FToolSkin: TArtSurface;
     FHotTool: Integer;
+    { What is under the pointer on a strip, and where it is, so the note can
+      be drawn beside the thing it is about.  FChromeTip is the title line,
+      FChromeTipBody the sentence, FChromeTipY the middle of the button. }
+    FChromeTip, FChromeTipBody: string;
+    FChromeTipY, FChromeTipX: Integer;
+    { where the lines go across the tool strip, and where the shop door sits }
+    FToolRules: array of Integer;
+    FShopTop: Integer;
+    FQuick: array of TDeckItem;   // the file buttons in the title bar
+    FQuickSkin: TArtSurface;
+    FHotQuick: Integer;
     { Names beside the icons, or icons alone.  Kept in the settings, and it
       starts True on purpose - see pbToolsPaint. }
     FToolsWide: Boolean;
@@ -906,6 +927,7 @@ type
     { deck }
     function DeckHit(X, Y: Integer): Integer;
     procedure DeckActivate(Index: Integer);
+    procedure DoAction(A: Integer);
     function IconLit(Value: Integer): Boolean;
     function IconEnabled(Value: Integer): Boolean;
     function SliderValueAt(const Item: TDeckItem; X: Integer): Integer;
@@ -1134,11 +1156,23 @@ const
     Orbit is in the main set although it draws nothing, because getting round
     the back of the model is half of what makes the 3D worth having and a
     laptop without a middle button has no other way in. }
-  MAIN_TOOLS: array[0..9] of TProTool =
-    (ptSelect, ptLine, ptRect, ptCircle, ptArc, ptPush, ptMove, ptErase,
-     ptDim, ptOrbit);
-  MORE_TOOLS: array[0..6] of TProTool =
-    (ptRotate, ptOffset, ptFollow, ptDrill, ptMeasure, ptProtractor, ptText);
+  MAIN_TOOLS: array[0..12] of TProTool =
+    (ptSelect,
+     ptLine, ptRect, ptCircle, ptArc,
+     ptPush,
+     ptMove, ptErase,
+     ptMeasure, ptProtractor, ptDim, ptText,
+     ptOrbit);
+  { Where a line goes across the strip: after this many buttons.  The groups
+    are what a tool is FOR - pick something, draw something, stand it up,
+    change it, measure and say what it is, get about - and a line between
+    them is what turns a column of thirteen into six short lists. }
+  MAIN_BREAKS: array[0..4] of Integer = (1, 5, 6, 8, 12);
+  { The four that are neither common nor obvious.  Measure and the protractor
+    came back out of here on the first day the strip existed: measuring is
+    not a specialist act, it is most of why somebody opened the program. }
+  MORE_TOOLS: array[0..3] of TProTool =
+    (ptRotate, ptOffset, ptFollow, ptDrill);
 
   GRP_COLS: array[0..2] of Integer = (3, 3, 3);
   GRP_N:    array[0..2] of Integer = (6, 5, 6);
@@ -1969,6 +2003,8 @@ begin
   FViewSkin := TArtSurface.Create(16, 16);
   FSliceSkin := TArtSurface.Create(16, 16);
   FToolSkin := TArtSurface.Create(16, 16);
+  FQuickSkin := TArtSurface.Create(16, 16);
+  FHotQuick := -1;
   FHotTool := -1;
   FToolsWide := True;
   FHotSlice := -1;
@@ -2093,6 +2129,7 @@ begin
   FViewSkin.Free;
   FSliceSkin.Free;
   FToolSkin.Free;
+  FQuickSkin.Free;
   FGlyph.Free;
   FCmdSkin.Free;
   FModeSkin.Free;
@@ -2249,10 +2286,11 @@ end;
   Derived either way, so another row is a change here and nowhere else. }
 function TMainForm.DeckRows: Integer;
 begin
-  { PRO: one row of settings on the left, two rows of six icons on the right.
-    It was three deep when the tools lived here; they are down the left side
-    now and the row they cost the drawing has gone back to it. }
-  if FMode = mdPro then Result := 2 else Result := 4;
+  { PRO: one row.  Settings on the left, six named buttons on the right.
+    It was three deep when the tools lived here and two when the file
+    buttons did; both have gone somewhere they belong better, and the two
+    rows they cost the drawing have gone back to it. }
+  if FMode = mdPro then Result := 1 else Result := 4;
 end;
 
 function TMainForm.DeckHeight: Integer;
@@ -2299,6 +2337,12 @@ begin
       ModeW, Round(22 * FUIScale))
   else
     pbMode.SetBounds(ClientWidth - M - ModeW, Round(10 * FUIScale), ModeW, ModeH);
+
+  { the file buttons, after the name and the version }
+  pbQuick.Visible := FMode = mdPro;
+  if pbQuick.Visible then
+    pbQuick.SetBounds(M + Round(2 * FUIScale), Round(4 * FUIScale),
+      QuickWidth, Round(24 * FUIScale));
 
   DeckR := Rect(M, ClientHeight - M - DeckH, ClientWidth - M, ClientHeight - M);
   ToolW := ToolStripWidth;
@@ -2382,6 +2426,8 @@ begin
   FSliceSkin.SetSize(Max(1, pbSlice.Width), Max(1, pbSlice.Height));
   FToolSkin.SetSize(Max(1, pbTools.Width), Max(1, pbTools.Height));
   RebuildTools;
+  FQuickSkin.SetSize(Max(1, pbQuick.Width), Max(1, pbQuick.Height));
+  RebuildQuick;
   LayoutTabs;
 
   for I := 0 to 1 do
@@ -3773,6 +3819,25 @@ var
     end;
   end;
 
+  { The same six, with a word each.  With the tools gone from the deck there
+    is room for the labels, and a word beats a pictogram every time for
+    somebody who has not learned the pictogram yet. }
+  procedure AddNamed6(RY: Integer; const A: array of Integer;
+    const K: array of TIconKind; const N: array of string;
+    const H: array of string);
+  var
+    IX, J, BW: Integer;
+  begin
+    BW := Round(88 * FUIScale);
+    IX := W - Pad - Length(A) * BW - (Length(A) - 1) * RowGap;
+    for J := 0 to High(A) do
+    begin
+      Add(dkSegment, Rect(IX, RY, IX + BW, RY + RowH), GRP_ICON, A[J], N[J],
+        H[J], K[J]);
+      Inc(IX, BW + RowGap);
+    end;
+  end;
+
   { Lay a segmented control across the free width, leaving room for Extras
     trailing icon slots. }
   procedure Segments(RY, Group, Count, Extras: Integer);
@@ -3791,7 +3856,12 @@ begin
   Blank := Pix(0, 0, 0);
   W := FDeckSkin.Width;
   H := FDeckSkin.Height;
-  if (W < 40) or (H < 40) then Exit;
+  { A guard against building a deck into nothing.  It was 40 tall, which was
+    below anything the deck had ever been - until PRO went to a single row
+    and came out 34, whereupon the whole settings row silently stopped being
+    built and the panel painted empty.  A row plus its padding is the real
+    floor. }
+  if (W < 40) or (H < 24) then Exit;
 
   Pad := Round(14 * FUIScale);
   LabW := Round(74 * FUIScale);
@@ -3861,59 +3931,68 @@ begin
       one more thing to read past every time you look at the screen, so they
       are not there until the tape leaves the first guide and are gone again
       when the last one is cleared. }
-    if (FMode = mdPro) and (FD.Doc.GuideCount > 0) then NSet := 8 else NSet := 6;
+    { Words, not abbreviations.  "PREC" meant nothing to the person who owns
+      the program, which settles it: a label somebody has to decode is a
+      label that costs more than the space it saved.  The shop button has
+      gone from here altogether - it is a door into the wizards, not a
+      setting, and it opened the very same list the strip on the left does. }
+    if (FMode = mdPro) and (FD.Doc.GuideCount > 0) then NSet := 7 else NSet := 5;
+    Avail := W - 2 * Pad - LabW - (6 * Round(88 * FUIScale) + 5 * RowGap)
+             - Round(18 * FUIScale);
     SegW := (Avail - (NSet - 1) * RowGap) div NSet;
-    if NSet = 8 then
+    if NSet = 7 then
     begin
-      Add(dkSegment, Rect(X + 6 * SegW, RowY, X + 7 * SegW - RowGap,
+      Add(dkSegment, Rect(X + 5 * SegW, RowY, X + 6 * SegW - RowGap,
         RowY + RowH), GRP_ICON, ACT_GUIDES,
         IfThen(FD.Doc.GuidesHidden,
-          Format('SHOW %d', [FD.Doc.GuideCount]),
-          Format('HIDE %d', [FD.Doc.GuideCount])),
+          Format('SHOW %d GUIDES', [FD.Doc.GuideCount]),
+          Format('HIDE %d GUIDES', [FD.Doc.GuideCount])),
         'Put the guides away, or bring them back.  They stay in the drawing '
         + 'either way.', ikDroplet);
-      Add(dkSegment, Rect(X + 7 * SegW, RowY, X + 8 * SegW - RowGap,
+      Add(dkSegment, Rect(X + 6 * SegW, RowY, X + 7 * SegW - RowGap,
         RowY + RowH), GRP_ICON, ACT_NOGUIDE, 'CLEAR GUIDES',
         'Throw all the guides away.  Undo brings them back.', ikDroplet);
     end;
     Add(dkSegment, Rect(X + 4 * SegW, RowY, X + 5 * SegW - RowGap,
       RowY + RowH), GRP_POPUP, POP_PREC,
-      IfThen(FLenDenom = 100, 'PREC  .01"', Format('PREC  1/%d"', [FLenDenom])),
+      IfThen(FLenDenom = 100,
+        'ROUNDED TO  .01"', Format('ROUNDED TO  1/%d"', [FLenDenom])),
       'How finely a length is written down, and what the last field of a ' +
       'dashed entry counts in - 6-8-15 is feet, inches and sixteenths.  ' +
       'It never changes what the drawing holds.', ikDroplet);
-    Add(dkSegment, Rect(X + 5 * SegW, RowY, X + 6 * SegW - RowGap,
-      RowY + RowH), GRP_POPUP, POP_SHOP, 'SHOP',
-      'Shop tools - laying a piece out flat, and the fittings', ikDroplet);
     Add(dkSegment, Rect(X, RowY, X + SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_SCALE, 'SCALE  ' + ScaleTable(FD.Units, FD.ScaleIdx).Name,
-      'Print scale - click for the list', ikDroplet);
+      GRP_POPUP, POP_SCALE,
+      'PRINT SCALE  ' + ScaleTable(FD.Units, FD.ScaleIdx).Name,
+      'What one foot measures on the paper when this sheet is printed.',
+      ikDroplet);
     Add(dkSegment, Rect(X + SegW, RowY, X + 2 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_SNAP, 'SNAP  ' + SnapName(FD.Units, FD.SnapIdx),
-      'What the cursor snaps to - click for the list', ikDroplet);
+      GRP_POPUP, POP_SNAP, 'SNAP TO  ' + SnapName(FD.Units, FD.SnapIdx),
+      'The step the cursor moves in when it is not on a point of the ' +
+      'drawing.  It is also what the arrows on the cut fields step by.',
+      ikDroplet);
     Add(dkSegment, Rect(X + 2 * SegW, RowY, X + 3 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_COLOR, 'COLOR',
-      'Line color - click for the list', ikDroplet);
+      GRP_POPUP, POP_COLOR, 'LINE COLOUR',
+      'The colour new lines are drawn in.', ikDroplet);
     Add(dkSegment, Rect(X + 3 * SegW, RowY, X + 4 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_WIDTH, Format('LINES  %d px', [FEdgeW]),
+      GRP_POPUP, POP_WIDTH, Format('LINE WIDTH  %d px', [FEdgeW]),
       'How thick every edge in this drawing is drawn.  It is one setting for ' +
       'the whole sheet, the way SketchUp does it - not a property of the ' +
       'line you happen to be drawing.', ikDroplet);
 
-    AddIconRow6(Y0,
-      [ACT_UNDO, ACT_REDO, ACT_FIT, ACT_THEME, ACT_GRID, ACT_HELP],
-      [ikUndo, ikRedo, ikFit, ikTheme, ikGrid, ikHelp],
-      ['Undo  (Ctrl+Z)', 'Redo  (Ctrl+Y)', 'Frame the whole drawing  (F)',
-       'Change the theme  (T)', 'Show or hide the measured grid  (G)',
-       'Help, downloads and updates  (F1 for about)']);
-    AddIconRow6(Y0 + RowH + RowGap,
-      [ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_UNITS, ACT_PRINT, ACT_ORIGIN],
-      [ikOpen, ikSave, ikExport, ikUnits, ikPrint, ikOrigin],
-      ['Open a drawing  (Ctrl+O)', 'Save this drawing  (Ctrl+S; Shift+Ctrl+S saves as)',
-       'Export a picture - PNG or SVG  (Ctrl+E)',
+    { Open, save, export, print, undo and redo have gone to the top left
+      where every program keeps them - see RebuildQuick.  What is left here
+      is about the view and the program, and there is room now to say what
+      each one is in a word instead of leaving it to a pictogram. }
+    AddNamed6(Y0,
+      [ACT_FIT, ACT_ORIGIN, ACT_GRID, ACT_UNITS, ACT_THEME, ACT_HELP],
+      [ikFit, ikOrigin, ikGrid, ikUnits, ikTheme, ikHelp],
+      ['FIT', 'ORIGIN', 'GRID', 'UNITS', 'THEME', 'HELP'],
+      ['Frame the whole drawing  (F)',
+       'Put 0,0 under the cursor  (O)',
+       'Show or hide the measured grid  (G)',
        'Feet-and-inches or metric  (U)',
-       'Print  (Ctrl+P)',
-       'Move the origin here  (/origin)']);
+       'Light chrome or dark  (T)',
+       'Help, downloads and updates  (F1 for about)']);
     Exit;
   end;
 
@@ -4199,7 +4278,7 @@ begin
   else
   begin
     { the tools are down the left now; what is left here is how, not what }
-    Section(0, 'SET');
+    Section(0, 'SETTINGS');
   end;
 
   for I := 0 to High(FDeck) do
@@ -4341,45 +4420,54 @@ begin
                  pbDeck.Invalidate;
                  pbCmd.Invalidate;
                end;
-    GRP_ICON:
-      case It.Value of
-        ACT_UNDO:   DoUndo;
-        ACT_REDO:   DoRedo;
-        ACT_SHAKE:  StartErase;
-        ACT_SAVE:   DoSave;
-        ACT_PRINT:  DoPrint;
-        ACT_AUTO:   ToggleAuto;
-        ACT_THEME:  CycleTheme(1);
-        ACT_GRID:   begin
-                      FShowGrid := not FShowGrid;
-                      RepaintPaper;
-                      RecomposeAll;
-                      pbDeck.Invalidate;
-                    end;
-        ACT_HELP:   if FPopup = POP_HELP then ClosePopup else OpenPopup(POP_HELP);
-        ACT_MIRROR: begin FMirror := not FMirror; pbDeck.Invalidate; end;
-        ACT_PICK:   DoPickColor;
-        ACT_UNITS:  SetUnits(TUnitSystem(1 - Ord(FD.Units)));
-        ACT_ORIGIN: SetOriginHere;
-        ACT_FIT:    FitView;
-        ACT_OPEN:   DoOpen;
-        ACT_EXPORT: DoExport;
-        ACT_GUIDES:
-          begin
-            FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
-            FCmdMsg := IfThen(FD.Doc.GuidesHidden,
-              'Guides put away.  They are still in the drawing.',
-              'Guides back.');
-            RenderPro;
-            RecomposeAll;
-          end;
-        ACT_NOGUIDE:
-          begin
-            PushUndo;
-            FCmdMsg := Format('Cleared %d guides.', [FD.Doc.ClearGuides]);
-            RenderPro;
-            RecomposeAll;
-          end;
+    GRP_ICON: DoAction(It.Value);
+  end;
+end;
+
+{ One action, whichever button asked for it.
+
+  This was the body of a case inside DeckActivate, reachable only from the
+  deck.  The quick strip in the title bar needed the same twenty actions, and
+  a second copy of them is a second place for Save to stop meaning save. }
+procedure TMainForm.DoAction(A: Integer);
+begin
+  case A of
+    ACT_UNDO:   DoUndo;
+    ACT_REDO:   DoRedo;
+    ACT_SHAKE:  StartErase;
+    ACT_SAVE:   DoSave;
+    ACT_PRINT:  DoPrint;
+    ACT_AUTO:   ToggleAuto;
+    ACT_THEME:  CycleTheme(1);
+    ACT_GRID:   begin
+                  FShowGrid := not FShowGrid;
+                  RepaintPaper;
+                  RecomposeAll;
+                  pbDeck.Invalidate;
+                end;
+    ACT_HELP:   if FPopup = POP_HELP then ClosePopup else OpenPopup(POP_HELP);
+    ACT_MIRROR: begin FMirror := not FMirror; pbDeck.Invalidate; end;
+    ACT_PICK:   DoPickColor;
+    ACT_UNITS:  SetUnits(TUnitSystem(1 - Ord(FD.Units)));
+    ACT_ORIGIN: SetOriginHere;
+    ACT_FIT:    FitView;
+    ACT_OPEN:   DoOpen;
+    ACT_EXPORT: DoExport;
+    ACT_GUIDES:
+      begin
+        FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
+        FCmdMsg := IfThen(FD.Doc.GuidesHidden,
+          'Guides put away.  They are still in the drawing.',
+          'Guides back.');
+        RenderPro;
+        RecomposeAll;
+      end;
+    ACT_NOGUIDE:
+      begin
+        PushUndo;
+        FCmdMsg := Format('Cleared %d guides.', [FD.Doc.ClearGuides]);
+        RenderPro;
+        RecomposeAll;
       end;
   end;
 end;
@@ -4737,6 +4825,198 @@ begin
 end;
 
 { ---------------------------------------------------------------------- }
+{ the file buttons, top left                                               }
+{ ---------------------------------------------------------------------- }
+
+{ Open, save, export, print, undo, redo - at the top left, where every
+  program on either platform keeps them.
+
+  They were in the bottom right corner among twelve identical squares, which
+  is nowhere: the corner furthest from where anybody looks for them, in a
+  cluster where Save and Units and Origin were the same size and the same
+  colour and told apart only by a sixteen pixel pictogram.  Putting them
+  where the muscle memory already goes costs nothing and saves everybody one
+  hunt per session.
+
+  The tool hint used to be painted along this row and it has gone.  It said
+  the same thing the status line at the bottom says, in smaller dimmer type,
+  and it was the only place a hover was ever reported - which is why the
+  program appeared to have no tooltips.  It has them now, beside what you are
+  hovering; see PaintChromeTip. }
+const
+  QUICK_ACTS: array[0..5] of Integer =
+    (ACT_OPEN, ACT_SAVE, ACT_EXPORT, ACT_PRINT, ACT_UNDO, ACT_REDO);
+  QUICK_ICONS: array[0..5] of TIconKind =
+    (ikOpen, ikSave, ikExport, ikPrint, ikUndo, ikRedo);
+  QUICK_TIPS: array[0..5] of string = (
+    'Open a drawing.  Ctrl+O',
+    'Save this drawing.  Ctrl+S, or Shift+Ctrl+S to save it as something else',
+    'Export a picture or a drawing file - PNG, SVG or DXF.  Ctrl+E',
+    'Print.  Ctrl+P, and /print full lays it out 1:1 across sheets',
+    'Undo.  Ctrl+Z',
+    'Redo.  Ctrl+Y');
+  { a gap before undo and redo: they act on the drawing, the other four act
+    on the file, and one space says so without a label }
+  QUICK_GAP_BEFORE = 4;
+  QUICK_NAMES: array[0..5] of string =
+    ('OPEN', 'SAVE', 'EXPORT', 'PRINT', 'UNDO', 'REDO');
+
+function TMainForm.QuickWidth: Integer;
+begin
+  if FMode <> mdPro then Exit(0);
+  Result := Length(QUICK_ACTS) * Round(74 * FUIScale) +
+            Round(12 * FUIScale);
+end;
+
+procedure TMainForm.RebuildQuick;
+var
+  I, BW, X, H: Integer;
+begin
+  SetLength(FQuick, 0);
+  if FMode <> mdPro then Exit;
+  BW := Round(74 * FUIScale);
+  H := pbQuick.Height;
+  X := 0;
+  for I := 0 to High(QUICK_ACTS) do
+  begin
+    if I = QUICK_GAP_BEFORE then Inc(X, Round(12 * FUIScale));
+    SetLength(FQuick, Length(FQuick) + 1);
+    with FQuick[High(FQuick)] do
+    begin
+      Kind := dkSegment;
+      Bounds := Rect(X + 1, 1, X + BW - 1, H - 1);
+      Group := GRP_ICON;
+      Value := QUICK_ACTS[I];
+      Caption := QUICK_NAMES[I];
+      Hint := QUICK_TIPS[I];
+      Icon := QUICK_ICONS[I];
+      Swatch := Pix(0, 0, 0);
+    end;
+    Inc(X, BW);
+  end;
+end;
+
+function TMainForm.QuickHit(X, Y: Integer): Integer;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FQuick) do
+    if PtInRect(FQuick[I].Bounds, Point(X, Y)) then Exit(I);
+  Result := -1;
+end;
+
+procedure TMainForm.pbQuickPaint(Sender: TObject);
+var
+  I, W, H, IconSz: Integer;
+  R, IR: TRect;
+  Fg: TPix;
+  Ena: Boolean;
+begin
+  W := pbQuick.Width;
+  H := pbQuick.Height;
+  if (W < 8) or (H < 8) then Exit;
+  FQuickSkin.SetSize(W, H);
+  FQuickSkin.Clear(Pix(0, 0, 0));
+  FQuickSkin.CopyRegion(FShell, pbQuick.Left, pbQuick.Top, 0, 0, W, H);
+
+  IconSz := Round(15 * FUIScale);
+  for I := 0 to High(FQuick) do
+  begin
+    R := FQuick[I].Bounds;
+    { greyed out when it would do nothing, so the row reports the state of
+      the drawing as well as offering to change it }
+    Ena := True;
+    if FQuick[I].Value = ACT_UNDO then Ena := FD.UndoTop > 0
+    else if FQuick[I].Value = ACT_REDO then Ena := FD.RedoTop > 0;
+    if I = FHotQuick then
+    begin
+      FQuickSkin.RoundRect(R, Round(4 * FUIScale),
+        MixPix(Theme.Panel, Pix(255, 255, 255), 0.16));
+      FQuickSkin.RoundFrame(R, Round(4 * FUIScale), 1.0,
+        MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.16));
+    end;
+    if Ena then Fg := Theme.Text
+    else Fg := MixPix(Theme.TextDim, Theme.Shell1, 0.55);
+    IR := Rect(R.Left + Round(6 * FUIScale),
+               (R.Top + R.Bottom - IconSz) div 2,
+               R.Left + Round(6 * FUIScale) + IconSz,
+               (R.Top + R.Bottom + IconSz) div 2);
+    PaintIcon(FQuickSkin, FQuick[I].Icon, IR, Fg);
+  end;
+  FQuickSkin.DrawTo(pbQuick.Canvas, 0, 0);
+
+  { the word beside the picture.  A picture of a floppy disk means "save" to
+    somebody who has seen a floppy disk. }
+  for I := 0 to High(FQuick) do
+  begin
+    R := FQuick[I].Bounds;
+    Ena := True;
+    if FQuick[I].Value = ACT_UNDO then Ena := FD.UndoTop > 0
+    else if FQuick[I].Value = ACT_REDO then Ena := FD.RedoTop > 0;
+    if Ena then UIFont(pbQuick.Canvas, 9, False, Theme.Text)
+    else UIFont(pbQuick.Canvas, 9, False,
+                MixPix(Theme.TextDim, Theme.Shell1, 0.55));
+    pbQuick.Canvas.TextOut(R.Left + Round(8 * FUIScale) + IconSz,
+      (R.Top + R.Bottom - pbQuick.Canvas.TextHeight('X')) div 2,
+      FQuick[I].Caption);
+  end;
+end;
+
+procedure TMainForm.pbQuickMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+var
+  H: Integer;
+begin
+  H := QuickHit(X, Y);
+  if H <> FHotQuick then
+  begin
+    FHotQuick := H;
+    pbQuick.Invalidate;
+  end;
+  if (H >= 0) and (H <= High(FQuick)) then
+  begin
+    FChromeTip := QUICK_NAMES[H];
+    FChromeTipBody := FQuick[H].Hint;
+    FChromeTipX := EnsureRange(pbQuick.Left + FQuick[H].Bounds.Left -
+                     pbScreen.Left, 4, Max(4, pbScreen.Width - 40));
+    FChromeTipY := Round(24 * FUIScale);
+    FHint := FQuick[H].Hint;
+  end
+  else
+  begin
+    FChromeTip := '';
+    FChromeTipBody := '';
+    FHint := '';
+  end;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.pbQuickMouseLeave(Sender: TObject);
+begin
+  if FHotQuick <> -1 then
+  begin
+    FHotQuick := -1;
+    pbQuick.Invalidate;
+  end;
+  FChromeTip := '';
+  FChromeTipBody := '';
+  FHint := '';
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.pbQuickMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  H: Integer;
+begin
+  if Button <> mbLeft then Exit;
+  H := QuickHit(X, Y);
+  if (H < 0) or (H > High(FQuick)) then Exit;
+  DoAction(FQuick[H].Value);
+  pbQuick.Invalidate;
+end;
+
+{ ---------------------------------------------------------------------- }
 { the tool strip down the left                                             }
 { ---------------------------------------------------------------------- }
 
@@ -4770,7 +5050,7 @@ end;
 
 procedure TMainForm.RebuildTools;
 var
-  I, RowH, Gap, Y, W: Integer;
+  I, K, RowH, Gap, Y, W: Integer;
 
   procedure Add(AKind: TDeckKind; const R: TRect; AGroup, AValue: Integer;
     const ACap, AHint: string; AIcon: TIconKind);
@@ -4792,25 +5072,40 @@ begin
   Gap := Round(3 * FUIScale);
   Y := Round(6 * FUIScale);
 
+  SetLength(FToolRules, 0);
   for I := 0 to High(MAIN_TOOLS) do
   begin
     Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
       GRP_TOOL, Ord(MAIN_TOOLS[I]), TOOL_NAMES[MAIN_TOOLS[I]],
       TOOL_HINTS[MAIN_TOOLS[I]], TOOL_ICONS[MAIN_TOOLS[I]]);
     Inc(Y, RowH + Gap);
+    for K := 0 to High(MAIN_BREAKS) do
+      if MAIN_BREAKS[K] = I + 1 then
+      begin
+        SetLength(FToolRules, Length(FToolRules) + 1);
+        FToolRules[High(FToolRules)] := Y + Round(3 * FUIScale);
+        Inc(Y, Round(8 * FUIScale));
+        Break;
+      end;
   end;
 
-  { The two doors.  A gap above them so they read as somewhere else to go
-    rather than as two more tools. }
-  Inc(Y, Round(10 * FUIScale));
+  { MORE, straight after the tools and looking like one, because that is what
+    is behind it. }
+  Inc(Y, Round(4 * FUIScale));
   Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
-    GRP_POPUP, POP_MORE, 'MORE',
-    'The rest of the tools - rotate, offset, follow me, drill, measure, ' +
-    'protractor and text.', ikArrow);
-  Inc(Y, RowH + Gap);
-  Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
+    GRP_POPUP, POP_MORE, 'MORE TOOLS',
+    'Rotate, offset, follow me and drill.', ikChevron);
+
+  { And the shop, at the very foot, off on its own with a spanner on it.
+    It is not a drawing tool and it never was - it is a door into the trade
+    wizards, and standing it next to MORE with the same arrow on it made two
+    quite different doors look like one thing in two halves. }
+  FShopTop := pbTools.Height - Round(56 * FUIScale);
+  Add(dkSegment, Rect(Round(4 * FUIScale), FShopTop,
+    W - Round(4 * FUIScale), FShopTop + RowH),
     GRP_POPUP, POP_SHOP, 'SHOP',
-    'Shop tools - laying a piece out flat, and the fittings', ikArrow);
+    'Sheet metal and pipe: laying a piece out flat, duct fittings, spools.',
+    ikShop);
 end;
 
 function TMainForm.ToolsHit(X, Y: Integer): Integer;
@@ -4869,6 +5164,12 @@ begin
     PaintIcon(FToolSkin, It.Icon, IR, Fg);
   end;
 
+  { the lines between the groups }
+  for I := 0 to High(FToolRules) do
+    FToolSkin.Line(Round(10 * FUIScale), FToolRules[I],
+      W - Round(10 * FUIScale), FToolRules[I], 1,
+      MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.16), 1.0);
+
   { the collapse arrow, at the foot }
   ArrY := H - Round(20 * FUIScale);
   FToolSkin.Line(Round(8 * FUIScale), ArrY - Round(8 * FUIScale),
@@ -4896,8 +5197,11 @@ begin
     end;
   end;
 
+  { What it does, in the word for what it does.  It said "NAMES OFF", which
+    is what it does to the names and not what it does to the strip, and
+    reading it left you working out which state you were being offered. }
   UIFont(pbTools.Canvas, 9, False, Theme.TextDim);
-  if FToolsWide then S := '<  NAMES OFF' else S := '>';
+  if FToolsWide then S := '<  COLLAPSE' else S := '>';
   pbTools.Canvas.TextOut(Round(8 * FUIScale),
     ArrY - pbTools.Canvas.TextHeight(S) div 2, S);
 end;
@@ -4913,11 +5217,33 @@ begin
     FHotTool := H;
     pbTools.Invalidate;
   end;
-  if (H >= 0) and (H <= High(FTools)) then FHint := FTools[H].Hint
+  { the note beside the button, level with it }
+  FChromeTipX := Round(6 * FUIScale);
+  if (H >= 0) and (H <= High(FTools)) then
+  begin
+    FChromeTip := FTools[H].Caption;
+    FChromeTipBody := FTools[H].Hint;
+    FChromeTipY := (FTools[H].Bounds.Top + FTools[H].Bounds.Bottom) div 2
+                   + pbTools.Top - pbScreen.Top;
+    FHint := FTools[H].Hint;
+  end
   else if H = -2 then
-    FHint := 'Show the tool names, or put them away for a wider drawing.'
+  begin
+    FChromeTip := IfThen(FToolsWide, 'COLLAPSE', 'EXPAND');
+    FChromeTipBody := IfThen(FToolsWide,
+      'Put the names away and give the width to the drawing.',
+      'Show the tool names again.');
+    FChromeTipY := pbTools.Height - Round(20 * FUIScale)
+                   + pbTools.Top - pbScreen.Top;
+    FHint := FChromeTipBody;
+  end
   else
+  begin
+    FChromeTip := '';
+    FChromeTipBody := '';
     FHint := '';
+  end;
+  pbScreen.Invalidate;
 end;
 
 procedure TMainForm.pbToolsMouseLeave(Sender: TObject);
@@ -4928,6 +5254,9 @@ begin
     pbTools.Invalidate;
   end;
   FHint := '';
+  FChromeTip := '';
+  FChromeTipBody := '';
+  pbScreen.Invalidate;
 end;
 
 procedure TMainForm.pbToolsMouseDown(Sender: TObject; Button: TMouseButton;
@@ -8134,6 +8463,54 @@ begin
   C.TextOut(R.Left + Round(9 * FUIScale), R.Top + Round(5 * FUIScale) + LnH, S2);
 end;
 
+{ A note beside the button the pointer is on.
+
+  There have never been tooltips, and it took Tony hovering over the new tool
+  strip to notice why: the hover text goes to `FHint`, which is painted in
+  the **title bar**.  Seven hundred pixels from the pointer, in the smallest
+  dim type on the window, and only when the form happens to repaint - so
+  hovering a tool told you nothing, and looked like nothing was there,
+  because nothing was.
+
+  Drawn on the drawing canvas rather than as a window: the same black card
+  with the accent title that the cursor already uses, so the two read as one
+  idea, and no second widget to keep on top of anything.  Two lines - what it
+  is, then what it does - because a name alone does not tell somebody who has
+  never met Offset what Offset is, and telling them is the whole job. }
+procedure TMainForm.PaintChromeTip(C: TCanvas);
+var
+  W1, W2, BoxW, BoxH, LnH, X, Y: Integer;
+  R: TRect;
+begin
+  if FChromeTip = '' then Exit;
+  UIFont(C, 9, True, Theme.Text);
+  LnH := C.TextHeight('Xg');
+  W1 := C.TextWidth(FChromeTip);
+  UIFont(C, 9, False, Theme.Text);
+  W2 := C.TextWidth(FChromeTipBody);
+  BoxW := Max(W1, W2) + Round(18 * FUIScale);
+  BoxH := 2 * LnH + Round(14 * FUIScale);
+
+  { hard against the strip it came from, level with the button, and never off
+    the bottom of the drawing }
+  X := EnsureRange(FChromeTipX, 4, Max(4, pbScreen.Width - BoxW - 4));
+  Y := EnsureRange(FChromeTipY - BoxH div 2, 4,
+                   Max(4, pbScreen.Height - BoxH - 4));
+  R := Rect(X, Y, X + BoxW, Y + BoxH);
+
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.15));
+  C.Pen.Color := PixToColor(Theme.Accent);
+  C.Pen.Width := 1;
+  C.RoundRect(R.Left, R.Top, R.Right, R.Bottom, Round(8 * FUIScale),
+    Round(8 * FUIScale));
+  UIFont(C, 9, True, Theme.Accent);
+  C.TextOut(R.Left + Round(9 * FUIScale), R.Top + Round(5 * FUIScale), FChromeTip);
+  UIFont(C, 9, False, Theme.Text);
+  C.TextOut(R.Left + Round(9 * FUIScale), R.Top + Round(5 * FUIScale) + LnH,
+    FChromeTipBody);
+end;
+
 procedure TMainForm.pbScreenPaint(Sender: TObject);
 var
   CR, Rad, SX, SY, Arm, Gap, I: Integer;
@@ -8265,6 +8642,9 @@ begin
       SY - CR - Round(2 * FUIScale));
 
   PaintPopup(pbScreen.Canvas);
+  { over the drawing, under nothing - a note about a button has to be
+    readable whatever is behind it }
+  PaintChromeTip(pbScreen.Canvas);
   PaintShotOverlay(pbScreen.Canvas);
 end;
 
@@ -13895,7 +14275,7 @@ end;
 procedure TMainForm.FormPaint(Sender: TObject);
 var
   VerX: Integer;
-  M, TitleH, Y, TW, RightEdge: Integer;
+  M, TitleH, Y, TW, RightEdge, MidW: Integer;
   S: string;
 begin
   if not FBooted then Exit;
@@ -13906,33 +14286,19 @@ begin
 
   if FMode = mdPro then
   begin
-    { one line: the name small on the left, the reading that matters on the
-      right, and the hint between them only when it fits }
-    UIFont(Canvas, 12, True, Theme.Text);
+    { One line, and the left of it belongs to the buttons now.
+
+      The name and the version sat here, pushing Open and Save into the far
+      bottom corner among twelve identical squares.  A drafting board does
+      not need its own name across the top - the window title says it, the
+      About box says it - so the name moves to the middle where it is a
+      quiet mark rather than a claim on the best real estate on the screen,
+      and the buttons take the corner every program keeps them in.
+
+      The middle is also only drawn when there is room between the buttons
+      and the reading, and the version stays with it either way: it is the
+      first thing anybody has to say when something goes wrong. }
     Y := Round(5 * FUIScale);
-    TW := TrackedText(Canvas, M + Round(2 * FUIScale), Y, UpperCase(APP_NAME),
-      Round(2 * FUIScale));
-    { The version, quietly, after the name.  Worth having on screen now that
-      the program can replace itself: it is the first thing anybody needs to
-      say when something goes wrong, and the first thing to check after an
-      update claims to have worked. }
-    UIFont(Canvas, 9, False, Theme.TextDim);
-    VerX := M + Round(2 * FUIScale) + TW + Round(9 * FUIScale);
-    Canvas.TextOut(VerX, Y + Round(4 * FUIScale), CurrentVersion);
-    VerX := VerX + Canvas.TextWidth(CurrentVersion) + Round(8 * FUIScale);
-    { A newer build, said where it cannot be written over.  It stays until
-      the update is taken, which is the point: an announcement that vanishes
-      when the next thing happens has not announced anything. }
-    if FUpdateTag <> '' then
-    begin
-      UIFont(Canvas, 9, True, Pix(90, 190, 255));
-      S := '* ' + FUpdateTag + ' available - /update';
-      Canvas.TextOut(VerX, Y + Round(4 * FUIScale), S);
-      VerX := VerX + Canvas.TextWidth(S) + Round(14 * FUIScale);
-      UIFont(Canvas, 9, False, Theme.TextDim);
-    end
-    else
-      VerX := VerX + Round(6 * FUIScale);
 
     { the TOY/PRO switch lives at the right of this same line, so the reading
       stops short of it rather than running underneath }
@@ -13942,12 +14308,44 @@ begin
     TW := Canvas.TextWidth(S);
     Canvas.TextOut(RightEdge - TW, Round(6 * FUIScale), S);
 
-    { the hint starts after the version rather than at a fixed place, or the
-      two sit on top of each other }
+    { the name, centred in what is left, and the version under nothing }
+    VerX := pbQuick.Left + pbQuick.Width + Round(20 * FUIScale);
+    S := UpperCase(APP_NAME);
+    UIFont(Canvas, 12, True, Theme.Text);
+    MidW := Canvas.TextWidth(S) + Round(2 * FUIScale) * Length(S);
     UIFont(Canvas, 9, False, Theme.TextDim);
-    S := FHint;
-    if Canvas.TextWidth(S) < RightEdge - TW - VerX then
-      Canvas.TextOut(VerX, Round(8 * FUIScale), S);
+    MidW := MidW + Round(9 * FUIScale) + Canvas.TextWidth(CurrentVersion);
+    if FUpdateTag <> '' then
+      MidW := MidW + Round(14 * FUIScale) +
+        Canvas.TextWidth('* ' + FUpdateTag + ' available - /update');
+    if MidW < (RightEdge - TW) - VerX - Round(24 * FUIScale) then
+      VerX := VerX + ((RightEdge - TW) - VerX - MidW) div 2;
+
+    UIFont(Canvas, 12, True, Theme.Text);
+    VerX := VerX + TrackedText(Canvas, VerX, Y, S, Round(2 * FUIScale)) +
+      Round(9 * FUIScale);
+    UIFont(Canvas, 9, False, Theme.TextDim);
+    Canvas.TextOut(VerX, Y + Round(4 * FUIScale), CurrentVersion);
+    VerX := VerX + Canvas.TextWidth(CurrentVersion) + Round(14 * FUIScale);
+    { A newer build, said where it cannot be written over.  It stays until
+      the update is taken, which is the point: an announcement that vanishes
+      when the next thing happens has not announced anything. }
+    if FUpdateTag <> '' then
+    begin
+      UIFont(Canvas, 9, True, Pix(90, 190, 255));
+      Canvas.TextOut(VerX, Y + Round(4 * FUIScale),
+        '* ' + FUpdateTag + ' available - /update');
+    end;
+
+    { The hover text used to be painted along here, and it is gone.
+
+      It was the only place a hover was ever reported, seven hundred pixels
+      from the pointer in the dimmest type on the window, and it repeated
+      what the status line at the bottom already says about the tool in
+      hand.  Two faults in one line: it was not a tooltip, and the thing it
+      did say was said better elsewhere.  The file buttons stand here now,
+      and a hover draws a card beside whatever it is about - see
+      PaintChromeTip. }
 
     Exit;
   end;

@@ -598,6 +598,23 @@ the renderer, which is why it is small **once the two halves above are done**.
   The hand-skinning stays.  One consistent look on Windows and Linux, and
   GTK3 cannot get at it.
 
+### The command bar, next time somebody is in there
+
+Raised 13 September, not started.  With the deck down to one row there is
+room to make the command bar taller, and a reason to: `/rendertime` and
+`/timings` write a paragraph into a strip built for a sentence, so the end of
+what they say is simply not there.  Two halves, and they are separable:
+
+* **Wrap the bar to two or three lines** when the message is long, and back
+  to one when it is not.  Cheap, and it fixes the common case.
+* **A long answer belongs somewhere you can copy it from.**  A report you
+  cannot select is a report you have to retype into a bug report by hand.
+  Either a small panel with the text selectable, or - probably better and
+  certainly smaller - `/copy`, which puts the last message on the clipboard
+  and says so.  Then nothing has to become a dialog.
+
+Do the wrap first and see whether the second half is still wanted.
+
 ### Still to discuss
 
 * **The other two visual worlds.**  The main window is eight paint boxes and
