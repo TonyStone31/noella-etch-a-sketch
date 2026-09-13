@@ -264,6 +264,56 @@ Talked through with Tony after the barn reports.  The question was what this
 could do that people are already asking FreeCAD and SketchUp for and not
 getting.  Written down so none of it gets re-argued from scratch.
 
+### What the program is for, said plainly - 13 September 2026
+
+Tony: *"my goal is simply for any idiot to get into the program and be like
+oh shit wow this is so simple to do a scaled drawing - kind of like I felt
+ten years ago when I opened SketchUp and was able to draw a 3D model with no
+experience."*
+
+That is the spec, and it has a testable form: **how long to the first thing
+somebody is proud of, and how many things must they learn to get there.**
+Not features shipped.  Everything below has to answer to it.
+
+Four things did it for SketchUp, and they are mechanisms, not atmosphere:
+
+* **Push/pull** - one gesture that turns a flat shape into a solid, found by
+  accident inside a minute, and it teaches the whole mental model at once.
+* **Inference** - the program guesses and *shows you the guess*.  You feel
+  helped rather than tested, which is the opposite of AutoCAD asking you to
+  state your intent in a language you do not speak yet.
+* **No setup** - no units dialog, no template chooser, no layer manager, no
+  new-drawing wizard.  You are drawing seconds after the window appears.
+* **Nothing to get stuck in** - no mode you cannot leave, no error that stops
+  you.
+
+We have the first two, which are the hard ones.
+
+**The standing threat is accretion.**  The bottom of the window is already
+fourteen tool buttons in two rows and six dropdowns - more than SketchUp's
+default - and the roadmap wants pipe spools, duct transitions, flat patterns,
+title blocks, PDF markup, STL and textures on top.  So the rule:
+
+> **The first two minutes must never meet the trade machinery.**  SHOP is the
+> pattern: one door, everything specialist behind it.  Adding a button to the
+> default bar is a cost, and taking one off is a feature.
+
+Two small things that serve the spec directly, neither started:
+
+* **Design the first sixty seconds.**  The empty sheet currently says "pick a
+  tool below, or press L for a line" - correct, an instruction rather than an
+  invitation, and it leads nowhere in particular.  Better: the status line
+  walks the magic path a step at a time, advancing as each is done - draw a
+  rectangle, push it up, type a size - and never speaks again once it has
+  been done once.  No Next button; everybody closes those.  Push/pull is
+  discoverable by fiddling and got lucky; **typing a real size is not
+  discoverable by fiddling at all**, and that is our one extra ingredient.
+* **The session recorder is a usability lab.**  It was built for bug reports,
+  but hand the program to five people who have never seen it, ask for a shed,
+  and replay what comes back.  Where they stalled, in their own hands, with
+  no telemetry, no video call and nothing to install.  Use it before building
+  anything else on this list.
+
 ### Ruled out, with reasons
 
 * **G-code.**  A post-processor is not one feature, it is a family of them -
@@ -347,10 +397,10 @@ getting.  Written down so none of it gets re-argued from scratch.
   Holes, clipping and the four-times supersampling all come free - they are
   already in that routine.  Call it a day or two.
 
-  The open question is where the picture lives.  `.hsk` is plain text on
-  purpose, so embedding means base64 and a file that is no longer readable
-  or diffable; referencing a path means a drawing that breaks when it moves.
-  SketchUp embeds.  Probably: reference by default, embed on request.
+  Where the picture lives is settled - see **Decided in passing** below.  The
+  drawing stays plain text and a drawing with assets saves as a `.hskz` zip
+  with the pictures beside it, so nothing has to be base64'd into a file that
+  is meant to be readable.
 
   **And the argument for doing it is not pretty pictures.**  It is reference
   imagery at true scale: photograph a panel or a wall, drop it on a face,
@@ -391,20 +441,129 @@ getting.  Written down so none of it gets re-argued from scratch.
   discussion first, including which library reads the page content - there is
   no chance of writing that from scratch here.
 
-### Two directions, to discuss
+### The plan view - one project, two halves
 
-* **2D as its own mode again.**  It used to be one, and we moved away from it
-  to chase the SketchUp behaviour.  Everything above that Tony actually wants
-  day to day - the title block, PDF markup, revision clouds - is 2D work, and
-  it wants a mode where the 3D machinery is out of the way rather than being
-  a special case of it.  Worth deciding deliberately rather than drifting.
+Agreed 13 September, and written out so it is not re-argued once somebody has
+half built it.
+
+**The diagnosis first, because it was wrong to begin with.**  Tony's
+complaint was that a 3D model looked like rubbish in the flat paper view and
+that orthographic was to blame.  It is not.  Loading the barn and switching
+to PLAN gives four filled slabs in two greys and nothing else - no walls, no
+footprint, the building entirely hidden under its own roof.  Three things
+cause it, and the projection is none of them:
+
+1. **The faces are filled and Lambert-shaded in plan.**  The roof slopes come
+   out different greys because they are tilted differently to a light source
+   that has no business being in a drawing.
+2. **Nothing is hidden or dashed.**  Everything paints in depth order, so the
+   roof simply covers the building.  A drawing shows what is beneath; a
+   camera does not.
+3. **It is a top view, not a plan.**  A floor plan is a horizontal *section*,
+   cut about four feet up, with the cut walls heavy and everything below
+   drawn as visible lines.
+
+Orthographic is right - it is what makes a plan measurable.  **PLAN renders
+like a photograph from above instead of like a drawing.**
+
+#### Half one: the slice, which decides what is in the drawing
+
+Tony arrived at this from scratch and it is the correct answer.  The trade
+name is a **cut plane**; Revit calls the settings **View Range** and gives it
+four numbers (cut plane, top, bottom, view depth).  Ours is **two**: a top
+and a bottom.  Everything between them draws.  Two is the right
+simplification - four numbers is the kind of thing that makes Revit hard.
+
+* **Roll the wheel to move the slice up and down through the building**,
+  keeping its thickness.  Revit buries view range in a properties dialog;
+  SketchUp makes you place a section-plane object in 3D, which is not a plan
+  tool at all.  Nobody lets you travel up through a building by scrolling a
+  plan.  This is a real differentiator and it is the part that would make
+  somebody say *oh shit*.
+* **The bottom of the slice is the drawing plane.**  One number does both
+  jobs: the floor of what you can see and where the pencil is.  That is what
+  a floor plan *means* - you draw on the floor and things go up from it.  Set
+  the bottom to 9'-0" and you are drawing on the second storey, seeing the
+  second storey, with everything below out of the way.
+* **The slice filters snapping, not only drawing.**  Non-negotiable.  Hidden
+  geometry that still grabs the cursor is the worst failure mode this program
+  has ever had - it is the eave report of 12 September and the axis-lock one
+  before it.  Same range, same rule, for what is drawn and what can be
+  touched.  Get that right and drafting in plan becomes *safe*.
+* **The front door is one gesture, not two spin edits.**  Click a face,
+  "Plan from here", on the right-click menu that now exists: bottom goes to
+  that face, top goes a sensible way above it.  Discoverable by accident,
+  which is the only kind that counts.  The spin edits are for people who want
+  numbers.
+* **The two numbers are always on screen, and the program says when it is
+  hiding something** - "3 things above the slice" in the status line.
+  Otherwise the first experience of this feature is "where did my drawing
+  go", and that person does not come back.
+* **Default to the whole model**, so it cannot surprise anybody who does not
+  know it exists.
+
+Filtering is easy: skip entities outside the range, and include a face if any
+part of it overlaps.  Proper clipping at the cut plane - so a cut wall can be
+pochéd - is a later refinement, not the first version.
+
+#### Half two: the render style, which decides how it is drawn
+
+No shading.  No solid face fills, or a light hatch instead.  Hidden edges
+dashed or dropped.  Line weights by role - heavy where the cut plane passes
+through, normal for what is below it, faint for what is deeper.  This is the
+half that makes a printed sheet look like a sheet, and it is most of the
+work.
+
+Neither half is much use alone: you cannot draw a proper plan without first
+deciding what is cut.
+
+#### And then 2D mode, which is a thin layer on both
+
+**A lens, not a property of the document.**  Freely switchable, both
+directions, always.  A one-way door forces a decision before anybody knows
+enough to make it, and it would throw away the best workflow in the idea -
+draw the plan, flip to 3D and push it up to check, flip back and the plan is
+still your plan.  That is what SketchUp is bad at.
+
+It costs nothing to keep reversible because there is nothing to fork: all the
+geometry is `TP3` already, and a 2D drawing is one where everything sits at
+Z = 0.
+
+The mode itself hides push/pull, drill, follow-me and orbit, locks the view
+to PLAN, locks the working plane to XY, and pins new geometry to the bottom
+of the slice.  TOY and PRO already prove people accept a mode that takes
+tools away - half of PRO's value is that it turned the dials off.  It is a UI
+simplification and nothing else: it does not change the document, the file or
+the renderer, which is why it is small **once the two halves above are done**.
+
+### Decided in passing
+
+* **The file stays plain text; assets go in a zip.**  A `.hsk` you can read,
+  diff and merge in git is a real differentiator and rare in CAD, so it stays
+  the default.  A drawing that needs assets - textures, an imported PDF, a
+  logo in a title block - saves as `.hskz`: a zip holding `drawing.hsk` plus
+  `assets/`, the way ODF does it.  Text unless there is a reason not to be,
+  and the reason visible in the extension.
+
+* **The title block ranks higher than first written.**  For a regular Joe the
+  *oh shit* is not drawing the box - it is **printing something that looks
+  professional with his name in the corner**.  That is the artifact he shows
+  somebody and the screenshot that gets posted.  Drawing the box is the
+  setup; the sheet is the punchline.  It also has a home now: `PrintTileMarks`
+  already draws in page coordinates after the model render, which is exactly
+  the seam a title block lives in - so paper space is a new idea with a
+  precedent rather than a new architecture.
+
+### Still to discuss
 
 * **BGRAControls instead of the hand-skinning.**  We skinned this thing
-  ourselves, paint box by paint box.  The suspicion is that BGRAControls
-  would have given a better looking result, better performance and real
-  window handles for less code.  Not a rewrite to start on a whim - the
-  drawing surface itself must not change - but the chrome around it is a fair
-  question.  For a future TODO conversation.
+  ourselves, paint box by paint box, and `uSkin.pas` is 928 lines of it.  The
+  suspicion is that BGRAControls would give a better looking result, better
+  performance and real window handles for less code, and would make GUI
+  changes a matter of properties rather than of reworking a skin.  Tony,
+  13 September: the skins should stay on TOY mode regardless - unless the
+  same look can be rebuilt with them.  The drawing surface itself must not
+  change.  Being talked through now.
 
 ## Open questions
 
