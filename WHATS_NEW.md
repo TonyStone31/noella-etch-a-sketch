@@ -10,6 +10,34 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **PLAN is on the VIEW menu again**, at the top, saying what it is - and TOP
+  says what *it* is, which is the 3D camera pointed down and not a plan at
+  all.  Plan had been taken off that menu back when it was a half-finished
+  paper mode, so the only way into the cut and everything built on it was to
+  know that `/plan` existed.
+
+- **The doors on the tool strip close when you click them again.**  MORE
+  TOOLS and SHOP opened their lists and would not put them away.  Clicking a
+  tool, or the bare strip, closes an open list too.
+
+- **The right-button menu always has the same rows**, with the ones that
+  would do nothing greyed out instead of missing - and **Erase is last**.
+  It was built the other way, so on a shape where the click landed on an
+  edge rather than a face, Reverse Face was absent, Erase moved up into the
+  row Reverse Face is normally in, and the same click in the same place
+  erased the thing instead of turning it over.
+
+- **The right button can reach the faces of a round thing.**  A cylinder's
+  sides are about ten pixels wide on screen and the edge under the cursor
+  was winning from nine pixels away, so a right-click on a curved surface
+  always got an edge and never the face.  It takes an edge from four pixels
+  now; aim at one and you still get it, be anywhere in the middle of a face
+  and you get the face.
+
 ## v2026.09.13.2
 
 ### New
