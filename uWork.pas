@@ -308,6 +308,10 @@ type
       as loose lines that enclose a flat area. }
     procedure ClaimOutline(Face, G: Integer);
     function PushPull(Index: Integer; Dist: Double): Boolean;
+    { How far this face has to travel along its own normal to come out the
+      far side of the solid it is on.  Want gives the direction, and comes
+      back unchanged when there is nothing to come out of. }
+    function ThroughDistance(Face: Integer; Want: Double): Double;
     { Slide a face along a vector, dragging everything joined to it. }
     procedure MoveFaceWith(Index: Integer; const D: TP3);
     { A pushed patch whose far end lands on another face of the same solid
@@ -4429,6 +4433,100 @@ begin
   Dec(FLastBore);
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
   Result := True;
+end;
+
+{ How far to the far side of the solid.
+
+  A drill has to land its far end exactly on the plane of the face it is
+  coming out of.  Not nearly on it - exactly, to a millionth - because that
+  is how Bore recognises which face gets the hole, and if it recognises none
+  the whole thing silently becomes an ordinary extrusion instead: a solid
+  plug pushed into the block rather than a tunnel through it, which is Tony's
+  "it built a magic wall".
+
+  Nobody can drag to a millionth.  Reported 13 September, along with the
+  reason he could not: "it is not letting me go to the other side and hover
+  over the face to set the distance at the face".  Of course not - the far
+  face is behind the near one and there is nothing there to hover.
+
+  So the tool works it out.  A drill goes through; that is what the word
+  means.  The rule is the one Bore itself uses to find the far face, so a
+  distance returned here is one Bore is certain to accept. }
+function TWorkDoc.ThroughDistance(Face: Integer; Want: Double): Double;
+var
+  F, I, N, G: Integer;
+  Nm, FN, Mid, Q: TP3;
+  D, Best, Sgn, Size, Tol: Double;
+  All: Boolean;
+begin
+  Result := Want;
+  if (Face < 0) or (Face >= FLive) or (FEnts[Face].Kind <> ekFace) then Exit;
+  N := Length(FEnts[Face].Poly);
+  if (N < 3) or (Abs(Want) < 1E-9) then Exit;
+  Nm := FaceNormal(Face);
+  if Want < 0 then Sgn := -1 else Sgn := 1;
+
+  { which solid - the face's own group, or the one whose wall it sits on }
+  G := FEnts[Face].Grp;
+  Mid := P3(0, 0, 0);
+  for I := 0 to N - 1 do
+    Mid := P3(Mid.X + FEnts[Face].Poly[I].X / N,
+              Mid.Y + FEnts[Face].Poly[I].Y / N,
+              Mid.Z + FEnts[Face].Poly[I].Z / N);
+  if G = 0 then
+    for F := 0 to FLive - 1 do
+    begin
+      if (F = Face) or (FEnts[F].Kind <> ekFace) or not FEnts[F].Solid or
+         (FEnts[F].Grp = 0) or (Length(FEnts[F].Poly) < 3) then Continue;
+      FN := FaceNormal(F);
+      if Abs(Abs(Dot3(FN, Nm)) - 1) > 1E-6 then Continue;
+      if Abs(Dot3(FN, P3(Mid.X - FEnts[F].Poly[0].X, Mid.Y - FEnts[F].Poly[0].Y,
+                         Mid.Z - FEnts[F].Poly[0].Z))) > 1E-6 then Continue;
+      if LoopContains(Mid, FEnts[F].Poly, FN) then
+      begin
+        G := FEnts[F].Grp;
+        Break;
+      end;
+    end;
+  if G = 0 then Exit;
+
+  Size := 0;
+  for I := 0 to N - 1 do
+    Size := Max(Size, Dist(FEnts[Face].Poly[I], FEnts[Face].Poly[0]));
+  Tol := 1E-6 * (1 + Size);
+
+  Best := 0;
+  for F := 0 to FLive - 1 do
+  begin
+    if (F = Face) or (FEnts[F].Kind <> ekFace) or (FEnts[F].Grp <> G) then Continue;
+    if Length(FEnts[F].Poly) < 3 then Continue;
+    FN := FaceNormal(F);
+    if Abs(Abs(Dot3(FN, Nm)) - 1) > 1E-6 then Continue;
+    { how far along the push this face's plane is - it has to be ahead of
+      us, in the direction we are going }
+    D := Dot3(Nm, P3(FEnts[F].Poly[0].X - FEnts[Face].Poly[0].X,
+                     FEnts[F].Poly[0].Y - FEnts[Face].Poly[0].Y,
+                     FEnts[F].Poly[0].Z - FEnts[Face].Poly[0].Z));
+    if D * Sgn <= Tol then Continue;
+    { and big enough to take the whole opening, which is what Bore asks }
+    All := True;
+    for I := 0 to N - 1 do
+    begin
+      Q := P3(FEnts[Face].Poly[I].X + Nm.X * D, FEnts[Face].Poly[I].Y + Nm.Y * D,
+              FEnts[Face].Poly[I].Z + Nm.Z * D);
+      if not LoopContains(Q, FEnts[F].Poly, FN) then
+      begin
+        All := False;
+        Break;
+      end;
+    end;
+    if not All then Continue;
+    Q := P3(Mid.X + Nm.X * D, Mid.Y + Nm.Y * D, Mid.Z + Nm.Z * D);
+    if not LoopContains(Q, FEnts[F].Poly, FN) then Continue;
+    { the nearest one wins - the first wall it comes out of }
+    if (Best = 0) or (Abs(D) < Abs(Best)) then Best := D;
+  end;
+  if Best <> 0 then Result := Best;
 end;
 
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;

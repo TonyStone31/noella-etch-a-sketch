@@ -14,6 +14,19 @@ var
   Fails: Integer = 0;
   Checks: Integer = 0;
 
+{ the middle of a face, which several checks want }
+function FaceMiddle(D: TWorkDoc; I: Integer): TP3;
+var
+  K, N: Integer;
+begin
+  Result := P3(0, 0, 0);
+  N := Length(D[I].Poly);
+  if N = 0 then Exit;
+  for K := 0 to N - 1 do
+    Result := P3(Result.X + D[I].Poly[K].X / N, Result.Y + D[I].Poly[K].Y / N,
+                 Result.Z + D[I].Poly[K].Z / N);
+end;
+
 procedure Ok(Cond: Boolean; const What: string);
 begin
   Inc(Checks);
@@ -1389,6 +1402,130 @@ end;
   blue axis.  Which is what every program with a Revolve does, and what this
   one has done since the sixth of September under the name FOLLOW ME, where
   nobody found it. }
+{ Two tunnels through a block, the second crossing the first.
+
+  Tony, 13 September: "welp we broke the drill tool... i drilled through the
+  other tunnel in the block and it built a magic wall".
+
+  The magic wall is what a drill leaves when Bore cannot find the face the
+  tunnel comes out of.  It only recognises that face if the push lands
+  exactly on its plane, to a millionth, and nobody drags to a millionth - so
+  the bore quietly became an ordinary extrusion, a solid plug pushed into the
+  block.  ThroughDistance works the distance out instead. }
+procedure TestDrillThrough;
+var
+  D: TWorkDoc;
+  Box, Face, I, J, Bores, Walls: Integer;
+  Pts: TP3Array;
+  R: Double;
+
+  procedure Rect4(X0, Y0, Z0, X1, Y1, Z1: Double);
+  begin
+    SetLength(Pts, 4);
+    Pts[0] := P3(X0, Y0, Z0);
+    if Abs(X1 - X0) < 1E-9 then
+    begin
+      Pts[1] := P3(X0, Y1, Z0); Pts[2] := P3(X0, Y1, Z1); Pts[3] := P3(X0, Y0, Z1);
+    end
+    else if Abs(Y1 - Y0) < 1E-9 then
+    begin
+      Pts[1] := P3(X1, Y0, Z0); Pts[2] := P3(X1, Y0, Z1); Pts[3] := P3(X0, Y0, Z1);
+    end
+    else
+    begin
+      Pts[1] := P3(X1, Y0, Z0); Pts[2] := P3(X1, Y1, Z0); Pts[3] := P3(X0, Y1, Z0);
+    end;
+    D.AddFace(Pts, 0, False);
+  end;
+
+  { the face of the box whose middle is nearest this point }
+  function FaceAt(const P: TP3): Integer;
+  var
+    J, K, N: Integer;
+    M: TP3;
+    Best, Dd: Double;
+  begin
+    Result := -1;
+    Best := 1E30;
+    for J := 0 to D.Live - 1 do
+      if (D[J].Kind = ekFace) and (Length(D[J].Poly) >= 3) then
+      begin
+        N := Length(D[J].Poly);
+        M := P3(0, 0, 0);
+        for K := 0 to N - 1 do
+          M := P3(M.X + D[J].Poly[K].X / N, M.Y + D[J].Poly[K].Y / N,
+                  M.Z + D[J].Poly[K].Z / N);
+        Dd := Dist(M, P);
+        if Dd < Best then begin Best := Dd; Result := J; end;
+      end;
+  end;
+
+begin
+  WriteLn('drilling two tunnels that cross');
+  D := TWorkDoc.Create;
+  try
+    { a 20 x 20 x 20 block }
+    Rect4(0, 0, 0, 20, 20, 0);
+    Box := D.Live - 1;
+    Ok(D.PushPull(Box, 20), 'a block');
+
+    { a window on the front wall, y = 0, and drill it through in Y.
+      Deliberately asked for far too short a push - four inches into a
+      twenty foot block - which is what a hand does. }
+    Rect4(6, 0, 6, 14, 0, 14);
+    Face := D.Live - 1;
+    R := D.ThroughDistance(Face, 0.33);
+    Ok(Abs(Abs(R) - 20) < 1E-6,
+       Format('four inches asked for, and it works out the twenty feet ' +
+              'through: %.3f', [R]));
+    Ok(D.PushPull(Face, R) and (D.LastBore >= 0),
+       'and it bores rather than plugging the hole');
+
+    { now one across it, through the left wall at x = 0 }
+    Rect4(0, 6, 6, 0, 14, 14);
+    Face := D.Live - 1;
+    R := D.ThroughDistance(Face, 0.5);
+    Ok(Abs(Abs(R) - 20) < 1E-6,
+       Format('the second one goes through too: %.3f', [R]));
+    Ok(D.PushPull(Face, R) and (D.LastBore >= 0), 'and bores');
+
+    Ok(CutCrossingBores(D, D.LastBore) > 0,
+       'the two tunnels are cut into each other');
+
+    { And the thing that matters: no wall of either tunnel is left standing
+      inside the other one's bore.  That is the magic wall.
+
+      The bores are found by looking for them rather than by remembering
+      where they were - a push deletes the face it pushed, so every index
+      after it has moved. }
+    Bores := 0;
+    Walls := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekBore then
+      begin
+        Inc(Bores);
+        for J := 0 to D.Live - 1 do
+          if (D[J].Kind = ekFace) and (Length(D[J].Poly) >= 3) and
+             InsideBore(D, I, FaceMiddle(D, J), 0.01) then Inc(Walls);
+      end;
+    EqI(Bores, 2, 'there are two tunnels');
+    EqI(Walls, 0, 'and nothing is left walled across either of them');
+    { And the failure it replaces, kept so it cannot come back: the same
+      window pushed the distance the hand asked for makes no tunnel at all -
+      LastBore is nothing, so there is no bore to cut anything into, and what
+      is in the block is a plug. }
+    D.Free;
+    D := TWorkDoc.Create;
+    Rect4(0, 0, 0, 20, 20, 0);
+    D.PushPull(D.Live - 1, 20);
+    Rect4(6, 0, 6, 14, 0, 14);
+    Ok(D.PushPull(D.Live - 1, 0.33) and (D.LastBore < 0),
+       'pushed the four inches it was asked for, it makes a plug and no tunnel');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestRevolveGlass;
 const
   { the profile, in feet, in the XZ plane: (radius, height) }
@@ -3689,6 +3826,7 @@ begin
   TestDimResize;    WriteLn;
   TestSlice;        WriteLn;
   TestRevolveGlass; WriteLn;
+  TestDrillThrough; WriteLn;
   TestNotes;        WriteLn;
   TestVersions;
   TestPatternDxf;  WriteLn;

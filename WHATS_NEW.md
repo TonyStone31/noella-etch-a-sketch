@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The drill goes all the way through.**  It had to land its far end exactly
+  on the plane of the wall it comes out of - to a millionth - or it quietly
+  made a solid plug instead of a tunnel, and left what looked like a wall
+  across the hole.  Nobody can drag to a millionth, and the far face is
+  behind the near one so there is nothing to hover over either.  The tool
+  works the distance out now: click the face, click roughly where you want
+  it, and it comes out the far side.  Both mouths open, and where it crosses
+  a tunnel already there the two are cut into each other.
+
+- **The program's name has gone from the top of the window.**  The reading -
+  X, Y, Z, the plane and the run - grows leftwards as it gets longer and was
+  running over the top of it.  The version stays, over on the left where
+  nothing reaches.
+
+- **No stray line flashing after a shape is thrown away.**  The two ends
+  flying apart is a thing about a line snapping; a rectangle or a circle only
+  gets the burst now.
+
 ## v2026.09.13.9
 
 ### Fixed

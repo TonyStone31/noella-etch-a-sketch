@@ -440,6 +440,8 @@ type
       FHoldT how long it has been held, FSnapT the recoil afterwards. }
     FHoldOn: Boolean;
     FHoldT, FSnapT: Single;
+    { a line snapping throws its two ends apart; a shape only bursts }
+    FSnapEnds: Boolean;
     FHoldX, FHoldY: Integer;
     { How fast the pointer is moving, in pixels a second, smoothed.  The
       "line up with that point" nudges wait for the hand to slow down: a
@@ -3213,6 +3215,11 @@ begin
   if N < 3 then Exit;
 
   R := PushDistance;
+  { the drill's preview shows it coming out the far side, because that is
+    what it is about to do - a preview that stops where the cursor is would
+    be telling you something the tool has no intention of doing }
+  if (FTool = ptDrill) and (Abs(R) > 1E-9) then
+    R := FD.Doc.ThroughDistance(FPushFace, R);
   if Abs(R) < 1E-9 then Exit;
 
   Nm := FD.Doc.FaceNormal(FPushFace);
@@ -8053,20 +8060,34 @@ var
 begin
   if FSnapT <= 0 then Exit;
   T := 1 - FSnapT / SNAP_RECOIL;          // 0 at the break, 1 at the end
-  DX := FSnapB.X - FSnapA.X;
-  DY := FSnapB.Y - FSnapA.Y;
-  L := Sqrt(DX * DX + DY * DY);
-  if L < 2 then Exit;
-  DX := DX / L;
-  DY := DY / L;
   C.Pen.Style := psSolid;
+  { The two ends recoiling is a thing about a line snapping.
+
+    A rectangle or a circle does not have two ends, and drawing them anyway
+    put a stray strand across the shape for the fifth of a second the recoil
+    lasts - reported as "a split second where it shows the exploding line
+    still".  It was the recoil, not the strain, and it was the one part of
+    the gesture that had not been told the shape is not a line.  Only the
+    burst for those. }
+  if FSnapEnds then
+  begin
+    DX := FSnapB.X - FSnapA.X;
+    DY := FSnapB.Y - FSnapA.Y;
+    L := Sqrt(DX * DX + DY * DY);
+    if L >= 2 then
+    begin
+      DX := DX / L;
+      DY := DY / L;
+      C.Pen.Width := Max(1, Round(2 * FUIScale * (1 - T)));
+      C.Pen.Color := PixToColor(MixPix(AnnotColor, Theme.Screen1, T));
+      L := L * 0.30 * (1 - T);
+      C.MoveTo(Round(FSnapA.X), Round(FSnapA.Y));
+      C.LineTo(Round(FSnapA.X + DX * L), Round(FSnapA.Y + DY * L));
+      C.MoveTo(Round(FSnapB.X), Round(FSnapB.Y));
+      C.LineTo(Round(FSnapB.X - DX * L), Round(FSnapB.Y - DY * L));
+    end;
+  end;
   C.Pen.Width := Max(1, Round(2 * FUIScale * (1 - T)));
-  C.Pen.Color := PixToColor(MixPix(AnnotColor, Theme.Screen1, T));
-  L := L * 0.30 * (1 - T);
-  C.MoveTo(Round(FSnapA.X), Round(FSnapA.Y));
-  C.LineTo(Round(FSnapA.X + DX * L), Round(FSnapA.Y + DY * L));
-  C.MoveTo(Round(FSnapB.X), Round(FSnapB.Y));
-  C.LineTo(Round(FSnapB.X - DX * L), Round(FSnapB.Y - DY * L));
   { the burst where it went, thrown outward and fading }
   C.Pen.Color := PixToColor(MixPix(Pix(230, 38, 28), Theme.Screen1, T));
   for I := 0 to 5 do
@@ -10498,6 +10519,11 @@ begin
         R := PushDistance;
         Stopped := False;
         FCmdMsg := '';
+        { A drill goes through.  See TWorkDoc.ThroughDistance: the far end
+          has to land exactly on the plane of the wall it comes out of or
+          there is no tunnel, only a plug, and nobody can drag to that. }
+        if (FTool = ptDrill) and (Abs(R) > 1E-9) then
+          R := FD.Doc.ThroughDistance(FPushFace, R);
         { Push/pull stops where it would run into a tunnel already through
           the solid, the way SketchUp's does, and says so.  Drill is the tool
           that goes on through: where the new hole crosses the old one both
@@ -10532,7 +10558,12 @@ begin
               FCmdMsg := 'Stopped at the tunnel, ' + FormatLen(Abs(R), FD.Units) +
                 ' in.  Drill (B) goes on through.'
             else if FCmdMsg = '' then
-              FCmdMsg := 'Pulled ' + FormatLen(Abs(R), FD.Units);
+            begin
+              if FTool = ptDrill then
+                FCmdMsg := 'Drilled through, ' + FormatLen(Abs(R), FD.Units)
+              else
+                FCmdMsg := 'Pulled ' + FormatLen(Abs(R), FD.Units);
+            end;
           end;
         end;
         FPushFace := -1;
@@ -14960,22 +14991,19 @@ begin
     TW := Canvas.TextWidth(S);
     Canvas.TextOut(RightEdge - TW, Round(6 * FUIScale), S);
 
-    { the name, centred in what is left, and the version under nothing }
-    VerX := pbQuick.Left + pbQuick.Width + Round(20 * FUIScale);
-    S := UpperCase(APP_NAME);
-    UIFont(Canvas, 12, True, Theme.Text);
-    MidW := Canvas.TextWidth(S) + Round(2 * FUIScale) * Length(S);
-    UIFont(Canvas, 9, False, Theme.TextDim);
-    MidW := MidW + Round(9 * FUIScale) + Canvas.TextWidth(CurrentVersion);
-    if FUpdateTag <> '' then
-      MidW := MidW + Round(14 * FUIScale) +
-        Canvas.TextWidth('* ' + FUpdateTag + ' available - /update');
-    if MidW < (RightEdge - TW) - VerX - Round(24 * FUIScale) then
-      VerX := VerX + ((RightEdge - TW) - VerX - MidW) div 2;
+    { The name has gone from this row.
 
-    UIFont(Canvas, 12, True, Theme.Text);
-    VerX := VerX + TrackedText(Canvas, VerX, Y, S, Round(2 * FUIScale)) +
-      Round(9 * FUIScale);
+      It was moved to the middle to give the corner to the file buttons, and
+      the middle turned out to be where the reading grows into when a run
+      gets long - X, Y, Z, the plane and the length are right-aligned and
+      they lengthen leftwards, over the top of it.  A program's own name is
+      not worth a collision: the window title says it, the About box says
+      it, and nobody drawing needs reminding what they opened.
+
+      The version stays, because it is the first thing anybody has to quote
+      when something goes wrong, and so does the notice of a newer one.  Both
+      go left, hard against the buttons, where nothing else ever reaches. }
+    VerX := pbQuick.Left + pbQuick.Width + Round(16 * FUIScale);
     UIFont(Canvas, 9, False, Theme.TextDim);
     Canvas.TextOut(VerX, Y + Round(4 * FUIScale), CurrentVersion);
     VerX := VerX + Canvas.TextWidth(CurrentVersion) + Round(14 * FUIScale);
@@ -14985,8 +15013,9 @@ begin
     if FUpdateTag <> '' then
     begin
       UIFont(Canvas, 9, True, Pix(90, 190, 255));
-      Canvas.TextOut(VerX, Y + Round(4 * FUIScale),
-        '* ' + FUpdateTag + ' available - /update');
+      S := '* ' + FUpdateTag + ' available - /update';
+      if VerX + Canvas.TextWidth(S) < RightEdge - TW - Round(16 * FUIScale) then
+        Canvas.TextOut(VerX, Y + Round(4 * FUIScale), S);
     end;
 
     { The hover text used to be painted along here, and it is gone.
@@ -15521,6 +15550,8 @@ procedure TMainForm.tmrTickTimer(Sender: TObject);
 var
   Dt, Speed, DX, DY: Single;
   WhatsNewForm: TWhatsNewForm;
+  BreakPts: TPointFArray;
+  BreakI: Integer;
 begin
   Dt := TICK_MS / 1000;
 
@@ -15624,9 +15655,20 @@ begin
         { It broke.  Let go of the run and place nothing - that is the whole
           point of the gesture, and what a double-click cannot do. }
         FWasLine := FTool = ptLine;
+        { the burst goes in the middle of whatever was destroyed, and only a
+          line gets the two ends flying apart }
+        FSnapEnds := FTool = ptLine;
         FSnapA := ScreenOf(FP1);
         FSnapB := PtF(FMouseSX, FMouseSY);
-        FSnapM := PtF((FSnapA.X + FSnapB.X) / 2, (FSnapA.Y + FSnapB.Y) / 2);
+        if StrainOutline(BreakPts) and (Length(BreakPts) > 2) then
+        begin
+          FSnapM := PtF(0, 0);
+          for BreakI := 0 to High(BreakPts) do
+            FSnapM := PtF(FSnapM.X + BreakPts[BreakI].X / Length(BreakPts),
+                          FSnapM.Y + BreakPts[BreakI].Y / Length(BreakPts));
+        end
+        else
+          FSnapM := PtF((FSnapA.X + FSnapB.X) / 2, (FSnapA.Y + FSnapB.Y) / 2);
         FSnapT := SNAP_RECOIL;
         FHoldOn := False;
         ResetTool;
