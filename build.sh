@@ -334,6 +334,46 @@ do_github() {
   "$ROOT/tests/run-region.sh" 2>&1 | tail -1 | grep -q " 0 failed" || die \
     "tests/run-region.sh has failures - fix them before releasing"
 
+  # Nothing ships silent, either.
+  #
+  # v2026.09.12.3 went out carrying a new feature and an empty What's new
+  # panel: the edit meant to add the notes failed part way and nobody
+  # noticed, because nothing here looked.  The release itself was fine and
+  # the one thing that tells a user what they just installed said nothing.
+  #
+  # So: a release needs a "## Next release" section with at least one
+  # bullet under it, and that is checked before anything is built or tagged.
+  # Remember the shape of it - this script renames "## Next release" to the
+  # tag at the end of every release, so the heading is *consumed*.  Notes for
+  # the next one always go under a fresh "## Next release" that you add; they
+  # never go under the tag that is already there, because that tag has
+  # already shipped and an update only shows sections newer than the version
+  # it replaced.
+  #
+  # A release with genuinely nothing to say to a user - a rebuild, an
+  # infrastructure change - is a real thing, so NONOTES=1 lets it through and
+  # says so out loud.
+  if [ -n "${NONOTES:-}" ]; then
+    say "NONOTES is set - releasing with no entry in What's new"
+  else
+    grep -q '^## Next release$' "$ROOT/WHATS_NEW.md" || die \
+"WHATS_NEW.md has no '## Next release' section.
+
+The last release renamed the old one to its tag, which is how it is meant
+to work - so add a new '## Next release' heading above it, with '### New'
+and/or '### Fixed' and a bullet each for what a person drawing would
+notice.  Then commit and run this again.
+
+If this release really has nothing to say to a user, run it as
+NONOTES=1 ./build.sh github"
+    awk '/^## Next release$/ {inblk=1; next} /^## /{inblk=0} inblk && /^- /{found=1} END{exit !found}' \
+      "$ROOT/WHATS_NEW.md" || die \
+"WHATS_NEW.md has a '## Next release' heading with no bullets under it.
+
+Write what changed - a '- ' bullet each, in the words of somebody using the
+program, not the words of the diff.  Or NONOTES=1 to release without."
+  fi
+
   # Date-stamped tag, with a suffix if that date already went out today.
   # The tags have to come down from the remote first: gh creates the tag on
   # GitHub's side, so a release made from here leaves nothing local to see
