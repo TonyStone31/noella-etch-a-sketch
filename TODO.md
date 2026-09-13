@@ -652,11 +652,18 @@ Do the wrap first and see whether the second half is still wanted.
   main window is a canvas and the dialogs are forms, and they are allowed to
   be built differently as long as they share a palette.
 
-  What it costs: BGRABitmap becomes a real dependency and the README's "no
-  third-party dependencies" line stops being true.  Licence is fine -
-  `LGPL-3.0-linking-exception` permits linking into an MIT program.  Worth
-  doing the next time a wizard needs work rather than as a project of its
-  own, and `utheme.pas` is most of the way there already.
+  What it costs, said properly: BGRABitmap becomes a dependency **of the
+  build**, not of the program.  It links in statically, so what somebody
+  downloads is still one executable with no installer and nothing to go and
+  find - which is the thing that line in the README is actually promising,
+  and it stays true.  What changes is that a person building from source
+  needs the package installed, which is already true of Lazarus itself.
+  When the day comes, say it that way in the README rather than deleting the
+  claim.
+
+  Licence is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
+  program.  Worth doing the next time a wizard needs work rather than as a
+  project of its own, and `utheme.pas` is most of the way there already.
 
 * **A control base class.**  The cut strip is the second hand-rolled control
   in a fortnight (after the command bar) and the pattern is the same each
