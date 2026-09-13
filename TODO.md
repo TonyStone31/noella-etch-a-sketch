@@ -681,6 +681,71 @@ reads correctly with its red and blue sides.  So the plane says it itself:
 own two directions, in their own axis colours.  Red and blue is upright, red
 and green is flat.
 
+### Next renderer job: triangulate faces before rasterising
+
+Agreed 13 September, after a day of chasing pale blue faces on Tony's crown.
+
+**What it fixes, by construction.**  A face is a polygon and the depth of it
+is worked out as a flat function of screen position - which is exact for a
+flat face and a fiction for one that is not.  Spinning a sloped piece of an
+outline sweeps a warped quad; 48 of that crown's 336 faces were out of flat,
+the worst by five feet.  Fitting through three corners was out by 542 feet in
+depth; least squares over every corner brought it to 12; the closed-solid
+cull hides the rest of the symptom.  None of that is a *fix* - it is three
+layers of mitigation over an assumption that is simply false.
+
+Triangles have no such problem.  Every triangle has exactly one plane, so the
+depth is exact, and the whole class of fault disappears rather than being
+managed.  That is the job: split each face into triangles once, fill and
+depth them as triangles, and delete the plane-fitting apparatus.
+
+**And it is the same triangulator STL export needs** - ear clipping with hole
+bridging, self-contained, provable in the geom suite by area.  Two things off
+this list for one piece of work.
+
+### Settled: a 3D engine, and whether the renderer should be one
+
+Tony asked whether all this is wasted effort next to Castle Game Engine or
+raw OpenGL, and it is a fair question.  Written down so it is answered once.
+
+**What a GPU would genuinely give.**  Both of 13 September's faults, free:
+everything is triangulated before rasterising so warped quads cannot arise,
+and back-face culling is one state flag rather than a manifold test.  And
+speed, on the drawings where speed is the problem: fifteen thousand faces is
+160-200 ms a frame today and would be about one.
+
+**Where it would give nothing.**  On an ordinary drawing the rasteriser is
+not the cost.  A frame on the barn is 17 ms, and of the 11 ms paint handler
+**0.4 ms is our own drawing** - the rest is the widgetset delivering the
+expose, which OpenGL does not help with.  And what is slow on a big drawing
+when it is slow is `BuildRegions` and the duplicate check, both of which are
+model work and would not move an inch.
+
+**What it would cost.**  Nothing about it is automatic.  The drafting look -
+hairlines at a controlled weight, dashed hidden lines, poché, the face
+material - is exactly what GPUs are worst at; lines end up as screen-space
+quads and you write the shaders yourself.  The 1:1 print path renders through
+the same surface at printer DPI and would need a software path anyway, which
+is also the fallback for a machine over RDP or with no usable driver.
+
+**And the proportion.**  The rasteriser is 1,578 lines against 30,269 for the
+model, the tools and the window.  An engine renders geometry it is handed; it
+does not decide that a closed loop of lines is a face, how push/pull cuts a
+tunnel through another tunnel, what the cursor should snap to, or where a
+plan is cut.  SketchUp's own renderer is plain OpenGL - the decade everybody
+admires went into the inference engine and the modelling, which is precisely
+the part nobody can be bought out of.
+
+**So: no engine.**  Castle in particular is the wrong shape - a scene graph,
+X3D, materials, physics, none of which a drafting program wants - though its
+licence would not stop us (GPL-2+/LGPL-2+ with static linking permission and
+proprietary use explicitly allowed).  If the day comes that fifteen thousand
+faces has to be interactive, the door is **raw OpenGL behind the existing
+TArtSurface interface**, keeping the software path for printing and for
+machines without a usable one.  Triangulation is the prerequisite for that
+door as well as the fix on its own merits, which is why it goes first either
+way.
+
 ### Still to discuss
 
 * **The other two visual worlds - and Tony has already solved this once.**
