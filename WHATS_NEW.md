@@ -20,12 +20,18 @@
   of the object was showing through the near side, and the far side of
   anything is its inside.
 
-  Each face works out its depth from three of its corners, and it was taking
-  the first three whatever they were.  A revolve is made of long thin slices,
-  and the first three corners of one are very nearly in a line - so the sum
-  that solves the depth was dividing by a rounding error and getting
-  nonsense.  It now picks the three corners that make the widest triangle on
-  screen, which is the same answer arrived at properly.
+  Faces that are not flat were the cause.  Spinning a sloped piece of an
+  outline gives a warped four-cornered face - one no flat sheet passes
+  through - and the drawing worked out how far away each face is by fitting a
+  flat sheet to three of its corners.  On one shape sent in, 48 of its 336
+  faces were out of flat, and the fit was wrong by up to five hundred feet on
+  a model two hundred feet across: enough for the back of the thing to be
+  judged nearer than the front.
+
+  It fits every corner now, evenly, instead of three exactly and the rest not
+  at all.  Which is also why it only ever showed on faces pointing certain
+  ways round a shape - whether a badly fitted sheet leans toward you or away
+  depends on which way the warp is turned.
 
 ## v2026.09.13.10
 

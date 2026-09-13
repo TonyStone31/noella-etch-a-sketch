@@ -6750,7 +6750,8 @@ var
   PlaneN: array of TP3;
   PlaneD: array of Double;
   PT: QWord;
-  ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet, ZD, ZBest: Double;
+  ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet, ZD, ZBest, ZDen: Double;
+  Sxx, Sxy, Syy, Sx, Sy, Sn, Sdx, Sdy, Sd: Double;
   ZI2, ZI3, ZJ: Integer;
   ZOK, Drew: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
@@ -7368,23 +7369,78 @@ begin
                       (Flat[ZJ].X - Flat[0].X) * (Flat[ZI2].Y - Flat[0].Y));
             if ZD > ZBest then begin ZBest := ZD; ZI3 := ZJ; end;
           end;
+      { Then fit the plane through ALL of them, not through those three.
+
+        Three corners is only right if the face is flat, and a good many are
+        not.  A revolve turns a sloped piece of the outline into a warped
+        quad - four corners off a curved surface, which no plane passes
+        through - and so does anything pushed out of one.  On Tony's crown,
+        48 of its 336 faces were out of flat, the worst by five feet, and
+        fitting a plane through three corners of one of those left the other
+        corner up to five hundred feet out in depth on a model two hundred
+        feet across.  Far more than enough for the far side of the solid to
+        win the depth test and paint over the near side, which is what he
+        was seeing.
+
+        And it is directional, which is the part he spotted and I did not:
+        whether the badly fitted plane tilts toward the camera or away from
+        it depends on which way the warp is turned, so the fault appeared on
+        faces pointing one way round the shape and not the other.
+
+        Least squares over every corner instead.  A warped face still has no
+        true plane - nothing can give it one - but the error is spread thin
+        and centred rather than being zero at three corners and anything at
+        all everywhere else.  The widest-triangle corners above are kept as
+        the starting point and the fallback. }
       if (ZI2 > 0) and (ZI3 > 0) then
       begin
-        ZD1 := Dot3(FEnts[K].Poly[0], Look);
-        ZD2 := Dot3(FEnts[K].Poly[ZI2], Look);
-        ZD3 := Dot3(FEnts[K].Poly[ZI3], Look);
         ZDet := (Flat[ZI2].X - Flat[0].X) * (Flat[ZI3].Y - Flat[0].Y) -
                 (Flat[ZI3].X - Flat[0].X) * (Flat[ZI2].Y - Flat[0].Y);
         { a hundredth of a square pixel: below that the face really is
           edge-on and has no depth of its own worth solving }
         if Abs(ZDet) > 1E-2 then
         begin
-          ZA := ((ZD2 - ZD1) * (Flat[ZI3].Y - Flat[0].Y) -
-                 (ZD3 - ZD1) * (Flat[ZI2].Y - Flat[0].Y)) / ZDet;
-          ZB := ((ZD3 - ZD1) * (Flat[ZI2].X - Flat[0].X) -
-                 (ZD2 - ZD1) * (Flat[ZI3].X - Flat[0].X)) / ZDet;
-          ZC := ZD1 - ZA * Flat[0].X - ZB * Flat[0].Y;
-          ZOK := True;
+          { the normal equations for depth = A*x + B*y + C }
+          Sxx := 0; Sxy := 0; Syy := 0; Sx := 0; Sy := 0; Sn := 0;
+          Sdx := 0; Sdy := 0; Sd := 0;
+          for ZJ := 0 to High(Flat) do
+          begin
+            ZD := Dot3(FEnts[K].Poly[ZJ], Look);
+            Sxx := Sxx + Flat[ZJ].X * Flat[ZJ].X;
+            Sxy := Sxy + Flat[ZJ].X * Flat[ZJ].Y;
+            Syy := Syy + Flat[ZJ].Y * Flat[ZJ].Y;
+            Sx  := Sx  + Flat[ZJ].X;
+            Sy  := Sy  + Flat[ZJ].Y;
+            Sdx := Sdx + ZD * Flat[ZJ].X;
+            Sdy := Sdy + ZD * Flat[ZJ].Y;
+            Sd  := Sd  + ZD;
+            Sn  := Sn  + 1;
+          end;
+          ZDen := Sxx * (Syy * Sn - Sy * Sy) - Sxy * (Sxy * Sn - Sy * Sx) +
+                  Sx * (Sxy * Sy - Syy * Sx);
+          if Abs(ZDen) > 1E-9 * (1 + Abs(Sxx) + Abs(Syy)) then
+          begin
+            ZA := (Sdx * (Syy * Sn - Sy * Sy) - Sxy * (Sdy * Sn - Sy * Sd) +
+                   Sx * (Sdy * Sy - Syy * Sd)) / ZDen;
+            ZB := (Sxx * (Sdy * Sn - Sd * Sy) - Sdx * (Sxy * Sn - Sy * Sx) +
+                   Sx * (Sxy * Sd - Sdy * Sx)) / ZDen;
+            ZC := (Sxx * (Syy * Sd - Sy * Sdy) - Sxy * (Sxy * Sd - Sdy * Sx) +
+                   Sdx * (Sxy * Sy - Syy * Sx)) / ZDen;
+            ZOK := True;
+          end;
+          if not ZOK then
+          begin
+            { three corners, the well-conditioned ones, as before }
+            ZD1 := Dot3(FEnts[K].Poly[0], Look);
+            ZD2 := Dot3(FEnts[K].Poly[ZI2], Look);
+            ZD3 := Dot3(FEnts[K].Poly[ZI3], Look);
+            ZA := ((ZD2 - ZD1) * (Flat[ZI3].Y - Flat[0].Y) -
+                   (ZD3 - ZD1) * (Flat[ZI2].Y - Flat[0].Y)) / ZDet;
+            ZB := ((ZD3 - ZD1) * (Flat[ZI2].X - Flat[0].X) -
+                   (ZD2 - ZD1) * (Flat[ZI3].X - Flat[0].X)) / ZDet;
+            ZC := ZD1 - ZA * Flat[0].X - ZB * Flat[0].Y;
+            ZOK := True;
+          end;
         end;
       end;
     end;
