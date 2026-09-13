@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.2' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A plan shows what is underneath, dashed.**  A wall beneath a roof, a' + LineEnding +
+    '  beam over a door, a footing under a slab - anything a plan cannot see is' + LineEnding +
+    '  now drawn as a dashed grey line instead of being painted over and lost.' + LineEnding +
+    '  That is what a drawing does and what a photograph from above does not.' + LineEnding +
+    '' + LineEnding +
+    '  Only in PLAN.  In the 3D view a hidden line is round the back of something' + LineEnding +
+    '  solid, and dashing those would put the far side of every box on top of the' + LineEnding +
+    '  near side.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
