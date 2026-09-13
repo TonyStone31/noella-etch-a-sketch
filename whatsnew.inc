@@ -13,6 +13,34 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.4' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Follow Me is called REVOLVE now, and it is on the tool strip beside' + LineEnding +
+    '  push/pull.**  Draw the outline of half of something - a glass, a bowl, a' + LineEnding +
+    '  bollard, a pipe fitting - click it, then click two points for the axis, and' + LineEnding +
+    '  it spins into a solid.  Type an angle first for a part turn.' + LineEnding +
+    '' + LineEnding +
+    '  It could always do this.  It was called Follow Me, which is SketchUp''s name' + LineEnding +
+    '  for the other half of what it does (sweeping a face along a path, which it' + LineEnding +
+    '  still does), and it was behind the MORE door - so the one thing everybody' + LineEnding +
+    '  else calls a lathe was under a name nobody else uses, in a drawer.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A shape off the lathe comes out the right way round.**  Which way each' + LineEnding +
+    '  strip faced was worked out by pointing away from the middle of the outline,' + LineEnding +
+    '  and the middle of a thin C-shaped outline - the wall of a glass, say - is' + LineEnding +
+    '  in the hollow rather than in the material, so half the shape came out' + LineEnding +
+    '  inside out and pale blue.  It uses the outline''s own winding now, which' + LineEnding +
+    '  does not care what shape it is.' + LineEnding +
+    '' + LineEnding +
+    '- **Replaying a session gets the tools that pick things.**  A recorded press' + LineEnding +
+    '  carried the point in the model but not where that lands on the screen, so' + LineEnding +
+    '  replaying one hit Revolve, Push/Pull and the eraser with wherever the mouse' + LineEnding +
+    '  had last been left rather than where the click was.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
