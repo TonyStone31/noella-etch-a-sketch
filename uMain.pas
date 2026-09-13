@@ -787,6 +787,7 @@ type
     function SolidFaceCount: Integer;
     procedure DoomAt(SX, SY: Integer);
     function PickAt(SX, SY: Integer): Integer;
+    function PickForMenu(SX, SY: Integer): Integer;
     function IsSelected(I: Integer): Boolean;
     procedure LeaveSheet;
     procedure OnTouch(Kind: TTouchKind; Seq: Pointer; SX, SY: Double);
@@ -2864,24 +2865,43 @@ begin
   for I := 0 to High(FSel) do
     if FD.Doc[FSel[I]].Kind = ekFace then Inc(Faces);
 
-  if Faces = 1 then Add('Reverse Face', 1)
-  else if Faces > 1 then Add(Format('Reverse %d Faces', [Faces]), 1);
+  { The same rows every time, in the same order, and the ones that would do
+    nothing greyed rather than missing.
+
+    It was built the other way - only the rows that applied - and that is how
+    a menu becomes a hazard.  On a tessellated cylinder the right button
+    lands on an edge rather than a face, so Reverse Face was not there, so
+    Erase moved up into the row Reverse Face is usually in, and the same
+    click in the same place on the same object erased it instead.  A
+    destructive row must not be able to arrive under a hand aiming at a
+    harmless one, which means the shape of this menu cannot depend on what
+    is selected.
+
+    And Erase goes last, under a line, the way every context menu in every
+    program puts delete last. }
+  if Faces > 1 then Add(Format('Reverse %d Faces', [Faces]), 1)
+  else Add('Reverse Face', 1);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Faces > 0;
+
   { One click instead of two numbers.  Somebody who has just clicked a floor
     has said everything the slice needs to know. }
-  if Faces = 1 then Add('Plan From Here', 4);
+  Add('Plan From Here', 4);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Faces = 1;
 
-  if Length(FSel) > 0 then
-  begin
-    if Faces > 0 then
-    begin
-      M := TMenuItem.Create(pmCanvas);
-      M.Caption := '-';
-      pmCanvas.Items.Add(M);
-    end;
-    if Length(FSel) = 1 then Add('Erase', 2)
-    else Add(Format('Erase %d Things', [Length(FSel)]), 2);
-    Add('Select None', 3);
-  end;
+  M := TMenuItem.Create(pmCanvas);
+  M.Caption := '-';
+  pmCanvas.Items.Add(M);
+
+  Add('Select None', 3);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
+
+  M := TMenuItem.Create(pmCanvas);
+  M.Caption := '-';
+  pmCanvas.Items.Add(M);
+
+  if Length(FSel) > 1 then Add(Format('Erase %d Things', [Length(FSel)]), 2)
+  else Add('Erase', 2);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
 end;
 
 procedure TMainForm.CanvasMenuClick(Sender: TObject);
@@ -2940,7 +2960,7 @@ begin
     right-clicking one face while five others are picked and having it turn
     over the five would be a nasty surprise.  Clicking inside the selection
     leaves it alone, which is how a whole roof gets turned over at once. }
-  I := PickAt(X, Y);
+  I := PickForMenu(X, Y);
   if I >= 0 then
   begin
     if not IsSelected(I) then
@@ -4614,11 +4634,19 @@ begin
   FD.Az := VIEW_PRESETS[FViewPreset].Az;
   FD.El := VIEW_PRESETS[FViewPreset].El;
   if FD.View <> vkOrbit then FD.Plane := plXY;
+  { this can reach PLAN now, so the cut has to come and go with it - and the
+    top row has to be laid out again for the strip to appear }
+  ApplySlice;
+  Relayout;
   FCmdMsg := VIEW_PRESETS[FViewPreset].Name + ' view.';
+  if FD.View = vkPlan then
+    FCmdMsg := FCmdMsg + '  CUT, top right, slices it - Ctrl+wheel travels ' +
+      'up and down.';
   FitView;
   RebuildDeck;
   pbDeck.Invalidate;
   pbView.Invalidate;
+  pbSlice.Invalidate;
   pbCmd.Invalidate;
 end;
 
@@ -5273,11 +5301,25 @@ begin
     Relayout;
     Exit;
   end;
-  if (H < 0) or (H > High(FTools)) then Exit;
+  if (H < 0) or (H > High(FTools)) then
+  begin
+    { a click on the bare strip is still a click somewhere else, and an open
+      list should not survive it }
+    if FPopup <> POP_NONE then ClosePopup;
+    Exit;
+  end;
   if FTools[H].Group = GRP_TOOL then
-    SetTool(TProTool(FTools[H].Value))
+  begin
+    if FPopup <> POP_NONE then ClosePopup;
+    SetTool(TProTool(FTools[H].Value));
+  end
   else if FTools[H].Group = GRP_POPUP then
-    OpenPopup(FTools[H].Value);
+    { Clicking the open one shuts it, which is what a menu button does
+      everywhere else in the program - the deck has done this all along and
+      the strip was written without it, so MORE TOOLS and SHOP opened their
+      lists and then would not put them away.  Reported 13 September. }
+    if FPopup = FTools[H].Value then ClosePopup
+    else OpenPopup(FTools[H].Value);
 end;
 
 { ---------------------------------------------------------------------- }
@@ -5516,17 +5558,46 @@ var
   M: TMenuItem;
 begin
   pmView.Items.Clear;
+
+  { PLAN first, and it is back on this list.
+
+    It was taken off on the grounds that this is a 3D model and a flat
+    layout tool was a job for another day.  That day was yesterday: a plan
+    is a slice through the model now, it draws like a drawing, and it is
+    where the cut fields live.  Leaving it off meant the only way into the
+    one genuinely new thing in the program was to know that /plan existed -
+    and Tony, who owns it, clicked every row on this menu and never found
+    it.  If the person who commissioned a feature cannot reach it with a
+    mouse, nobody can.
+
+    TOP is the trap that made it worse: it is the free camera pointed
+    almost straight down, which looks like a plan and is not one - no cut,
+    no drawing style, still a photograph.  So both say what they are. }
+  M := TMenuItem.Create(pmView);
+  M.Caption := 'PLAN - flat, with the cut';
+  M.Tag := 0;
+  M.OnClick := @ViewMenuClick;
+  pmView.Items.Add(M);
+
+  M := TMenuItem.Create(pmView);
+  M.Caption := 'ISO - flat, on the paper axes';
+  M.Tag := 1;
+  M.OnClick := @ViewMenuClick;
+  pmView.Items.Add(M);
+
+  M := TMenuItem.Create(pmView);
+  M.Caption := '-';
+  pmView.Items.Add(M);
+
   for I := FIRST_CAMERA_PRESET to High(VIEW_PRESETS) do
   begin
     M := TMenuItem.Create(pmView);
-    M.Caption := VIEW_PRESETS[I].Name;
+    if I = High(VIEW_PRESETS) then M.Caption := 'TOP - 3D, from above'
+    else M.Caption := VIEW_PRESETS[I].Name;
     M.Tag := I;
     M.OnClick := @ViewMenuClick;
     pmView.Items.Add(M);
   end;
-  { The plan and iso paper modes are not offered here any more: this is a
-    3D model, and a flat layout tool is a job for another day.  The modes
-    themselves stay in the code for old files and for that day. }
 end;
 
 procedure TMainForm.ViewMenuClick(Sender: TObject);
@@ -12852,6 +12923,32 @@ end;
 { Whatever the pointer is over: an edge first, then a face, then anything
   else within reach.  The same order the eraser picks in, so what lights up
   under one tool is what the other would take. }
+{ What the right button is asking about, which is not quite what the left
+  button picks.
+
+  PickAt gives an edge within nine pixels before it will give a face, and for
+  dragging a corner about that is right.  For a menu it is wrong, and a
+  cylinder shows why: twenty-four sides at any ordinary zoom are ten pixels
+  wide, so every point on one is within nine pixels of an edge and the faces
+  of a round thing cannot be got at from the right button at all.  Reported
+  13 September as "it keeps selecting the next face behind it".
+
+  So the reach comes in to four pixels here.  Aim at an edge and you still
+  get the edge; be anywhere in the middle of a face, however narrow, and you
+  get the face.  The left button is untouched. }
+function TMainForm.PickForMenu(SX, SY: Integer): Integer;
+var
+  E, F: Integer;
+begin
+  Result := FD.Doc.HitNote(SX, SY);
+  if Result >= 0 then Exit;
+  E := FD.Doc.HitEdge(Proj, SX, SY, 4 * FUIScale);
+  if E >= 0 then Exit(E);
+  F := FD.Doc.HitFace(Proj, SX, SY);
+  if F >= 0 then Exit(F);
+  Result := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
+end;
+
 function TMainForm.PickAt(SX, SY: Integer): Integer;
 var
   E, F, T: Integer;
