@@ -13,6 +13,40 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.5' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Revolve: click the outline, then click its straight side.**  Two clicks.' + LineEnding +
+    '  The straight side of a glass outline *is* the middle of the glass, and' + LineEnding +
+    '  clicking it is what anybody does when asked for an axis - it used to mean' + LineEnding +
+    '  "sweep the outline along this line", which cannot be done and quietly did' + LineEnding +
+    '  nothing.  Now it means what it looks like it means.' + LineEnding +
+    '' + LineEnding +
+    '  Two loose points still work for an axis that is not an edge, and any other' + LineEnding +
+    '  line is still a path to sweep along.' + LineEnding +
+    '' + LineEnding +
+    '- **It shows you what it is about to make.**  While you are placing the axis:' + LineEnding +
+    '  the axis itself drawn as a long line rather than a stub between two clicks,' + LineEnding +
+    '  and the two rings the nearest and furthest corners of the outline will' + LineEnding +
+    '  sweep - which is the footprint of the result, before you commit to it.' + LineEnding +
+    '' + LineEnding +
+    '- **And it says when the axis is wrong.**  An axis through the middle of the' + LineEnding +
+    '  outline sweeps the two halves into each other and makes a knot with no' + LineEnding +
+    '  outside.  The preview goes red, and it refuses with an explanation instead' + LineEnding +
+    '  of doing it: *"A glass is spun about a line down one side of its outline,' + LineEnding +
+    '  not through it."*' + LineEnding +
+    '' + LineEnding +
+    '- After it spins, it says how big the thing is - *"Spun 360° in 24 gores,' + LineEnding +
+    '  0''-1" to 0''-9 5/8" across."*' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **`/replay` and `/session` keep the capitals in a file name.**  The command' + LineEnding +
+    '  bar folds what you type to lower case so that LINE and line are the same' + LineEnding +
+    '  tool, and it was folding the path too - so replaying anything under a' + LineEnding +
+    '  folder with a capital letter in it said the file did not exist.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.4' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
