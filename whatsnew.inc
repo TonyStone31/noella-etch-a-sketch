@@ -13,6 +13,34 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.9' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A rectangle no longer vanishes when it is drawn nearly along an axis.**' + LineEnding +
+    '  The alignments are built for a line, where being pulled level with the' + LineEnding +
+    '  point you started from is the whole idea.  On a rectangle it means a side' + LineEnding +
+    '  of no length, which is not a rectangle - so it was thrown away, with' + LineEnding +
+    '  nothing on screen to say why, on and off depending on which way you' + LineEnding +
+    '  happened to drag.  An alignment that would flatten a side is now ignored,' + LineEnding +
+    '  and that side lands on the grid like everything else.' + LineEnding +
+    '' + LineEnding +
+    '- And when a rectangle really is too small in one direction to draw, it says' + LineEnding +
+    '  so with the sizes and the snap setting instead of just "a rectangle needs' + LineEnding +
+    '  two sides".' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Push/pull, drill and offset can be called off by leaning on the button**,' + LineEnding +
+    '  the way the drawing tools already could.  They used to happen the instant' + LineEnding +
+    '  the button went down, so realising it was wrong meant undo.  Now they wait' + LineEnding +
+    '  for it to come up: let go and it happens, keep holding and the face you' + LineEnding +
+    '  were about to build strains and goes back having built nothing.' + LineEnding +
+    '' + LineEnding +
+    '- The whole shape comes under tension while you hold, not one strand of it -' + LineEnding +
+    '  a rectangle swells like a frame of elastic, a circle like a hoop, a' + LineEnding +
+    '  push/pull shows the face where it would have landed.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.8' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
