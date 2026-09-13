@@ -762,6 +762,11 @@ type
     procedure SaveCrashDoc(const ReportPath: string);
     procedure ShakeWatch(X, Y: Integer);
     procedure PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
+    function StrainOutline(out Pts: TPointFArray): Boolean;
+    procedure PaintStrainPath(C: TCanvas; const Pts: TPointFArray; T: Single);
+    procedure PaintStrainSeg(C: TCanvas; const A, B: TPointF; T: Single;
+      Outward: Boolean; CX, CY: Double);
+    procedure PaintStrainMark(C: TCanvas; CX, CY: Double; T: Single);
     procedure PaintSnapRecoil(C: TCanvas);
     procedure PaintFacePoints(C: TCanvas; Face: Integer);
     procedure PaintSnapMarker(C: TCanvas; SX, SY: Integer);
@@ -1199,7 +1204,7 @@ const
       'toggles, Ctrl+Shift takes away.  (Space)',
     'Move - pick a point on what is selected, then click where it goes.  ' +
       'Hold Ctrl to leave a copy behind.  (M)',
-    'Line - click a start point, then click the end or just type a length.  In a 3D view the arrows lock the plane first: left upright, right side-on, up flat, down to let go.  A locked plane holds every point of the shape to it.',
+    'Line - click a start point, then click the end or just type a length.  In a 3D view the arrows lock the plane first: left or right for upright, up or down for flat, Esc to let go.  A locked plane holds every point of the shape to it.',
     'Rectangle - click two opposite corners, or type 12''x8''.  Makes a face.',
     'Arc - pick two points, then pull the middle out.  Joins two loose ends.',
     'Circle - pick the center, then type or drag the radius.',
@@ -7750,14 +7755,112 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ Everything that is being drawn, in screen points, so the whole of it can
+  be leaned on rather than one strand of it.
+
+  Holding the button to throw away what you are drawing was written for the
+  line tool, where the thing in progress *is* one strand.  On a rectangle it
+  strained a single diagonal from the first corner to the cursor - which is
+  not any part of the rectangle, and read as though something else entirely
+  had appeared to be destroyed.  Tony's note: a rectangle should come under
+  tension as a rectangle.  So each tool says what its outline is and the
+  strain is laid along all of it. }
+function TMainForm.StrainOutline(out Pts: TPointFArray): Boolean;
+var
+  RectPrev: TP3Array;
+  K: Integer;
+  R: Double;
+begin
+  Pts := nil;
+  Result := False;
+  case FTool of
+    ptRect:
+      if FStage = 1 then
+      begin
+        RectPrev := RectCorners(FP1, RectTarget, FD.Plane);
+        SetLength(Pts, 5);
+        for K := 0 to 3 do Pts[K] := ScreenOf(RectPrev[K]);
+        Pts[4] := Pts[0];
+      end;
+    ptCircle:
+      if FStage = 1 then
+      begin
+        R := Dist(FP1, FCur);
+        if R > 1E-9 then
+        begin
+          SetLength(Pts, FSidesCircle + 1);
+          for K := 0 to FSidesCircle do
+            Pts[K] := ScreenOf(ArcPoint(FP1, R,
+              2 * Pi * K / FSidesCircle, FD.Plane));
+        end;
+      end;
+    ptOffset:
+      if FStage = 1 then
+      begin
+        RectPrev := OffsetPreview;
+        if Length(RectPrev) >= 3 then
+        begin
+          SetLength(Pts, Length(RectPrev) + 1);
+          for K := 0 to High(RectPrev) do Pts[K] := ScreenOf(RectPrev[K]);
+          Pts[High(Pts)] := Pts[0];
+        end;
+      end;
+  end;
+  { anything else - a line, an arc still being aimed, a move - is the one
+    strand it always was }
+  if Length(Pts) < 2 then
+  begin
+    SetLength(Pts, 2);
+    Pts[0] := ScreenOf(FP1);
+    Pts[1] := PtF(FMouseSX, FMouseSY);
+  end;
+  Result := True;
+end;
+
+{ The whole outline under tension.
+
+  Each side bows away from the middle of the shape and trembles harder the
+  nearer it gets to letting go, so a rectangle swells like a frame of elastic
+  and a circle like a hoop.  One burst of shards at the middle at the end,
+  and one caption, because it is one gesture destroying one thing. }
+procedure TMainForm.PaintStrainPath(C: TCanvas; const Pts: TPointFArray;
+  T: Single);
+var
+  I: Integer;
+  CX, CY: Double;
+begin
+  if Length(Pts) < 2 then Exit;
+  CX := 0;
+  CY := 0;
+  for I := 0 to High(Pts) do
+  begin
+    CX := CX + Pts[I].X / Length(Pts);
+    CY := CY + Pts[I].Y / Length(Pts);
+  end;
+  for I := 0 to High(Pts) - 1 do
+    PaintStrainSeg(C, Pts[I], Pts[I + 1], T, Length(Pts) > 2, CX, CY);
+  PaintStrainMark(C, CX, CY, T);
+end;
+
 procedure TMainForm.PaintStrain(C: TCanvas; const A, B: TPointF; T: Single);
 var
+  P: TPointFArray;
+begin
+  SetLength(P, 2);
+  P[0] := A;
+  P[1] := B;
+  PaintStrainPath(C, P, T);
+end;
+
+{ One side of it.  Bows away from CX,CY when the shape has a middle to bow
+  away from, and to one side when it is a single strand. }
+procedure TMainForm.PaintStrainSeg(C: TCanvas; const A, B: TPointF; T: Single;
+  Outward: Boolean; CX, CY: Double);
+var
   I, N, W: Integer;
-  MX, MY, DX, DY, L, NX, NY, Bow, Sh, Ang, R: Double;
+  MX, MY, DX, DY, L, NX, NY, Bow, Sh: Double;
   P0, P1: TPointF;
   Col: TPix;
-  Cap: string;
-  Sz: TSize;
 begin
   T := EnsureRange(T, 0, 1);
   DX := B.X - A.X;
@@ -7766,6 +7869,14 @@ begin
   if L < 2 then Exit;
   NX := -DY / L;
   NY := DX / L;
+  { away from the middle, so the whole shape swells rather than each side
+    bowing whichever way its own maths happened to point }
+  if Outward and
+     (NX * ((A.X + B.X) / 2 - CX) + NY * ((A.Y + B.Y) / 2 - CY) < 0) then
+  begin
+    NX := -NX;
+    NY := -NY;
+  end;
 
   { it bows away from the pull and trembles harder the nearer it gets }
   Bow := 8 * FUIScale * Sin(T * Pi) * 0.9;
@@ -7794,6 +7905,25 @@ begin
     C.LineTo(Round(P1.X), Round(P1.Y));
   end;
 
+  C.Pen.Width := 1;
+end;
+
+{ The shards and the warning, once, at the middle of whatever is being
+  destroyed - not once per side, which on a rectangle was four bursts and
+  four copies of the same sentence. }
+procedure TMainForm.PaintStrainMark(C: TCanvas; CX, CY: Double; T: Single);
+var
+  I: Integer;
+  Ang, R: Double;
+  Col: TPix;
+  Cap: string;
+  Sz: TSize;
+begin
+  T := EnsureRange(T, 0, 1);
+  Col := MixPix(AnnotColor, Pix(230, 38, 28), Power(T, 0.7));
+  C.Pen.Style := psSolid;
+  C.Pen.Color := PixToColor(Col);
+
   { and at the very end it starts to come apart - shards off the middle }
   if T > 0.78 then
   begin
@@ -7802,8 +7932,8 @@ begin
     for I := 0 to 5 do
     begin
       Ang := I * Pi / 3 + T * 3;
-      C.MoveTo(Round(MX + Cos(Ang) * R * 0.35), Round(MY + Sin(Ang) * R * 0.35));
-      C.LineTo(Round(MX + Cos(Ang) * R), Round(MY + Sin(Ang) * R));
+      C.MoveTo(Round(CX + Cos(Ang) * R * 0.35), Round(CY + Sin(Ang) * R * 0.35));
+      C.LineTo(Round(CX + Cos(Ang) * R), Round(CY + Sin(Ang) * R));
     end;
   end;
 
@@ -7826,7 +7956,7 @@ begin
     C.Brush.Style := bsSolid;
     C.Brush.Color := PixToColor(Theme.Screen1);
     Sz := C.TextExtent(Cap);
-    C.TextOut(Round(MX - Sz.cx / 2), Round(MY - Sz.cy - 14 * FUIScale), Cap);
+    C.TextOut(Round(CX - Sz.cx / 2), Round(CY - Sz.cy - 14 * FUIScale), Cap);
     C.Brush.Style := bsClear;
   end;
   C.Pen.Width := 1;
@@ -8293,6 +8423,7 @@ var
   RectI: Integer;
   S1, S2: string;
   W1, W2, BoxW, BoxH, LnH: Integer;
+  StrainPts: TPointFArray;
 
   { When the cursor is locked to an axis the band is drawn in that axis's
     color, so the direction you are committing to is readable without
@@ -8362,8 +8493,9 @@ begin
     so there is one thing happening on screen rather than two. }
   if FHoldOn and (FHoldT > HOLD_STRAIN) and (FStage >= 1) then
   begin
-    PaintStrain(C, ScreenOf(FP1), PtF(FMouseSX, FMouseSY),
-      (FHoldT - HOLD_STRAIN) / (HOLD_BREAK - HOLD_STRAIN));
+    if StrainOutline(StrainPts) then
+      PaintStrainPath(C, StrainPts,
+        (FHoldT - HOLD_STRAIN) / (HOLD_BREAK - HOLD_STRAIN));
     PaintSnapRecoil(C);
     Exit;
   end;
@@ -8375,11 +8507,18 @@ begin
         if FStage = 1 then Rubber(FP1, PreviewTarget);
       end;
     ptRect:
-      if FStage = 1 then
       begin
-        RectPrev := RectCorners(FP1, RectTarget, FD.Plane);
-        for RectI := 0 to 3 do
-          Rubber(RectPrev[RectI], RectPrev[(RectI + 1) mod 4]);
+        { Before the first corner as well as after it.  Flipping between the
+          planes and not being sure which one you were about to get is what
+          Tony reported; the two coloured lines say it while there is still
+          nothing drawn. }
+        PaintHeldPlane(C);
+        if FStage = 1 then
+        begin
+          RectPrev := RectCorners(FP1, RectTarget, FD.Plane);
+          for RectI := 0 to 3 do
+            Rubber(RectPrev[RectI], RectPrev[(RectI + 1) mod 4]);
+        end;
       end;
     ptOffset:
       if FStage = 1 then
@@ -8445,6 +8584,8 @@ begin
         end;
       end;
     ptCircle:
+      begin
+        PaintHeldPlane(C);
       if FStage = 1 then
       begin
         { Drawn in the plane it is going to land in, rather than as a round
@@ -8474,6 +8615,7 @@ begin
           end;
         end;
         C.Pen.Width := 1;
+      end;
       end;
     ptMeasure:
       if FStage >= 1 then
@@ -8973,20 +9115,20 @@ var
 begin
   Was := FD.Plane;
   { SketchUp locks a plane by naming its normal with the axis colors: right
-    is red, left is green, up is blue.  Down lets go again. }
-  if Key = VK_DOWN then
-  begin
-    FPlaneHeld := False;
-    FCmdMsg := 'Following the face under the cursor again.';
-    pbCmd.Invalidate;
-    FScreenDirty := True;
-    Exit;
-  end;
+    is red, left is green, up is blue.  Left and right are the two upright
+    planes; up is the ground.
+
+    Down used to let go again, and Tony read the set as not quite intuitive.
+    He is right about the shape of it: up and down are one gesture and they
+    should mean one thing, which is flat - the way up and down mean flat on
+    a table.  Esc has always let go as well, and says so in every message
+    the plane puts up, so nothing is lost by giving down to the ground and
+    everything is gained by the pair reading as a pair. }
   case Key of
     VK_RIGHT: FD.Plane := plYZ;     // normal is red, X
     VK_LEFT: FD.Plane := plXZ;      // normal is green, Y
   else
-    FD.Plane := plXY;               // normal is blue, Z
+    FD.Plane := plXY;               // up or down: normal is blue, Z
   end;
   FPlaneHeld := True;
   if FD.Plane <> Was then
@@ -9280,7 +9422,7 @@ begin
       begin
         if (FD.View = vkOrbit) and not FPlaneHeld then
           Result := 'pick a start point   (arrows lock a flat plane: ' +
-                    'left upright, right side-on, up flat, down to let go)'
+                    'left or right upright, up or down flat, Esc to let go)'
         else if FPlaneHeld then
           Result := 'pick a start point - locked to the ' + PlaneName +
                     ' plane, and it stays there'
