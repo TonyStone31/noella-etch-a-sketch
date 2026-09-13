@@ -17,6 +17,32 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **A plan view is a slice through the model now, not a photograph from' + LineEnding +
+    '  above.**  Switch to PLAN and a **CUT** strip appears beside the view' + LineEnding +
+    '  button: a bottom and a top, in feet and inches.  Only what is between them' + LineEnding +
+    '  is in the drawing - drawn, snapped to, and picked.  A barn whose roof used' + LineEnding +
+    '  to cover the whole building cuts to just the walls.' + LineEnding +
+    '' + LineEnding +
+    '  **Ctrl and the wheel over the drawing travels up and down through the' + LineEnding +
+    '  model**, carrying the slice with it, so you can scroll until the plan looks' + LineEnding +
+    '  right without taking your eyes off it.  The wheel over either number moves' + LineEnding +
+    '  just that end; clicking one lets you type it.  Right-click a floor and' + LineEnding +
+    '  **Plan From Here** sets the whole thing in one go.' + LineEnding +
+    '' + LineEnding +
+    '  The bottom of the slice is also the height you draw at - which is what a' + LineEnding +
+    '  floor plan means.  Set it to 9''-0" and you are drawing on the second' + LineEnding +
+    '  storey.' + LineEnding +
+    '' + LineEnding +
+    '  It is off until you turn it on, it says how many things it is keeping out' + LineEnding +
+    '  so nothing goes missing quietly, and `/cut 0 9''`, `/cut all` and `/cut off`' + LineEnding +
+    '  do the same from the command bar.' + LineEnding +
+    '' + LineEnding +
+    '- **A plan is drawn like a drawing.**  No more shading in PLAN: the light' + LineEnding +
+    '  that makes a 3D view read as a solid object was turning two slopes of a' + LineEnding +
+    '  roof into two different greys, which in a drawing means nothing at all.' + LineEnding +
+    '  Faces fill pale so the lines carry the drawing, which is what lines are' + LineEnding +
+    '  for.' + LineEnding +
+    '' + LineEnding +
     '- **Type a size into a dimension and the drawing follows.**  Pick a dimension' + LineEnding +
     '  with the select tool, type what it ought to read - `14''`, `12''6`, `6-8-15`' + LineEnding +
     '  - and press Enter.  The end the dimension was drawn to moves out, and' + LineEnding +

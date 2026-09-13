@@ -16,13 +16,13 @@ key slash
 type fit
 key return
 wait 1200
-at 750 380
+at 800 400
 scroll down 4
 wait 800
 shot /tmp/hsk-dim-before.png
 
 # the dimension line itself, between the two arrows
-at 750 572
+at 785 597
 wait 400
 click
 wait 600

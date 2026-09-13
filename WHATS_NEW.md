@@ -14,6 +14,25 @@
 
 ### New
 
+- **The tools stand down the left, with their names on them.**  Screens are
+  wide and short, and two rows of buttons along the bottom were spending the
+  height of your drawing to save width there was plenty of.  A column costs
+  width instead - and reads as a list rather than as a wall.
+
+  Ten tools are on it: select, line, rectangle, circle, arc, push/pull, move,
+  erase, dimension and orbit.  The rest - rotate, offset, follow me, drill,
+  measure, protractor and text - are one click away behind **MORE**, and the
+  shop wizards behind **SHOP**, both on the same strip.  Nothing has been
+  taken away.
+
+  The names show by default, because nobody can tell Offset from Follow Me by
+  pictogram.  **< NAMES OFF** at the foot of the strip puts them away for a
+  wider drawing, and it remembers which you chose.
+
+  The row of buttons along the bottom is a row shorter for it - what is left
+  there is settings and the things that act on the program rather than on the
+  drawing.
+
 - **A plan view is a slice through the model now, not a photograph from
   above.**  Switch to PLAN and a **CUT** strip appears beside the view
   button: a bottom and a top, in feet and inches.  Only what is between them

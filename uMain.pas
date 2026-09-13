@@ -151,6 +151,7 @@ type
     pbTabs: TPaintBox;
     pbView: TPaintBox;
     pbSlice: TPaintBox;
+    pbTools: TPaintBox;
     pmView: TPopupMenu;
     pmCanvas: TPopupMenu;
     pbDeck: TPaintBox;
@@ -176,6 +177,14 @@ type
     procedure pbTabsMouseLeave(Sender: TObject);
     procedure pbTabsMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbTabsPaint(Sender: TObject);
+    procedure pbToolsPaint(Sender: TObject);
+    procedure pbToolsMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure pbToolsMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure pbToolsMouseLeave(Sender: TObject);
+    procedure RebuildTools;
+    function ToolsHit(X, Y: Integer): Integer;
+    function ToolStripWidth: Integer;
     procedure pbSlicePaint(Sender: TObject);
     procedure pbSliceMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -577,6 +586,12 @@ type
     FHotMode: Integer;
     FHotView: Integer;
     FHotSlice: Integer;         // which zone of the cut strip is under the pointer
+    FTools: array of TDeckItem; // the vertical tool strip down the left
+    FToolSkin: TArtSurface;
+    FHotTool: Integer;
+    { Names beside the icons, or icons alone.  Kept in the settings, and it
+      starts True on purpose - see pbToolsPaint. }
+    FToolsWide: Boolean;
     FSliceSkin: TArtSurface;
     FSliceEdit: Integer;        // 0 none, 1 typing the bottom, 2 the top
     FViewSkin: TArtSurface;
@@ -967,6 +982,8 @@ const
     go here beside it. }
   POP_SHOP   = 5;
   POP_PREC   = 6;
+  { The rest of the tools, behind one door.  See MAIN_TOOLS. }
+  POP_MORE   = 7;
 
   { How finely a length is written down, and what the last field of a dashed
     entry counts in.  A truss shop works in sixteenths, which is the default;
@@ -1104,6 +1121,25 @@ const
     they are.  The first has three across because it has five in it - orbit
     belongs with getting about rather than with drawing, and the deck is the
     only place a tool is discoverable at all. }
+  { What a stranger meets, and what waits behind a door.
+
+    The whole pitch is that somebody opens this and can draw something to
+    scale without being taught.  Fourteen buttons at the same weight is not
+    that: it is a wall, and a wall is what makes people close a CAD program
+    in the first minute.  So the strip carries the ten a drawing is actually
+    made of - pick, the five shapes, lift it, move it, rub it out, measure it
+    - and the rest live behind MORE, which is a door rather than a hiding
+    place.  Everything is still one click from where it was.
+
+    Orbit is in the main set although it draws nothing, because getting round
+    the back of the model is half of what makes the 3D worth having and a
+    laptop without a middle button has no other way in. }
+  MAIN_TOOLS: array[0..9] of TProTool =
+    (ptSelect, ptLine, ptRect, ptCircle, ptArc, ptPush, ptMove, ptErase,
+     ptDim, ptOrbit);
+  MORE_TOOLS: array[0..6] of TProTool =
+    (ptRotate, ptOffset, ptFollow, ptDrill, ptMeasure, ptProtractor, ptText);
+
   GRP_COLS: array[0..2] of Integer = (3, 3, 3);
   GRP_N:    array[0..2] of Integer = (6, 5, 6);
   TOOL_GROUPS: array[0..2, 0..5] of TProTool =
@@ -1932,6 +1968,9 @@ begin
   FCmdSkin := TArtSurface.Create(16, 16);
   FViewSkin := TArtSurface.Create(16, 16);
   FSliceSkin := TArtSurface.Create(16, 16);
+  FToolSkin := TArtSurface.Create(16, 16);
+  FHotTool := -1;
+  FToolsWide := True;
   FHotSlice := -1;
   FSliceEdit := 0;
   FGlyph := TArtSurface.Create(16, 16);
@@ -2053,6 +2092,7 @@ begin
     FKnobSkin[I].Free;
   FViewSkin.Free;
   FSliceSkin.Free;
+  FToolSkin.Free;
   FGlyph.Free;
   FCmdSkin.Free;
   FModeSkin.Free;
@@ -2209,8 +2249,10 @@ end;
   Derived either way, so another row is a change here and nowhere else. }
 function TMainForm.DeckRows: Integer;
 begin
-  { two rows of tools, in three groups, and one row for the settings }
-  if FMode = mdPro then Result := 3 else Result := 4;
+  { PRO: one row of settings on the left, two rows of six icons on the right.
+    It was three deep when the tools lived here; they are down the left side
+    now and the row they cost the drawing has gone back to it. }
+  if FMode = mdPro then Result := 2 else Result := 4;
 end;
 
 function TMainForm.DeckHeight: Integer;
@@ -2226,6 +2268,7 @@ end;
 procedure TMainForm.Relayout;
 var
   M, TitleH, DeckH, Bezel, KnobSz, Gap, ModeW, ModeH, CmdH, TabsH: Integer;
+  ToolW: Integer;
   BezelR, DeckR: TRect;
   DeckL, DeckRt: Integer;
   I: Integer;
@@ -2258,6 +2301,8 @@ begin
     pbMode.SetBounds(ClientWidth - M - ModeW, Round(10 * FUIScale), ModeW, ModeH);
 
   DeckR := Rect(M, ClientHeight - M - DeckH, ClientWidth - M, ClientHeight - M);
+  ToolW := ToolStripWidth;
+  pbTools.Visible := (FMode = mdPro) and (ToolW > 0);
 
   pbCmd.Visible := FMode = mdPro;
   pbTabs.Visible := FMode = mdPro;
@@ -2287,6 +2332,16 @@ begin
   end
   else
     BezelR := Rect(M, TitleH, ClientWidth - M, DeckR.Top - Gap);
+
+  { The strip stands in the space the bezel gives up, so the drawing is never
+    underneath it - a tool that covers the thing you are drawing is the whole
+    reason this is not a floating palette. }
+  if pbTools.Visible then
+  begin
+    pbTools.SetBounds(BezelR.Left, BezelR.Top, ToolW,
+      Max(60, BezelR.Bottom - BezelR.Top));
+    BezelR.Left := BezelR.Left + ToolW + Round(6 * FUIScale);
+  end;
 
   KnobSz := Min(Round(136 * FUIScale), DeckH - Round(18 * FUIScale));
   pbKnobL.Visible := DialsVisible;
@@ -2325,6 +2380,8 @@ begin
   FCmdSkin.SetSize(Max(1, pbCmd.Width), Max(1, pbCmd.Height));
   FViewSkin.SetSize(Max(1, pbView.Width), Max(1, pbView.Height));
   FSliceSkin.SetSize(Max(1, pbSlice.Width), Max(1, pbSlice.Height));
+  FToolSkin.SetSize(Max(1, pbTools.Width), Max(1, pbTools.Height));
+  RebuildTools;
   LayoutTabs;
 
   for I := 0 to 1 do
@@ -2361,6 +2418,10 @@ begin
       ClientHeight - M - DeckH - Gap - CmdH - Round(10 * FUIScale))
   else
     BezelR := Rect(M, TitleH, ClientWidth - M, ClientHeight - M - DeckH - Gap);
+  { the same shift Relayout makes, or the frame is drawn round where the
+    drawing used to be }
+  if (FMode = mdPro) and (ToolStripWidth > 0) then
+    BezelR.Left := BezelR.Left + ToolStripWidth + Round(6 * FUIScale);
 
   PaintShell(FShell, Theme);
   if FMode = mdPro then
@@ -3773,39 +3834,27 @@ begin
   end
   else
   begin
-    { --- rows 1 and 2: the tools, in three groups ------------------------
-      Six across instead of twelve, so the names fit, with a gap between the
-      groups wide enough to read as a break rather than as spacing. }
-    Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
-    GrpGap := Round(20 * FUIScale);
-    { as many columns as the groups have between them - nine since Follow Me
-      joined the drawing tools; dividing by a number written down here is
-      what put the last group's buttons over the icons }
-    SegW := (Avail - 2 * GrpGap) div (GRP_COLS[0] + GRP_COLS[1] + GRP_COLS[2]);
-    FGrpDivY0 := Y0 + Round(2 * FUIScale);
-    FGrpDivY1 := Y0 + 2 * RowH + RowGap - Round(2 * FUIScale);
-    GrpX := X;
-    for G := 0 to 2 do
-    begin
-      for I := 0 to GRP_N[G] - 1 do
-      begin
-        GX := GrpX + (I mod GRP_COLS[G]) * SegW;
-        RowY := Y0 + (I div GRP_COLS[G]) * (RowH + RowGap);
-        Add(dkSegment, Rect(GX + 2, RowY, GX + SegW - 2, RowY + RowH),
-          GRP_TOOL, Ord(TOOL_GROUPS[G, I]),
-          TOOL_NAMES[TOOL_GROUPS[G, I]], TOOL_HINTS[TOOL_GROUPS[G, I]],
-          TOOL_ICONS[TOOL_GROUPS[G, I]]);
-      end;
-      Inc(GrpX, GRP_COLS[G] * SegW + GrpGap);
-      if G < 2 then FGrpDivX[G] := GrpX - GrpGap div 2;
-    end;
+    { --- the tools have gone to the strip down the left ------------------
+      They were two rows of six here, and the deck was three rows deep for
+      it.  Standing them up on the left costs width, of which a screen has
+      plenty, and gives the height back to the drawing - and a column with
+      the names beside it reads as a list rather than as a wall.  See
+      RebuildTools.
 
-    { --- row 2: the settings, as buttons that open a list -----------------
+      What is left down here is settings and the things that act on the
+      program rather than on the drawing, which is a fair division: the left
+      hand is what you draw with, the bottom is how. }
+    FGrpDivY0 := 0;
+    FGrpDivY1 := 0;
+    FGrpDivX[0] := -1;
+    FGrpDivX[1] := -1;
+
+    { --- row 1: the settings, as buttons that open a list -----------------
       Scale, snap and the pen get set once and then left alone, so a row of
       choices each was drawing area spent on things nobody touches.  Each is
       one button showing what it is set to, and the list opens above it -
       which also means a list can be longer than a row ever was. }
-    RowY := Y0 + 2 * (RowH + RowGap);
+    RowY := Y0;
     Avail := W - 2 * Pad - LabW - RightW6 - RowGap;
     { Two more slots when the drawing has guides in it, and the row divides
       by seven instead of five.  A button for something that does not exist is
@@ -4149,8 +4198,8 @@ begin
   end
   else
   begin
-    Section(0, 'TOOL');
-    Section(2, 'SET');
+    { the tools are down the left now; what is left here is how, not what }
+    Section(0, 'SET');
   end;
 
   for I := 0 to High(FDeck) do
@@ -4685,6 +4734,221 @@ begin
                          Point(W - VIEW_ARROW_W div 2 + 5, H div 2 - 3),
                          Point(W - VIEW_ARROW_W div 2, H div 2 + 3)]);
   pbView.Canvas.Brush.Style := bsClear;
+end;
+
+{ ---------------------------------------------------------------------- }
+{ the tool strip down the left                                             }
+{ ---------------------------------------------------------------------- }
+
+{ Tools stand in a column on the left, with their names beside them.
+
+  Two reasons, and the first is arithmetic: screens are wide and short.  The
+  same buttons lying along the bottom spent the scarce dimension to save the
+  abundant one, and two rows of them was thirteen per cent of the height of
+  the drawing.  Standing up, a tool strip costs width, of which there is
+  plenty, and it costs more of it on a small screen than a large one - which
+  is the right way round.
+
+  The second is that a column reads as a list and a grid reads as a wall.
+  Left rather than right because that is where every drawing program a
+  stranger has already used keeps its tools, and not floating, not dockable,
+  not movable: a palette that can be lost behind the window, dragged off the
+  edge or stranded on a monitor that got unplugged is a palette that needs a
+  menu item to put it back, and needing that is an admission.
+
+  **The names are on by default and that is deliberate.**  Most programs
+  default the other way and they are wrong about it: nobody can tell Offset
+  from Follow Me from Drill by pictogram, so a first-timer clicks nothing at
+  all.  Words first; the arrow at the bottom collapses it to icons for
+  somebody who has earned that, and the choice is remembered. }
+function TMainForm.ToolStripWidth: Integer;
+begin
+  if FMode <> mdPro then Exit(0);
+  if FToolsWide then Result := Round(126 * FUIScale)
+  else Result := Round(42 * FUIScale);
+end;
+
+procedure TMainForm.RebuildTools;
+var
+  I, RowH, Gap, Y, W: Integer;
+
+  procedure Add(AKind: TDeckKind; const R: TRect; AGroup, AValue: Integer;
+    const ACap, AHint: string; AIcon: TIconKind);
+  begin
+    SetLength(FTools, Length(FTools) + 1);
+    with FTools[High(FTools)] do
+    begin
+      Kind := AKind; Bounds := R; Group := AGroup; Value := AValue;
+      Caption := ACap; Hint := AHint; Icon := AIcon; Swatch := Pix(0, 0, 0);
+    end;
+  end;
+
+begin
+  SetLength(FTools, 0);
+  if FMode <> mdPro then Exit;
+  W := pbTools.Width;
+  if W < 8 then Exit;
+  RowH := Round(26 * FUIScale);
+  Gap := Round(3 * FUIScale);
+  Y := Round(6 * FUIScale);
+
+  for I := 0 to High(MAIN_TOOLS) do
+  begin
+    Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
+      GRP_TOOL, Ord(MAIN_TOOLS[I]), TOOL_NAMES[MAIN_TOOLS[I]],
+      TOOL_HINTS[MAIN_TOOLS[I]], TOOL_ICONS[MAIN_TOOLS[I]]);
+    Inc(Y, RowH + Gap);
+  end;
+
+  { The two doors.  A gap above them so they read as somewhere else to go
+    rather than as two more tools. }
+  Inc(Y, Round(10 * FUIScale));
+  Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
+    GRP_POPUP, POP_MORE, 'MORE',
+    'The rest of the tools - rotate, offset, follow me, drill, measure, ' +
+    'protractor and text.', ikArrow);
+  Inc(Y, RowH + Gap);
+  Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
+    GRP_POPUP, POP_SHOP, 'SHOP',
+    'Shop tools - laying a piece out flat, and the fittings', ikArrow);
+end;
+
+function TMainForm.ToolsHit(X, Y: Integer): Integer;
+var
+  I: Integer;
+begin
+  for I := 0 to High(FTools) do
+    if PtInRect(FTools[I].Bounds, Point(X, Y)) then Exit(I);
+  { the bottom strip is the collapse arrow }
+  if Y > pbTools.Height - Round(26 * FUIScale) then Exit(-2);
+  Result := -1;
+end;
+
+procedure TMainForm.pbToolsPaint(Sender: TObject);
+var
+  I, W, H, IconSz, TxtX, ArrY: Integer;
+  It: TDeckItem;
+  Sel, Hot: Boolean;
+  C1, C2, Edge, Fg: TPix;
+  R, IR: TRect;
+  S: string;
+begin
+  W := pbTools.Width;
+  H := pbTools.Height;
+  if (W < 8) or (H < 8) then Exit;
+  FToolSkin.SetSize(W, H);
+  PaintPanel(FToolSkin, Rect(0, 0, W, H), Theme, FUIScale);
+
+  IconSz := Round(16 * FUIScale);
+  for I := 0 to High(FTools) do
+  begin
+    It := FTools[I];
+    R := It.Bounds;
+    Sel := (It.Group = GRP_TOOL) and (It.Value = Ord(FTool));
+    Hot := I = FHotTool;
+    if Sel then
+    begin
+      C1 := Theme.Accent;
+      C2 := ShadePix(Theme.Accent, 0.86);
+      Fg := Pix(12, 16, 22);
+      Edge := ShadePix(Theme.Accent, 1.18);
+    end
+    else
+    begin
+      C1 := MixPix(Theme.Panel, Pix(255, 255, 255), IfThen(Hot, 0.14, 0.05) / 1.0);
+      C2 := MixPix(Theme.Panel, Pix(0, 0, 0), 0.16);
+      Fg := Theme.Text;
+      Edge := MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.10);
+    end;
+    FToolSkin.RoundRectV(R, Round(4 * FUIScale), C1, C2);
+    FToolSkin.RoundFrame(R, Round(4 * FUIScale), 1.0, Edge);
+    IR := Rect(R.Left + Round(6 * FUIScale),
+               (R.Top + R.Bottom - IconSz) div 2,
+               R.Left + Round(6 * FUIScale) + IconSz,
+               (R.Top + R.Bottom + IconSz) div 2);
+    PaintIcon(FToolSkin, It.Icon, IR, Fg);
+  end;
+
+  { the collapse arrow, at the foot }
+  ArrY := H - Round(20 * FUIScale);
+  FToolSkin.Line(Round(8 * FUIScale), ArrY - Round(8 * FUIScale),
+    W - Round(8 * FUIScale), ArrY - Round(8 * FUIScale), 1,
+    MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.10), 1.0);
+  FToolSkin.DrawTo(pbTools.Canvas, 0, 0);
+
+  if FToolsWide then
+  begin
+    TxtX := Round(6 * FUIScale) + IconSz + Round(7 * FUIScale);
+    for I := 0 to High(FTools) do
+    begin
+      It := FTools[I];
+      R := It.Bounds;
+      if (It.Group = GRP_TOOL) and (It.Value = Ord(FTool)) then
+        UIFont(pbTools.Canvas, 9, True, Pix(12, 16, 22))
+      else if It.Group = GRP_POPUP then
+        UIFont(pbTools.Canvas, 9, True, Theme.TextDim)
+      else
+        UIFont(pbTools.Canvas, 9, False, Theme.Text);
+      S := It.Caption;
+      if It.Group = GRP_POPUP then S := S + '  >';
+      pbTools.Canvas.TextOut(R.Left + TxtX,
+        (R.Top + R.Bottom - pbTools.Canvas.TextHeight(S)) div 2, S);
+    end;
+  end;
+
+  UIFont(pbTools.Canvas, 9, False, Theme.TextDim);
+  if FToolsWide then S := '<  NAMES OFF' else S := '>';
+  pbTools.Canvas.TextOut(Round(8 * FUIScale),
+    ArrY - pbTools.Canvas.TextHeight(S) div 2, S);
+end;
+
+procedure TMainForm.pbToolsMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+var
+  H: Integer;
+begin
+  H := ToolsHit(X, Y);
+  if H <> FHotTool then
+  begin
+    FHotTool := H;
+    pbTools.Invalidate;
+  end;
+  if (H >= 0) and (H <= High(FTools)) then FHint := FTools[H].Hint
+  else if H = -2 then
+    FHint := 'Show the tool names, or put them away for a wider drawing.'
+  else
+    FHint := '';
+end;
+
+procedure TMainForm.pbToolsMouseLeave(Sender: TObject);
+begin
+  if FHotTool <> -1 then
+  begin
+    FHotTool := -1;
+    pbTools.Invalidate;
+  end;
+  FHint := '';
+end;
+
+procedure TMainForm.pbToolsMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  H: Integer;
+begin
+  if Button <> mbLeft then Exit;
+  H := ToolsHit(X, Y);
+  if H = -2 then
+  begin
+    FToolsWide := not FToolsWide;
+    SaveSettings;
+    Relayout;
+    Exit;
+  end;
+  if (H < 0) or (H > High(FTools)) then Exit;
+  if FTools[H].Group = GRP_TOOL then
+    SetTool(TProTool(FTools[H].Value))
+  else if FTools[H].Group = GRP_POPUP then
+    OpenPopup(FTools[H].Value);
 end;
 
 { ---------------------------------------------------------------------- }
@@ -11070,6 +11334,7 @@ begin
     POP_HELP: Result := 7;
     POP_SHOP: Result := 3;
     POP_PREC: Result := Length(PREC_DENOMS);
+    POP_MORE: Result := Length(MORE_TOOLS);
   else
     Result := 0;
   end;
@@ -11094,6 +11359,11 @@ begin
     POP_PREC:
       if PREC_DENOMS[I] = 100 then Result := 'hundredths of an inch'
       else Result := Format('1/%d"', [PREC_DENOMS[I]]);
+    POP_MORE:
+      if (I >= 0) and (I <= High(MORE_TOOLS)) then
+        Result := TOOL_NAMES[MORE_TOOLS[I]]
+      else
+        Result := '';
     POP_HELP:
       case I of
         0: Result := 'About  (F1)';
@@ -11128,6 +11398,8 @@ begin
         2: BuildSpoolWizard;
       end;
     POP_PREC: SetLenPrecision(PREC_DENOMS[EnsureRange(I, 0, High(PREC_DENOMS))]);
+    POP_MORE:
+      if (I >= 0) and (I <= High(MORE_TOOLS)) then SetTool(MORE_TOOLS[I]);
     POP_HELP:
       case I of
         0: ShowAbout;
@@ -11146,7 +11418,7 @@ end;
 
 procedure TMainForm.OpenPopup(Which: Integer);
 var
-  N, I, W, H, RowH, LeftX, Bottom: Integer;
+  N, I, W, H, RowH, LeftX, Bottom, TopY: Integer;
   B: TRect;
 begin
   N := PopupCount(Which);
@@ -11159,17 +11431,29 @@ begin
   FCursorWas := pbScreen.Cursor;
   pbScreen.Cursor := crDefault;
 
-  { find the button it belongs to, and hang the list off its left edge }
+  { find the button it belongs to, and hang the list off it }
   LeftX := Round(20 * FUIScale);
-  for I := 0 to High(FDeck) do
-    if ((FDeck[I].Group = GRP_POPUP) and (FDeck[I].Value = Which)) or
-       ((Which = POP_HELP) and (FDeck[I].Group = GRP_ICON) and
-        (FDeck[I].Value = ACT_HELP)) then
+  TopY := -1;
+  { the strip first: a list opened from a button on the left belongs beside
+    that button, not at the foot of the drawing thirty inches away from it }
+  for I := 0 to High(FTools) do
+    if (FTools[I].Group = GRP_POPUP) and (FTools[I].Value = Which) then
     begin
-      B := FDeck[I].Bounds;
-      LeftX := pbDeck.Left + B.Left - pbScreen.Left;
+      B := FTools[I].Bounds;
+      LeftX := Round(4 * FUIScale);
+      TopY := pbTools.Top + B.Top - pbScreen.Top;
       Break;
     end;
+  if TopY < 0 then
+    for I := 0 to High(FDeck) do
+      if ((FDeck[I].Group = GRP_POPUP) and (FDeck[I].Value = Which)) or
+         ((Which = POP_HELP) and (FDeck[I].Group = GRP_ICON) and
+          (FDeck[I].Value = ACT_HELP)) then
+      begin
+        B := FDeck[I].Bounds;
+        LeftX := pbDeck.Left + B.Left - pbScreen.Left;
+        Break;
+      end;
 
   RowH := Round(22 * FUIScale);
   W := Round(190 * FUIScale);
@@ -11179,7 +11463,13 @@ begin
   Bottom := pbScreen.Height - Round(6 * FUIScale);
   if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
   LeftX := EnsureRange(LeftX, 4, Max(4, pbScreen.Width - W - 4));
-  FPopupR := Rect(LeftX, Max(4, Bottom - H), LeftX + W, Bottom);
+  if TopY >= 0 then
+  begin
+    TopY := EnsureRange(TopY, 4, Max(4, pbScreen.Height - H - 4));
+    FPopupR := Rect(LeftX, TopY, LeftX + W, TopY + H);
+  end
+  else
+    FPopupR := Rect(LeftX, Max(4, Bottom - H), LeftX + W, Bottom);
   FScreenDirty := True;
 end;
 
@@ -16033,6 +16323,10 @@ begin
       FSym := EnsureRange(Ini.ReadInteger('pen', 'symmetry', 1), 1, 8);
       FMirror := Ini.ReadBool('pen', 'mirror', False);
       FProDials := Ini.ReadBool('pro', 'dials', False);
+      { Names on, for somebody who has never seen it before.  A program that
+        starts as a column of pictograms is a program a first-timer clicks
+        nothing in. }
+      FToolsWide := Ini.ReadBool('pro', 'toolnames', True);
       FD.ScaleIdx := EnsureRange(Ini.ReadInteger('pro', 'scale', 2), 0, SCALE_COUNT - 1);
       FD.SnapIdx := EnsureRange(Ini.ReadInteger('pro', 'snap', 5), 0, SNAP_COUNT - 1);
       SetLenDenom(Ini.ReadInteger('pro', 'precision', 16));
@@ -16112,6 +16406,7 @@ begin
       Ini.WriteInteger('pen', 'symmetry', FSym);
       Ini.WriteBool('pen', 'mirror', FMirror);
       Ini.WriteBool('pro', 'dials', FProDials);
+      Ini.WriteBool('pro', 'toolnames', FToolsWide);
       Ini.WriteInteger('pro', 'scale', FD.ScaleIdx);
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
       Ini.WriteInteger('pro', 'precision', FLenDenom);

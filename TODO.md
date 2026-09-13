@@ -554,16 +554,66 @@ the renderer, which is why it is small **once the two halves above are done**.
   the seam a title block lives in - so paper space is a new idea with a
   precedent rather than a new architecture.
 
+### Settled
+
+* **The plan view, both halves, and the tool strip - built 13 September
+  2026.**  The slice (`TWorkDoc.SetSlice` / `InSlice`, the CUT strip beside
+  the view button, Ctrl+wheel to travel, Plan From Here on the right button),
+  the render style (no light in plan, pale flat fills), and the tools stood
+  up on the left with MORE and SHOP behind doors.
+
+  Left on it, in rough order of worth:
+
+  * **Hidden lines.**  Nothing below the slice is dashed or faded yet - it is
+    drawn the same as everything else.  That is the next real step towards a
+    sheet that looks like a sheet.
+  * **Poché on a cut wall.**  Faces are included whole when any part of
+    them overlaps the slice; clipping them at the cut plane, so a wall the
+    plane passes through fills solid, is the version an architect would
+    recognise.
+  * **2D mode** as the thin lens on top - hide push/pull, drill, follow me
+    and orbit, lock the view and the plane.  Cheap now that the two halves
+    below it exist, and worth doing after somebody has used the slice for a
+    while and said what it still needs.
+  * `fit` frames the whole model rather than what is in the slice.  Arguable
+    either way; leave it until it annoys somebody.
+
+* **BGRAControls: no, and the measurement is on record.**  Their virtual
+  screen keeps a persistent bitmap, tracks a discarded rect and blits - which
+  is what `TArtSurface` already does, with three layers and a Z buffer on
+  top.  `TBCButton` is windowless, so no window handles either.  And it is
+  not a widget set: no edit, no combo, no spin, which are exactly the
+  controls we keep needing.
+
+  `/rendertime` now splits the paint, and on the barn in Xephyr the whole
+  paint handler is 11.3 ms of which the blit is 0.3 and the guides 0.1.  Our
+  own drawing is under half a millisecond of it; the rest is the widgetset
+  delivering the expose, which any paint surface goes through.  A real screen
+  figure is still wanted, and the breakdown makes it a five second check.
+
+  Where a faster rasteriser would pay is `FillLoops` - 10.7 of a 17.4 ms
+  frame - and not as a swap, because ours writes the Z buffer per pixel and
+  BGRABitmap has no depth at all.
+
+  The hand-skinning stays.  One consistent look on Windows and Linux, and
+  GTK3 cannot get at it.
+
 ### Still to discuss
 
-* **BGRAControls instead of the hand-skinning.**  We skinned this thing
-  ourselves, paint box by paint box, and `uSkin.pas` is 928 lines of it.  The
-  suspicion is that BGRAControls would give a better looking result, better
-  performance and real window handles for less code, and would make GUI
-  changes a matter of properties rather than of reworking a skin.  Tony,
-  13 September: the skins should stay on TOY mode regardless - unless the
-  same look can be rebuilt with them.  The drawing surface itself must not
-  change.  Being talked through now.
+* **The other two visual worlds.**  The main window is eight paint boxes and
+  nothing else; `uSpool`, `uTransition` and `uUpdateForm` are 48 TLabels, 22
+  TEdits, 15 TButtons and 13 TComboBoxes of plain LCL.  A wizard that looks
+  like a system dialog next to a hand-drawn dark chassis is the real "looks
+  unprofessional", and BGRAControls only half-answers it - the edits and
+  combos have no BC equivalent.
+
+* **A control base class.**  The cut strip is the second hand-rolled control
+  in a fortnight (after the command bar) and the pattern is the same each
+  time: hit test, hover, press, paint into a TArtSurface.  One base class
+  with subclasses for button, field, spin and slider is maybe 300 lines and
+  would make the next ten cheap.  Worth doing the next time a control is
+  needed rather than as a project of its own.
+
 
 ## Open questions
 

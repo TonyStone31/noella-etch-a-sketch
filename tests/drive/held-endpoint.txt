@@ -21,9 +21,10 @@ wait 1200
 
 key l
 # rest on the slab, well away from the post, to hold the plane to it
-at 620 440
+# (canvas coordinates: the tool strip down the left moved everything right)
+at 650 455
 wait 700
 # now the top of the post
-at 750 336
+at 773 338
 wait 900
 shot /tmp/hsk-held-endpoint.png

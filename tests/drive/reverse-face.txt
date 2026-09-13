@@ -20,14 +20,14 @@ wait 1500
 shot /tmp/hsk-reverse-before.png
 
 # the middle of the panel, clear of every edge
-at 750 382
+at 780 395
 wait 400
 click right
 wait 800
 shot /tmp/hsk-reverse-menu.png
 
 # Reverse Face, the first row of the menu
-at 820 399
+at 850 412
 wait 400
 click
 wait 1000
