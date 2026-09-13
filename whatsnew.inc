@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A corner you point at is the corner you get.**  Drawing on a face, the' + LineEnding +
+    '  tool holds every point to that face - which is what drawing on it means.' + LineEnding +
+    '  It was holding named points too, so aiming at the top of a rafter twelve' + LineEnding +
+    '  feet up gave you the eave underneath it while the reading said ENDPOINT.' + LineEnding +
+    '  Endpoints, midpoints, centres, crossings and the origin now beat the held' + LineEnding +
+    '  face, the way an axis lock already did.  Everything the program is only' + LineEnding +
+    '  guessing at - on an axis, on a face, on the grid - is still held.' + LineEnding +
+    '' + LineEnding +
+    '- **Both halves of a roof face the sky.**  A roof built as two slopes off a' + LineEnding +
+    '  ridge came out with one slope grey and the other pale blue, because pale' + LineEnding +
+    '  blue is the back of a face and one of them really was inside out.  Areas' + LineEnding +
+    '  the program fills in for you are now turned the same way up as ones you' + LineEnding +
+    '  draw yourself.' + LineEnding +
+    '' + LineEnding +
+    '  Two upright faces back to back - the two ends of a barn - can still show' + LineEnding +
+    '  one of each.  There is no way to tell the outside of a loose wall from the' + LineEnding +
+    '  inside without a solid around it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.12.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

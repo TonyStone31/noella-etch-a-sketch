@@ -277,6 +277,23 @@ job in Pascal now, through LazHIDControl.
   back to parallel for the duration.  Until that is answered this is not
   ready to build.
 
+* **Which way a loose face is meant to point.**  A face the region finder
+  works out is now wound to face along whichever axis it is squarest to,
+  positively - the same rule a face you draw has always followed.  That gets
+  a roof right, because both slopes are squarest to blue.  It cannot get the
+  two ends of a barn right: they are back to back, they both come out facing
+  the same way, and one of them therefore shows its back.  Nor can it help a
+  roof steeper than 45 degrees, where the slopes are squarest to the ground
+  axes and go one each way again.
+
+  Doing better means knowing which side is outside, and the only thing that
+  really knows is a closed solid.  Orienting away from the model's centre
+  would fix the barn and break a plan drawn on the ground beside a building.
+  Making every face agree with its neighbours across shared edges cannot be
+  done at all where three faces meet on one edge - the top of a wall, the
+  wall under it, the gable standing on it - which is every house.  Worth
+  coming back to when there is a real notion of a solid to hang it on.
+
 * **Five things about the transition ticket** are listed at the end of
   `docs/transition-ticket.md` and want checking against a real one - the first
   being which side an arrow names.

@@ -1602,9 +1602,27 @@ var
         Inc(Result);
   end;
 
+  { and how many faces of that area ended up facing the sky }
+  function CountFacingUp(Want: Double): Integer;
+  var
+    J: Integer;
+    Nm: TP3;
+  begin
+    Result := 0;
+    for J := 0 to D.Live - 1 do
+      if D[J].Kind = ekFace then
+      begin
+        Nm := D.FaceNormal(J);
+        if Abs(Abs(LoopArea(D[J].Poly, Nm)) - Want) > 0.5 then Continue;
+        if Nm.Z > 0 then Inc(Result);
+      end;
+  end;
+
 var
   W, L, Wall, Apex: Double;
   C1, C2, C3, C4, T1, T2, T3, T4, AP1, AP2: TP3;
+  Up: Integer;
+  N: TP3;
 begin
   WriteLn('a house: walls, two gables, a ridge and four rafters');
   W := 20; L := 30; Wall := 8; Apex := 16;
@@ -1667,6 +1685,38 @@ begin
     EqI(CountArea(600), 2, 'floor and the top of the walls');
     EqI(CountArea(240), 2, 'the two long walls');
     EqI(CountArea(160), 2, 'the two end walls');
+
+    { And which way each of them faces.
+
+      The walker has no opinion about that: it runs each area whichever way
+      it came to it, so the two slopes either side of a ridge both ran the
+      ridge the same way and one of them came out inside out.  On screen that
+      is one grey slope and one pale blue one, and a report came in asking
+      why.  The regions themselves show it above - the two slopes print with
+      the same normal but for the sign of Z.
+
+      A face put into a document goes through OrientFace on the way in, and
+      then both halves of a roof face the sky. }
+    for I := 0 to High(Regs) do
+      D.AddFace(Regs[I].Outer, 0, False);
+    EqI(D.Live - Length(Segs), Length(Regs), 'every region became a face');
+
+    Up := 0;
+    Slopes := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        N := D.FaceNormal(I);
+        if Abs(Abs(LoopArea(D[I].Poly, N)) - A) > 0.5 then Continue;
+        Inc(Slopes);
+        if N.Z > 0 then Inc(Up);
+      end;
+    EqI(Slopes, 2, 'the two roof slopes came through as faces');
+    EqI(Up, 2, 'and both of them face up, not one of each');
+
+    { nothing else got turned over on the way: a floor still faces up and a
+      wall still faces along its own axis }
+    EqI(CountFacingUp(600), 2, 'floor and ceiling still face up');
   finally
     D.Free;
   end;

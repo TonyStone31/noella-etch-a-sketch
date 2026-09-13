@@ -1738,8 +1738,25 @@ begin
     Standing a gable up off the floor you just drew is the ordinary thing to
     want, and it is what SketchUp does: infer up the blue axis and you leave
     the face.  So the axis wins.  When the axis lies in the plane anyway the
-    hold would have changed nothing, so nothing is lost by skipping it. }
-  if FAxisLock < 0 then
+    hold would have changed nothing, so nothing is lost by skipping it.
+
+    A named point wins for the same reason, and it took a second report to
+    see it.  Building a gable end on a barn, the cursor sat four pixels off
+    the endpoint at the top of a rafter and the reading said ENDPOINT - and
+    the point it handed back was seventy-five pixels lower, down on the eave,
+    because the held plane was the top of the wall and flattening dropped
+    twelve feet of Z on the way past.  The label is set before the flatten,
+    so it named a point the answer was nowhere near, which is what made it
+    read as a snapping fault rather than a plane one.
+
+    An endpoint is a piece of geometry somebody drew and then aimed at.  It
+    is the most definite thing the drawing has to say, and no plane the tool
+    happens to still be holding is more definite than that.  The inferences
+    that are only ever a guess about where the cursor is - on an axis, on a
+    face, on the grid - still get held, which is the case the hold was
+    written for. }
+  if (FAxisLock < 0) and not (FSnapKind in [snEndpoint, snMidpoint, snCenter,
+       snCross, snSubMid, snOrigin, snQuadrant]) then
     Result := HeldToFace(Result);
   { A free point that is resting on a face is On Face, and says so - the way
     SketchUp does.  Only when the point really is on that face's plane: a
@@ -12385,7 +12402,7 @@ begin
         Ink := Was[WasOn[J]].Ink;
         Break;
       end;
-    FD.Doc.AddFaceRaw(R[I].Outer, Ink, False);
+    FD.Doc.AddFace(R[I].Outer, Ink, False);
     { and whatever is cut out of it.  The region finder has worked these out
       all along; nothing was asking for them, so a wall with a window in it
       was filled in solid and the window could only be seen by its edges. }

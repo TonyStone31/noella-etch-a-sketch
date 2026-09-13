@@ -2240,7 +2240,24 @@ end;
 
   So a drawing face is wound to face along whichever axis it is squarest to,
   positively.  Solids are left alone - their windings are built deliberately
-  and mean something. }
+  and mean something.
+
+  The faces the region finder works out did not come through here, and it
+  took a report to notice.  They were added exactly as walked, and for
+  two areas either side of one line the walker runs the shared line the same
+  way round for both - so a barn roof built as two slopes off a ridge came
+  out with one slope facing the sky and the other facing the ground.  Grey on
+  one side, pale blue on the other, which is the drawing saying it is inside
+  out, and it was right.
+
+  The tidy answer would be to make every face agree with its neighbours
+  across shared edges, and that answer is wrong here: a house has edges where
+  three faces meet - the top of a wall, the end wall under it and the gable
+  standing on it - and no winding of the lot can make all three agree.  This
+  rule needs no neighbours and gives the same answer every time.  Its limit
+  is worth knowing: two slopes of a roof steeper than 45 degrees are squarest
+  to the ground axes rather than to blue, and then it is back to picking one
+  of each. }
 procedure OrientFace(var Pts: TP3Array);
 var
   I, N: Integer;

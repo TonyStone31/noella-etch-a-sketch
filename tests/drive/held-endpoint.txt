@@ -1,0 +1,29 @@
+# An endpoint beats the plane the tool is holding.
+#
+# A post stands 12 feet off a slab.  Rest on the slab first, so the working
+# plane is held to it, then point at the top of the post.  The reading used
+# to say ENDPOINT while the point itself had been flattened back down onto
+# the slab - twelve feet away from anything called an endpoint.  That is the
+# barn roof of 12 September 2026: the cursor four pixels off the top of a
+# rafter, the point handed back seventy-five pixels lower, on the eave.
+#
+# What this proves is that Z reads the top of the post, not the slab.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+key escape
+key slash
+type fit
+key return
+wait 1200
+
+key l
+# rest on the slab, well away from the post, to hold the plane to it
+at 620 440
+wait 700
+# now the top of the post
+at 750 336
+wait 900
+shot /tmp/hsk-held-endpoint.png
