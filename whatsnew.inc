@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.11' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Pale blue faces on a solid that is not inside out.**  A round shape - a' + LineEnding +
+    '  revolve, or anything pushed out of one - could show patches of the' + LineEnding +
+    '  back-face colour on its near side.  Nothing was wrong with it: the far side' + LineEnding +
+    '  of the object was showing through the near side, and the far side of' + LineEnding +
+    '  anything is its inside.' + LineEnding +
+    '' + LineEnding +
+    '  Each face works out its depth from three of its corners, and it was taking' + LineEnding +
+    '  the first three whatever they were.  A revolve is made of long thin slices,' + LineEnding +
+    '  and the first three corners of one are very nearly in a line - so the sum' + LineEnding +
+    '  that solves the depth was dividing by a rounding error and getting' + LineEnding +
+    '  nonsense.  It now picks the three corners that make the widest triangle on' + LineEnding +
+    '  screen, which is the same answer arrived at properly.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.10' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
