@@ -362,6 +362,8 @@ type
       is not worked out again.  Safe to keep across sheets: a plane is only
       reused when its segments hash the same, which means it is the same
       plane with the same edges in it. }
+    { how many faces the last rebuild had to turn the right way out }
+    FTurned: Integer;
     FRegionCache: TRegionCache;
 
     { how many clicks have landed in the same spot in quick succession: two
@@ -10956,7 +10958,11 @@ begin
     I := RebuildFlatFaces;
     RenderPro;
     RecomposeAll;
-    FCmdMsg := Format('Worked the faces out again: %d.', [I]);
+    if FTurned > 0 then
+      FCmdMsg := Format('Worked the faces out again: %d, and turned %d of ' +
+        'them the right way out.', [I, FTurned])
+    else
+      FCmdMsg := Format('Worked the faces out again: %d.', [I]);
   end
   else if (W = 'rebuildfaces') or (W = 'reface') then
   begin
@@ -14538,6 +14544,23 @@ begin
   for I := 0 to High(R) do
     FD.Seen[I] := RegionSig(R[I]);
   Took('  seen signatures', Tk);
+
+  { Then make the loose faces agree with each other about which way is out.
+
+    Every face here was wound by OrientFace, which looks at one face at a
+    time and points it along whichever axis it faces most.  That is the best
+    a single face can do, and in company it is wrong about half the time: the
+    two slopes of a roof both come out pointing the same way, when out for
+    one of them is the opposite of out for the other.  A face pointing into
+    the shape it belongs to is drawn in the back-face colour, and that is
+    what reaches somebody - blue patches on a house, from the outside, where
+    people stand.
+
+    It belongs here rather than in the region finder because it is not a
+    question any one region can answer; it needs the neighbours, and the
+    neighbours only all exist once the loop above has finished. }
+  FTurned := FD.Doc.OrientLooseShells;
+  Took('  turning loose faces the right way out', Tk);
 
   Result := Made;
 end;

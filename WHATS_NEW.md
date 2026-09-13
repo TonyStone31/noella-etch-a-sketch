@@ -10,6 +10,25 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Blue patches on shapes that had nothing wrong with them.**  Two separate
+  causes, and neither was what the last two releases were chasing.
+
+  A shape whose top had been divided - by a line drawn across it, or a piece
+  pushed up out of it - was being read as though it had a gap in it, because
+  one long edge on a wall no longer matched the two shorter ones that had
+  replaced it on top.  It was watertight all along, and is now recognised as
+  such, so its far side stops showing through.
+
+  And faces worked out from lines were each wound on their own, which meant
+  the two slopes of a roof could end up pointing opposite ways - one of them
+  into the house.  Looking at it from outside, that one was blue.  They are
+  now settled against their neighbours, so a roof points out of the building
+  rather than into it, and `/rebuild` puts an old drawing right.
+
 ## v2026.09.13.14
 
 ### New

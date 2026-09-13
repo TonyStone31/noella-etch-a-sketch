@@ -801,38 +801,66 @@ for; it would come up short and the rest of the face would fall back to the
 fitted plane.  Measured on the crown: 4,608 cuts over 96 views, never short,
 worst area error 1.1e-14 relative.  Not a problem in practice.
 
-### Next: the blue faces are an OPEN SOLID, not a depth problem
+### Done 13 September: the blue faces, and they were never about depth
 
-Tony sent the robot-and-house drawing again from v2026.09.13.13, saying the
-blue was still there after a `/rebuild`.  It is, and now we know why, and it
-is not what the last two days were spent on.
+Tony resent the robot-and-house drawing from v2026.09.13.13 saying the blue
+survived a `/rebuild`.  It did.  **That drawing has 115 faces of four or more
+corners and not one of them is warped**, so the fitted plane was already exact
+on it and two days of triangulation could not have touched it.  Two entirely
+separate causes, both found by measuring rather than by looking.
 
-**That drawing has no warped faces at all.**  115 faces of four or more
-corners, every one of them flat to the last decimal - so the fitted plane was
-already exact on it and triangulating changed nothing, because there was
-nothing to change.  Reproduced and counted: 33,067 back-face pixels over 96
-views, worst 918 in a single view.  The crown, over the same 96 views, has
-nought.
+**One: a seam divided unevenly.**  A face's back is only hidden when it
+belongs to a closed solid, and closed meant every edge shared by exactly two
+faces run opposite ways.  Group 6 failed that on 14 edges - and every one of
+them was a T-junction.  The top of the shape had been divided into three
+faces; the side walls still had the single long edge they were made with.  So
+one edge on the wall met three shorter ones on the top, and matching whole
+edge against whole edge saw four strangers instead of a seam.  The solid was
+watertight and always had been.
 
-**What it actually is.**  A face's back is only hidden when it belongs to a
-*closed* solid - that is the whole basis of the cull, and rightly so, because
-on anything else the back of a face is genuinely visible and hiding it would
-be wrong.  Of this drawing's ten groups, nine are closed and **group 6 is not**:
-13 faces with 14 edges that are not shared one-each-way.  With the seven loose
-faces on top of that, **20 of 117 faces have nothing protecting them**.
+`GroupClosed` now gives a failing group a second look: cut its edges at any
+corner of the same group lying along them, and count again.  Groups that pass
+the plain count never enter it, which is what keeps it off the cost of an
+ordinary drawing, and there is a ceiling on the work so a big genuinely-broken
+shape cannot turn a frame into a minute proving what the first count said.
 
-**So the job is to find out why group 6 is open**, which is a model question
-and not a renderer one.  Either it is genuinely missing faces - in which case
-the program should say so rather than leaving somebody to work it out from the
-colour - or the region builder is failing to close something it should, which
-would be the real bug.  `tools` for it are already written and in the
-scratchpad: a per-group edge-manifold count that says how many edges are not
-shared one-each-way.
+**Two, and the bigger one: a sheet that disagreed with itself.**  Every face
+the region builder makes is wound by `OrientFace`, which looks at one face and
+points it along whichever axis it faces most.  That is the best a single face
+can do and in company it is wrong about half the time.  On this drawing the
+house's two roof slopes both came out pointing the same way in y, when out for
+one of them is the opposite of out for the other, and both gable ends pointed
+`+x`.  Two of the four faces pointed **into the house**, so what you saw from
+outside - where people stand - was the back-face colour.
 
-Worth adding either way: **something that tells you a solid is open.**  The
-STL export now reports it on the way out, and there is no reason the drawing
-itself should not - a solid that will not print is a solid that will show blue,
-and the person drawing it should not have to learn to read the symptom.
+`TWorkDoc.OrientLooseShells` settles it: faces sharing an edge and disagreeing
+about which way along it they run agree about which way is out, and that
+settles a whole connected sheet from any one face.  Which way round the
+settled sheet goes is a separate question, answered by its own volume if it
+encloses one and otherwise by pointing its faces away from the middle of it -
+a roof has no underside and no volume, so it takes the second answer.  Only
+loose faces, and nothing is carried across an edge where three faces meet,
+because there is no consistent answer there; that was the trap that sank the
+first attempt at this in the morning.
+
+It runs at the end of every `RebuildFlatFaces`, which is the answer to why
+`/rebuild` never helped: **rebuild is what made them, and it wound them one at
+a time.**  The house: 2 of 4 faces pointing inward, now 0 of 4.  Group 6: 13
+faces now culled.  Faces with nothing protecting their backs: 20, now 7.
+
+**What did NOT change, and should not.**  Counted over a full sweep of 96
+views the total back-face colour on that drawing is the same as before, and
+that is right.  A loose face has two sides and one of them is its back; you
+can always walk round and look at it, and it is drawn blue on purpose, because
+that is the only way to see that a face is there at all rather than a hole.
+What was wrong was never that blue existed - it was that it faced the wrong
+way.
+
+**Still worth doing.**  Seven faces on that drawing are single loose faces
+with no neighbour to agree with, and nothing here can help them: with no sheet
+to belong to there is no "out".  If they turn out to matter, the answer is
+probably to notice that they close a solid together with faces that already
+exist and adopt them into it, which is a bigger idea than this one.
 
 ### Settled: a 3D engine, and whether the renderer should be one
 

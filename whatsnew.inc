@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Blue patches on shapes that had nothing wrong with them.**  Two separate' + LineEnding +
+    '  causes, and neither was what the last two releases were chasing.' + LineEnding +
+    '' + LineEnding +
+    '  A shape whose top had been divided - by a line drawn across it, or a piece' + LineEnding +
+    '  pushed up out of it - was being read as though it had a gap in it, because' + LineEnding +
+    '  one long edge on a wall no longer matched the two shorter ones that had' + LineEnding +
+    '  replaced it on top.  It was watertight all along, and is now recognised as' + LineEnding +
+    '  such, so its far side stops showing through.' + LineEnding +
+    '' + LineEnding +
+    '  And faces worked out from lines were each wound on their own, which meant' + LineEnding +
+    '  the two slopes of a roof could end up pointing opposite ways - one of them' + LineEnding +
+    '  into the house.  Looking at it from outside, that one was blue.  They are' + LineEnding +
+    '  now settled against their neighbours, so a roof points out of the building' + LineEnding +
+    '  rather than into it, and `/rebuild` puts an old drawing right.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.14' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

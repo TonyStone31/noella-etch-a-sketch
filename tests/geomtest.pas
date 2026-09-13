@@ -4069,6 +4069,131 @@ begin
 end;
 
 
+{ --- a seam divided unevenly, and a sheet that disagrees with itself -----
+
+  Two faults from Tony's robot-and-house drawing of 13 September, both of
+  which reached him as blue patches and neither of which was a depth problem
+  at all. }
+procedure TestShells;
+var
+  D: TWorkDoc;
+  I, Turned, Grp: Integer;
+  Nm, Cen, Mid: TP3;
+  Bad, NF: Integer;
+begin
+  WriteLn('-- solids with an uneven seam, and sheets that disagree --');
+
+  { --- the T-junction ------------------------------------------------
+        A box, and then its top divided in two.  The side walls still have
+        one long edge where the top now has two short ones, so matching whole
+        edge against whole edge finds four strangers instead of two pairs and
+        calls the box open.  It is not open; it never was. }
+  D := TWorkDoc.Create;
+  try
+    { a box 10 x 4 x 3, built face by face so the winding is plain to read,
+      and with its top in TWO pieces meeting at x = 6 }
+    D.AddFaceRaw([P3(0,0,0), P3(0,4,0), P3(10,4,0), P3(10,0,0)], 0, True);
+    D.AddFaceRaw([P3(0,0,3), P3(6,0,3), P3(6,4,3), P3(0,4,3)], 0, True);
+    D.AddFaceRaw([P3(6,0,3), P3(10,0,3), P3(10,4,3), P3(6,4,3)], 0, True);
+    D.AddFaceRaw([P3(0,0,0), P3(10,0,0), P3(10,0,3), P3(0,0,3)], 0, True);
+    D.AddFaceRaw([P3(10,4,0), P3(0,4,0), P3(0,4,3), P3(10,4,3)], 0, True);
+    D.AddFaceRaw([P3(0,4,0), P3(0,0,0), P3(0,0,3), P3(0,4,3)], 0, True);
+    D.AddFaceRaw([P3(10,0,0), P3(10,4,0), P3(10,4,3), P3(10,0,3)], 0, True);
+    Grp := 7;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then D.SetFaceGroup(I, Grp);
+    NF := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then Inc(NF);
+    Ok(NF = 7, Format('seven faces: a box with its top in two (%d)', [NF]));
+
+    { The long walls run 0..10 in one go where the top now has 0..6 and
+      6..10, so four edges cannot be paired whole against whole - and the box
+      is every bit as watertight as it was before the top was divided. }
+    Ok(D.GroupClosed(Grp),
+      'a box whose top has been divided in two is still a closed box');
+  finally
+    D.Free;
+  end;
+
+  { and a box with a face genuinely missing is still open, which is the whole
+    point of asking }
+  D := TWorkDoc.Create;
+  try
+    D.AddFaceRaw([P3(0,0,0), P3(0,4,0), P3(10,4,0), P3(10,0,0)], 0, True);
+    D.AddFaceRaw([P3(0,0,3), P3(6,0,3), P3(6,4,3), P3(0,4,3)], 0, True);
+    D.AddFaceRaw([P3(6,0,3), P3(10,0,3), P3(10,4,3), P3(6,4,3)], 0, True);
+    D.AddFaceRaw([P3(0,0,0), P3(10,0,0), P3(10,0,3), P3(0,0,3)], 0, True);
+    D.AddFaceRaw([P3(10,4,0), P3(0,4,0), P3(0,4,3), P3(10,4,3)], 0, True);
+    D.AddFaceRaw([P3(0,4,0), P3(0,0,0), P3(0,0,3), P3(0,4,3)], 0, True);
+    Grp := 7;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then D.SetFaceGroup(I, Grp);
+    Ok(not D.GroupClosed(Grp),
+      'but a box with one end missing is still open');
+  finally
+    D.Free;
+  end;
+
+  { --- a sheet that disagrees with itself -----------------------------
+        A roof: two slopes meeting at a ridge, and a gable at each end.
+        Wound one face at a time, half of them come out pointing into the
+        house, and what you see from outside is the back-face colour. }
+  D := TWorkDoc.Create;
+  try
+    { y 0..8, ridge at y 4 and z 6, eaves at z 3, x 0..10 }
+    D.AddFace([P3(0, 0, 3), P3(10, 0, 3), P3(10, 4, 6), P3(0, 4, 6)], 0, False);
+    D.AddFace([P3(0, 4, 6), P3(10, 4, 6), P3(10, 8, 3), P3(0, 8, 3)], 0, False);
+    D.AddFace([P3(0, 0, 3), P3(0, 4, 6), P3(0, 8, 3)], 0, False);
+    D.AddFace([P3(10, 0, 3), P3(10, 4, 6), P3(10, 8, 3)], 0, False);
+    NF := 0;
+    Cen := P3(0, 0, 0);
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and not D[I].Solid then
+      begin
+        Mid := FaceMiddle(D, I);
+        Cen := P3(Cen.X + Mid.X, Cen.Y + Mid.Y, Cen.Z + Mid.Z);
+        Inc(NF);
+      end;
+    Ok(NF = 4, 'a roof of four loose faces');
+    Cen := P3(Cen.X / NF, Cen.Y / NF, Cen.Z / NF);
+
+    Turned := D.OrientLooseShells;
+    Ok(Turned > 0, Format('%d of them had to be turned over', [Turned]));
+
+    Bad := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and not D[I].Solid then
+      begin
+        Nm := D.FaceNormal(I);
+        Mid := FaceMiddle(D, I);
+        if Dot3(Nm, P3(Mid.X - Cen.X, Mid.Y - Cen.Y, Mid.Z - Cen.Z)) < 0 then
+          Inc(Bad);
+      end;
+    Ok(Bad = 0, Format('and now none of them points into the house (%d did)',
+      [Bad]));
+
+    { and doing it twice must change nothing - it is a settling, not a flip }
+    Ok(D.OrientLooseShells = 0, 'running it again turns nothing over');
+  finally
+    D.Free;
+  end;
+
+  { --- and a single loose face is left exactly as it was --------------
+        Nothing to agree with, so nothing to settle; turning it over would
+        only be a guess dressed up as an answer. }
+  D := TWorkDoc.Create;
+  try
+    D.AddFace([P3(0, 0, 0), P3(4, 0, 0), P3(4, 4, 0), P3(0, 4, 0)], 0, False);
+    Nm := D.FaceNormal(0);
+    Ok(D.OrientLooseShells = 0, 'a face on its own is left alone');
+    Ok(Abs(D.FaceNormal(0).Z - Nm.Z) < 1E-9, 'and still points where it did');
+  finally
+    D.Free;
+  end;
+end;
+
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -4126,6 +4251,7 @@ begin
   TestHouse;        WriteLn;
   TestTriangles;    WriteLn;
   TestStl;          WriteLn;
+  TestShells;       WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

@@ -313,6 +313,31 @@ type
       word on which way a face points, for when the rule that wound it
       guessed wrong. }
     function ReverseFace(Index: Integer): Boolean;
+    { Make loose faces agree with their neighbours about which way is out.
+
+      A face worked out from lines is wound by OrientFace, which looks at that
+      face and nothing else and points it along whichever axis it faces most.
+      That is the best a single face can do and it is wrong about half the
+      time in company: the two slopes of a roof both come out pointing the
+      same way in y, when out for one of them is the opposite of out for the
+      other, and so do the two ends of a gable in x.  A face pointing inwards
+      is drawn in the back-face colour, which is how this reaches anybody -
+      as blue patches on a house that has nothing wrong with it.
+
+      Faces that share an edge and disagree about which way along it they run
+      agree about which way is out; that is the whole rule, and it settles a
+      whole connected sheet of them from any one starting face.  Which way
+      round the settled sheet as a whole should go is a separate question,
+      answered by its own volume if it encloses one and otherwise by pointing
+      its faces away from the middle of it.
+
+      Only loose faces, and only across edges where exactly two faces meet.
+      A pushed solid is left alone - it is wound correctly when it is made and
+      its backs are culled anyway - and an edge with three faces on it has no
+      consistent answer, so nothing is carried across it.
+
+      Returns how many faces it turned over. }
+    function OrientLooseShells: Integer;
     { The record of a tunnel: its opening, where the first corner of that
       opening comes out, and whose solid it is. }
     procedure AddBore(const Loop: TP3Array; const FarOfFirst: TP3; G: Integer);
@@ -2538,12 +2563,48 @@ function TWorkDoc.GroupClosed(G: Integer): Boolean;
       Result := Format('%d,%d,%d|%d,%d,%d', [P[0], P[1], P[2], Q[0], Q[1], Q[2]]);
   end;
 
+  { Is P on the segment A-B, strictly between the ends?
+
+    A tenth of a thousandth of a foot off the line - a good deal finer than
+    anything anybody draws, and coarser than the millionths the edge keys are
+    rounded to, so a point that keys as being on the line is never rejected
+    here for being a rounding off it. }
+  function Between(const A, B, P: TP3; out T: Double): Boolean;
+  var
+    DX, DY, DZ, L2, CX, CY, CZ: Double;
+  begin
+    Result := False;
+    DX := B.X - A.X; DY := B.Y - A.Y; DZ := B.Z - A.Z;
+    L2 := DX * DX + DY * DY + DZ * DZ;
+    if L2 < 1E-18 then Exit;
+    T := ((P.X - A.X) * DX + (P.Y - A.Y) * DY + (P.Z - A.Z) * DZ) / L2;
+    if (T <= 1E-9) or (T >= 1 - 1E-9) then Exit;
+    CX := (P.Y - A.Y) * DZ - (P.Z - A.Z) * DY;
+    CY := (P.Z - A.Z) * DX - (P.X - A.X) * DZ;
+    CZ := (P.X - A.X) * DY - (P.Y - A.Y) * DX;
+    Result := (CX * CX + CY * CY + CZ * CZ) <= 1E-10 * L2;
+  end;
+
 var
   I, J, N, K, Top: Integer;
   Ix: TFPHashList;
   Key: string;
   Way: PtrInt;
   Seen: array of Integer;
+  { the endpoints behind each entry in the hash, so an edge that did not
+    match can be looked at again rather than only counted }
+  EdgeA, EdgeB: array of TP3;
+  EdgeG: array of Integer;
+  { the second chance, for groups the plain count says are open }
+  Suspect: array of Boolean;
+  Verts: array of TP3;
+  NV, NU, Budget: Integer;
+  Cuts: array of Double;
+  NCut, C1, C2: Integer;
+  T, TSwap: Double;
+  PA, PB, CutA, CutB: TP3;
+  Jx: TFPHashList;
+  Shut: Boolean;
 begin
   Result := False;
   if G <= 0 then Exit;
@@ -2575,20 +2636,171 @@ begin
           Key := IntToStr(FEnts[I].Grp) + '@' +
                  EKey(FEnts[I].Poly[J], FEnts[I].Poly[(J + 1) mod N], Way);
           K := Ix.FindIndexOf(Key);
-          if K < 0 then Ix.Add(Key, Pointer(Way + 8))
+          if K < 0 then
+          begin
+            Ix.Add(Key, Pointer(Way + 8));
+            { in step with the hash, which appends, so entry n of one is
+              entry n of the other }
+            if Length(EdgeA) < Ix.Count then
+            begin
+              SetLength(EdgeA, Ix.Count * 2);
+              SetLength(EdgeB, Ix.Count * 2);
+              SetLength(EdgeG, Ix.Count * 2);
+            end;
+            EdgeA[Ix.Count - 1] := FEnts[I].Poly[J];
+            EdgeB[Ix.Count - 1] := FEnts[I].Poly[(J + 1) mod N];
+            EdgeG[Ix.Count - 1] := FEnts[I].Grp;
+          end
           else Ix.Items[K] := Pointer(PtrInt(Ix.Items[K]) + Way);
         end;
       end;
       { an edge used once each way leaves its tally back at eight; anything
         else - used once, used twice the same way round, used three times -
         belongs to a shape that is not closed }
+      SetLength(Suspect, Top + 1);
+      for I := 0 to Top do Suspect[I] := False;
       for I := 0 to Ix.Count - 1 do
         if PtrInt(Ix.Items[I]) <> 8 then
         begin
-          Key := Ix.NameOfIndex(I);
-          K := StrToIntDef(Copy(Key, 1, Pos('@', Key) - 1), 0);
-          if (K > 0) and (K <= Top) then FClosedGrp[K] := False;
+          K := EdgeG[I];
+          if (K > 0) and (K <= Top) then
+          begin
+            FClosedGrp[K] := False;
+            Suspect[K] := True;
+          end;
         end;
+
+      { --- second chance: the same edge, cut into different lengths ------
+
+        A wall meets a roof along one line.  If the roof is one face, both
+        sides of that line are one edge and they match.  If the roof has
+        since been divided - a line drawn across it, a piece pushed up out of
+        it - the roof side of the line is now two or three shorter edges
+        while the wall side is still one long one, and matching whole edges
+        against whole edges sees four strangers rather than a seam.  A
+        T-junction, and the shape is every bit as watertight as it looks.
+
+        Tony's robot, 13 September: thirteen faces, and fourteen edges the
+        plain count could not pair off - every one of them a long edge on a
+        side wall against the two or three pieces of it on the top.  The
+        solid was closed and had always been closed; being told it was not is
+        what left its backs undrawn-over and showing blue, and no amount of
+        rebuilding helped because there was nothing wrong to rebuild.
+
+        So: for a group that failed, cut its unmatched edges at any corner of
+        that same group lying along them, and count again.  If the pieces pair
+        off now, the seam was only ever divided unevenly.  Groups that passed
+        do not come in here at all, which is what keeps this off the cost of
+        an ordinary drawing. }
+      for K := 1 to Top do
+      begin
+        if not Suspect[K] then Continue;
+
+        { the group's own corners }
+        NV := 0;
+        Jx := TFPHashList.Create;
+        try
+          for I := 0 to FLive - 1 do
+          begin
+            if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
+            if FEnts[I].Grp <> K then Continue;
+            for J := 0 to High(FEnts[I].Poly) do
+            begin
+              Key := Format('%d,%d,%d', [Round(FEnts[I].Poly[J].X * 1E6),
+                Round(FEnts[I].Poly[J].Y * 1E6), Round(FEnts[I].Poly[J].Z * 1E6)]);
+              if Jx.FindIndexOf(Key) >= 0 then Continue;
+              Jx.Add(Key, Pointer(1));
+              if NV >= Length(Verts) then SetLength(Verts, Max(64, NV * 2));
+              Verts[NV] := FEnts[I].Poly[J];
+              Inc(NV);
+            end;
+          end;
+        finally
+          Jx.Free;
+        end;
+
+        { how much work a second look would be: every edge of the group
+          against every corner of it }
+        NU := 0;
+        for I := 0 to FLive - 1 do
+          if (FEnts[I].Kind = ekFace) and FEnts[I].Solid and (FEnts[I].Grp = K) then
+            Inc(NU, Length(FEnts[I].Poly));
+
+        { a ceiling on it, so a big genuinely-broken shape cannot turn a
+          frame into a minute proving what the first count already said }
+        Budget := 4000000;
+        if (NU = 0) or (NV = 0) or (Int64(NU) * NV > Budget) then Continue;
+
+        { Count the group again from the beginning, with every edge cut at
+          any corner of the group that lies along it.  Doing it from scratch
+          rather than patching up the first count is the whole reason this is
+          simple: each piece is a real run from one point to the next, told
+          apart and counted exactly as a whole edge would be, and there is no
+          question of what sense to give it. }
+        Jx := TFPHashList.Create;
+        try
+          for I := 0 to FLive - 1 do
+          begin
+            if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
+            if FEnts[I].Grp <> K then Continue;
+            N := Length(FEnts[I].Poly);
+            if N < 3 then Continue;
+            for J := 0 to N - 1 do
+            begin
+              PA := FEnts[I].Poly[J];
+              PB := FEnts[I].Poly[(J + 1) mod N];
+              NCut := 0;
+              for C2 := 0 to NV - 1 do
+                if Between(PA, PB, Verts[C2], T) then
+                begin
+                  if NCut >= Length(Cuts) then SetLength(Cuts, Max(8, NCut * 2));
+                  Cuts[NCut] := T;
+                  Inc(NCut);
+                end;
+              for C1 := 1 to NCut - 1 do
+              begin
+                TSwap := Cuts[C1];
+                C2 := C1 - 1;
+                while (C2 >= 0) and (Cuts[C2] > TSwap) do
+                begin
+                  Cuts[C2 + 1] := Cuts[C2];
+                  Dec(C2);
+                end;
+                Cuts[C2 + 1] := TSwap;
+              end;
+
+              CutA := PA;
+              for C1 := 0 to NCut do
+              begin
+                if C1 = NCut then CutB := PB
+                else
+                begin
+                  T := Cuts[C1];
+                  CutB := P3(PA.X + (PB.X - PA.X) * T,
+                             PA.Y + (PB.Y - PA.Y) * T,
+                             PA.Z + (PB.Z - PA.Z) * T);
+                end;
+                Key := EKey(CutA, CutB, Way);
+                C2 := Jx.FindIndexOf(Key);
+                if C2 < 0 then Jx.Add(Key, Pointer(Way + 8))
+                else Jx.Items[C2] := Pointer(PtrInt(Jx.Items[C2]) + Way);
+                CutA := CutB;
+              end;
+            end;
+          end;
+
+          Shut := Jx.Count > 0;
+          for I := 0 to Jx.Count - 1 do
+            if PtrInt(Jx.Items[I]) <> 8 then
+            begin
+              Shut := False;
+              Break;
+            end;
+          if Shut then FClosedGrp[K] := True;
+        finally
+          Jx.Free;
+        end;
+      end;
     finally
       Ix.Free;
     end;
@@ -2648,6 +2860,34 @@ end;
   is worth knowing: two slopes of a roof steeper than 45 degrees are squarest
   to the ground axes rather than to blue, and then it is back to picking one
   of each. }
+{ A name for the edge between two points that comes out the same whichever
+  end you start from, and a sign saying which way round this use ran.
+
+  Rounded to a millionth of a unit, which is far finer than anything anybody
+  draws and coarse enough that two points meant to be the same one always
+  key alike. }
+function EdgeKeyOf(const A, B: TP3; out Way: PtrInt): string;
+var
+  P, Q: array[0..2] of Int64;
+  I: Integer;
+  Swap: Boolean;
+begin
+  P[0] := Round(A.X * 1E6); P[1] := Round(A.Y * 1E6); P[2] := Round(A.Z * 1E6);
+  Q[0] := Round(B.X * 1E6); Q[1] := Round(B.Y * 1E6); Q[2] := Round(B.Z * 1E6);
+  Swap := False;
+  for I := 0 to 2 do
+    if P[I] <> Q[I] then
+    begin
+      Swap := P[I] > Q[I];
+      Break;
+    end;
+  if Swap then Way := -1 else Way := 1;
+  if Swap then
+    Result := Format('%d,%d,%d|%d,%d,%d', [Q[0], Q[1], Q[2], P[0], P[1], P[2]])
+  else
+    Result := Format('%d,%d,%d|%d,%d,%d', [P[0], P[1], P[2], Q[0], Q[1], Q[2]]);
+end;
+
 procedure OrientFace(var Pts: TP3Array);
 var
   I, N: Integer;
@@ -2689,6 +2929,219 @@ end;
   The holes go round with the outline.  Nothing reads their winding - every
   fill in the program is even-odd, and so is the one in the SVG - but a face
   turned over should be turned over, not turned over in part. }
+function TWorkDoc.OrientLooseShells: Integer;
+type
+  TUse = record
+    Face: Integer;   { slot in Cand, not an entity index }
+    Dir: PtrInt;     { +1 if it ran the way the key is written, -1 if not }
+  end;
+var
+  Cand: array of Integer;         { entity index of each slot }
+  Slot: array of Integer;         { slot of each entity, -1 if not a candidate }
+  Flip: array of Boolean;
+  Comp: array of Integer;
+  UseA, UseB: array of TUse;      { the one or two faces on each edge }
+  NUse: array of Integer;
+  Ix: TFPHashList;
+  Queue: array of Integer;
+  Members: array of Integer;
+  I, J, K, N, NC, E, Head, Tail, NComp, NMem, Other: Integer;
+  Key: string;
+  Way: PtrInt;
+  Nm, Cen, Acc, Mid: TP3;
+  Vol, Sgn, Ar, W: Double;
+
+  { twice the vector area, by Newell - the same sum OrientFace uses, which
+    points along the face's normal and is as long as twice its area }
+  function Newell(const Pts: TP3Array): TP3;
+  var
+    M, Cnt: Integer;
+    Q: TP3;
+  begin
+    Result := P3(0, 0, 0);
+    Cnt := Length(Pts);
+    for M := 0 to Cnt - 1 do
+    begin
+      Q := Pts[(M + 1) mod Cnt];
+      Result.X := Result.X + (Pts[M].Y - Q.Y) * (Pts[M].Z + Q.Z);
+      Result.Y := Result.Y + (Pts[M].Z - Q.Z) * (Pts[M].X + Q.X);
+      Result.Z := Result.Z + (Pts[M].X - Q.X) * (Pts[M].Y + Q.Y);
+    end;
+  end;
+
+  function Middle(const Pts: TP3Array): TP3;
+  var
+    M, Cnt: Integer;
+  begin
+    Result := P3(0, 0, 0);
+    Cnt := Length(Pts);
+    if Cnt = 0 then Exit;
+    for M := 0 to Cnt - 1 do
+    begin
+      Result.X := Result.X + Pts[M].X;
+      Result.Y := Result.Y + Pts[M].Y;
+      Result.Z := Result.Z + Pts[M].Z;
+    end;
+    Result.X := Result.X / Cnt;
+    Result.Y := Result.Y / Cnt;
+    Result.Z := Result.Z / Cnt;
+  end;
+
+  { which way this face runs along that edge, allowing for a pending turn }
+  function DirOf(const U: TUse): Integer;
+  begin
+    if Flip[U.Face] then Result := -U.Dir else Result := U.Dir;
+  end;
+
+begin
+  Result := 0;
+  SetLength(Slot, FLive);
+  for I := 0 to FLive - 1 do Slot[I] := -1;
+  NC := 0;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    if FEnts[I].Solid then Continue;          { a made solid winds itself }
+    if Length(FEnts[I].Poly) < 3 then Continue;
+    if NC >= Length(Cand) then SetLength(Cand, Max(32, NC * 2));
+    Cand[NC] := I;
+    Slot[I] := NC;
+    Inc(NC);
+  end;
+  if NC < 2 then Exit;
+  SetLength(Cand, NC);
+  SetLength(Flip, NC);
+  SetLength(Comp, NC);
+  for I := 0 to NC - 1 do
+  begin
+    Flip[I] := False;
+    Comp[I] := -1;
+  end;
+
+  { every edge, and the one or two candidate faces along it }
+  Ix := TFPHashList.Create;
+  try
+    SetLength(UseA, 0);
+    for I := 0 to NC - 1 do
+    begin
+      N := Length(FEnts[Cand[I]].Poly);
+      for J := 0 to N - 1 do
+      begin
+        Key := EdgeKeyOf(FEnts[Cand[I]].Poly[J],
+                         FEnts[Cand[I]].Poly[(J + 1) mod N], Way);
+        K := Ix.FindIndexOf(Key);
+        if K < 0 then
+        begin
+          Ix.Add(Key, Pointer(PtrInt(Ix.Count) + 1));
+          E := Ix.Count - 1;
+          if E >= Length(UseA) then
+          begin
+            SetLength(UseA, Max(64, (E + 1) * 2));
+            SetLength(UseB, Length(UseA));
+            SetLength(NUse, Length(UseA));
+          end;
+          NUse[E] := 1;
+          UseA[E].Face := I;
+          UseA[E].Dir := Way;
+        end
+        else
+        begin
+          E := PtrInt(Ix.Items[K]) - 1;
+          if NUse[E] = 1 then
+          begin
+            UseB[E].Face := I;
+            UseB[E].Dir := Way;
+          end;
+          Inc(NUse[E]);
+        end;
+      end;
+    end;
+
+    { settle each connected sheet from one face outwards }
+    SetLength(Queue, NC);
+    SetLength(Members, NC);
+    NComp := 0;
+    for I := 0 to NC - 1 do
+    begin
+      if Comp[I] >= 0 then Continue;
+      Inc(NComp);
+      Head := 0; Tail := 0;
+      Queue[Tail] := I; Inc(Tail);
+      Comp[I] := NComp;
+      NMem := 0;
+      while Head < Tail do
+      begin
+        K := Queue[Head]; Inc(Head);
+        Members[NMem] := K; Inc(NMem);
+        N := Length(FEnts[Cand[K]].Poly);
+        for J := 0 to N - 1 do
+        begin
+          Key := EdgeKeyOf(FEnts[Cand[K]].Poly[J],
+                           FEnts[Cand[K]].Poly[(J + 1) mod N], Way);
+          E := Ix.FindIndexOf(Key);
+          if E < 0 then Continue;
+          E := PtrInt(Ix.Items[E]) - 1;
+          { only where exactly two faces meet - three has no answer }
+          if NUse[E] <> 2 then Continue;
+          if UseA[E].Face = K then Other := UseB[E].Face
+          else Other := UseA[E].Face;
+          if Other = K then Continue;
+          if Comp[Other] >= 0 then Continue;
+          { neighbours agree about out when they run the shared edge
+            opposite ways }
+          if UseA[E].Face = K then
+            Flip[Other] := (DirOf(UseA[E]) = UseB[E].Dir)
+          else
+            Flip[Other] := (DirOf(UseB[E]) = UseA[E].Dir);
+          Comp[Other] := NComp;
+          Queue[Tail] := Other; Inc(Tail);
+        end;
+      end;
+
+      if NMem < 2 then Continue;
+
+      { and which way round the settled sheet goes.  If it holds a volume,
+        that decides it; if it does not - a roof with no underside - point
+        its faces away from the middle of it, weighted by how big they are so
+        a scrap of a face cannot outvote a wall. }
+      Cen := P3(0, 0, 0);
+      for J := 0 to NMem - 1 do
+      begin
+        Mid := Middle(FEnts[Cand[Members[J]]].Poly);
+        Cen.X := Cen.X + Mid.X / NMem;
+        Cen.Y := Cen.Y + Mid.Y / NMem;
+        Cen.Z := Cen.Z + Mid.Z / NMem;
+      end;
+      Vol := 0;
+      W := 0;
+      for J := 0 to NMem - 1 do
+      begin
+        K := Members[J];
+        Acc := Newell(FEnts[Cand[K]].Poly);
+        if Flip[K] then Acc := P3(-Acc.X, -Acc.Y, -Acc.Z);
+        Mid := Middle(FEnts[Cand[K]].Poly);
+        Vol := Vol + (Mid.X * Acc.X + Mid.Y * Acc.Y + Mid.Z * Acc.Z) / 6;
+        Ar := Sqrt(Acc.X * Acc.X + Acc.Y * Acc.Y + Acc.Z * Acc.Z) / 2;
+        Nm := P3(Mid.X - Cen.X, Mid.Y - Cen.Y, Mid.Z - Cen.Z);
+        W := W + Ar * (Nm.X * Acc.X + Nm.Y * Acc.Y + Nm.Z * Acc.Z);
+      end;
+      if Abs(Vol) > 1E-6 then Sgn := Vol else Sgn := W;
+      if Sgn < 0 then
+        for J := 0 to NMem - 1 do
+          Flip[Members[J]] := not Flip[Members[J]];
+    end;
+  finally
+    Ix.Free;
+  end;
+
+  for I := 0 to NC - 1 do
+    if Flip[I] then
+    begin
+      ReverseFace(Cand[I]);
+      Inc(Result);
+    end;
+end;
+
 function TWorkDoc.ReverseFace(Index: Integer): Boolean;
 
   procedure Flip(var Loop: array of TP3);
