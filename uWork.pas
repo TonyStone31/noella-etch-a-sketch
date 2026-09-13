@@ -2753,10 +2753,21 @@ begin
     K2 := (K + 1) mod N;
     if OnAxis[K] and OnAxis[K2] then Continue;
     E := P3(Poly[K2].X - Poly[K].X, Poly[K2].Y - Poly[K].Y, Poly[K2].Z - Poly[K].Z);
-    Side := Norm3(Cross3(Nf, E));
-    Mid := P3((Poly[K].X + Poly[K2].X) / 2, (Poly[K].Y + Poly[K2].Y) / 2, (Poly[K].Z + Poly[K2].Z) / 2);
-    if Dot3(Side, P3(Mid.X - Cen.X, Mid.Y - Cen.Y, Mid.Z - Cen.Z)) < 0 then
-      Side := P3(-Side.X, -Side.Y, -Side.Z);
+    { Which way is out of the profile at this edge.
+
+      It used to be worked out by pointing away from the middle of the
+      profile, and that is only right for a fat one.  A wine glass is a thin
+      C - up the outside, over the rim, back down the inside, out along the
+      foot - and the middle of a C is in the hollow, not in the material, so
+      every edge on the far side of it was turned inside out.  The result
+      came off the lathe with its bowl in pale blue.
+
+      The polygon already knows.  FaceNormal is its Newell normal, which is
+      tied to the winding, and for any simple polygon - concave as readily as
+      convex - the outward side of an edge is the edge crossed into that
+      normal.  No middle, no guess, and it does not care what shape the
+      profile is. }
+    Side := Norm3(Cross3(E, Nf));
     for S := 0 to Steps - 1 do
     begin
       Q[0] := Rings[S][K]; Q[1] := Rings[S][K2]; Q[2] := Rings[S + 1][K2]; Q[3] := Rings[S + 1][K];

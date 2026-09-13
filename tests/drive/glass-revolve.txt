@@ -1,0 +1,39 @@
+# A wine glass off the lathe.
+#
+# Tony's friend showed him a Revolve in another program - draw the profile
+# of a glass, spin it round an axis - and he came to ask why we could not do
+# that.  We have been able to since 6 September.  It was called FOLLOW ME,
+# which is SketchUp's name for sweeping along a path and nobody else's name
+# for anything, and it had ended up behind the MORE door.
+#
+# The fixture is the outline of half a glass, seen edge on, closed into a
+# face: up the outside, over the rim, down the inside, out along the foot.
+#
+# What this proves: REVOLVE spins it into a hollow glass with a stem and a
+# foot, and every face comes out the right way round - the winding rule used
+# to point away from the middle of the profile, and the middle of a C is in
+# the hollow.
+#
+# Driven through /replay rather than by clicking, so it does not have to be
+# re-derived every time the chrome moves.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+key escape
+key slash
+type fit
+key return
+wait 1000
+shot /tmp/hsk-glass-profile.png
+
+key slash
+type replay tests/drive/glass.replay
+key return
+wait 2500
+key slash
+type fit
+key return
+wait 1200
+shot /tmp/hsk-glass.png

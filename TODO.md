@@ -619,6 +619,30 @@ what they say is simply not there.  Two halves, and they are separable:
 
 Do the wrap first and see whether the second half is still wanted.
 
+### The lesson of 13 September: it exists and nobody can find it
+
+Twice in one day, and the second time from the person who commissioned the
+feature.
+
+* PLAN was not on the VIEW menu.  Everything built into the plan view this
+  week - the cut, the drawing style, the dashed hidden lines - was reachable
+  only by knowing `/plan`.
+* Revolve has existed since 6 September.  It was called FOLLOW ME, which is
+  SketchUp's name for sweeping along a path and nobody else's name for
+  anything, and it sat behind the MORE door.  Tony went and asked a friend's
+  CAD program for a lathe and came back to ask why we did not have one.
+
+Neither was a missing feature.  Both were a name or a door.  So, as a rule
+to check anything against before it ships:
+
+> **A feature nobody can reach is a feature nobody has.**  Before it is
+> called done: is there a way to it with the mouse alone; is it called what
+> the trade calls it rather than what the program we copied calls it; and
+> would somebody who had never been told go looking where it is?
+
+`/plan` and `/revolve` both existed the whole time.  A command is not a way
+in - it is a shortcut for somebody who already knows.
+
 ### Still to discuss
 
 * **The other two visual worlds - and Tony has already solved this once.**

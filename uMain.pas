@@ -1134,7 +1134,7 @@ const
   TOOL_NAMES: array[TProTool] of string =
     ('SELECT', 'MOVE', 'LINE', 'RECT', 'ARC', 'CIRCLE', 'PUSH/PULL', 'TEXT',
      'ERASE', 'MEASURE', 'DIMENSION', 'ORBIT', 'OFFSET', 'ROTATE',
-     'PROTRACTOR', 'DRILL', 'FOLLOW ME');
+     'PROTRACTOR', 'DRILL', 'REVOLVE');
 
   { The tools in three groups of four, laid out two rows deep, so a group
     reads as a group and every name has room to be read.  The grouping is
@@ -1157,10 +1157,10 @@ const
     Orbit is in the main set although it draws nothing, because getting round
     the back of the model is half of what makes the 3D worth having and a
     laptop without a middle button has no other way in. }
-  MAIN_TOOLS: array[0..12] of TProTool =
+  MAIN_TOOLS: array[0..13] of TProTool =
     (ptSelect,
      ptLine, ptRect, ptCircle, ptArc,
-     ptPush,
+     ptPush, ptFollow,
      ptMove, ptErase,
      ptMeasure, ptProtractor, ptDim, ptText,
      ptOrbit);
@@ -1168,12 +1168,19 @@ const
     are what a tool is FOR - pick something, draw something, stand it up,
     change it, measure and say what it is, get about - and a line between
     them is what turns a column of thirteen into six short lists. }
-  MAIN_BREAKS: array[0..4] of Integer = (1, 5, 6, 8, 12);
-  { The four that are neither common nor obvious.  Measure and the protractor
-    came back out of here on the first day the strip existed: measuring is
-    not a specialist act, it is most of why somebody opened the program. }
-  MORE_TOOLS: array[0..3] of TProTool =
-    (ptRotate, ptOffset, ptFollow, ptDrill);
+  MAIN_BREAKS: array[0..4] of Integer = (1, 5, 7, 9, 13);
+  { The three that are neither common nor obvious.  Two have come back out of
+    here already.  Measure and the protractor went on the first day the strip
+    existed - measuring is not a specialist act, it is most of why somebody
+    opened the program.  Revolve went on the second, and for a worse reason:
+    a friend showed Tony a lathe in another program and he came to ask why we
+    did not have one.  We have had one since the sixth of September.  It was
+    called FOLLOW ME, which is SketchUp's name for sweeping along a path and
+    nobody else's name for anything, and it was behind this door.  Beside
+    push/pull now, which is the other tool that turns a flat thing into a
+    solid one, and called what everybody but SketchUp calls it. }
+  MORE_TOOLS: array[0..2] of TProTool =
+    (ptRotate, ptOffset, ptDrill);
 
   GRP_COLS: array[0..2] of Integer = (3, 3, 3);
   GRP_N:    array[0..2] of Integer = (6, 5, 6);
@@ -1207,9 +1214,10 @@ const
       'angle, or type it.  Lays a guide line at that angle.',
     'Drill - push a shape through everything.  Where the hole crosses a ' +
       'tunnel already there, both are cut open into each other.  (B)',
-    'Follow Me - spin a face round an axis into a solid.  Click the face, ' +
-      'then two points on the axis or a circle to follow round; type the ' +
-      'angle first for less than a full turn.');
+    'Revolve - spin a face round an axis into a solid.  Draw the outline of ' +
+      'half of it, click the face, then click two points on the axis - or a ' +
+      'circle to follow round.  Type an angle first for a part turn.  This ' +
+      'is SketchUp''s Follow Me, and it will also sweep a face along a line.');
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -8472,7 +8480,7 @@ begin
       ptArc:    S2 := Format('click one end - %d segments: + - or type 12s', [FSidesArc]);
       ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
       ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
-      ptFollow: S2 := 'click the face to spin round an axis';
+      ptFollow: S2 := 'click the outline to spin - the half of the shape, seen edge on';
       ptErase:  S2 := 'click anything to delete it - or hold and drag across several';
       ptText:   S2 := 'space or click - the note points here';
       ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
@@ -10923,6 +10931,7 @@ var
   Cmd, Rest: string;
   T: TProTool;
   Fired: Boolean;
+  SP: TPointF;
 
   function Num(K: Integer): Double;
   begin
@@ -10949,6 +10958,18 @@ begin
       if (Cmd = 'press') and (P.Count >= 4) then
       begin
         FCur := P3(Num(1), Num(2), Num(3));
+        { And where that lands on the screen.
+
+          A press was replayed as a world point and nothing else, which is
+          right for the tools that work in the model - line, rectangle,
+          move - and silently wrong for every tool that asks what is under
+          the pointer.  Revolve wants the face there, push/pull wants the
+          face there, the eraser wants whatever is there, and all three were
+          being asked about wherever the mouse happened to have been left.
+          The point is known, the projection is to hand, so say it. }
+        SP := ScreenOf(FCur);
+        FMouseSX := Round(SP.X);
+        FMouseSY := Round(SP.Y);
         FSnapKind := snGrid;
         ProClick;
       end

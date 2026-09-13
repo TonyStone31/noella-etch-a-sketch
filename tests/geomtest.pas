@@ -1382,6 +1382,74 @@ end;
   in the slice is what gets drawn, and what is in the slice is what can be
   snapped to.  Geometry that is hidden but still grabs the cursor is the
   fault this exists to prevent. }
+{ A wine glass off the lathe.
+
+  Draw the outline of half of it, seen edge on - up the outside, over the
+  rim, back down the inside, out along the foot - and spin that round the
+  blue axis.  Which is what every program with a Revolve does, and what this
+  one has done since the sixth of September under the name FOLLOW ME, where
+  nobody found it. }
+procedure TestRevolveGlass;
+const
+  { the profile, in feet, in the XZ plane: (radius, height) }
+  PR: array[0..10, 0..1] of Double = (
+    (0.04, 0.00), (0.40, 0.00), (0.40, 0.04), (0.05, 0.18),
+    (0.05, 0.62), (0.33, 0.95), (0.36, 1.42), (0.31, 1.42),
+    (0.28, 0.97), (0.04, 0.70), (0.04, 0.00));
+var
+  D: TWorkDoc;
+  Pts: TP3Array;
+  I, Face, First, Made, Sides: Integer;
+  Lo, Hi: TP3;
+begin
+  WriteLn('a wine glass, off the lathe');
+  D := TWorkDoc.Create;
+  try
+    SetLength(Pts, 10);
+    for I := 0 to 9 do Pts[I] := P3(PR[I, 0], 0, PR[I, 1]);
+    D.AddFace(Pts, 0, False);
+    Face := D.Live - 1;
+    Ok(D[Face].Kind = ekFace, 'the outline is a face');
+
+    Sides := 24;
+    First := D.Revolve(Face, P3(0, 0, 0), P3(0, 0, 1), 2 * Pi, Sides);
+    Ok(First >= 0, 'it spins');
+
+    Made := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (I <> Face) then Inc(Made);
+    { one quad per profile side per step, less the two that lie on the axis
+      and sweep nothing }
+    Ok(Made >= Sides * 6, Format('and makes a skin of it: %d faces', [Made]));
+
+    { A glass is as wide as the widest part of its outline, in both
+      directions, and no taller than the outline is.  That is the whole
+      check: if the axis or the angle were wrong this is what would say so. }
+    Ok(D.Bounds(Lo, Hi), 'it has a size');
+    Ok((Abs(Lo.X + 0.40) < 0.02) and (Abs(Hi.X - 0.40) < 0.02),
+       Format('it is 0.40 either side in X: %.3f to %.3f', [Lo.X, Hi.X]));
+    Ok((Abs(Lo.Y + 0.40) < 0.02) and (Abs(Hi.Y - 0.40) < 0.02),
+       Format('and the same in Y, so it is round: %.3f to %.3f', [Lo.Y, Hi.Y]));
+    Ok((Abs(Lo.Z) < 1E-6) and (Abs(Hi.Z - 1.42) < 1E-6),
+       Format('and stands exactly as tall as the outline: %.3f to %.3f',
+              [Lo.Z, Hi.Z]));
+
+    { half a turn is half a glass, and it still reaches as high }
+    D.Free;
+    D := TWorkDoc.Create;
+    SetLength(Pts, 10);
+    for I := 0 to 9 do Pts[I] := P3(PR[I, 0], 0, PR[I, 1]);
+    D.AddFace(Pts, 0, False);
+    Face := D.Live - 1;
+    Ok(D.Revolve(Face, P3(0, 0, 0), P3(0, 0, 1), Pi, Sides) >= 0,
+       'and a half turn is allowed');
+    Ok(D.Bounds(Lo, Hi) and (Abs(Hi.Z - 1.42) < 1E-6) and (Lo.Y > -0.02),
+       'which reaches as high and only goes round one side');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestSlice;
 var
   D: TWorkDoc;
@@ -3605,6 +3673,7 @@ begin
   TestDimNote;      WriteLn;
   TestDimResize;    WriteLn;
   TestSlice;        WriteLn;
+  TestRevolveGlass; WriteLn;
   TestNotes;        WriteLn;
   TestVersions;
   TestPatternDxf;  WriteLn;
