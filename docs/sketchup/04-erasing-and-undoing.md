@@ -26,7 +26,8 @@ all.
 * Our eraser highlights the sweep in **red**, not blue, because blue is what we
   use for the selection and the two would read the same.
 * Our eraser will delete a bare face if the cursor is over one and not over an
-  edge.  In SketchUp that is the right-click Erase command, which we do not have
-  yet — we have no context menus.  When context menus arrive this should move.
-* Delete on a selection is our stand-in for right-click > Erase, and it does
+  edge.  In SketchUp that is the right-click Erase command.  We now have that
+  too — right-click with the select tool and Erase is on the menu — so the
+  eraser's own behaviour here is a convenience rather than the only way in.
+* Delete on a selection does the same thing from the keyboard, and it does
   delete faces.

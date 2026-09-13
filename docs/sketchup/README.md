@@ -23,6 +23,8 @@ browser, so the HTML on disk was empty.  These notes are the reference copy.
 | [10-offset.md](10-offset.md) | Offset | no |
 | [11-text-and-dimensions.md](11-text-and-dimensions.md) | dimensions, leaders, 3D text | partly |
 | [12-follow-me.md](12-follow-me.md) | Follow Me | no |
+| [13-guides.md](13-guides.md) | guide points and guide lines | partly |
+| [14-face-front-and-back.md](14-face-front-and-back.md) | which way a face points, Reverse Face | **built** |
 
 Tools we are not chasing: Scale, Tape Measure guides beyond what we have,
 Section planes, solid tools, components and groups, styles, materials.

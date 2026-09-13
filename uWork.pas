@@ -255,6 +255,10 @@ type
     function ClearGuides: Integer;
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
+    { Turns a face over, so what was its back becomes its front.  The last
+      word on which way a face points, for when the rule that wound it
+      guessed wrong. }
+    function ReverseFace(Index: Integer): Boolean;
     { The record of a tunnel: its opening, where the first corner of that
       opening comes out, and whose solid it is. }
     procedure AddBore(const Loop: TP3Array; const FarOfFirst: TP3; G: Integer);
@@ -2285,6 +2289,51 @@ begin
     Pts[I] := Pts[N - 1 - I];
     Pts[N - 1 - I] := Tmp;
   end;
+end;
+
+{ Turns a face over.
+
+  Every rule for which way a loose face should point is a guess - the best
+  one available, and still a guess.  A face squarest to red is wound to face
+  the positive way along red, which gets a roof right and cannot get the two
+  ends of a barn right, because they are back to back and the rule has no
+  way to know which side of either one is outside.  SketchUp has the same
+  problem and the same answer: let the person looking at it say.
+
+  The holes go round with the outline.  Nothing reads their winding - every
+  fill in the program is even-odd, and so is the one in the SVG - but a face
+  turned over should be turned over, not turned over in part. }
+function TWorkDoc.ReverseFace(Index: Integer): Boolean;
+
+  procedure Flip(var Loop: array of TP3);
+  var
+    I, N: Integer;
+    T: TP3;
+  begin
+    N := Length(Loop);
+    for I := 0 to N div 2 - 1 do
+    begin
+      T := Loop[I];
+      Loop[I] := Loop[N - 1 - I];
+      Loop[N - 1 - I] := T;
+    end;
+  end;
+
+var
+  K: Integer;
+begin
+  Result := False;
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekFace then Exit;
+  if Length(FEnts[Index].Poly) < 3 then Exit;
+  Flip(FEnts[Index].Poly);
+  for K := 0 to High(FEnts[Index].Holes) do
+    Flip(FEnts[Index].Holes[K]);
+  FEnts[Index].A := FEnts[Index].Poly[0];
+  FEnts[Index].B := FEnts[Index].Poly[High(FEnts[Index].Poly)];
+  FOnFaceOK := False;
+  Inc(FEditSeq);
+  Result := True;
 end;
 
 { Adds the polygon exactly as given.  Solids build their windings on purpose,

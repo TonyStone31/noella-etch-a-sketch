@@ -145,6 +145,7 @@ type
     pbTabs: TPaintBox;
     pbView: TPaintBox;
     pmView: TPopupMenu;
+    pmCanvas: TPopupMenu;
     pbDeck: TPaintBox;
     pbKnobL: TPaintBox;
     pbKnobR: TPaintBox;
@@ -626,6 +627,10 @@ type
     function OffsetPreview: TP3Array;
     procedure CommitOffset;
     procedure EditDimUnder(X, Y: Integer);
+    procedure RightClickAt(X, Y: Integer);
+    procedure FillCanvasMenu;
+    procedure CanvasMenuClick(Sender: TObject);
+    function ReverseSelectedFaces: Integer;
     procedure CommitDimNote;
     function DeckRowH: Integer;
     function DeckRows: Integer;
@@ -2579,6 +2584,146 @@ begin
     'Empty goes back to the measured length;  Esc leaves it alone.';
   pbCmd.Invalidate;
   pbScreen.Invalidate;
+end;
+
+{ Turns over every face in the selection.
+
+  A face has a front and a back and the program has to guess which way round
+  a new one goes.  The guess is a good one - the same axis rule SketchUp
+  falls back on - and it cannot always be right: two walls back to back are
+  wound the same way and one of them therefore shows its pale blue back to
+  whoever is standing outside.  Nothing in the drawing says which side of a
+  loose wall is outside, so nothing can work it out.  This is the way to
+  say so. }
+function TMainForm.ReverseSelectedFaces: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to High(FSel) do
+    if FD.Doc[FSel[I]].Kind = ekFace then
+      if FD.Doc.ReverseFace(FSel[I]) then Inc(Result);
+  if Result = 0 then Exit;
+  RenderPro;
+  RecomposeAll;
+  Invalidate;
+end;
+
+{ What the right button offers, worked out fresh every time it is pressed so
+  that it only ever offers what would do something. }
+procedure TMainForm.FillCanvasMenu;
+var
+  I, Faces: Integer;
+  M: TMenuItem;
+
+  procedure Add(const Caption: string; Tag: Integer);
+  var
+    It: TMenuItem;
+  begin
+    It := TMenuItem.Create(pmCanvas);
+    It.Caption := Caption;
+    It.Tag := Tag;
+    It.OnClick := @CanvasMenuClick;
+    pmCanvas.Items.Add(It);
+  end;
+
+begin
+  pmCanvas.Items.Clear;
+  Faces := 0;
+  for I := 0 to High(FSel) do
+    if FD.Doc[FSel[I]].Kind = ekFace then Inc(Faces);
+
+  if Faces = 1 then Add('Reverse Face', 1)
+  else if Faces > 1 then Add(Format('Reverse %d Faces', [Faces]), 1);
+
+  if Length(FSel) > 0 then
+  begin
+    if Faces > 0 then
+    begin
+      M := TMenuItem.Create(pmCanvas);
+      M.Caption := '-';
+      pmCanvas.Items.Add(M);
+    end;
+    if Length(FSel) = 1 then Add('Erase', 2)
+    else Add(Format('Erase %d Things', [Length(FSel)]), 2);
+    Add('Select None', 3);
+  end;
+end;
+
+procedure TMainForm.CanvasMenuClick(Sender: TObject);
+var
+  N: Integer;
+begin
+  case (Sender as TMenuItem).Tag of
+    1:
+      begin
+        PushUndo;
+        N := ReverseSelectedFaces;
+        if N = 1 then FCmdMsg := 'Face turned over.'
+        else FCmdMsg := Format('%d faces turned over.', [N]);
+        InvalidateStatus;
+      end;
+    2: DeleteSelection;
+    3:
+      begin
+        SelectNone;
+        FCmdMsg := 'Nothing selected.';
+        FScreenDirty := True;
+        InvalidateStatus;
+      end;
+  end;
+end;
+
+{ A right click that did not turn into a pan.
+
+  A dimension takes it first, whatever tool is in hand, because clicking one
+  to retype it is older than this menu and is what the right button on a
+  dimension has always done.  Otherwise it belongs to the select tool: pick
+  what is under the cursor, the way SketchUp does, so the menu has something
+  to talk about, and then offer what can be done to it. }
+procedure TMainForm.RightClickAt(X, Y: Integer);
+var
+  I: Integer;
+  P: TPoint;
+begin
+  if FMode <> mdPro then Exit;
+  I := FD.Doc.HitTest(Proj, X, Y, 10 * FUIScale);
+  if (I >= 0) and (FD.Doc[I].Kind = ekDim) then
+  begin
+    EditDimUnder(X, Y);
+    Exit;
+  end;
+  if FTool <> ptSelect then Exit;
+
+  { Clicking something that is not in the selection makes it the selection -
+    right-clicking one face while five others are picked and having it turn
+    over the five would be a nasty surprise.  Clicking inside the selection
+    leaves it alone, which is how a whole roof gets turned over at once. }
+  I := PickAt(X, Y);
+  if I >= 0 then
+  begin
+    if not IsSelected(I) then
+    begin
+      SelectOnly(I);
+      FScreenDirty := True;
+      InvalidateStatus;
+      { drawn before the menu covers it, so what is about to be operated on
+        is highlighted while the menu is being read }
+      pbScreen.Invalidate;
+      Application.ProcessMessages;
+    end;
+  end
+  else if Length(FSel) = 0 then
+  begin
+    FCmdMsg := 'Nothing there - click something first.';
+    InvalidateStatus;
+    Exit;
+  end;
+
+  FillCanvasMenu;
+  if pmCanvas.Items.Count = 0 then Exit;
+  P := pbScreen.ClientToScreen(Point(X, Y));
+  pmCanvas.PopUp(P.X, P.Y);
 end;
 
 { Take what was typed and put it on the dimension.  Called from Enter. }
@@ -8797,7 +8942,7 @@ function TMainForm.RunCommand(const S: string): Boolean;
 var
   ReDoomed: array of Boolean;
   W, Rest: string;
-  P, I: Integer;
+  P, I, N: Integer;
 begin
   Result := True;
   W := LowerCase(Trim(S));
@@ -8817,6 +8962,22 @@ begin
   else if (W = 'text') or (W = 'note') or (W = 'n') then SetTool(ptText)
   else if (W = 'erase') or (W = 'e') or (W = 'del') then SetTool(ptErase)
   else if (W = 'orbit') or (W = 'spin') then SetTool(ptOrbit)
+  { the same thing the right button offers, for a keyboard and for a script }
+  else if (W = 'reverse') or (W = 'rev') or (W = 'flip') then
+  begin
+    N := 0;
+    for I := 0 to High(FSel) do
+      if FD.Doc[FSel[I]].Kind = ekFace then Inc(N);
+    if N = 0 then
+      FCmdMsg := 'Pick a face first - reverse turns over the faces you have selected.'
+    else
+    begin
+      PushUndo;
+      N := ReverseSelectedFaces;
+      if N = 1 then FCmdMsg := 'Face turned over.'
+      else FCmdMsg := Format('%d faces turned over.', [N]);
+    end;
+  end
   else if (W = 'rect') or (W = 'rectangle') or (W = 'r') then SetTool(ptRect)
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'dimension') or (W = 'dim') then SetTool(ptDim)
@@ -12691,12 +12852,13 @@ begin
       Invalidate;
     end;
     { A right button that went down and came up in the same place was a
-      click, not a pan, and a click on a dimension edits its text.  The pan
-      still owns the right button everywhere else, which is why this has to
-      wait for the release and check that nothing moved. }
+      click, not a pan, and a click opens the menu - or edits a dimension,
+      which is what it did before there was a menu.  The pan still owns the
+      right button everywhere else, which is why this has to wait for the
+      release and check that nothing moved. }
     if (Button = mbRight) and (FMode = mdPro) and
        (Abs(X - FRightSX) <= 3) and (Abs(Y - FRightSY) <= 3) then
-      EditDimUnder(X, Y);
+      RightClickAt(X, Y);
     Exit;
   end;
   if Button = mbRight then FPenUp := False;

@@ -165,4 +165,8 @@ object MainForm: TMainForm
     Left = 8
     Top = 8
   end
+  object pmCanvas: TPopupMenu
+    Left = 48
+    Top = 8
+  end
 end

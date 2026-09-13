@@ -1,0 +1,34 @@
+# Turning a face over from the right button.
+#
+# A single upright panel, seen from behind, so it shows the pale blue back
+# that says a face is inside out.  Nothing in the drawing can tell the
+# program which side of a loose wall is outside, so the person looking at it
+# has to - which is what the menu on the select tool is for.
+#
+# What this proves: right-clicking picks the face under the cursor, the menu
+# offers Reverse Face, and taking it turns the panel from blue to grey.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+key escape
+key slash
+type fit
+key return
+wait 1500
+shot /tmp/hsk-reverse-before.png
+
+# the middle of the panel, clear of every edge
+at 750 382
+wait 400
+click right
+wait 800
+shot /tmp/hsk-reverse-menu.png
+
+# Reverse Face, the first row of the menu
+at 820 399
+wait 400
+click
+wait 1000
+shot /tmp/hsk-reverse-after.png
