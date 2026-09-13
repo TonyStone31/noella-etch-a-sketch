@@ -5219,7 +5219,7 @@ procedure TMainForm.RenderTiming;
 var
   T0: QWord;
   I, N: Integer;
-  Ms, Ov, Qk: Double;
+  Ms, Ov, Qk, Bl, Gd: Double;
   Ph: array[0..5] of Double;
   WasMoving: Boolean;
 begin
@@ -5254,12 +5254,36 @@ begin
   T0 := GetTickCount64;
   for I := 1 to N do pbScreen.Repaint;
   Ov := (GetTickCount64 - T0) / N;
+  { The blit on its own, out of the middle of that.
+ 
+    The figure above is the whole paint handler - getting the picture onto
+    the widget, and then the cursor, the guides and the outlines drawn over
+    it.  Those are two different problems with two different answers, and
+    for a while nobody knew which of them the number belonged to: the
+    question was whether a faster surface library would help, and it only
+    would if the answer is the first one.  So it is measured apart.
+ 
+    Just the picture, no overlay, straight at the canvas the same way the
+    paint handler does it. }
+  T0 := GetTickCount64;
+  for I := 1 to N do FArt.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
+  Bl := (GetTickCount64 - T0) / N;
+  { and the guides, the rubber band and the readouts on their own, which is
+    the other half of that number and the half nobody was looking at }
+  Gd := 0;
+  if FMode = mdPro then
+  begin
+    T0 := GetTickCount64;
+    for I := 1 to N do PaintProOverlay(pbScreen.Canvas);
+    Gd := (GetTickCount64 - T0) / N;
+  end;
   FCmdMsg := Format('A frame takes %.0f ms (%d things: %d faces).  index and edges %.0f, faces sorted and painted %.0f, lines on faces %.0f, the rest %.0f',
     [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, Ph[0], Ph[1] + Ph[2], Ph[3], Ph[4]]);
-  FCmdMsg := FCmdMsg + Format('; quick frame %.0f ms; overlay %.0f ms with %d selected', [Qk, Ov, Length(FSel)]);
+  FCmdMsg := FCmdMsg + Format('; quick frame %.0f ms; overlay %.0f ms (blit %.0f, guides %.0f) with %d selected',
+    [Qk, Ov, Bl, Gd, Length(FSel)]);
   WriteLn('rendertime ', Ms:0:1, ' ms/frame (paper+render+composite), ', FD.Doc.Live, ' things; index+edges ',
     Ph[0]:0:1, ' faces ', (Ph[1] + Ph[2]):0:1, ' lines-on-faces ',
-    Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds,
+    Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms of which blit ', Bl:0:1, ' guides ', Gd:0:1, ', with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds,
     '; threads ', FD.Doc.Threads, ' last cache build ', FD.Doc.OnFaceWorkerMs:0:0, ' ms on ', FD.Doc.OnFaceBuiltOn, ', taken ', FD.Doc.OnFaceLagMs:0:0, ' ms after done; a frame without the cache spent ', FD.Doc.OnFaceFallbackMs:0:0, ' ms on lines-on-faces; frames without cache ',
     FD.Doc.OnFaceFallbacks, ', discarded ', FD.Doc.OnFaceDiscarded, ', failed ', FD.Doc.OnFaceFailed);
   Flush(Output);
