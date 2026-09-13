@@ -6750,7 +6750,8 @@ var
   PlaneN: array of TP3;
   PlaneD: array of Double;
   PT: QWord;
-  ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet: Double;
+  ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet, ZD, ZBest: Double;
+  ZI2, ZI3, ZJ: Integer;
   ZOK, Drew: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
   Ang, Sh: Double;
@@ -7328,19 +7329,63 @@ begin
     ZOK := False;
     if Length(Flat) >= 3 then
     begin
-      ZD1 := Dot3(FEnts[K].Poly[0], Look);
-      ZD2 := Dot3(FEnts[K].Poly[1], Look);
-      ZD3 := Dot3(FEnts[K].Poly[2], Look);
-      ZDet := (Flat[1].X - Flat[0].X) * (Flat[2].Y - Flat[0].Y) -
-              (Flat[2].X - Flat[0].X) * (Flat[1].Y - Flat[0].Y);
-      if Abs(ZDet) > 1E-9 then
+      { Three corners that actually make a triangle on the screen.
+
+        It used to take the first three, whichever they were, and that is
+        where a solid of revolution comes apart.  A revolve is made of long
+        thin gores; take the first three corners of one and they are very
+        nearly in a line, so ZDet - which is twice the area of the triangle
+        they make, in square pixels - comes out a rounding error, and the
+        gradients solved by dividing by it are nonsense.  A face with a
+        nonsense depth plane hides things it is behind and fails to hide
+        things it is in front of, so the far side of a closed solid shows
+        through the near side - in the back-face colour, because the far
+        side of anything is its inside.
+
+        Tony's crown, 13 September: the geometry was perfect - closed,
+        every edge shared once each way, and a positive volume - and only
+        two of its hundred and sixty-eight back faces were genuinely
+        visible.  All the rest of the blue was this.
+
+        So: the corner furthest from the first, then the corner furthest
+        from the line between them.  That is the best-conditioned triangle
+        the polygon has, found in two passes, and the threshold can then be
+        a real area rather than a number chosen to let anything through. }
+      ZI2 := 0;
+      ZBest := 0;
+      for ZJ := 1 to High(Flat) do
       begin
-        ZA := ((ZD2 - ZD1) * (Flat[2].Y - Flat[0].Y) -
-               (ZD3 - ZD1) * (Flat[1].Y - Flat[0].Y)) / ZDet;
-        ZB := ((ZD3 - ZD1) * (Flat[1].X - Flat[0].X) -
-               (ZD2 - ZD1) * (Flat[2].X - Flat[0].X)) / ZDet;
-        ZC := ZD1 - ZA * Flat[0].X - ZB * Flat[0].Y;
-        ZOK := True;
+        ZD := Sqr(Flat[ZJ].X - Flat[0].X) + Sqr(Flat[ZJ].Y - Flat[0].Y);
+        if ZD > ZBest then begin ZBest := ZD; ZI2 := ZJ; end;
+      end;
+      ZI3 := 0;
+      ZBest := 0;
+      if ZI2 > 0 then
+        for ZJ := 1 to High(Flat) do
+          if ZJ <> ZI2 then
+          begin
+            ZD := Abs((Flat[ZI2].X - Flat[0].X) * (Flat[ZJ].Y - Flat[0].Y) -
+                      (Flat[ZJ].X - Flat[0].X) * (Flat[ZI2].Y - Flat[0].Y));
+            if ZD > ZBest then begin ZBest := ZD; ZI3 := ZJ; end;
+          end;
+      if (ZI2 > 0) and (ZI3 > 0) then
+      begin
+        ZD1 := Dot3(FEnts[K].Poly[0], Look);
+        ZD2 := Dot3(FEnts[K].Poly[ZI2], Look);
+        ZD3 := Dot3(FEnts[K].Poly[ZI3], Look);
+        ZDet := (Flat[ZI2].X - Flat[0].X) * (Flat[ZI3].Y - Flat[0].Y) -
+                (Flat[ZI3].X - Flat[0].X) * (Flat[ZI2].Y - Flat[0].Y);
+        { a hundredth of a square pixel: below that the face really is
+          edge-on and has no depth of its own worth solving }
+        if Abs(ZDet) > 1E-2 then
+        begin
+          ZA := ((ZD2 - ZD1) * (Flat[ZI3].Y - Flat[0].Y) -
+                 (ZD3 - ZD1) * (Flat[ZI2].Y - Flat[0].Y)) / ZDet;
+          ZB := ((ZD3 - ZD1) * (Flat[ZI2].X - Flat[0].X) -
+                 (ZD2 - ZD1) * (Flat[ZI3].X - Flat[0].X)) / ZDet;
+          ZC := ZD1 - ZA * Flat[0].X - ZB * Flat[0].Y;
+          ZOK := True;
+        end;
       end;
     end;
     if ZOK then S.DepthPlane(ZA, ZB, ZC)
