@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.13.17' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
@@ -29,6 +29,11 @@ const
     '  picture instead of making and destroying one per frame, which on a long GIF' + LineEnding +
     '  was eighty allocations for no reason; and a picture that cannot be made at' + LineEnding +
     '  the size asked for now says so rather than carrying on with it.' + LineEnding +
+    '' + LineEnding +
+    '- **The export preview would turn but not slide.**  Right-drag or Shift-drag' + LineEnding +
+    '  now slides it, the wheel zooms, and Shift is noticed part way through a turn' + LineEnding +
+    '  the same as it is in the drawing area - so you can frame the shot properly' + LineEnding +
+    '  instead of only spinning it.' + LineEnding +
     '' + LineEnding +
     '- **Black writing on the dark dialog.**  Windows paints its own drop-down' + LineEnding +
     '  lists and tick boxes and takes no notice of what colour it has been asked' + LineEnding +
