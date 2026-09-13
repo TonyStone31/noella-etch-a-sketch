@@ -945,6 +945,7 @@ type
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
+    procedure PaintHeldPlane(C: TCanvas);
 
     procedure BuildSession(L: TStrings);
     procedure SaveDraft;
@@ -1198,7 +1199,7 @@ const
       'toggles, Ctrl+Shift takes away.  (Space)',
     'Move - pick a point on what is selected, then click where it goes.  ' +
       'Hold Ctrl to leave a copy behind.  (M)',
-    'Line - click a start point, then click the end or just type a length.',
+    'Line - click a start point, then click the end or just type a length.  In a 3D view the arrows lock the plane first: left upright, right side-on, up flat, down to let go.  A locked plane holds every point of the shape to it.',
     'Rectangle - click two opposite corners, or type 12''x8''.  Makes a face.',
     'Arc - pick two points, then pull the middle out.  Joins two loose ends.',
     'Circle - pick the center, then type or drag the radius.',
@@ -8134,6 +8135,56 @@ begin
   end;
 end;
 
+{ The plane you locked, drawn where you are working.
+
+  Tony asked for the rubber band to take the colour of the plane so you can
+  see you are still drawing flat.  We tried that once and it is written down
+  in Rubber why it came out: a plane is named by the axis it **faces**, and
+  that is the one axis a line lying in it can never run along.  Stood up on
+  XZ, an outline would be drawn green, when every side of it runs red or
+  blue.  It is not a near miss, it is the one colour the line has no claim
+  to.
+
+  But the thing he actually needs to see is real, and a single line cannot
+  carry it: one segment tells you one direction, and a plane takes two.
+  Which is exactly why a rectangle already reads correctly - its sides come
+  out red and blue and you know at a glance you are on XZ.
+
+  So the plane says it itself.  Two short lines through the point, along the
+  plane's own two directions, in their own axis colours.  Red and blue means
+  upright; red and green means flat.  The same colour language as everything
+  else, saying the thing the rubber band cannot. }
+procedure TMainForm.PaintHeldPlane(C: TCanvas);
+const
+  ARM = 46;
+var
+  AU, AV, P: TP3;
+  I: Integer;
+  D: TP3;
+  S0, S1: TPointF;
+  Sc: Double;
+begin
+  if not FPlaneHeld then Exit;
+  if FD.Plane = plFree then Exit;
+  if FD.View <> vkOrbit then Exit;   { flat views say it by being flat }
+  PlaneAxes(FD.Plane, AU, AV);
+  if FStage > 0 then P := FP1 else P := FCur;
+  { a fixed length on the screen rather than in the model, so it is the same
+    cue at any zoom }
+  Sc := ARM * FUIScale / Max(1E-6, Ppu);
+  C.Pen.Style := psSolid;
+  C.Pen.Width := 1;
+  for I := 0 to 1 do
+  begin
+    if I = 0 then D := AU else D := AV;
+    C.Pen.Color := PixToColor(AxisPix(AxisAlong(P3(0, 0, 0), D)));
+    S0 := ScreenOf(P3(P.X - D.X * Sc, P.Y - D.Y * Sc, P.Z - D.Z * Sc));
+    S1 := ScreenOf(P3(P.X + D.X * Sc, P.Y + D.Y * Sc, P.Z + D.Z * Sc));
+    C.MoveTo(Round(S0.X), Round(S0.Y));
+    C.LineTo(Round(S1.X), Round(S1.Y));
+  end;
+end;
+
 { An entity's outline, traced heavily in one color.
 
   Said four times over: the selection in blue, the edge the dimension tool
@@ -8319,7 +8370,10 @@ begin
 
   case FTool of
     ptLine:
-      if FStage = 1 then Rubber(FP1, PreviewTarget);
+      begin
+        PaintHeldPlane(C);
+        if FStage = 1 then Rubber(FP1, PreviewTarget);
+      end;
     ptRect:
       if FStage = 1 then
       begin

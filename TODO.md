@@ -643,6 +643,44 @@ to check anything against before it ships:
 `/plan` and `/revolve` both existed the whole time.  A command is not a way
 in - it is a shortcut for somebody who already knows.
 
+### The rectangle, on a plane that is not the ground
+
+Tony, 13 September, flagged and deliberately left for later:
+
+> "There is a bug in there when I am try to draw it on a different plane I
+> can only get each plane in one flat direction sort of.  It's hard to
+> explain."
+
+Not reproduced yet, and worth a report with a session in it rather than a
+guess.  What to look at first: `RectCorners` lays the four corners out along
+the working plane's own two directions - `PlaneAxes` for XY, XZ and YZ, and
+`GetFreePlane` for a face - so a rectangle is always square to those two
+directions and cannot be drawn turned.  If that is what he is describing then
+it is a limit rather than a fault, and the answer is either a rectangle that
+can be rotated as it is drawn, or Rotate afterwards.  If it is something
+else - a plane that will not take a rectangle at all, or one that takes it in
+the wrong plane - that is a fault.  Ask for the report first.
+
+### Why the rubber band is not the colour of the plane
+
+Asked for on 13 September, and it has been tried before.  Written down so it
+is not tried a third time.
+
+A line's colour here is **the direction it runs in**.  A plane is named by
+the axis it *faces* - that is the convention the arrows use, right for red,
+left for green, up for blue - and that is the one axis a line lying in the
+plane can never run along.  Colour an outline on XZ green and every side of
+it is labelled with the one direction it does not go in.  It reads as
+information and it is the opposite of true.
+
+What is real is the thing behind the request: while drawing you want to see
+that you are still flat.  A single segment cannot say it - one line is one
+direction and a plane takes two, which is exactly why a rectangle already
+reads correctly with its red and blue sides.  So the plane says it itself:
+`PaintHeldPlane` draws two short lines through the point along the plane's
+own two directions, in their own axis colours.  Red and blue is upright, red
+and green is flat.
+
 ### Still to discuss
 
 * **The other two visual worlds - and Tony has already solved this once.**

@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A locked plane shows itself while you draw.**  Lock a plane with the' + LineEnding +
+    '  arrows and two short lines appear through the point, along the plane''s own' + LineEnding +
+    '  two directions, in their axis colours.  Red and blue means you are drawing' + LineEnding +
+    '  upright; red and green means flat.  You can see you are still on the plane' + LineEnding +
+    '  without reading anything.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.6' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

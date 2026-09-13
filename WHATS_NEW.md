@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A locked plane shows itself while you draw.**  Lock a plane with the
+  arrows and two short lines appear through the point, along the plane's own
+  two directions, in their axis colours.  Red and blue means you are drawing
+  upright; red and green means flat.  You can see you are still on the plane
+  without reading anything.
+
 ## v2026.09.13.6
 
 ### Fixed
