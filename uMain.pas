@@ -1870,7 +1870,8 @@ end;
 function TMainForm.ResolveSnapAt(SX, SY: Double): TP3;
 var
   HF: Integer;
-  HP, N: TP3;
+  HP, N, Raw: TP3;
+  RU1, RV1, RU2, RV2: Double;
 begin
   Result := ResolveSnapRaw(SX, SY);
   { Held to the face - unless the point got where it is by running up an
@@ -1928,6 +1929,44 @@ begin
       plXZ: Result.Y := FP1.Y;
       plYZ: Result.X := FP1.X;
     end;
+  { A rectangle may not have a side of no length, whatever any inference
+    thinks.
+
+    Every alignment in the program is built for a line, where being pulled
+    level with the point you started from is the whole idea.  For a rectangle
+    it is fatal: level with the first corner in one direction means a side of
+    zero, which is not a rectangle, so the tool says "a rectangle needs two
+    sides" and throws it away.  On screen there is nothing to see - the
+    corner is a couple of inches off where the pointer is and the inference
+    is doing what it was written to do - so it reads as the tool refusing to
+    work for no reason, on and off, depending on which way you happened to
+    drag.  Reported as "doesn't get it right all the time", which is exactly
+    how it behaves.
+
+    So: if an inference has flattened a side that the bare cursor had, that
+    side goes back.  The other one keeps whatever it was given, which is what
+    lets a rectangle still line up with something along one direction. }
+  if (FTool = ptRect) and (FStage = 1) and (FD.Plane <> plFree) then
+  begin
+    { on the grid, like everything else - restoring the bare cursor would
+      give a side of 2 11/16" where the drawing snaps to inches.  And if the
+      grid itself flattens it, the side really is shorter than the drawing
+      can express, and the message below says so. }
+    Raw := SnapToGrid(WorldAt(SX, SY));
+    RectSides(FP1, Result, FD.Plane, RU1, RV1);
+    RectSides(FP1, Raw, FD.Plane, RU2, RV2);
+    if (RU1 <= 1E-9) and (RU2 > 1E-9) then
+      case FD.Plane of
+        plYZ: Result.Y := Raw.Y;
+      else    Result.X := Raw.X;
+      end;
+    if (RV1 <= 1E-9) and (RV2 > 1E-9) then
+      case FD.Plane of
+        plXY: Result.Y := Raw.Y;
+      else    Result.Z := Raw.Z;
+      end;
+  end;
+
   { A free point that is resting on a face is On Face, and says so - the way
     SketchUp does.  Only when the point really is on that face's plane: a
     cursor drawing in mid air with a face somewhere behind it is not on it. }
@@ -7770,6 +7809,10 @@ var
   RectPrev: TP3Array;
   K: Integer;
   R: Double;
+  Nm: TP3;
+  ArcPl: TPlane;
+  ArcC: TP3;
+  ArcR, ArcA0, ArcSw, ArcBulge: Double;
 begin
   Pts := nil;
   Result := False;
@@ -7803,6 +7846,36 @@ begin
           SetLength(Pts, Length(RectPrev) + 1);
           for K := 0 to High(RectPrev) do Pts[K] := ScreenOf(RectPrev[K]);
           Pts[High(Pts)] := Pts[0];
+        end;
+      end;
+    ptPush, ptDrill:
+      { the face where it would have landed - the thing you were about to
+        commit to, straining and going back }
+      if (FStage = 1) and (FPushFace >= 0) and (FPushFace < FD.Doc.Live) then
+      begin
+        RectPrev := FD.Doc[FPushFace].Poly;
+        if Length(RectPrev) >= 3 then
+        begin
+          R := PushDistance;
+          Nm := FD.Doc.FaceNormal(FPushFace);
+          SetLength(Pts, Length(RectPrev) + 1);
+          for K := 0 to High(RectPrev) do
+            Pts[K] := ScreenOf(P3(RectPrev[K].X + Nm.X * R,
+                                  RectPrev[K].Y + Nm.Y * R,
+                                  RectPrev[K].Z + Nm.Z * R));
+          Pts[High(Pts)] := Pts[0];
+        end;
+      end;
+    ptArc:
+      { the curve itself, not the chord under it }
+      if FStage = 2 then
+      begin
+        if ArcPicks(FCur, ArcPl, ArcC, ArcR, ArcA0, ArcSw, ArcBulge) then
+        begin
+          SetLength(Pts, FSidesArc + 1);
+          for K := 0 to FSidesArc do
+            Pts[K] := ScreenOf(ArcPoint(ArcC, ArcR,
+              ArcA0 + ArcSw * K / FSidesArc, ArcPl));
         end;
       end;
   end;
@@ -7942,10 +8015,19 @@ begin
     accident and it looks like a bug. }
   if T > 0.12 then
   begin
+    { What it is about to do, in the words of the thing it is doing it to.
+      Nothing is thrown away by a push/pull that never happened - what goes
+      back is the face, and saying "thrown away" of a face that is still
+      there reads as though the drawing is about to lose something. }
     if FTool = ptLine then
     begin
       if T > 0.7 then Cap := 'LETTING GO...'
       else Cap := 'keep holding to snap the line off';
+    end
+    else if FTool in [ptPush, ptDrill, ptOffset] then
+    begin
+      if T > 0.7 then Cap := 'PUTTING IT BACK...'
+      else Cap := 'changed your mind?  keep holding';
     end
     else
     begin
@@ -9587,6 +9669,7 @@ var
   I, J: Integer;
   P: TPointF;
   T: TP3;
+  U1, V1, U2, V2: Double;
   WasLine, Closed: Boolean;
 begin
   { a click on anything is the end of the copy that could have become an
@@ -10264,7 +10347,27 @@ begin
              FormatArea(U1 * V1, FD.Units)]);
         end
         else
-          FCmdMsg := 'A rectangle needs two sides.';
+        begin
+          { Say why, because the commonest reason is invisible.
+
+            A rectangle drawn nearly along one of the axes has one side
+            shorter than half the snap step, that side rounds to nothing, and
+            the whole rectangle is thrown away.  On a one foot snap that is
+            anything within six inches of straight, which on screen is a good
+            deal wider than it sounds - and the old message said only that
+            two sides were needed, leaving somebody to conclude the tool was
+            broken.  Caught while testing something else; the drive script
+            landed two corners eight inches apart across and fourteen feet
+            along, and the rectangle vanished. }
+          RectSides(FP1, WorldAt(FMouseSX, FMouseSY), FD.Plane, U2, V2);
+          FCmdMsg := Format('A rectangle needs two sides - that one is %s by %s.',
+            [FormatLen(U2, FD.Units), FormatLen(V2, FD.Units)]);
+          if (SnapStep > 0) and (Min(U2, V2) > 1E-9) and
+             (Min(U2, V2) < SnapStep / 2) then
+            FCmdMsg := FCmdMsg + Format('  The snap is %s, so the short side ' +
+              'rounded away to nothing - a finer snap, or pull it further out.',
+              [FormatLen(SnapStep, FD.Units)]);
+        end;
         ResetTool;
         FInput := '';
       end;
@@ -11211,7 +11314,17 @@ begin
       might be a click - another point - or it might be a hold, which lets go
       of the run and places nothing.  Which one it was is not known until the
       button comes up, or until it has been held long enough to break. }
-    if (FTool in [ptLine, ptRect, ptCircle, ptArc]) and (FStage >= 1) then
+    { The same for push/pull, drill and offset.
+
+      Tony: "I committed to a push pull with mouse down and realized I fucked
+      up before releasing the mouse button".  Those three commit on the press
+      going down, so by the time you know it was wrong it is already done and
+      the only way out is undo.  They wait for the button to come up now,
+      like the drawing tools do: let go and it happens, keep leaning on it
+      and the thing you were about to build strains and snaps back having
+      built nothing. }
+    if (FTool in [ptLine, ptRect, ptCircle, ptArc, ptPush, ptDrill,
+                  ptOffset]) and (FStage >= 1) then
     begin
       FHoldOn := True;
       FHoldT := 0;
@@ -14618,7 +14731,10 @@ begin
   begin
     FHoldOn := False;
     FCur := ResolveSnapAt(X, Y);
-    if FClickN >= 2 then
+    { A second click in quick succession lets go of a run of lines.  That is
+      a thing about runs of lines and nothing else: on push/pull a double
+      click repeats the last pull, which the tool handles itself. }
+    if (FClickN >= 2) and (FTool in [ptLine, ptRect, ptCircle, ptArc]) then
     begin
       ResetTool;
       FCmdMsg := 'Line finished.  Hold the button to snap it off instead.';
@@ -15519,6 +15635,8 @@ begin
         FScreenDirty := True;
         if FWasLine then
           FCmdMsg := 'Snapped off.'
+        else if FTool in [ptPush, ptDrill, ptOffset] then
+          FCmdMsg := 'Let go - nothing was moved.'
         else
           FCmdMsg := 'Thrown away - nothing was drawn.';
       end;

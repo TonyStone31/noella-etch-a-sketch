@@ -10,6 +10,34 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A rectangle no longer vanishes when it is drawn nearly along an axis.**
+  The alignments are built for a line, where being pulled level with the
+  point you started from is the whole idea.  On a rectangle it means a side
+  of no length, which is not a rectangle - so it was thrown away, with
+  nothing on screen to say why, on and off depending on which way you
+  happened to drag.  An alignment that would flatten a side is now ignored,
+  and that side lands on the grid like everything else.
+
+- And when a rectangle really is too small in one direction to draw, it says
+  so with the sizes and the snap setting instead of just "a rectangle needs
+  two sides".
+
+### Changed
+
+- **Push/pull, drill and offset can be called off by leaning on the button**,
+  the way the drawing tools already could.  They used to happen the instant
+  the button went down, so realising it was wrong meant undo.  Now they wait
+  for it to come up: let go and it happens, keep holding and the face you
+  were about to build strains and goes back having built nothing.
+
+- The whole shape comes under tension while you hold, not one strand of it -
+  a rectangle swells like a frame of elastic, a circle like a hoop, a
+  push/pull shows the face where it would have landed.
+
 ## v2026.09.13.8
 
 ### Changed
