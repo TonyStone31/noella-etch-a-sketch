@@ -10,6 +10,29 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A plane you lock with the arrows now stays locked.**  Press L, then the
+  left arrow to stand the plane up, and every point of the shape lands on
+  that plane no matter what the cursor is pointed at.  It could not before:
+  the plane's position came from wherever the cursor had last settled, so a
+  single inference a foot off the plane took the plane with it, and every
+  corner after that was on a different one.  The outline never closed, no
+  face was ever made, and there was nothing on screen to say why.
+
+  That is why drawing an upright outline in the 3D view was so hard, and why
+  drawing it flat on the floor was the only thing that worked.
+
+  An axis lock still beats it - that is you saying something more recent.
+  Nothing else does: an arrow lock is a statement, not a guess.
+
+- **And the line tool says so.**  In a 3D view it now reads *"pick a start
+  point (arrows lock a flat plane: left upright, right side-on, up flat, down
+  to let go)"*, and once locked, *"held on the XZ plane whatever you point
+  at"*.
+
 ## v2026.09.13.5
 
 ### Changed

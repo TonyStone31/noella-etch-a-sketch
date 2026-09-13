@@ -1290,6 +1290,21 @@ var
   Base: TP3;
 begin
   Base := FCur;
+  { A plane you locked on purpose is pinned to where the shape started, not
+    to where the cursor has wandered to.
+
+    The offset of the working plane came from FCur, which is the last point
+    the cursor resolved to - so the plane travelled with the cursor.  Draw
+    three sides of an outline, have one inference put a point a foot off the
+    plane, and the plane goes with it: every corner after that is on a
+    different plane, the outline never closes, and no face is ever made.
+    That is what defeated Tony trying to draw a wine glass upright on
+    13 September, and it is why he ended up drawing it flat on the floor
+    where there is nothing to drift onto.
+
+    Pinned to the first point of the shape instead, for as long as a shape is
+    being drawn.  Nothing can move it while it matters. }
+  if FPlaneHeld and (FStage > 0) then Base := FP1;
   { In a plan with a cut, the bottom of the slice is the drawing plane.
 
     One number doing both jobs, and that is not a shortcut - it is what a
@@ -1888,6 +1903,25 @@ begin
   if (FAxisLock < 0) and not (FSnapKind in [snEndpoint, snMidpoint, snCenter,
        snCross, snSubMid, snOrigin, snQuadrant]) then
     Result := HeldToFace(Result);
+  { A plane locked with the arrows is not a guess, and nothing gets to
+    overrule it.
+
+    That is the whole difference between this and the hold above.  The hold
+    comes of resting on a face - the program noticing something and offering
+    it - so a corner somebody deliberately aimed at beats it.  This is
+    somebody pressing left and being told "drawing upright, on the XZ
+    plane".  There is nothing to beat: they said where they are drawing, and
+    an endpoint somewhere off it is not a better answer, it is the thing that
+    stops the outline ever closing.
+
+    An axis lock still wins, because that is the same kind of statement made
+    more recently. }
+  if FPlaneHeld and (FStage > 0) and (FAxisLock < 0) then
+    case FD.Plane of
+      plXY: Result.Z := FP1.Z;
+      plXZ: Result.Y := FP1.Y;
+      plYZ: Result.X := FP1.X;
+    end;
   { A free point that is resting on a face is On Face, and says so - the way
     SketchUp does.  Only when the point really is on that face's plane: a
     cursor drawing in mid air with a face somewhere behind it is not on it. }
@@ -8599,7 +8633,14 @@ begin
     if S1 = '' then S1 := 'FREE';
     case FTool of
       ptSelect: S2 := 'pick a tool below, or press L for a line';
-      ptLine:   S2 := 'click to start - then type 12, 12''6 or 6-8-15';
+      ptLine:
+        { In a 3D view, say the one thing that is not guessable and is the
+          difference between an outline that closes and one that does not:
+          the arrows lock the plane you are drawing on before you start. }
+        if (FD.View = vkOrbit) and (FStage = 0) and not FPlaneHeld then
+          S2 := 'click to start - arrows lock a flat plane first: left upright, right side-on'
+        else
+          S2 := 'click to start - then type 12, 12''6 or 6-8-15';
       ptRect:   S2 := 'click a corner - then drag, or type 8x10';
       ptCircle: S2 := Format('click the center - %d sides: + - or type 24s', [FSidesCircle]);
       ptArc:    S2 := Format('click one end - %d segments: + - or type 12s', [FSidesArc]);
@@ -9182,7 +9223,19 @@ begin
   case FTool of
     ptLine:
       if FStage = 0 then
-        Result := 'pick a start point'
+      begin
+        if (FD.View = vkOrbit) and not FPlaneHeld then
+          Result := 'pick a start point   (arrows lock a flat plane: ' +
+                    'left upright, right side-on, up flat, down to let go)'
+        else if FPlaneHeld then
+          Result := 'pick a start point - locked to the ' + PlaneName +
+                    ' plane, and it stays there'
+        else
+          Result := 'pick a start point';
+      end
+      else if FPlaneHeld and (FDirLock < 0) then
+        Result := 'to the next point - held on the ' + PlaneName +
+                  ' plane whatever you point at.  Double-click to finish'
       else if FDirLock >= 0 then
         Result := 'going ' + AxisName(FDirLock) + ' - length?'
       else if (FD.View = vkIso) and (ssShift in FMoveShift) then

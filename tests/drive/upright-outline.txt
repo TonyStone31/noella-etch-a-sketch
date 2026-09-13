@@ -1,0 +1,50 @@
+# Drawing a closed outline standing up, in the 3D view.
+#
+# Tony, 13 September: "the reason I drew it laying down is because I had to
+# draw all those lines on the same axis so they became a face.  And the
+# problem with trying to draw that shape while it was in 3D view is the
+# stupid cursor kept trying to go to the other axes."
+#
+# The working plane's offset came from the cursor, so one inference off the
+# plane took the plane with it and nothing after that was coplanar - the
+# outline never closed and no face was ever made.  Held to the first point of
+# the shape now, and an explicitly locked plane beats every inference.
+#
+# What this proves: press L, press Left to stand the plane up, click five
+# corners and close it, and there is a face.  Which is the whole of what he
+# was trying to do and had to go and do flat on the floor instead.
+
+geometry 0 0 1500 850
+activate
+wait 800
+
+key escape
+key l
+wait 300
+# left arrow: upright, on the XZ plane
+key left
+wait 400
+shot /tmp/hsk-upright-hint.png
+
+at 700 500
+click
+wait 250
+at 820 470
+click
+wait 250
+at 860 330
+click
+wait 250
+at 800 300
+click
+wait 250
+at 760 420
+click
+wait 250
+# back to the start, which closes it
+at 700 500
+click
+wait 1000
+key escape
+wait 500
+shot /tmp/hsk-upright.png
