@@ -258,6 +258,109 @@ job in Pascal now, through LazHIDControl.
 
 ---
 
+## Where this could go - 12 September 2026
+
+Talked through with Tony after the barn reports.  The question was what this
+could do that people are already asking FreeCAD and SketchUp for and not
+getting.  Written down so none of it gets re-argued from scratch.
+
+### Ruled out, with reasons
+
+* **G-code.**  A post-processor is not one feature, it is a family of them -
+  Grbl, Marlin, Mach3, LinuxCNC, Fanuc, plasma height controllers - and none
+  can be verified without the machine in the room.  Worse, the numbers that
+  decide whether a cut is any good (kerf, lead-in and lead-out, pierce delay,
+  feed, power, tabs, torch height) belong to the machine and the material,
+  not to the drawing; put them in the drawing and we own them forever.  Every
+  shop already has CAM, and all of it eats DXF or SVG, which we already
+  write.  The work is in making what we hand over *cuttable*, not in emitting
+  machine code.
+* **Wiring schematics and circuit simulation.**  Done to death, and the wrong
+  shape for this engine.
+
+### Worth doing
+
+* **STL export.**  A `WriteSTL` beside `WriteDXF` and a fifth line in the
+  Ctrl+E dialog.  Every push/pull shape then goes into a slicer, into
+  Blender, onto a printer - and it reaches an audience that has no interest
+  whatever in duct fittings, which is the audience that turns a tool into
+  something people play with.
+
+  The catch: faces are an outline plus holes and nothing here triangulates -
+  the fill is even-odd scanline.  So it needs a real ear-clipping
+  triangulator with hole bridging, call it 200-250 lines, self-contained and
+  exactly the sort of thing the geom suite can prove (the triangles have to
+  come to the same area as the polygon).
+
+  The prize behind it: **an STL wants a closed manifold**, which finally
+  gives "making a solid out of what you drew" above a reason to exist, and
+  that is the proper fix for a face coming out inside out rather than the
+  axis-rule guess we ship today.
+
+* **Changing a size by typing it.**  Click a dimension that reads 12'-0",
+  type 14', and the geometry moves.  Tony wants a go at this one himself.
+
+  It is the most asked-for thing on the SketchUp forums that will never
+  arrive - you measure after you draw over there, and a wrong number means
+  drawing it again.  FreeCAD has it through a constraint solver, which is the
+  main reason people bounce off FreeCAD, and it drags the topological naming
+  problem behind it.
+
+  What makes it reachable here is building it as **a typed edit, not a
+  constraint**.  No solver, nothing stored, no over-constrained state, no
+  naming problem - because nothing is remembered.  An `ekDim` already knows
+  the two points it spans; typing a length works out the delta along `A` to
+  `B` and performs a move.  The primitive exists: `TWorkDoc.MoveVerts`
+  (uWork.pas) shifts a set of vertices and drags what is attached, which is
+  what the move tool and the stretch behaviour already run on.
+
+  The geometry is not the hard part.  The hard part is the rule for *which
+  end moves*, and the honest answer is the one the move tool already uses:
+  the end you did not anchor, with a way to swap.  It works the same in plan,
+  which un-scratches the 2D half for nothing.
+
+* **The drawing sheet - border, title block, revisions.**  Tony: "blue prints
+  layout designer".  A printed sheet wants a border, the program name, who
+  drew it, a description, dates, a revision block and a sheet number.  Most
+  useful on a 2D drawing.
+
+  This is also the thing SketchUp charges for and everybody complains about:
+  LayOut is paid, slow and widely disliked, and FreeCAD's TechDraw is not
+  loved either.  A model to a dimensioned, to-scale, printable sheet with a
+  title block is genuinely underserved.  We already have most of the parts -
+  sheets and tabs, a real scale, dimensions with text you can override, and
+  now printing that comes out at true size.
+
+  Second, though, not first: it is documentation, and documentation does not
+  bring anybody new through the door.
+
+* **PDF import, as lines.**  Tony's own daily problem: almost every drawing
+  that arrives at work is a PDF and there is no way to scale it.  Bringing
+  one in as our own 2D lines - then setting the scale off a known dimension,
+  and adding revision clouds and notes over the top - would be worth a lot to
+  anyone in the trades.
+
+  Not started, and not to be started casually.  A PDF is a page description,
+  not a drawing: vector PDFs give real paths and would work; a scanned one is
+  a picture and needs tracing, which is a different project.  Wants a proper
+  discussion first, including which library reads the page content - there is
+  no chance of writing that from scratch here.
+
+### Two directions, to discuss
+
+* **2D as its own mode again.**  It used to be one, and we moved away from it
+  to chase the SketchUp behaviour.  Everything above that Tony actually wants
+  day to day - the title block, PDF markup, revision clouds - is 2D work, and
+  it wants a mode where the 3D machinery is out of the way rather than being
+  a special case of it.  Worth deciding deliberately rather than drifting.
+
+* **BGRAControls instead of the hand-skinning.**  We skinned this thing
+  ourselves, paint box by paint box.  The suspicion is that BGRAControls
+  would have given a better looking result, better performance and real
+  window handles for less code.  Not a rewrite to start on a whim - the
+  drawing surface itself must not change - but the chrome around it is a fair
+  question.  For a future TODO conversation.
+
 ## Open questions
 
 * **A perspective camera, for looking only.**  A report on 11 September asked
@@ -326,9 +429,17 @@ job in Pascal now, through LazHIDControl.
 ## Where the line is
 
 No objects, no groups, no components.  No booleans, no curved surfaces, no
-textures, no materials, no follow-me.  No touch support - it is a laptop tool,
-and every one of the inference cues depends on a cursor hovering somewhere
-without being pressed.
+textures, no materials.
 
 Those are where this stops being a quick tool and starts being a worse copy of
 SketchUp.
+
+Two things that were on this list have since been built, on purpose and with
+the reasons written down elsewhere: Follow Me (uWork.Revolve and Sweep), and
+touch (uTouch.pas and docs/touch.md - the all-in-one made it worth having).
+
+**And there is already a CAD program written in Lazarus: zcad.**  We are not
+competing with it and we should not try.  It is a CAD program; this is a
+sketch pad that happens to be to scale.  The moment a feature here only makes
+sense to somebody who would otherwise be using a CAD program, it belongs in
+zcad and not in this.  Simple is the product.

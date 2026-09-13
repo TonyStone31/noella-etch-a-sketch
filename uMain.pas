@@ -841,6 +841,9 @@ type
     function LoadDocument(const FileName: string): Boolean;
     procedure DoExport;
     procedure DoPrint;
+    procedure DoPrintFull(const PngDir: string);
+    procedure PrintTileMarks(Col, Row, Cols, Rows, PitchW, PitchH,
+      SW, SH: Integer; const ScaleName: string);
     procedure DoPickColor;
     procedure CycleTheme(Step: Integer);
     procedure ApplyModeTheme;
@@ -9158,7 +9161,15 @@ begin
   else if W = 'clear' then StartErase
   else if W = 'save' then DoSave
   else if (W = 'saveas') or (W = 'save-as') then DoSaveAs
-  else if W = 'print' then DoPrint
+  else if W = 'print' then
+  begin
+    if (Rest = 'full') or (Rest = '1:1') or (Rest = 'fullsize') or
+       (Rest = 'full size') then DoPrintFull('')
+    else DoPrint;
+  end
+  { the same tiles as pictures, for a print shop - and for looking at what
+    the paper would have been without using any }
+  else if (W = 'tiles') and (Rest <> '') then DoPrintFull(Trim(Copy(S, Pos(' ', S) + 1, MaxInt)))
   else if W = 'scale' then
   begin
     for I := 0 to SCALE_COUNT - 1 do
@@ -14716,6 +14727,257 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ Full size, across as many sheets as it takes.
+
+  What a shop does with a flat pattern is print it 1:1, tape the sheets
+  together, lay the paper on the metal and scribe round it.  That is the
+  whole reason the unfolder exists, and until now the only way out of here
+  was a DXF for somebody else's machine.
+
+  The page is re-rendered from the geometry for every tile, at the printer's
+  own resolution, so nothing is scaled up from a picture and a line stays a
+  line at any size.
+
+  How the sheets go together: each tile prints a whole page of drawing, but
+  the next tile starts one LAP short of the page edge, so the last LAP inches
+  down the right side and along the bottom of every sheet are a repeat of
+  what is on the next one.  Trim each sheet on the marked line and butt the
+  next against it.  The sheet label sits inside that strip on purpose - it is
+  the part that gets cut off. }
+procedure TMainForm.DoPrintFull(const PngDir: string);
+const
+  LAP_IN = 0.5;        // inches of overlap, and the width of the trim strip
+  MARGIN_IN = 0.25;    // white left round the drawing before it is tiled
+  MAX_SHEETS = 120;    // past this it is a mistake, not a plan
+var
+  Sheet: TArtSurface;
+  V: TProjector;
+  Full: TDrawScale;
+  Lo, Hi: TP3;
+  I, Col, Row, Cols, Rows, SW, SH, PitchW, PitchH, N: Integer;
+  BX0, BY0, BX1, BY1, MinX, MinY, MaxX, MaxY: Double;
+  PageWIn, PageHIn: Double;
+  Any: Boolean;
+  Msg: string;
+begin
+  if FMode <> mdPro then
+  begin
+    FCmdMsg := 'Full size printing is a PRO thing.';
+    Exit;
+  end;
+  if FD.Doc.Live = 0 then
+  begin
+    FCmdMsg := 'Nothing on this sheet to print.';
+    Exit;
+  end;
+
+  { 1:1.  Paper is paper inches per foot, so twelve of them is full size;
+    metric measures paper metres per metre, so one is. }
+  if FD.Units = usImperial then
+  begin
+    Full.Name := 'full size';
+    Full.Paper := 12;
+  end
+  else
+  begin
+    Full.Name := '1:1';
+    Full.Paper := 1;
+  end;
+
+  { Where the drawing lands on an unshifted page, in print pixels.  Measured
+    through the view that is on screen: full size means something exact in
+    PLAN, and in a 3D view it means the picture at full size, foreshortening
+    and all - which is said out loud below before anything is printed. }
+  V.Kind := FD.View;
+  V.Ppu := PixelsPerUnit(FD.Units, Full, PRINT_DPI);
+  V.OX := 0;
+  V.OY := 0;
+  V.Az := FD.Az;
+  V.El := FD.El;
+
+  Any := False;
+  MinX := 0; MinY := 0; MaxX := 0; MaxY := 0;
+  for I := 0 to FD.Doc.Live - 1 do
+  begin
+    FD.Doc.ScreenBounds(V, I, BX0, BY0, BX1, BY1);
+    if BX1 < BX0 then Continue;
+    if not Any then
+    begin
+      MinX := BX0; MinY := BY0; MaxX := BX1; MaxY := BY1;
+      Any := True;
+    end
+    else
+    begin
+      MinX := Min(MinX, BX0); MinY := Min(MinY, BY0);
+      MaxX := Max(MaxX, BX1); MaxY := Max(MaxY, BY1);
+    end;
+  end;
+  if not Any then
+  begin
+    { nothing has a screen size - fall back to the model box }
+    if not FD.Doc.Bounds(Lo, Hi) then Exit;
+    MinX := 0; MinY := 0;
+    MaxX := (Hi.X - Lo.X) * V.Ppu;
+    MaxY := (Hi.Y - Lo.Y) * V.Ppu;
+  end;
+  MinX := MinX - MARGIN_IN * PRINT_DPI;
+  MinY := MinY - MARGIN_IN * PRINT_DPI;
+  MaxX := MaxX + MARGIN_IN * PRINT_DPI;
+  MaxY := MaxY + MARGIN_IN * PRINT_DPI;
+
+  { Straight to files, the dialog is not wanted - and neither is a printer,
+    so a page that nobody has a queue for still comes out at letter size.
+    Tiles as pictures are what a print shop asks for, and they are also how
+    this gets looked at without putting paper through anything. }
+  if PngDir = '' then
+  begin
+    if not dlgPrint.Execute then Exit;
+    if (Printer.XDPI <= 0) or (Printer.YDPI <= 0) then
+    begin
+      FCmdMsg := 'The printer did not say what resolution it is.';
+      Exit;
+    end;
+  end;
+
+  if (Printer.XDPI > 0) and (Printer.YDPI > 0) then
+  begin
+    PageWIn := Printer.PageWidth / Printer.XDPI;
+    PageHIn := Printer.PageHeight / Printer.YDPI;
+  end
+  else
+  begin
+    PageWIn := 8.5;
+    PageHIn := 11;
+  end;
+  SW := Max(64, Round(PageWIn * PRINT_DPI));
+  SH := Max(64, Round(PageHIn * PRINT_DPI));
+  PitchW := Max(1, SW - Round(LAP_IN * PRINT_DPI));
+  PitchH := Max(1, SH - Round(LAP_IN * PRINT_DPI));
+
+  Cols := Max(1, Ceil((MaxX - MinX) / PitchW));
+  Rows := Max(1, Ceil((MaxY - MinY) / PitchH));
+  N := Cols * Rows;
+
+  Msg := Format('%s, %d across by %d down = %d sheets of %.1f x %.1f in.',
+    [Full.Name, Cols, Rows, N, PageWIn, PageHIn]);
+  if FD.View <> vkPlan then
+    Msg := Msg + LineEnding + LineEnding +
+      'This is the ' + IfThen(FD.View = vkIso, 'ISO', '3D') +
+      ' view, so what comes out is the picture at full size, not the part.' +
+      LineEnding + 'PLAN is the one to print a pattern from.';
+  if (N > MAX_SHEETS) and (PngDir <> '') then
+  begin
+    FCmdMsg := Format('%d tiles is past the %d limit.', [N, MAX_SHEETS]);
+    Exit;
+  end;
+  if N > MAX_SHEETS then
+  begin
+    MessageDlg('Too many sheets',
+      Msg + LineEnding + LineEnding +
+      Format('That is past the %d sheet limit.  Print it at a scale, or ' +
+        'print one piece at a time.', [MAX_SHEETS]), mtWarning, [mbOK], 0);
+    Exit;
+  end;
+  if (PngDir = '') and (MessageDlg('Print full size?',
+       Msg + LineEnding + LineEnding +
+       Format('Every sheet is trimmed on the marked line - the last %.1f in ' +
+         'down the right and along the bottom is a repeat of the next ' +
+         'sheet.  The sheet number is printed inside that strip.',
+         [LAP_IN]),
+       mtConfirmation, [mbYes, mbNo], 0) <> mrYes) then Exit;
+
+  try
+    if PngDir = '' then Printer.BeginDoc;
+    try
+      Sheet := TArtSurface.Create(SW, SH);
+      try
+        for Row := 0 to Rows - 1 do
+          for Col := 0 to Cols - 1 do
+          begin
+            if (PngDir = '') and ((Row > 0) or (Col > 0)) then Printer.NewPage;
+            Sheet.Clear(Pix(255, 255, 255));
+            V.OX := -MinX - Col * PitchW;
+            V.OY := -MinY - Row * PitchH;
+            FD.Doc.Render(Sheet, V, FD.Units, FDimFont, Pix(20, 20, 20), FEdgeW);
+            if PngDir <> '' then
+              Sheet.SaveToPNG(IncludeTrailingPathDelimiter(PngDir) +
+                Format('tile-r%dc%d.png', [Row + 1, Col + 1]))
+            else
+            begin
+              Printer.Canvas.StretchDraw(
+                Rect(0, 0, Printer.PageWidth, Printer.PageHeight), Sheet.AsBitmap);
+              PrintTileMarks(Col, Row, Cols, Rows, PitchW, PitchH, SW, SH,
+                             Full.Name);
+            end;
+          end;
+      finally
+        Sheet.Free;
+      end;
+    finally
+      if PngDir = '' then Printer.EndDoc;
+    end;
+    if PngDir <> '' then
+      FCmdMsg := Format('Wrote %d tiles at %s into %s', [N, Full.Name, PngDir])
+    else
+      FCmdMsg := Format('Sent %d sheets at %s.', [N, Full.Name]);
+    FHint := FCmdMsg;
+  except
+    on E: Exception do
+      if PngDir <> '' then FCmdMsg := 'Could not write the tiles: ' + E.Message
+      else MessageDlg('Could not print', E.Message, mtError, [mbOK], 0);
+  end;
+  Invalidate;
+end;
+
+{ The trim line and the sheet number, drawn straight onto the page rather
+  than into the picture - they belong to the paper, not to the drawing, and
+  at print resolution a hairline drawn here is a hairline. }
+procedure TMainForm.PrintTileMarks(Col, Row, Cols, Rows, PitchW, PitchH,
+  SW, SH: Integer; const ScaleName: string);
+var
+  PX, PY: Integer;
+  S: string;
+
+  { print pixels across to printer pixels across }
+  function AtX(V: Integer): Integer;
+  begin
+    Result := Round(V * (Printer.PageWidth / SW));
+  end;
+
+  function AtY(V: Integer): Integer;
+  begin
+    Result := Round(V * (Printer.PageHeight / SH));
+  end;
+
+begin
+  Printer.Canvas.Pen.Color := clSilver;
+  Printer.Canvas.Pen.Width := Max(1, Printer.XDPI div 300);
+  Printer.Canvas.Brush.Style := bsClear;
+
+  PX := AtX(PitchW);
+  PY := AtY(PitchH);
+  { a sheet with one to its right is trimmed down the line; the last column
+    has nothing coming after it and is left whole }
+  if Col < Cols - 1 then
+  begin
+    Printer.Canvas.Line(PX, 0, PX, Printer.PageHeight);
+    Printer.Canvas.TextOut(PX + AtX(8), AtY(8), 'trim');
+  end;
+  if Row < Rows - 1 then
+  begin
+    Printer.Canvas.Line(0, PY, Printer.PageWidth, PY);
+    Printer.Canvas.TextOut(AtX(8), PY + AtY(8), 'trim');
+  end;
+
+  Printer.Canvas.Font.Color := clGray;
+  Printer.Canvas.Font.Height := -Round(Printer.YDPI / 8);   { about 9 point }
+  S := Format('%s  -  sheet %d of %d   (row %d, column %d)   %s',
+    [FD.Name, Row * Cols + Col + 1, Cols * Rows, Row + 1, Col + 1, ScaleName]);
+  { inside the trim strip wherever there is one, so it is cut away with it }
+  Printer.Canvas.TextOut(AtX(12),
+    Printer.PageHeight - Round(Printer.YDPI / 5), S);
+end;
+
 { In pro mode the page is re-rendered from the geometry at the printer's own
   resolution, so 1/4" = 1'-0" really does come out as a quarter inch on the
   paper.  Toy mode just fits the picture to the page. }
@@ -14762,7 +15024,8 @@ begin
           Sheet.Free;
         end;
         FCmdMsg := 'Printed at ' + CurScale.Name +
-          IfThen(FD.Units = usImperial, ' = 1''-0"', '');
+          IfThen(FD.Units = usImperial, ' = 1''-0"', '') +
+          '.  /print full lays it out 1:1 across sheets.';
       end
       else
       begin

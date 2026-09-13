@@ -10,6 +10,27 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Print it full size, across as many sheets as it takes.**  `/print full`
+  lays the drawing out at 1:1 and prints a page at a time.  Tape the sheets
+  together, put the paper on the metal and scribe round it - which is what a
+  flat pattern was always for.
+
+  Every sheet repeats the last half inch of the next one down its right side
+  and along its bottom.  Trim on the marked line, butt the next sheet against
+  it, and the drawing runs straight through.  The sheet number is printed
+  inside that strip, so it goes in the bin with the trim.
+
+  It tells you how many sheets it will be and asks before it starts.  PLAN is
+  the view to print a pattern from, and it says so if you are in another one.
+
+- **`/tiles <folder>`** writes the same pages as PNG pictures instead of
+  printing them - for sending to a print shop, or for seeing what the paper
+  would look like without using any.
+
 ## v2026.09.12.4
 
 ### New
