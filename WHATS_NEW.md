@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Export to STL, for a 3D printer.**  Export, then "STL - for a 3D
+  printer".  It writes the model as triangles in millimetres, which is what
+  every slicer expects, so a drawing in feet comes out the size you drew it
+  rather than three hundred times too small.
+
+  It also tells you whether the shape is actually closed.  That part matters:
+  a slicer will accept a model with holes in it and guess where the inside is,
+  and an hour into a print is a bad time to find out it guessed wrong.
+
+### Fixed
+
+- **A correction to what the last release claimed.**  13 gave a number for how
+  much the new depth handling improved things.  That number was measured
+  against the wrong yardstick and was not real, and it has been taken out of
+  the note above.  The change itself is sound and stays - a face's depth is
+  now exact at its corners instead of estimated - but it did not do what was
+  claimed for it, and saying so is better than leaving it there.
+
 ## v2026.09.13.13
 
 ### Fixed
@@ -26,9 +48,9 @@
   than the near side and painted over it.
 
   Every such face is now cut into triangles first.  A triangle has exactly
-  one plane and always lies in it, so there is nothing left to estimate.
-  Counted over eight views of the crown, the number of pixels showing the
-  wrong surface went from two in five to one in four hundred.
+  one plane and always lies in it, so there is nothing left to estimate: the
+  depth is right at every corner of the face, and in between it can never
+  stray outside the corners it sits between.
 
   Faces that really are flat are untouched and cost nothing extra - a drawing
   made only of flat faces comes out pixel for pixel as it did before.

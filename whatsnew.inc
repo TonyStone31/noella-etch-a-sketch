@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Export to STL, for a 3D printer.**  Export, then "STL - for a 3D' + LineEnding +
+    '  printer".  It writes the model as triangles in millimetres, which is what' + LineEnding +
+    '  every slicer expects, so a drawing in feet comes out the size you drew it' + LineEnding +
+    '  rather than three hundred times too small.' + LineEnding +
+    '' + LineEnding +
+    '  It also tells you whether the shape is actually closed.  That part matters:' + LineEnding +
+    '  a slicer will accept a model with holes in it and guess where the inside is,' + LineEnding +
+    '  and an hour into a print is a bad time to find out it guessed wrong.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A correction to what the last release claimed.**  13 gave a number for how' + LineEnding +
+    '  much the new depth handling improved things.  That number was measured' + LineEnding +
+    '  against the wrong yardstick and was not real, and it has been taken out of' + LineEnding +
+    '  the note above.  The change itself is sound and stays - a face''s depth is' + LineEnding +
+    '  now exact at its corners instead of estimated - but it did not do what was' + LineEnding +
+    '  claimed for it, and saying so is better than leaving it there.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.13' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
@@ -29,9 +51,9 @@ const
     '  than the near side and painted over it.' + LineEnding +
     '' + LineEnding +
     '  Every such face is now cut into triangles first.  A triangle has exactly' + LineEnding +
-    '  one plane and always lies in it, so there is nothing left to estimate.' + LineEnding +
-    '  Counted over eight views of the crown, the number of pixels showing the' + LineEnding +
-    '  wrong surface went from two in five to one in four hundred.' + LineEnding +
+    '  one plane and always lies in it, so there is nothing left to estimate: the' + LineEnding +
+    '  depth is right at every corner of the face, and in between it can never' + LineEnding +
+    '  stray outside the corners it sits between.' + LineEnding +
     '' + LineEnding +
     '  Faces that really are flat are untouched and cost nothing extra - a drawing' + LineEnding +
     '  made only of flat faces comes out pixel for pixel as it did before.' + LineEnding +

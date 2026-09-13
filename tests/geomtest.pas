@@ -3956,6 +3956,119 @@ begin
 end;
 
 
+{ --- STL export -------------------------------------------------------
+
+  What makes an STL printable is not that it parses.  It is that the
+  triangles enclose a solid: they have to cover the whole surface, and every
+  one of them has to face outwards, or the slicer cannot tell inside from
+  outside and fills the wrong half.
+
+  Both of those are one number each.  Add up the areas and it must come to
+  the surface area of the shape.  Add up the signed volumes of the tetrahedra
+  from the origin to each triangle and it must come to the volume of the
+  shape - positive, because a normal pointing the wrong way subtracts.  A box
+  is the right thing to check it with, because its area and volume are known
+  without doing any of the same arithmetic over again. }
+procedure TestStl;
+var
+  D: TWorkDoc;
+  M: TMemoryStream;
+  Closed: Boolean;
+  NT, I, Wrote: Integer;
+  Cnt: LongWord;
+  Head: array[0..79] of Byte;
+  F: array[0..11] of Single;
+  Attr: Word;
+  Area, Vol, L2, Sc: Double;
+  Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, Ux, Uy, Uz, Vx, Vy, Vz, Nx, Ny, Nz: Double;
+begin
+  WriteLn('-- STL export --');
+  D := TWorkDoc.Create;
+  try
+    { a 10 x 4 x 3 box, in feet }
+    MakeRect(D, 0, 0, 10, 4);
+    Ok(D.PushPull(4, 3), 'pushed a 10 x 4 rectangle up 3 feet');
+    M := TMemoryStream.Create;
+    try
+      Wrote := D.WriteSTL(M, usImperial, Closed);
+      Ok(Closed, 'a box reports as closed');
+      Ok(Wrote = 12, Format('a box is 12 triangles, got %d', [Wrote]));
+
+      M.Position := 0;
+      M.ReadBuffer(Head, 80);
+      Ok(not ((Head[0] = Ord('s')) and (Head[1] = Ord('o')) and
+              (Head[2] = Ord('l')) and (Head[3] = Ord('i')) and
+              (Head[4] = Ord('d'))),
+        'the header does not start with "solid", which would make a reader '
+        + 'take it for the ASCII kind');
+      M.ReadBuffer(Cnt, 4);
+      Ok(Integer(Cnt) = Wrote,
+        Format('the count in the file is the count written (%d)', [Cnt]));
+      Ok(M.Size = 84 + Int64(Cnt) * 50,
+        Format('the file is exactly as long as %d triangles make it', [Cnt]));
+
+      { millimetres: ten feet is 3048 of them }
+      Sc := 304.8;
+      Area := 0;
+      Vol := 0;
+      NT := 0;
+      for I := 0 to Integer(Cnt) - 1 do
+      begin
+        M.ReadBuffer(F, SizeOf(F));
+        M.ReadBuffer(Attr, 2);
+        Ax := F[3]; Ay := F[4]; Az := F[5];
+        Bx := F[6]; By := F[7]; Bz := F[8];
+        Cx := F[9]; Cy := F[10]; Cz := F[11];
+        Ux := Bx - Ax; Uy := By - Ay; Uz := Bz - Az;
+        Vx := Cx - Ax; Vy := Cy - Ay; Vz := Cz - Az;
+        Nx := Uy * Vz - Uz * Vy;
+        Ny := Uz * Vx - Ux * Vz;
+        Nz := Ux * Vy - Uy * Vx;
+        L2 := Sqrt(Nx * Nx + Ny * Ny + Nz * Nz);
+        Area := Area + L2 / 2;
+        { the normal in the file has to agree with the corners it is written
+          with, or a slicer that trusts one and not the other disagrees with
+          itself }
+        if (L2 > 1E-9) and
+           (Abs(F[0] - Nx / L2) < 1E-3) and (Abs(F[1] - Ny / L2) < 1E-3) and
+           (Abs(F[2] - Nz / L2) < 1E-3) then Inc(NT);
+        Vol := Vol + (Ax * (By * Cz - Bz * Cy) - Ay * (Bx * Cz - Bz * Cx)
+                    + Az * (Bx * Cy - By * Cx)) / 6;
+      end;
+      Ok(NT = Integer(Cnt),
+        Format('every triangle''s stated normal matches its corners (%d of %d)',
+          [NT, Cnt]));
+      { 2*(10*4 + 10*3 + 4*3) = 164 square feet }
+      Ok(Abs(Area - 164 * Sqr(Sc)) < 1E-3 * 164 * Sqr(Sc),
+        Format('the triangles come to the box''s surface area (%.0f mm2, wanted %.0f)',
+          [Area, 164 * Sqr(Sc)]));
+      { 10*4*3 = 120 cubic feet, and positive means they all face outwards }
+      Ok(Abs(Vol - 120 * Sc * Sc * Sc) < 1E-3 * 120 * Sc * Sc * Sc,
+        Format('and to its volume, the right way out (%.0f mm3, wanted %.0f)',
+          [Vol, 120 * Sc * Sc * Sc]));
+    finally
+      M.Free;
+    end;
+
+    { metric drawings are in metres, so the multiplier is a thousand }
+    M := TMemoryStream.Create;
+    try
+      D.WriteSTL(M, usMetric, Closed);
+      M.Position := 84;
+      M.ReadBuffer(F, SizeOf(F));
+      L2 := 0;
+      for I := 3 to 11 do L2 := Max(L2, Abs(F[I]));
+      Ok(L2 <= 10 * 1000 + 1,
+        Format('a metric drawing scales by a thousand, not by 304.8 (%.0f)', [L2]));
+    finally
+      M.Free;
+    end;
+  finally
+    D.Free;
+  end;
+end;
+
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -4012,6 +4125,7 @@ begin
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
   TestTriangles;    WriteLn;
+  TestStl;          WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

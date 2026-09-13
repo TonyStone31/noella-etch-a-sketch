@@ -208,6 +208,12 @@ type
     { which solids are closed, and the edit it was worked out at }
     FClosedSeq: Integer;
     FClosedGrp: array of Boolean;
+    { every face cut into triangles, and the edit each cut was made at - see
+      FaceCut }
+    FCut: array of record
+      Seq: Integer;
+      Tris: TTriList;
+    end;
     FSliceLo, FSliceHi: Double;
     FLastBore: Integer;
     function GetEnt(I: Integer): TWorkEnt;
@@ -279,6 +285,25 @@ type
       run opposite ways?  On one that is, a face turned away from the camera
       can never be seen, so it need not be drawn at all. }
     function GroupClosed(G: Integer): Boolean;
+    { This face cut into triangles, as triples of indices into FaceCorners -
+      which is the outline followed by each hole, in order.
+
+      Cut in the face's own plane, not on the screen, so the answer does not
+      depend on where the camera is and can be kept: it is worked out once
+      per face per edit and handed back as often as it is asked for.  The
+      renderer asks every frame for every face that is not flat, and STL
+      export asks once for every face there is.
+
+      Cutting in the face's own plane is also the more robust of the two.  A
+      face that is not flat can, seen from the wrong angle, project to an
+      outline that crosses itself, and no ear clipper has an answer for one
+      of those; flattened along its own normal it is far less likely to, and
+      a flat face cannot at all.
+
+      Empty if the face has fewer than three corners or is degenerate. }
+    function FaceCut(Index: Integer): TTriList;
+    { The corners FaceCut indexes: the outline, then each hole in order. }
+    function FaceCorners(Index: Integer): TP3Array;
     { The Z range of everything, for setting a slice that holds the lot. }
     function ZRange(out Lo, Hi: Double): Boolean;
     function ClearGuides: Integer;
@@ -465,6 +490,24 @@ type
       but as entities somebody can snap to and measure in their own CAD. }
     procedure WriteDXF(L: TStrings; const V: TProjector; U: TUnitSystem;
       ThreeD: Boolean);
+    { The model as an STL, which is the file a 3D printer's slicer wants.
+
+      An STL is nothing but triangles, so this is the same cut the renderer
+      uses - FaceCut - written out in the face's own coordinates instead of
+      the screen's.  Binary, because ASCII STL is five times the size for the
+      same triangles and every slicer reads both.
+
+      In millimetres.  STL carries no units and every slicer in the world
+      assumes millimetres, so a drawing in feet is multiplied by 304.8 and one
+      in metres by 1000 - which is the difference between a part that prints
+      and a part that is three hundred times too small.
+
+      Returns how many triangles went out, and says through Closed whether
+      every solid in the drawing was closed.  A slicer can usually patch up
+      an open shell, but it is guessing when it does, so it is worth being
+      able to tell somebody their model has holes in it before they wait an
+      hour for it to print wrong. }
+    function WriteSTL(St: TStream; U: TUnitSystem; out Closed: Boolean): Integer;
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
@@ -2374,6 +2417,101 @@ end;
 
   Worked out once per edit and kept, because it walks every face of every
   solid and the camera moves far more often than the drawing changes. }
+function TWorkDoc.FaceCorners(Index: Integer): TP3Array;
+var
+  I, J, N: Integer;
+begin
+  Result := nil;
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekFace then Exit;
+  N := Length(FEnts[Index].Poly);
+  for I := 0 to High(FEnts[Index].Holes) do
+    Inc(N, Length(FEnts[Index].Holes[I]));
+  SetLength(Result, N);
+  N := 0;
+  for I := 0 to High(FEnts[Index].Poly) do
+  begin
+    Result[N] := FEnts[Index].Poly[I];
+    Inc(N);
+  end;
+  for I := 0 to High(FEnts[Index].Holes) do
+    for J := 0 to High(FEnts[Index].Holes[I]) do
+    begin
+      Result[N] := FEnts[Index].Holes[I][J];
+      Inc(N);
+    end;
+end;
+
+function TWorkDoc.FaceCut(Index: Integer): TTriList;
+var
+  Nm, U, W: TP3;
+  Corners: TP3Array;
+  Flat2: array of TPointF;
+  Ring: TIndexRing;
+  Holes: TIndexRings;
+  I, J, N, Base, Was, Fresh: Integer;
+begin
+  Result := nil;
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekFace then Exit;
+  if Length(FEnts[Index].Poly) < 3 then Exit;
+
+  if Length(FCut) < FLive then
+  begin
+    Was := Length(FCut);
+    SetLength(FCut, FLive);
+    { the edit sequence starts at zero, so zero cannot also be how a fresh
+      entry says it has never been cut }
+    for Fresh := Was to FLive - 1 do FCut[Fresh].Seq := -1;
+  end;
+  { the edit sequence is bumped by every change to the drawing, so an entry
+    left over from before one - at an index that may now hold something else
+    entirely - can never be mistaken for a current answer }
+  if FCut[Index].Seq = FEditSeq then
+  begin
+    Result := FCut[Index].Tris;
+    Exit;
+  end;
+
+  Corners := FaceCorners(Index);
+  Nm := FaceNormal(Index);
+
+  { two axes across the face, to flatten it into its own plane.  Any pair
+    perpendicular to the normal will do - which way round they land only
+    decides which way the flattened outline winds, and the cutting does not
+    care about that. }
+  U := P3(1, 0, 0);
+  if Abs(Nm.X) > 0.9 then U := P3(0, 1, 0);
+  U := Norm3(Cross3(Nm, U));
+  W := Norm3(Cross3(Nm, U));
+
+  SetLength(Flat2, Length(Corners));
+  for I := 0 to High(Corners) do
+  begin
+    Flat2[I].X := Dot3(Corners[I], U);
+    Flat2[I].Y := Dot3(Corners[I], W);
+  end;
+
+  N := Length(FEnts[Index].Poly);
+  SetLength(Ring, N);
+  for I := 0 to N - 1 do Ring[I] := I;
+  SetLength(Holes, Length(FEnts[Index].Holes));
+  Base := N;
+  for I := 0 to High(FEnts[Index].Holes) do
+  begin
+    SetLength(Holes[I], Length(FEnts[Index].Holes[I]));
+    for J := 0 to High(FEnts[Index].Holes[I]) do
+    begin
+      Holes[I][J] := Base;
+      Inc(Base);
+    end;
+  end;
+
+  if not Triangulate(Flat2, Ring, Holes, Result) then Result := nil;
+  FCut[Index].Seq := FEditSeq;
+  FCut[Index].Tris := Result;
+end;
+
 function TWorkDoc.GroupClosed(G: Integer): Boolean;
 
   { the two ends to a millionth, smaller end first so either way round makes
@@ -6519,6 +6657,124 @@ end;
 
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
   same size it prints. }
+function TWorkDoc.WriteSTL(St: TStream; U: TUnitSystem;
+  out Closed: Boolean): Integer;
+var
+  I, J, N: Integer;
+  Tris: TTriList;
+  Corners: TP3Array;
+  Nm, A, B, C, E1, E2, Cr, Tmp: TP3;
+  Scale, L2: Double;
+  Head: array[0..79] of Byte;
+  Cnt: LongWord;
+  Attr: Word;
+  Lbl: AnsiString;
+
+  { a corner, in millimetres }
+  procedure PutP(const P: TP3);
+  var
+    F: array[0..2] of Single;
+  begin
+    F[0] := P.X * Scale;
+    F[1] := P.Y * Scale;
+    F[2] := P.Z * Scale;
+    St.WriteBuffer(F, SizeOf(F));
+  end;
+
+  { a direction, which has no units and must NOT be scaled - a normal 304.8
+    long is not a normal }
+  procedure PutN(const P: TP3);
+  var
+    F: array[0..2] of Single;
+  begin
+    F[0] := P.X;
+    F[1] := P.Y;
+    F[2] := P.Z;
+    St.WriteBuffer(F, SizeOf(F));
+  end;
+
+begin
+  Result := 0;
+  Closed := True;
+  if U = usMetric then Scale := 1000 else Scale := 304.8;
+
+  { The header is 80 bytes of anything at all, except that it must not begin
+    with the word "solid" - a reader that sees that decides the file is the
+    ASCII kind and makes nothing of what follows. }
+  FillChar(Head, SizeOf(Head), 0);
+  Lbl := 'Heckers Sketch - millimetres';
+  if Length(Lbl) > 79 then SetLength(Lbl, 79);
+  Move(Lbl[1], Head[0], Length(Lbl));
+  St.WriteBuffer(Head, SizeOf(Head));
+
+  { the count goes in now as a placeholder and is written again at the end,
+    when it is known }
+  Cnt := 0;
+  St.WriteBuffer(Cnt, SizeOf(Cnt));
+
+  Attr := 0;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    if Length(FEnts[I].Poly) < 3 then Continue;
+    if FEnts[I].Solid and (FEnts[I].Grp > 0) and not GroupClosed(FEnts[I].Grp) then
+      Closed := False;
+    if not FEnts[I].Solid then Closed := False;
+
+    Tris := FaceCut(I);
+    if Length(Tris) < 3 then Continue;
+    Corners := FaceCorners(I);
+    Nm := FaceNormal(I);
+    N := Length(Corners);
+
+    for J := 0 to (Length(Tris) div 3) - 1 do
+    begin
+      if (Tris[J*3] >= N) or (Tris[J*3+1] >= N) or (Tris[J*3+2] >= N) then Continue;
+      A := Corners[Tris[J*3]];
+      B := Corners[Tris[J*3+1]];
+      C := Corners[Tris[J*3+2]];
+      E1 := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+      E2 := P3(C.X - A.X, C.Y - A.Y, C.Z - A.Z);
+      Cr := Cross3(E1, E2);
+      L2 := Sqrt(Sqr(Cr.X) + Sqr(Cr.Y) + Sqr(Cr.Z));
+      if L2 < 1E-12 then Continue;   { no area, nothing to print }
+
+      { STL wants the corners going anticlockwise seen from outside, which is
+        the same as saying the triangle's own normal agrees with the face's.
+        Which way the cutting happened to wind them is not our business, so
+        turn the ones that disagree rather than trusting either. }
+      if Dot3(Cr, Nm) < 0 then
+      begin
+        Tmp := B;
+        B := C;
+        C := Tmp;
+        E1 := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+        E2 := P3(C.X - A.X, C.Y - A.Y, C.Z - A.Z);
+        Cr := Cross3(E1, E2);
+        L2 := Sqrt(Sqr(Cr.X) + Sqr(Cr.Y) + Sqr(Cr.Z));
+        if L2 < 1E-12 then Continue;
+      end;
+
+      PutN(P3(Cr.X / L2, Cr.Y / L2, Cr.Z / L2));
+      PutP(A);
+      PutP(B);
+      PutP(C);
+      St.WriteBuffer(Attr, SizeOf(Attr));
+      Inc(Result);
+    end;
+  end;
+
+  { a drawing with no faces in it is not a closed solid, whatever the loop
+    above never got the chance to say }
+  if Result = 0 then Closed := False;
+
+  { back over the placeholder with the real count }
+  St.Position := 80;
+  Cnt := Result;
+  St.WriteBuffer(Cnt, SizeOf(Cnt));
+  St.Position := St.Size;
+end;
+
 procedure TWorkDoc.WriteDXF(L: TStrings; const V: TProjector; U: TUnitSystem;
   ThreeD: Boolean);
 var
@@ -6878,9 +7134,9 @@ var
   { cutting a face that is not flat into triangles, so its depth is exact }
   TriPts: array of TPointF;
   TriZ: array of Double;
+  Tris: TTriList;
   TriRing: TIndexRing;
   TriHoles: TIndexRings;
-  Tris: TTriList;
   Mesh: TDepthTris;
   TriDev, TriSize, TriDet, TDx, TDy: Double;
   MN, MI: Integer;
@@ -7679,31 +7935,61 @@ begin
       { a millionth of the face's own size out of flat is rounding, not warp }
       if TriDev > 1E-6 * TriSize then
       begin
-        MN := 0;
-        for HK := 0 to High(Loops) do Inc(MN, Length(Loops[HK]));
-        SetLength(TriPts, MN);
-        SetLength(TriZ, MN);
+        { Cut against what the camera actually shows, every frame.
+
+          Cutting once in the face's own plane and keeping it was built and
+          measured, because it looks like the obvious saving and it is what
+          STL wants.  It is not worth it here, for two reasons found by
+          measuring rather than by thinking about it.
+
+          It does not save anything.  Every face in this program that is out
+          of flat is a quad - a revolve sweeps its outline into gores, and a
+          push does the same - and cutting a quad is two triangles.  On the
+          crown, which is the worst drawing there is for this, keeping the cut
+          saved one part in a hundred of a frame: 0.99 seconds against 1.00
+          over 96 views, where doing none of this at all is 0.92.
+
+          And it is not free of risk.  A cut made in the face's own plane
+          need not still be a cut once the camera has had its way with it: a
+          flat face is safe, because its plane and the screen are two views of
+          one plane, but a face that is NOT flat has no plane and the two
+          views are of points that lie in none.  On the crown the kept cut
+          still held 77 percent of the time and folded over the other 23, and
+          catching that needs a check of its own.
+
+          So: FaceCut stays, because STL is model-space by nature and wants
+          exactly that; the renderer does the simple thing. }
         SetLength(TriRing, Length(Loops[0]));
+        for HJ := 0 to High(Loops[0]) do TriRing[HJ] := HJ;
         SetLength(TriHoles, Length(Loops) - 1);
-        MN := 0;
-        for HJ := 0 to High(Loops[0]) do
-        begin
-          TriPts[MN] := Loops[0][HJ];
-          TriZ[MN] := Dot3(FEnts[K].Poly[HJ], Look);
-          TriRing[HJ] := MN;
-          Inc(MN);
-        end;
+        MN := Length(Loops[0]);
         for HK := 0 to High(FEnts[K].Holes) do
         begin
           SetLength(TriHoles[HK], Length(FEnts[K].Holes[HK]));
           for HJ := 0 to High(FEnts[K].Holes[HK]) do
           begin
-            TriPts[MN] := Loops[HK + 1][HJ];
-            TriZ[MN] := Dot3(FEnts[K].Holes[HK][HJ], Look);
             TriHoles[HK][HJ] := MN;
             Inc(MN);
           end;
         end;
+
+        SetLength(TriPts, MN);
+        SetLength(TriZ, MN);
+        MN := 0;
+        for HJ := 0 to High(Loops[0]) do
+        begin
+          TriPts[MN] := Loops[0][HJ];
+          TriZ[MN] := Dot3(FEnts[K].Poly[HJ], Look);
+          Inc(MN);
+        end;
+        for HK := 0 to High(FEnts[K].Holes) do
+          for HJ := 0 to High(FEnts[K].Holes[HK]) do
+          begin
+            TriPts[MN] := Loops[HK + 1][HJ];
+            TriZ[MN] := Dot3(FEnts[K].Holes[HK][HJ], Look);
+            Inc(MN);
+          end;
+
         if Triangulate(TriPts, TriRing, TriHoles, Tris) then
         begin
           SetLength(Mesh, Length(Tris) div 3);
@@ -7713,6 +7999,8 @@ begin
             ZI2 := Tris[MI * 3];
             ZI3 := Tris[MI * 3 + 1];
             ZJ := Tris[MI * 3 + 2];
+            if (ZI2 >= Length(TriPts)) or (ZI3 >= Length(TriPts)) or
+               (ZJ >= Length(TriPts)) then Continue;
             TriDet := (Double(TriPts[ZI3].X) - TriPts[ZI2].X) *
                         (Double(TriPts[ZJ].Y) - TriPts[ZI2].Y) -
                       (Double(TriPts[ZJ].X) - TriPts[ZI2].X) *

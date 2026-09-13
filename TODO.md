@@ -330,7 +330,7 @@ Two small things that serve the spec directly, neither started:
 
 ### Worth doing
 
-* **STL export.**  A `WriteSTL` beside `WriteDXF` and a fifth line in the
+* **STL export.**  DONE 13 September - see "Done 13 September" below.  A `WriteSTL` beside `WriteDXF` and a fifth line in the
   Ctrl+E dialog.  Every push/pull shape then goes into a slicer, into
   Blender, onto a printer - and it reaches an audience that has no interest
   whatever in duct fittings, which is the audience that turns a tool into
@@ -706,41 +706,100 @@ single-plane path, which is exactly right and free; on the crown that is 288
 faces of the 336, and every drawing made only of flat faces renders bit for
 bit as it did before.
 
-**What it measured.**  A harness that works out, independently, which surface
-is really nearest at every fourth pixel, and compares that with what the
-depth buffer holds - counting only pixels where the truth is smooth for two
-pixels all round, so that silhouettes, where the two disagree for reasons
-that have nothing to do with depth, are not what is being measured.  On the
-crown over eight views: **40.12 percent of pixels had the wrong depth before,
-0.25 percent after**.  Flat drawings: nought, before and after.
+**What it measured, and a correction.**  The first harness worked out
+independently which surface is nearest at every fourth pixel and compared
+that with the depth buffer, and said 40.12 percent of pixels wrong before,
+0.25 percent after.  That number was wrong, or rather it was measuring the
+wrong thing: the harness built its reference with **the same screen-space cut
+the renderer had just started using**, so of course they agreed.  Circular.
+It was quoted in the v2026.09.13.13 release notes before anyone noticed.
 
-Two details earned their place by measurement, both against instinct.
-Widening each triangle's stretch by a pixel "for safety" *quadrupled* what
-was left wrong, 28 pixels to 104 - clipping to the row band already covers
-the row.  And clamping the written depth to the triangle's own three corner
-depths is what keeps a long thin triangle honest: without it the worst pixel
-goes from 69 feet out to 307.
+A reference that takes no side: every warped face here is a quad, and a quad
+can be cut along either diagonal - both honest, and each bends the surface
+the opposite way in the middle.  What both approximate is the bilinear patch
+through the four corners, so subdividing that finely gives something neither
+cut can claim.  Against it, on the smooth insides of faces:
+
+| | out by >0.05 ft | >0.5 ft | >2 ft | worst |
+|---|---|---|---|---|
+| one fitted plane | 12.95% | 29 | 1 | 2.04 ft |
+| triangles | 27.55% | 165 | 6 | 3.66 ft |
+
+So on that measure the fitted plane is *closer*, and it makes sense that it
+would be: least squares sits between the two diagonals, and either diagonal
+commits to one of them.  And counting instead how far behind the true surface
+the renderer ever falls - which is the actual reported fault, a face showing
+through another - the three come out level, 205 to 233 pixels more than ten
+feet out whichever is used.
+
+**So what is triangulation actually worth here?**  Not what was claimed.  What
+stands up to checking is narrower and still worth having:
+
+* a face's depth is now *exact at its own corners* rather than fitted - the
+  fitted plane on the crown is out by 14.7 feet at a corner, the triangles by
+  0.000000000.  That is measured directly and needs no reference.
+* every pixel's depth is bounded by the corner depths of the triangle it sits
+  in, so no pixel can be given a depth the face does not reach.  The fitted
+  plane had no such bound, which is how it produced the 542-foot error that
+  started this.
+* flat faces - most of them - are bit-for-bit unchanged, so none of this can
+  cost anything on ordinary drawings.
+* and it is the cut STL needs, which is now built on it.
+
+What it is NOT is a demonstrated reduction in wrong pixels on screen.  If the
+blue comes back, the thing to suspect is not the depth of a face but the
+ordering *between* faces, which is where the remaining large errors live and
+which none of these three approaches touches.
 
 **Still to do off the back of it.**
 
-*Cache the cut.*  It is redone every frame - 1.6 ms of the 2.5 ms this costs
-on the crown, and the crown is the worst case there is.  The topology depends
-only on the shape of the polygon, not on where the camera is, so it could be
-cut once in the face's own plane and cached on `FEditSeq` the way
-`GroupClosed` is, leaving each frame only the projecting and the plane
-solving.  Worth doing when something else brings us back here; not worth it
-on its own at 2.5 ms.
+*Cache the cut - built, measured, and kept only where it pays.*
+`TWorkDoc.FaceCut` cuts a face in its own plane and keeps the answer on
+`FEditSeq` the way `GroupClosed` does.  STL uses it.  **The renderer does
+not**, and that is the measured answer to what looked like the obvious saving.
 
-*STL export.*  This is the triangulator it needs.  It would want the cut done
-in the face's own plane rather than in screen space - which is the same work
-as the cache above, so the two go together.
+It saves nothing there.  Every face in this program that is out of flat is a
+quad - a revolve sweeps its outline into gores and a push does the same - and
+cutting a quad is two triangles.  On the crown, the worst drawing there is for
+this, keeping the cut came to 0.99 seconds over 96 views against 1.00 for
+cutting every frame, where doing none of it at all is 0.92.  One part in a
+hundred of a frame.
+
+And it carries a hazard.  A cut made in the face's own plane need not still be
+a cut once the camera has had its way with it: a flat face is safe, its plane
+and the screen being two views of one plane, but a face that is not flat has
+no plane and the two views are of points lying in none.  Over 96 views of the
+crown the kept cut still held 77 percent of the time and folded over the
+other 23 - triangles landing on top of each other, near ones under far.
+
+Folding is at least cheap to catch, and the check is worth writing down in
+case this comes back for a drawing full of many-cornered warped faces, where
+the sums would come out differently: the signed areas of any triangulation of
+a ring add up to the signed area of the ring under any linear map, so if every
+triangle turns the same way then the sum of their sizes IS the size of the
+face, which leaves no room for two to overlap.  One pass, and the only
+question is the sign.
+
+*STL export - done, 13 September.*  Binary, in millimetres, built straight on
+`FaceCut` - which is what that cache is for, model space being what an STL is
+in.  Export > "STL - for a 3D printer".  It reports how many triangles went
+out and whether every solid was closed, because a slicer will happily guess at
+the inside of an open shell and an hour of printing is a long time to find
+that out.
+
+Checked in the geom suite the way an STL has to be checked - not that it
+parses, but that the triangles come to the surface area of the shape and to
+its volume, positive, which is only true if they cover all of it and every one
+of them faces outwards.  A 10x4x3 box: 12 triangles, 164 square feet, 120
+cubic feet, and every stated normal agreeing with the corners written beside
+it.  That last one caught a real bug - the normal was going through the
+millimetre scaling with the vertices, and a normal 304.8 long is not a normal.
 
 *Screen-space cutting and self-intersection.*  A warped face can in principle
 project to an outline that crosses itself, which ear clipping has no answer
 for; it would come up short and the rest of the face would fall back to the
 fitted plane.  Measured on the crown: 4,608 cuts over 96 views, never short,
-worst area error 1.1e-14 relative.  Not a problem in practice, and cutting in
-the face's own plane would remove even the possibility.
+worst area error 1.1e-14 relative.  Not a problem in practice.
 
 ### Settled: a 3D engine, and whether the renderer should be one
 
@@ -923,3 +982,25 @@ competing with it and we should not try.  It is a CAD program; this is a
 sketch pad that happens to be to scale.  The moment a feature here only makes
 sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
+
+### Examples written out beside the portable exe
+
+Tony, 13 September.  The program ships as one executable on purpose and that
+should not change, so the examples have to come out of it rather than beside
+it: on first run it makes an `examples` folder next to itself and writes them
+out, and it does it again for any that have gone missing or been altered.
+The very first run ever opens a couple of them, so somebody who has just
+downloaded it sees the thing working instead of an empty sheet.
+
+Content: the wine glass, the crown, and a handful of deliberately wild ones -
+the point is demonstration, not tuition.  Worth accumulating over time, so
+the list wants to be easy to add to: drawings as resources compiled in, a
+table of name and bytes, and one pass that writes any that are absent or do
+not match.
+
+Two things to get right.  Altered means altered by us as well as by them - a
+checksum per file, so an example improved in a later version replaces the old
+one instead of being left because a file of that name exists.  And it must
+never overwrite something the person has been working on: an example they
+have edited and saved under its own name is theirs now, so the check should
+be against what we wrote last, not against what the example currently says.

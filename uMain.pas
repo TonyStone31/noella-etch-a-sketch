@@ -4977,7 +4977,7 @@ const
   QUICK_TIPS: array[0..5] of string = (
     'Open a drawing.  Ctrl+O',
     'Save this drawing.  Ctrl+S, or Shift+Ctrl+S to save it as something else',
-    'Export a picture or a drawing file - PNG, SVG or DXF.  Ctrl+E',
+    'Export a picture or a drawing file - PNG, SVG, DXF or STL.  Ctrl+E',
     'Print.  Ctrl+P, and /print full lays it out 1:1 across sheets',
     'Undo.  Ctrl+Z',
     'Redo.  Ctrl+Y');
@@ -16674,10 +16674,14 @@ end;
 procedure TMainForm.DoExport;
 var
   L: TStringList;
+  FS: TFileStream;
+  NTri: Integer;
+  ShutTight: Boolean;
   Fn, Ext, E: string;
 begin
   dlgSave.Filter := 'PNG image|*.png|SVG drawing|*.svg|' +
-    'DXF - this view, flat|*.dxf|DXF - the 3D model|*.dxf';
+    'DXF - this view, flat|*.dxf|DXF - the 3D model|*.dxf|' +
+    'STL - for a 3D printer|*.stl';
   dlgSave.DefaultExt := '';
   if dlgSave.InitialDir = '' then dlgSave.InitialDir := GetUserDir;
   dlgSave.FileName := 'heckers-sketch-' + FormatDateTime('yyyymmdd-hhnnss', Now);
@@ -16688,6 +16692,7 @@ begin
   case dlgSave.FilterIndex of
     2: Ext := '.svg';
     3, 4: Ext := '.dxf';
+    5: Ext := '.stl';
   else
     Ext := '.png';
   end;
@@ -16700,7 +16705,7 @@ begin
   Fn := dlgSave.FileName;
   repeat
     E := LowerCase(ExtractFileExt(Fn));
-    if (E = '.png') or (E = '.svg') or (E = '.dxf') then
+    if (E = '.png') or (E = '.svg') or (E = '.dxf') or (E = '.stl') then
       Fn := ChangeFileExt(Fn, '')
     else
       Break;
@@ -16728,6 +16733,28 @@ begin
       finally
         L.Free;
       end;
+    end
+    else if Ext = '.stl' then
+    begin
+      FS := TFileStream.Create(Fn, fmCreate);
+      try
+        NTri := FD.Doc.WriteSTL(FS, FD.Units, ShutTight);
+      finally
+        FS.Free;
+      end;
+      { Say what went out, and say it plainly if it will not print.  An STL
+        that is not closed slices into something, but the slicer is guessing
+        where the inside is, and finding that out after an hour of printing
+        is worse than being told now. }
+      if NTri = 0 then
+        FCmdMsg := 'Nothing to print - an STL is made of faces, and this ' +
+          'drawing has none.'
+      else if not ShutTight then
+        FCmdMsg := Format('%d triangles, in millimetres - but this is not a ' +
+          'closed solid, so a slicer will have to guess at the inside.', [NTri])
+      else
+        FCmdMsg := Format('%d triangles, in millimetres, closed and ready to ' +
+          'slice.', [NTri]);
     end
     else
       FArt.SaveToPNG(Fn);
