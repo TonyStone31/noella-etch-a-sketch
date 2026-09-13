@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.10' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The drill goes all the way through.**  It had to land its far end exactly' + LineEnding +
+    '  on the plane of the wall it comes out of - to a millionth - or it quietly' + LineEnding +
+    '  made a solid plug instead of a tunnel, and left what looked like a wall' + LineEnding +
+    '  across the hole.  Nobody can drag to a millionth, and the far face is' + LineEnding +
+    '  behind the near one so there is nothing to hover over either.  The tool' + LineEnding +
+    '  works the distance out now: click the face, click roughly where you want' + LineEnding +
+    '  it, and it comes out the far side.  Both mouths open, and where it crosses' + LineEnding +
+    '  a tunnel already there the two are cut into each other.' + LineEnding +
+    '' + LineEnding +
+    '- **The program''s name has gone from the top of the window.**  The reading -' + LineEnding +
+    '  X, Y, Z, the plane and the run - grows leftwards as it gets longer and was' + LineEnding +
+    '  running over the top of it.  The version stays, over on the left where' + LineEnding +
+    '  nothing reaches.' + LineEnding +
+    '' + LineEnding +
+    '- **No stray line flashing after a shape is thrown away.**  The two ends' + LineEnding +
+    '  flying apart is a thing about a line snapping; a rectangle or a circle only' + LineEnding +
+    '  gets the burst now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.9' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
