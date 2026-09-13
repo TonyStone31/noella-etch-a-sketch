@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A menu on the right button.**  With the select tool, right-click
+  something in the drawing.  It picks what is under the cursor and offers
+  what can be done to it - and the first thing on that list is **Reverse
+  Face**.
+
+- **Reverse Face** turns a face over, so what was its pale blue back becomes
+  its front.  The program guesses which way a new face should point and the
+  guess is a good one, but two walls back to back are wound the same way and
+  one of them therefore shows its back to whoever is standing outside.
+  Nothing in a drawing of loose faces says which side of a wall is outside,
+  so this is the way to say so.  Several faces selected turns them all over;
+  `/reverse` does it from the command bar.
+
 ## v2026.09.12.2
 
 ### Fixed
@@ -30,7 +47,7 @@
 
   Two upright faces back to back - the two ends of a barn - can still show
   one of each.  There is no way to tell the outside of a loose wall from the
-  inside without a solid around it.
+  inside without a solid around it - which is what Reverse Face is for.
 
 ## v2026.09.12.1
 

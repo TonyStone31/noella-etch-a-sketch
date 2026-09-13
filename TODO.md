@@ -313,23 +313,6 @@ job in Pascal now, through LazHIDControl.
   does it inside a group, on demand.  Until that trigger is chosen this is
   not ready to build.
 
-* **Making a solid out of what you drew.**  A face already carries `Solid`
-  and `Grp` - which solid it belongs to, or 0 for loose drawing - and
-  push/pull sets both, the file keeps them, back-face culling and push/pull's
-  drag-along both read them.  What is missing is anything that promotes loose
-  faces into one: a roof built on top of a box is loose faces sitting on a
-  solid, and nothing ever looks at that closed shell and says so.
-
-  The test is not vague - within a candidate set, every edge is used by
-  exactly two faces - and once it passes, orienting the whole shell outwards
-  once settles winding, culling and every later question about which side is
-  out.  Inference gets it too: the snap could prefer the skin facing the
-  camera over a point on the far side.  What has to be decided first is
-  **when** it happens.  Every region rebuild would be expensive and would
-  change what geometry *is* while somebody is drawing on it.  SketchUp only
-  does it inside a group, on demand.  Until that trigger is chosen this is
-  not ready to build.
-
 * **Five things about the transition ticket** are listed at the end of
   `docs/transition-ticket.md` and want checking against a real one - the first
   being which side an arrow names.
