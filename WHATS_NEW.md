@@ -10,6 +10,34 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Follow Me is called REVOLVE now, and it is on the tool strip beside
+  push/pull.**  Draw the outline of half of something - a glass, a bowl, a
+  bollard, a pipe fitting - click it, then click two points for the axis, and
+  it spins into a solid.  Type an angle first for a part turn.
+
+  It could always do this.  It was called Follow Me, which is SketchUp's name
+  for the other half of what it does (sweeping a face along a path, which it
+  still does), and it was behind the MORE door - so the one thing everybody
+  else calls a lathe was under a name nobody else uses, in a drawer.
+
+### Fixed
+
+- **A shape off the lathe comes out the right way round.**  Which way each
+  strip faced was worked out by pointing away from the middle of the outline,
+  and the middle of a thin C-shaped outline - the wall of a glass, say - is
+  in the hollow rather than in the material, so half the shape came out
+  inside out and pale blue.  It uses the outline's own winding now, which
+  does not care what shape it is.
+
+- **Replaying a session gets the tools that pick things.**  A recorded press
+  carried the point in the model but not where that lands on the screen, so
+  replaying one hit Revolve, Push/Pull and the eraser with wherever the mouse
+  had last been left rather than where the click was.
+
 ## v2026.09.13.3
 
 ### Fixed
