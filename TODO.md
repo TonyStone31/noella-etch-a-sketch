@@ -564,9 +564,13 @@ the renderer, which is why it is small **once the two halves above are done**.
 
   Left on it, in rough order of worth:
 
-  * **Hidden lines.**  Nothing below the slice is dashed or faded yet - it is
-    drawn the same as everything else.  That is the next real step towards a
-    sheet that looks like a sheet.
+  * ~~**Hidden lines.**~~  Built 13 September: in PLAN, a line the depth test
+    rejects is drawn dashed and faint rather than dropped, which is what a
+    drawing does with something it cannot see.  `TArtSurface.DepthBehind`
+    turns the test round; the pass costs 2.5 ms of a 37 ms plan on the barn,
+    where the face fills are 17 of it.  3D is untouched on purpose - there a
+    hidden line is round the back of something solid, and dashing them all
+    would put the far side of every box over the near side.
   * **Poché on a cut wall.**  Faces are included whole when any part of
     them overlaps the slice; clipping them at the cut plane, so a wall the
     plane passes through fills solid, is the version an architect would
@@ -617,12 +621,42 @@ Do the wrap first and see whether the second half is still wanted.
 
 ### Still to discuss
 
-* **The other two visual worlds.**  The main window is eight paint boxes and
-  nothing else; `uSpool`, `uTransition` and `uUpdateForm` are 48 TLabels, 22
-  TEdits, 15 TButtons and 13 TComboBoxes of plain LCL.  A wizard that looks
-  like a system dialog next to a hand-drawn dark chassis is the real "looks
-  unprofessional", and BGRAControls only half-answers it - the edits and
-  combos have no BC equivalent.
+* **The other two visual worlds - and Tony has already solved this once.**
+  The main window is eight paint boxes and nothing else; `uSpool`,
+  `uTransition` and `uUpdateForm` are 48 TLabels, 22 TEdits, 15 TButtons and
+  13 TComboBoxes of plain LCL.  A wizard that looks like a system dialog next
+  to a hand-drawn dark chassis is the real "looks unprofessional".
+
+  **Look at `../lazrandr`.**  That is the pattern, and it is his own:
+
+  * The LFM files carry plain, designer-friendly components with ordinary
+    anchors, *"so the forms stay openable in the Lazarus designer"* - his
+    words, in `utheme.pas`, and that discipline is the whole reason it stays
+    maintainable.
+  * `utheme.pas` applies the look at **runtime**: a palette (`clWindowBg`,
+    `clSurface`, `clRaised`, `clAccent`, `clDanger`...) and *kinds* rather
+    than per-control settings - `bkPrimary`, `bkNeutral`, `bkDanger`,
+    `bkGhost` for buttons, `pkWindow`, `pkSurface`, `pkRaised`, `pkHeader`
+    for panels.
+  * BCButton, BCLabel and BCPanel for the parts worth styling; **TComboBox,
+    TCheckBox and TMemo left native**, which is exactly the gap in
+    BGRAControls and evidently not a problem in practice.
+
+  That is what "sexy but official" means: a conventional desktop form, laid
+  out the way a desktop form is laid out, whose buttons happen to be
+  handsome.  It is the right answer for our dialogs and wizards.
+
+  **It is not the answer for the drawing chrome**, and the measurement above
+  says why: the hand-drawn window costs 0.4 ms a paint, looks identical on
+  both platforms, and GTK3 cannot get at it.  The line to hold is that the
+  main window is a canvas and the dialogs are forms, and they are allowed to
+  be built differently as long as they share a palette.
+
+  What it costs: BGRABitmap becomes a real dependency and the README's "no
+  third-party dependencies" line stops being true.  Licence is fine -
+  `LGPL-3.0-linking-exception` permits linking into an MIT program.  Worth
+  doing the next time a wizard needs work rather than as a project of its
+  own, and `utheme.pas` is most of the way there already.
 
 * **A control base class.**  The cut strip is the second hand-rolled control
   in a fortnight (after the command bar) and the pattern is the same each

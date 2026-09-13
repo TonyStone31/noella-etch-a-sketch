@@ -1,0 +1,33 @@
+# What a plan cannot see, dashed.
+#
+# The barn with a roof on it.  Cut from 29' to 70' takes in the walls and
+# the roof together, and the roof covers the walls: before this, the walls
+# were painted and then painted over, and a plan of the building showed the
+# roof and nothing else.  A drawing dashes what is underneath.
+#
+# What this proves: the roof outline is solid, and the walls beneath it show
+# through it as a dashed rectangle inside it.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+at 210 45
+click
+wait 1200
+
+key escape
+key slash
+type plan
+key return
+wait 1000
+key slash
+type fit
+key return
+wait 1000
+
+key slash
+type cut 29' 70'
+key return
+wait 1500
+shot /tmp/hsk-plan-hidden.png

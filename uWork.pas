@@ -7443,6 +7443,71 @@ begin
     end;
   end;
 
+  { --- and what a plan cannot see, dashed ------------------------------
+
+    A drawing shows what is underneath.  A camera does not, and until now
+    this was a camera: a line with a face over it was painted and then
+    painted over, and the information went with it.  That is the last of the
+    three things that made a plan of a model look like a photograph of one.
+
+    Only in PLAN, and deliberately.  In a 3D view a hidden line is hidden
+    because it is round the back of something solid, and dashing all of them
+    would put the far side of every box on top of the near side.  In a plan
+    it is a beam over a door or a footing under a wall, and showing it is the
+    whole convention.
+
+    The depth buffer is still standing from the face pass, so this is one
+    more walk of the lines with the test turned round: only the stretches
+    that fail it are drawn, dashed, and faint enough to sit behind the solid
+    work rather than compete with it. }
+  if (V.Kind = vkPlan) and S.DepthOn then
+  begin
+    S.DepthTest(True);
+    S.DepthBehind(True);
+    for I := 0 to FLive - 1 do
+    begin
+      if not InSlice(I) then Continue;
+      case FEnts[I].Kind of
+        ekLine:
+          begin
+            if Hidden(I) then Continue;
+            PA := Project(V, FEnts[I].A);
+            PB := Project(V, FEnts[I].B);
+            if OffScreen(PA, PB) then Continue;
+            S.DepthAlong(PA.X, PA.Y, Dot3(FEnts[I].A, Look),
+                         PB.X, PB.Y, Dot3(FEnts[I].B, Look));
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I),
+                   MixPix(ColorToPix(FEnts[I].Ink), Pix(255, 255, 255), 0.45));
+          end;
+        ekArc:
+          begin
+            if FEnts[I].Soft then Continue;
+            if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides
+            else Steps := Max(24, Min(180,
+              Round(Abs(FEnts[I].Sweep) * FEnts[I].R * V.Ppu / 6)));
+            DA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0,
+                           FEnts[I].Plane, FEnts[I].Nm);
+            PA := Project(V, DA);
+            for K := 1 to Steps do
+            begin
+              DB := ArcPoint(FEnts[I].C, FEnts[I].R,
+                FEnts[I].A0 + FEnts[I].Sweep * K / Steps,
+                FEnts[I].Plane, FEnts[I].Nm);
+              PB := Project(V, DB);
+              S.DepthAlong(PA.X, PA.Y, Dot3(DA, Look),
+                           PB.X, PB.Y, Dot3(DB, Look));
+              S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I),
+                     MixPix(ColorToPix(FEnts[I].Ink), Pix(255, 255, 255), 0.45));
+              PA := PB;
+              DA := DB;
+            end;
+          end;
+      end;
+    end;
+    S.DepthBehind(False);
+    S.DepthTest(False);
+  end;
+
   if not OnFaceOK then OnFaceFallbackMs := GetTickCount64 - PT;
   Mark(3);
   { --- guide points, last of all ---------------------------------------

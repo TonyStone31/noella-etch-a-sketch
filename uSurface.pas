@@ -91,6 +91,10 @@ type
       surface: it has no area to own, and letting one claim depth would have
       it hide the very face it was drawn on. }
     FZTest: Boolean;
+    { The other way round, and dashed: draw only what the depth test
+      REJECTS.  A hidden line in a drawing is dashed, not absent - see
+      DepthBehind. }
+    FZBehind: Boolean;
     FZa, FZb, FZc: Double;
     FDirty: TRect;
     procedure Allocate(AWidth, AHeight: Integer);
@@ -138,6 +142,19 @@ type
     function DepthAt(X, Y: Integer): Single;
     function DepthOn: Boolean;
     procedure DepthTest(B: Boolean);
+    { Draw the stretches the depth test throws away, instead of the ones it
+      keeps, in a dash six pixels on and five off.
+
+      What a drawing does with something it cannot see is dash it, not drop
+      it: a beam over a doorway, a footing under a wall, a duct above a
+      ceiling are all things a plan has to show and has to show as not
+      visible.  Painting over them - which is what a camera does, and what
+      this did - loses the information altogether.
+
+      One flag and one pass: the depth buffer is already standing after the
+      faces are down, so the hidden runs cost a second walk of the lines and
+      nothing else.  Off again as soon as the pass is over. }
+    procedure DepthBehind(B: Boolean);
     procedure DepthAlong(X0, Y0, Z0, X1, Y1, Z1: Double);
 
     { --- whole-surface effects ------------------------------------------- }
@@ -1007,7 +1024,24 @@ begin
       RX0 := Max(IX0, LoBound(XA - Pad, FWidth));
       RX1 := Min(IX1, HiBound(XB + Pad, FWidth));
     end;
-    if FZOn and FZTest then
+    if FZOn and FZTest and FZBehind then
+      for X := RX0 to RX1 do
+      begin
+        { the hidden half: only what is behind, and only every other few
+          pixels.  The dash is measured along the line rather than in X, so
+          it comes out the same length whichever way the line runs. }
+        if FZa * X + FZb * Y + FZc >= FZ[Y * FWidth + X] - 1E-4 then Continue;
+        { Manhattan, not Pythagoras - a square root per pixel for a dash
+          pattern is a square root nobody asked for.  Measured, it was worth
+          nothing much either way; the whole pass is 2.5 ms of a 37 ms plan
+          on the barn, and the faces are 17 of it.  Kept because the two
+          measures differ by at most root two, which on a dash nobody can
+          see and nobody is measuring, so the cheaper one is free. }
+        if ((Round(Abs(X - X0) + Abs(Y - Y0))) mod 13) >= 7 then Continue;
+        BlendPixel(X, Y, C,
+          Coverage(SdSegment(X + 0.5, Y + 0.5, X0, Y0, X1, Y1) - HW) * Alpha);
+      end
+    else if FZOn and FZTest then
       for X := RX0 to RX1 do
       begin
         { behind a face that is already down, so this stretch is not seen.
@@ -1100,6 +1134,7 @@ begin
   for I := 0 to High(FZ) do FZ[I] := -1E30;
   FZOn := True;
   FZTest := False;
+  FZBehind := False;
   FZa := 0; FZb := 0; FZc := -1E30;
 end;
 
@@ -1112,6 +1147,11 @@ end;
 procedure TArtSurface.DepthTest(B: Boolean);
 begin
   FZTest := B;
+end;
+
+procedure TArtSurface.DepthBehind(B: Boolean);
+begin
+  FZBehind := B;
 end;
 
 { The depth of a line, as the same flat function of screen position that a
