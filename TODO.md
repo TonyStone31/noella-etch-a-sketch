@@ -801,6 +801,39 @@ for; it would come up short and the rest of the face would fall back to the
 fitted plane.  Measured on the crown: 4,608 cuts over 96 views, never short,
 worst area error 1.1e-14 relative.  Not a problem in practice.
 
+### Next: the blue faces are an OPEN SOLID, not a depth problem
+
+Tony sent the robot-and-house drawing again from v2026.09.13.13, saying the
+blue was still there after a `/rebuild`.  It is, and now we know why, and it
+is not what the last two days were spent on.
+
+**That drawing has no warped faces at all.**  115 faces of four or more
+corners, every one of them flat to the last decimal - so the fitted plane was
+already exact on it and triangulating changed nothing, because there was
+nothing to change.  Reproduced and counted: 33,067 back-face pixels over 96
+views, worst 918 in a single view.  The crown, over the same 96 views, has
+nought.
+
+**What it actually is.**  A face's back is only hidden when it belongs to a
+*closed* solid - that is the whole basis of the cull, and rightly so, because
+on anything else the back of a face is genuinely visible and hiding it would
+be wrong.  Of this drawing's ten groups, nine are closed and **group 6 is not**:
+13 faces with 14 edges that are not shared one-each-way.  With the seven loose
+faces on top of that, **20 of 117 faces have nothing protecting them**.
+
+**So the job is to find out why group 6 is open**, which is a model question
+and not a renderer one.  Either it is genuinely missing faces - in which case
+the program should say so rather than leaving somebody to work it out from the
+colour - or the region builder is failing to close something it should, which
+would be the real bug.  `tools` for it are already written and in the
+scratchpad: a per-group edge-manifold count that says how many edges are not
+shared one-each-way.
+
+Worth adding either way: **something that tells you a solid is open.**  The
+STL export now reports it on the way out, and there is no reason the drawing
+itself should not - a solid that will not print is a solid that will show blue,
+and the person drawing it should not have to learn to read the symptom.
+
 ### Settled: a 3D engine, and whether the renderer should be one
 
 Tony asked whether all this is wasted effort next to Castle Game Engine or
