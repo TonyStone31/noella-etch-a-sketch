@@ -26,7 +26,7 @@ interface
 
 uses
   Contnrs,
-  Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface, uDxf;
+  Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface, uTri, uDxf;
 
 type
   TUnitSystem = (usImperial, usMetric);
@@ -6875,6 +6875,15 @@ var
   ZA, ZB, ZC, ZD1, ZD2, ZD3, ZDet, ZD, ZBest, ZDen: Double;
   Sxx, Sxy, Syy, Sx, Sy, Sn, Sdx, Sdy, Sd: Double;
   ZI2, ZI3, ZJ: Integer;
+  { cutting a face that is not flat into triangles, so its depth is exact }
+  TriPts: array of TPointF;
+  TriZ: array of Double;
+  TriRing: TIndexRing;
+  TriHoles: TIndexRings;
+  Tris: TTriList;
+  Mesh: TDepthTris;
+  TriDev, TriSize, TriDet, TDx, TDy: Double;
+  MN, MI: Integer;
   ZOK, Drew: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
   Ang, Sh: Double;
@@ -7536,7 +7545,14 @@ begin
         true plane - nothing can give it one - but the error is spread thin
         and centred rather than being zero at three corners and anything at
         all everywhere else.  The widest-triangle corners above are kept as
-        the starting point and the fallback. }
+        the starting point and the fallback.
+
+        This stayed after the faces started being cut into triangles, and on
+        purpose.  It is the right answer outright for a flat face, which is
+        most of them and which then skips the cutting entirely; it covers the
+        band of faces too nearly flat to be worth cutting; and it is what a
+        pixel falls back to in the sliver along an edge that no triangle
+        quite reaches. }
       if (ZI2 > 0) and (ZI3 > 0) then
       begin
         ZDet := (Flat[ZI2].X - Flat[0].X) * (Flat[ZI3].Y - Flat[0].Y) -
@@ -7624,6 +7640,108 @@ begin
       for HJ := 0 to High(FEnts[K].Holes[HK]) do
         Loops[HK + 1][HJ] := Project(V, FEnts[K].Holes[HK][HJ]);
     end;
+    { --- an exact depth for a face that is not flat --------------------
+
+          Everything above fits ONE plane to the face, which is the truth if
+          the face is flat and a guess if it is not.  A good many are not: a
+          revolve sweeps a sloped piece of an outline into a warped quad -
+          four corners off a curved surface, which no plane passes through -
+          and so does anything pushed or pulled out of one.  On Tony's crown,
+          48 of its 336 faces were out of flat, the worst corner five feet
+          off its own face's plane, and the best fit that could be had for
+          one of those was still out by hundreds of feet in depth.  That is
+          the far side of a solid beating the near side in the depth test and
+          painting over it - the blue faces, and the last of them.
+
+          Cut it into triangles instead.  A triangle has exactly one plane
+          and always lies in it, so there is nothing left to fit.  The fill
+          is untouched and still one call - see DepthMesh for why it must be
+          - and this only says how deep each pixel of it is.
+
+          Flat faces skip all of it and keep the single plane, which costs
+          nothing and is exactly right; on the crown that is 288 faces of the
+          336.  A triangle is flat by definition and never gets here. }
+    if ZOK and (Length(FEnts[K].Poly) > 3) then
+    begin
+      TriDev := 0;
+      TriSize := 1;
+      for ZJ := 1 to High(FEnts[K].Poly) do
+      begin
+        TDx := Abs(Nm.X * (FEnts[K].Poly[ZJ].X - FEnts[K].Poly[0].X) +
+                   Nm.Y * (FEnts[K].Poly[ZJ].Y - FEnts[K].Poly[0].Y) +
+                   Nm.Z * (FEnts[K].Poly[ZJ].Z - FEnts[K].Poly[0].Z));
+        if TDx > TriDev then TriDev := TDx;
+        TDy := Sqrt(Sqr(FEnts[K].Poly[ZJ].X - FEnts[K].Poly[0].X) +
+                    Sqr(FEnts[K].Poly[ZJ].Y - FEnts[K].Poly[0].Y) +
+                    Sqr(FEnts[K].Poly[ZJ].Z - FEnts[K].Poly[0].Z));
+        if TDy > TriSize then TriSize := TDy;
+      end;
+      { a millionth of the face's own size out of flat is rounding, not warp }
+      if TriDev > 1E-6 * TriSize then
+      begin
+        MN := 0;
+        for HK := 0 to High(Loops) do Inc(MN, Length(Loops[HK]));
+        SetLength(TriPts, MN);
+        SetLength(TriZ, MN);
+        SetLength(TriRing, Length(Loops[0]));
+        SetLength(TriHoles, Length(Loops) - 1);
+        MN := 0;
+        for HJ := 0 to High(Loops[0]) do
+        begin
+          TriPts[MN] := Loops[0][HJ];
+          TriZ[MN] := Dot3(FEnts[K].Poly[HJ], Look);
+          TriRing[HJ] := MN;
+          Inc(MN);
+        end;
+        for HK := 0 to High(FEnts[K].Holes) do
+        begin
+          SetLength(TriHoles[HK], Length(FEnts[K].Holes[HK]));
+          for HJ := 0 to High(FEnts[K].Holes[HK]) do
+          begin
+            TriPts[MN] := Loops[HK + 1][HJ];
+            TriZ[MN] := Dot3(FEnts[K].Holes[HK][HJ], Look);
+            TriHoles[HK][HJ] := MN;
+            Inc(MN);
+          end;
+        end;
+        if Triangulate(TriPts, TriRing, TriHoles, Tris) then
+        begin
+          SetLength(Mesh, Length(Tris) div 3);
+          MN := 0;
+          for MI := 0 to (Length(Tris) div 3) - 1 do
+          begin
+            ZI2 := Tris[MI * 3];
+            ZI3 := Tris[MI * 3 + 1];
+            ZJ := Tris[MI * 3 + 2];
+            TriDet := (Double(TriPts[ZI3].X) - TriPts[ZI2].X) *
+                        (Double(TriPts[ZJ].Y) - TriPts[ZI2].Y) -
+                      (Double(TriPts[ZJ].X) - TriPts[ZI2].X) *
+                        (Double(TriPts[ZI3].Y) - TriPts[ZI2].Y);
+            { a hundredth of a square pixel: below that it is an edge-on
+              sliver with no depth of its own to give, and the fitted plane
+              is left to cover the pixel or two it might have owned }
+            if Abs(TriDet) < 1E-2 then Continue;
+            Mesh[MN].AX := TriPts[ZI2].X;  Mesh[MN].AY := TriPts[ZI2].Y;
+            Mesh[MN].BX := TriPts[ZI3].X;  Mesh[MN].BY := TriPts[ZI3].Y;
+            Mesh[MN].CX := TriPts[ZJ].X;   Mesh[MN].CY := TriPts[ZJ].Y;
+            Mesh[MN].ZA :=
+              ((TriZ[ZI3] - TriZ[ZI2]) * (Double(TriPts[ZJ].Y) - TriPts[ZI2].Y) -
+               (TriZ[ZJ] - TriZ[ZI2]) * (Double(TriPts[ZI3].Y) - TriPts[ZI2].Y)) / TriDet;
+            Mesh[MN].ZB :=
+              ((TriZ[ZJ] - TriZ[ZI2]) * (Double(TriPts[ZI3].X) - TriPts[ZI2].X) -
+               (TriZ[ZI3] - TriZ[ZI2]) * (Double(TriPts[ZJ].X) - TriPts[ZI2].X)) / TriDet;
+            Mesh[MN].ZC := TriZ[ZI2] - Mesh[MN].ZA * TriPts[ZI2].X -
+                                       Mesh[MN].ZB * TriPts[ZI2].Y;
+            Mesh[MN].ZLo := Min(TriZ[ZI2], Min(TriZ[ZI3], TriZ[ZJ]));
+            Mesh[MN].ZHi := Max(TriZ[ZI2], Max(TriZ[ZI3], TriZ[ZJ]));
+            Inc(MN);
+          end;
+          SetLength(Mesh, MN);
+          if MN > 0 then S.DepthMesh(Mesh);
+        end;
+      end;
+    end;
+
     if (Dot3(Nm, ViewDir(V)) < 0) and (V.Kind <> vkPlan) then
       S.FillLoops(Loops, ShadePix(FACE_BACK, Sh), 1.0)
     else if V.Kind = vkPlan then

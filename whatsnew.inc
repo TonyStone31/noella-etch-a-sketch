@@ -13,6 +13,29 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Faces that are not flat are now drawn at the right depth.**  This is the' + LineEnding +
+    '  end of the pale blue faces, and of a whole family of things that could go' + LineEnding +
+    '  wrong with them.' + LineEnding +
+    '' + LineEnding +
+    '  Spinning or pushing a sloped edge makes a face with four corners that do' + LineEnding +
+    '  not all lie in one plane - there is no such thing as the right flat sheet' + LineEnding +
+    '  for one of those, and the drawing had been picking the best one it could' + LineEnding +
+    '  and living with the error.  On the crown that error was up to fifteen feet,' + LineEnding +
+    '  which is more than enough for the far side of a solid to be judged nearer' + LineEnding +
+    '  than the near side and painted over it.' + LineEnding +
+    '' + LineEnding +
+    '  Every such face is now cut into triangles first.  A triangle has exactly' + LineEnding +
+    '  one plane and always lies in it, so there is nothing left to estimate.' + LineEnding +
+    '  Counted over eight views of the crown, the number of pixels showing the' + LineEnding +
+    '  wrong surface went from two in five to one in four hundred.' + LineEnding +
+    '' + LineEnding +
+    '  Faces that really are flat are untouched and cost nothing extra - a drawing' + LineEnding +
+    '  made only of flat faces comes out pixel for pixel as it did before.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.12' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

@@ -681,27 +681,66 @@ reads correctly with its red and blue sides.  So the plane says it itself:
 own two directions, in their own axis colours.  Red and blue is upright, red
 and green is flat.
 
-### Next renderer job: triangulate faces before rasterising
+### Done 13 September: faces are cut into triangles before rasterising
 
-Agreed 13 September, after a day of chasing pale blue faces on Tony's crown.
+**Why it was needed.**  A face is a polygon and the depth of it was worked
+out as a flat function of screen position - exact for a flat face, a fiction
+for one that is not.  Spinning a sloped piece of an outline sweeps a warped
+quad; 48 of Tony's crown's 336 faces were out of flat, the worst by five
+feet.  Fitting through three corners was out by 542 feet in depth; least
+squares over every corner brought it to 12; the closed-solid cull hid the
+rest of the symptom.  None of that was a *fix* - it was three layers of
+mitigation over an assumption that is simply false.
 
-**What it fixes, by construction.**  A face is a polygon and the depth of it
-is worked out as a flat function of screen position - which is exact for a
-flat face and a fiction for one that is not.  Spinning a sloped piece of an
-outline sweeps a warped quad; 48 of that crown's 336 faces were out of flat,
-the worst by five feet.  Fitting through three corners was out by 542 feet in
-depth; least squares over every corner brought it to 12; the closed-solid
-cull hides the rest of the symptom.  None of that is a *fix* - it is three
-layers of mitigation over an assumption that is simply false.
+**What was built.**  `uTri.pas`: ear clipping with hole bridging, working in
+indices into the caller's own vertex list so nothing is copied and the caller
+keeps whatever the third dimension means to it.  `TArtSurface.DepthMesh` puts
+a face's triangles in front of the next `FillLoops`, which clips each one to
+the band of the row it is drawing and writes that triangle's own exact plane
+across the pixels it owns.  The fill itself is untouched and still one call -
+filling triangle by triangle would leave a pale seam along every internal
+edge, each side contributing half a pixel of coverage.
 
-Triangles have no such problem.  Every triangle has exactly one plane, so the
-depth is exact, and the whole class of fault disappears rather than being
-managed.  That is the job: split each face into triangles once, fill and
-depth them as triangles, and delete the plane-fitting apparatus.
+Only faces that are genuinely out of flat are cut.  A flat face keeps the
+single-plane path, which is exactly right and free; on the crown that is 288
+faces of the 336, and every drawing made only of flat faces renders bit for
+bit as it did before.
 
-**And it is the same triangulator STL export needs** - ear clipping with hole
-bridging, self-contained, provable in the geom suite by area.  Two things off
-this list for one piece of work.
+**What it measured.**  A harness that works out, independently, which surface
+is really nearest at every fourth pixel, and compares that with what the
+depth buffer holds - counting only pixels where the truth is smooth for two
+pixels all round, so that silhouettes, where the two disagree for reasons
+that have nothing to do with depth, are not what is being measured.  On the
+crown over eight views: **40.12 percent of pixels had the wrong depth before,
+0.25 percent after**.  Flat drawings: nought, before and after.
+
+Two details earned their place by measurement, both against instinct.
+Widening each triangle's stretch by a pixel "for safety" *quadrupled* what
+was left wrong, 28 pixels to 104 - clipping to the row band already covers
+the row.  And clamping the written depth to the triangle's own three corner
+depths is what keeps a long thin triangle honest: without it the worst pixel
+goes from 69 feet out to 307.
+
+**Still to do off the back of it.**
+
+*Cache the cut.*  It is redone every frame - 1.6 ms of the 2.5 ms this costs
+on the crown, and the crown is the worst case there is.  The topology depends
+only on the shape of the polygon, not on where the camera is, so it could be
+cut once in the face's own plane and cached on `FEditSeq` the way
+`GroupClosed` is, leaving each frame only the projecting and the plane
+solving.  Worth doing when something else brings us back here; not worth it
+on its own at 2.5 ms.
+
+*STL export.*  This is the triangulator it needs.  It would want the cut done
+in the face's own plane rather than in screen space - which is the same work
+as the cache above, so the two go together.
+
+*Screen-space cutting and self-intersection.*  A warped face can in principle
+project to an outline that crosses itself, which ear clipping has no answer
+for; it would come up short and the rest of the face would fall back to the
+fitted plane.  Measured on the crown: 4,608 cuts over 96 views, never short,
+worst area error 1.1e-14 relative.  Not a problem in practice, and cutting in
+the face's own plane would remove even the possibility.
 
 ### Settled: a 3D engine, and whether the renderer should be one
 

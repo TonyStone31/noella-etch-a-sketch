@@ -10,6 +10,29 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Faces that are not flat are now drawn at the right depth.**  This is the
+  end of the pale blue faces, and of a whole family of things that could go
+  wrong with them.
+
+  Spinning or pushing a sloped edge makes a face with four corners that do
+  not all lie in one plane - there is no such thing as the right flat sheet
+  for one of those, and the drawing had been picking the best one it could
+  and living with the error.  On the crown that error was up to fifteen feet,
+  which is more than enough for the far side of a solid to be judged nearer
+  than the near side and painted over it.
+
+  Every such face is now cut into triangles first.  A triangle has exactly
+  one plane and always lies in it, so there is nothing left to estimate.
+  Counted over eight views of the crown, the number of pixels showing the
+  wrong surface went from two in five to one in four hundred.
+
+  Faces that really are flat are untouched and cost nothing extra - a drawing
+  made only of flat faces comes out pixel for pixel as it did before.
+
 ## v2026.09.13.12
 
 ### Fixed

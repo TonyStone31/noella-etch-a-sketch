@@ -36,6 +36,23 @@ type
     of one }
   TPtFLoop = array of TPointF;
 
+  { One screen triangle and the exact depth plane it lies in.
+
+    A polygon of four or more corners need not be flat, and when it is not
+    there is no plane to give it - see DepthMesh.  A triangle always has
+    exactly one, so a face cut into triangles has an exact depth everywhere
+    instead of a fitted one. }
+  TDepthTri = record
+    AX, AY, BX, BY, CX, CY: Single;
+    ZA, ZB, ZC: Double;
+    { the depths of its own three corners, low and high.  A triangle's depth
+      can never be outside them, and the stretch it is given on a row is a
+      pixel wider at each end than the triangle really is, so clamping to
+      these is what makes that widening safe on a long thin one. }
+    ZLo, ZHi: Double;
+  end;
+  TDepthTris = array of TDepthTri;
+
 type
   { One pixel, laid out exactly as Init_BPP32_B8G8R8A8_BIO_TTB stores it. }
   TPix = packed record
@@ -96,6 +113,10 @@ type
       DepthBehind. }
     FZBehind: Boolean;
     FZa, FZb, FZc: Double;
+    { the exact planes, when the one above is not good enough; consumed by
+      the next FillLoops and then dropped }
+    FZTris: TDepthTris;
+    FZTriY0, FZTriY1: array of Integer;
     FDirty: TRect;
     procedure Allocate(AWidth, AHeight: Integer);
     procedure Verify;
@@ -156,6 +177,30 @@ type
       nothing else.  Off again as soon as the pass is over. }
     procedure DepthBehind(B: Boolean);
     procedure DepthAlong(X0, Y0, Z0, X1, Y1, Z1: Double);
+    { Give the NEXT FillLoops an exact depth per pixel, by handing it the
+      shape already cut into triangles.
+
+      DepthPlane says "this shape lies in this plane", which is the truth for
+      a flat face and a guess for any other.  Plenty of faces are not flat: a
+      revolve turns a sloped piece of an outline into a warped quad - four
+      corners off a curved surface, which no plane passes through - and so
+      does anything pushed out of one.  On the drawing that started this, 48
+      of 336 faces were out of flat and the best plane that could be fitted
+      to one of them was wrong by five hundred feet of depth on a model two
+      hundred feet across.  That is the far side of a solid winning the depth
+      test against the near side, and showing through it.
+
+      A triangle cannot be anything but flat, so this removes the guess
+      rather than improving it.  The fill itself is unchanged and still one
+      call - filling triangle by triangle would leave a pale seam along every
+      internal edge, each side of it contributing half a pixel of coverage -
+      so this only supplies the depth.  A pixel no triangle claims falls back
+      to whatever DepthPlane last said, which is the right answer for the
+      slivers along the outside edge where this can happen.
+
+      Set it for a face that needs it and not otherwise: a genuinely flat
+      face keeps the single-plane path at no cost, and most faces are flat. }
+    procedure DepthMesh(const Tris: TDepthTris);
 
     { --- whole-surface effects ------------------------------------------- }
     procedure ClearTransparent;
@@ -1178,8 +1223,33 @@ begin
   FZc := Z0 - FZa * X0 - FZb * Y0;
 end;
 
+procedure TArtSurface.DepthMesh(const Tris: TDepthTris);
+var
+  I: Integer;
+  Lo, Hi: Single;
+begin
+  FZTris := Tris;
+  SetLength(FZTriY0, Length(Tris));
+  SetLength(FZTriY1, Length(Tris));
+  { the rows each triangle can possibly touch, worked out once, so the row
+    loop can pass over the ones it cannot with two integer compares }
+  for I := 0 to High(Tris) do
+  begin
+    Lo := Min(Tris[I].AY, Min(Tris[I].BY, Tris[I].CY));
+    Hi := Max(Tris[I].AY, Max(Tris[I].BY, Tris[I].CY));
+    FZTriY0[I] := Floor(Lo) - 1;
+    FZTriY1[I] := Ceil(Hi) + 1;
+  end;
+end;
+
 procedure TArtSurface.DepthPlane(A, B, C: Double);
 begin
+  { a new plane means a new shape, and any triangles standing from the last
+    one belonged to that one.  Without this, a caller that set a mesh and
+    then did not fill would hand it to whatever got filled next. }
+  FZTris := nil;
+  FZTriY0 := nil;
+  FZTriY1 := nil;
   FZa := A;
   FZb := B;
   FZc := C;
@@ -1214,7 +1284,55 @@ var
   Z: Double;
   Any: Boolean;
   Smp: Integer;
+  { the exact depth for this row, where DepthMesh supplied triangles }
+  Mesh: TDepthTris;
+  MeshY0, MeshY1: array of Integer;
+  RowZ: array of Double;
+  RowHas: array of Boolean;
+  TI, TC, TXLo, TXHi: Integer;
+  TxA, TxB: Single;
+
+  { grow the stretch of the row to take in one more x }
+  procedure Take(V: Single; var N: Integer; var Lo, Hi: Single); inline;
+  begin
+    if N = 0 then begin Lo := V; Hi := V; end
+    else begin if V < Lo then Lo := V; if V > Hi then Hi := V; end;
+    Inc(N);
+  end;
+
+  { a corner of the triangle, if it falls inside the row's band }
+  procedure Span(VX, VY: Single; Row: Integer; var N: Integer;
+    var Lo, Hi: Single); inline;
+  begin
+    if (VY >= Row) and (VY <= Row + 1) then Take(VX, N, Lo, Hi);
+  end;
+
+  { where an edge of it crosses the top or the bottom of the band }
+  procedure Cross(X1s, Y1s, X2s, Y2s: Single; Row: Integer; var N: Integer;
+    var Lo, Hi: Single);
+  var
+    B: Integer;
+    YB: Single;
+  begin
+    if Y1s = Y2s then Exit;
+    for B := 0 to 1 do
+    begin
+      YB := Row + B;
+      if (Y1s <= YB) = (Y2s <= YB) then Continue;
+      Take(X1s + (X2s - X1s) * (YB - Y1s) / (Y2s - Y1s), N, Lo, Hi);
+    end;
+  end;
+
 begin
+  { take the mesh at the door: it is for this call and no other, and every
+    way out of here has to leave it cleared }
+  Mesh := FZTris;
+  MeshY0 := FZTriY0;
+  MeshY1 := FZTriY1;
+  FZTris := nil;
+  FZTriY0 := nil;
+  FZTriY1 := nil;
+  if not FZOn then Mesh := nil;
   if QuickFill then Smp := 1 else Smp := SAMPLES;
   Any := False;
   Total := 0;
@@ -1251,11 +1369,67 @@ begin
 
   SetLength(Xs, Total + 2);
   SetLength(Cov, X1 - X0 + 2);
+  if Length(Mesh) > 0 then
+  begin
+    SetLength(RowZ, X1 - X0 + 2);
+    SetLength(RowHas, X1 - X0 + 2);
+  end;
 
   for Y := Y0 to Y1 do
   begin
     for X := 0 to High(Cov) do
       Cov[X] := 0;
+
+    { --- the exact depth along this row, one triangle at a time --------
+          Each triangle is clipped to the band of the row - not to the line
+          down the middle of it, which was the first thing tried and which
+          drops any triangle lying inside the row without straddling that
+          line.  Ear clipping makes plenty of triangles that thin, and every
+          one of them left its pixels on the fitted plane it was supposed to
+          be replacing.
+
+          Clipping to the band is also what makes widening the stretch
+          unnecessary: rounding each end out to a whole pixel already covers
+          the row, and the triangles tile the face, so consecutive stretches
+          butt up with nothing between them.  Widening them by a pixel
+          anyway - which was tried - is not free insurance: it lets a
+          triangle write depth a pixel outside itself and quadrupled what
+          was left wrong, from 28 pixels to 104 on the drawing this was
+          built for.
+
+          The depth written is still clamped to the triangle's own three
+          corner depths, because a triangle's depth cannot be outside them
+          and a long thin one has a steep enough plane to go a long way out
+          on half a pixel of rounding.  Without the clamp the worst pixel on
+          that same drawing is out by 307 feet instead of 69. }
+    if Length(Mesh) > 0 then
+    begin
+      for X := 0 to High(RowHas) do
+        RowHas[X] := False;
+      for TI := 0 to High(Mesh) do
+      begin
+        if (Y < MeshY0[TI]) or (Y > MeshY1[TI]) then Continue;
+        TC := 0;
+        TxA := 0; TxB := 0;
+        { corners of it that are in the band }
+        Span(Mesh[TI].AX, Mesh[TI].AY, Y, TC, TxA, TxB);
+        Span(Mesh[TI].BX, Mesh[TI].BY, Y, TC, TxA, TxB);
+        Span(Mesh[TI].CX, Mesh[TI].CY, Y, TC, TxA, TxB);
+        { and where its edges cross the top and the bottom of the band }
+        Cross(Mesh[TI].AX, Mesh[TI].AY, Mesh[TI].BX, Mesh[TI].BY, Y, TC, TxA, TxB);
+        Cross(Mesh[TI].BX, Mesh[TI].BY, Mesh[TI].CX, Mesh[TI].CY, Y, TC, TxA, TxB);
+        Cross(Mesh[TI].CX, Mesh[TI].CY, Mesh[TI].AX, Mesh[TI].AY, Y, TC, TxA, TxB);
+        if TC = 0 then Continue;
+        TXLo := Max(X0, Floor(TxA));
+        TXHi := Min(X1, Ceil(TxB));
+        for X := TXLo to TXHi do
+        begin
+          RowZ[X - X0] := Min(Mesh[TI].ZHi, Max(Mesh[TI].ZLo,
+            Mesh[TI].ZA * X + Mesh[TI].ZB * Y + Mesh[TI].ZC));
+          RowHas[X - X0] := True;
+        end;
+      end;
+    end;
 
     for K := 0 to Smp - 1 do
     begin
@@ -1316,7 +1490,10 @@ begin
       begin
         if FZOn then
         begin
-          Z := FZa * X + FZb * Y + FZc;
+          if (Length(Mesh) > 0) and RowHas[X - X0] then
+            Z := RowZ[X - X0]
+          else
+            Z := FZa * X + FZb * Y + FZc;
           { behind what is already there, so it does not get drawn }
           if Z < FZ[Y * FWidth + X] - 1E-6 then Continue;
           { and only a pixel the shape genuinely covers claims the depth - a

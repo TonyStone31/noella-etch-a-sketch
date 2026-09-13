@@ -124,6 +124,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="uTri.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="uSkin.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

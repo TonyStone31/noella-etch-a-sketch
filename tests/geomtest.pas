@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe;
+  SysUtils, Classes, Math, Types, uWork, uTri, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe;
 
 var
   Fails: Integer = 0;
@@ -3798,6 +3798,164 @@ begin
   end;
 end;
 
+{ --- cutting a face into triangles ------------------------------------
+
+  The renderer leans on this to know how deep every pixel of a face is, and
+  STL export will lean on it to know what to write, so the two things it has
+  to be are complete and non-overlapping.  Both of those are one number: the
+  pieces have to come to exactly the area of the whole.  Too few and it is
+  short, overlapping and it is over, and either shows up here rather than as
+  something looking wrong on a screenshot three days later. }
+procedure TestTriangles;
+
+  function Pt(X, Y: Double): TPointF;
+  begin
+    Result.X := X; Result.Y := Y;
+  end;
+
+  { the whole check in one line: does it come out, does it come out to the
+    right area, and is any piece inside out or flat }
+  procedure Cut(const Name: string; const P: array of TPointF;
+    const O: TIndexRing; const H: TIndexRings);
+  var
+    T: TTriList;
+    I, NBad: Integer;
+    Sum, Want, A: Double;
+  begin
+    if not Triangulate(P, O, H, T) then
+    begin
+      Ok(False, Name + ': triangulated');
+      Exit;
+    end;
+    Sum := 0;
+    NBad := 0;
+    for I := 0 to (Length(T) div 3) - 1 do
+    begin
+      A := ((Double(P[T[I*3+1]].X) - P[T[I*3]].X) * (Double(P[T[I*3+2]].Y) - P[T[I*3]].Y) -
+            (Double(P[T[I*3+2]].X) - P[T[I*3]].X) * (Double(P[T[I*3+1]].Y) - P[T[I*3]].Y)) / 2;
+      Sum := Sum + A;
+      if A <= 1E-9 then Inc(NBad);
+    end;
+    Want := Abs(RingArea(P, O));
+    for I := 0 to High(H) do Want := Want - Abs(RingArea(P, H[I]));
+    Ok(Abs(Sum - Want) < 1E-9 * Max(1, Abs(Want)),
+      Name + Format(': %d pieces, area %.6f, wanted %.6f',
+        [Length(T) div 3, Sum, Want]));
+    Ok(NBad = 0, Name + Format(': %d pieces with no area', [NBad]));
+  end;
+
+var
+  P: array of TPointF;
+  O: TIndexRing;
+  H: TIndexRings;
+  T: TTriList;
+  Zs: array of Double;
+  I, K: Integer;
+  Det, TA, TB, TC, E, WorstTri, WorstPlane: Double;
+begin
+  WriteLn('-- cutting faces into triangles --');
+
+  Cut('square', [Pt(0,0), Pt(4,0), Pt(4,4), Pt(0,4)], [0,1,2,3], nil);
+  { the same square the other way round - winding is the caller's business }
+  Cut('square, clockwise', [Pt(0,0), Pt(4,0), Pt(4,4), Pt(0,4)], [3,2,1,0], nil);
+  { an L has a corner that turns back on itself, which is the first thing
+    that stops a plain fan from the first corner working }
+  Cut('L', [Pt(0,0), Pt(4,0), Pt(4,2), Pt(2,2), Pt(2,4), Pt(0,4)],
+      [0,1,2,3,4,5], nil);
+
+  { a comb: eleven of those corners in a row }
+  SetLength(P, 0);
+  for I := 0 to 5 do
+    P := Concat(P, [Pt(I*2, 0), Pt(I*2+1, 0), Pt(I*2+1, 3), Pt(I*2+2, 3)]);
+  P := Concat(P, [Pt(12, 4), Pt(0, 4)]);
+  SetLength(O, Length(P));
+  for I := 0 to High(P) do O[I] := I;
+  Cut('comb', P, O, nil);
+
+  { a hole is a place the face is not, and has to come off the area }
+  P := [Pt(0,0), Pt(10,0), Pt(10,10), Pt(0,10),
+        Pt(3,3), Pt(7,3), Pt(7,7), Pt(3,7)];
+  SetLength(H, 1); H[0] := [4,5,6,7];
+  Cut('one hole', P, [0,1,2,3], H);
+  { and the hole wound the same way as the outline is the same hole }
+  H[0] := [7,6,5,4];
+  Cut('one hole, reversed', P, [0,1,2,3], H);
+
+  { two of them, because bridging the second has to get past the first
+    bridge without crossing it }
+  P := [Pt(0,0), Pt(20,0), Pt(20,10), Pt(0,10),
+        Pt(2,2), Pt(6,2), Pt(6,8), Pt(2,8),
+        Pt(12,3), Pt(17,3), Pt(17,7), Pt(12,7)];
+  SetLength(H, 2); H[0] := [4,5,6,7]; H[1] := [8,9,10,11];
+  Cut('two holes', P, [0,1,2,3], H);
+
+  { a circle, which is what a revolve end and a bore both come out as }
+  SetLength(P, 64);
+  for I := 0 to 63 do P[I] := Pt(Cos(I*2*Pi/64)*5, Sin(I*2*Pi/64)*5);
+  SetLength(O, 64);
+  for I := 0 to 63 do O[I] := I;
+  Cut('circle', P, O, nil);
+
+  { and a circle with a circular hole - the end of a piece of pipe }
+  SetLength(P, 128);
+  for I := 0 to 63 do P[I] := Pt(Cos(I*2*Pi/64)*5, Sin(I*2*Pi/64)*5);
+  for I := 0 to 63 do P[64+I] := Pt(Cos(I*2*Pi/64)*3, Sin(I*2*Pi/64)*3);
+  SetLength(O, 64); for I := 0 to 63 do O[I] := I;
+  SetLength(H, 1); SetLength(H[0], 64); for I := 0 to 63 do H[0][I] := 64+I;
+  Cut('pipe end', P, O, H);
+
+  { nothing to cut is an answer, not a crash }
+  SetLength(P, 2); P[0] := Pt(0,0); P[1] := Pt(1,1);
+  Ok(not Triangulate(P, [0,1], nil, T), 'two points make no triangle');
+
+  { --- and the point of the whole exercise --------------------------
+
+        A warped quad: four corners no plane passes through, which is what a
+        revolve makes of every sloped piece of an outline.  A plane fitted to
+        it is wrong somewhere by a quarter of the warp; each triangle is
+        right everywhere, because a triangle cannot be anything else.
+
+        This is the fault Tony reported on 13 September as faces showing
+        blue through the near side of a solid - the far side of it winning
+        the depth test - and this is the check that says it cannot come
+        back. }
+  SetLength(P, 4);
+  P[0] := Pt(0, 0); P[1] := Pt(100, 0); P[2] := Pt(100, 100); P[3] := Pt(0, 100);
+  SetLength(Zs, 4);
+  Zs[0] := 0; Zs[1] := 0; Zs[2] := 0; Zs[3] := 40;   { one corner lifted }
+  { the best plane through all four, by least squares, is 10 out at each }
+  WorstPlane := 0;
+  for I := 0 to 3 do
+  begin
+    E := Abs(Zs[I] - (-0.2 * P[I].X + 0.2 * P[I].Y + 10));
+    if E > WorstPlane then WorstPlane := E;
+  end;
+  Ok(WorstPlane > 9, Format('one plane is %.1f out on a warped quad',
+    [WorstPlane]));
+
+  Ok(Triangulate(P, [0,1,2,3], nil, T), 'the warped quad cuts in two');
+  WorstTri := 0;
+  for I := 0 to (Length(T) div 3) - 1 do
+  begin
+    Det := (Double(P[T[I*3+1]].X) - P[T[I*3]].X) * (Double(P[T[I*3+2]].Y) - P[T[I*3]].Y) -
+           (Double(P[T[I*3+2]].X) - P[T[I*3]].X) * (Double(P[T[I*3+1]].Y) - P[T[I*3]].Y);
+    Ok(Abs(Det) > 1E-2, 'the piece has area enough to solve a plane from');
+    TA := ((Zs[T[I*3+1]] - Zs[T[I*3]]) * (Double(P[T[I*3+2]].Y) - P[T[I*3]].Y) -
+           (Zs[T[I*3+2]] - Zs[T[I*3]]) * (Double(P[T[I*3+1]].Y) - P[T[I*3]].Y)) / Det;
+    TB := ((Zs[T[I*3+2]] - Zs[T[I*3]]) * (Double(P[T[I*3+1]].X) - P[T[I*3]].X) -
+           (Zs[T[I*3+1]] - Zs[T[I*3]]) * (Double(P[T[I*3+2]].X) - P[T[I*3]].X)) / Det;
+    TC := Zs[T[I*3]] - TA * P[T[I*3]].X - TB * P[T[I*3]].Y;
+    for K := 0 to 2 do
+    begin
+      E := Abs(Zs[T[I*3+K]] - (TA * P[T[I*3+K]].X + TB * P[T[I*3+K]].Y + TC));
+      if E > WorstTri then WorstTri := E;
+    end;
+  end;
+  Ok(WorstTri < 1E-9, Format('and every piece is exact at its corners (%g out)',
+    [WorstTri]));
+end;
+
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -3853,6 +4011,7 @@ begin
   TestArrays;  WriteLn;
   TestUnfold;     WriteLn;
   TestHouse;        WriteLn;
+  TestTriangles;    WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
