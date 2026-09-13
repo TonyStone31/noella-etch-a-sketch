@@ -13,6 +13,27 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.8' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Lean on the button and the whole shape comes under tension**, not one' + LineEnding +
+    '  strand of it.  A rectangle swells like a frame of elastic, a circle like a' + LineEnding +
+    '  hoop, each side bowing outward and trembling harder the nearer it gets to' + LineEnding +
+    '  letting go - then one burst at the middle.  It used to strain a single' + LineEnding +
+    '  diagonal from the first corner to the cursor, which is not any part of the' + LineEnding +
+    '  rectangle and read as though something else had appeared in order to be' + LineEnding +
+    '  destroyed.' + LineEnding +
+    '' + LineEnding +
+    '- **Up and down both lock the ground plane now.**  They are one gesture and' + LineEnding +
+    '  they mean one thing - flat, the way up and down mean flat on a table.  Left' + LineEnding +
+    '  and right are still the two upright planes.  Esc lets go, as it always did' + LineEnding +
+    '  and as every message says.' + LineEnding +
+    '' + LineEnding +
+    '- **The plane shows itself before the first corner too**, not just once you' + LineEnding +
+    '  have started drawing - so flipping between planes tells you which one you' + LineEnding +
+    '  are about to get while there is still nothing on the paper.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
