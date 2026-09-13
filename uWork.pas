@@ -299,6 +299,12 @@ type
       Geometry joined to what moves comes along, which is what makes moving
       one edge of a shape stretch the rest of it. }
     procedure MoveVerts(const Pts: TP3Array; const D: TP3);
+    { Every stored point at or past the plane through Base facing Dir.  What
+      a dimension pushes when it is given a new length. }
+    procedure VertsBeyond(const Base, Dir: TP3; out Pts: TP3Array);
+    { Give a dimension a new length and let the drawing follow.  MoveB moves
+      the end it was drawn to; False moves the end it was drawn from. }
+    function ResizeDim(Index: Integer; NewLen: Double; MoveB: Boolean): Boolean;
     procedure RotateEnt(I: Integer; const Pts: TP3Array; const C, Axis: TP3;
       Ang: Double; All: Boolean);
     { Every corner on the set turns about the axis; whatever shares a corner
@@ -3622,6 +3628,97 @@ begin
     Moving.Free;
   end;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+end;
+
+procedure TWorkDoc.VertsBeyond(const Base, Dir: TP3; out Pts: TP3Array);
+const
+  TOL = 1E-7;
+var
+  I, K, H, N: Integer;
+
+  procedure Put(const P: TP3);
+  begin
+    if Dot3(P3(P.X - Base.X, P.Y - Base.Y, P.Z - Base.Z), Dir) < -TOL then Exit;
+    if N >= Length(Pts) then SetLength(Pts, Max(16, N * 2));
+    Pts[N] := P;
+    Inc(N);
+  end;
+
+begin
+  Pts := nil;
+  N := 0;
+  for I := 0 to FLive - 1 do
+  begin
+    Put(FEnts[I].A);
+    Put(FEnts[I].B);
+    if FEnts[I].Kind = ekArc then Put(FEnts[I].C);
+    for K := 0 to High(FEnts[I].Poly) do Put(FEnts[I].Poly[K]);
+    for H := 0 to High(FEnts[I].Holes) do
+      for K := 0 to High(FEnts[I].Holes[H]) do Put(FEnts[I].Holes[H][K]);
+  end;
+  SetLength(Pts, N);
+end;
+
+{ A dimension told what it ought to read, and the drawing moved to suit.
+
+  This is the thing people ask SketchUp for and never get: over there you
+  measure after you draw, and a wrong number means drawing it again.  It is
+  what FreeCAD spends a constraint solver on, and the solver is the reason
+  people bounce off FreeCAD - along with the topological naming problem that
+  comes with remembering relationships between things that get renumbered.
+
+  So this remembers nothing.  It is not a constraint, it is **an edit**: work
+  out how much longer the dimension has to be, move that much, and forget.
+  Nothing can end up over-constrained because nothing is constrained; nothing
+  can go stale because nothing is stored; the same rule works on a drawing
+  read out of a file that has never been seen before.  It gives up the part
+  of parametric modelling that keeps a shape correct while you change
+  something else, and keeps the part people actually asked for, which is
+  typing a number and having the size be that number.
+
+  What moves: everything from that end of the dimension outwards - every
+  point at or past the plane through the end, square to the run.  Draw a
+  rectangle, dimension the bottom, type a bigger number and both right-hand
+  corners go, so it is still a rectangle.  Anything between the two ends
+  stays where it is, which is what you want for a window in a wall and is
+  worth knowing before you resize something with a lot in the middle.
+
+  An arc whose centre and both ends are all past the plane travels whole.
+  One with only some of its points past it will come out wrong - the same
+  limit the move tool has always had when a selection cuts an arc in half. }
+function TWorkDoc.ResizeDim(Index: Integer; NewLen: Double;
+  MoveB: Boolean): Boolean;
+var
+  A, B, D, Delta: TP3;
+  L, Grow: Double;
+  Pts: TP3Array;
+begin
+  Result := False;
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekDim then Exit;
+  if NewLen <= 0 then Exit;
+  A := FEnts[Index].A;
+  B := FEnts[Index].B;
+  L := Dist(A, B);
+  { a dimension of no length has no direction to grow along }
+  if L < 1E-9 then Exit;
+  Grow := NewLen - L;
+  if Abs(Grow) < 1E-9 then Exit;
+  D := P3((B.X - A.X) / L, (B.Y - A.Y) / L, (B.Z - A.Z) / L);
+
+  if MoveB then
+  begin
+    VertsBeyond(B, D, Pts);
+    Delta := P3(D.X * Grow, D.Y * Grow, D.Z * Grow);
+  end
+  else
+  begin
+    VertsBeyond(A, P3(-D.X, -D.Y, -D.Z), Pts);
+    Delta := P3(-D.X * Grow, -D.Y * Grow, -D.Z * Grow);
+  end;
+  if Length(Pts) = 0 then Exit;
+  MoveVerts(Pts, Delta);
+  Result := True;
 end;
 
 { Rotation is the one change that has to know what an arc is.  A line is its

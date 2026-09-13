@@ -1,0 +1,34 @@
+# Typing a size into a dimension and having the drawing follow.
+#
+# A 12 x 8 bay with a post up the middle at 5 ft, and the bottom dimensioned
+# left to right.  Pick the dimension, type 14', press Enter.
+#
+# What this proves: the reading goes to 14'-0", the right-hand end moves out,
+# and the post in the middle stays where it was put - which is the whole
+# difference between resizing a shape and scaling a picture of one.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+key escape
+key slash
+type fit
+key return
+wait 1200
+at 750 380
+scroll down 4
+wait 800
+shot /tmp/hsk-dim-before.png
+
+# the dimension line itself, between the two arrows
+at 750 572
+wait 400
+click
+wait 600
+shot /tmp/hsk-dim-picked.png
+
+type 14'
+key return
+wait 1000
+shot /tmp/hsk-dim-after.png

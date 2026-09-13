@@ -14,6 +14,18 @@
 
 ### New
 
+- **Type a size into a dimension and the drawing follows.**  Pick a dimension
+  with the select tool, type what it ought to read - `14'`, `12'6`, `6-8-15`
+  - and press Enter.  The end the dimension was drawn to moves out, and
+  everything from that end outwards goes with it, so a rectangle stays a
+  rectangle.  Anything between the two ends stays where you put it.
+
+  `/resize 14' start` moves the other end instead.
+
+  It is an edit, not a rule that sticks: the drawing moves once and nothing
+  is remembered, so nothing can go stale and nothing can end up fighting
+  anything else.
+
 - **Print it full size, across as many sheets as it takes.**  `/print full`
   lays the drawing out at 1:1 and prints a page at a time.  Tape the sheets
   together, put the paper on the metal and scribe round it - which is what a

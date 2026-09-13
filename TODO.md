@@ -297,8 +297,18 @@ getting.  Written down so none of it gets re-argued from scratch.
   that is the proper fix for a face coming out inside out rather than the
   axis-rule guess we ship today.
 
-* **Changing a size by typing it.**  Click a dimension that reads 12'-0",
-  type 14', and the geometry moves.  Tony wants a go at this one himself.
+* **Changing a size by typing it - built 13 September 2026.**  Pick a
+  dimension, type what it should read, press Enter.  `TWorkDoc.ResizeDim`
+  and `VertsBeyond` in uWork; the command is `/resize`, and a bare length
+  with a dimension picked does the same because typing a length and pressing
+  Enter is already how every size in this program is given.
+
+  Left on it: an arc with only some of its points past the moving plane
+  comes out wrong (the same limit the move tool has always had); nothing
+  between the two ends moves, which is right for a window in a wall and
+  wrong if you meant to stretch the middle; and there is no handle to drag -
+  it is typed only.  The notes below are why it is shaped the way it is,
+  and are worth keeping.
 
   It is the most asked-for thing on the SketchUp forums that will never
   arrive - you measure after you draw over there, and a wrong number means
@@ -318,6 +328,41 @@ getting.  Written down so none of it gets re-argued from scratch.
   end moves*, and the honest answer is the one the move tool already uses:
   the end you did not anchor, with a way to swap.  It works the same in plan,
   which un-scratches the 2D half for nothing.
+
+* **Textures on a face.**  Pick a face, pick a picture off the disk, stretch
+  or tile it.  Asked for 13 September.
+
+  The reason it is cheap here and expensive elsewhere: **our 3D view is
+  orthographic on purpose**, so the map from a screen pixel back to a point
+  on the face is affine - `u = ax + by + c`, `v = dx + ey + f`, worked out
+  once per face from three known points, then two multiply-adds and a lookup
+  per pixel.  No perspective divide, no per-scanline correction.  A
+  perspective camera, which `docs/isometric-views.md` turned down for other
+  reasons, would have made this the hard version of the problem.
+
+  The pieces: read the picture with the LCL into a BGRA buffer; keep an
+  origin, a U vector and a V vector per face in model space, which is the
+  same thing SketchUp's texture pins are; sample inside `FillLoops` instead
+  of writing a flat colour, times the Lambert term already computed there.
+  Holes, clipping and the four-times supersampling all come free - they are
+  already in that routine.  Call it a day or two.
+
+  The open question is where the picture lives.  `.hsk` is plain text on
+  purpose, so embedding means base64 and a file that is no longer readable
+  or diffable; referencing a path means a drawing that breaks when it moves.
+  SketchUp embeds.  Probably: reference by default, embed on request.
+
+  **And the argument for doing it is not pretty pictures.**  It is reference
+  imagery at true scale: photograph a panel or a wall, drop it on a face,
+  scale it against one known dimension, and trace over it.  That is the same
+  want as PDF import below, reached from a different direction, and it is
+  worth far more on a job than a render is.
+
+  The guard rail: this is a picture on a face, not materials.  No library,
+  no shading model, no reflectance, no UV editing beyond an origin, a size
+  and a rotation.  "No textures, no materials" is in **Where the line is**
+  below and this is a deliberate step over one half of it - so the other
+  half has to stay put.
 
 * **The drawing sheet - border, title block, revisions.**  Tony: "blue prints
   layout designer".  A printed sheet wants a border, the program name, who
@@ -429,7 +474,9 @@ getting.  Written down so none of it gets re-argued from scratch.
 ## Where the line is
 
 No objects, no groups, no components.  No booleans, no curved surfaces, no
-textures, no materials.
+materials - no library, no shading model, no reflectance.  A picture
+stretched on a face is a different thing and is discussed above; materials
+are what turns a sketch pad into something that needs a render farm.
 
 Those are where this stops being a quick tool and starts being a worse copy of
 SketchUp.

@@ -1371,6 +1371,109 @@ end;
   A written label that does not survive a save is worse than none at all: the
   drawing would go to the shop saying one thing and come back off the disk
   saying another. }
+{ Typing a size into a dimension and the drawing following.
+
+  Not a constraint - an edit.  Nothing is remembered, so there is nothing to
+  check about staleness; what has to be true is that the right points moved,
+  the right ones stayed, and the dimension now reads what was asked for. }
+procedure TestDimResize;
+var
+  D: TWorkDoc;
+  Dm, I, Moved, Stayed: Integer;
+  V: TProjector;
+  G: TDimGeom;
+
+  procedure Ln(const P, Q: TP3);
+  begin
+    D.AddLine(P, Q, 0, 1, False);
+  end;
+
+  function FirstDim(Doc: TWorkDoc): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to Doc.Live - 1 do
+      if Doc[J].Kind = ekDim then Exit(J);
+  end;
+
+  { how many line ends sit at this X, to the nearest sixteenth of a foot }
+  function EndsAtX(Want: Double): Integer;
+  var
+    J: Integer;
+  begin
+    Result := 0;
+    for J := 0 to D.Live - 1 do
+      if D[J].Kind = ekLine then
+      begin
+        if Abs(D[J].A.X - Want) < 1E-6 then Inc(Result);
+        if Abs(D[J].B.X - Want) < 1E-6 then Inc(Result);
+      end;
+  end;
+
+begin
+  WriteLn('typing a new size into a dimension');
+  V.Kind := vkPlan; V.Ppu := 20; V.OX := 0; V.OY := 400; V.Az := 0; V.El := 0;
+
+  { a 12 x 8 rectangle with a post up the middle at x = 5, and the bottom
+    dimensioned left to right }
+  D := TWorkDoc.Create;
+  try
+    Ln(P3(0, 0, 0), P3(12, 0, 0));
+    Ln(P3(12, 0, 0), P3(12, 8, 0));
+    Ln(P3(12, 8, 0), P3(0, 8, 0));
+    Ln(P3(0, 8, 0), P3(0, 0, 0));
+    Ln(P3(5, 0, 0), P3(5, 8, 0));
+    D.AddDim(P3(0, 0, 0), P3(12, 0, 0), 0, P3(0, -1, 0));
+    Dm := FirstDim(D);
+    Ok(Dm >= 0, 'there is a dimension');
+    Ok(DimGeometry(V, D[Dm].A, D[Dm].B, D[Dm].C, usImperial, G, D[Dm].Txt) and
+       (G.Txt = '12''-0"'), 'it reads 12 feet to start with: ' + G.Txt);
+
+    Ok(D.ResizeDim(Dm, 14, True), 'it takes a new length');
+
+    { the far end and everything at it went; the near end and the post did
+      not - a rectangle stays a rectangle and the post stays where it was }
+    EqI(EndsAtX(14), 4, 'both right-hand corners moved out to 14');
+    EqI(EndsAtX(12), 0, 'and nothing was left behind at 12');
+    EqI(EndsAtX(0), 4, 'the left-hand end did not move');
+    EqI(EndsAtX(5), 2, 'and neither did the post in the middle');
+
+    Ok(DimGeometry(V, D[Dm].A, D[Dm].B, D[Dm].C, usImperial, G, D[Dm].Txt) and
+       (G.Txt = '14''-0"'), 'the dimension now reads 14 feet: ' + G.Txt);
+
+    { and the other way: taking it back in moves the same end back }
+    Ok(D.ResizeDim(Dm, 10, True), 'and a smaller one');
+    EqI(EndsAtX(10), 4, 'the right-hand end came in to 10');
+    EqI(EndsAtX(0), 4, 'the left-hand end still has not moved');
+
+    { the other end, when that is the one that should give }
+    Ok(D.ResizeDim(Dm, 12, False), 'the near end can be the one that moves');
+    EqI(EndsAtX(-2), 4, 'it went out to -2, which is 12 from the far end');
+    EqI(EndsAtX(10), 4, 'and the far end stayed at 10');
+    EqI(EndsAtX(5), 2, 'the post in the middle is still where it was put');
+
+    { what it refuses }
+    Ok(not D.ResizeDim(Dm, 0, True), 'a length of nothing is refused');
+    Ok(not D.ResizeDim(Dm, -3, True), 'and so is a negative one');
+    Ok(not D.ResizeDim(Dm, 12, True), 'and the length it already is does nothing');
+    Moved := 0; Stayed := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then Inc(Stayed) else Inc(Moved);
+    EqI(Stayed, 5, 'nothing was added or lost along the way');
+
+    { a line is not a dimension }
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        Ok(not D.ResizeDim(I, 20, True), 'a line cannot be resized this way');
+        Break;
+      end;
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestDimNote;
 var
   D: TWorkDoc;
@@ -3403,6 +3506,7 @@ begin
   TestOffset;       WriteLn;
   TestPushAfterOffset; WriteLn;
   TestDimNote;      WriteLn;
+  TestDimResize;    WriteLn;
   TestNotes;        WriteLn;
   TestVersions;
   TestPatternDxf;  WriteLn;

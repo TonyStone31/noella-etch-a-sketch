@@ -631,6 +631,8 @@ type
     procedure FillCanvasMenu;
     procedure CanvasMenuClick(Sender: TObject);
     function ReverseSelectedFaces: Integer;
+    function SelectedDim: Integer;
+    function ApplyDimResize(NewLen: Double; MoveB: Boolean): Boolean;
     procedure CommitDimNote;
     function DeckRowH: Integer;
     function DeckRows: Integer;
@@ -2610,6 +2612,70 @@ begin
   RenderPro;
   RecomposeAll;
   Invalidate;
+end;
+
+{ The one dimension that is picked, or -1.  One, because a length typed at
+  two of them would have to guess which. }
+function TMainForm.SelectedDim: Integer;
+begin
+  Result := -1;
+  if Length(FSel) <> 1 then Exit;
+  if FD.Doc[FSel[0]].Kind <> ekDim then Exit;
+  Result := FSel[0];
+end;
+
+{ Pick a dimension, type what it ought to read, and the drawing moves.
+
+  The whole interface is one already in the program: everywhere else in PRO
+  you type a length and press Enter, so here you do the same.  Nothing new to
+  learn, and nothing new on the screen.
+
+  Which end gives is the only real question, and the answer is the end the
+  dimension was drawn to - the second point you clicked, the one your hand
+  was last on.  Said out loud in the message every time, with the way to have
+  the other one instead, because a rule nobody is told is a surprise. }
+function TMainForm.ApplyDimResize(NewLen: Double; MoveB: Boolean): Boolean;
+var
+  I: Integer;
+  Was: Double;
+begin
+  Result := False;
+  I := SelectedDim;
+  if I < 0 then Exit;
+  Was := Dist(FD.Doc[I].A, FD.Doc[I].B);
+  if NewLen <= 0 then
+  begin
+    FCmdMsg := 'A size has to be more than nothing.';
+    Exit;
+  end;
+  if Abs(NewLen - Was) < 1E-9 then
+  begin
+    FCmdMsg := 'It already reads ' + FormatLen(Was, FD.Units) + '.';
+    Exit;
+  end;
+  { A dimension with its two ends in the same place has no direction to grow
+    along.  Checked here rather than after the undo is pushed, so a refusal
+    never leaves a step on the stack that undoes nothing. }
+  if Was < 1E-9 then
+  begin
+    FCmdMsg := 'That dimension has no length to work from.';
+    Exit;
+  end;
+  PushUndo;
+  FD.Doc.ResizeDim(I, NewLen, MoveB);
+  RenderPro;
+  RecomposeAll;
+  Invalidate;
+  InvalidateStatus;
+  if MoveB then
+    FCmdMsg := Format('%s -> %s, from the end it was drawn to.  ' +
+      '"/resize %s start" moves the other end instead.',
+      [FormatLen(Was, FD.Units), FormatLen(NewLen, FD.Units),
+       FormatLen(NewLen, FD.Units)])
+  else
+    FCmdMsg := Format('%s -> %s, from the end it was drawn from.',
+      [FormatLen(Was, FD.Units), FormatLen(NewLen, FD.Units)]);
+  Result := True;
 end;
 
 { What the right button offers, worked out fresh every time it is pressed so
@@ -7879,6 +7945,8 @@ begin
       else
         if (Length(FSel) = 1) and (FD.Doc[FSel[0]].Kind = ekText) then
           Result := '1 picked - M to move, + and - for the text size, Delete to remove'
+        else if SelectedDim >= 0 then
+          Result := 'dimension picked - type a size and the drawing follows'
         else
         Result := Format('%d picked - M to move, Delete to remove',
           [Length(FSel)]);
@@ -8946,6 +9014,7 @@ var
   ReDoomed: array of Boolean;
   W, Rest: string;
   P, I, N: Integer;
+  RL: Double;
 begin
   Result := True;
   W := LowerCase(Trim(S));
@@ -8965,6 +9034,34 @@ begin
   else if (W = 'text') or (W = 'note') or (W = 'n') then SetTool(ptText)
   else if (W = 'erase') or (W = 'e') or (W = 'del') then SetTool(ptErase)
   else if (W = 'orbit') or (W = 'spin') then SetTool(ptOrbit)
+  { Typing a size into the dimension that is picked.  The bare length does
+    this too; the command exists for the other end and for a script. }
+  else if (W = 'resize') or (W = 'size') then
+  begin
+    if SelectedDim < 0 then
+      FCmdMsg := 'Pick one dimension first, then say what it should read.'
+    else
+    begin
+      { "14' start" or "14' other" moves the end it was drawn from }
+      W := Trim(Rest);
+      I := LastDelimiter(' ', W);
+      N := 1;                            { 1 = the end it was drawn to }
+      if I > 0 then
+      begin
+        Rest := Trim(Copy(W, I + 1, MaxInt));
+        if (Rest = 'start') or (Rest = 'first') or (Rest = 'other') or
+           (Rest = 'a') or (Rest = 'from') then
+        begin
+          N := 0;
+          W := Trim(Copy(W, 1, I - 1));
+        end;
+      end;
+      if not ParseLen(W, FD.Units, RL) then
+        FCmdMsg := 'I could not read "' + W + '" as a size.'
+      else
+        ApplyDimResize(RL, N = 1);
+    end;
+  end
   { the same thing the right button offers, for a keyboard and for a script }
   else if (W = 'reverse') or (W = 'rev') or (W = 'flip') then
   begin
@@ -9306,6 +9403,15 @@ begin
   begin
     if FStage > 0 then
       ProCommit
+    { A dimension is picked and a length was typed: that is somebody saying
+      what it ought to read.  It goes here rather than behind a command
+      because typing a length and pressing Enter is already how every size in
+      this program is given, and a size that has to be given a different way
+      is a size people will not think to give. }
+    else if (SelectedDim >= 0) and ApplyDimResize(L, True) then
+      { said its piece already }
+    else if SelectedDim >= 0 then
+      { refused, and said why }
     else
       FCmdMsg := FInput + ' = ' + FormatLen(L, FD.Units) + ' (pick a start point first)';
     FInput := '';
@@ -11179,6 +11285,10 @@ begin
   end;
 
   if Length(FSel) = 0 then FCmdMsg := 'Nothing selected.'
+  { A dimension picked on its own is the one selection that can be told what
+    to say, so it says so - nobody would guess otherwise. }
+  else if SelectedDim >= 0 then
+    FCmdMsg := 'Dimension picked - type what it should read and press Enter.'
   else if Length(FSel) = 1 then FCmdMsg := '1 thing selected.'
   else FCmdMsg := Format('%d things selected.', [Length(FSel)]);
   FScreenDirty := True;
