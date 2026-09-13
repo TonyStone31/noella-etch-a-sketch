@@ -13,6 +13,43 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.1' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Hover anything and it tells you what it is.**  There were never any' + LineEnding +
+    '  tooltips: the hover text went to a line at the top of the window, in the' + LineEnding +
+    '  smallest type on it, seven hundred pixels from the pointer.  Now a card' + LineEnding +
+    '  appears beside whatever you are pointing at, with the name and a sentence' + LineEnding +
+    '  about what it does.' + LineEnding +
+    '' + LineEnding +
+    '- **Open, Save, Export, Print, Undo and Redo are at the top left**, with' + LineEnding +
+    '  their names on them, where every other program keeps them.  They were in' + LineEnding +
+    '  the bottom right corner among twelve identical squares.  The Heckers Sketch' + LineEnding +
+    '  name has moved to the middle of that line to make room, and Undo and Redo' + LineEnding +
+    '  grey out when there is nothing to undo.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The tools are in groups now**, with a line between them: pick, then the' + LineEnding +
+    '  four shapes, then push/pull on its own, then move and erase, then measure,' + LineEnding +
+    '  protractor, dimension and text, then orbit.  **Measure and the protractor' + LineEnding +
+    '  have come back out of MORE** - measuring is most of why anybody opens this.' + LineEnding +
+    '' + LineEnding +
+    '- **SHOP is at the foot of the strip on its own, with a spanner on it.**  It' + LineEnding +
+    '  is a door into the trade wizards, not a drawing tool, and it had the same' + LineEnding +
+    '  arrow as MORE which made two quite different doors look like one thing.' + LineEnding +
+    '  The duplicate SHOP button along the bottom has gone.' + LineEnding +
+    '' + LineEnding +
+    '- **The settings say what they are** - PRINT SCALE, SNAP TO, LINE COLOUR,' + LineEnding +
+    '  LINE WIDTH, ROUNDED TO.  "PREC" is gone; so is "SET".  The buttons beside' + LineEnding +
+    '  them have names too: FIT, ORIGIN, GRID, UNITS, THEME, HELP.' + LineEnding +
+    '' + LineEnding +
+    '- **The row along the bottom is one row deep** instead of three.  All of that' + LineEnding +
+    '  height is drawing now.' + LineEnding +
+    '' + LineEnding +
+    '- The collapse arrow says **COLLAPSE** and **EXPAND**, which is what it does.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
