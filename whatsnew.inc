@@ -13,6 +13,27 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.12' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The last of the pale blue on solids.**  13.11 got most of it; thin' + LineEnding +
+    '  slivers were still showing in the crevices of a revolved shape.' + LineEnding +
+    '' + LineEnding +
+    '  Two things, and both are now right.  The first: faces that are not flat.' + LineEnding +
+    '  Spinning a sloped piece of an outline gives a warped four-cornered face -' + LineEnding +
+    '  one no flat sheet passes through - and the drawing worked out how far away' + LineEnding +
+    '  each face is by fitting a sheet through three of its corners.  On one shape' + LineEnding +
+    '  sent in, that fit was wrong by up to five hundred feet on a model two' + LineEnding +
+    '  hundred feet across.  It fits every corner now, evenly, which brings it' + LineEnding +
+    '  down to twelve.' + LineEnding +
+    '' + LineEnding +
+    '  The second, which finishes it: **the back of a closed solid is no longer' + LineEnding +
+    '  drawn at all.**  It cannot be seen - to look at one you would have to be' + LineEnding +
+    '  inside the thing - so however the depth works out, drawing it is wrong.' + LineEnding +
+    '  An open shell still shows its back, because there you really can look at' + LineEnding +
+    '  it, and that is what the pale blue is for.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.11' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
