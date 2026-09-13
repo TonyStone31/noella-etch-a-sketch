@@ -1376,6 +1376,103 @@ end;
   Not a constraint - an edit.  Nothing is remembered, so there is nothing to
   check about staleness; what has to be true is that the right points moved,
   the right ones stayed, and the dimension now reads what was asked for. }
+{ The slice a plan view is cut out of.
+
+  Two things have to be true and the second is the one that matters: what is
+  in the slice is what gets drawn, and what is in the slice is what can be
+  snapped to.  Geometry that is hidden but still grabs the cursor is the
+  fault this exists to prevent. }
+procedure TestSlice;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Hit: TSnapHit;
+  Lo, Hi: Double;
+  N: Integer;
+
+  procedure Ln(const P, Q: TP3);
+  begin
+    D.AddLine(P, Q, 0, 1, False);
+  end;
+
+  { can the cursor find this model point, at the screen place it projects to? }
+  function CanSnapTo(const P: TP3): Boolean;
+  var
+    S: TPointF;
+  begin
+    S := Project(V, P);
+    Result := D.BestSnap(V, S.X, S.Y, 6, Hit) and (Dist(Hit.P, P) < 1E-6);
+  end;
+
+begin
+  WriteLn('the slice a plan is cut out of');
+  { looking straight down, so a post shows as a dot and only Z tells things
+    apart - which is exactly the case the slice has to get right }
+  V.Kind := vkPlan; V.Ppu := 20; V.OX := 200; V.OY := 200; V.Az := 0; V.El := 0;
+
+  D := TWorkDoc.Create;
+  try
+    { a floor at zero, and a post standing on it up to twelve }
+    Ln(P3(0, 0, 0), P3(10, 0, 0));
+    Ln(P3(10, 0, 0), P3(10, 8, 0));
+    Ln(P3(10, 8, 0), P3(0, 8, 0));
+    Ln(P3(0, 8, 0), P3(0, 0, 0));
+    Ln(P3(5, 4, 0), P3(5, 4, 12));
+    { and a beam right across the top, at twelve }
+    Ln(P3(0, 4, 12), P3(10, 4, 12));
+
+    Ok(not D.SliceOn, 'a new drawing has no slice');
+    EqI(D.OutsideSlice, 0, 'and nothing is outside one');
+    Ok(D.ZRange(Lo, Hi) and (Abs(Lo) < 1E-9) and (Abs(Hi - 12) < 1E-9),
+       'the model runs from 0 to 12');
+
+    { With no slice, the two ends of the post are the same place on screen -
+      looking straight down, one is exactly behind the other - so only one of
+      them can ever be had, and which one is not something the cursor gets to
+      decide.  That is the problem the slice is for. }
+    Ok(CanSnapTo(P3(5, 4, 0)) <> CanSnapTo(P3(5, 4, 12)),
+       'no slice: the two ends of the post are the same place, so only one ' +
+       'of them can be reached and there is no saying which');
+
+    { a ground-floor slice, nought to four }
+    D.SetSlice(True, 0, 4);
+    Ok(D.SliceOn, 'the slice is on');
+    Ok(D.InSlice(0), 'the floor is in it');
+    { the post spans it, so the post is in the drawing ... }
+    Ok(D.InSlice(4), 'the post spans it and is in it');
+    { ... but the beam overhead is not }
+    Ok(not D.InSlice(5), 'the beam at twelve feet is not');
+    EqI(D.OutsideSlice, 1, 'one thing is being kept out');
+
+    { and the point that matters: the top of the post is directly over the
+      bottom of it in plan, and must not be snappable }
+    Ok(CanSnapTo(P3(5, 4, 0)), 'the foot of the post can still be snapped to');
+    Ok(not CanSnapTo(P3(5, 4, 12)),
+       'the top of it, twelve feet up, cannot - even though the post is in');
+
+    { nothing under the cursor from the beam either }
+    N := D.HitTest(V, Project(V, P3(2, 4, 12)).X, Project(V, P3(2, 4, 12)).Y, 6);
+    Ok((N < 0) or (N <> 5), 'and the beam cannot be picked');
+
+    { move the slice up and it swaps over }
+    D.SetSlice(True, 10, 14);
+    Ok(not D.InSlice(0), 'up at the beam, the floor has dropped out');
+    Ok(D.InSlice(5), 'and the beam is in');
+    Ok(CanSnapTo(P3(5, 4, 12)), 'the top of the post is reachable now');
+    Ok(not CanSnapTo(P3(5, 4, 0)), 'and the foot of it is not');
+
+    { off again puts everything back - including the ambiguity }
+    D.SetSlice(False, 0, 0);
+    EqI(D.OutsideSlice, 0, 'switched off, nothing is outside it');
+    Ok(D.InSlice(0) and D.InSlice(5),
+       'and the floor and the beam are both in the drawing again');
+    Ok(CanSnapTo(P3(5, 4, 0)) <> CanSnapTo(P3(5, 4, 12)),
+       'with the two ends of the post back to being one place on screen');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestDimResize;
 var
   D: TWorkDoc;
@@ -3507,6 +3604,7 @@ begin
   TestPushAfterOffset; WriteLn;
   TestDimNote;      WriteLn;
   TestDimResize;    WriteLn;
+  TestSlice;        WriteLn;
   TestNotes;        WriteLn;
   TestVersions;
   TestPatternDxf;  WriteLn;

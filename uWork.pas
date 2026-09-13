@@ -203,6 +203,9 @@ type
     FSnapDirty: Boolean;
     FGuidesHidden: Boolean;
     FNextGrp: Integer;
+    { The slice a plan view is cut out of - see SetSlice. }
+    FSliceOn: Boolean;
+    FSliceLo, FSliceHi: Double;
     FLastBore: Integer;
     function GetEnt(I: Integer): TWorkEnt;
     procedure RebuildSnapCache;
@@ -252,6 +255,25 @@ type
       the negative way round so that a document with nothing said about it
       shows them, which is what a field left alone gives. }
     property GuidesHidden: Boolean read FGuidesHidden write FGuidesHidden;
+    { A plan drawing is a horizontal section, not a photograph taken from
+      above, and this is the section.  Everything between Lo and Hi is in the
+      drawing and everything else is not - not drawn, not snapped to, not
+      picked.  Off by default, and off means the whole model.
+
+      One rule and no exceptions: what is in the slice and what can be
+      touched are the same set.  Geometry that is hidden but still grabs the
+      cursor is the worst failure this program has had, twice. }
+    procedure SetSlice(AOn: Boolean; ALo, AHi: Double);
+    property SliceOn: Boolean read FSliceOn;
+    property SliceLo: Double read FSliceLo;
+    property SliceHi: Double read FSliceHi;
+    { Is this entity in the slice?  True for everything when it is off. }
+    function InSlice(Index: Integer): Boolean;
+    { How many things the slice is keeping out, so the program can say so
+      rather than leave somebody hunting for their drawing. }
+    function OutsideSlice: Integer;
+    { The Z range of everything, for setting a slice that holds the lot. }
+    function ZRange(out Lo, Hi: Double): Boolean;
     function ClearGuides: Integer;
     procedure AddFace(const Pts: array of TP3; Ink: TColor; Solid: Boolean = False);
     procedure AddFaceRaw(const Pts: array of TP3; Ink: TColor; Solid: Boolean);
@@ -2241,6 +2263,95 @@ end;
 { faces and push/pull                                                      }
 { ---------------------------------------------------------------------- }
 
+procedure TWorkDoc.SetSlice(AOn: Boolean; ALo, AHi: Double);
+var
+  T: Double;
+begin
+  if AHi < ALo then begin T := ALo; ALo := AHi; AHi := T; end;
+  if (FSliceOn = AOn) and (FSliceLo = ALo) and (FSliceHi = AHi) then Exit;
+  FSliceOn := AOn;
+  FSliceLo := ALo;
+  FSliceHi := AHi;
+  { The snap cache is a list of points that are there to be snapped to, and
+    the slice decides which points those are.  Changing one without the other
+    is how you get a cursor sticking to something you cannot see. }
+  FSnapDirty := True;
+  FSnapScreenOK := False;
+  FOnFaceOK := False;
+end;
+
+function TWorkDoc.InSlice(Index: Integer): Boolean;
+const
+  EPS = 1E-7;
+var
+  Lo, Hi: Double;
+  K: Integer;
+
+  procedure Grow(V: Double);
+  begin
+    if V < Lo then Lo := V;
+    if V > Hi then Hi := V;
+  end;
+
+begin
+  Result := True;
+  if not FSliceOn then Exit;
+  if (Index < 0) or (Index >= FLive) then Exit;
+  Lo := 1E300;
+  Hi := -1E300;
+  case FEnts[Index].Kind of
+    ekFace:
+      begin
+        for K := 0 to High(FEnts[Index].Poly) do Grow(FEnts[Index].Poly[K].Z);
+        if Length(FEnts[Index].Poly) = 0 then Grow(FEnts[Index].A.Z);
+      end;
+    ekArc:
+      begin
+        { the whole circle it is cut from, because a tilted arc reaches above
+          and below its own ends }
+        Grow(FEnts[Index].C.Z - FEnts[Index].R);
+        Grow(FEnts[Index].C.Z + FEnts[Index].R);
+      end;
+    ekText:
+      Grow(FEnts[Index].A.Z);
+  else
+    begin
+      Grow(FEnts[Index].A.Z);
+      Grow(FEnts[Index].B.Z);
+    end;
+  end;
+  { any overlap at all counts.  A wall that starts below the slice and
+    carries on above it is in the drawing - that is what a cut is. }
+  Result := (Hi >= FSliceLo - EPS) and (Lo <= FSliceHi + EPS);
+end;
+
+function TWorkDoc.OutsideSlice: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  if not FSliceOn then Exit;
+  for I := 0 to FLive - 1 do
+    if not InSlice(I) then Inc(Result);
+end;
+
+function TWorkDoc.ZRange(out Lo, Hi: Double): Boolean;
+var
+  A, B: TP3;
+begin
+  Result := Bounds(A, B);
+  if Result then
+  begin
+    Lo := A.Z;
+    Hi := B.Z;
+  end
+  else
+  begin
+    Lo := 0;
+    Hi := 0;
+  end;
+end;
+
 { The winding of a face decides which way its normal points, and for a flat
   one drawn on the screen that came out of which way the cursor was dragged -
   a rectangle pulled down-right in plan faced down, one pulled up-left faced
@@ -3105,6 +3216,7 @@ begin
   for I := 0 to FLive - 1 do
   begin
     if FEnts[I].Kind <> ekFace then Continue;
+    if not InSlice(I) then Continue;
     N := Length(FEnts[I].Poly);
     if N < 3 then Continue;
     { A face is pickable from either side.
@@ -4547,6 +4659,14 @@ var
 
   procedure Put(const Q: TP3; Kind: TSnapKind);
   begin
+    { A point outside the slice is not in the drawing, so it is not something
+      to snap to.  Tested on the point rather than on the entity it came
+      from, and deliberately: a wall that stands from the floor to the roof
+      is in a ground-floor plan, but the corner at the top of it is not, and
+      snapping to a corner twelve feet above the drawing you are looking at
+      is exactly the fault this is here to prevent. }
+    if FSliceOn and ((Q.Z < FSliceLo - 1E-7) or (Q.Z > FSliceHi + 1E-7)) then
+      Exit;
     if N >= Length(FSnapCache) then SetLength(FSnapCache, Max(32, N * 2));
     FSnapCache[N].P := Q;
     FSnapCache[N].Kind := Kind;
@@ -5132,6 +5252,8 @@ begin
   Ent := -1;
   Best := TolPx;
   for I := 0 to FLive - 1 do
+  begin
+    if not InSlice(I) then Continue;
     case FEnts[I].Kind of
       ekLine: Try_(FEnts[I].A, FEnts[I].B);
       { a point on a guide line counts - that is what guides are for }
@@ -5155,6 +5277,7 @@ begin
           end;
         end;
     end;
+  end;
   Result := Ent >= 0;
 end;
 
@@ -5195,6 +5318,7 @@ begin
   for I := FLive - 1 downto 0 do
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekGuide]) then Continue;
+    if not InSlice(I) then Continue;
     if FEnts[I].Kind = ekGuide then
       D := GuideScreenDist(V, FEnts[I], SX, SY)
     else if FEnts[I].Kind = ekArc then
@@ -5619,6 +5743,7 @@ var
 begin
   for I := FLive - 1 downto 0 do
   begin
+    if not InSlice(I) then Continue;
     case FEnts[I].Kind of
       ekArc:
         D := ArcScreenDist(V, FEnts[I], SX, SY);
@@ -6832,6 +6957,7 @@ begin
     for I := 0 to FLive - 1 do
     begin
       if FEnts[I].Kind <> ekFace then Continue;
+      if not InSlice(I) then Continue;
       if FEnts[I].Solid and (Dot3(FaceNormal(I), Look) <= 0) then Continue;
       N := Length(FEnts[I].Poly);
       for J := 0 to N - 1 do
@@ -6845,6 +6971,9 @@ begin
 
   for I := 0 to FLive - 1 do
   begin
+    { Out of the slice is out of the drawing.  Said in every pass, because
+      each of them walks the entities for itself. }
+    if not InSlice(I) then Continue;
     Col := ColorToPix(FEnts[I].Ink);
     case FEnts[I].Kind of
       ekFace: ;   // already painted
@@ -6934,7 +7063,8 @@ begin
   Look := ViewDir(V);
   Lamp := Norm3(P3(0.35, -0.55, 0.75));
   for I := 0 to FLive - 1 do
-    if (FEnts[I].Kind = ekFace) and (Length(FEnts[I].Poly) >= 3) then
+    if (FEnts[I].Kind = ekFace) and (Length(FEnts[I].Poly) >= 3) and
+       InSlice(I) then
     begin
       { Every face is drawn, and the depth buffer decides what shows.
 
@@ -7050,6 +7180,16 @@ begin
     else S.DepthPlane(0, 0, -1E30);
 
     Sh := Min(1, 0.62 + 0.50 * Abs(Dot3(Nm, Lamp)));
+    { A plan is a drawing, not a photograph taken from above, so the light
+      goes out.
+
+      The shading is what makes a 3D view read as a solid object, and in a
+      plan it is noise with an opinion: two slopes of a roof come out
+      different greys because they are tilted differently to a lamp that has
+      no business being in a drawing at all, and a report came in asking what
+      the greys meant.  Nothing.  Flat fill in plan, and the drawing is made
+      of its lines again, which is what a drawing is made of. }
+    if V.Kind = vkPlan then Sh := 1;
     { Which side of it are we looking at?  The back of a face gets its own
       colour rather than the material.  A closed solid never shows one - its
       backs are culled - so this only ever appears on loose geometry, which is
@@ -7071,8 +7211,17 @@ begin
       for HJ := 0 to High(FEnts[K].Holes[HK]) do
         Loops[HK + 1][HJ] := Project(V, FEnts[K].Holes[HK][HJ]);
     end;
-    if Dot3(Nm, ViewDir(V)) < 0 then
+    if (Dot3(Nm, ViewDir(V)) < 0) and (V.Kind <> vkPlan) then
       S.FillLoops(Loops, ShadePix(FACE_BACK, Sh), 1.0)
+    else if V.Kind = vkPlan then
+      { Paler in plan than in the 3D view.  A fill is there to say "this is
+        material, not a hole"; in a drawing it must not compete with the
+        lines, which are the part that carries the information.  Front and
+        back are the same colour here on purpose - looking straight down, one
+        of them is the underside of a floor, and a plan has nothing to say
+        about that. }
+      S.FillLoops(Loops, MixPix(MixPix(Col, FACE_MATERIAL, 0.92),
+        Pix(255, 255, 255), 0.55), 1.0)
     else
       S.FillLoops(Loops, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
     { No outline.  Every boundary of a face is a real edge and gets drawn as
@@ -7091,6 +7240,7 @@ begin
   for I := 0 to FLive - 1 do
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekText]) then Continue;
+    if not InSlice(I) then Continue;
     { a softened crease that is not an outline stays hidden whatever face
       it lies on - said once here, not once per face }
     if (FEnts[I].Kind = ekLine) and Hidden(I) then Continue;

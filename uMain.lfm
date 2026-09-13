@@ -35,6 +35,17 @@ object MainForm: TMainForm
     OnMouseWheel = pbScreenMouseWheel
     OnPaint = pbScreenPaint
   end
+  object pbSlice: TPaintBox
+    Left = 700
+    Top = 8
+    Width = 300
+    Height = 24
+    OnMouseDown = pbSliceMouseDown
+    OnMouseLeave = pbSliceMouseLeave
+    OnMouseMove = pbSliceMouseMove
+    OnMouseWheel = pbSliceMouseWheel
+    OnPaint = pbSlicePaint
+  end
   object pbView: TPaintBox
     Left = 1030
     Height = 30

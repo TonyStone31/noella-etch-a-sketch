@@ -1,0 +1,50 @@
+# The slice a plan view is cut out of.
+#
+# The barn: walls from 29'-7" to 47'-3", a roof above that.  Straight down,
+# with everything drawn, a plan of it is four shaded slabs and no building -
+# the roof covers the lot.  This is the fix.
+#
+# What this proves, in order: PLAN puts the cut strip in the top corner;
+# cutting 29'-6" to 40'-0" leaves the walls and nothing else; the wheel over
+# a field moves that end of the slice; and Ctrl+wheel over the drawing
+# travels up through the model carrying the whole slice with it.
+
+geometry 0 0 1500 850
+activate
+wait 600
+
+# sheet 1 is the barn
+at 210 45
+click
+wait 1200
+
+key escape
+key slash
+type plan
+key return
+wait 1000
+key slash
+type fit
+key return
+wait 1000
+shot /tmp/hsk-slice-none.png
+
+key slash
+type cut 29'6 40'
+key return
+wait 1200
+shot /tmp/hsk-slice-walls.png
+
+# the wheel over the bottom field lifts the floor of the slice
+at 1090 45
+scroll up 12
+wait 800
+shot /tmp/hsk-slice-wheel.png
+
+# and Ctrl+wheel over the drawing takes the whole slice up to the roof
+at 700 380
+hold ctrl
+scroll up 20
+let ctrl
+wait 1000
+shot /tmp/hsk-slice-travel.png

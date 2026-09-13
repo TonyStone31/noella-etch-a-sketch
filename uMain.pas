@@ -107,6 +107,12 @@ type
       sheet starts.  A drawing that remembers where it was looked at from
       must not then be framed over the top of it. }
     CamKnown: Boolean;
+    { The slice a plan view is cut out of - a floor plan is a horizontal
+      section, not a photograph from above.  Lives on the sheet because it is
+      a property of how this sheet is being looked at, and it only ever bites
+      in PLAN; see TMainForm.ApplySlice. }
+    SliceOn: Boolean;
+    SliceLo, SliceHi: Double;
     { The flat areas this sheet had at the last rebuild.
 
       What it is for: an area that was there before and has no face now is one
@@ -144,6 +150,7 @@ type
     pbCmd: TPaintBox;
     pbTabs: TPaintBox;
     pbView: TPaintBox;
+    pbSlice: TPaintBox;
     pmView: TPopupMenu;
     pmCanvas: TPopupMenu;
     pbDeck: TPaintBox;
@@ -169,6 +176,18 @@ type
     procedure pbTabsMouseLeave(Sender: TObject);
     procedure pbTabsMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbTabsPaint(Sender: TObject);
+    procedure pbSlicePaint(Sender: TObject);
+    procedure pbSliceMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure pbSliceMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure pbSliceMouseLeave(Sender: TObject);
+    procedure pbSliceMouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    { which part of the cut strip a point is over: -1 none, 0 the label,
+      1 the bottom field, 2 the top field, 3/4 its up arrows, 5/6 its downs }
+    function SliceZoneAt(X, Y: Integer): Integer;
+    function SliceFieldRect(Which: Integer): TRect;
+    procedure CommitSliceEdit;
     procedure pbViewMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure pbViewMouseLeave(Sender: TObject);
@@ -557,6 +576,9 @@ type
     FScreenDirty: Boolean;
     FHotMode: Integer;
     FHotView: Integer;
+    FHotSlice: Integer;         // which zone of the cut strip is under the pointer
+    FSliceSkin: TArtSurface;
+    FSliceEdit: Integer;        // 0 none, 1 typing the bottom, 2 the top
     FViewSkin: TArtSurface;
     FGlyph: TArtSurface;    // the tool badge beside the cursor
     FHoverEnt: Integer;          // what the eraser is about to delete
@@ -632,6 +654,11 @@ type
     procedure CanvasMenuClick(Sender: TObject);
     function ReverseSelectedFaces: Integer;
     function SelectedDim: Integer;
+    procedure ApplySlice;
+    procedure SetSlice(AOn: Boolean; ALo, AHi: Double; const Why: string = '');
+    procedure NudgeSlice(Steps: Integer; Which: Integer);
+    procedure PlanFromFace(Face: Integer);
+    function SliceText: string;
     function ApplyDimResize(NewLen: Double; MoveB: Boolean): Boolean;
     procedure CommitDimNote;
     function DeckRowH: Integer;
@@ -1176,8 +1203,18 @@ begin
 end;
 
 function TMainForm.WorldAt(SX, SY: Double): TP3;
+var
+  Base: TP3;
 begin
-  Result := Unproject(Proj, SX, SY, FD.Plane, FCur);
+  Base := FCur;
+  { In a plan with a cut, the bottom of the slice is the drawing plane.
+
+    One number doing both jobs, and that is not a shortcut - it is what a
+    floor plan means.  The floor of what you can see is the floor you are
+    drawing on, and things go up from it.  Set the bottom to 9'-0" and you
+    are on the second storey: seeing it, and drawing on it. }
+  if (FD.View = vkPlan) and FD.SliceOn then Base.Z := FD.SliceLo;
+  Result := Unproject(Proj, SX, SY, FD.Plane, Base);
 end;
 
 { The four corners of the rectangle with A and B at opposite ends, lying in
@@ -1894,6 +1931,9 @@ begin
   FModeSkin := TArtSurface.Create(16, 16);
   FCmdSkin := TArtSurface.Create(16, 16);
   FViewSkin := TArtSurface.Create(16, 16);
+  FSliceSkin := TArtSurface.Create(16, 16);
+  FHotSlice := -1;
+  FSliceEdit := 0;
   FGlyph := TArtSurface.Create(16, 16);
   FPopup := POP_NONE;
   for I := 0 to 1 do
@@ -2012,6 +2052,7 @@ begin
   for I := 0 to 1 do
     FKnobSkin[I].Free;
   FViewSkin.Free;
+  FSliceSkin.Free;
   FGlyph.Free;
   FCmdSkin.Free;
   FModeSkin.Free;
@@ -2221,12 +2262,25 @@ begin
   pbCmd.Visible := FMode = mdPro;
   pbTabs.Visible := FMode = mdPro;
   pbView.Visible := FMode = mdPro;
+  { The cut only means something in a plan, so it is only there in one.  It
+    sits beside the view button because it is a property of the view and
+    nothing else, and because that corner is where somebody already looks to
+    find out what they are looking at. }
+  pbSlice.Visible := (FMode = mdPro) and (FD <> nil) and (FD.View = vkPlan);
   if FMode = mdPro then
   begin
     pbView.SetBounds(ClientWidth - M - Round(228 * FUIScale), TitleH,
       Round(228 * FUIScale), TabsH);
-    pbTabs.SetBounds(M, TitleH,
-      Max(120, pbView.Left - M - Round(16 * FUIScale)), TabsH);
+    if pbSlice.Visible then
+    begin
+      pbSlice.SetBounds(pbView.Left - Round(6 * FUIScale) - Round(250 * FUIScale),
+        TitleH, Round(250 * FUIScale), TabsH);
+      pbTabs.SetBounds(M, TitleH,
+        Max(120, pbSlice.Left - M - Round(16 * FUIScale)), TabsH);
+    end
+    else
+      pbTabs.SetBounds(M, TitleH,
+        Max(120, pbView.Left - M - Round(16 * FUIScale)), TabsH);
     pbCmd.SetBounds(M, DeckR.Top - Gap - CmdH, ClientWidth - 2 * M, CmdH);
     BezelR := Rect(M, TitleH + TabsH + Round(4 * FUIScale), ClientWidth - M,
       pbCmd.Top - Round(10 * FUIScale));
@@ -2270,6 +2324,7 @@ begin
   FModeSkin.SetSize(pbMode.Width, pbMode.Height);
   FCmdSkin.SetSize(Max(1, pbCmd.Width), Max(1, pbCmd.Height));
   FViewSkin.SetSize(Max(1, pbView.Width), Max(1, pbView.Height));
+  FSliceSkin.SetSize(Max(1, pbSlice.Width), Max(1, pbSlice.Height));
   LayoutTabs;
 
   for I := 0 to 1 do
@@ -2704,6 +2759,9 @@ begin
 
   if Faces = 1 then Add('Reverse Face', 1)
   else if Faces > 1 then Add(Format('Reverse %d Faces', [Faces]), 1);
+  { One click instead of two numbers.  Somebody who has just clicked a floor
+    has said everything the slice needs to know. }
+  if Faces = 1 then Add('Plan From Here', 4);
 
   if Length(FSel) > 0 then
   begin
@@ -2733,6 +2791,13 @@ begin
         InvalidateStatus;
       end;
     2: DeleteSelection;
+    4:
+      for N := 0 to High(FSel) do
+        if FD.Doc[FSel[N]].Kind = ekFace then
+        begin
+          PlanFromFace(FSel[N]);
+          Break;
+        end;
     3:
       begin
         SelectNone;
@@ -3311,6 +3376,12 @@ begin
   Plane := plXY;
   Az := -Pi / 4;
   El := 35.264 * Pi / 180;   // start on the isometric corner
+  { Off, which means the whole model.  A feature that hides part of somebody's
+    drawing before they have heard of it is a feature they will never
+    forgive. }
+  SliceOn := False;
+  SliceLo := 0;
+  SliceHi := 8;
   SetLength(Undo, UNDO_LEVELS);
   SetLength(Redo, UNDO_LEVELS);
 end;
@@ -4428,6 +4499,116 @@ begin
   ApplyViewPreset(I);
 end;
 
+{ Push the sheet's slice into the document, or take it away.
+
+  Two rules live here and nowhere else.  The first: **a slice only ever
+  applies in PLAN.**  It is a horizontal section, which is a thing a plan
+  drawing is and a 3D view is not, so leaving it switched on while somebody
+  orbits round the model would hide half of it for no reason they could see.
+  The second: the document is the only thing that knows about it, and it uses
+  the same range for what it draws and for what it lets the cursor touch.
+
+  Called from everywhere the answer could have changed - the view, the tab,
+  the numbers themselves - because a slice that is on in the sheet and off in
+  the document is exactly the disagreement that makes geometry invisible and
+  still snappable. }
+procedure TMainForm.ApplySlice;
+begin
+  if FD = nil then Exit;
+  FD.Doc.SetSlice(FD.SliceOn and (FD.View = vkPlan), FD.SliceLo, FD.SliceHi);
+end;
+
+procedure TMainForm.SetSlice(AOn: Boolean; ALo, AHi: Double; const Why: string);
+var
+  T: Double;
+  N: Integer;
+begin
+  if AHi < ALo then begin T := ALo; ALo := AHi; AHi := T; end;
+  FD.SliceOn := AOn;
+  FD.SliceLo := ALo;
+  FD.SliceHi := AHi;
+  ApplySlice;
+  RenderPro;
+  RecomposeAll;
+  if Assigned(pbSlice) then pbSlice.Invalidate;
+  Invalidate;
+  if Why <> '' then FCmdMsg := Why
+  else if not AOn then FCmdMsg := 'Cut off - the whole model is in the drawing.'
+  else
+  begin
+    N := FD.Doc.OutsideSlice;
+    { Say what is being kept out.  Somebody whose drawing has just gone
+      missing must not have to guess where it went. }
+    if N = 0 then
+      FCmdMsg := Format('Cut %s to %s - everything is in it.',
+        [FormatLen(ALo, FD.Units), FormatLen(AHi, FD.Units)])
+    else
+      FCmdMsg := Format('Cut %s to %s - %d thing%s outside it.',
+        [FormatLen(ALo, FD.Units), FormatLen(AHi, FD.Units), N,
+         IfThen(N = 1, '', 's')]);
+  end;
+  InvalidateStatus;
+  pbCmd.Invalidate;
+end;
+
+{ Move the slice by whole snap steps.  Which: 0 slides the whole slice and
+  keeps its thickness, 1 is the bottom on its own, 2 the top. }
+procedure TMainForm.NudgeSlice(Steps: Integer; Which: Integer);
+var
+  D, Lo, Hi: Double;
+begin
+  if Steps = 0 then Exit;
+  { The arrows step by whatever the drawing snaps to, so there is no second
+    setting to find and the feel matches everything else. }
+  D := SnapStep;
+  if D <= 0 then D := 1 / 12;
+  D := D * Steps;
+  Lo := FD.SliceLo;
+  Hi := FD.SliceHi;
+  case Which of
+    1: Lo := Lo + D;
+    2: Hi := Hi + D;
+  else
+    begin Lo := Lo + D; Hi := Hi + D; end;
+  end;
+  { the bottom cannot pass the top, or the slice turns inside out under your
+    hand and the numbers swap while you are still holding the wheel }
+  if Which = 1 then Lo := Min(Lo, Hi);
+  if Which = 2 then Hi := Max(Hi, Lo);
+  SetSlice(True, Lo, Hi);
+end;
+
+{ "Plan from here" - the front door, for people who are not going to type two
+  numbers.  The floor you clicked becomes the bottom of the slice and the top
+  goes a storey above it. }
+procedure TMainForm.PlanFromFace(Face: Integer);
+var
+  Lo, Hi: Double;
+  K: Integer;
+  Poly: TP3Array;
+begin
+  if (Face < 0) or (Face >= FD.Doc.Live) then Exit;
+  Poly := FD.Doc[Face].Poly;
+  if Length(Poly) = 0 then Exit;
+  Lo := Poly[0].Z;
+  for K := 1 to High(Poly) do Lo := Min(Lo, Poly[K].Z);
+  { Eight feet, or two and a half metres - a storey.  Not the four feet a
+    real cut plane uses, because this is also the drawing plane and drawing
+    on a floor you can only see four feet of is worse than seeing the lot. }
+  if FD.Units = usImperial then Hi := Lo + 8 else Hi := Lo + 2.5;
+  if FD.View <> vkPlan then SetView(vkPlan);
+  SetSlice(True, Lo, Hi,
+    Format('Plan from %s, up to %s.  Ctrl+wheel travels up and down.',
+      [FormatLen(Lo, FD.Units), FormatLen(Hi, FD.Units)]));
+end;
+
+function TMainForm.SliceText: string;
+begin
+  if not FD.SliceOn then Result := 'CUT  off'
+  else Result := Format('CUT  %s - %s',
+    [FormatLen(FD.SliceLo, FD.Units), FormatLen(FD.SliceHi, FD.Units)]);
+end;
+
 procedure TMainForm.SetView(V: TViewKind);
 begin
   FViewPreset := -1;
@@ -4436,10 +4617,16 @@ begin
   Act('view ' + VIEW_NAMES[V]);
   FD.View := V;
   if V <> vkOrbit then FD.Plane := plXY;
+  { the slice is a plan thing, so leaving or entering plan turns it on or off }
+  ApplySlice;
+  { the cut strip comes and goes with the view, so the top row is laid out
+    again rather than repainted }
+  Relayout;
   FitView;
   RebuildDeck;
   pbDeck.Invalidate;
   pbView.Invalidate;
+  pbSlice.Invalidate;
   case V of
     vkPlan: FCmdMsg := 'Plan view.';
     vkIso: FCmdMsg := 'Isometric view.';
@@ -4498,6 +4685,233 @@ begin
                          Point(W - VIEW_ARROW_W div 2 + 5, H div 2 - 3),
                          Point(W - VIEW_ARROW_W div 2, H div 2 + 3)]);
   pbView.Canvas.Brush.Style := bsClear;
+end;
+
+{ ---------------------------------------------------------------------- }
+{ the cut - the slice a plan view is taken out of                          }
+{ ---------------------------------------------------------------------- }
+
+{ Two length fields side by side, the bottom of the slice and the top.
+
+  Not a spin edit with a number in it.  A drawing measured in feet and inches
+  has to be told its heights in feet and inches, and the program already
+  knows how: ParseLen reads anything anybody would type - 9', 9'6, 114",
+  6-8-15 - and FormatLen writes it back at the drawing's own precision.  So
+  the field is those two with arrows on it, and **the arrows step by whatever
+  the drawing snaps to**, which means there is no second setting to find and
+  it feels the same as everything else here.
+
+  Typing goes to the command bar rather than into the box.  Every other value
+  in PRO is typed there and committed with Enter, the caret and the key
+  handling already exist, and a second place to type would be a second set of
+  rules to learn - see EditDimUnder, which does the same for the text on a
+  dimension. }
+function TMainForm.SliceFieldRect(Which: Integer): TRect;
+var
+  LabW, Pad, FW: Integer;
+begin
+  Pad := Round(4 * FUIScale);
+  LabW := Round(34 * FUIScale);
+  FW := (pbSlice.Width - LabW - 3 * Pad) div 2;
+  if Which = 1 then
+    Result := Rect(LabW + Pad, 1, LabW + Pad + FW, pbSlice.Height - 1)
+  else
+    Result := Rect(LabW + 2 * Pad + FW, 1, LabW + 2 * Pad + 2 * FW,
+                   pbSlice.Height - 1);
+end;
+
+function TMainForm.SliceZoneAt(X, Y: Integer): Integer;
+var
+  I, ArrW: Integer;
+  R: TRect;
+begin
+  Result := -1;
+  ArrW := Round(13 * FUIScale);
+  for I := 1 to 2 do
+  begin
+    R := SliceFieldRect(I);
+    if (X >= R.Left) and (X < R.Right) and (Y >= R.Top) and (Y < R.Bottom) then
+    begin
+      if X >= R.Right - ArrW then
+      begin
+        if Y < (R.Top + R.Bottom) div 2 then Exit(2 + I)   // 3 up-lo, 4 up-hi
+        else Exit(4 + I);                                   // 5 dn-lo, 6 dn-hi
+      end;
+      Exit(I);
+    end;
+  end;
+  if X < SliceFieldRect(1).Left then Result := 0;
+end;
+
+procedure TMainForm.pbSlicePaint(Sender: TObject);
+var
+  W, H, I, ArrW, MidY, CX: Integer;
+  R: TRect;
+  S: string;
+  Body, Edge: TPix;
+begin
+  W := pbSlice.Width;
+  H := pbSlice.Height;
+  if (W < 8) or (H < 8) then Exit;
+  FSliceSkin.SetSize(W, H);
+  FSliceSkin.Clear(Pix(0, 0, 0));
+  FSliceSkin.CopyRegion(FShell, pbSlice.Left, pbSlice.Top, 0, 0, W, H);
+  FSliceSkin.RoundRectV(Rect(0, 0, W, H), H / 2,
+    MixPix(Theme.Panel, Pix(0, 0, 0), 0.20), MixPix(Theme.Panel, Pix(0, 0, 0), 0.42));
+  FSliceSkin.RoundFrame(Rect(0, 0, W, H), H / 2, 1.0,
+    MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.14));
+
+  ArrW := Round(13 * FUIScale);
+  for I := 1 to 2 do
+  begin
+    R := SliceFieldRect(I);
+    Body := MixPix(Theme.Panel, Pix(0, 0, 0), 0.45);
+    { the one being typed into is lit, so it is obvious where the keys go }
+    if FSliceEdit = I then Body := MixPix(Theme.Accent, Pix(0, 0, 0), 0.55)
+    else if FHotSlice = I then Body := MixPix(Theme.Panel, Pix(255, 255, 255), 0.10);
+    FSliceSkin.RoundRect(R, Round(3 * FUIScale), Body);
+    Edge := MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.10);
+    if FSliceEdit = I then Edge := Theme.Accent;
+    FSliceSkin.RoundFrame(R, Round(3 * FUIScale), 1.0, Edge);
+  end;
+  FSliceSkin.DrawTo(pbSlice.Canvas, 0, 0);
+
+  UIFont(pbSlice.Canvas, 9, True, Theme.TextDim);
+  pbSlice.Canvas.TextOut(Round(8 * FUIScale),
+    (H - pbSlice.Canvas.TextHeight('CUT')) div 2, 'CUT');
+
+  for I := 1 to 2 do
+  begin
+    R := SliceFieldRect(I);
+    if I = 1 then S := FormatLen(FD.SliceLo, FD.Units)
+    else S := FormatLen(FD.SliceHi, FD.Units);
+    if FSliceEdit = I then S := FInput + '_';
+    if not FD.SliceOn then
+      UIFont(pbSlice.Canvas, 9, False, Theme.TextDim)
+    else
+      UIFont(pbSlice.Canvas, 9, True, Theme.Text);
+    pbSlice.Canvas.TextOut(R.Left + Round(6 * FUIScale),
+      (H - pbSlice.Canvas.TextHeight(S)) div 2, S);
+
+    { the two chevrons - the cue that says this is a thing you can turn }
+    MidY := (R.Top + R.Bottom) div 2;
+    CX := R.Right - ArrW div 2 - Round(2 * FUIScale);
+    pbSlice.Canvas.Brush.Style := bsSolid;
+    pbSlice.Canvas.Brush.Color := PixToColor(Theme.TextDim);
+    pbSlice.Canvas.Pen.Color := PixToColor(Theme.TextDim);
+    pbSlice.Canvas.Polygon([Point(CX - 4, MidY - 2), Point(CX + 4, MidY - 2),
+                            Point(CX, MidY - 7)]);
+    pbSlice.Canvas.Polygon([Point(CX - 4, MidY + 2), Point(CX + 4, MidY + 2),
+                            Point(CX, MidY + 7)]);
+    pbSlice.Canvas.Brush.Style := bsClear;
+  end;
+end;
+
+procedure TMainForm.pbSliceMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+var
+  Z: Integer;
+begin
+  Z := SliceZoneAt(X, Y);
+  if Z <> FHotSlice then
+  begin
+    FHotSlice := Z;
+    pbSlice.Invalidate;
+  end;
+  case Z of
+    1: FHint := 'The bottom of the slice - and the height you draw at.  ' +
+                'Click to type it, or roll the wheel.';
+    2: FHint := 'The top of the slice.  Nothing above this is in the drawing.';
+    0: FHint := 'The slice this plan is cut out of.  Ctrl+wheel over the ' +
+                'drawing travels up and down through the model.';
+  else
+    FHint := 'Roll the wheel to move it.';
+  end;
+end;
+
+procedure TMainForm.pbSliceMouseLeave(Sender: TObject);
+begin
+  if FHotSlice <> -1 then
+  begin
+    FHotSlice := -1;
+    pbSlice.Invalidate;
+  end;
+end;
+
+procedure TMainForm.pbSliceMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  Z: Integer;
+begin
+  if Button <> mbLeft then Exit;
+  Z := SliceZoneAt(X, Y);
+  case Z of
+    3: NudgeSlice(1, 1);
+    4: NudgeSlice(1, 2);
+    5: NudgeSlice(-1, 1);
+    6: NudgeSlice(-1, 2);
+    1, 2:
+      begin
+        { into the command bar, the way a dimension's text goes }
+        FSliceEdit := Z;
+        FInput := '';
+        if Z = 1 then
+          FCmdMsg := 'Type the bottom of the slice - the height you draw at.  Esc leaves it.'
+        else
+          FCmdMsg := 'Type the top of the slice.  Esc leaves it.';
+        pbSlice.Invalidate;
+        pbCmd.Invalidate;
+      end;
+    0:
+      { the label is the switch - one click is the whole feature on or off }
+      if FD.SliceOn then SetSlice(False, FD.SliceLo, FD.SliceHi)
+      else SetSlice(True, FD.SliceLo, FD.SliceHi);
+  end;
+end;
+
+procedure TMainForm.pbSliceMouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+var
+  Z, Steps: Integer;
+begin
+  Handled := True;
+  if WheelDelta > 0 then Steps := 1 else Steps := -1;
+  Z := SliceZoneAt(MousePos.X, MousePos.Y);
+  case Z of
+    1, 3, 5: NudgeSlice(Steps, 1);
+    2, 4, 6: NudgeSlice(Steps, 2);
+  else
+    NudgeSlice(Steps, 0);
+  end;
+end;
+
+{ Take what was typed into one of the two fields. }
+procedure TMainForm.CommitSliceEdit;
+var
+  W: Integer;
+  V: Double;
+begin
+  W := FSliceEdit;
+  FSliceEdit := 0;
+  if W = 0 then Exit;
+  if Trim(FInput) = '' then
+  begin
+    FInput := '';
+    FCmdMsg := 'Left as it was.';
+    pbSlice.Invalidate;
+    Exit;
+  end;
+  if not ParseLen(FInput, FD.Units, V) then
+  begin
+    FCmdMsg := 'I could not read "' + FInput + '" as a height.';
+    FInput := '';
+    pbSlice.Invalidate;
+    Exit;
+  end;
+  FInput := '';
+  if W = 1 then SetSlice(True, V, Max(V, FD.SliceHi))
+  else SetSlice(True, Min(FD.SliceLo, V), V);
+  pbSlice.Invalidate;
 end;
 
 { The list behind the arrow: every camera preset, then the two paper modes
@@ -7719,6 +8133,11 @@ begin
   FUnfoldPick := False;
   FNoteDrag := -1;
   FStickOn := False;
+  FSliceEdit := 0;
+  { Every path that changes sheets comes through here, and a sheet carries
+    its own cut - so this is the one place that can guarantee the document is
+    never left slicing by the last sheet's numbers. }
+  ApplySlice;
   { Minus one is "no dimension being edited", and it has to be said out loud.
     A field starts at zero, zero is a valid entity index, and the test for
     whether a label is being typed is FDimEdit >= 0 - so a fresh program
@@ -9038,7 +9457,7 @@ var
   ReDoomed: array of Boolean;
   W, Rest: string;
   P, I, N: Integer;
-  RL: Double;
+  RL, RL2: Double;
 begin
   Result := True;
   W := LowerCase(Trim(S));
@@ -9205,6 +9624,36 @@ begin
   else if W = 'iso' then SetView(vkIso)
   else if (W = '3d') or (W = 'orbit') then SetView(vkOrbit)
   else if (W = 'plan') or (W = '2d') or (W = 'flat') then SetView(vkPlan)
+  { The slice, from the keyboard and for a script.  "/cut off", "/cut all",
+    or "/cut 0 9'" for a bottom and a top. }
+  else if (W = 'cut') or (W = 'slice') then
+  begin
+    if (Rest = 'off') or (Rest = 'none') then
+      SetSlice(False, FD.SliceLo, FD.SliceHi)
+    else if (Rest = 'all') or (Rest = 'whole') then
+    begin
+      if FD.Doc.ZRange(RL, RL2) then SetSlice(True, RL, RL2)
+      else FCmdMsg := 'Nothing on this sheet to measure.';
+    end
+    else if Rest = '' then
+      FCmdMsg := SliceText + '.  "/cut 0 9''" sets it, "/cut all" opens it ' +
+                 'right up, "/cut off" turns it off.'
+    else
+    begin
+      P := Pos(' ', Rest);
+      if P <= 0 then
+        FCmdMsg := 'Two heights, a bottom and a top - "/cut 0 9''".'
+      else if not ParseLen(Trim(Copy(Rest, 1, P - 1)), FD.Units, RL) then
+        FCmdMsg := 'I could not read "' + Trim(Copy(Rest, 1, P - 1)) + '" as a height.'
+      else if not ParseLen(Trim(Copy(Rest, P + 1, MaxInt)), FD.Units, RL2) then
+        FCmdMsg := 'I could not read "' + Trim(Copy(Rest, P + 1, MaxInt)) + '" as a height.'
+      else
+      begin
+        if FD.View <> vkPlan then SetView(vkPlan);
+        SetSlice(True, RL, RL2);
+      end;
+    end;
+  end
   else if W = 'plane' then
   begin
     if Rest = 'xz' then FD.Plane := plXZ
@@ -9350,6 +9799,13 @@ begin
   if FDimEdit >= 0 then
   begin
     CommitDimNote;
+    pbCmd.Invalidate;
+    Exit;
+  end;
+  { A cut field is open, so what was typed is a height and belongs to it. }
+  if FSliceEdit <> 0 then
+  begin
+    CommitSliceEdit;
     pbCmd.Invalidate;
     Exit;
   end;
@@ -13019,6 +13475,23 @@ procedure TMainForm.pbScreenMouseWheel(Sender: TObject; Shift: TShiftState;
 begin
   if FBusy then Exit;
   if FMode <> mdPro then Exit;
+  { Ctrl and the wheel travels up and down through the model, carrying the
+    whole slice with it.
+
+    Over the drawing rather than only over the two fields, because the thing
+    people actually do is scroll until the plan looks right - and for that
+    your eyes have to be on the plan, not on a widget in the corner.  Plain
+    wheel stays zoom, which it has always been; Alt is taken (it suspends
+    snapping for a move), so Ctrl is the one that was free. }
+  if (ssCtrl in Shift) and (FD.View = vkPlan) then
+  begin
+    if not FD.SliceOn then
+      SetSlice(True, FD.SliceLo, FD.SliceHi)
+    else if WheelDelta > 0 then NudgeSlice(1, 0)
+    else NudgeSlice(-1, 0);
+    Handled := True;
+    Exit;
+  end;
   if WheelDelta > 0 then
     ZoomAt(1.15, MousePos.X, MousePos.Y)
   else
@@ -14291,7 +14764,14 @@ begin
         else CommandEnter;
       VK_ESCAPE:
         begin
-          if FPopup <> POP_NONE then
+          if FSliceEdit <> 0 then
+          begin
+            FSliceEdit := 0;
+            FInput := '';
+            FCmdMsg := 'Left as it was.';
+            pbSlice.Invalidate;
+          end
+          else if FPopup <> POP_NONE then
             ClosePopup
           else if FPlaneHeld then
           begin
@@ -14612,6 +15092,22 @@ begin
           else if Key = 'SCALE' then D.ScaleIdx := EnsureRange(StrToIntDef(Rest, 2), 0, SCALE_COUNT - 1)
           else if Key = 'SNAP' then D.SnapIdx := EnsureRange(StrToIntDef(Rest, 5), 0, SNAP_COUNT - 1)
           else if Key = 'VIEW' then D.View := TViewKind(EnsureRange(StrToIntDef(Rest, 0), 0, 2))
+          else if Key = 'SLICE' then
+          begin
+            CamT := TStringList.Create;
+            try
+              CamT.Delimiter := ' ';
+              CamT.DelimitedText := Rest;
+              if CamT.Count >= 2 then
+              begin
+                D.SliceLo := RdF(CamT[0]);
+                D.SliceHi := RdF(CamT[1]);
+                D.SliceOn := True;
+              end;
+            finally
+              CamT.Free;
+            end;
+          end
           else if Key = 'CAMERA' then
           begin
             { A file written before this has no camera line and keeps
@@ -15209,6 +15705,12 @@ begin
       [FDrawings[I].Az, FDrawings[I].El, FDrawings[I].Zoom,
        FDrawings[I].ViewX, FDrawings[I].ViewY]),
       DefaultFormatSettings.DecimalSeparator, '.', [rfReplaceAll]));
+    { The slice, when there is one.  Left out entirely when there is not, so
+      a drawing that never used it reads exactly as it did before. }
+    if FDrawings[I].SliceOn then
+      L.Add(StringReplace(Format('SLICE %.6f %.6f',
+        [FDrawings[I].SliceLo, FDrawings[I].SliceHi]),
+        DefaultFormatSettings.DecimalSeparator, '.', [rfReplaceAll]));
     FDrawings[I].Doc.SaveTo(L);
     L.Add('ENDSHEET');
   end;

@@ -14,6 +14,32 @@
 
 ### New
 
+- **A plan view is a slice through the model now, not a photograph from
+  above.**  Switch to PLAN and a **CUT** strip appears beside the view
+  button: a bottom and a top, in feet and inches.  Only what is between them
+  is in the drawing - drawn, snapped to, and picked.  A barn whose roof used
+  to cover the whole building cuts to just the walls.
+
+  **Ctrl and the wheel over the drawing travels up and down through the
+  model**, carrying the slice with it, so you can scroll until the plan looks
+  right without taking your eyes off it.  The wheel over either number moves
+  just that end; clicking one lets you type it.  Right-click a floor and
+  **Plan From Here** sets the whole thing in one go.
+
+  The bottom of the slice is also the height you draw at - which is what a
+  floor plan means.  Set it to 9'-0" and you are drawing on the second
+  storey.
+
+  It is off until you turn it on, it says how many things it is keeping out
+  so nothing goes missing quietly, and `/cut 0 9'`, `/cut all` and `/cut off`
+  do the same from the command bar.
+
+- **A plan is drawn like a drawing.**  No more shading in PLAN: the light
+  that makes a 3D view read as a solid object was turning two slopes of a
+  roof into two different greys, which in a drawing means nothing at all.
+  Faces fill pale so the lines carry the drawing, which is what lines are
+  for.
+
 - **Type a size into a dimension and the drawing follows.**  Pick a dimension
   with the select tool, type what it ought to read - `14'`, `12'6`, `6-8-15`
   - and press Enter.  The end the dimension was drawn to moves out, and
