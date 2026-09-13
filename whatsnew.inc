@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.12.4' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A menu on the right button.**  With the select tool, right-click' + LineEnding +
+    '  something in the drawing.  It picks what is under the cursor and offers' + LineEnding +
+    '  what can be done to it - and the first thing on that list is **Reverse' + LineEnding +
+    '  Face**.' + LineEnding +
+    '' + LineEnding +
+    '- **Reverse Face** turns a face over, so what was its pale blue back becomes' + LineEnding +
+    '  its front.  The program guesses which way a new face should point and the' + LineEnding +
+    '  guess is a good one, but two walls back to back are wound the same way and' + LineEnding +
+    '  one of them therefore shows its back to whoever is standing outside.' + LineEnding +
+    '  Nothing in a drawing of loose faces says which side of a wall is outside,' + LineEnding +
+    '  so this is the way to say so.  Several faces selected turns them all over;' + LineEnding +
+    '  `/reverse` does it from the command bar.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.12.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
@@ -33,7 +50,7 @@ const
     '' + LineEnding +
     '  Two upright faces back to back - the two ends of a barn - can still show' + LineEnding +
     '  one of each.  There is no way to tell the outside of a loose wall from the' + LineEnding +
-    '  inside without a solid around it.' + LineEnding +
+    '  inside without a solid around it - which is what Reverse Face is for.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.12.1' + LineEnding +
     '' + LineEnding +
