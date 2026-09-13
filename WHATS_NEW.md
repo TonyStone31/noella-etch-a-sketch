@@ -10,6 +10,26 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A proper export dialog.**  Press Export and you get a room with the
+  formats down one side, a live view of your model in the middle, and the
+  settings for that format on the right - instead of a save box with the file
+  types hidden in a dropdown and nothing at all to set.
+
+  Turn the model with the mouse and zoom with the wheel: what you see in the
+  middle is the shot.  Pictures can come out at twice or four times the size
+  of the screen, or any size you type, and a PNG can have nothing behind it at
+  all, for dropping onto a slide.
+
+- **Export an animated GIF.**  Frame where it should start, frame where it
+  should end, and it swings between the two - a turntable spin, a slow push
+  in, a tilt down onto a roof, or all three at once.  There is a button for a
+  full spin from wherever you happen to be looking, and one to watch the whole
+  thing before you commit to it.
+
 ## v2026.09.13.15
 
 ### Fixed

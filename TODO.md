@@ -1044,6 +1044,58 @@ sketch pad that happens to be to scale.  The moment a feature here only makes
 sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
 
+### Done 13 September: an export dialog, and a GIF that turns
+
+Tony pressed Export expecting to be asked something and got a save dialog
+with a list of file types in it.  Fair.  That is not an export dialog, it is
+a file picker with the settings hidden inside a combo box, and it has nowhere
+to ask how big, how good, or which way round.
+
+**What it is now.**  `uExport.pas` - a room of its own: the formats down one
+side, a live view of the model in the middle that you drag to turn and wheel
+to zoom, and whatever that format needs to be asked on the right.  What is in
+the middle is the shot; it is the same renderer at a different size.
+
+* PNG - any size, and a see-through background for dropping onto a slide
+* JPEG - the same, plus quality
+* GIF - the little film, below
+* SVG, DXF this-view, DXF model, STL - as before, but reachable in one press
+  instead of a dropdown
+
+Dressed with BGRAControls the way lazrandr is, through `uDlgSkin.pas`, which
+reads the program's own `TTheme` rather than keeping a second palette in
+step: the dialog wears whatever the drawing is wearing.  It draws its own
+title bar too, because a window manager's frame in the middle of it would be
+the one piece of it belonging to somebody else, which is the whole complaint
+that started this.
+
+**The GIF.**  Set the start, set the end, and it eases between the two - a
+turntable spin, a slow push in, a tilt down onto a roof, or all three at
+once, with no timeline to learn.  `Full spin from here` fills both in for the
+common case, and `Play it` runs it in the preview before you commit.  Two
+details that are not obvious: the zoom is interpolated by multiplying rather
+than adding, because a push-in that goes 1, 2, 3, 4 appears to slow down as
+it closes and one that goes 1, 2, 4, 8 looks even; and a loop is written one
+frame short of the whole way round, because the last frame of a loop IS the
+first one and sending both makes the spin catch once every time round.
+
+**Where the code went.**  The writing is in `uShoot.pas` and the window is in
+`uExport.pas`, on purpose: BGRAControls drags in half the IDE, so nothing
+that only wants to save a picture should have to link all that, and the
+checks in the geom suite need no screen at all.  They write real files into a
+temporary folder and read the header bytes back - a PNG says its size and
+whether it has an alpha channel, a GIF says its version - because the only
+thing worth checking about an export is what another program will make of it.
+
+That caught the one real bug in it: a surface is opaque unless told
+otherwise, and `Clear` paints alpha 255 whatever it is handed, so asking for
+a transparent background quietly did nothing until the flag went on before
+anything was drawn.
+
+**Still to do.**  Sweeping the plan-view cut height instead of the camera -
+the building filling up floor by floor - which is nearly free now the frame
+machinery exists.  Tony said camera only for this round.
+
 ### Examples written out beside the portable exe
 
 Tony, 13 September.  The program ships as one executable on purpose and that

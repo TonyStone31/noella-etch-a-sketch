@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, uWork, uTri, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe;
 
 var
   Fails: Integer = 0;
@@ -4194,6 +4194,154 @@ begin
 end;
 
 
+{ --- getting it out of the program ------------------------------------
+
+  These write real files into a temporary folder and then read the first few
+  bytes back, because the only thing worth checking about an export is what
+  another program will make of it.  A PNG says how big it is and whether it
+  has an alpha channel in its header; a GIF says its version and its size in
+  the first ten bytes.  Nothing here trusts the code that wrote them. }
+procedure TestExport;
+var
+  D: TWorkDoc;
+  Dir: string;
+  V, VB, M: TProjector;
+  F: TFont;
+
+  { the width, height and colour type out of a PNG's IHDR }
+  function PngIs(const Fn: string; out W, H, ColorType: Integer): Boolean;
+  var
+    S: TFileStream;
+    B: array[0..25] of Byte;
+  begin
+    Result := False;
+    W := 0; H := 0; ColorType := -1;
+    if not FileExists(Fn) then Exit;
+    S := TFileStream.Create(Fn, fmOpenRead);
+    try
+      if S.Size < 26 then Exit;
+      S.ReadBuffer(B, 26);
+    finally
+      S.Free;
+    end;
+    if (B[0] <> 137) or (B[1] <> Ord('P')) or (B[2] <> Ord('N'))
+      or (B[3] <> Ord('G')) then Exit;
+    W := (B[16] shl 24) or (B[17] shl 16) or (B[18] shl 8) or B[19];
+    H := (B[20] shl 24) or (B[21] shl 16) or (B[22] shl 8) or B[23];
+    ColorType := B[25];
+    Result := True;
+  end;
+
+  function GifIs(const Fn: string; out W, H: Integer): Boolean;
+  var
+    S: TFileStream;
+    B: array[0..9] of Byte;
+  begin
+    Result := False;
+    W := 0; H := 0;
+    if not FileExists(Fn) then Exit;
+    S := TFileStream.Create(Fn, fmOpenRead);
+    try
+      if S.Size < 10 then Exit;
+      S.ReadBuffer(B, 10);
+    finally
+      S.Free;
+    end;
+    Result := (B[0] = Ord('G')) and (B[1] = Ord('I')) and (B[2] = Ord('F'))
+      and (B[3] = Ord('8')) and (B[4] = Ord('9')) and (B[5] = Ord('a'));
+    W := B[6] or (B[7] shl 8);
+    H := B[8] or (B[9] shl 8);
+  end;
+
+var
+  W, H, CT, N: Integer;
+  Got: Boolean;
+begin
+  WriteLn('-- exporting --');
+
+  { --- the view in between two others ------------------------------- }
+  V.Kind := vkOrbit; V.Az := 1; V.El := 0.5; V.Ppu := 4; V.OX := 100; V.OY := 50;
+  VB := V; VB.Az := 3; VB.Ppu := 16; VB.OX := 300;
+  M := TweenView(V, VB, 0);
+  Ok((Abs(M.Az - V.Az) < 1E-9) and (Abs(M.Ppu - V.Ppu) < 1E-9),
+    'at the start it is the start view');
+  M := TweenView(V, VB, 1);
+  Ok((Abs(M.Az - VB.Az) < 1E-9) and (Abs(M.Ppu - VB.Ppu) < 1E-9),
+    'at the end it is the end view');
+  M := TweenView(V, VB, 0.5);
+  { zoom is multiplied, not added: halfway between 4 and 16 is 8, not 10 -
+    added, a push-in appears to slow down as it closes }
+  Ok(Abs(M.Ppu - 8) < 1E-6,
+    Format('halfway, the zoom is the middle by multiplying (%.3f, wanted 8)',
+      [M.Ppu]));
+  Ok(Abs(M.Az - 2) < 1E-6, 'and the turn is simply halfway round');
+
+  { --- and the same view at a different size ------------------------ }
+  M := Fitted(V, 900, 700, 1800, 1400);
+  Ok(Abs(M.Ppu - V.Ppu * 2) < 1E-9,
+    'twice the picture is twice the zoom, so it is the same picture');
+
+  Dir := GetTempDir + 'hsk-export-test';
+  ForceDirectories(Dir);
+  D := TWorkDoc.Create;
+  F := TFont.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 4), 'a box to take a picture of');
+    V.Kind := vkOrbit; V.Az := -0.7854; V.El := 0.6155;
+    V.Ppu := 8; V.OX := 450; V.OY := 350;
+
+    SaveStill(D, V, 900, 700, 900, 700, usImperial, F, Pix(0, 0, 0), 1.0,
+      Dir + PathDelim + 'a.png', False, 90, False);
+    Ok(PngIs(Dir + PathDelim + 'a.png', W, H, CT),
+      'a PNG came out, and it really is one');
+    Ok((W = 900) and (H = 700), Format('at the size asked for (%dx%d)', [W, H]));
+    Ok(CT = 2, Format('with no alpha channel it does not need (type %d)', [CT]));
+
+    { asking for it bigger must give a bigger picture of the same thing, not
+      the same picture with more space round it - Fitted above is what makes
+      that true, and this is what proves it end to end }
+    SaveStill(D, V, 900, 700, 1800, 1400, usImperial, F, Pix(0, 0, 0), 1.0,
+      Dir + PathDelim + 'b.png', False, 90, False);
+    { read it first and judge it after: the two arguments of Ok are both
+      evaluated before the call, and not necessarily left to right, so a
+      message built in the same breath as the test can print the values from
+      the test before it }
+    Got := PngIs(Dir + PathDelim + 'b.png', W, H, CT);
+    Ok(Got and (W = 1800) and (H = 1400),
+      Format('and again at twice the size (%dx%d)', [W, H]));
+
+    SaveStill(D, V, 900, 700, 400, 300, usImperial, F, Pix(0, 0, 0), 1.0,
+      Dir + PathDelim + 'c.png', False, 90, True);
+    Ok(PngIs(Dir + PathDelim + 'c.png', W, H, CT),
+      'a see-through PNG came out');
+    { 6 is RGBA.  A surface is opaque unless told otherwise and Clear paints
+      alpha 255 whatever it is handed, so this is the check that the asking
+      actually reaches the pixels. }
+    Ok(CT = 6, Format('and it kept its alpha channel (type %d, wanted 6)',
+      [CT]));
+
+    VB := V;
+    VB.Az := V.Az + 2 * Pi;
+    N := SaveOrbitGif(D, V, VB, 900, 700, 240, 180, usImperial, F,
+      Pix(0, 0, 0), 1.0, 1.0, 10, True, Dir + PathDelim + 'd.gif');
+    Ok(N = 10, Format('one second at ten a second is ten frames (%d)', [N]));
+    Ok(GifIs(Dir + PathDelim + 'd.gif', W, H),
+      'and what came out is a GIF89a, which is the animated kind');
+    Ok((W = 240) and (H = 180), Format('at the size asked for (%dx%d)', [W, H]));
+
+    { a whole turn must not send the first frame twice - the last frame of a
+      loop IS the first one, and sending both makes the spin catch once every
+      time round }
+    Ok(Abs(TweenView(V, VB, 9 / 10).Az - (V.Az + 2 * Pi)) > 1E-6,
+      'the last frame of a loop is not the first one over again');
+  finally
+    F.Free;
+    D.Free;
+  end;
+end;
+
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -4252,6 +4400,7 @@ begin
   TestTriangles;    WriteLn;
   TestStl;          WriteLn;
   TestShells;       WriteLn;
+  TestExport;       WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uDlgSkin, uExport, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -16696,99 +16696,42 @@ end;
 
 procedure TMainForm.DoExport;
 var
-  L: TStringList;
-  FS: TFileStream;
-  NTri: Integer;
-  ShutTight: Boolean;
-  Fn, Ext, E: string;
+  Msg, Base: string;
 begin
-  dlgSave.Filter := 'PNG image|*.png|SVG drawing|*.svg|' +
-    'DXF - this view, flat|*.dxf|DXF - the 3D model|*.dxf|' +
-    'STL - for a 3D printer|*.stl';
-  dlgSave.DefaultExt := '';
-  if dlgSave.InitialDir = '' then dlgSave.InitialDir := GetUserDir;
-  dlgSave.FileName := 'heckers-sketch-' + FormatDateTime('yyyymmdd-hhnnss', Now);
-  if not dlgSave.Execute then Exit;
-
-  { the chosen filter decides the format, and any extension the dialog or the
-    user tacked on is normalized away so nothing ends up as .svg.png }
-  case dlgSave.FilterIndex of
-    2: Ext := '.svg';
-    3, 4: Ext := '.dxf';
-    5: Ext := '.stl';
-  else
-    Ext := '.png';
-  end;
-  if (Ext <> '.png') and (FMode <> mdPro) then
+  { The toy has no vectors and no model - what it has is a picture of a
+    screen, so that is what it exports.  A room full of settings for it would
+    be a room full of settings about nothing. }
+  if FMode <> mdPro then
   begin
-    Ext := '.png';
-    FCmdMsg := 'The toy has no vectors to export, so that is a PNG.';
+    dlgSave.Filter := 'PNG image|*.png';
+    dlgSave.DefaultExt := '.png';
+    if dlgSave.InitialDir = '' then dlgSave.InitialDir := GetUserDir;
+    dlgSave.FileName := 'heckers-sketch-' +
+      FormatDateTime('yyyymmdd-hhnnss', Now) + '.png';
+    if not dlgSave.Execute then Exit;
+    try
+      FArt.SaveToPNG(ChangeFileExt(dlgSave.FileName, '.png'));
+      FCmdMsg := 'Exported ' + ExtractFileName(dlgSave.FileName);
+    except
+      on E: Exception do
+        MessageDlg('Could not export', E.Message, mtError, [mbOK], 0);
+    end;
+    Invalidate;
+    Exit;
   end;
 
-  Fn := dlgSave.FileName;
-  repeat
-    E := LowerCase(ExtractFileExt(Fn));
-    if (E = '.png') or (E = '.svg') or (E = '.dxf') or (E = '.stl') then
-      Fn := ChangeFileExt(Fn, '')
-    else
-      Break;
-  until False;
-  Fn := Fn + Ext;
-
-  try
-    if Ext = '.svg' then
-    begin
-      L := TStringList.Create;
-      try
-        FD.Doc.WriteSVG(L, Proj, FD.Units, FEdgeW);
-        L.SaveToFile(Fn);
-      finally
-        L.Free;
-      end;
-    end
-    else if Ext = '.dxf' then
-    begin
-      L := TStringList.Create;
-      try
-        { the fourth filter is the model itself; the third is this view }
-        FD.Doc.WriteDXF(L, Proj, FD.Units, dlgSave.FilterIndex = 4);
-        L.SaveToFile(Fn);
-      finally
-        L.Free;
-      end;
-    end
-    else if Ext = '.stl' then
-    begin
-      FS := TFileStream.Create(Fn, fmCreate);
-      try
-        NTri := FD.Doc.WriteSTL(FS, FD.Units, ShutTight);
-      finally
-        FS.Free;
-      end;
-      { Say what went out, and say it plainly if it will not print.  An STL
-        that is not closed slices into something, but the slicer is guessing
-        where the inside is, and finding that out after an hour of printing
-        is worse than being told now. }
-      if NTri = 0 then
-        FCmdMsg := 'Nothing to print - an STL is made of faces, and this ' +
-          'drawing has none.'
-      else if not ShutTight then
-        FCmdMsg := Format('%d triangles, in millimetres - but this is not a ' +
-          'closed solid, so a slicer will have to guess at the inside.', [NTri])
-      else
-        FCmdMsg := Format('%d triangles, in millimetres, closed and ready to ' +
-          'slice.', [NTri]);
-    end
-    else
-      FArt.SaveToPNG(Fn);
-    FHint := 'Exported ' + ExtractFileName(Fn);
-    if FCmdMsg = '' then FCmdMsg := 'Exported ' + ExtractFileName(Fn);
-  except
-    on E2: Exception do
-      MessageDlg('Could not export', E2.Message, mtError, [mbOK], 0);
-  end;
+  Base := IncludeTrailingPathDelimiter(GetUserDir) + 'heckers-sketch-' +
+    FormatDateTime('yyyymmdd-hhnnss', Now);
+  Msg := '';
+  if RunExport(FD.Doc, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW,
+       FArt.Width, FArt.Height, Base, Themes[FThemeIdx], Msg) then
+  begin
+    FHint := Msg;
+    FCmdMsg := Msg;
+  end
+  else if Msg <> '' then
+    FCmdMsg := Msg;
   Invalidate;
-  pbCmd.Invalidate;
 end;
 
 { Full size, across as many sheets as it takes.

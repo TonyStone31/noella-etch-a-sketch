@@ -1,0 +1,48 @@
+# The export dialog: does it open, does it look like the program, and does
+# each format bring up its own settings rather than a filter dropdown.
+#
+# What this proves: Ctrl+E opens a room with the formats down one side, a
+# live view of the model in the middle, and options on the right that change
+# with the format - and that GIF offers the animation controls.
+
+geometry 0 0 1500 850
+activate
+wait 600
+key escape
+key slash
+type fit
+key return
+wait 1500
+
+# the Export button, top left
+at 190 16
+click
+wait 1800
+shot /tmp/hsk-export-png.png
+
+# JPEG - a quality slider should appear
+at 388 240
+click
+wait 700
+shot /tmp/hsk-export-jpeg.png
+
+# GIF - seconds, frames, and the start/end buttons
+at 388 278
+click
+wait 700
+shot /tmp/hsk-export-gif.png
+
+# STL - no picture settings at all
+at 388 442
+click
+wait 700
+shot /tmp/hsk-export-stl.png
+
+# and the animation controls really drive it: a full spin, then play
+at 1046 434
+click
+wait 500
+at 1046 470
+click
+wait 900
+shot /tmp/hsk-export-playing.png

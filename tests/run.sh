@@ -11,6 +11,7 @@ WS=${LCL_WS:-gtk3}
   -Fu"$LAZ/lcl/units/x86_64-linux" \
   -Fu"$LAZ/lcl/units/x86_64-linux/$WS" \
   -Fu"$LAZ/components/lazutils/lib/x86_64-linux" \
+  -Fu"$LAZ/../config_lazarus/onlinepackagemanager/packages/BGRABitmap/bgrabitmap/lib/x86_64-linux-$WS-3.3.1" \
   -dLCL -dLCL$WS \
   -otests_geomtest tests/geomtest.pas >/tmp/geomtest-build.log 2>&1 \
   || { tail -25 /tmp/geomtest-build.log; exit 1; }

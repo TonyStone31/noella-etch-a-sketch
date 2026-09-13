@@ -101,6 +101,12 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="BGRAControls"/>
+      </Item>
+      <Item>
+        <PackageName Value="BGRABitmapPack"/>
+      </Item>
+      <Item>
         <PackageName Value="Printer4Lazarus"/>
       </Item>
       <Item>
@@ -125,6 +131,18 @@
       </Unit>
       <Unit>
         <Filename Value="uTri.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uShoot.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uDlgSkin.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uExport.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
