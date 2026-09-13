@@ -1,0 +1,39 @@
+# Recording a camera move: the countdown, then the recording, then Escape.
+#
+# What this proves: the Record button opens a window with nothing in it but
+# the model, counts you down before it starts, shows that it is rolling, and
+# stops on Escape with the move kept.
+
+geometry 0 0 1500 850
+activate
+wait 600
+key escape
+key slash
+type fit
+key return
+wait 1500
+
+# Export, then GIF
+at 190 16
+click
+wait 1600
+at 388 278
+click
+wait 700
+
+# Record a move instead
+at 1046 572
+click
+wait 900
+shot /tmp/hsk-rec-countdown.png
+
+# let it count in, then swing the camera round
+wait 2600
+at 750 400
+drag 1100 470
+wait 400
+shot /tmp/hsk-rec-rolling.png
+
+key escape
+wait 900
+shot /tmp/hsk-rec-after.png

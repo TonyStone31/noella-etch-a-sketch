@@ -12,7 +12,7 @@ uses
   Interfaces, // this includes the LCL widgetset
   Forms, SysUtils, printer4lazarus,
   {$IFDEF WINDOWS}Windows,{$ENDIF}
-  uSurface, uTri, uSkin, uShoot, uDlgSkin, uExport, uWork, uPaths, uSingle, uSplash, uMain;
+  uSurface, uTri, uSkin, uShoot, uDlgSkin, uRecord, uExport, uWork, uPaths, uSingle, uSplash, uMain;
 
 {$R *.res}
 

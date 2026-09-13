@@ -4256,6 +4256,7 @@ var
 var
   W, H, CT, N: Integer;
   Got: Boolean;
+  Cam: TCamPath;
 begin
   WriteLn('-- exporting --');
 
@@ -4292,7 +4293,7 @@ begin
     V.Ppu := 8; V.OX := 450; V.OY := 350;
 
     SaveStill(D, V, 900, 700, 900, 700, usImperial, F, Pix(0, 0, 0), 1.0,
-      Dir + PathDelim + 'a.png', False, 90, False);
+      Dir + PathDelim + 'a.png', False, 90, False, False);
     Ok(PngIs(Dir + PathDelim + 'a.png', W, H, CT),
       'a PNG came out, and it really is one');
     Ok((W = 900) and (H = 700), Format('at the size asked for (%dx%d)', [W, H]));
@@ -4302,7 +4303,7 @@ begin
       the same picture with more space round it - Fitted above is what makes
       that true, and this is what proves it end to end }
     SaveStill(D, V, 900, 700, 1800, 1400, usImperial, F, Pix(0, 0, 0), 1.0,
-      Dir + PathDelim + 'b.png', False, 90, False);
+      Dir + PathDelim + 'b.png', False, 90, False, False);
     { read it first and judge it after: the two arguments of Ok are both
       evaluated before the call, and not necessarily left to right, so a
       message built in the same breath as the test can print the values from
@@ -4312,7 +4313,7 @@ begin
       Format('and again at twice the size (%dx%d)', [W, H]));
 
     SaveStill(D, V, 900, 700, 400, 300, usImperial, F, Pix(0, 0, 0), 1.0,
-      Dir + PathDelim + 'c.png', False, 90, True);
+      Dir + PathDelim + 'c.png', False, 90, True, False);
     Ok(PngIs(Dir + PathDelim + 'c.png', W, H, CT),
       'a see-through PNG came out');
     { 6 is RGBA.  A surface is opaque unless told otherwise and Clear paints
@@ -4324,11 +4325,36 @@ begin
     VB := V;
     VB.Az := V.Az + 2 * Pi;
     N := SaveOrbitGif(D, V, VB, 900, 700, 240, 180, usImperial, F,
-      Pix(0, 0, 0), 1.0, 1.0, 10, True, Dir + PathDelim + 'd.gif');
+      Pix(0, 0, 0), 1.0, 1.0, 10, True, False, Dir + PathDelim + 'd.gif');
     Ok(N = 10, Format('one second at ten a second is ten frames (%d)', [N]));
     Ok(GifIs(Dir + PathDelim + 'd.gif', W, H),
       'and what came out is a GIF89a, which is the animated kind');
     Ok((W = 240) and (H = 180), Format('at the size asked for (%dx%d)', [W, H]));
+
+    { --- a recorded move, sampled back ------------------------------
+          A recording is a list of where the camera was and when.  Reading it
+          back has to give exactly what was put in at the moments it was put
+          in, and something sensible in between - otherwise a shot somebody
+          made by hand comes out as something else. }
+    SetLength(Cam, 3);
+    Cam[0].T := 0;   Cam[0].V := V;
+    Cam[1].T := 1;   Cam[1].V := V;  Cam[1].V.Az := V.Az + 1;
+    Cam[2].T := 3;   Cam[2].V := V;  Cam[2].V.Az := V.Az + 1;
+                                     Cam[2].V.Ppu := V.Ppu * 4;
+    Ok(Abs(CamPathLength(Cam) - 3) < 1E-9, 'the recording is three seconds long');
+    Ok(Abs(SampleCamPath(Cam, 0).Az - V.Az) < 1E-9,
+      'at nought it is where it started');
+    Ok(Abs(SampleCamPath(Cam, 1).Az - (V.Az + 1)) < 1E-9,
+      'at a mark it is exactly what was recorded there');
+    Ok(Abs(SampleCamPath(Cam, 0.5).Az - (V.Az + 0.5)) < 1E-9,
+      'and halfway between two marks, halfway between them');
+    { the zoom between marks is multiplied here too - a hand that zoomed
+      evenly should play back evenly }
+    Ok(Abs(SampleCamPath(Cam, 2).Ppu - V.Ppu * 2) < 1E-6,
+      Format('the zoom plays back by multiplying (%.3f, wanted %.3f)',
+        [SampleCamPath(Cam, 2).Ppu, V.Ppu * 2]));
+    Ok(Abs(SampleCamPath(Cam, 99).Ppu - V.Ppu * 4) < 1E-9,
+      'and past the end it holds on the last frame rather than running on');
 
     { a whole turn must not send the first frame twice - the last frame of a
       loop IS the first one, and sending both makes the spin catch once every

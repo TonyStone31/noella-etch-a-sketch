@@ -13,6 +13,47 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Export could fail on Windows with an access violation and no file.**  I' + LineEnding +
+    '  have not been able to reproduce it here and I am not going to pretend' + LineEnding +
+    '  otherwise, so this release makes it tell us instead: when an export fails it' + LineEnding +
+    '  now says which step it died in and what it was doing, and there is a' + LineEnding +
+    '  **Tell Tony about it** button right there in the dialog that sends the whole' + LineEnding +
+    '  thing - the format, the size, the settings, the lot.  One press and the next' + LineEnding +
+    '  release can actually fix it.' + LineEnding +
+    '' + LineEnding +
+    '  Some real hardening went in alongside: a film now draws every frame into one' + LineEnding +
+    '  picture instead of making and destroying one per frame, which on a long GIF' + LineEnding +
+    '  was eighty allocations for no reason; and a picture that cannot be made at' + LineEnding +
+    '  the size asked for now says so rather than carrying on with it.' + LineEnding +
+    '' + LineEnding +
+    '- **Black writing on the dark dialog.**  Windows paints its own drop-down' + LineEnding +
+    '  lists and tick boxes and takes no notice of what colour it has been asked' + LineEnding +
+    '  for, so some of the export dialog came out black on near-black.  It draws' + LineEnding +
+    '  its own now.' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Export sizes worth having.**  Square, tall, wide, link card, 720p, 1080p,' + LineEnding +
+    '  small-for-an-email - or type your own.  And asking for something enormous' + LineEnding +
+    '  now quietly brings it down to something that will actually save, instead of' + LineEnding +
+    '  refusing with "that size will not do".' + LineEnding +
+    '' + LineEnding +
+    '- **Record a camera move instead of describing one.**  In the GIF panel,' + LineEnding +
+    '  "Record a move instead" opens a window with nothing in it but your model.' + LineEnding +
+    '  It counts you down from three, then simply watches where you point the' + LineEnding +
+    '  camera - turn it, slide it, zoom in, pause on the good bit - and you press' + LineEnding +
+    '  Escape when you are done.  What comes out is the move you made.' + LineEnding +
+    '' + LineEnding +
+    '  It records where the camera was, not what was on the screen, so none of the' + LineEnding +
+    '  cursor, the snapping lines or the hover marks get anywhere near the film,' + LineEnding +
+    '  and it can be saved at any size afterwards.  The red, green and blue axes do' + LineEnding +
+    '  stay, because they are what tells you which way up the thing is - there is a' + LineEnding +
+    '  tick to turn them off.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.16' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

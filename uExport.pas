@@ -27,18 +27,24 @@ interface
 
 uses
   Classes, SysUtils, Math, Types, Graphics, Controls, Forms, StdCtrls,
-  ExtCtrls, ComCtrls, Dialogs,
+  ExtCtrls, ComCtrls, Dialogs, LCLType,
   BCButton, BCPanel, BCLabel,
-  uSurface, uWork, uSkin, uDlgSkin, uShoot;
+  uSurface, uWork, uSkin, uDlgSkin, uShoot, uRecord;
 
 type
   TExportKind = (exPng, exJpeg, exGif, exSvg, exDxfView, exDxfModel, exStl);
+
+type
+  { how the dialog asks the main window to send a bug report - it cannot do
+    it itself, the report wants a picture of the screen and the whole state }
+  TReportProc = procedure(const Where, Fields: string) of object;
 
 { Run the whole thing.  Returns True if something was written, and puts a
   line about it in Msg either way. }
 function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
-  const Suggest: string; const T: TTheme; out Msg: string): Boolean;
+  const Suggest: string; const T: TTheme; OnReport: TReportProc;
+  out Msg: string): Boolean;
 
 implementation
 
@@ -56,10 +62,15 @@ type
     FKind: TExportKind;
     FWrote: Boolean;
     FMsg: string;
+    { what the export was doing when it went wrong.  Windows sent back an
+      access violation and no file, and there was no way to tell from here
+      which of half a dozen steps it died in - so now it says. }
+    FStage: string;
+    FOnReport: TReportProc;
 
     { the camera in the preview, and the two the animation runs between }
     FView, FVA, FVB: TProjector;
-    FDragging: Boolean;
+    FDragging, FPanning: Boolean;
     FDragX, FDragY: Integer;
     FPlaying: Boolean;
     FPlayT: Double;
@@ -81,13 +92,18 @@ type
     FHeadX, FHeadY: Integer;
     FSize: TComboBox;
     FWEdit, FHEdit: TEdit;
-    FTransp, FLoop: TCheckBox;
+    FTransp, FLoop, FAxes: TBCButton;
+    FTranspOn, FLoopOn, FAxesOn: Boolean;
     FQual: TTrackBar;
     FSec, FFps: TEdit;
-    FSetA, FSetB, FSpin, FPlay: TBCButton;
+    FSetA, FSetB, FSpin, FPlay, FRec, FSay: TBCButton;
+    FTellBad: TBCLabel;
+    FCam: TCamPath;
     FDxfWhat: TComboBox;
     FTimer: TTimer;
 
+    procedure ComboDraw(Control: TWinControl; Index: Integer;
+      ARect: TRect; State: TOwnerDrawState);
     procedure BuildChrome;
     procedure PickKind(Sender: TObject);
     procedure ShowOptions;
@@ -104,15 +120,19 @@ type
     procedure DoSetB(Sender: TObject);
     procedure DoSpin(Sender: TObject);
     procedure DoPlay(Sender: TObject);
+    procedure DoRecord(Sender: TObject);
     procedure HeadDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure HeadMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure HeadUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure DoSay(Sender: TObject);
     procedure DoCancel(Sender: TObject);
     procedure DoBrowse(Sender: TObject);
     procedure DoGo(Sender: TObject);
     procedure SizeChanged(Sender: TObject);
+    procedure Ticked(Sender: TObject);
+    procedure ShowTick(B: TBCButton; On_: Boolean; const Cap: string);
     function Ext: string;
     function OutSize(out W, H: Integer): Boolean;
     function Tween(T: Double): TProjector;
@@ -123,7 +143,32 @@ type
       SrcW, SrcH: Integer; const Suggest: string); reintroduce;
   end;
 
+type
+  TSizePick = record
+    Name: string;
+    W, H: Integer;      { 0,0 means work it out from the screen }
+    Mul: Double;        { used when W and H are 0 }
+  end;
+
 const
+  { The sizes people are actually going to want.  A picture of a drawing
+    almost always ends up somewhere with an opinion about its shape, and
+    hunting for "1080 x 1920" in a pair of edit boxes is a worse way to find
+    that out than being offered it. }
+  SIZES: array[0..10] of TSizePick = (
+    (Name: 'As it is on screen';            W: 0;    H: 0;    Mul: 1),
+    (Name: 'Twice the size';                W: 0;    H: 0;    Mul: 2),
+    (Name: 'Four times the size';           W: 0;    H: 0;    Mul: 4),
+    (Name: 'Square - 1080 x 1080';          W: 1080; H: 1080; Mul: 0),
+    (Name: 'Tall - 1080 x 1920';            W: 1080; H: 1920; Mul: 0),
+    (Name: 'Wide - 1200 x 675';             W: 1200; H: 675;  Mul: 0),
+    (Name: 'Link card - 1200 x 630';        W: 1200; H: 630;  Mul: 0),
+    (Name: '720p - 1280 x 720';             W: 1280; H: 720;  Mul: 0),
+    (Name: '1080p - 1920 x 1080';           W: 1920; H: 1080; Mul: 0),
+    (Name: 'Small, for an email - 800 x 600'; W: 800; H: 600; Mul: 0),
+    (Name: 'A size of my own';              W: -1;   H: -1;   Mul: 0));
+  SIZE_MINE = 10;
+
   KIND_NAME: array[TExportKind] of string =
     ('PNG', 'JPEG', 'GIF', 'SVG', 'DXF view', 'DXF model', 'STL');
   KIND_EXT: array[TExportKind] of string =
@@ -247,7 +292,8 @@ begin
   FPrev.OnMouseUp := @PrevUp;
   FPrev.OnMouseWheel := @PrevWheel;
 
-  FHint := MkLbl(Mid, 'Drag to turn it.  Wheel to zoom.  This is the shot.',
+  FHint := MkLbl(Mid, 'Drag to turn it.  Right-drag or Shift-drag to slide it.  '
+    + 'Wheel to zoom.  This is the shot.',
     10, 414, 420, True, False, -12);
 
   { --- what this format needs to be asked, on the right ------------- }
@@ -261,85 +307,96 @@ begin
   FNoteLbl.AutoSize := False;
   FNoteLbl.Height := 52;
 
-  FSizeLbl := MkLbl(Opt, 'Size', 14, 100, 232, True, False, -12);
+  FSizeLbl := MkLbl(Opt, 'Size', 14, 96, 232, True, False, -12);
   FSize := TComboBox.Create(Self);
   FSize.Parent := Opt;
-  FSize.SetBounds(14, 120, 232, 26);
-  FSize.Items.Add('As it is on screen');
-  FSize.Items.Add('Twice the size');
-  FSize.Items.Add('Four times the size');
-  FSize.Items.Add('A size of my own');
+  FSize.SetBounds(14, 116, 232, 26);
+  for Y := 0 to High(SIZES) do FSize.Items.Add(SIZES[Y].Name);
   FSize.ItemIndex := 0;
   FSize.OnChange := @SizeChanged;
-  uDlgSkin.SkinCombo(FSize);
+  FSize.Style := csOwnerDrawFixed;
+  FSize.ItemHeight := 22;
+  FSize.OnDrawItem := @ComboDraw;
+  FSize.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Shell2);
+  FSize.Font.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Text);
 
   FWEdit := TEdit.Create(Self);
   FWEdit.Parent := Opt;
-  FWEdit.SetBounds(14, 152, 100, 26);
+  FWEdit.SetBounds(14, 148, 100, 26);
   uDlgSkin.SkinEdit(FWEdit);
   FHEdit := TEdit.Create(Self);
   FHEdit.Parent := Opt;
-  FHEdit.SetBounds(146, 152, 100, 26);
+  FHEdit.SetBounds(146, 148, 100, 26);
   uDlgSkin.SkinEdit(FHEdit);
-  FByLbl := MkLbl(Opt, 'x', 122, 154, 16, True);
+  FByLbl := MkLbl(Opt, 'x', 122, 150, 16, True);
 
-  FTransp := TCheckBox.Create(Self);
-  FTransp.Parent := Opt;
-  FTransp.SetBounds(14, 188, 232, 22);
-  FTransp.Caption := 'Nothing behind it (transparent)';
-  uDlgSkin.SkinCheck(FTransp);
+  FTransp := MkBtn(Opt, '', 14, 212, 232, 26, bkPlain);
+  FTransp.Tag := 1;
+  FTransp.OnClick := @Ticked;
+  ShowTick(FTransp, False, 'Nothing behind it');
 
-  FQualLbl := MkLbl(Opt, 'Quality 88', 14, 220, 232, True, False, -12);
+  FQualLbl := MkLbl(Opt, 'Quality 88', 14, 212, 232, True, False, -12);
   FQual := TTrackBar.Create(Self);
   FQual.Parent := Opt;
-  FQual.SetBounds(10, 240, 240, 34);
+  FQual.SetBounds(10, 232, 240, 34);
   FQual.Min := 20;
   FQual.Max := 100;
   FQual.Position := 88;
   FQual.OnChange := @SizeChanged;
   uDlgSkin.SkinTrack(FQual);
 
-  FSecLbl := MkLbl(Opt, 'Seconds', 14, 190, 110, True, False, -12);
+  FSecLbl := MkLbl(Opt, 'Seconds', 14, 212, 110, True, False, -12);
   FSec := TEdit.Create(Self);
   FSec.Parent := Opt;
-  FSec.SetBounds(14, 210, 100, 26);
+  FSec.SetBounds(14, 232, 100, 26);
   FSec.Text := '4';
   FSec.OnChange := @SizeChanged;
   uDlgSkin.SkinEdit(FSec);
 
-  FFpsLbl := MkLbl(Opt, 'Frames a second', 146, 190, 110, True, False, -12);
+  FFpsLbl := MkLbl(Opt, 'Frames a second', 146, 212, 110, True, False, -12);
   FFps := TEdit.Create(Self);
   FFps.Parent := Opt;
-  FFps.SetBounds(146, 210, 100, 26);
+  FFps.SetBounds(146, 232, 100, 26);
   FFps.Text := '20';
   FFps.OnChange := @SizeChanged;
   uDlgSkin.SkinEdit(FFps);
 
-  FLoop := TCheckBox.Create(Self);
-  FLoop.Parent := Opt;
-  FLoop.SetBounds(14, 246, 232, 22);
-  FLoop.Caption := 'Go round for ever';
-  FLoop.Checked := True;
-  uDlgSkin.SkinCheck(FLoop);
+  FLoopOn := True;
+  FLoop := MkBtn(Opt, '', 14, 264, 232, 26, bkPlain);
+  FLoop.Tag := 2;
+  FLoop.OnClick := @Ticked;
+  ShowTick(FLoop, True, 'Go round for ever');
 
-  FSetA := MkBtn(Opt, 'Set start', 14, 288, 110, 30, bkPlain);
+  FSetA := MkBtn(Opt, 'Set start', 14, 296, 110, 30, bkPlain);
   FSetA.OnClick := @DoSetA;
-  FSetB := MkBtn(Opt, 'Set end', 136, 288, 110, 30, bkPlain);
+  FSetB := MkBtn(Opt, 'Set end', 136, 296, 110, 30, bkPlain);
   FSetB.OnClick := @DoSetB;
-  FSpin := MkBtn(Opt, 'Full spin from here', 14, 324, 232, 30, bkPlain);
+  FSpin := MkBtn(Opt, 'Full spin from here', 14, 330, 232, 30, bkPlain);
   FSpin.OnClick := @DoSpin;
-  FPlay := MkBtn(Opt, 'Play it', 14, 360, 232, 30, bkPlain);
+  FPlay := MkBtn(Opt, 'Play it', 14, 364, 232, 30, bkPlain);
   FPlay.OnClick := @DoPlay;
+  FRec := MkBtn(Opt, 'Record a move instead', 14, 398, 232, 30, bkPlain);
+  FRec.OnClick := @DoRecord;
 
-  FShotLbl := MkLbl(Opt, '', 14, 414, 232, True, False, -12);
+  FAxesOn := True;
+  FAxes := MkBtn(Opt, '', 14, 180, 232, 26, bkPlain);
+  FAxes.Tag := 3;
+  FAxes.OnClick := @Ticked;
+  ShowTick(FAxes, True, 'Show the axes');
+
+  FShotLbl := MkLbl(Opt, '', 14, 432, 232, True, False, -12);
 
   FDxfWhat := TComboBox.Create(Self);
   FDxfWhat.Parent := Opt;
-  FDxfWhat.SetBounds(14, 120, 232, 26);
+  FDxfWhat.SetBounds(14, 116, 232, 26);
   FDxfWhat.Items.Add('This view, flat');
   FDxfWhat.Items.Add('The model, in three dimensions');
   FDxfWhat.ItemIndex := 0;
-  uDlgSkin.SkinCombo(FDxfWhat);
+  FDxfWhat.Style := csOwnerDrawFixed;
+  FDxfWhat.ItemHeight := 22;
+  FDxfWhat.OnDrawItem := @ComboDraw;
+  FDxfWhat.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Shell2);
+  FDxfWhat.Font.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Text);
 
   { --- where it goes ------------------------------------------------- }
   Foot := TBCPanel.Create(Self);
@@ -353,6 +410,12 @@ begin
   FPath.SetBounds(14, 32, 560, 28);
   uDlgSkin.SkinEdit(FPath);
 
+  FTellBad := MkLbl(Foot, '', 14, 4, 700, True, False, -12);
+  FTellBad.Visible := False;
+  FSay := MkBtn(Foot, 'Tell Tony about it', 584, 4, 268, 22, bkPlain);
+  FSay.OnClick := @DoSay;
+  FSay.Visible := False;
+
   FBrowse := MkBtn(Foot, 'Choose...', 584, 32, 96, 28, bkPlain);
   FBrowse.OnClick := @DoBrowse;
   FCancel := MkBtn(Foot, 'Cancel', 690, 32, 76, 28, bkPlain);
@@ -364,6 +427,31 @@ begin
   FTimer.Interval := 40;
   FTimer.Enabled := False;
   FTimer.OnTimer := @Tick;
+end;
+
+{ Windows paints a themed combo box itself and takes no notice of Font.Color,
+  so on a dark dialog the writing comes out black on near-black.  Drawing the
+  rows ourselves is the only way to be sure, and it costs almost nothing. }
+procedure TExportDlg.ComboDraw(Control: TWinControl; Index: Integer;
+  ARect: TRect; State: TOwnerDrawState);
+var
+  C: TComboBox;
+  Cv: TCanvas;
+begin
+  C := Control as TComboBox;
+  Cv := C.Canvas;
+  if odSelected in State then
+    Cv.Brush.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Accent)
+  else
+    Cv.Brush.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Shell2);
+  Cv.FillRect(ARect);
+  if odSelected in State then
+    Cv.Font.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Shell2)
+  else
+    Cv.Font.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Text);
+  Cv.Brush.Style := bsClear;
+  if (Index >= 0) and (Index < C.Items.Count) then
+    Cv.TextOut(ARect.Left + 6, ARect.Top + 3, C.Items[Index]);
 end;
 
 procedure TExportDlg.PickKind(Sender: TObject);
@@ -391,7 +479,7 @@ begin
 
   FSizeLbl.Visible := Raster;
   FSize.Visible := Raster;
-  FWEdit.Visible := Raster and (FSize.ItemIndex = 3);
+  FWEdit.Visible := Raster and (FSize.ItemIndex = SIZE_MINE);
   FHEdit.Visible := FWEdit.Visible;
   FByLbl.Visible := FWEdit.Visible;
   FTransp.Visible := FKind = exPng;
@@ -408,6 +496,8 @@ begin
   FSpin.Visible := Anim;
   FPlay.Visible := Anim;
   FShotLbl.Visible := Raster;
+  FAxes.Visible := Raster;
+  FRec.Visible := Anim;
   FDxfWhat.Visible := FKind in [exDxfView, exDxfModel];
 
   if not Anim then
@@ -421,7 +511,10 @@ begin
     these settings }
   if Raster and OutSize(W, H) then
   begin
-    if Anim then
+    if Anim and (Length(FCam) >= 2) then
+      FShotLbl.Caption := Format('%d x %d, from your %.1fs recording',
+        [W, H, CamPathLength(FCam)])
+    else if Anim then
       FShotLbl.Caption := Format('%d x %d, %d frames', [W, H,
         Max(1, Min(GIF_MAX_FRAMES,
           Round(StrToFloatDef(FSec.Text, 4) * StrToIntDef(FFps.Text, 20))))])
@@ -434,6 +527,43 @@ begin
   FPrev.Invalidate;
 end;
 
+{ A tick that is a button, for the same reason the combo draws itself: a
+  themed check box writes its own caption in the system's text colour and
+  will not be told otherwise. }
+procedure TExportDlg.ShowTick(B: TBCButton; On_: Boolean; const Cap: string);
+begin
+  if On_ then
+  begin
+    B.Caption := '[x]  ' + Cap;
+    uDlgSkin.SkinButton(B, bkGo);
+  end
+  else
+  begin
+    B.Caption := '[  ]  ' + Cap;
+    uDlgSkin.SkinButton(B, bkPlain);
+  end;
+end;
+
+procedure TExportDlg.Ticked(Sender: TObject);
+begin
+  case (Sender as TBCButton).Tag of
+    1: begin
+         FTranspOn := not FTranspOn;
+         ShowTick(FTransp, FTranspOn, 'Nothing behind it');
+       end;
+    2: begin
+         FLoopOn := not FLoopOn;
+         ShowTick(FLoop, FLoopOn, 'Go round for ever');
+       end;
+    3: begin
+         FAxesOn := not FAxesOn;
+         ShowTick(FAxes, FAxesOn, 'Show the axes');
+       end;
+  end;
+  FPrev.Invalidate;
+  ShowOptions;
+end;
+
 procedure TExportDlg.SizeChanged(Sender: TObject);
 begin
   if Sender = FQual then
@@ -442,25 +572,49 @@ begin
 end;
 
 function TExportDlg.OutSize(out W, H: Integer): Boolean;
+var
+  I: Integer;
+  K: Double;
 begin
-  case FSize.ItemIndex of
-    1: begin W := FSrcW * 2; H := FSrcH * 2; end;
-    2: begin W := FSrcW * 4; H := FSrcH * 4; end;
-    3: begin
-         W := StrToIntDef(FWEdit.Text, 0);
-         H := StrToIntDef(FHEdit.Text, 0);
-       end;
-  else
-    W := FSrcW; H := FSrcH;
-  end;
-  { a GIF at screen size and twenty a second is tens of megabytes, so it is
-    held to something that will actually send }
-  if (FKind = exGif) and (FSize.ItemIndex = 0) then
+  I := FSize.ItemIndex;
+  if (I < 0) or (I > High(SIZES)) then I := 0;
+  if I = SIZE_MINE then
   begin
-    W := Min(W, 720);
-    H := Round(H * W / Max(1, FSrcW));
+    W := StrToIntDef(FWEdit.Text, 0);
+    H := StrToIntDef(FHEdit.Text, 0);
+  end
+  else if SIZES[I].W > 0 then
+  begin
+    W := SIZES[I].W;
+    H := SIZES[I].H;
+  end
+  else
+  begin
+    W := Round(FSrcW * SIZES[I].Mul);
+    H := Round(FSrcH * SIZES[I].Mul);
   end;
-  Result := (W >= 16) and (H >= 16) and (W <= 8000) and (H <= 8000);
+
+  { A GIF is frames times pixels, and both run away.  Rather than refuse a
+    size somebody has chosen, it is brought down to something that will
+    actually send, keeping its shape. }
+  if (FKind = exGif) and (W > 900) then
+  begin
+    K := 900 / W;
+    W := 900;
+    H := Max(16, Round(H * K));
+  end;
+
+  { And nothing is refused for being too big when it can simply be made to
+    fit - four times a big screen used to come out past the limit and give
+    "that size will not do", which is a strange answer to a button that
+    offered it. }
+  if (W > 8000) or (H > 8000) then
+  begin
+    K := Min(8000 / Max(1, W), 8000 / Max(1, H));
+    W := Max(16, Round(W * K));
+    H := Max(16, Round(H * K));
+  end;
+  Result := (W >= 16) and (H >= 16);
 end;
 
 function TExportDlg.Ext: string;
@@ -481,7 +635,7 @@ var
   Bg: TPix;
 begin
   if FPlaying then V := Tween(FPlayT) else V := FView;
-  if (FKind = exPng) and FTransp.Checked then Bg := Pix(255, 255, 255, 0)
+  if (FKind = exPng) and FTranspOn then Bg := Pix(255, 255, 255, 0)
   else Bg := Pix(255, 255, 255);
   S := ShootFrame(FDoc, Fitted(V, FSrcW, FSrcH, FPrev.Width, FPrev.Height),
     FPrev.Width, FPrev.Height, FUnits, FFont, FLabelCol, FEdgeW, Bg,
@@ -498,6 +652,7 @@ procedure TExportDlg.PrevDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   FDragging := True;
+  FPanning := (Button = mbRight) or (Button = mbMiddle);
   FDragX := X;
   FDragY := Y;
 end;
@@ -506,8 +661,16 @@ procedure TExportDlg.PrevMove(Sender: TObject; Shift: TShiftState;
   X, Y: Integer);
 begin
   if not FDragging then Exit;
-  FView.Az := FView.Az - (X - FDragX) * 0.01;
-  FView.El := Max(-1.5, Min(1.5, FView.El + (Y - FDragY) * 0.01));
+  { Shift is tested every move rather than only when the button went down, so
+    you can grab it part way through a turn and slide instead - which is what
+    the drawing area does and what the hand expects. }
+  if FPanning or (ssShift in Shift) then
+    { the preview and the shot are different sizes, so a slide measured here
+      has to be put back in the shot's terms or it moves at the wrong speed }
+    PanBy(FView, (X - FDragX) * FSrcW / Max(1, FPrev.Width),
+                 (Y - FDragY) * FSrcH / Max(1, FPrev.Height))
+  else
+    OrbitBy(FView, X - FDragX, Y - FDragY);
   FDragX := X;
   FDragY := Y;
   FPlaying := False;
@@ -520,22 +683,24 @@ procedure TExportDlg.PrevUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   FDragging := False;
+  FPanning := False;
   FPrev.Invalidate;         { the sharp one, now the camera has stopped }
 end;
 
 procedure TExportDlg.PrevWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 begin
-  if WheelDelta > 0 then FView.Ppu := FView.Ppu * 1.12
-  else FView.Ppu := FView.Ppu / 1.12;
-  FView.Ppu := Max(1E-4, Min(1E6, FView.Ppu));
+  if WheelDelta > 0 then ZoomBy(FView, 1.12) else ZoomBy(FView, 1 / 1.12);
   FPrev.Invalidate;
   Handled := True;
 end;
 
 procedure TExportDlg.Tick(Sender: TObject);
+var
+  T: Double;
 begin
-  FPlayT := FPlayT + 0.02;
+  T := FPlayT + 0.02;                     { a local first - see OrbitBy }
+  FPlayT := T;
   if FPlayT > 1 then FPlayT := 0;
   FPrev.Invalidate;
 end;
@@ -605,9 +770,59 @@ begin
   FHeadDrag := False;
 end;
 
+{ Hand the whole state of the export over to the report, so whatever went
+  wrong arrives with the settings that caused it rather than a description of
+  them from memory. }
+procedure TExportDlg.DoSay(Sender: TObject);
+var
+  W, H: Integer;
+  Fields: string;
+begin
+  if not Assigned(FOnReport) then Exit;
+  if not OutSize(W, H) then begin W := 0; H := 0; end;
+  Fields := Format(
+    'export=%s stage=%s' + LineEnding +
+    'asked for=%dx%d from a %dx%d screen, size choice %d' + LineEnding +
+    'gif=%s seconds, %s a second, loop=%s, recorded=%.1fs, axes=%s' + LineEnding +
+    'what it said: %s' + LineEnding +
+    'path=%s',
+    [KIND_NAME[FKind], FStage, W, H, FSrcW, FSrcH, FSize.ItemIndex,
+     FSec.Text, FFps.Text, BoolToStr(FLoopOn, 'yes', 'no'),
+     CamPathLength(FCam), BoolToStr(FAxesOn, 'yes', 'no'),
+     FMsg, ExtractFileName(FPath.Text)]);
+  ModalResult := mrCancel;
+  { the report wants a picture of the screen and this window is in front of
+    it, so it goes first and the main window raises the report }
+  FOnReport('the export dialog', Fields);
+end;
+
 procedure TExportDlg.DoCancel(Sender: TObject);
 begin
   ModalResult := mrCancel;
+end;
+
+{ A recording beats the two ends: it is what somebody actually did, and the
+  two ends were only ever a way of describing a move without making one. }
+procedure TExportDlg.DoRecord(Sender: TObject);
+var
+  Got: TCamPath;
+begin
+  FPlaying := False;
+  FTimer.Enabled := False;
+  FPlay.Caption := 'Play it';
+  Hide;
+  try
+    if RecordMove(FDoc, FView, FUnits, FFont, FLabelCol, FEdgeW,
+         FSrcW, FSrcH, FAxesOn, Got) then
+    begin
+      FCam := Got;
+      FHint.Caption := Format('Recorded %.1f seconds.  That is the shot now - ' +
+        'press Record again to do it over.', [CamPathLength(FCam)]);
+    end;
+  finally
+    Show;
+  end;
+  ShowOptions;
 end;
 
 procedure TExportDlg.DoBrowse(Sender: TObject);
@@ -634,6 +849,7 @@ begin
     FHint.Caption := 'It needs somewhere to go - pick a file below.';
     Exit;
   end;
+  FStage := 'starting';
   try
     WriteIt;
     FWrote := True;
@@ -641,8 +857,15 @@ begin
   except
     on E: Exception do
     begin
-      FMsg := 'Could not export: ' + E.Message;
+      { the class as well as the message: an access violation carries no
+        message worth reading, and its name is the whole of what it says }
+      FMsg := Format('Could not export - %s while %s%s',
+        [E.ClassName, FStage,
+         specialize IfThen<string>(E.Message = '', '', ': ' + E.Message)]);
       FHint.Caption := FMsg;
+      FTellBad.Caption := FMsg;
+      FTellBad.Visible := True;
+      FSay.Visible := Assigned(FOnReport);
     end;
   end;
 end;
@@ -655,10 +878,12 @@ var
   FS: TFileStream;
   Shut: Boolean;
 begin
+  FStage := 'working out where to put it';
   Fn := ChangeFileExt(Trim(FPath.Text), Ext);
   case FKind of
     exSvg:
       begin
+        FStage := 'writing the SVG';
         L := TStringList.Create;
         try
           FDoc.WriteSVG(L, FView, FUnits, FEdgeW);
@@ -671,6 +896,7 @@ begin
 
     exDxfView, exDxfModel:
       begin
+        FStage := 'writing the DXF';
         L := TStringList.Create;
         try
           FDoc.WriteDXF(L, FView, FUnits, FDxfWhat.ItemIndex = 1);
@@ -683,6 +909,7 @@ begin
 
     exStl:
       begin
+        FStage := 'writing the STL';
         FS := TFileStream.Create(Fn, fmCreate);
         try
           NTri := FDoc.WriteSTL(FS, FUnits, Shut);
@@ -703,20 +930,29 @@ begin
 
     exGif:
       begin
+        FStage := 'working out the size';
         if not OutSize(W, H) then raise Exception.Create('that size will not do');
-        N := SaveOrbitGif(FDoc, FVA, FVB, FSrcW, FSrcH, W, H, FUnits, FFont,
-          FLabelCol, FEdgeW, StrToFloatDef(FSec.Text, 4),
-          StrToIntDef(FFps.Text, 20), FLoop.Checked, Fn);
+        FStage := Format('drawing the frames at %dx%d', [W, H]);
+        if Length(FCam) >= 2 then
+          N := SavePathGif(FDoc, FCam, FSrcW, FSrcH, W, H, FUnits, FFont,
+            FLabelCol, FEdgeW, StrToIntDef(FFps.Text, 20), FLoopOn,
+            FAxesOn, Fn)
+        else
+          N := SaveOrbitGif(FDoc, FVA, FVB, FSrcW, FSrcH, W, H, FUnits, FFont,
+            FLabelCol, FEdgeW, StrToFloatDef(FSec.Text, 4),
+            StrToIntDef(FFps.Text, 20), FLoopOn, FAxesOn, Fn);
         FMsg := Format('Wrote %s - %d frames, %d x %d.',
           [ExtractFileName(Fn), N, W, H]);
       end;
 
   else   { exPng, exJpeg }
     begin
+      FStage := 'working out the size';
       if not OutSize(W, H) then raise Exception.Create('that size will not do');
+      FStage := Format('drawing the picture at %dx%d', [W, H]);
       SaveStill(FDoc, FView, FSrcW, FSrcH, W, H, FUnits, FFont, FLabelCol,
         FEdgeW, Fn, FKind = exJpeg, FQual.Position,
-        (FKind = exPng) and FTransp.Checked);
+        (FKind = exPng) and FTranspOn, FAxesOn);
       FMsg := Format('Wrote %s - %d x %d.', [ExtractFileName(Fn), W, H]);
     end;
   end;
@@ -726,13 +962,15 @@ end;
 
 function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
-  const Suggest: string; const T: TTheme; out Msg: string): Boolean;
+  const Suggest: string; const T: TTheme; OnReport: TReportProc;
+  out Msg: string): Boolean;
 var
   Dlg: TExportDlg;
 begin
   uDlgSkin.UseTheme(T);
   Dlg := TExportDlg.Make(Doc, V, U, AFont, LabelCol, EdgeW, SrcW, SrcH,
     Suggest);
+  Dlg.FOnReport := OnReport;
   try
     Dlg.ShowModal;
     Result := Dlg.FWrote;

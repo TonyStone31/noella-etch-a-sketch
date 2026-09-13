@@ -1096,6 +1096,44 @@ anything was drawn.
 the building filling up floor by floor - which is nearly free now the frame
 machinery exists.  Tony said camera only for this round.
 
+### Open: export fails on Windows with an access violation
+
+Reported 13 September from Windows on v2026.09.13.16: pressing Export gives an
+access violation and writes nothing.  **Not reproduced here** - Linux exports
+every format cleanly, there is no wine on this machine to try the win64 build,
+and no report came with it because there was no way to send one from that
+dialog.
+
+So the release after it does three things rather than guess.  The export
+carries a `FStage` string through every step and a failure now reads
+"EAccessViolation while drawing the picture at 2101x979" instead of nothing.
+There is a **Tell Tony about it** button in the dialog itself, which hands the
+whole state - format, size asked for, screen size, gif settings, the message -
+to the existing `ReportFromDialog`.  And the things that were genuinely risky
+were hardened: one surface for a whole film instead of one per frame (eighty
+allocations and, on Windows, eighty device contexts on a long GIF), and a
+check that a surface came back the size it was asked for before anything
+writes into it.
+
+Candidates ruled out by reading: the row copy in `ToBGRA` is safe against a
+padded stride, since it copies the visible part of each row and both sides are
+at least that wide; `FScratch` is one shared bitmap rather than one per
+surface, so text is not leaking device contexts; nothing in the path touches
+the widgetset from a thread.  The one that is still open and cannot be
+dismissed from here is a large allocation failing quietly - which is why the
+size check went in.
+
+One more thing came out of looking: uMain carries a long comment about this
+compiler generating `Field := Field + (delta) * K` wrongly at -O3 - the store
+going out through the register holding the delta, so the value lands near
+address zero and it faults - and a release is built at -O3.  Every new camera
+line was written in exactly that shape.  They now all work the sum out into a
+local first, and the three of them live in one place (`OrbitBy`, `PanBy`,
+`ZoomBy` in uShoot) so there is one copy of the workaround rather than six.
+Whether that is the Windows fault is unproven; it is a real hazard either way.
+
+Next step is a report from that button.
+
 ### Examples written out beside the portable exe
 
 Tony, 13 September.  The program ships as one executable on purpose and that

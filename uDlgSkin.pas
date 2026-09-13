@@ -48,7 +48,6 @@ procedure SkinLabel(L: TBCLabel; Dim: Boolean = False; FontH: Integer = 0;
   Bold: Boolean = False);
 procedure SkinEdit(E: TEdit);
 procedure SkinCheck(C: TCheckBox);
-procedure SkinCombo(C: TComboBox);
 procedure SkinTrack(T: TTrackBar);
 
 implementation
@@ -177,14 +176,6 @@ begin
   C.Font.Color := PixToColor(DlgTheme.Text);
   C.Font.Height := -13;
   C.ParentColor := False;
-end;
-
-procedure SkinCombo(C: TComboBox);
-begin
-  C.Color := PixToColor(DlgTheme.Shell2);
-  C.Font.Color := PixToColor(DlgTheme.Text);
-  C.Font.Height := -13;
-  C.Style := csDropDownList;
 end;
 
 procedure SkinTrack(T: TTrackBar);

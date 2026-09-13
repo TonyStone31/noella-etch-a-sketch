@@ -10,6 +10,52 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Export could fail on Windows with an access violation and no file.**  I
+  have not been able to reproduce it here and I am not going to pretend
+  otherwise, so this release makes it tell us instead: when an export fails it
+  now says which step it died in and what it was doing, and there is a
+  **Tell Tony about it** button right there in the dialog that sends the whole
+  thing - the format, the size, the settings, the lot.  One press and the next
+  release can actually fix it.
+
+  Some real hardening went in alongside: a film now draws every frame into one
+  picture instead of making and destroying one per frame, which on a long GIF
+  was eighty allocations for no reason; and a picture that cannot be made at
+  the size asked for now says so rather than carrying on with it.
+
+- **The export preview would turn but not slide.**  Right-drag or Shift-drag
+  now slides it, the wheel zooms, and Shift is noticed part way through a turn
+  the same as it is in the drawing area - so you can frame the shot properly
+  instead of only spinning it.
+
+- **Black writing on the dark dialog.**  Windows paints its own drop-down
+  lists and tick boxes and takes no notice of what colour it has been asked
+  for, so some of the export dialog came out black on near-black.  It draws
+  its own now.
+
+### New
+
+- **Export sizes worth having.**  Square, tall, wide, link card, 720p, 1080p,
+  small-for-an-email - or type your own.  And asking for something enormous
+  now quietly brings it down to something that will actually save, instead of
+  refusing with "that size will not do".
+
+- **Record a camera move instead of describing one.**  In the GIF panel,
+  "Record a move instead" opens a window with nothing in it but your model.
+  It counts you down from three, then simply watches where you point the
+  camera - turn it, slide it, zoom in, pause on the good bit - and you press
+  Escape when you are done.  What comes out is the move you made.
+
+  It records where the camera was, not what was on the screen, so none of the
+  cursor, the snapping lines or the hover marks get anywhere near the film,
+  and it can be saved at any size afterwards.  The red, green and blue axes do
+  stay, because they are what tells you which way up the thing is - there is a
+  tick to turn them off.
+
 ## v2026.09.13.16
 
 ### New

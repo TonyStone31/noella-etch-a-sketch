@@ -16724,7 +16724,8 @@ begin
     FormatDateTime('yyyymmdd-hhnnss', Now);
   Msg := '';
   if RunExport(FD.Doc, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW,
-       FArt.Width, FArt.Height, Base, Themes[FThemeIdx], Msg) then
+       FArt.Width, FArt.Height, Base, Themes[FThemeIdx], @ReportFromDialog,
+       Msg) then
   begin
     FHint := Msg;
     FCmdMsg := Msg;
