@@ -205,6 +205,9 @@ type
     FNextGrp: Integer;
     { The slice a plan view is cut out of - see SetSlice. }
     FSliceOn: Boolean;
+    { which solids are closed, and the edit it was worked out at }
+    FClosedSeq: Integer;
+    FClosedGrp: array of Boolean;
     FSliceLo, FSliceHi: Double;
     FLastBore: Integer;
     function GetEnt(I: Integer): TWorkEnt;
@@ -272,6 +275,10 @@ type
     { How many things the slice is keeping out, so the program can say so
       rather than leave somebody hunting for their drawing. }
     function OutsideSlice: Integer;
+    { Is this solid closed - every edge of it shared by exactly two faces,
+      run opposite ways?  On one that is, a face turned away from the camera
+      can never be seen, so it need not be drawn at all. }
+    function GroupClosed(G: Integer): Boolean;
     { The Z range of everything, for setting a slice that holds the lot. }
     function ZRange(out Lo, Hi: Double): Boolean;
     function ClearGuides: Integer;
@@ -2342,6 +2349,121 @@ begin
   if not FSliceOn then Exit;
   for I := 0 to FLive - 1 do
     if not InSlice(I) then Inc(Result);
+end;
+
+{ Is this solid closed?
+
+  Every edge of it used by exactly two of its faces, and run the opposite way
+  round by each - the paper-folding test.  A shape that passes cannot show
+  you the back of any of its faces, ever: to see one you would have to be
+  inside it.
+
+  Which is why this exists.  Back faces were culled by the sign of their
+  normal once, and that was taken out for a good reason - a duct transition
+  is an open shell with an end at each end, their normals point opposite
+  ways, and culling by sign made one of them unreachable from any given
+  place to stand.  So it was left to the depth buffer instead, and the depth
+  buffer cannot always get it right: a face that is not flat has no true
+  depth, only a fitted one, and where the fit is off the far side of a solid
+  wins and paints its inside over the near side in pale blue.
+
+  Both rules are right in their own case, and the two cases can be told
+  apart.  Closed: cull, because a back face is unseeable and drawing one can
+  only ever be wrong.  Open: draw it, because there the back really can be
+  looked at.
+
+  Worked out once per edit and kept, because it walks every face of every
+  solid and the camera moves far more often than the drawing changes. }
+function TWorkDoc.GroupClosed(G: Integer): Boolean;
+
+  { the two ends to a millionth, smaller end first so either way round makes
+    the same key, and a sign saying which way round this use ran }
+  function EKey(const A, B: TP3; out Way: PtrInt): string;
+  var
+    P, Q: array[0..2] of Int64;
+    I: Integer;
+    Swap: Boolean;
+  begin
+    P[0] := Round(A.X * 1E6); P[1] := Round(A.Y * 1E6); P[2] := Round(A.Z * 1E6);
+    Q[0] := Round(B.X * 1E6); Q[1] := Round(B.Y * 1E6); Q[2] := Round(B.Z * 1E6);
+    Swap := False;
+    for I := 0 to 2 do
+      if P[I] <> Q[I] then
+      begin
+        Swap := P[I] > Q[I];
+        Break;
+      end;
+    if Swap then Way := -1 else Way := 1;
+    if Swap then
+      Result := Format('%d,%d,%d|%d,%d,%d', [Q[0], Q[1], Q[2], P[0], P[1], P[2]])
+    else
+      Result := Format('%d,%d,%d|%d,%d,%d', [P[0], P[1], P[2], Q[0], Q[1], Q[2]]);
+  end;
+
+var
+  I, J, N, K, Top: Integer;
+  Ix: TFPHashList;
+  Key: string;
+  Way: PtrInt;
+  Seen: array of Integer;
+begin
+  Result := False;
+  if G <= 0 then Exit;
+  if FClosedSeq <> FEditSeq then
+  begin
+    FClosedSeq := FEditSeq;
+    Top := 0;
+    for I := 0 to FLive - 1 do
+      if (FEnts[I].Kind = ekFace) and FEnts[I].Solid and (FEnts[I].Grp > Top) then
+        Top := FEnts[I].Grp;
+    SetLength(FClosedGrp, Top + 1);
+    for I := 0 to High(FClosedGrp) do FClosedGrp[I] := (I > 0);
+
+    { One pass over every face of every solid, not one pass per solid: the
+      group goes into the key.  A drawing of two and a half thousand boxes
+      would otherwise walk fifteen thousand faces two and a half thousand
+      times over, which is the sort of thing that turns a frame into a
+      second. }
+    Ix := TFPHashList.Create;
+    try
+      for I := 0 to FLive - 1 do
+      begin
+        if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
+        if FEnts[I].Grp <= 0 then Continue;
+        N := Length(FEnts[I].Poly);
+        if N < 3 then Continue;
+        for J := 0 to N - 1 do
+        begin
+          Key := IntToStr(FEnts[I].Grp) + '@' +
+                 EKey(FEnts[I].Poly[J], FEnts[I].Poly[(J + 1) mod N], Way);
+          K := Ix.FindIndexOf(Key);
+          if K < 0 then Ix.Add(Key, Pointer(Way + 8))
+          else Ix.Items[K] := Pointer(PtrInt(Ix.Items[K]) + Way);
+        end;
+      end;
+      { an edge used once each way leaves its tally back at eight; anything
+        else - used once, used twice the same way round, used three times -
+        belongs to a shape that is not closed }
+      for I := 0 to Ix.Count - 1 do
+        if PtrInt(Ix.Items[I]) <> 8 then
+        begin
+          Key := Ix.NameOfIndex(I);
+          K := StrToIntDef(Copy(Key, 1, Pos('@', Key) - 1), 0);
+          if (K > 0) and (K <= Top) then FClosedGrp[K] := False;
+        end;
+    finally
+      Ix.Free;
+    end;
+    { a group with no faces at all is not a closed solid either }
+    SetLength(Seen, Top + 1);
+    for I := 0 to High(Seen) do Seen[I] := 0;
+    for I := 0 to FLive - 1 do
+      if (FEnts[I].Kind = ekFace) and FEnts[I].Solid and (FEnts[I].Grp > 0) then
+        Seen[FEnts[I].Grp] := 1;
+    for I := 1 to Top do
+      if Seen[I] = 0 then FClosedGrp[I] := False;
+  end;
+    Result := (G > 0) and (G < Length(FClosedGrp)) and FClosedGrp[G];
 end;
 
 function TWorkDoc.ZRange(out Lo, Hi: Double): Boolean;
@@ -7233,9 +7355,32 @@ begin
   Lamp := Norm3(P3(0.35, -0.55, 0.75));
   for I := 0 to FLive - 1 do
     if (FEnts[I].Kind = ekFace) and (Length(FEnts[I].Poly) >= 3) and
-       InSlice(I) then
+       InSlice(I) and
+       not (FEnts[I].Solid and GroupClosed(FEnts[I].Grp) and
+            (Dot3(FaceNormal(I), Look) <= 0)) then
     begin
-      { Every face is drawn, and the depth buffer decides what shows.
+      { The back of a closed solid is not drawn, because it cannot be seen.
+
+        Culling by the sign of the normal was taken out once, and rightly:
+        a duct transition is an open shell with an end at each end whose
+        normals point opposite ways, and the rule made one of them
+        unreachable from wherever you happened to be standing.  So it was
+        left to the depth buffer.
+
+        But the depth buffer cannot always get it right.  A face that is not
+        flat has no true depth, only a fitted one, and a revolve is full of
+        warped quads - so where the fit is off the far side of the solid
+        wins and paints its inside over the near side in pale blue.  Fitting
+        every corner instead of three got the error down from five hundred
+        feet to twelve, and twelve is still enough for a sliver of it in the
+        crevices, which is what Tony photographed off his monitor.
+
+        The two cases can be told apart, so tell them apart.  A closed solid
+        cannot show you the back of any of its faces - to see one you would
+        have to be inside it - so drawing one is always wrong, whatever the
+        depth buffer thinks.  An open shell can, so it still does.
+
+        Every face is drawn, and the depth buffer decides what shows.
 
         A solid used to hide its own back faces by the sign of the normal.
         On a closed box that gives the right answer, and it gives it for the

@@ -23,12 +23,18 @@ const
     '  of the object was showing through the near side, and the far side of' + LineEnding +
     '  anything is its inside.' + LineEnding +
     '' + LineEnding +
-    '  Each face works out its depth from three of its corners, and it was taking' + LineEnding +
-    '  the first three whatever they were.  A revolve is made of long thin slices,' + LineEnding +
-    '  and the first three corners of one are very nearly in a line - so the sum' + LineEnding +
-    '  that solves the depth was dividing by a rounding error and getting' + LineEnding +
-    '  nonsense.  It now picks the three corners that make the widest triangle on' + LineEnding +
-    '  screen, which is the same answer arrived at properly.' + LineEnding +
+    '  Faces that are not flat were the cause.  Spinning a sloped piece of an' + LineEnding +
+    '  outline gives a warped four-cornered face - one no flat sheet passes' + LineEnding +
+    '  through - and the drawing worked out how far away each face is by fitting a' + LineEnding +
+    '  flat sheet to three of its corners.  On one shape sent in, 48 of its 336' + LineEnding +
+    '  faces were out of flat, and the fit was wrong by up to five hundred feet on' + LineEnding +
+    '  a model two hundred feet across: enough for the back of the thing to be' + LineEnding +
+    '  judged nearer than the front.' + LineEnding +
+    '' + LineEnding +
+    '  It fits every corner now, evenly, instead of three exactly and the rest not' + LineEnding +
+    '  at all.  Which is also why it only ever showed on faces pointing certain' + LineEnding +
+    '  ways round a shape - whether a badly fitted sheet leans toward you or away' + LineEnding +
+    '  depends on which way the warp is turned.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.13.10' + LineEnding +
     '' + LineEnding +
