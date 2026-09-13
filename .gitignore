@@ -40,6 +40,11 @@ CLAUDE.local.md
 # the operator's side of the arrangement, and the reports are other people's
 # drawings and words.
 tools/
+
+# the program's own outbox, written next to the executable when a report is
+# sent from a build run out of the source tree.  Somebody's drawing and
+# somebody's words, same as the ones that come back.
+reports-sent/
 reports/
 
 # --- how the work is done, as opposed to what the work is --------------------
