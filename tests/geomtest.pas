@@ -1401,6 +1401,7 @@ var
   Pts: TP3Array;
   I, Face, First, Made, Sides: Integer;
   Lo, Hi: TP3;
+  RLo, RHi: Double;
 begin
   WriteLn('a wine glass, off the lathe');
   D := TWorkDoc.Create;
@@ -1410,6 +1411,20 @@ begin
     D.AddFace(Pts, 0, False);
     Face := D.Live - 1;
     Ok(D[Face].Kind = ekFace, 'the outline is a face');
+
+    { Where the axis goes, asked before it is spun - which is the part that
+      defeated the person who commissioned the tool.  An outline is spun
+      about a line down one side of it; put the line through the middle and
+      the two halves sweep into each other, and until now nothing told you
+      before you looked at the wreckage. }
+    Ok(not D.AxisSplitsFace(Face, P3(0, 0, 0), P3(0, 0, 1), RLo, RHi),
+       'the blue axis runs down the side of the outline, not through it');
+    Ok((Abs(RLo - 0.04) < 1E-6) and (Abs(RHi - 0.40) < 1E-6),
+       Format('and it will sweep from %.2f out to %.2f', [RLo, RHi]));
+    Ok(D.AxisSplitsFace(Face, P3(0.20, 0, 0), P3(0, 0, 1), RLo, RHi),
+       'moved half way across the outline, it splits it and is refused');
+    Ok(D.AxisSplitsFace(Face, P3(0, 0, 0.7), P3(1, 0, 0), RLo, RHi),
+       'and so does one laid across it');
 
     Sides := 24;
     First := D.Revolve(Face, P3(0, 0, 0), P3(0, 0, 1), 2 * Pi, Sides);

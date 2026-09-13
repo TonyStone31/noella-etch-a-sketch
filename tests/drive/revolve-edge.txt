@@ -1,0 +1,35 @@
+# Two clicks, from the drawing Tony could not make a glass out of.
+#
+# His report of 13 September: "yeah im fucking failing to make a wine glass
+# here lol so this tool needs more inference or more clarity or something".
+# The outline was fine.  The tool asked for the axis as two loose points, and
+# clicking anywhere near the outline meant "sweep along this" instead - so
+# the natural gesture, clicking the straight side that IS the middle of the
+# glass, did nothing at all.  He then put the axis through the middle of the
+# outline, which sweeps the two halves into each other, and nothing said so.
+#
+# The fixture is his own outline, straight out of the report.
+#
+# What this proves: click the outline, click its straight side, and a wine
+# glass comes off the lathe.  Two clicks.
+
+geometry 0 0 1500 850
+activate
+wait 900
+
+key escape
+key slash
+type fit
+key return
+wait 1000
+shot /tmp/hsk-tonys-profile.png
+
+key slash
+type replay tests/drive/tonys-glass.replay
+key return
+wait 2500
+key slash
+type fit
+key return
+wait 1200
+shot /tmp/hsk-tonys-glass.png

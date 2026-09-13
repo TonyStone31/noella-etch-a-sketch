@@ -10,6 +10,40 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Revolve: click the outline, then click its straight side.**  Two clicks.
+  The straight side of a glass outline *is* the middle of the glass, and
+  clicking it is what anybody does when asked for an axis - it used to mean
+  "sweep the outline along this line", which cannot be done and quietly did
+  nothing.  Now it means what it looks like it means.
+
+  Two loose points still work for an axis that is not an edge, and any other
+  line is still a path to sweep along.
+
+- **It shows you what it is about to make.**  While you are placing the axis:
+  the axis itself drawn as a long line rather than a stub between two clicks,
+  and the two rings the nearest and furthest corners of the outline will
+  sweep - which is the footprint of the result, before you commit to it.
+
+- **And it says when the axis is wrong.**  An axis through the middle of the
+  outline sweeps the two halves into each other and makes a knot with no
+  outside.  The preview goes red, and it refuses with an explanation instead
+  of doing it: *"A glass is spun about a line down one side of its outline,
+  not through it."*
+
+- After it spins, it says how big the thing is - *"Spun 360° in 24 gores,
+  0'-1" to 0'-9 5/8" across."*
+
+### Fixed
+
+- **`/replay` and `/session` keep the capitals in a file name.**  The command
+  bar folds what you type to lower case so that LINE and line are the same
+  tool, and it was folding the path too - so replaying anything under a
+  folder with a capital letter in it said the file did not exist.
+
 ## v2026.09.13.4
 
 ### Changed

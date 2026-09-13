@@ -327,6 +327,11 @@ type
     { Give a dimension a new length and let the drawing follow.  MoveB moves
       the end it was drawn to; False moves the end it was drawn from. }
     function ResizeDim(Index: Integer; NewLen: Double; MoveB: Boolean): Boolean;
+    { What an axis will do to an outline, before it does it.  True when the
+      axis runs through the outline rather than beside it; RLo and RHi are
+      the inside and outside radius of what would come off the lathe. }
+    function AxisSplitsFace(Face: Integer; const AxisP, AxisDir: TP3;
+      out RLo, RHi: Double): Boolean;
     procedure RotateEnt(I: Integer; const Pts: TP3Array; const C, Axis: TP3;
       Ang: Double; All: Boolean);
     { Every corner on the set turns about the axis; whatever shares a corner
@@ -3780,6 +3785,59 @@ begin
       for K := 0 to High(FEnts[I].Holes[H]) do Put(FEnts[I].Holes[H][K]);
   end;
   SetLength(Pts, N);
+end;
+
+{ What an axis will do to an outline, before it does it.
+
+  A solid of revolution is an outline spun about a line **beside** it.  Put
+  the line through the middle of the outline and the two halves sweep into
+  each other, and what comes out is a knot with no outside.  That is what
+  went wrong for Tony on 13 September: his outline ran from Y 2094 to Y 2249
+  and he put the axis at Y 2206, seventy per cent of the way up it, and the
+  only way to find out was to do it and look at the result.
+
+  So: which side of the axis each corner falls, measured in the outline's own
+  plane, and how far out the nearest and furthest corners are.  Corners on
+  both sides means the axis splits it.  Corners exactly on it count for
+  neither, which is the ordinary case - one side of a glass outline is the
+  axis. }
+function TWorkDoc.AxisSplitsFace(Face: Integer; const AxisP, AxisDir: TP3;
+  out RLo, RHi: Double): Boolean;
+var
+  K: Integer;
+  Nf, D, E, Perp: TP3;
+  S, R: Double;
+  Pos, Neg: Boolean;
+begin
+  Result := False;
+  RLo := 0;
+  RHi := 0;
+  if (Face < 0) or (Face >= FLive) or (FEnts[Face].Kind <> ekFace) then Exit;
+  if Length(FEnts[Face].Poly) < 3 then Exit;
+  D := Norm3(AxisDir);
+  if Dist(D, P3(0, 0, 0)) < 1E-9 then Exit;
+  Nf := Norm3(FaceNormal(Face));
+  Pos := False;
+  Neg := False;
+  RLo := 1E30;
+  RHi := 0;
+  for K := 0 to High(FEnts[Face].Poly) do
+  begin
+    E := P3(FEnts[Face].Poly[K].X - AxisP.X, FEnts[Face].Poly[K].Y - AxisP.Y,
+            FEnts[Face].Poly[K].Z - AxisP.Z);
+    { how far off the axis, square to it - the radius this corner sweeps }
+    Perp := P3(E.X - D.X * Dot3(E, D), E.Y - D.Y * Dot3(E, D),
+               E.Z - D.Z * Dot3(E, D));
+    R := Dist(Perp, P3(0, 0, 0));
+    if R < RLo then RLo := R;
+    if R > RHi then RHi := R;
+    { and which side of it, in the plane the outline lies in }
+    S := Dot3(Cross3(D, E), Nf);
+    if S > 1E-6 then Pos := True
+    else if S < -1E-6 then Neg := True;
+  end;
+  if RLo > RHi then RLo := RHi;
+  Result := Pos and Neg;
 end;
 
 { A dimension told what it ought to read, and the drawing moved to suit.

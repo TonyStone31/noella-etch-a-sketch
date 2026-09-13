@@ -717,6 +717,10 @@ type
     procedure BuildSpoolWizard;
     function ArcNormal(I: Integer): TP3;
     procedure DoRevolve(const AxisP, AxisDir: TP3; PathArc: Integer = -1);
+    function IsProfileEdge(I: Integer): Boolean;
+    function AxisSplitsProfile(const AxisP, AxisDir: TP3;
+      out RLo, RHi: Double): Boolean;
+    procedure PaintRevolvePreview(C: TCanvas);
     { the chain of edges joined end to end through edge I, as points, and
       whether it closes on itself }
     function ChainFrom(I: Integer; out Closed: Boolean): TP3Array;
@@ -6393,15 +6397,134 @@ end;
 { Follow Me round an axis: the angle typed in degrees, or all the way; the
   gores from the circle side count, so a full turn has as many as a circle
   does and a quarter turn a quarter of them. }
+{ Is this line one of the outline's own sides?
+
+  Both its ends are corners of the outline, and they are next to each other
+  round it.  That is a side rather than something that merely touches. }
+function TMainForm.IsProfileEdge(I: Integer): Boolean;
+const
+  TOL = 1E-6;
+var
+  K, N, A, B: Integer;
+begin
+  Result := False;
+  if (I < 0) or (I >= FD.Doc.Live) or (FD.Doc[I].Kind <> ekLine) then Exit;
+  if (FFollowFace < 0) or (FFollowFace >= FD.Doc.Live) then Exit;
+  if FD.Doc[FFollowFace].Kind <> ekFace then Exit;
+  N := Length(FD.Doc[FFollowFace].Poly);
+  A := -1;
+  B := -1;
+  for K := 0 to N - 1 do
+  begin
+    if Dist(FD.Doc[FFollowFace].Poly[K], FD.Doc[I].A) < TOL then A := K;
+    if Dist(FD.Doc[FFollowFace].Poly[K], FD.Doc[I].B) < TOL then B := K;
+  end;
+  if (A < 0) or (B < 0) then Exit;
+  Result := (Abs(A - B) = 1) or (Abs(A - B) = N - 1);
+end;
+
+function TMainForm.AxisSplitsProfile(const AxisP, AxisDir: TP3;
+  out RLo, RHi: Double): Boolean;
+begin
+  Result := FD.Doc.AxisSplitsFace(FFollowFace, AxisP, AxisDir, RLo, RHi);
+end;
+
+procedure TMainForm.PaintRevolvePreview(C: TCanvas);
+const
+  RING_N = 48;
+var
+  D, AP, Q: TP3;
+  RLo, RHi, L: Double;
+  Bad: Boolean;
+  K, N: Integer;
+  Col: TPix;
+  U, W, Nf: TP3;
+  PA, PB: TPointF;
+
+  procedure Circle(R: Double);
+  var
+    J: Integer;
+    A: Double;
+    P0, P1: TPointF;
+  begin
+    if R < 1E-9 then Exit;
+    P0 := ScreenOf(P3(AP.X + U.X * R, AP.Y + U.Y * R, AP.Z + U.Z * R));
+    for J := 1 to RING_N do
+    begin
+      A := 2 * Pi * J / RING_N;
+      P1 := ScreenOf(P3(AP.X + (U.X * Cos(A) + W.X * Sin(A)) * R,
+                        AP.Y + (U.Y * Cos(A) + W.Y * Sin(A)) * R,
+                        AP.Z + (U.Z * Cos(A) + W.Z * Sin(A)) * R));
+      C.Line(Round(P0.X), Round(P0.Y), Round(P1.X), Round(P1.Y));
+      P0 := P1;
+    end;
+  end;
+
+begin
+  D := P3(FCur.X - FAxisA.X, FCur.Y - FAxisA.Y, FCur.Z - FAxisA.Z);
+  L := Dist(D, P3(0, 0, 0));
+  if L < 1E-9 then Exit;
+  D := P3(D.X / L, D.Y / L, D.Z / L);
+  Bad := AxisSplitsProfile(FAxisA, D, RLo, RHi);
+
+  if Bad then Col := Pix(220, 60, 60) else Col := Theme.Accent;
+  C.Pen.Color := PixToColor(Col);
+  C.Pen.Width := Max(1, Round(2 * FUIScale));
+  C.Brush.Style := bsClear;
+
+  { the axis, run well past both ends - it is a line, not a segment, and
+    the whole shape turns about all of it }
+  N := Round(Max(RHi * 3, L * 2));
+  PA := ScreenOf(P3(FAxisA.X - D.X * N, FAxisA.Y - D.Y * N, FAxisA.Z - D.Z * N));
+  PB := ScreenOf(P3(FAxisA.X + D.X * N, FAxisA.Y + D.Y * N, FAxisA.Z + D.Z * N));
+  C.Line(Round(PA.X), Round(PA.Y), Round(PB.X), Round(PB.Y));
+
+  { the rings the outline's nearest and furthest corners will sweep, drawn
+    about the axis at the middle of the outline }
+  Nf := Norm3(FD.Doc.FaceNormal(FFollowFace));
+  U := Norm3(Cross3(D, Nf));
+  W := Norm3(Cross3(D, U));
+  Q := P3(0, 0, 0);
+  N := Length(FD.Doc[FFollowFace].Poly);
+  if N = 0 then Exit;
+  for K := 0 to N - 1 do
+    Q := P3(Q.X + FD.Doc[FFollowFace].Poly[K].X / N,
+            Q.Y + FD.Doc[FFollowFace].Poly[K].Y / N,
+            Q.Z + FD.Doc[FFollowFace].Poly[K].Z / N);
+  { the middle of the outline, brought onto the axis }
+  Q := P3(Q.X - FAxisA.X, Q.Y - FAxisA.Y, Q.Z - FAxisA.Z);
+  AP := P3(FAxisA.X + D.X * Dot3(Q, D), FAxisA.Y + D.Y * Dot3(Q, D),
+           FAxisA.Z + D.Z * Dot3(Q, D));
+  C.Pen.Width := 1;
+  Circle(RHi);
+  Circle(RLo);
+end;
+
 procedure TMainForm.DoRevolve(const AxisP, AxisDir: TP3; PathArc: Integer);
 var
   Deg, Ang: Double;
   Steps, First, Made: Integer;
+var
+  RLo, RHi: Double;
+  Split: Boolean;
 begin
   Ang := 2 * Pi;
   if (FInput <> '') and TryStrToFloat(Trim(FInput), Deg) and (Deg <> 0) then
     Ang := DegToRad(Deg);
   Steps := Max(1, Round(FSidesCircle * Abs(Ang) / (2 * Pi)));
+  { Said before it happens, not after.  An axis through the middle of the
+    outline sweeps the two halves of it into each other, and what comes out
+    is a knot with no outside - which is not a thing anybody has ever wanted
+    and is very hard to recognise once it is drawn. }
+  Split := AxisSplitsProfile(AxisP, AxisDir, RLo, RHi);
+  if Split then
+  begin
+    FCmdMsg := 'The axis runs through the middle of the outline, so the two ' +
+      'halves would sweep into each other.  A glass is spun about a line ' +
+      'down one side of its outline, not through it.  Nothing done - move ' +
+      'the axis to the edge and click again.';
+    Exit;
+  end;
   PushUndo;
   Made := FD.Doc.Live;
   First := FD.Doc.Revolve(FFollowFace, AxisP, AxisDir, Ang, Steps);
@@ -6422,7 +6545,9 @@ begin
   SelectNone;
   RenderPro;
   RecomposeAll;
-  FCmdMsg := Format('Spun %s in %d gores.', [FormatAngle(RadToDeg(Ang)), Steps]);
+  FCmdMsg := Format('Spun %s in %d gores, %s to %s across.',
+    [FormatAngle(RadToDeg(Ang)), Steps,
+     FormatLen(RLo * 2, FD.Units), FormatLen(RHi * 2, FD.Units)]);
   if Made > 0 then ;
   ResetTool;
   FInput := '';
@@ -8297,7 +8422,7 @@ begin
       else
       begin
         PaintFaceHint(C, FFollowFace, HINT_BLUE);
-        if FStage = 2 then Rubber(FAxisA, FCur);
+        if FStage = 2 then PaintRevolvePreview(C);
       end;
     ptMove:
       if FDimMove >= 0 then PaintDimPreview(C) else PaintMoveGhost(C);
@@ -8500,7 +8625,11 @@ begin
     if S1 = '' then S1 := 'DRAWING';
     case FTool of
       ptPush, ptDrill: S2 := 'type how far - 2, 6", 1-6 - or rest on an edge or a face';
-      ptFollow: S2 := 'two points on the axis, or a circle to follow - type 90 or 180 first for a part turn';
+      ptFollow:
+        if FStage = 2 then
+          S2 := 'the ring shows what it will sweep - red means the axis cuts the outline'
+        else
+          S2 := 'click the straight side that is the middle of the shape';
       ptCircle: S2 := Format('type a radius, or click - %d sides: + - or 24s', [FSidesCircle]);
       ptArc:    S2 := Format('pull the middle out, or type the bulge - %d segments: + - or 12s', [FSidesArc]);
       ptText:   S2 := 'type it, move away, then Enter - Shift+Enter for a new line';
@@ -9087,10 +9216,12 @@ begin
         Result := 'how far?  type it, or move and click';
     ptFollow:
       case FStage of
-        0: Result := 'click the face to spin';
-        1: Result := 'the axis: click its first point, or click a circle to follow round';
+        0: Result := 'click the outline to spin - half of the shape, seen edge on';
+        1: Result := 'the axis: click the straight side of the outline - ' +
+                     'or two points down one side of it';
       else
-        Result := 'the axis: click its second point - type 90 first for a quarter turn';
+        Result := 'the axis: a second point straight along it - type 90 ' +
+                  'first for a quarter turn';
       end;
     ptDim:
       case FStage of
@@ -9480,6 +9611,26 @@ begin
                (Abs(FD.Doc[I].Sweep) >= 2 * Pi - 1E-9) then
             begin
               DoRevolve(FD.Doc[I].C, ArcNormal(I), I);
+              Exit;
+            end;
+            { An edge of the outline itself is the axis, and this is the
+              gesture the tool was missing.
+
+              A wine glass is drawn with one side of it straight, because
+              that side is the middle of the glass - and clicking that side
+              is what anybody does when asked for the axis.  It used to mean
+              "sweep the outline along this", which is meaningless: you
+              cannot sweep a face along its own edge, and what came out was
+              nothing at all.  Tony tried it repeatedly on 13 September and
+              got nothing repeatedly.
+
+              So it means what it looks like it means.  Sweeping along a
+              path is still there for any other line. }
+            if (I >= 0) and (FD.Doc[I].Kind = ekLine) and IsProfileEdge(I) then
+            begin
+              DoRevolve(FD.Doc[I].A,
+                P3(FD.Doc[I].B.X - FD.Doc[I].A.X, FD.Doc[I].B.Y - FD.Doc[I].A.Y,
+                   FD.Doc[I].B.Z - FD.Doc[I].A.Z));
               Exit;
             end;
             if (I >= 0) and (FD.Doc[I].Kind in [ekLine, ekArc]) then
@@ -10174,6 +10325,17 @@ begin
   end;
 end;
 
+{ Everything after the first word, exactly as it was typed - for the
+  commands whose argument is a path rather than a word. }
+function RawTail(const S: string): string;
+var
+  P: Integer;
+begin
+  P := Pos(' ', Trim(S));
+  if P <= 0 then Result := ''
+  else Result := Trim(Copy(Trim(S), P + 1, MaxInt));
+end;
+
 { A handful of typed words, so the command bar is useful and not decorative. }
 function TMainForm.RunCommand(const S: string): Boolean;
 var
@@ -10462,7 +10624,7 @@ begin
   end
   { the same tiles as pictures, for a print shop - and for looking at what
     the paper would have been without using any }
-  else if (W = 'tiles') and (Rest <> '') then DoPrintFull(Trim(Copy(S, Pos(' ', S) + 1, MaxInt)))
+  else if (W = 'tiles') and (Rest <> '') then DoPrintFull(RawTail(S))
   else if W = 'scale' then
   begin
     for I := 0 to SCALE_COUNT - 1 do
@@ -10473,14 +10635,21 @@ begin
       end;
     FCmdMsg := 'Scales: 1/16" 1/8" 1/4" 1/2" 1"';
   end
+  { A file name is not a word, and the command line is lowercased before it
+    gets here so that "LINE" and "line" are the same tool.  That folded the
+    path too, so /replay on anything under a folder with a capital in it -
+    a GIT directory, a Documents folder, anybody's name - said the file did
+    not exist.  Found trying to replay a bug report.  Take the tail off the
+    line as it was typed, not off the lowercased copy. }
   else if W = 'replay' then
-    DoReplayFile(Rest)
+    DoReplayFile(RawTail(S))
   else if (W = 'session') or (W = 'acts') then
   begin
     { What has been recorded so far, without filing a report to see it.  The
       same lines a report carries, so a session can be kept, sent on its own,
       or handed straight back to /replay. }
-    Rest := Trim(Rest);
+    { the same as /replay: a path keeps the case it was typed in }
+    Rest := RawTail(S);
     if Rest = '' then Rest := 'session.txt';
     try
       with TStringList.Create do
