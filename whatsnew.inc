@@ -13,9 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.13' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The tools stand down the left, with their names on them.**  Screens are' + LineEnding +
+    '  wide and short, and two rows of buttons along the bottom were spending the' + LineEnding +
+    '  height of your drawing to save width there was plenty of.  A column costs' + LineEnding +
+    '  width instead - and reads as a list rather than as a wall.' + LineEnding +
+    '' + LineEnding +
+    '  Ten tools are on it: select, line, rectangle, circle, arc, push/pull, move,' + LineEnding +
+    '  erase, dimension and orbit.  The rest - rotate, offset, follow me, drill,' + LineEnding +
+    '  measure, protractor and text - are one click away behind **MORE**, and the' + LineEnding +
+    '  shop wizards behind **SHOP**, both on the same strip.  Nothing has been' + LineEnding +
+    '  taken away.' + LineEnding +
+    '' + LineEnding +
+    '  The names show by default, because nobody can tell Offset from Follow Me by' + LineEnding +
+    '  pictogram.  **< NAMES OFF** at the foot of the strip puts them away for a' + LineEnding +
+    '  wider drawing, and it remembers which you chose.' + LineEnding +
+    '' + LineEnding +
+    '  The row of buttons along the bottom is a row shorter for it - what is left' + LineEnding +
+    '  there is settings and the things that act on the program rather than on the' + LineEnding +
+    '  drawing.' + LineEnding +
     '' + LineEnding +
     '- **A plan view is a slice through the model now, not a photograph from' + LineEnding +
     '  above.**  Switch to PLAN and a **CUT** strip appears beside the view' + LineEnding +
