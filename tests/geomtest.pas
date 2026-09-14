@@ -4331,6 +4331,26 @@ begin
       'and what came out is a GIF89a, which is the animated kind');
     Ok((W = 240) and (H = 180), Format('at the size asked for (%dx%d)', [W, H]));
 
+    { --- how big a film is allowed to get ---------------------------
+          The whole thing is held in memory at once and the packing pass
+          duplicates it, so the number of frames comes from the area as well
+          as the length.  Tony's Windows machine fell over on 300 frames of
+          800 by 600 - 576 MB of frames before packing - so this is the sum
+          that has to keep coming out small enough. }
+    FilmPlan(15.9, 20, 800, 600, N, W);
+    Ok(N < 300, Format('a long film at a big size is cut to %d frames', [N]));
+    Ok(Int64(N) * 800 * 600 <= 50000000,
+      Format('which is inside the budget (%d pixels)', [N * 800 * 600]));
+    { the length must survive - what gives is the rate, because losing the
+      end of somebody's move is worse than making it choppier }
+    Ok((W >= 1) and (Abs(N / W - 15.9) < 1.2),
+      Format('and it still runs about 15.9s, at %d a second (%d frames)',
+        [W, N]));
+    { a small one is not interfered with }
+    FilmPlan(3, 20, 320, 240, N, W);
+    Ok((N = 60) and (W = 20),
+      Format('a short small one is left alone (%d frames at %d)', [N, W]));
+
     { --- a recorded move, sampled back ------------------------------
           A recording is a list of where the camera was and when.  Reading it
           back has to give exactly what was put in at the moments it was put

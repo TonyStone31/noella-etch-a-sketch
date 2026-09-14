@@ -1096,7 +1096,7 @@ anything was drawn.
 the building filling up floor by floor - which is nearly free now the frame
 machinery exists.  Tony said camera only for this round.
 
-### Open: export fails on Windows with an access violation
+### Done 14 September: the Windows export access violation
 
 Reported 13 September from Windows on v2026.09.13.16: pressing Export gives an
 access violation and writes nothing.  **Not reproduced here** - Linux exports
@@ -1132,7 +1132,27 @@ local first, and the three of them live in one place (`OrbitBy`, `PanBy`,
 `ZoomBy` in uShoot) so there is one copy of the workaround rather than six.
 Whether that is the Windows fault is unproven; it is a real hazard either way.
 
-Next step is a report from that button.
+**The button worked, and the report had it.**  `stage=drawing the frames at
+800x600`, `recorded=15.9s`, `gif=4 seconds, 20 a second`.  Two things at once:
+the recording was overriding the seconds box, so 15.9s at 20/s asked for 318
+frames (clamped to the 300 cap); and a GIF is assembled whole in memory, every
+frame held until the last is in, with `OptimizeFrames` then duplicating each
+one as it walks.  300 frames of 800x600 is 576 MB of frames before packing, on
+a machine with 6 GB free and a process already peaked at 654 MB.
+
+Three fixes.  `FilmPlan` works the frame count out from the area as well as
+the length - `GIF_MAX_PIXELS`, whatever fits - and keeps the full duration by
+dropping the rate instead of the ending.  Packing is skipped past
+`GIF_PACK_PIXELS`, because on a turning model every pixel changes between
+frames and it buys almost nothing for the largest allocation the export makes.
+And a recording now writes its length into the seconds box rather than
+silently overriding it.
+
+The stage was also too coarse to be useful - "drawing the frames" covered the
+drawing, the packing AND the writing.  It now names the frame and the step.
+
+Left standing: the -O3 local-first workaround, which was a real hazard whether
+or not it was this one.
 
 ### Examples written out beside the portable exe
 

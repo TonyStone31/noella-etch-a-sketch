@@ -27,6 +27,22 @@ const
     for it. }
   GIF_MAX_SECONDS = 20;
   GIF_MAX_FRAMES  = 300;
+  { And a ceiling on the whole film, not just the number of frames.
+
+    An animated GIF is built in memory in its entirety - every frame is held
+    until the last one is in, and the packing pass then duplicates them as it
+    walks.  Three hundred frames of 800 by 600 is around 576 MB of frames
+    before any of that, which is what Tony's Windows machine fell over
+    exporting a 15.9 second recording.
+
+    So the number of frames is worked out from the area as well: whatever
+    fits in the budget.  The film keeps its full length either way - what
+    gives is the frame rate, not the ending, because losing the end of
+    somebody's move is a worse answer than making it a little choppier. }
+  GIF_MAX_PIXELS = 50000000;
+  { and packing, which duplicates every frame as it walks, only where that
+    duplication is affordable on top of the frames themselves }
+  GIF_PACK_PIXELS = 20000000;
 
 type
   { Where the camera was, and when.  A recording is a list of these and
@@ -108,6 +124,19 @@ function SaveOrbitGif(Doc: TWorkDoc; const VA, VB: TProjector;
   const LabelCol: TPix; EdgeW: Single; Seconds: Double; Fps: Integer;
   Loop, Axes: Boolean; const Path: string): Integer;
 
+type
+  { where a film says what it is up to }
+  TStageSay = procedure(const S: string) of object;
+
+var
+  OnFilmStage: TStageSay = nil;
+
+{ How many frames a film of this length at this size will actually come to,
+  and the rate that gives.  The dialog asks so it can say, rather than
+  letting somebody find out by waiting. }
+procedure FilmPlan(Seconds: Double; Fps, W, H: Integer;
+  out Frames, RealFps: Integer);
+
 { The same, but following a camera move somebody actually made rather than
   easing between two ends. }
 function SavePathGif(Doc: TWorkDoc; const Cam: TCamPath;
@@ -121,6 +150,28 @@ type
   { where the camera is for frame I of Count - the one thing a spin and a
     recording disagree about }
   TViewAt = function(I, Count: Integer): TProjector is nested;
+
+{ Somewhere to say what the film is doing, so a failure names the frame it
+  died on rather than the whole job.  Set by whoever is driving. }
+procedure Say(const S: string);
+begin
+  if Assigned(OnFilmStage) then OnFilmStage(S);
+end;
+
+procedure FilmPlan(Seconds: Double; Fps, W, H: Integer;
+  out Frames, RealFps: Integer);
+var
+  Room: Int64;
+begin
+  Seconds := Max(0.2, Min(GIF_MAX_SECONDS, Seconds));
+  Fps := Max(2, Min(50, Fps));
+  Frames := Max(2, Round(Seconds * Fps));
+  if Frames > GIF_MAX_FRAMES then Frames := GIF_MAX_FRAMES;
+  Room := GIF_MAX_PIXELS div Max(Int64(1), Int64(W) * H);
+  if Room < 2 then Room := 2;
+  if Frames > Room then Frames := Room;
+  RealFps := Max(1, Round(Frames / Seconds));
+end;
 
 function CamPathLength(const P: TCamPath): Double;
 begin
@@ -378,7 +429,7 @@ end;
   frame N comes from. }
 function WriteFilm(Doc: TWorkDoc; SrcW, SrcH, W, H: Integer;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-  Frames, Fps: Integer; Loop, Axes: Boolean; const Path: string;
+  Frames: Integer; Seconds: Double; Loop, Axes: Boolean; const Path: string;
   const ViewAt: TViewAt): Integer;
 var
   I, Delay: Integer;
@@ -387,7 +438,9 @@ var
   Gif: TBGRAAnimatedGif;
 begin
   Result := Frames;
-  Delay := Max(20, Round(1000 / Max(2, Fps)));
+  { the wait between frames comes from the length and the count, so dropping
+    the rate to fit the budget makes the film choppier and not shorter }
+  Delay := Max(20, Round(Seconds * 1000 / Max(1, Frames)));
   Gif := nil;
   { one surface for the whole film, drawn over and over }
   S := TArtSurface.Create(Max(1, W), Max(1, H));
@@ -398,6 +451,7 @@ begin
     Gif.SetSize(W, H);
     for I := 0 to Frames - 1 do
     begin
+      Say(Format('drawing frame %d of %d at %dx%d', [I + 1, Frames, W, H]));
       V := Fitted(ViewAt(I, Frames), SrcW, SrcH, W, H);
       ShootInto(S, Doc, V, U, AFont, LabelCol, EdgeW, Pix(255, 255, 255), False);
       { the axes go on after the drawing rather than under it - at this
@@ -408,7 +462,17 @@ begin
       Gif.AddFullFrame(ToBGRA(S), Delay, True, dmSetExceptTransparent, True);
     end;
     if Loop then Gif.LoopCount := 0 else Gif.LoopCount := 1;
-    Gif.OptimizeFrames;
+    { Packing walks the film making a duplicate of every frame as it goes, on
+      top of the frames themselves.  On a long one that is the biggest thing
+      the export ever asks for, and on a turning model it buys almost nothing
+      anyway, because every pixel changes between frames and there is no
+      still region to leave out.  So past a certain length it is skipped. }
+    if Int64(Frames) * W * H <= GIF_PACK_PIXELS then
+    begin
+      Say(Format('packing %d frames', [Frames]));
+      Gif.OptimizeFrames;
+    end;
+    Say(Format('writing %s', [ExtractFileName(Path)]));
     Gif.SaveToFile(Path);
   finally
     Gif.Free;
@@ -422,7 +486,7 @@ function SaveOrbitGif(Doc: TWorkDoc; const VA, VB: TProjector;
   Loop, Axes: Boolean; const Path: string): Integer;
 var
   A, B: TProjector;
-  N: Integer;
+  N, Rate: Integer;
 
   { One frame short of the whole way round.  The last frame of a loop IS the
     first one, and sending both makes the spin catch once every time round. }
@@ -435,10 +499,9 @@ begin
   A := VA;
   B := VB;
   Seconds := Max(0.2, Min(GIF_MAX_SECONDS, Seconds));
-  Fps := Max(2, Min(50, Fps));
-  N := Max(2, Min(GIF_MAX_FRAMES, Round(Seconds * Fps)));
+  FilmPlan(Seconds, Fps, W, H, N, Rate);
   Result := WriteFilm(Doc, SrcW, SrcH, W, H, U, AFont, LabelCol, EdgeW,
-    N, Fps, Loop, Axes, Path, @At);
+    N, Seconds, Loop, Axes, Path, @At);
 end;
 
 function SavePathGif(Doc: TWorkDoc; const Cam: TCamPath;
@@ -447,7 +510,7 @@ function SavePathGif(Doc: TWorkDoc; const Cam: TCamPath;
   Loop, Axes: Boolean; const Path: string): Integer;
 var
   Secs: Double;
-  N: Integer;
+  N, Rate: Integer;
   Rec: TCamPath;
 
   function At(I, Count: Integer): TProjector;
@@ -461,10 +524,9 @@ var
 begin
   Rec := Cam;
   Secs := Max(0.2, Min(GIF_MAX_SECONDS, CamPathLength(Cam)));
-  Fps := Max(2, Min(50, Fps));
-  N := Max(2, Min(GIF_MAX_FRAMES, Round(Secs * Fps)));
+  FilmPlan(Secs, Fps, W, H, N, Rate);
   Result := WriteFilm(Doc, SrcW, SrcH, W, H, U, AFont, LabelCol, EdgeW,
-    N, Fps, Loop, Axes, Path, @At);
+    N, Secs, Loop, Axes, Path, @At);
 end;
 
 

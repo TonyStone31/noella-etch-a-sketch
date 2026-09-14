@@ -126,6 +126,7 @@ type
     procedure HeadMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure HeadUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
+    procedure FilmSays(const S: string);
     procedure DoSay(Sender: TObject);
     procedure DoCancel(Sender: TObject);
     procedure DoBrowse(Sender: TObject);
@@ -465,7 +466,8 @@ procedure TExportDlg.ShowOptions;
 var
   K: TExportKind;
   Raster, Anim: Boolean;
-  W, H: Integer;
+  W, H, NF, Rate: Integer;
+  Secs: Double;
 begin
   for K := Low(TExportKind) to High(TExportKind) do
     if K = FKind then uDlgSkin.SkinButton(FKindBtn[K], bkGo)
@@ -511,13 +513,20 @@ begin
     these settings }
   if Raster and OutSize(W, H) then
   begin
-    if Anim and (Length(FCam) >= 2) then
-      FShotLbl.Caption := Format('%d x %d, from your %.1fs recording',
-        [W, H, CamPathLength(FCam)])
-    else if Anim then
-      FShotLbl.Caption := Format('%d x %d, %d frames', [W, H,
-        Max(1, Min(GIF_MAX_FRAMES,
-          Round(StrToFloatDef(FSec.Text, 4) * StrToIntDef(FFps.Text, 20))))])
+    if Anim then
+    begin
+      Secs := Max(0.2, Min(GIF_MAX_SECONDS, StrToFloatDef(FSec.Text, 4)));
+      FilmPlan(Secs, StrToIntDef(FFps.Text, 20), W, H, NF, Rate);
+      { A big picture buys fewer frames - the whole film has to be held in
+        memory at once - so say so here rather than let somebody wait for it
+        and wonder why it came out jerky. }
+      if Rate < StrToIntDef(FFps.Text, 20) then
+        FShotLbl.Caption := Format('%d x %d, %.1fs at %d a second (%d frames' +
+          ' - a smaller size buys more)', [W, H, Secs, Rate, NF])
+      else
+        FShotLbl.Caption := Format('%d x %d, %.1fs, %d frames',
+          [W, H, Secs, NF]);
+    end
     else
       FShotLbl.Caption := Format('%d x %d pixels', [W, H]);
   end
@@ -773,6 +782,11 @@ end;
 { Hand the whole state of the export over to the report, so whatever went
   wrong arrives with the settings that caused it rather than a description of
   them from memory. }
+procedure TExportDlg.FilmSays(const S: string);
+begin
+  FStage := S;
+end;
+
 procedure TExportDlg.DoSay(Sender: TObject);
 var
   W, H: Integer;
@@ -816,6 +830,10 @@ begin
          FSrcW, FSrcH, FAxesOn, Got) then
     begin
       FCam := Got;
+      { and it goes in the box, because a recording that quietly overrode
+        whatever the box said is how a four second export turned into three
+        hundred frames }
+      FSec.Text := Format('%.1f', [CamPathLength(FCam)]);
       FHint.Caption := Format('Recorded %.1f seconds.  That is the shot now - ' +
         'press Record again to do it over.', [CamPathLength(FCam)]);
     end;
@@ -850,6 +868,7 @@ begin
     Exit;
   end;
   FStage := 'starting';
+  uShoot.OnFilmStage := @FilmSays;
   try
     WriteIt;
     FWrote := True;
@@ -868,6 +887,7 @@ begin
       FSay.Visible := Assigned(FOnReport);
     end;
   end;
+  uShoot.OnFilmStage := nil;
 end;
 
 procedure TExportDlg.WriteIt;
