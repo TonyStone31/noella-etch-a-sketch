@@ -30,6 +30,39 @@ type
     with two equally bright buttons has not said which one you came for. }
   TBtnKind = (bkGo, bkPlain, bkQuiet);
 
+  { Dragging a window that draws its own title bar.
+
+    Every dialog here is borderless, so the moving is ours to do, and the
+    obvious way to do it is wrong in two ways that both show as a window
+    that skips about under the hand.
+
+    The first is the anchor.  Taking the delta from the pointer's position
+    *inside the title bar* assumes the window has already moved by the time
+    the next motion event arrives - and on X11 it has not.  The move is a
+    request to the window manager; motion that arrives before it lands is
+    still measured against where the window used to be, so the delta is
+    counted twice, the window overshoots, the next event corrects it, and
+    the whole drag oscillates.  The pointer's position on the *screen* does
+    not depend on where the window is, so an anchor taken there cannot feed
+    back into itself: the window goes exactly where the hand says, however
+    late the events are.
+
+    The second is moving twice.  Setting Left and then Top is two separate
+    requests to the window manager, and a compositor is free to draw the
+    window between them - so it visibly steps sideways and then down, every
+    frame of the drag.  One SetBounds is one move. }
+  TFormDrag = record
+    Live: Boolean;
+    GrabX, GrabY: Integer;    { the pointer, on the screen, when it went down }
+    FormX, FormY: Integer;    { where the window was at that moment }
+  end;
+
+{ Begin, continue and end a title-bar drag.  The X and Y an LCL mouse event
+  carries are deliberately not used - see above. }
+procedure DragBegin(out D: TFormDrag; F: TForm);
+procedure DragTo(const D: TFormDrag; F: TForm);
+procedure DragEnd(var D: TFormDrag);
+
 var
   { the theme the dialogs are currently wearing, set by UseTheme }
   DlgTheme: TTheme;
@@ -51,6 +84,38 @@ procedure SkinCheck(C: TCheckBox);
 procedure SkinTrack(T: TTrackBar);
 
 implementation
+
+procedure DragBegin(out D: TFormDrag; F: TForm);
+var
+  P: TPoint;
+begin
+  P := Mouse.CursorPos;
+  D.Live := True;
+  D.GrabX := P.X;
+  D.GrabY := P.Y;
+  D.FormX := F.Left;
+  D.FormY := F.Top;
+end;
+
+procedure DragTo(const D: TFormDrag; F: TForm);
+var
+  P: TPoint;
+  NX, NY: Integer;
+begin
+  if not D.Live then Exit;
+  P := Mouse.CursorPos;
+  NX := D.FormX + (P.X - D.GrabX);
+  NY := D.FormY + (P.Y - D.GrabY);
+  { nothing to ask for, so do not ask - a run of motion events inside one
+    pixel would otherwise be a run of window moves }
+  if (NX = F.Left) and (NY = F.Top) then Exit;
+  F.SetBounds(NX, NY, F.Width, F.Height);
+end;
+
+procedure DragEnd(var D: TFormDrag);
+begin
+  D.Live := False;
+end;
 
 procedure UseTheme(const T: TTheme);
 begin

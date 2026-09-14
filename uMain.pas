@@ -16639,6 +16639,24 @@ begin
     if GetTickCount64 - FBusyAt > 600 then EndBusy;
     Exit;
   end;
+  { A dialog has the screen, so this does not.
+
+    Sixty times a second is right for a window somebody is drawing in.  It is
+    not right underneath a dialog, where every one of them is the program
+    waking up to service a pointer that is somewhere else entirely - and the
+    window manager is trying to drag that dialog at the same time.  Dragging
+    a dialog on a machine with a compositor was visibly skipping, and this is
+    one of the two reasons why.
+
+    ModalLevel counts the stock dialogs too, because TCommonDialog.Execute
+    raises it: the print and colour dialogs are somebody else's window and
+    exactly the ones where this program has no business being busy.
+
+    Nothing here is missed by waiting.  The hints, the draft, the settle
+    after a camera move and the rest are all things that catch up on the
+    first tick after the dialog goes; none of them is an animation anybody
+    can see through a window that is covering them. }
+  if Application.ModalLevel > 0 then Exit;
   { a named drawing with changes since it was written says so in the
     header, so a closed window is never a surprise }
   if (FDocPath <> '') and (FEditSeq <> FSavedSeq) and (Pos('unsaved', FHint) = 0) and

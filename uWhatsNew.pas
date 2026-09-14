@@ -54,8 +54,7 @@ type
     FPage: TPaintBox;
     FShut, FGo: TBCButton;
 
-    FDrag: Boolean;
-    FDX, FDY: Integer;
+    FDrag: uDlgSkin.TFormDrag;
 
     procedure Build;
     procedure PagePaint(Sender: TObject);
@@ -309,43 +308,24 @@ begin
   ModalResult := mrOk;
 end;
 
+{ Moved by uDlgSkin.DragBegin/DragTo, the same as every other window here
+  that draws its own title bar. }
 procedure TWhatsNewForm.HeadDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  FDrag := True;
-  FDX := X;
-  FDY := Y;
-  if Sender is TControl then
-  begin
-    Inc(FDX, TControl(Sender).Left);
-    Inc(FDY, TControl(Sender).Top);
-  end;
+  if Button = mbLeft then uDlgSkin.DragBegin(FDrag, Self);
 end;
 
 procedure TWhatsNewForm.HeadMove(Sender: TObject; Shift: TShiftState;
   X, Y: Integer);
-var
-  AX, AY: Integer;
 begin
-  if not FDrag then Exit;
-  AX := X;
-  AY := Y;
-  if Sender is TControl then
-  begin
-    Inc(AX, TControl(Sender).Left);
-    Inc(AY, TControl(Sender).Top);
-  end;
-  { a local first - see the note on OrbitBy about -O3 }
-  AX := Left + AX - FDX;
-  AY := Top + AY - FDY;
-  Left := AX;
-  Top := AY;
+  uDlgSkin.DragTo(FDrag, Self);
 end;
 
 procedure TWhatsNewForm.HeadUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  FDrag := False;
+  uDlgSkin.DragEnd(FDrag);
 end;
 
 procedure TWhatsNewForm.ScrollTo(V: Integer);

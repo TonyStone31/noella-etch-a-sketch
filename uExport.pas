@@ -109,8 +109,7 @@ type
     FHead: TBCPanel;
     FTitle: TBCLabel;
     FShut: TBCButton;
-    FHeadDrag: Boolean;
-    FHeadX, FHeadY: Integer;
+    FHeadDrag: uDlgSkin.TFormDrag;
     FSize: TComboBox;
     FWEdit, FHEdit: TEdit;
     FTransp, FLoop, FAxes, FMid: TBCButton;
@@ -934,40 +933,25 @@ begin
   FPrev.Invalidate;
 end;
 
+{ The title bar.  The moving is uDlgSkin.DragBegin/DragTo, which anchors on
+  the screen rather than on this window - see the note on TFormDrag for why
+  the obvious way skips about. }
 procedure TExportDlg.HeadDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  FHeadDrag := True;
-  FHeadX := X;
-  FHeadY := Y;
-  if Sender is TControl then
-  begin
-    Inc(FHeadX, TControl(Sender).Left);
-    Inc(FHeadY, TControl(Sender).Top);
-  end;
+  if Button = mbLeft then uDlgSkin.DragBegin(FHeadDrag, Self);
 end;
 
 procedure TExportDlg.HeadMove(Sender: TObject; Shift: TShiftState;
   X, Y: Integer);
-var
-  DX, DY: Integer;
 begin
-  if not FHeadDrag then Exit;
-  DX := X;
-  DY := Y;
-  if Sender is TControl then
-  begin
-    Inc(DX, TControl(Sender).Left);
-    Inc(DY, TControl(Sender).Top);
-  end;
-  Left := Left + (DX - FHeadX);
-  Top := Top + (DY - FHeadY);
+  uDlgSkin.DragTo(FHeadDrag, Self);
 end;
 
 procedure TExportDlg.HeadUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  FHeadDrag := False;
+  uDlgSkin.DragEnd(FHeadDrag);
 end;
 
 { Hand the whole state of the export over to the report, so whatever went

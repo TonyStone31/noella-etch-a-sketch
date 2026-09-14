@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Dragging a dialog no longer skips about.**  The windows that draw their
+  own title bar - Export, What's new - were moved by measuring the pointer
+  against the window being moved, which on Linux feeds back on itself and
+  makes the window fight the hand.  They now measure against the screen, and
+  move once per twitch instead of twice.
+
+- **The program stops working while a dialog is up.**  It kept a sixty-a-
+  second heartbeat running underneath every dialog, including the system
+  print and colour ones, servicing a pointer that was somewhere else.  On a
+  machine with a compositor that is enough to make the dialog you are
+  dragging stutter.  Measured with a drawing of twenty-four wine glasses: the
+  window behind the export dialog went from 2.2% of a core to 0.2%.
+
 ## v2026.09.14.15
 
 ### Fixed
