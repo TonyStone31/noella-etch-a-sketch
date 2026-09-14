@@ -1096,7 +1096,7 @@ anything was drawn.
 the building filling up floor by floor - which is nearly free now the frame
 machinery exists.  Tony said camera only for this round.
 
-### Done 14 September: the Windows export access violation
+### Done 14 September: the GIF export crash - a missing colour quantizer
 
 Reported 13 September from Windows on v2026.09.13.16: pressing Export gives an
 access violation and writes nothing.  **Not reproduced here** - Linux exports
@@ -1150,6 +1150,30 @@ silently overriding it.
 
 The stage was also too coarse to be useful - "drawing the frames" covered the
 drawing, the packing AND the writing.  It now names the frame and the step.
+
+**And all of that was the wrong diagnosis.**  Reproduced on Linux in the end,
+with a stack trace: `bgragifformat.pas`, inside `GIFSaveToStream`.  A GIF
+holds 256 colours and something has to choose which; BGRABitmap keeps that
+chooser pluggable and **naming the unit in `uses` is not enough** - the
+library's own error text spells it out, `BGRAColorQuantizerFactory :=
+TBGRAColorQuantizer`.  It was never assigned, so any frame over 256 colours
+reached a nil quantizer and faulted.
+
+That is why it looked like nonsense: white paper, grey faces and black lines
+fit inside 256 easily, so a plain drawing exported; three anti-aliased
+coloured axes over the top do not, so every export with axes on - the default
+- died, whatever the length.  One line in an initialization section.
+
+The frame budget stays, but for the honest reason rather than the panicked
+one: measured, a four second spin of the crown is 410 KB at 320x240 and
+1.35 MB at 800x600, and Tony's 15.9 second recording is 0.70 MB at 104 frames
+with a 217 MB peak.  Fifty million pixel-frames is about 2.5 MB of file and
+200 MB held while it builds.  Both livable; neither was ever the crash.
+
+**The lesson worth keeping**: the GIF test passed the whole time because it
+exported with the axes OFF, and the dialog defaults them ON.  A test that does
+not exercise the default is not testing the thing people run.  The test now
+does both.
 
 Left standing: the -O3 local-first workaround, which was a real hazard whether
 or not it was this one.

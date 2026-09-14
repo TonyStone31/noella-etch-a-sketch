@@ -10,6 +10,33 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The GIF export crash, properly this time - and a correction.**  The last
+  release blamed memory and rationed the frames accordingly.  That was wrong.
+
+  It was one missing line.  A GIF holds 256 colours and something has to
+  choose which 256; in BGRABitmap that chooser is pluggable, and naming its
+  unit is not enough - the factory has to be handed over explicitly.  It never
+  was.  So any frame with more than 256 colours in it reached nothing at all
+  and the program fell over.
+
+  Which is exactly why it looked so strange: a plain line drawing exports
+  fine, because white paper, grey faces and black lines fit inside 256
+  colours easily.  Turn on the axes and three anti-aliased coloured lines put
+  it over, every time.  It had nothing to do with how long the film was.
+
+  Reproduced here on Linux in the end, tracked to the line, fixed, and there
+  is now a test that exports a film **with the axes on** - which is the
+  default, and which the old test did not do, which is how it got out.
+
+- **And the files were never big.**  A four second spin of a complicated
+  model is 1.35 MB at 800 x 600, and the 15.9 second recording that started
+  all this now comes out at 0.70 MB.  The dialog says roughly what it will
+  weigh before you press the button.
+
 ## v2026.09.13.18
 
 ### Fixed

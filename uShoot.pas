@@ -18,6 +18,8 @@ interface
 uses
   Classes, SysUtils, Math, Types, Graphics, FPImage, FPWriteJPEG,
   BGRABitmap, BGRABitmapTypes, BGRAAnimatedGif,
+  { the colour reducer the GIF writer needs - see the initialization }
+  BGRAPalette, BGRAColorQuantization,
   uSurface, uWork, uSkin;
 
 const
@@ -29,17 +31,28 @@ const
   GIF_MAX_FRAMES  = 300;
   { And a ceiling on the whole film, not just the number of frames.
 
-    An animated GIF is built in memory in its entirety - every frame is held
-    until the last one is in, and the packing pass then duplicates them as it
-    walks.  Three hundred frames of 800 by 600 is around 576 MB of frames
-    before any of that, which is what Tony's Windows machine fell over
-    exporting a 15.9 second recording.
+    Not because it crashes - that was a missing colour quantizer and is fixed
+    in the initialization below - but because a GIF is assembled whole in
+    memory before any of it is written, and because the point of a GIF is
+    that you can send it.
 
-    So the number of frames is worked out from the area as well: whatever
-    fits in the budget.  The film keeps its full length either way - what
-    gives is the frame rate, not the ending, because losing the end of
-    somebody's move is a worse answer than making it a little choppier. }
+    Measured, on the most complicated drawing to hand: a four second spin at
+    fifteen a second comes to 410 KB at 320x240, 1.35 MB at 800x600.  Call it
+    a twentieth of a byte per pixel per frame.  Fifty million pixel-frames is
+    therefore around 2.5 MB of file and 200 MB of frames held while it is
+    built, which are both numbers a person can live with.
+
+    The film keeps its full length whatever this costs it - what gives is the
+    frame rate, not the ending, because losing the end of somebody's move is
+    a worse answer than making it a little choppier. }
   GIF_MAX_PIXELS = 50000000;
+  { Measured bytes per pixel per frame, for saying how big it will be before
+    somebody waits for it.  It varies a lot with what is on the screen - a
+    busy model filling the frame came to 0.047, the same model spinning and
+    zooming to 0.014 - so this sits between them and the label says "about".
+    The decision it has to support is 300 KB against 8 MB, not 700 KB against
+    900 KB. }
+  GIF_BYTES_PER_PIXEL = 0.03;
   { and packing, which duplicates every frame as it walks, only where that
     duplication is affordable on top of the frames themselves }
   GIF_PACK_PIXELS = 20000000;
@@ -459,7 +472,7 @@ begin
         every frame }
       if Axes then PaintAxesOn(S, V);
       { the gif takes ownership of each frame it is handed }
-      Gif.AddFullFrame(ToBGRA(S), Delay, True, dmSetExceptTransparent, True);
+      Gif.AddFullFrame(ToBGRA(S), Delay, False, dmSetExceptTransparent, True);
     end;
     if Loop then Gif.LoopCount := 0 else Gif.LoopCount := 1;
     { Packing walks the film making a duplicate of every frame as it goes, on
@@ -529,5 +542,23 @@ begin
     N, Secs, Loop, Axes, Path, @At);
 end;
 
+
+initialization
+  { A GIF holds 256 colours and a drawing does not, so something has to choose
+    which 256.  BGRABitmap keeps that choice pluggable and ships the plug in a
+    separate unit, and it is NOT enough to name that unit in the uses clause -
+    the factory has to be handed over, which is what this line does.
+
+    Without it, a frame of more than 256 colours reaches a nil quantizer and
+    the writer faults.  That is why exporting a plain line drawing worked and
+    exporting the same drawing with the axes on did not: white paper, grey
+    faces and black lines fit inside 256 easily, and the moment three
+    anti-aliased coloured axes are drawn over them they do not.  Tony's
+    Windows crash on 13 September was this and nothing else - it was reported
+    as "access violation while drawing the frames", and the frames were fine.
+
+    Anything that writes a GIF wants this line to have run, so it lives here
+    rather than at the call. }
+  BGRAColorQuantizerFactory := TBGRAColorQuantizer;
 
 end.

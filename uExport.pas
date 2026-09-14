@@ -135,6 +135,7 @@ type
     procedure Ticked(Sender: TObject);
     procedure ShowTick(B: TBCButton; On_: Boolean; const Cap: string);
     function Ext: string;
+    function Weigh(Frames, W, H: Integer): string;
     function OutSize(out W, H: Integer): Boolean;
     function Tween(T: Double): TProjector;
     procedure WriteIt;
@@ -520,12 +521,15 @@ begin
       { A big picture buys fewer frames - the whole film has to be held in
         memory at once - so say so here rather than let somebody wait for it
         and wonder why it came out jerky. }
+      { say what it will weigh, because that is the question behind the size
+        and nobody should have to export one to find out }
       if Rate < StrToIntDef(FFps.Text, 20) then
-        FShotLbl.Caption := Format('%d x %d, %.1fs at %d a second (%d frames' +
-          ' - a smaller size buys more)', [W, H, Secs, Rate, NF])
+        FShotLbl.Caption := Format('%d x %d, %.1fs at %d a second, about %s' +
+          '  (a smaller size buys more frames)',
+          [W, H, Secs, Rate, Weigh(NF, W, H)])
       else
-        FShotLbl.Caption := Format('%d x %d, %.1fs, %d frames',
-          [W, H, Secs, NF]);
+        FShotLbl.Caption := Format('%d x %d, %.1fs, %d frames, about %s',
+          [W, H, Secs, NF, Weigh(NF, W, H)]);
     end
     else
       FShotLbl.Caption := Format('%d x %d pixels', [W, H]);
@@ -624,6 +628,18 @@ begin
     H := Max(16, Round(H * K));
   end;
   Result := (W >= 16) and (H >= 16);
+end;
+
+{ Roughly what the film will come to on disk, from a rate measured on the
+  busiest drawing to hand.  Roughly is the useful amount of precision here -
+  it is the difference between "fine" and "too big to send" that matters. }
+function TExportDlg.Weigh(Frames, W, H: Integer): string;
+var
+  B: Double;
+begin
+  B := Frames * Double(W) * H * GIF_BYTES_PER_PIXEL;
+  if B >= 1024 * 1024 then Result := Format('%.1f MB', [B / 1024 / 1024])
+  else Result := Format('%.0f KB', [B / 1024]);
 end;
 
 function TExportDlg.Ext: string;

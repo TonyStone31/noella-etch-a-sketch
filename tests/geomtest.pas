@@ -4331,6 +4331,24 @@ begin
       'and what came out is a GIF89a, which is the animated kind');
     Ok((W = 240) and (H = 180), Format('at the size asked for (%dx%d)', [W, H]));
 
+    { --- the axes over a film, which is what actually crashed --------
+          A GIF holds 256 colours and something has to choose which.  That
+          chooser is pluggable in BGRABitmap and naming its unit is not
+          enough - the factory has to be handed over.  Until it was, a frame
+          of more than 256 colours reached a nil quantizer and the writer
+          faulted, which is why a plain line drawing exported and the same
+          drawing with three anti-aliased coloured axes over it did not.
+          Tony's Windows crash of 13 September was this and nothing else.
+
+          So: a film WITH the axes on, which is the case that broke. }
+    VB := V;
+    VB.Az := V.Az + 2 * Pi;
+    N := SaveOrbitGif(D, V, VB, 900, 700, 200, 150, usImperial, F,
+      Pix(0, 0, 0), 1.0, 1.0, 8, True, True, Dir + PathDelim + 'ax.gif');
+    Ok(N >= 2, Format('a film with the axes on came out (%d frames)', [N]));
+    Ok(GifIs(Dir + PathDelim + 'ax.gif', W, H) and (W = 200) and (H = 150),
+      'and it is a real GIF89a at the size asked for');
+
     { --- how big a film is allowed to get ---------------------------
           The whole thing is held in memory at once and the packing pass
           duplicates it, so the number of frames comes from the area as well
