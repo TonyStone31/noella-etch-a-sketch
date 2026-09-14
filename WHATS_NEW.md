@@ -10,7 +10,7 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## v2026.09.14.2
+## Next release
 
 ### New
 
@@ -28,6 +28,17 @@
   back on the next launch, because the draft is written continuously and
   nothing ever told it the drawing had been closed on purpose.
 
+### Fixed
+
+- **Closing an untouched sheet asks nothing.**  The example arrives with 310
+  things on it, so putting it down brought up "save the drawing first?" - a
+  question about somebody else's work.  It asks only when something has
+  actually changed.
+
+## v2026.09.14.2
+
+### New
+
 - **A portable program keeps its files with it.**  Drawings are offered a
   `drawings` folder beside the program and exports an `exports` folder, both
   made the first time they are needed.  Nothing is put in your home folder
@@ -40,11 +51,6 @@
   program's own folder until you have opened something.
 
 ### Fixed
-
-- **Closing an untouched sheet asks nothing.**  The example arrives with 310
-  things on it, so putting it down brought up "save the drawing first?" - a
-  question about somebody else's work.  It asks only when something has
-  actually changed.
 
 - **The GIF settings are the ones that matter now.**  The seconds box, the
   frame rate box and the spin they described are gone: record a move and that
