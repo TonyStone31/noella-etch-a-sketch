@@ -846,19 +846,18 @@ sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
 
 
-### Closing without saving still leaves the draft behind
+### Closing without saving: half done
 
 Tony, 14 September: closed the drawings, chose not to save, opened the program
 again and the drawing he had declined to save came back.
 
-The draft is written continuously so that pulling the plug loses nothing,
-which is right.  What is missing is that saying "close without saving" - an
-explicit instruction about this drawing - does not also say anything to the
-draft.  Somewhere between CloseDrawing, the exit path and RestoreDraft, a
-deliberate no ought to mean the next launch starts clean.
-
-Not yet investigated properly; the exit prompt is the part I had not read when
-this was written down.
+Closing the last sheet now drops the draft, which covers the case he hit -
+putting a drawing down and having it follow you to the next launch is not
+putting it down.  What is still not covered is quitting the program outright
+with unsaved work: that writes a draft on the way out by design, and it should,
+because pulling the plug must lose nothing.  The open question is whether
+answering "close without saving" to the quit prompt - if there ever is one -
+ought to mean the same thing.  Nobody has asked for that yet.
 
 ### Our own fork of BGRABitmap, for later
 

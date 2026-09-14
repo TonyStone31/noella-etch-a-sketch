@@ -14,6 +14,20 @@
 
 ### New
 
+- **The last tab can be closed.**  Its cross was hidden when only one sheet
+  was left, which left you with a drawing you could not put down and nothing
+  saying why.  Closing it closes the drawing and puts the example back up -
+  which is what the program starts with anyway.
+
+- **A new tab starts with the example on it.**  Rubbing a drawing out is one
+  gesture; drawing one from nothing is not.  Ctrl+N still gives a blank sheet,
+  and now really does - it had been mentioned in the hints for a while without
+  being wired to anything.
+
+- **Closing the last sheet puts the drawing down for good.**  It used to come
+  back on the next launch, because the draft is written continuously and
+  nothing ever told it the drawing had been closed on purpose.
+
 - **A portable program keeps its files with it.**  Drawings are offered a
   `drawings` folder beside the program and exports an `exports` folder, both
   made the first time they are needed.  Nothing is put in your home folder
@@ -26,6 +40,11 @@
   program's own folder until you have opened something.
 
 ### Fixed
+
+- **Closing an untouched sheet asks nothing.**  The example arrives with 310
+  things on it, so putting it down brought up "save the drawing first?" - a
+  question about somebody else's work.  It asks only when something has
+  actually changed.
 
 - **The GIF settings are the ones that matter now.**  The seconds box, the
   frame rate box and the spin they described are gone: record a move and that

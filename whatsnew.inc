@@ -17,6 +17,20 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **The last tab can be closed.**  Its cross was hidden when only one sheet' + LineEnding +
+    '  was left, which left you with a drawing you could not put down and nothing' + LineEnding +
+    '  saying why.  Closing it closes the drawing and puts the example back up -' + LineEnding +
+    '  which is what the program starts with anyway.' + LineEnding +
+    '' + LineEnding +
+    '- **A new tab starts with the example on it.**  Rubbing a drawing out is one' + LineEnding +
+    '  gesture; drawing one from nothing is not.  Ctrl+N still gives a blank sheet,' + LineEnding +
+    '  and now really does - it had been mentioned in the hints for a while without' + LineEnding +
+    '  being wired to anything.' + LineEnding +
+    '' + LineEnding +
+    '- **Closing the last sheet puts the drawing down for good.**  It used to come' + LineEnding +
+    '  back on the next launch, because the draft is written continuously and' + LineEnding +
+    '  nothing ever told it the drawing had been closed on purpose.' + LineEnding +
+    '' + LineEnding +
     '- **A portable program keeps its files with it.**  Drawings are offered a' + LineEnding +
     '  `drawings` folder beside the program and exports an `exports` folder, both' + LineEnding +
     '  made the first time they are needed.  Nothing is put in your home folder' + LineEnding +
@@ -29,6 +43,11 @@ const
     '  program''s own folder until you have opened something.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Closing an untouched sheet asks nothing.**  The example arrives with 310' + LineEnding +
+    '  things on it, so putting it down brought up "save the drawing first?" - a' + LineEnding +
+    '  question about somebody else''s work.  It asks only when something has' + LineEnding +
+    '  actually changed.' + LineEnding +
     '' + LineEnding +
     '- **The GIF settings are the ones that matter now.**  The seconds box, the' + LineEnding +
     '  frame rate box and the spin they described are gone: record a move and that' + LineEnding +

@@ -925,7 +925,8 @@ type
     procedure SetScaleIdx(I: Integer);
     procedure PanBy(DX, DY: Double);
     procedure FitView;
-    procedure NewDrawing;
+    procedure NewDrawing(Seed: Boolean = True);
+    procedure DropDraft;
     procedure CloseDrawing(I: Integer);
     procedure SelectDrawing(I: Integer);
     procedure LayoutTabs;
@@ -2133,7 +2134,7 @@ begin
     FKnobSkin[I] := TArtSurface.Create(16, 16);
   FOverlay := TArtSurface.Create(16, 16);
 
-  NewDrawing;
+  NewDrawing(False);
   FDimFont := TFont.Create;
   {$IFDEF WINDOWS}
   FDimFont.Name := 'Segoe UI';
@@ -3704,10 +3705,14 @@ begin
   inherited Destroy;
 end;
 
-procedure TMainForm.NewDrawing;
+{ A new sheet.  Seeded with the example unless a blank one was asked for,
+  because an empty sheet explains nothing and rubbing a drawing out is one
+  gesture - which is not true the other way round. }
+procedure TMainForm.NewDrawing(Seed: Boolean);
 var
   N, K, Nm: Integer;
   Taken: Boolean;
+  Was: string;
 begin
   N := Length(FDrawings);
   SetLength(FDrawings, N + 1);
@@ -3736,6 +3741,17 @@ begin
   FD.ViewY := Round(FArt.Height * 0.88);
   if FBooted then
   begin
+    { Boot fills the first sheet itself - from the command line, the draft,
+      or the example - so this only runs for a sheet somebody asked for. }
+    if Seed then
+    begin
+      Was := FD.Name;
+      LoadExample;
+      { the example's own name belongs to the first sheet of a drawing; a
+        second one keeps the number it was given, or there are two tabs
+        called the same thing }
+      if N > 0 then FD.Name := Was;
+    end;
     ResetTool;
     LayoutTabs;
     RepaintPaper;
@@ -3764,20 +3780,22 @@ end;
 procedure TMainForm.CloseDrawing(I: Integer);
 var
   K, Ans: Integer;
+  Last: Boolean;
 begin
-  if Length(FDrawings) <= 1 then
-  begin
-    FCmdMsg := 'That is the only sheet - nothing to close.';
-    pbCmd.Invalidate;
-    Exit;
-  end;
   if (I < 0) or (I > High(FDrawings)) then Exit;
-  { A sheet with anything on it is asked about, the way a document is.
-    Save writes the whole drawing - a sheet is part of one file - and asks
-    for a name if it has none; declining that keeps the sheet.  Close
-    without saving means exactly that: the sheet is gone from the drawing,
-    and the draft follows the drawing. }
-  if FDrawings[I].Doc.Live > 0 then
+  Last := Length(FDrawings) = 1;
+  { A sheet with work on it is asked about, the way a document is.  Save
+    writes the whole drawing - a sheet is part of one file - and asks for a
+    name if it has none; declining that keeps the sheet.  Close without
+    saving means exactly that: the sheet is gone from the drawing, and the
+    draft follows the drawing.
+
+    Work on it, though, not merely things on it.  Nothing changed since it
+    was loaded or saved is nothing to lose, and the example the program
+    starts with arrives with three hundred things on it - so putting it down
+    brought up "save the drawing first?", which is a question about somebody
+    else's drawing. }
+  if (FDrawings[I].Doc.Live > 0) and (FEditSeq <> FSavedSeq) then
   begin
     Ans := QuestionDlg('Close this sheet',
       Format('"%s" has %d things on it.  Save the drawing before closing it?',
@@ -3798,6 +3816,24 @@ begin
   for K := I to High(FDrawings) - 1 do
     FDrawings[K] := FDrawings[K + 1];
   SetLength(FDrawings, Length(FDrawings) - 1);
+
+  { Closing the only sheet closes the drawing, and what is left is not
+    nothing - a window with no sheet in it has no answer to "now what".  So
+    the program comes back the way it starts: the example, with no file
+    behind it, and the draft dropped, because putting a drawing down and
+    having it follow you to the next launch is not putting it down. }
+  if Last then
+  begin
+    LeaveSheet;
+    NewDrawing(True);
+    FDocPath := '';
+    FSavedSeq := FEditSeq;
+    DropDraft;
+    FCmdMsg := 'Closed.  Here is the example again - draw over it, or ' +
+      'press Ctrl+N for an empty sheet.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
 
   LeaveSheet;
   FTabIdx := EnsureRange(FTabIdx, 0, High(FDrawings));
@@ -3876,8 +3912,12 @@ begin
       FCmdSkin.RoundRect(Rect(R.Left + Round(10 * FUIScale), R.Top + Round(3 * FUIScale),
         R.Right - Round(10 * FUIScale), R.Top + Round(6 * FUIScale)),
         1.5, Theme.Accent, 0.95);
-    { close cross }
-    if IsCur and (Length(FDrawings) > 1) then
+    { The close cross, on whichever tab is current - including when it is the
+      only one.  Hiding it there left somebody with a drawing they could not
+      put down: no cross, and nothing that says why.  Closing the last sheet
+      is a perfectly ordinary thing to want, and what comes up afterwards is
+      the example, which is what the program starts with anyway. }
+    if IsCur then
     begin
       FCmdSkin.Line(R.Right - Round(20 * FUIScale), R.Top + Round(12 * FUIScale),
         R.Right - Round(12 * FUIScale), R.Top + Round(20 * FUIScale), 1.5, Theme.TextDim, 0.9);
@@ -3955,8 +3995,7 @@ begin
   begin
     R := FTabRects[I];
     if not PtInRect(R, Point(X, Y)) then Continue;
-    if (I = FTabIdx) and (Length(FDrawings) > 1) and
-       (X > R.Right - Round(26 * FUIScale)) then
+    if (I = FTabIdx) and (X > R.Right - Round(26 * FUIScale)) then
       CloseDrawing(I)
     else
       SelectDrawing(I);
@@ -16129,6 +16168,7 @@ begin
       VK_O: DoOpen;
       VK_E: DoExport;
       VK_P: DoPrint;
+      VK_N: if FMode = mdPro then NewDrawing(False);
       VK_T: if FMode = mdPro then NewDrawing;
       VK_W: if FMode = mdPro then CloseDrawing(FTabIdx);
       VK_TAB: if FMode = mdPro then
@@ -17316,6 +17356,23 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ Throw the safety net away.
+
+  The draft is written continuously so that pulling the plug out loses
+  nothing, which is right.  But it is a net under work in progress, not a
+  record of what somebody wants back - so a deliberate "I am done with this
+  drawing" has to say so to the draft as well, or the next launch hands back
+  the very thing that was put down. }
+procedure TMainForm.DropDraft;
+begin
+  try
+    if FileExists(DraftFile) then DeleteFile(DraftFile);
+  except
+    on E: Exception do ;
+  end;
+  FDraftSeq := FEditSeq;
+end;
+
 procedure TMainForm.SaveDraft;
 var
   L: TStringList;
@@ -17577,7 +17634,14 @@ begin
   FD.El := 0.700000;
   FD.ScaleIdx := 4;
   FD.SnapIdx := 1;
-  FDocPath := '';
+  { Only when this is the whole drawing.  A sheet added to a drawing that has
+    a file behind it must not throw the file away - sheets are parts of one
+    document, and forgetting where it lives because somebody opened a tab is
+    how work gets saved over the top of something else. }
+  if Length(FDrawings) <= 1 then FDocPath := '';
+  { It is not somebody's work until they have changed it, so it does not
+    count as unsaved and closing it asks nothing. }
+  FSavedSeq := FEditSeq;
   Result := True;
   FitView;
   Trail(Format('opened the example: %d things', [FD.Doc.Live]));

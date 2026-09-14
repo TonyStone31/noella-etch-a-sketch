@@ -456,7 +456,8 @@ length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
 | Shift+F | zoom to fit |
 | U | feet-and-inches / metric |
 | H | next theme |
-| Ctrl+T / Ctrl+W / Ctrl+Tab | new sheet / close sheet / next sheet |
+| Ctrl+T / Ctrl+N | new sheet, with the example on it / a blank one |
+| Ctrl+W / Ctrl+Tab | close sheet / next sheet |
 | Right-click a dimension | write over its figure |
 | Right-drag | pan;  wheel = zoom |
 | Middle-drag | orbit - from any view, with any tool in hand, mid-line |
