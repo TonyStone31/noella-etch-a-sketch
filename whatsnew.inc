@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.26' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The toy says HECKERS SKETCH on it**, in block capitals drawn the way the' + LineEnding +
+    '  toy itself would draw them - and every bar of every letter is a closed loop,' + LineEnding +
+    '  so you can push any one of them up off the frame.' + LineEnding +
+    '' + LineEnding +
+    '- **A new program icon**, which is the toy.' + LineEnding +
+    '' + LineEnding +
+    '- **An `examples` folder beside the program.**  The toy is written out there' + LineEnding +
+    '  every time it starts, over the top of whatever was there.  That is on' + LineEnding +
+    '  purpose: an example is a thing to take apart, and having taken it apart you' + LineEnding +
+    '  should find it whole again next time rather than meet your own' + LineEnding +
+    '  half-dismantled version.  Keep your own by saving it under a name of your' + LineEnding +
+    '  own.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The toy''s corners are rounded** - on the body and around the screen - the' + LineEnding +
+    '  way a thing you would hand a child is.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.25' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
