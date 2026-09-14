@@ -1139,7 +1139,6 @@ const
     (Name: 'drill';      Hint: 'push a shape right through';            Arg: False),
     (Name: 'erase';      Hint: 'the eraser';                            Arg: False),
     (Name: 'fit';        Hint: 'zoom until it all shows';               Arg: False),
-    (Name: 'followme';   Hint: 'revolve or sweep a face';               Arg: False),
     (Name: 'forget';     Hint: 'forget the areas seen, and work them out again'; Arg: False),
     (Name: 'front';      Hint: 'look from the front';                   Arg: False),
     (Name: 'grid';       Hint: 'the ruled paper, on or off';            Arg: False),
@@ -1176,6 +1175,7 @@ const
     (Name: 'resize';     Hint: 'retype a picked dimension';             Arg: True;
                          Eg:   '/resize 4''6"'),
     (Name: 'reverse';    Hint: 'turn the picked faces over';            Arg: False),
+    (Name: 'revolve';    Hint: 'spin or sweep a face into a solid';     Arg: False),
     (Name: 'right';      Hint: 'look from the right';                   Arg: False),
     (Name: 'rotate';     Hint: 'the rotate tool';                       Arg: False),
     (Name: 'save';       Hint: 'save the drawing';                      Arg: False),
@@ -5861,7 +5861,7 @@ begin
   Inc(Y, Round(4 * FUIScale));
   Add(dkSegment, Rect(Round(4 * FUIScale), Y, W - Round(4 * FUIScale), Y + RowH),
     GRP_POPUP, POP_MORE, 'MORE TOOLS',
-    'Rotate, offset, follow me and drill.', ikChevron);
+    'Rotate, offset and drill.', ikChevron);
 
   { And the shop, at the very foot, off on its own with a spanner on it.
     It is not a drawing tool and it never was - it is a door into the trade
@@ -11561,7 +11561,11 @@ begin
   else if (W = 'rotate') or (W = 'q') or (W = 'turn') then SetTool(ptRotate)
   else if (W = 'protractor') or (W = 'angle') then SetTool(ptProtractor)
   else if (W = 'drill') or (W = 'bore') or (W = 'punch') then SetTool(ptDrill)
-  else if (W = 'followme') or (W = 'follow') or (W = 'revolve') or (W = 'lathe') then SetTool(ptFollow)
+  { The tool is REVOLVE on the strip and in the manual.  It was Follow Me
+    once, which is SketchUp's name for it, and those words still work -
+    somebody coming from there will type what they know. }
+  else if (W = 'revolve') or (W = 'followme') or (W = 'follow') or
+          (W = 'lathe') then SetTool(ptFollow)
   else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard

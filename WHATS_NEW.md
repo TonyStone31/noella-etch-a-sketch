@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The command list called Revolve "/followme".**  The tool was renamed on
+  the eighth and the command list never heard: it offered `/followme` as the
+  name and no `/revolve` at all.  It is `/revolve` now, and `/followme`,
+  `/follow` and `/lathe` still work for anybody coming from SketchUp.
+
+- **MORE TOOLS said what was not behind it.**  It promised "rotate, offset,
+  follow me and drill" and held three tools, Revolve having moved out to the
+  strip beside Push/Pull a week ago.
+
 ## v2026.09.14.13
 
 ### New

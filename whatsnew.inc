@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The command list called Revolve "/followme".**  The tool was renamed on' + LineEnding +
+    '  the eighth and the command list never heard: it offered `/followme` as the' + LineEnding +
+    '  name and no `/revolve` at all.  It is `/revolve` now, and `/followme`,' + LineEnding +
+    '  `/follow` and `/lathe` still work for anybody coming from SketchUp.' + LineEnding +
+    '' + LineEnding +
+    '- **MORE TOOLS said what was not behind it.**  It promised "rotate, offset,' + LineEnding +
+    '  follow me and drill" and held three tools, Revolve having moved out to the' + LineEnding +
+    '  strip beside Push/Pull a week ago.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.13' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

@@ -955,6 +955,16 @@ any more:
   `4''6"` in the source is `4'6"` on the screen, and the first version of
   `/cut 0 9'` had one apostrophe too many and would not compile.
 
+  **What it still cannot see is a name going stale.**  Follow Me was renamed
+  REVOLVE on the sixth of September - on the tool strip, in the tooltip, in
+  the manual - and the command list went on offering `/followme` and no
+  `/revolve` at all for a week.  Every check above passed the whole time:
+  `/followme` was a name the dispatcher answered to, it was in order, it had
+  no argument.  Nothing ties a row to the tool it names, and the only reason
+  it was caught is that Tony remembered what we called it.  Tying TOOL_NAMES
+  to the rows that set a tool would catch exactly this and is worth doing if
+  another one slips.
+
 ### The drive scripts now have a runner, and it is only a smoke test
 
 tests/run-drive.sh runs the scripts in tests/drive and says whether each one

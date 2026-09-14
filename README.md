@@ -198,7 +198,8 @@ The same idea taken seriously.  The program starts here, in the 3D view.
 * **Drill.**  Where push/pull stops, the drill goes on: a second tunnel cuts
   clean through the first, square or round, from any side, so a block can be
   bored in several directions like a manifold.
-* **Follow Me.**  SketchUp's tool for round work.  Click the face, then
+* **Revolve.**  SketchUp calls it Follow Me; this is the tool for round
+  work.  Click the face, then
   click a line or arc to push it along every edge joined to that one,
   mitred at the corners: a circle along a run with a 90 arc in it is a
   round elbow with legs, a whole spool from a centerline.  Or click two
@@ -365,7 +366,7 @@ Pick the pipe size, long or short radius elbows, and the ends - bevel,
 weld-neck flange, cap, threaded.  The ticket writes itself with every leg's
 cut length, the elbows' take-outs already off, which is the number the
 welder wants; the 3D tab shows the spool built from the same numbers by
-Follow Me; Email it sends the iso, the picture and the ticket to the shop;
+Revolve; Email it sends the iso, the picture and the ticket to the shop;
 Build it drops the spool into the drawing.
 [`docs/pipe-spool.md`](docs/pipe-spool.md) has the details.
 
@@ -397,7 +398,7 @@ after it would be a question rather than an answer.
 | Command | Does |
 | --- | --- |
 | `/line` `/l`, `/rect` `/r`, `/arc` `/a`, `/circle` `/c` | the drawing tools |
-| `/push` `/pull` `/p`, `/drill` `/bore` `/punch`, `/followme` `/follow` `/revolve` `/lathe`, `/offset` `/f` | the solid tools |
+| `/push` `/pull` `/p`, `/drill` `/bore` `/punch`, `/revolve` `/followme` `/follow` `/lathe`, `/offset` `/f` | the solid tools |
 | `/select` `/s`, `/all`, `/move` `/mv`, `/rotate` `/q` `/turn`, `/erase` `/e` `/del` | select, select everything, move, turn, erase |
 | `/measure` `/m` `/tape`, `/protractor` `/angle`, `/dimension` `/dim` | measuring |
 | `/text` `/note` `/n` | a note |
@@ -471,7 +472,7 @@ length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
 | Key | Action |
 | --- | --- |
 | L R A C | line, rectangle, arc, circle |
-| P B F | push/pull, drill (bore), offset (Follow Me is on the deck) |
+| P B F | push/pull, drill (bore), offset (Revolve is on the tool strip) |
 | M Q E | move, rotate, erase |
 | T D N | tape measure, dimension, note |
 | O | orbit |
