@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Each letter of the logo is one shape now.**  It was built out of separate
+  bars, which left a line across every join and meant pushing an H up took
+  three goes and came out with seams down it.  Click a letter once and push it
+  once, and the whole letter stands up.
+
+- **The toy sits in the positive corner.**  Its near bottom left is on the
+  origin, so the whole thing is inside the solid halves of the axes instead of
+  straddling the dashed ones - nine inches along is nine inches, not minus
+  four and a half.
+
 ## v2026.09.13.26
 
 ### New
