@@ -13,9 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.20' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The preview and the recording window now handle like the drawing.**' + LineEnding +
+    '  Middle-drag turns it, right-drag slides it, the left button does nothing,' + LineEnding +
+    '  and the wheel zooms on the pointer rather than the middle of the picture -' + LineEnding +
+    '  all the same as the drawing area, at the same speed.  They were all' + LineEnding +
+    '  different before, which is why moving around in there felt odd.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.19' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The preview and the recording window now handle like the drawing.**' + LineEnding +
+    '  Middle-drag turns it, right-drag slides it, the left button does nothing,' + LineEnding +
+    '  and the wheel zooms on the pointer rather than the middle of the picture -' + LineEnding +
+    '  all the same as the drawing area, at the same speed.  They were all' + LineEnding +
+    '  different before, which is why moving around in there felt odd.' + LineEnding +
     '' + LineEnding +
     '- **The GIF export crash, properly this time - and a correction.**  The last' + LineEnding +
     '  release blamed memory and rationed the frames accordingly.  That was wrong.' + LineEnding +
