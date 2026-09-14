@@ -117,6 +117,19 @@ procedure OrbitBy(var V: TProjector; DX, DY: Double);
 procedure PanBy(var V: TProjector; DX, DY: Double);
 procedure ZoomBy(var V: TProjector; Factor: Double);
 
+{ Zoom keeping whatever is under a point exactly where it is, which is what
+  the drawing area does and the reason a wheel over a preview that zooms to
+  the middle instead feels wrong.
+
+  No unprojecting needed: a screen position is O + Ppu * f(point), so scaling
+  Ppu by k and holding A still gives O' = A - k * (A - O). }
+procedure ZoomAt(var V: TProjector; Factor, AX, AY: Double);
+
+{ The scale Fitted uses to put a source-sized view into a W by H picture, so
+  a mouse movement measured in the preview can be handed back in the terms
+  the view is actually kept in. }
+function ViewScale(SrcW, SrcH, W, H: Integer): Double;
+
 { The same view, framed for a different size of picture. }
 function Fitted(const V: TProjector; SrcW, SrcH, W, H: Integer): TProjector;
 
@@ -306,6 +319,31 @@ begin
   if P < 1E-4 then P := 1E-4;
   if P > 1E6 then P := 1E6;
   V.Ppu := P;
+end;
+
+function ViewScale(SrcW, SrcH, W, H: Integer): Double;
+begin
+  Result := 1;
+  if (SrcW <= 0) or (SrcH <= 0) or (W <= 0) or (H <= 0) then Exit;
+  Result := Min(W / SrcW, H / SrcH);
+  if Result < 1E-9 then Result := 1E-9;
+end;
+
+procedure ZoomAt(var V: TProjector; Factor, AX, AY: Double);
+var
+  P, X, Y: Double;
+begin
+  if Factor <= 0 then Exit;
+  P := V.Ppu * Factor;
+  if P < 1E-4 then P := 1E-4;
+  if P > 1E6 then P := 1E6;
+  { the factor that actually got applied, after the clamp }
+  Factor := P / V.Ppu;
+  X := AX - Factor * (AX - V.OX);
+  Y := AY - Factor * (AY - V.OY);
+  V.Ppu := P;
+  V.OX := X;
+  V.OY := Y;
 end;
 
 function Fitted(const V: TProjector; SrcW, SrcH, W, H: Integer): TProjector;

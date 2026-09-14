@@ -294,8 +294,8 @@ begin
   FPrev.OnMouseUp := @PrevUp;
   FPrev.OnMouseWheel := @PrevWheel;
 
-  FHint := MkLbl(Mid, 'Drag to turn it.  Right-drag or Shift-drag to slide it.  '
-    + 'Wheel to zoom.  This is the shot.',
+  FHint := MkLbl(Mid, 'Middle-drag turns it, right-drag slides it, wheel zooms - '
+    + 'the same as the drawing.  This is the shot.',
     10, 414, 420, True, False, -12);
 
   { --- what this format needs to be asked, on the right ------------- }
@@ -673,27 +673,35 @@ begin
   end;
 end;
 
+{ The same buttons as the drawing area, because a preview that answers to
+  different ones is a preview you have to think about.  Middle turns it,
+  right slides it, and the left button does nothing at all - there is nothing
+  here to pick. }
 procedure TExportDlg.PrevDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  FDragging := True;
-  FPanning := (Button = mbRight) or (Button = mbMiddle);
+  FDragging := Button in [mbMiddle, mbRight];
+  FPanning := Button = mbRight;
   FDragX := X;
   FDragY := Y;
 end;
 
 procedure TExportDlg.PrevMove(Sender: TObject; Shift: TShiftState;
   X, Y: Integer);
+var
+  K: Double;
 begin
   if not FDragging then Exit;
   { Shift is tested every move rather than only when the button went down, so
     you can grab it part way through a turn and slide instead - which is what
     the drawing area does and what the hand expects. }
+  K := ViewScale(FSrcW, FSrcH, FPrev.Width, FPrev.Height);
   if FPanning or (ssShift in Shift) then
     { the preview and the shot are different sizes, so a slide measured here
-      has to be put back in the shot's terms or it moves at the wrong speed }
-    PanBy(FView, (X - FDragX) * FSrcW / Max(1, FPrev.Width),
-                 (Y - FDragY) * FSrcH / Max(1, FPrev.Height))
+      goes back through the same scale the picture was fitted with, or it
+      moves at the wrong speed - and by ONE scale, not a different one per
+      axis, because that is what Fitted uses }
+    PanBy(FView, (X - FDragX) / K, (Y - FDragY) / K)
   else
     OrbitBy(FView, X - FDragX, Y - FDragY);
   FDragX := X;
@@ -714,8 +722,19 @@ end;
 
 procedure TExportDlg.PrevWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+var
+  P: TPoint;
+  K, AX, AY: Double;
 begin
-  if WheelDelta > 0 then ZoomBy(FView, 1.12) else ZoomBy(FView, 1 / 1.12);
+  { 1.15 and anchored on the cursor, both the same as the drawing area.
+    MousePos is in screen terms, so it comes back to the preview and then
+    through the fitting scale into the terms the view is kept in. }
+  P := FPrev.ScreenToClient(MousePos);
+  K := ViewScale(FSrcW, FSrcH, FPrev.Width, FPrev.Height);
+  AX := FSrcW / 2 + (P.X - FPrev.Width / 2) / K;
+  AY := FSrcH / 2 + (P.Y - FPrev.Height / 2) / K;
+  if WheelDelta > 0 then ZoomAt(FView, 1.15, AX, AY)
+  else ZoomAt(FView, 1 / 1.15, AX, AY);
   FPrev.Invalidate;
   Handled := True;
 end;

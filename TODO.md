@@ -1178,6 +1178,41 @@ does both.
 Left standing: the -O3 local-first workaround, which was a real hazard whether
 or not it was this one.
 
+### Our own fork of BGRABitmap, for later
+
+Tony, 13 September: he likes the project and wants to keep using and
+supporting it, and to send improvements back when we have any.  So the plan is
+a fork we build against, not a vendored copy we quietly diverge with - the
+point is to be able to contribute, which means staying close enough to upstream
+that a patch still applies.
+
+Not a priority.  Nothing is blocked on it: BGRABitmap does everything asked of
+it so far, and the one fault we hit was ours - `BGRAColorQuantizerFactory` was
+never assigned.  Worth revisiting the first time we want a change in it rather
+than around it.
+
+The one we already know we would want: **a streaming GIF writer**.
+TBGRAAnimatedGif assembles the whole film in memory before writing a byte,
+which is the only reason there is a frame budget at all.  A writer that took
+one frame at a time and emitted it would remove the ceiling entirely and let a
+recording run as long as somebody likes at any size.  That is a real
+contribution rather than a private patch, so it belongs upstream.
+
+### The recording workflow needs another pass
+
+Tony, having used it: "the workflow for recording a gif isn't too intuitive but
+it did work."  He is going to send specific notes.  Known already, and fixed on
+14 September: the popup did not pan or zoom the way the drawing area does -
+left-drag turned it, the wheel zoomed to the middle rather than the cursor, and
+the buttons did not match.  Now middle turns, right slides, left does nothing,
+and the wheel zooms 1.15 anchored on the pointer, the same as `ZoomAt` in the
+drawing area.
+
+Still open, and worth thinking about before he writes: getting to it takes
+Export, then GIF, then a button - three steps before you find out it exists.
+It may want to be reachable straight from the toolbar, or from the right button
+on the drawing itself.
+
 ### Examples written out beside the portable exe
 
 Tony, 13 September.  The program ships as one executable on purpose and that

@@ -100,8 +100,8 @@ begin
   FTell := TBCLabel.Create(Self);
   FTell.Parent := Self;
   FTell.SetBounds(18, 40, 700, 20);
-  FTell.Caption := 'Drag to turn.  Right-drag to slide.  Wheel to zoom.  ' +
-    'Escape when you are done.';
+  FTell.Caption := 'Middle-drag turns it, right-drag slides it, wheel zooms' +
+    ' - the same as the drawing.  Escape when you are done.';
   uDlgSkin.SkinLabel(FTell, True, -13);
 
   FStop := TBCButton.Create(Self);
@@ -148,8 +148,8 @@ begin
       FRolling := True;
       FElapsed := 0;
       FTitle.Caption := 'Recording';
-      FTell.Caption := 'Drag to turn.  Right-drag to slide.  Wheel to zoom.'
-        + '  Escape when you are done.';
+      FTell.Caption := 'Middle-drag turns it, right-drag slides it, wheel ' +
+        'zooms.  Escape when you are done.';
       Grab;
     end;
     FBox.Invalidate;
@@ -217,25 +217,26 @@ end;
 procedure TRecordWin.Down(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  FDrag := Button = mbLeft;
-  FPan := (Button = mbRight) or (Button = mbMiddle);
+  { the same buttons as the drawing area: middle turns, right slides, and
+    the left button does nothing, because there is nothing here to pick }
+  FDrag := Button in [mbMiddle, mbRight];
+  FPan := Button = mbRight;
   FDX := X;
   FDY := Y;
 end;
 
 procedure TRecordWin.Move_(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+var
+  K: Double;
 begin
+  if not FDrag then Exit;
+  K := ViewScale(FSrcW, FSrcH, FBox.Width, FBox.Height);
   { Shift is tested every move, not only when the button went down, so it can
     be grabbed part way through a turn - the same as the drawing area }
-  if FPan or (FDrag and (ssShift in Shift)) then
-    { the window and the shot are different sizes, so a slide measured here
-      has to be put back in the shot's terms or it moves at the wrong speed }
-    PanBy(FView, (X - FDX) * FSrcW / Max(1, FBox.Width),
-                 (Y - FDY) * FSrcH / Max(1, FBox.Height))
-  else if FDrag then
-    OrbitBy(FView, X - FDX, Y - FDY)
+  if FPan or (ssShift in Shift) then
+    PanBy(FView, (X - FDX) / K, (Y - FDY) / K)
   else
-    Exit;
+    OrbitBy(FView, X - FDX, Y - FDY);
   FDX := X;
   FDY := Y;
   FBox.Invalidate;
@@ -251,8 +252,17 @@ end;
 
 procedure TRecordWin.Wheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+var
+  P: TPoint;
+  K, AX, AY: Double;
 begin
-  if WheelDelta > 0 then ZoomBy(FView, 1.10) else ZoomBy(FView, 1 / 1.10);
+  { 1.15 and anchored on the cursor, the same as the drawing area }
+  P := FBox.ScreenToClient(MousePos);
+  K := ViewScale(FSrcW, FSrcH, FBox.Width, FBox.Height);
+  AX := FSrcW / 2 + (P.X - FBox.Width / 2) / K;
+  AY := FSrcH / 2 + (P.Y - FBox.Height / 2) / K;
+  if WheelDelta > 0 then ZoomAt(FView, 1.15, AX, AY)
+  else ZoomAt(FView, 1 / 1.15, AX, AY);
   FBox.Invalidate;
   Handled := True;
 end;

@@ -14,6 +14,12 @@
 
 ### Fixed
 
+- **The preview and the recording window now handle like the drawing.**
+  Middle-drag turns it, right-drag slides it, the left button does nothing,
+  and the wheel zooms on the pointer rather than the middle of the picture -
+  all the same as the drawing area, at the same speed.  They were all
+  different before, which is why moving around in there felt odd.
+
 - **The GIF export crash, properly this time - and a correction.**  The last
   release blamed memory and rationed the frames accordingly.  That was wrong.
 
