@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **You do not have to remember the commands any more.**  Type `/` and the
+  whole list comes up with a word about what each one does.  Keep typing and
+  it narrows, the way an editor's autocomplete does - `/re` leaves you
+  /rebuild, /rect, /redo, /reface and the rest.  Up and down walk it, Enter
+  takes what is highlighted, Tab completes without running it, Escape puts it
+  away, and clicking a row does the same as Enter on it.
+
+  The ones you have used lately sit at the top and the rest are alphabetical,
+  so it works whether or not you know what the thing is called.  It remembers
+  them between sessions.
+
+  There is a `/` button at the left of the command bar for anybody who has
+  not found the keyboard yet.
+
 ## v2026.09.14.10
 
 ### New

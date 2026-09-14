@@ -32,7 +32,7 @@ if [ $# -gt 0 ]; then
   NAMES="$*"
 else
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
-         glass-revolve plan-slice plan-hidden"
+         glass-revolve plan-slice plan-hidden command-list"
 fi
 
 BAD=0

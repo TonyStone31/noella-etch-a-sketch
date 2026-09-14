@@ -165,6 +165,14 @@ type
     procedure KeepExportDir(const Ext, Dir: string);
     function SaveDirNow: string;
     function OpenDirNow: string;
+    { the command list's order: used lately first, then alphabetical }
+    procedure BuildCmdOrder;
+    procedure SyncCmdList;
+    procedure TakeCmdHighlight;
+    procedure MoveCmdHighlight(Key: word);
+    { True when what is typed is already the whole name of a command }
+    function ExactCmd(const S: string): Boolean;
+    procedure NoteCmdUsed(const Cmd: string);
     procedure CornerSelection;
     procedure ShowOpenEdges;
     procedure OpenManual;
@@ -182,6 +190,10 @@ type
     procedure FormResize(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure pbCmdPaint(Sender: TObject);
+    procedure pbCmdMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure pbCmdMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure pbCmdMouseLeave(Sender: TObject);
     procedure pbTabsMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure pbTabsMouseLeave(Sender: TObject);
@@ -688,6 +700,17 @@ type
     FPopupR: TRect;
     FPopupN: Integer;
     FPopupHot: Integer;
+    { The first row showing.  Only the command list is long enough to need
+      it; everything else opens at nought and stays there. }
+    FPopupTop: Integer;
+    { the commands somebody has actually used, most recent first, as a comma
+      list - kept in the settings so the list is in their order next time }
+    FCmdRecent: string;
+    { the order the rows are in: recents, then the rest alphabetical }
+    FCmdOrder: array of Integer;
+    { where the arrow beside the prompt is, for hit testing }
+    FCmdArrow: TRect;
+    FCmdArrowHot: Boolean;
     FCursorWas: TCursor;
     FSliderGrab: Boolean;
 
@@ -1067,6 +1090,98 @@ const
   POP_PREC   = 6;
   { The rest of the tools, behind one door.  See MAIN_TOOLS. }
   POP_MORE   = 7;
+  { Every typed command, with a word about each.  The command bar is the
+    fastest way to work this program and the slowest to find out about -
+    everything in it was something you had to already know.  This is the
+    arrow beside the prompt, and it is the one list in the program that is
+    too long to fit, so it scrolls. }
+  POP_CMDS   = 8;
+
+type
+  { a typed command, as the list shows it }
+  TCmdItem = record
+    Name: string;      { what to type, without the slash }
+    Hint: string;      { what it does, in a few words }
+    Arg: Boolean;      { True when it wants something after it }
+  end;
+
+const
+  { Alphabetical, because that is where a thing is when you do not know what
+    it is called; the ones you have used lately float to the top, because
+    that is where a thing is when you do.
+
+    One row per action rather than one per word - /erase, /e and /del are the
+    same thing and three rows of it would be a worse list.  The aliases all
+    still work; they are in the README. }
+  CMD_LIST: array[0..65] of TCmdItem = (
+    (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
+    (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
+    (Name: 'back';       Hint: 'look from behind';                      Arg: False),
+    (Name: 'center';     Hint: 'put the middle of it on 0,0,0';         Arg: False),
+    (Name: 'circle';     Hint: 'the circle tool';                       Arg: False),
+    (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
+    (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
+    (Name: 'corner';     Hint: 'look from a corner';                    Arg: False),
+    (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True),
+    (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False),
+    (Name: 'drill';      Hint: 'push a shape right through';            Arg: False),
+    (Name: 'erase';      Hint: 'the eraser';                            Arg: False),
+    (Name: 'fit';        Hint: 'zoom until it all shows';               Arg: False),
+    (Name: 'followme';   Hint: 'revolve or sweep a face';               Arg: False),
+    (Name: 'forget';     Hint: 'forget the areas seen, and work them out again'; Arg: False),
+    (Name: 'front';      Hint: 'look from the front';                   Arg: False),
+    (Name: 'grid';       Hint: 'the ruled paper, on or off';            Arg: False),
+    (Name: 'guides';     Hint: 'clear the guide lines';                 Arg: False),
+    (Name: 'help';       Hint: 'about this program';                    Arg: False),
+    (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False),
+    (Name: 'iso';        Hint: 'the isometric view';                    Arg: False),
+    (Name: 'left';       Hint: 'look from the left';                    Arg: False),
+    (Name: 'line';       Hint: 'the line tool';                         Arg: False),
+    (Name: 'manual';     Hint: 'open the manual';                       Arg: False),
+    (Name: 'measure';    Hint: 'the tape measure';                      Arg: False),
+    (Name: 'move';       Hint: 'the move tool';                         Arg: False),
+    (Name: 'new';        Hint: 'a new sheet';                           Arg: False),
+    (Name: 'offset';     Hint: 'a parallel copy of a face''s edge';     Arg: False),
+    (Name: 'orbit';      Hint: 'the free camera';                       Arg: False),
+    (Name: 'origin';     Hint: 'put the view back on 0,0,0';            Arg: False),
+    (Name: 'plan';       Hint: 'look straight down';                    Arg: False),
+    (Name: 'plane';      Hint: 'the working plane: xy, xz or yz';       Arg: True),
+    (Name: 'print';      Hint: 'this sheet - or "all", or "full"';      Arg: True),
+    (Name: 'protractor'; Hint: 'lay a guide at an angle';               Arg: False),
+    (Name: 'push';       Hint: 'push or pull a face';                   Arg: False),
+    (Name: 'quick';      Hint: 'quick frames while the camera moves';   Arg: False),
+    (Name: 'rebuild';    Hint: 'work the faces out again';              Arg: False),
+    (Name: 'rect';       Hint: 'the rectangle tool';                    Arg: False),
+    (Name: 'redo';       Hint: 'put back what was undone';              Arg: False),
+    (Name: 'reface';     Hint: 'throw the flat faces away and rebuild'; Arg: False),
+    (Name: 'regions';    Hint: 'report the flat areas found';           Arg: False),
+    (Name: 'rendertime'; Hint: 'time a whole frame';                    Arg: False),
+    (Name: 'replay';     Hint: 'play back a session from a report';     Arg: False),
+    (Name: 'report';     Hint: 'send a bug report, with a picture';     Arg: False),
+    (Name: 'resize';     Hint: 'retype a picked dimension';             Arg: True),
+    (Name: 'reverse';    Hint: 'turn the picked faces over';            Arg: False),
+    (Name: 'right';      Hint: 'look from the right';                   Arg: False),
+    (Name: 'rotate';     Hint: 'the rotate tool';                       Arg: False),
+    (Name: 'save';       Hint: 'save the drawing';                      Arg: False),
+    (Name: 'saveas';     Hint: 'save it under a new name';              Arg: False),
+    (Name: 'scale';      Hint: 'the print scale: 1/4", 1" and so on';   Arg: True),
+    (Name: 'select';     Hint: 'the select tool';                       Arg: False),
+    (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False),
+    (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False),
+    (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False),
+    (Name: 'text';       Hint: 'a note on the drawing';                 Arg: False),
+    (Name: 'threads';    Hint: 'background work, on or off';            Arg: False),
+    (Name: 'timings';    Hint: 'print the steps of each edit';          Arg: False),
+    (Name: 'top';        Hint: 'look from above';                       Arg: False),
+    (Name: 'tozero';     Hint: 'put its near bottom corner on 0,0,0';   Arg: False),
+    (Name: 'transition'; Hint: 'build a duct fitting';                  Arg: False),
+    (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False),
+    (Name: 'unfold';     Hint: 'lay a piece out flat';                  Arg: False),
+    (Name: 'units';      Hint: 'feet and inches, or millimetres';       Arg: False),
+    (Name: 'update';     Hint: 'look for a newer build';                Arg: False),
+    (Name: 'whatsnew';   Hint: 'the release notes';                     Arg: False));
+
+const
 
   { How finely a length is written down, and what the last field of a dashed
     entry counts in.  A truss shop works in sixteenths, which is the default;
@@ -3145,6 +3260,206 @@ begin
     FCmdMsg := 'Moved the whole drawing onto the origin.';
   InvalidateStatus;
   Invalidate;
+end;
+
+{ Keep the list in step with what has been typed.
+
+  Called from every place FInput changes while a command is being typed: the
+  list opens on the slash, narrows as the letters arrive, and closes again
+  when the slash is rubbed out.  The highlight sits on the first row, which
+  is the one Enter will take. }
+procedure TMainForm.SyncCmdList;
+var
+  H: Integer;
+begin
+  if FMode <> mdPro then Exit;
+  if Copy(FInput, 1, 1) <> '/' then
+  begin
+    if FPopup = POP_CMDS then ClosePopup;
+    Exit;
+  end;
+  if FPopup <> POP_CMDS then OpenPopup(POP_CMDS)
+  else
+    BuildCmdOrder;
+  { OpenPopup counts the whole list; what is actually in it is whatever
+    survived the filter }
+  FPopupN := Length(FCmdOrder);
+  { and the panel shrinks to what is left in it - a list of four rows in a
+    box built for sixty is a box with a hole in it }
+  H := FPopupN * Round(22 * FUIScale) + Round(12 * FUIScale);
+  if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
+  FPopupR := Rect(FPopupR.Left, FPopupR.Bottom - H, FPopupR.Right,
+                  FPopupR.Bottom);
+  if FPopupR.Top < 4 then
+    FPopupR := Rect(FPopupR.Left, 4, FPopupR.Right, 4 + H);
+  FPopupTop := 0;
+  if FPopupN > 0 then FPopupHot := 0 else FPopupHot := -1;
+  FScreenDirty := True;
+  pbScreen.Invalidate;
+end;
+
+{ Up and down the list, with the view following the highlight. }
+procedure TMainForm.MoveCmdHighlight(Key: word);
+var
+  Rows, Step: Integer;
+begin
+  if Length(FCmdOrder) = 0 then Exit;
+  Rows := Max(1, (FPopupR.Bottom - FPopupR.Top - Round(12 * FUIScale)) div
+                 Max(1, Round(22 * FUIScale)));
+  case Key of
+    VK_UP:    Step := -1;
+    VK_DOWN:  Step := 1;
+    VK_PRIOR: Step := -Rows;
+  else        Step := Rows;
+  end;
+  FPopupHot := EnsureRange(FPopupHot + Step, 0, High(FCmdOrder));
+  if FPopupHot < FPopupTop then FPopupTop := FPopupHot;
+  if FPopupHot > FPopupTop + Rows - 1 then FPopupTop := FPopupHot - Rows + 1;
+  FPopupTop := EnsureRange(FPopupTop, 0, Max(0, Length(FCmdOrder) - Rows));
+  FScreenDirty := True;
+  pbScreen.Invalidate;
+end;
+
+function TMainForm.ExactCmd(const S: string): Boolean;
+var
+  W: string;
+  I: Integer;
+begin
+  W := LowerCase(Trim(S));
+  if Copy(W, 1, 1) = '/' then W := Copy(W, 2, MaxInt);
+  { anything with an argument after it has been typed on purpose }
+  if Pos(' ', W) > 0 then Exit(True);
+  Result := False;
+  for I := 0 to High(CMD_LIST) do
+    if CMD_LIST[I].Name = W then Exit(True);
+end;
+
+{ Take the highlighted row: complete it into the box, and run it when it
+  wants nothing after it.  What a click on a row does, and what Enter does
+  while the list is up. }
+procedure TMainForm.TakeCmdHighlight;
+var
+  It: TCmdItem;
+begin
+  if (FPopupHot < 0) or (FPopupHot >= Length(FCmdOrder)) then Exit;
+  It := CMD_LIST[FCmdOrder[FPopupHot]];
+  NoteCmdUsed(It.Name);
+  ClosePopup;
+  if It.Arg then
+  begin
+    { one that wants something after it is completed and left waiting -
+      running /scale with nothing after it is a question, not an answer }
+    FInput := '/' + It.Name + ' ';
+    FCmdMsg := It.Hint;
+  end
+  else
+  begin
+    FInput := '';
+    RunCommand(It.Name);
+  end;
+  pbCmd.Invalidate;
+  pbScreen.Invalidate;
+end;
+
+{ What is in the command list, and in what order.
+
+  It works the way an editor's autocomplete does: type a slash and the whole
+  list is there, keep typing and it narrows.  What is typed after the slash
+  is the filter - the ones that start with it first, because that is what
+  you were reaching for, then the ones that merely contain it, because
+  sometimes you only remember the middle of a word.
+
+  With nothing typed yet the order is the one that answers both kinds of
+  not-knowing: the commands used lately on top, most recent first, and the
+  rest alphabetical.  Alphabetical is where a thing is when you do not know
+  what it is called; recent is where it is when you do. }
+procedure TMainForm.BuildCmdOrder;
+var
+  I, N: Integer;
+  Used: array of Boolean;
+  Parts: TStringList;
+  Want: string;
+
+  { 0 no match, 1 it starts with it, 2 it is in there somewhere }
+  function Rank(const Name: string): Integer;
+  begin
+    if Want = '' then Exit(1);
+    if Copy(Name, 1, Length(Want)) = Want then Exit(1);
+    if Pos(Want, Name) > 0 then Exit(2);
+    Result := 0;
+  end;
+
+  procedure Sweep(Pass: Integer);
+  var
+    K, M: Integer;
+  begin
+    { the ones used lately first, in the order they were used }
+    Parts := TStringList.Create;
+    try
+      Parts.Delimiter := ',';
+      Parts.StrictDelimiter := True;
+      Parts.DelimitedText := FCmdRecent;
+      for K := 0 to Parts.Count - 1 do
+        for M := 0 to High(CMD_LIST) do
+          if (not Used[M]) and (CMD_LIST[M].Name = Trim(Parts[K])) and
+             (Rank(CMD_LIST[M].Name) = Pass) then
+          begin
+            FCmdOrder[N] := M;
+            Used[M] := True;
+            Inc(N);
+            Break;
+          end;
+    finally
+      Parts.Free;
+    end;
+    { then the rest - CMD_LIST is written alphabetical, so as they come }
+    for M := 0 to High(CMD_LIST) do
+      if (not Used[M]) and (Rank(CMD_LIST[M].Name) = Pass) then
+      begin
+        FCmdOrder[N] := M;
+        Used[M] := True;
+        Inc(N);
+      end;
+  end;
+
+begin
+  { whatever has been typed after the slash }
+  Want := LowerCase(Trim(FInput));
+  if Copy(Want, 1, 1) = '/' then Want := Copy(Want, 2, MaxInt);
+  I := Pos(' ', Want);
+  if I > 0 then Want := Copy(Want, 1, I - 1);
+
+  SetLength(FCmdOrder, Length(CMD_LIST));
+  SetLength(Used, Length(CMD_LIST));
+  for I := 0 to High(Used) do Used[I] := False;
+  N := 0;
+  Sweep(1);
+  Sweep(2);
+  SetLength(FCmdOrder, N);
+end;
+
+{ Remember one, at the front, and keep the list short enough to be a list of
+  what you use rather than a list of what you have ever used. }
+procedure TMainForm.NoteCmdUsed(const Cmd: string);
+const
+  KEEP = 8;
+var
+  Parts: TStringList;
+  I: Integer;
+begin
+  Parts := TStringList.Create;
+  try
+    Parts.Delimiter := ',';
+    Parts.StrictDelimiter := True;
+    Parts.DelimitedText := FCmdRecent;
+    for I := Parts.Count - 1 downto 0 do
+      if Trim(Parts[I]) = Cmd then Parts.Delete(I);
+    Parts.Insert(0, Cmd);
+    while Parts.Count > KEEP do Parts.Delete(Parts.Count - 1);
+    FCmdRecent := Parts.DelimitedText;
+  finally
+    Parts.Free;
+  end;
 end;
 
 { Into the corner at the origin, rather than centred on it.
@@ -6126,6 +6441,48 @@ end;
 
 { The command bar always says what it wants next, so nothing has to be
   memorised.  It also takes typed lengths and typed commands. }
+{ The slash button: press it and you are typing a command, with the list up.
+  Pressing it again puts the list away, the way every button that opens a
+  list in this program does. }
+procedure TMainForm.pbCmdMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if Button <> mbLeft then Exit;
+  if FMode <> mdPro then Exit;
+  if not PtInRect(FCmdArrow, Point(X, Y)) then Exit;
+  if FPopup = POP_CMDS then
+  begin
+    ClosePopup;
+    FInput := '';
+  end
+  else
+  begin
+    FInput := '/';
+    SyncCmdList;
+  end;
+  pbCmd.Invalidate;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.pbCmdMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+var
+  Was: Boolean;
+begin
+  Was := FCmdArrowHot;
+  FCmdArrowHot := (FMode = mdPro) and PtInRect(FCmdArrow, Point(X, Y));
+  if FCmdArrowHot <> Was then pbCmd.Invalidate;
+end;
+
+procedure TMainForm.pbCmdMouseLeave(Sender: TObject);
+begin
+  if FCmdArrowHot then
+  begin
+    FCmdArrowHot := False;
+    pbCmd.Invalidate;
+  end;
+end;
+
 procedure TMainForm.pbCmdPaint(Sender: TObject);
 var
   W, H, X, TW, I: Integer;
@@ -6142,7 +6499,35 @@ begin
     Round(10 * FUIScale), H - Round(6 * FUIScale)), 2, Theme.Accent, 0.9);
   FCmdSkin.DrawTo(pbCmd.Canvas, 0, 0);
 
-  X := Round(22 * FUIScale);
+  { The way in to every typed command.  The command bar is the fastest part
+    of this program to use and the slowest to find out about - everything in
+    it was something you had to already know.  Pressing this types the slash
+    and brings the list up, which is the same thing typing a slash does: one
+    door, and a button on it for anybody who has not found the keyboard. }
+  FCmdArrow := Rect(Round(16 * FUIScale), Round(5 * FUIScale),
+                    Round(40 * FUIScale), H - Round(5 * FUIScale));
+  pbCmd.Canvas.Brush.Style := bsSolid;
+  if FCmdArrowHot or (FPopup = POP_CMDS) then
+    pbCmd.Canvas.Brush.Color := PixToColor(Theme.Accent)
+  else
+    pbCmd.Canvas.Brush.Color := PixToColor(MixPix(Theme.Panel,
+      Pix(255, 255, 255), 0.10));
+  pbCmd.Canvas.Pen.Style := psClear;
+  pbCmd.Canvas.RoundRect(FCmdArrow.Left, FCmdArrow.Top,
+    FCmdArrow.Right, FCmdArrow.Bottom, Round(7 * FUIScale),
+    Round(7 * FUIScale));
+  pbCmd.Canvas.Pen.Style := psSolid;
+  pbCmd.Canvas.Brush.Style := bsClear;
+  if FCmdArrowHot or (FPopup = POP_CMDS) then
+    UIFont(pbCmd.Canvas, 12, True, OnPix(Theme.Accent))
+  else
+    UIFont(pbCmd.Canvas, 12, True, Theme.TextDim);
+  S := '/';
+  pbCmd.Canvas.TextOut(
+    (FCmdArrow.Left + FCmdArrow.Right - pbCmd.Canvas.TextWidth(S)) div 2,
+    (FCmdArrow.Top + FCmdArrow.Bottom - pbCmd.Canvas.TextHeight(S)) div 2, S);
+
+  X := Round(48 * FUIScale);
   if FBusy then
   begin
     { long work on the main thread: what it is and how far, in place of the
@@ -11098,6 +11483,17 @@ begin
     W := Copy(W, 1, P - 1);
   end;
 
+  { Whichever way it arrived - typed out in full, picked off the list, or
+    taken from a menu - it counts as one you use, and the list puts it near
+    the top next time.  Here rather than in the list, because a command
+    typed from memory is the best evidence of all that you use it. }
+  for I := 0 to High(CMD_LIST) do
+    if CMD_LIST[I].Name = W then
+    begin
+      NoteCmdUsed(W);
+      Break;
+    end;
+
   if (W = 'line') or (W = 'l') then SetTool(ptLine)
   else if (W = 'select') or (W = 's') then SetTool(ptSelect)
   else if (W = 'move') or (W = 'mv') then SetTool(ptMove)
@@ -12339,6 +12735,11 @@ begin
     FMouseSX := X;
     FMouseSY := Y;
     HF := PopupItemAt(X, Y);
+    { The command list is being typed at, so the pointer wandering off it
+      must not take the highlight with it - the row Enter would run has to
+      stay put while somebody is looking at the keyboard.  Hovering a row
+      still moves it; leaving the list simply leaves it where it was. }
+    if (HF < 0) and (FPopup = POP_CMDS) then HF := FPopupHot;
     if HF <> FPopupHot then
     begin
       FPopupHot := HF;
@@ -12775,6 +13176,7 @@ begin
     POP_SHOP: Result := 3;
     POP_PREC: Result := Length(PREC_DENOMS);
     POP_MORE: Result := Length(MORE_TOOLS);
+    POP_CMDS: Result := Length(CMD_LIST);
   else
     Result := 0;
   end;
@@ -12803,6 +13205,11 @@ begin
     POP_MORE:
       if (I >= 0) and (I <= High(MORE_TOOLS)) then
         Result := TOOL_NAMES[MORE_TOOLS[I]]
+      else
+        Result := '';
+    POP_CMDS:
+      if (I >= 0) and (I < Length(FCmdOrder)) then
+        Result := '/' + CMD_LIST[FCmdOrder[I]].Name
       else
         Result := '';
     POP_HELP:
@@ -12843,6 +13250,26 @@ begin
     POP_PREC: SetLenPrecision(PREC_DENOMS[EnsureRange(I, 0, High(PREC_DENOMS))]);
     POP_MORE:
       if (I >= 0) and (I <= High(MORE_TOOLS)) then SetTool(MORE_TOOLS[I]);
+    POP_CMDS:
+      if (I >= 0) and (I < Length(FCmdOrder)) then
+      begin
+        NoteCmdUsed(CMD_LIST[FCmdOrder[I]].Name);
+        { One that wants something after it is typed into the box ready for
+          it rather than run - running /scale with nothing after it is a
+          question, not an answer.  One that does not is simply done: the
+          whole point of picking it off a list is not having to type. }
+        if CMD_LIST[FCmdOrder[I]].Arg then
+        begin
+          FInput := '/' + CMD_LIST[FCmdOrder[I]].Name + ' ';
+          FCmdMsg := CMD_LIST[FCmdOrder[I]].Hint;
+        end
+        else
+        begin
+          FInput := '';
+          RunCommand(CMD_LIST[FCmdOrder[I]].Name);
+        end;
+        pbCmd.Invalidate;
+      end;
     POP_HELP:
       case I of
         0: ShowAbout;
@@ -12869,6 +13296,8 @@ begin
   FPopup := Which;
   FPopupN := N;
   FPopupHot := -1;
+  FPopupTop := 0;
+  if Which = POP_CMDS then BuildCmdOrder;
   { An arrow over a menu, not a drawing crosshair.  The pointer is choosing a
     row, not a point on the paper. }
   FCursorWas := pbScreen.Cursor;
@@ -12887,6 +13316,13 @@ begin
       TopY := pbTools.Top + B.Top - pbScreen.Top;
       Break;
     end;
+  { the command list hangs off the arrow beside the prompt, at the foot }
+  if Which = POP_CMDS then
+  begin
+    LeftX := Round(14 * FUIScale);
+    TopY := -1;
+  end
+  else
   if TopY < 0 then
     for I := 0 to High(FDeck) do
       if ((FDeck[I].Group = GRP_POPUP) and (FDeck[I].Value = Which)) or
@@ -12902,6 +13338,9 @@ begin
   W := Round(190 * FUIScale);
   if Which = POP_COLOR then W := Round(150 * FUIScale);
   if Which = POP_HELP then W := Round(210 * FUIScale);
+  { wide, because every row carries what the command does beside its name -
+    a hint you have to hover for is a hint you have to already suspect }
+  if Which = POP_CMDS then W := Round(430 * FUIScale);
   H := N * RowH + Round(12 * FUIScale);
   Bottom := pbScreen.Height - Round(6 * FUIScale);
   if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
@@ -12935,8 +13374,8 @@ begin
   if (SX < FPopupR.Left) or (SX > FPopupR.Right) or
      (SY < FPopupR.Top) or (SY > FPopupR.Bottom) then Exit;
   RowH := Round(22 * FUIScale);
-  Result := (SY - FPopupR.Top - Round(6 * FUIScale)) div RowH;
-  if (Result < 0) or (Result >= FPopupN) then Result := -1;
+  Result := (SY - FPopupR.Top - Round(6 * FUIScale)) div RowH + FPopupTop;
+  if (Result < FPopupTop) or (Result >= FPopupN) then Result := -1;
 end;
 
 { A small badge of the current tool, drawn through a scratch surface so it
@@ -12977,9 +13416,9 @@ begin
     Cur := -1;
   end;
 
-  for I := 0 to FPopupN - 1 do
+  for I := FPopupTop to FPopupN - 1 do
   begin
-    Y := FPopupR.Top + Round(6 * FUIScale) + I * RowH;
+    Y := FPopupR.Top + Round(6 * FUIScale) + (I - FPopupTop) * RowH;
     if Y + RowH > FPopupR.Bottom then Break;
     R := Rect(FPopupR.Left + Round(4 * FUIScale), Y,
       FPopupR.Right - Round(4 * FUIScale), Y + RowH - 1);
@@ -13020,6 +13459,33 @@ begin
     else UIFont(C, 10, False, Theme.Text);
     C.TextOut(R.Left + Round(8 * FUIScale),
       R.Top + (RowH - C.TextHeight('X')) div 2, S);
+
+    { what it does, beside what it is called }
+    if (FPopup = POP_CMDS) and (I < Length(FCmdOrder)) then
+    begin
+      if Sel then UIFont(C, 10, False, OnPix(Theme.Accent))
+      else UIFont(C, 10, False, Theme.TextDim);
+      C.TextOut(R.Left + Round(120 * FUIScale),
+        R.Top + (RowH - C.TextHeight('X')) div 2,
+        CMD_LIST[FCmdOrder[I]].Hint);
+    end;
+  end;
+
+  { how far down a long list this is, drawn rather than counted out }
+  if (FPopupN * RowH) > (FPopupR.Bottom - FPopupR.Top - Round(12 * FUIScale)) then
+  begin
+    I := (FPopupR.Bottom - FPopupR.Top - Round(12 * FUIScale)) div RowH;
+    C.Brush.Style := bsSolid;
+    C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.25));
+    C.FillRect(Rect(FPopupR.Right - Round(6 * FUIScale), FPopupR.Top + 4,
+                    FPopupR.Right - Round(2 * FUIScale), FPopupR.Bottom - 4));
+    C.Brush.Color := PixToColor(Theme.Accent);
+    Y := FPopupR.Top + 4 +
+      Round((FPopupR.Bottom - FPopupR.Top - 8) * FPopupTop / FPopupN);
+    C.FillRect(Rect(FPopupR.Right - Round(6 * FUIScale), Y,
+                    FPopupR.Right - Round(2 * FUIScale),
+                    Y + Max(16, Round((FPopupR.Bottom - FPopupR.Top - 8) *
+                                      I / FPopupN))));
   end;
   C.Brush.Style := bsClear;
   C.Pen.Width := 1;
@@ -16341,6 +16807,8 @@ begin
   if (Copy(FInput, 1, 1) = '/') and (Key >= ' ') then
   begin
     FInput := FInput + Key;
+    { and the list narrows with it, the way an editor's does }
+    SyncCmdList;
     pbCmd.Invalidate;
     Key := #0;
     Exit;
@@ -16379,6 +16847,9 @@ begin
   begin
     FInput := FInput + Key;
     FCmdMsg := '';
+    { a slash with nothing before it is the start of a command, and that is
+      where the list comes up }
+    if FInput = '/' then SyncCmdList;
     pbCmd.Invalidate;
     pbScreen.Invalidate;
     Key := #0;
@@ -16589,6 +17060,20 @@ begin
        (FDimEdit >= 0) then
     begin
       case Key of
+        { Up and down walk the command list while it is open - that is what
+          they are for in every list anybody has ever used - and Tab
+          completes to the row without running it. }
+        VK_UP, VK_DOWN, VK_PRIOR, VK_NEXT:
+          if FPopup = POP_CMDS then MoveCmdHighlight(Key) else Exit;
+        VK_TAB:
+          if (FPopup = POP_CMDS) and (FPopupHot >= 0) then
+          begin
+            FInput := '/' + CMD_LIST[FCmdOrder[FPopupHot]].Name;
+            SyncCmdList;
+            pbCmd.Invalidate;
+          end
+          else
+            Exit;
         VK_RETURN:
           { Shift+Enter is another line of the note, Enter finishes it.  A
             note on a fab drawing is rarely one line - a size, a spec and a
@@ -16598,8 +17083,17 @@ begin
             FInput := FInput + #10;
             pbCmd.Invalidate;
           end
+          { and Enter takes what the list is pointing at, unless what has
+            been typed is already the whole of a command - /line and Enter
+            runs /line, not whatever happens to be highlighted }
+          else if (FPopup = POP_CMDS) and (FPopupHot >= 0) and
+                  not ExactCmd(FInput) then
+            TakeCmdHighlight
           else
+          begin
+            if FPopup = POP_CMDS then ClosePopup;
             CommandEnter;
+          end;
         VK_ESCAPE:
           if FDimEdit >= 0 then
           begin
@@ -16609,11 +17103,22 @@ begin
             pbCmd.Invalidate;
             pbScreen.Invalidate;
           end
+          { the list first, then what was typed, then the tool - one press
+            per thing, the way Escape works everywhere else here }
+          else if FPopup = POP_CMDS then
+          begin
+            ClosePopup;
+            FInput := '';
+            pbCmd.Invalidate;
+          end
           else
             ResetTool;
         VK_BACK:
           begin
             if FInput <> '' then SetLength(FInput, Length(FInput) - 1);
+            { rubbing letters out widens the list again, and rubbing the
+              slash out puts it away }
+            SyncCmdList;
             pbCmd.Invalidate;
             pbScreen.Invalidate;
           end;
@@ -16626,14 +17131,38 @@ begin
 
     case Key of
       VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_PRIOR, VK_NEXT:
+        { the command list takes the up and down arrows while it is open -
+          that is what they are for in every list anybody has ever used }
+        if (FPopup = POP_CMDS) and (Key in [VK_UP, VK_DOWN, VK_PRIOR, VK_NEXT]) then
+          MoveCmdHighlight(Key)
         { before a shape is under way the arrows pick the plane; after that
           they lock a direction, which is only meaningful for a line }
-        if (FTool in [ptRect, ptCircle, ptArc]) or
+        else if (FTool in [ptRect, ptCircle, ptArc]) or
            ((FTool = ptLine) and (FStage = 0)) then
           PlaneByArrow(Key)
         else
           Arrow(Key);
-      VK_RETURN: CommandEnter;
+      { Enter takes what the list is pointing at, when it is open and what is
+        typed is not already the whole of a command.  Typing /line and
+        pressing Enter still runs /line and not whatever is highlighted. }
+      VK_RETURN:
+        if (FPopup = POP_CMDS) and (FPopupHot >= 0) and
+           not ExactCmd(FInput) then TakeCmdHighlight
+        else
+        begin
+          if FPopup = POP_CMDS then ClosePopup;
+          CommandEnter;
+        end;
+      { and Tab completes without running, which is the other half of what a
+        list like this is for }
+      VK_TAB: if (FPopup = POP_CMDS) and (FPopupHot >= 0) then
+              begin
+                FInput := '/' + CMD_LIST[FCmdOrder[FPopupHot]].Name;
+                SyncCmdList;
+                pbCmd.Invalidate;
+              end
+              else
+                SetTool(TProTool((Ord(FTool) + 1) mod (Ord(High(TProTool)) + 1)));
       { Space is SketchUp's arrow.  Mid-shape it still finishes what is being
         drawn, because that is the older habit here and losing it would smart. }
       VK_SPACE:
@@ -16670,10 +17199,12 @@ begin
       VK_BACK:
         begin
           if FInput <> '' then SetLength(FInput, Length(FInput) - 1);
+          { rubbing letters out widens the list again, and rubbing the slash
+            out puts it away }
+          SyncCmdList;
           pbCmd.Invalidate;
           pbScreen.Invalidate;
         end;
-      VK_TAB: SetTool(TProTool((Ord(FTool) + 1) mod (Ord(High(TProTool)) + 1)));
       VK_Q: SetTool(ptRotate);      // SketchUp's key for it; Space is select
       VK_L: SetTool(ptLine);
       VK_R: SetTool(ptRect);
@@ -18202,6 +18733,8 @@ begin
     Ini := TIniFile.Create(ConfigFile);
     try
       uRecord.RecentWalks := Ini.ReadString('export', 'recentwalks', '');
+      { which commands get used, so the list offers them first next time }
+      FCmdRecent := Ini.ReadString('cmd', 'recent', '');
       { Where things went last time.  Written as one "ext=folder" line per
         kind of file, because there is no telling in advance which kinds
         somebody uses. }
@@ -18321,6 +18854,7 @@ begin
       Ini.WriteInteger('pro', 'scale', FD.ScaleIdx);
       { which camera moves get used, so the list offers them first next time }
       Ini.WriteString('export', 'recentwalks', uRecord.RecentWalks);
+      Ini.WriteString('cmd', 'recent', FCmdRecent);
       Ini.WriteString('paths', 'drawings', FSaveDir);
       Ini.WriteString('paths', 'open', FOpenDir);
       Ini.EraseSection('exportpaths');

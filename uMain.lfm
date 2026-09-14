@@ -91,6 +91,9 @@ object MainForm: TMainForm
     Height = 44
     Top = 630
     Width = 1236
+    OnMouseDown = pbCmdMouseDown
+    OnMouseLeave = pbCmdMouseLeave
+    OnMouseMove = pbCmdMouseMove
     OnPaint = pbCmdPaint
   end
   object pbMode: TPaintBox

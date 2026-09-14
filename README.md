@@ -380,6 +380,19 @@ is the thinking behind the flat pattern and the DXF.
 
 Type `/` in PRO and then one of these.  Most tools also have a key.
 
+**You do not have to remember them.**  Typing `/` opens the list, with a word
+about what each one does; keep typing and it narrows, the way an editor's
+autocomplete does.  Up and down walk it, Enter takes what is highlighted, Tab
+completes without running, Escape puts it away - and clicking a row does the
+same as Enter on it.  The ones you have used lately are at the top and the
+rest are alphabetical, so it works whether or not you know what the thing is
+called.  There is a `/` button at the left of the command bar that does the
+same as typing one.
+
+A command that wants something after it - `/scale`, `/plane`, `/cut` - is
+completed into the box and left waiting, because running it with nothing
+after it would be a question rather than an answer.
+
 | Command | Does |
 | --- | --- |
 | `/line` `/l`, `/rect` `/r`, `/arc` `/a`, `/circle` `/c` | the drawing tools |

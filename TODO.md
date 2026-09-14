@@ -890,6 +890,30 @@ sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
 
 
+### The command list, and what is left of it
+
+Done 14 September: typing a slash opens every command with a word about each,
+typing more narrows it the way an editor's autocomplete does, and the ones
+used lately float to the top.  `CMD_LIST` in uMain is the table; the order is
+`BuildCmdOrder`, which sweeps twice - the ones that start with what you typed,
+then the ones that merely contain it - and within each sweep puts the recent
+ones first.
+
+Two things it does not do, neither of them hard, neither of them asked for:
+
+* **Aliases are not in it.**  `/e`, `/mv`, `/tape` and the rest all still
+  work and the README lists them, but the list shows one row per action - the
+  primary name - because three rows of the same thing would be a worse list.
+  The cost is that typing an alias does not count as having used the command,
+  so it will not float to the top.  An alias column on the table would fix
+  both and is about ten lines.
+
+* **The table is written by hand and RunCommand is the truth.**  Add a
+  command and forget the table and it simply does not appear in the list -
+  nothing breaks and nothing says so.  Worth a test that walks CMD_LIST and
+  checks every name is one RunCommand answers to, which needs RunCommand to
+  be able to say "I know this word" without doing it.
+
 ### The drive scripts now have a runner, and it is only a smoke test
 
 tests/run-drive.sh runs the scripts in tests/drive and says whether each one

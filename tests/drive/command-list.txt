@@ -1,0 +1,18 @@
+# The command list: type a slash and it comes up, keep typing and it narrows.
+#
+# What this proves: a slash opens it with every command in it and a word
+# about each; two more letters leave only the ones that match, the ones that
+# start with them first and the ones that merely contain them after.
+#
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 600
+shot /tmp/hsk-cmd-none.png
+key slash
+wait 900
+shot /tmp/hsk-cmd-all.png
+type re
+wait 900
+shot /tmp/hsk-cmd-filtered.png
