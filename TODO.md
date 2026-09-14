@@ -356,7 +356,10 @@ Two small things that serve the spec directly, neither started:
   (Solid Inspector), which is a fair sign of how much is being left on the
   table.
 
-* **A proper help system, as web pages.**  `docs/help/` is the skeleton: one
+* **A proper help system, as web pages.**  The drawing in every picture is
+  `examples/etch-a-sketch.hsk` - see `examples/README.md` for why one model
+  across all of them beats a good model in each.
+  `docs/help/` is the skeleton: one
   page per tool, one per thing-you-do, a shared stylesheet in the program's
   own dark colours, and `shots/NEEDED.md` listing the 24 screenshots wanted
   and what should be in each.  Tony grabs the pictures.

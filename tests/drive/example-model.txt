@@ -1,0 +1,15 @@
+# The house model opens and looks like an etch-a-sketch.
+#
+# What this proves: examples/etch-a-sketch.hsk loads, the solids are closed
+# so nothing shows a blue back, and the robot drawn on the screen is there as
+# stylus lines waiting for somebody to push one of its squares.
+
+geometry 0 0 1500 850
+activate
+wait 800
+key escape
+key slash
+type fit
+key return
+wait 1500
+shot /tmp/hsk-example.png
