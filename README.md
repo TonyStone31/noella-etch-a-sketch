@@ -158,6 +158,19 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   middle of an edge, across thin air - with the extension lines snapped
   square to an axis.  The move tool taken to a dimension's line repositions
   the line; the eraser takes it away.
+* **The eraser softens as well as deletes.**  Ctrl and the eraser hides an
+  edge instead of rubbing it out, Ctrl+Shift brings it back - the creases
+  down the side of a pulled circle are not edges anybody drew, and hiding
+  them is what makes a cylinder look like a pipe rather than a barrel of
+  staves.
+* **A line drawn along one already there splits both** where they share, so
+  the overlap is one edge and the two tails are their own, rather than two
+  lines lying on each other.
+* **A note follows the edge it points at.**  Move the edge and the leader
+  goes with it instead of aiming at where the edge used to be.
+* **A ground grid under the free camera** so a model has a floor to stand on
+  and you can read how far across it something sits.  The GRID button turns
+  it off with the rest.
 * **Right-click a dimension to write over its figure** - a nominal size, a
   cut length, `FIELD VERIFY`.  The measurement underneath never changes, and
   the written figure goes out in the SVG export too.

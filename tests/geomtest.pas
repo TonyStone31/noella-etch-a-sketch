@@ -786,6 +786,170 @@ begin
   end;
 end;
 
+{ ------------------------------------- a leader that follows its edge ---- }
+
+{ A note points at a place rather than at a thing, so moving the edge it
+  points at left the leader behind, aimed at where the edge used to be.  If
+  the whole of a line is moving, whatever sits on that line moves with it. }
+procedure TestLeaderFollows;
+var
+  D: TWorkDoc;
+  Pts: TP3Array;
+  Note: Integer;
+begin
+  WriteLn('a note whose leader points at an edge that moves');
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    { the words off to one side, the arrow on the middle of the edge }
+    D.AddNote(P3(4, -3, 0), P3(5, 0, 0), 'ten feet', 0);
+    Note := D.Live - 1;
+    EqI(Ord(D[Note].Kind), Ord(ekText), 'a note with a leader');
+
+    { pick up the whole edge and move it three feet along green }
+    SetLength(Pts, 2);
+    Pts[0] := P3(0, 0, 0);
+    Pts[1] := P3(10, 0, 0);
+    D.MoveVerts(Pts, P3(0, 3, 0));
+
+    EqF(D[0].A.Y, 3, 'the edge moved');
+    EqF(D[Note].B.Y, 3, 'and the arrow went with it');
+    EqF(D[Note].B.X, 5, 'still pointing at the middle of it');
+    EqF(D[Note].A.Y, 0, 'and the words kept their place beside it');
+  finally
+    D.Free;
+  end;
+
+  { a note pointing at nothing in particular stays where it was put }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    D.AddNote(P3(4, -3, 0), P3(5, -1, 0), 'nowhere', 0);
+    Note := D.Live - 1;
+    SetLength(Pts, 2);
+    Pts[0] := P3(0, 0, 0);
+    Pts[1] := P3(10, 0, 0);
+    D.MoveVerts(Pts, P3(0, 3, 0));
+    EqF(D[Note].B.Y, -1, 'a leader aimed at nothing is left alone');
+  finally
+    D.Free;
+  end;
+
+  { and half an edge moving is not the edge moving }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    D.AddNote(P3(4, -3, 0), P3(5, 0, 0), 'ten feet', 0);
+    Note := D.Live - 1;
+    SetLength(Pts, 1);
+    Pts[0] := P3(10, 0, 0);
+    D.MoveVerts(Pts, P3(0, 3, 0));
+    EqF(D[Note].B.Y, 0, 'dragging one end of it does not take the note along');
+  finally
+    D.Free;
+  end;
+end;
+
+{ ------------------------------------- edges that lie along each other --- }
+
+{ An edge landing exactly on one already there used to be skipped, and one
+  landing halfway along it was laid on top - two lines covering the same run,
+  which is a seam the region finder reasons about twice and a person cannot
+  see at all.  SketchUp splits both where they share, so the overlap is one
+  edge and the two tails are their own. }
+procedure TestOverlappingEdges;
+var
+  D: TWorkDoc;
+  N: Integer;
+
+  { how many lines run between these two points, either way round }
+  function Runs(const A, B: TP3): Integer;
+  var
+    I: Integer;
+  begin
+    Result := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+        if ((Dist(D[I].A, A) < 1E-7) and (Dist(D[I].B, B) < 1E-7)) or
+           ((Dist(D[I].A, B) < 1E-7) and (Dist(D[I].B, A) < 1E-7)) then
+          Inc(Result);
+  end;
+
+begin
+  WriteLn('an edge drawn along one already there');
+
+  { --- the exact same edge again --------------------------------------- }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    N := D.AddLineSplit(P3(0, 0, 0), P3(10, 0, 0), 0, 1);
+    EqI(CountKind(D, ekLine), 1, 'drawing the same edge again leaves one');
+    EqI(Runs(P3(0, 0, 0), P3(10, 0, 0)), 1, 'and it is the one that was there');
+    Ok(N >= 1, 'and it says it laid the run again');
+  finally
+    D.Free;
+  end;
+
+  { --- half on, half off ----------------------------------------------- }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    D.AddLineSplit(P3(5, 0, 0), P3(15, 0, 0), 0, 1);
+    EqI(CountKind(D, ekLine), 3, 'an edge half along it makes three');
+    EqI(Runs(P3(0, 0, 0), P3(5, 0, 0)), 1, 'the piece only the old one had');
+    EqI(Runs(P3(5, 0, 0), P3(10, 0, 0)), 1, 'the piece they share, once');
+    EqI(Runs(P3(10, 0, 0), P3(15, 0, 0)), 1, 'and the piece only the new one has');
+  finally
+    D.Free;
+  end;
+
+  { --- wholly inside one already there --------------------------------- }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    D.AddLineSplit(P3(3, 0, 0), P3(7, 0, 0), 0, 1);
+    EqI(CountKind(D, ekLine), 3, 'an edge inside one makes three');
+    EqI(Runs(P3(3, 0, 0), P3(7, 0, 0)), 1, 'with the middle its own edge');
+  finally
+    D.Free;
+  end;
+
+  { --- end to end is not an overlap ------------------------------------ }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    D.AddLineSplit(P3(10, 0, 0), P3(20, 0, 0), 0, 1);
+    EqI(CountKind(D, ekLine), 2, 'meeting at a corner splits nothing');
+  finally
+    D.Free;
+  end;
+
+  { --- not along it at all --------------------------------------------- }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 1, False);
+    D.AddLineSplit(P3(0, 1, 0), P3(10, 1, 0), 0, 1);
+    EqI(CountKind(D, ekLine), 2, 'a line beside it is left alone');
+    D.AddLineSplit(P3(5, -5, 0), P3(5, 5, 0), 0, 1);
+    EqI(CountKind(D, ekLine), 3, 'and so is one that merely crosses it');
+  finally
+    D.Free;
+  end;
+
+  { --- a solid's edge is not cut up under it --------------------------- }
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'a box');
+    N := CountKind(D, ekLine);
+    D.AddLineSplit(P3(0, 0, 0), P3(5, 0, 0), 0, 1);
+    EqI(CountKind(D, ekLine), N + 1,
+      'an edge along a solid''s edge is added, not swapped into it');
+  finally
+    D.Free;
+  end;
+end;
+
 { ---------------------------------------- the example drawing itself ----- }
 
 { The toy the program opens with is written by hand - examples/make-etch-a-
@@ -4941,6 +5105,8 @@ begin
   TestCutBoxTop;    WriteLn;
   TestWholeSideStillSlides; WriteLn;
   TestPlugInAHole;  WriteLn;
+  TestLeaderFollows;  WriteLn;
+  TestOverlappingEdges;  WriteLn;
   TestExampleDrawing;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;

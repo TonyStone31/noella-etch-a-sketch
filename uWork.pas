@@ -223,6 +223,19 @@ type
     procedure AddLine(const A, B: TP3; Ink: TColor; Weight: Single; Dim: Boolean);
     { True when a line with these ends is already there, either way round. }
     function HasLine(const A, B: TP3): Boolean;
+    { Add a line, splitting it and whatever it lies along where they share.
+
+      An edge landing exactly on one already there was skipped, and one
+      landing halfway along it was laid on top - two lines covering the same
+      run of the drawing, which is a seam the region finder has to reason
+      about twice and a person cannot see at all.  SketchUp splits both where
+      they overlap so that the shared piece is one edge, and so does this.
+
+      Only loose lines are touched: a line that belongs to a solid is part of
+      something that was built, and cutting it up underneath the solid is a
+      different and much worse idea.  Returns how many pieces the run came
+      out as, or 0 when nothing overlapped and it was simply added. }
+    function AddLineSplit(const A, B: TP3; Ink: TColor; Weight: Single): Integer;
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure SetArcSides(Index, N: Integer);
@@ -2113,6 +2126,137 @@ begin
          ((Dist(FEnts[I].A, B) < TOL) and (Dist(FEnts[I].B, A) < TOL)) then
         Exit;
   Result := False;
+end;
+
+function TWorkDoc.AddLineSplit(const A, B: TP3; Ink: TColor;
+  Weight: Single): Integer;
+const
+  TOL = 1E-7;
+var
+  U: TP3;
+  L, T0, T1, Mid: Double;
+  I, J, N, NC: Integer;
+  Hits: array of Integer;
+  HA, HB: array of Double;    { each hit's run, as a distance along U }
+  { and the pen each was drawn with, read before anything is deleted:
+    deleting moves every index above it down }
+  HInk: array of TColor;
+  HW: array of Single;
+  Cuts: array of Double;
+  Doom: array of Boolean;
+  Src: Integer;
+  PieceA, PieceB: TP3;
+
+  { how far along the line from A this point is, and how far off it }
+  function Along(const Q: TP3; out Off: Double): Double;
+  var
+    W, F: TP3;
+  begin
+    W := P3(Q.X - A.X, Q.Y - A.Y, Q.Z - A.Z);
+    Result := Dot3(W, U);
+    F := P3(W.X - U.X * Result, W.Y - U.Y * Result, W.Z - U.Z * Result);
+    Off := Sqrt(F.X * F.X + F.Y * F.Y + F.Z * F.Z);
+  end;
+
+  procedure Cut(T: Double);
+  var
+    K: Integer;
+  begin
+    for K := 0 to NC - 1 do
+      if Abs(Cuts[K] - T) < TOL then Exit;
+    if NC >= Length(Cuts) then SetLength(Cuts, Max(16, NC * 2));
+    Cuts[NC] := T;
+    Inc(NC);
+  end;
+
+  { which hit covers the middle of this piece, or -1 for the new line only }
+  function Owner(M: Double): Integer;
+  var
+    K: Integer;
+  begin
+    Result := -1;
+    for K := 0 to High(Hits) do
+      if (M > Min(HA[K], HB[K]) + TOL) and (M < Max(HA[K], HB[K]) - TOL) then
+        Exit(K);
+  end;
+
+begin
+  Result := 0;
+  L := Dist(A, B);
+  if L < TOL then Exit;
+  U := P3((B.X - A.X) / L, (B.Y - A.Y) / L, (B.Z - A.Z) / L);
+
+  { everything loose that lies along this line and shares more than a point }
+  SetLength(Hits, 0);
+  SetLength(HA, 0);
+  SetLength(HB, 0);
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekLine then Continue;
+    if FEnts[I].Dim or (FEnts[I].Grp <> 0) then Continue;
+    T0 := Along(FEnts[I].A, Mid);
+    if Mid > TOL then Continue;
+    T1 := Along(FEnts[I].B, Mid);
+    if Mid > TOL then Continue;
+    { sharing a run, not merely a corner }
+    if Min(T0, T1) > L - TOL then Continue;
+    if Max(T0, T1) < TOL then Continue;
+    N := Length(Hits);
+    SetLength(Hits, N + 1); Hits[N] := I;
+    SetLength(HA, N + 1);   HA[N] := T0;
+    SetLength(HB, N + 1);   HB[N] := T1;
+    SetLength(HInk, N + 1); HInk[N] := FEnts[I].Ink;
+    SetLength(HW, N + 1);   HW[N] := FEnts[I].Weight;
+  end;
+
+  if Length(Hits) = 0 then
+  begin
+    AddLine(A, B, Ink, Weight, False);
+    Exit;
+  end;
+
+  { every end anybody has, as a distance along the line }
+  NC := 0;
+  SetLength(Cuts, 16);
+  Cut(0);
+  Cut(L);
+  for I := 0 to High(Hits) do
+  begin
+    Cut(HA[I]);
+    Cut(HB[I]);
+  end;
+  for I := 0 to NC - 2 do
+    for J := 0 to NC - 2 - I do
+      if Cuts[J] > Cuts[J + 1] then
+      begin
+        Mid := Cuts[J]; Cuts[J] := Cuts[J + 1]; Cuts[J + 1] := Mid;
+      end;
+
+  { the old ones go; the run is laid again in pieces }
+  SetLength(Doom, FLive);
+  for I := 0 to FLive - 1 do Doom[I] := False;
+  for I := 0 to High(Hits) do Doom[Hits[I]] := True;
+
+  SetLength(Cuts, NC);
+  DeleteMarked(Doom);
+
+  for I := 0 to NC - 2 do
+  begin
+    T0 := Cuts[I];
+    T1 := Cuts[I + 1];
+    if T1 - T0 < TOL then Continue;
+    Mid := (T0 + T1) / 2;
+    Src := Owner(Mid);
+    if (Src < 0) and ((Mid < TOL) or (Mid > L - TOL)) then Continue;
+    PieceA := P3(A.X + U.X * T0, A.Y + U.Y * T0, A.Z + U.Z * T0);
+    PieceB := P3(A.X + U.X * T1, A.Y + U.Y * T1, A.Z + U.Z * T1);
+    { a piece that was already drawn keeps the pen it was drawn with }
+    if Src >= 0 then
+      AddLine(PieceA, PieceB, HInk[Src], HW[Src], False)
+    else
+      AddLine(PieceA, PieceB, Ink, Weight, False);
+    Inc(Result);
+  end;
 end;
 
 procedure TWorkDoc.AddLine(const A, B: TP3; Ink: TColor; Weight: Single;
@@ -4697,18 +4841,76 @@ procedure TWorkDoc.MoveVerts(const Pts: TP3Array; const D: TP3);
 const
   TOL = 1E-7;
 var
-  I, K, H: Integer;
+  I, J, K, H, NR: Integer;
   Moving: TPointSet;
+  Ride: array of Integer;
+  RideA: array of Boolean;
 
   procedure Shift(var P: TP3);
   begin
     if Moving.Has(P, TOL) then P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
   end;
 
+  procedure Bump(var P: TP3);
+  begin
+    P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
+  end;
+
+  { is Q on the segment from E to F, within a hair }
+  function OnSeg(const Q, E, F: TP3): Boolean;
+  var
+    L2, T: Double;
+    R: TP3;
+  begin
+    L2 := Sqr(F.X - E.X) + Sqr(F.Y - E.Y) + Sqr(F.Z - E.Z);
+    if L2 < 1E-18 then Exit(Dist(Q, E) < 1E-6);
+    T := ((Q.X - E.X) * (F.X - E.X) + (Q.Y - E.Y) * (F.Y - E.Y) +
+          (Q.Z - E.Z) * (F.Z - E.Z)) / L2;
+    if (T < -1E-6) or (T > 1 + 1E-6) then Exit(False);
+    R := P3(E.X + (F.X - E.X) * T, E.Y + (F.Y - E.Y) * T,
+            E.Z + (F.Z - E.Z) * T);
+    Result := Dist(Q, R) < 1E-6;
+  end;
+
 begin
   if Length(Pts) = 0 then Exit;
   Moving := TPointSet.Create(Pts);
   try
+  { A note points at a place rather than at a thing, so moving the edge it
+    points at used to leave the leader behind, aimed at where the edge used
+    to be.  Remembering which entity a note is tied to is the thorough answer
+    and wants a field in the file; this is the cheap nine-tenths of it - if
+    the whole of a line is moving, whatever sits on that line is moving too.
+
+    Worked out before anything shifts, because afterwards the note and the
+    line have both changed and there is no telling what was on what. }
+  NR := 0;
+  SetLength(Ride, 0);
+  SetLength(RideA, 0);
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekText then Continue;
+    if Moving.Has(FEnts[I].B, TOL) then Continue;      { going anyway }
+    if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then Continue;  { no leader }
+    for J := 0 to FLive - 1 do
+    begin
+      if not (FEnts[J].Kind in [ekLine, ekArc]) then Continue;
+      if not (Moving.Has(FEnts[J].A, TOL) and
+              Moving.Has(FEnts[J].B, TOL)) then Continue;
+      if OnSeg(FEnts[I].B, FEnts[J].A, FEnts[J].B) then
+      begin
+        SetLength(Ride, NR + 1);
+        SetLength(RideA, NR + 1);
+        Ride[NR] := I;
+        { the words travel with the arrow unless they are already on
+          something that is moving, which would carry them twice }
+        RideA[NR] := not Moving.Has(FEnts[I].A, TOL);
+        Inc(NR);
+        Break;
+      end;
+    end;
+  end;
+
   for I := 0 to FLive - 1 do
   begin
     Shift(FEnts[I].A);
@@ -4719,6 +4921,12 @@ begin
     for H := 0 to High(FEnts[I].Holes) do
       for K := 0 to High(FEnts[I].Holes[H]) do
         Shift(FEnts[I].Holes[H][K]);
+  end;
+
+  for I := 0 to NR - 1 do
+  begin
+    Bump(FEnts[Ride[I]].B);
+    if RideA[I] then Bump(FEnts[Ride[I]].A);
   end;
   finally
     Moving.Free;

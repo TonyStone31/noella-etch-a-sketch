@@ -155,13 +155,26 @@ into the drawing; hammer the general tools before the generators.
 
 ## Smaller things, roughly in order
 
-* **Edges that partly overlap.**  An edge landing exactly on one already there
-  is skipped.  SketchUp goes further and splits both where they overlap in
-  part, so a new line borrows the piece it shares.
-* **The eraser's modifier keys.**  SketchUp softens with Ctrl and hides with
-  Shift.  There is a soft flag on an edge now, so the hook exists.
-* **A leader that follows its edge.**  A note points at a point; move the edge
-  and the note keeps pointing at where it was.
+* **Edges that partly overlap - DONE 14 September 2026.**
+  `TWorkDoc.AddLineSplit`: a line drawn along one already there cuts both
+  where they share, so the overlap is one edge and the tails are their own.
+  Only loose lines - a line that belongs to a solid is part of something that
+  was built, and cutting it up underneath the solid is a different and worse
+  idea.  The line tool uses it; rectangles, circles and arcs still do not.
+* **The eraser's modifier keys - half done, 14 September 2026.**  Ctrl
+  softens an edge and Ctrl+Shift brings it back, which is SketchUp's Ctrl and
+  Ctrl+Shift, and both read the `Soft` flag that already existed.
+
+  SketchUp's plain Shift, which *hides* an edge outright, is not done and is
+  not a modifier - it wants a `Hidden` flag on an entity, a place in the
+  file, and a "show hidden geometry" switch, because without a way back a
+  hidden edge is an edge somebody has lost.  That is a feature, and it should
+  be built as one.
+* **A leader that follows its edge - DONE 14 September 2026.**  If the whole
+  of a line is moving, whatever sits on that line moves with it, so a note
+  aimed at the middle of an edge travels with the edge.  Remembering which
+  entity a note is tied to would be the thorough answer and wants a field in
+  the file; this is the cheap nine-tenths of it.
 * **More in the settings lists.**  They can hold more than a row ever could
   and nothing has been added to them.
 * **Custom mouse cursors.**  The tool's glyph rides beside the crosshair,
@@ -171,8 +184,12 @@ into the drawing; hammer the general tools before the generators.
   light palettes rather than nudging single colours.
 * **Neon on a light screen** is muted - the cost of going alpha-based so a
   drawing survives a theme change.
-* **A ground plane in the orbit view.**  The three coloured axes are enough to
-  know which way is up; a plane that follows the camera would read better.
+* **A ground plane in the orbit view - DONE 14 September 2026.**  The four
+  corners of the window are cast back onto Z = 0 and the ground is ruled over
+  whatever that covers, at the same pitch the paper grid and the scale bar
+  use.  Faint, under everything, and off with the GRID button.  A camera
+  looking along the ground casts its corners past the horizon, so the count
+  is capped and the lattice dropped when the view is too flat to rule.
 * **Print more than one sheet** at a time.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.

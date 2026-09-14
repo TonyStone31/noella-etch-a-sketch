@@ -357,6 +357,12 @@ type
       shows it in red before any of it goes.  Deleting one line at a time is
       slow, and a click that turns out to have hit the wrong thing is worse. }
     FErasing2: Boolean;
+    { What the eraser is doing this stroke, taken from the modifiers when the
+      button went down: 0 rubs out, 1 softens, 2 un-softens.  SketchUp's Ctrl
+      and Ctrl+Shift, and for the same reason - the creases down the side of
+      a pulled circle are not edges anybody drew, and hiding them is what
+      makes a cylinder look like a pipe rather than a barrel of staves. }
+    FEraseMode: Integer;
     FDoomed: array of Integer;
 
     { What is picked, and the box being dragged to pick it.  Dragging left to
@@ -738,6 +744,7 @@ type
     procedure RefreshChrome;
     procedure ResizeSurfaces(AW, AH: Integer);
     procedure RepaintPaper;
+    procedure PaintGroundGrid(Pitch: Double);
     procedure PaintAxes;
     procedure PaintPushPreview(C: TCanvas);
     procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
@@ -865,6 +872,10 @@ type
     function RotRefDir: TP3;
     function IsDoomed(I: Integer): Boolean;
     procedure BurnDoomed;
+    { 0 rubs out, 1 softens, 2 un-softens - from the modifiers held }
+    function EraseModeOf(Shift: TShiftState): Integer;
+    { the gathered edges, softened or un-softened rather than deleted }
+    procedure SoftenDoomed(On_: Boolean);
     procedure OpenPopup(Which: Integer);
     procedure ClosePopup;
     function PopupCount(Which: Integer): Integer;
@@ -3368,6 +3379,96 @@ end;
   Drawn in every PRO view now.  They used to appear only in 3D, so the two
   views where you do most of the drawing had no color telling you which way
   was which - and PLAN in particular is where you first put something down. }
+{ The ground, ruled, under a free camera.
+
+  The three coloured axes tell you which way is up and nothing else - there
+  is no sense of the floor a model is standing on, and no way to read how far
+  across it something sits.  A lattice on Z = 0 gives both, the way a
+  horizon does.
+
+  It follows the camera rather than being a fixed sheet: the four corners of
+  the window are cast back onto the ground, and the lattice is ruled over
+  whatever that covers.  Pitch is the same round number the paper grid and
+  the scale bar use, so the crossings are places the cursor can land.
+
+  Two guards.  A camera looking along the ground casts its corners to the
+  horizon and beyond, so the count is capped and the whole thing dropped when
+  the view is too flat to be worth ruling.  And it is drawn faint, under
+  everything: it is the floor, not part of the drawing. }
+procedure TMainForm.PaintGroundGrid(Pitch: Double);
+const
+  MAX_LINES = 160;
+var
+  I, N: Integer;
+  Lo, Hi: TP3;
+  C: array[0..3] of TP3;
+  Fade: Double;
+  X0, X1, Y0, Y1, V: Double;
+  PA, PB: TPointF;
+  Col: TPix;
+
+  { the ground point under a screen point, or False when the camera is too
+    flat for there to be one worth having }
+  function Ground(SX, SY: Double; out P: TP3): Boolean;
+  begin
+    P := Unproject(Proj, SX, SY, plXY, P3(0, 0, 0));
+    Result := not (IsNan(P.X) or IsNan(P.Y) or IsInfinite(P.X) or
+                   IsInfinite(P.Y)) and
+              (Abs(P.X) < 1E6) and (Abs(P.Y) < 1E6);
+  end;
+
+begin
+  if Pitch <= 1E-9 then Exit;
+  if not Ground(0, 0, C[0]) then Exit;
+  if not Ground(FPaper.Width, 0, C[1]) then Exit;
+  if not Ground(FPaper.Width, FPaper.Height, C[2]) then Exit;
+  if not Ground(0, FPaper.Height, C[3]) then Exit;
+
+  Lo := C[0];
+  Hi := C[0];
+  for I := 1 to 3 do
+  begin
+    Lo.X := Min(Lo.X, C[I].X);  Hi.X := Max(Hi.X, C[I].X);
+    Lo.Y := Min(Lo.Y, C[I].Y);  Hi.Y := Max(Hi.Y, C[I].Y);
+  end;
+
+  { a camera near the ground makes that box enormous; rule what is worth
+    ruling and leave the rest }
+  if ((Hi.X - Lo.X) / Pitch > MAX_LINES * 4) or
+     ((Hi.Y - Lo.Y) / Pitch > MAX_LINES * 4) then Exit;
+
+  X0 := Floor(Lo.X / Pitch) * Pitch;
+  X1 := Ceil(Hi.X / Pitch) * Pitch;
+  Y0 := Floor(Lo.Y / Pitch) * Pitch;
+  Y1 := Ceil(Hi.Y / Pitch) * Pitch;
+
+  Col := MixPix(Theme.Screen1, Theme.Grid, 0.85);
+  Fade := 0.30;
+
+  V := X0;
+  N := 0;
+  while (V <= X1 + 1E-9) and (N < MAX_LINES) do
+  begin
+    PA := ScreenOf(P3(V, Y0, 0));
+    PB := ScreenOf(P3(V, Y1, 0));
+    FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade);
+    V := V + Pitch;
+    Inc(N);
+  end;
+
+  V := Y0;
+  N := 0;
+  while (V <= Y1 + 1E-9) and (N < MAX_LINES) do
+  begin
+    PA := ScreenOf(P3(X0, V, 0));
+    PB := ScreenOf(P3(X1, V, 0));
+    FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade);
+    V := V + Pitch;
+    Inc(N);
+  end;
+  FPaper.Touch;
+end;
+
 procedure TMainForm.PaintAxes;
 var
   K, N: Integer;
@@ -3439,7 +3540,7 @@ begin
       case FD.View of
         vkIso: PaintIsoGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
         vkPlan: PaintMeasuredGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
-        vkOrbit: ;   // handled below - the axes show whether the grid is on
+        vkOrbit: PaintGroundGrid(GridPitch / Ppu);
       end;
     end;
     PaintAxes;
@@ -9120,7 +9221,8 @@ begin
       ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
       ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
       ptFollow: S2 := 'click the outline to spin - the half of the shape, seen edge on';
-      ptErase:  S2 := 'click anything to delete it - or hold and drag across several';
+      ptErase:  S2 := 'click anything to delete it - or hold and drag across ' +
+                      'several.  Ctrl softens instead, Ctrl+Shift brings back';
       ptText:   S2 := 'space or click - the note points here';
       ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
       ptOffset: S2 := 'click a face - then type the offset, negative goes inward';
@@ -9781,7 +9883,8 @@ begin
       else
         Result := 'where does it go?  a length, [x,y,z] or <x,y,z>';
     ptErase:
-      Result := 'click anything to delete it   (or /help)';
+      Result := 'click anything to delete it - Ctrl softens an edge instead, ' +
+        'Ctrl+Shift brings it back';
     ptRotate, ptProtractor:
       case FStage of
         0: if FTool = ptRotate then
@@ -9995,7 +10098,14 @@ begin
         P := PtF(FMouseSX, FMouseSY);
         I := FD.Doc.HitEdge(Proj, P.X, P.Y, 9 * FUIScale);
         if I < 0 then I := FD.Doc.HitTest(Proj, P.X, P.Y, 9 * FUIScale);
-        if I >= 0 then
+        { Ctrl softens rather than deletes, Ctrl+Shift brings it back. }
+        if (I >= 0) and (FEraseMode <> 0) then
+        begin
+          SetLength(FDoomed, 1);
+          FDoomed[0] := I;
+          SoftenDoomed(FEraseMode = 1);
+        end
+        else if I >= 0 then
         begin
           PushUndo;
           { a line between two regions was holding them apart, so taking it
@@ -10402,7 +10512,7 @@ end;
 
 procedure TMainForm.ProCommit;
 var
-  I: Integer;
+  I, NPieces: Integer;
   T, C: TP3;
   Loop: TP3Array;
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
@@ -10498,8 +10608,15 @@ begin
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units) + '   (already an edge)'
           else
           begin
-            FD.Doc.AddLine(FP1, T, FInkColor, FEdgeW, False);
-            FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
+            { Drawn along something already there, the two are cut where they
+              share so the overlap is one edge rather than two lying on each
+              other.  Nothing in the way and this is a plain add. }
+            NPieces := FD.Doc.AddLineSplit(FP1, T, FInkColor, FEdgeW);
+            if NPieces > 1 then
+              FCmdMsg := FormatLen(Dist(FP1, T), FD.Units) +
+                Format('   (split along an edge - %d pieces)', [NPieces])
+            else
+              FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
           end;
           { Whatever this line did to the flat areas - closed a loop, cut a
             face in two, cut one of the halves again - is worked out by asking
@@ -11497,6 +11614,7 @@ begin
     if FTool = ptErase then
     begin
       FErasing2 := True;
+      FEraseMode := EraseModeOf(Shift);
       SetLength(FDoomed, 0);
       DoomAt(X, Y);
       FScreenDirty := True;
@@ -13762,6 +13880,21 @@ procedure TMainForm.DoomAt(SX, SY: Integer);
 var
   I: Integer;
 begin
+  { Softening is about edges and nothing else - a face has no crease to
+    hide.  So a soften stroke only ever looks for an edge, rather than
+    gathering the face behind it and then quietly skipping it, which is how
+    a sweep across a panel came back saying it had found nothing. }
+  if FEraseMode <> 0 then
+  begin
+    I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+    if I < 0 then Exit;
+    if IsDoomed(I) then Exit;
+    if not (FD.Doc[I].Kind in [ekLine, ekArc]) then Exit;
+    SetLength(FDoomed, Length(FDoomed) + 1);
+    FDoomed[High(FDoomed)] := I;
+    FScreenDirty := True;
+    Exit;
+  end;
   { An edge under the cursor is what you meant; away from any edge, the face
     itself is - which is how a box is hollowed out, leaving its wireframe. }
   { The note first, for the same reason the selection takes it first: it is
@@ -13779,6 +13912,47 @@ end;
 
 { Delete everything gathered, highest index first so the lower ones do not
   shift underneath, then see whether any regions should join up. }
+function TMainForm.EraseModeOf(Shift: TShiftState): Integer;
+begin
+  if not (ssCtrl in Shift) then Result := 0
+  else if ssShift in Shift then Result := 2
+  else Result := 1;
+end;
+
+{ Soften what the eraser gathered, instead of rubbing it out.
+
+  Only lines and arcs: a face has no crease to hide, and quietly doing
+  nothing to one is better than refusing the whole stroke because a face
+  happened to be under the cursor halfway across. }
+procedure TMainForm.SoftenDoomed(On_: Boolean);
+var
+  I, N: Integer;
+begin
+  N := 0;
+  for I := 0 to High(FDoomed) do
+    if (FDoomed[I] >= 0) and (FDoomed[I] < FD.Doc.Live) and
+       (FD.Doc[FDoomed[I]].Kind in [ekLine, ekArc]) and
+       (FD.Doc[FDoomed[I]].Soft <> On_) then
+    begin
+      if N = 0 then PushUndo;
+      FD.Doc.SetSoft(FDoomed[I], On_);
+      Inc(N);
+    end;
+  SetLength(FDoomed, 0);
+  if N = 0 then
+    FCmdMsg := specialize IfThen<string>(On_,
+      'Nothing there to soften.', 'Nothing there was softened.')
+  else
+  begin
+    FCmdMsg := Format('%d %s %s.', [N,
+      specialize IfThen<string>(N = 1, 'edge', 'edges'),
+      specialize IfThen<string>(On_, 'softened', 'brought back')]);
+    RenderPro;
+    RecomposeAll;
+  end;
+  FScreenDirty := True;
+end;
+
 procedure TMainForm.BurnDoomed;
 var
   I, J, T, N: Integer;
@@ -15004,7 +15178,8 @@ begin
   if FErasing2 then
   begin
     FErasing2 := False;
-    BurnDoomed;
+    if FEraseMode = 0 then BurnDoomed
+    else SoftenDoomed(FEraseMode = 1);
     Exit;
   end;
 

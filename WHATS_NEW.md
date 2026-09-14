@@ -10,6 +10,29 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The eraser softens as well as deletes.**  Hold Ctrl and it hides the edge
+  instead of rubbing it out; Ctrl+Shift brings it back.  The creases down the
+  side of a pulled circle are not edges anybody drew, and hiding them is what
+  makes a cylinder look like a pipe rather than a barrel of staves.
+
+- **A line drawn along one already there splits both** where they share, so
+  the overlap is one edge and the two tails are their own.  Before, an edge
+  landing exactly on one was skipped and one landing halfway along it was
+  laid on top - two lines covering the same run, which you cannot see and the
+  program has to think about twice.
+
+- **A note follows the edge it points at.**  Move the edge and the leader goes
+  with it, rather than staying aimed at where the edge used to be.
+
+- **The free camera has a floor.**  A faint grid on the ground, ruled at the
+  same pitch as the paper and the scale bar, so a model stands on something
+  and you can read how far across it a thing sits.  The GRID button turns it
+  off with the rest.
+
 ## v2026.09.14.6
 
 ### New
