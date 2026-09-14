@@ -973,6 +973,38 @@ any more:
   to the rows that set a tool would catch exactly this and is worth doing if
   another one slips.
 
+### Cutting machines, and the Cricut in particular
+
+Tony has a **Cricut Explore 3**.  The question was whether we can cut to it
+directly.  Today, no, and it is worth writing down why so nobody spends a
+weekend finding out again.
+
+* **CutcutGo** (github.com/virtualabs/cutcutgo) is the real work: open GRBL
+  firmware that turns a Cricut into a G-code machine, no account and no
+  Design Space.  It is for the **original Cricut Maker** and means opening
+  the machine and flashing the board.  The Maker 3 needs its electronics
+  reverse-engineered from scratch, and the Explore line is not covered at
+  all.
+* **Inkcut issue #426** asks for stock-firmware Maker support and reaches no
+  conclusion - the people asking say themselves they do not know how
+  tractable it is, and the thread carries no findings about the protocol.
+* Over USB on an unmodified machine the protocol is encrypted and there is
+  essentially nothing public beyond the cartridge-era machines.  That is not
+  for want of trying: Provo Craft sued Make-the-Cut and Sure Cuts A Lot in
+  2010-11 and both dropped Cricut support.
+
+So the way out is the file, not the wire, and the file had a defect worth
+fixing on its own account: **the SVG carried no units**.  Fixed 14 September -
+`WriteSVG` writes width and height in inches or millimetres against the
+viewBox, so the drawing arrives at its real size wherever it goes.
+`TestSvgIsTrueSize` measures the wine glass at two zooms in plan and from the
+front, and an independent renderer agrees: 366 px at 96 dpi for the 3.81 in
+the file claims.
+
+If a machine ever does open up - a Maker v1 with CutcutGo, or somebody cracks
+the Explore - the work on our side is a G-code writer, and it is small: the
+cut paths are the same projected polylines WriteSVG already walks.
+
 ### The drive scripts now have a runner, and it is only a smoke test
 
 tests/run-drive.sh runs the scripts in tests/drive and says whether each one

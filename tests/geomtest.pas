@@ -1048,6 +1048,126 @@ begin
   end;
 end;
 
+{ The SVG says how big the thing is.
+
+  It used to say width="842" with no unit on it: the numbers inside are
+  screen pixels at whatever zoom the view was at, so a part six inches
+  across arrived in Inkscape, or a cutting machine, or a print shop, at
+  whatever size that worked out to and had to be scaled back by hand.
+
+  The wine glass is 3.43 x 8.50 inches and the test knows it, so the check
+  is the one that matters: does the file say so, and does it still say so at
+  a different zoom.  A picture with real dimensions on it is the whole of
+  what a cutter needs from us. }
+procedure TestSvgIsTrueSize;
+var
+  D: TWorkDoc;
+  L, Src: TStringList;
+  V: TProjector;
+  I: Integer;
+  Head: string;
+  Flat, Front: TProjector;
+  Dot: TFormatSettings;
+
+  { the width="3.430in" attribute, as a number }
+  function Attr(const S, Name: string; out Val: Double; out Unit_: string): Boolean;
+  var
+    P, Q: Integer;
+    T: string;
+  begin
+    Result := False;
+    P := Pos(Name + '="', S);
+    if P = 0 then Exit;
+    Inc(P, Length(Name) + 2);
+    Q := P;
+    while (Q <= Length(S)) and (S[Q] <> '"') do Inc(Q);
+    T := Copy(S, P, Q - P);
+    Unit_ := '';
+    while (T <> '') and not (T[Length(T)] in ['0'..'9', '.']) do
+    begin
+      Unit_ := T[Length(T)] + Unit_;
+      SetLength(T, Length(T) - 1);
+    end;
+    Result := TryStrToFloat(T, Val, Dot);
+  end;
+
+  { WantW and WantH are inches of glass, without the sixty pixels of margin
+    the writer puts round everything. }
+  procedure OneView(const V0: TProjector; Ppu, WantW, WantH: Double;
+    const Say: string);
+  var
+    W, H: Double;
+    J: Integer;
+    U1, U2: string;
+  begin
+    V := V0;
+    V.Ppu := Ppu;
+    L.Clear;
+    D.WriteSVG(L, V, usImperial, 1);
+    Head := '';
+    for J := 0 to L.Count - 1 do
+      if Pos('<svg ', L[J]) > 0 then Head := L[J];
+    Ok(Head <> '', Say + ': there is an svg element');
+    Ok(Attr(Head, 'width', W, U1) and (U1 = 'in'),
+       Say + ': the width is in inches, not in nothing');
+    Ok(Attr(Head, 'height', H, U2) and (U2 = 'in'),
+       Say + ': and so is the height');
+    Ok(Abs((W - 60 / Ppu * 12) - WantW) < 0.02,
+       Format('%s: %.2f in wide inside the margin, wanted %.2f',
+              [Say, W - 60 / Ppu * 12, WantW]));
+    Ok(Abs((H - 60 / Ppu * 12) - WantH) < 0.02,
+       Format('%s: %.2f in tall inside the margin, wanted %.2f',
+              [Say, H - 60 / Ppu * 12, WantH]));
+  end;
+
+begin
+  WriteLn('-- the SVG carries its true size');
+  Dot := DefaultFormatSettings;
+  Dot.DecimalSeparator := '.';
+  D := TWorkDoc.Create;
+  L := TStringList.Create;
+  Src := TStringList.Create;
+  try
+    Src.LoadFromFile('examples/wine-glass.hsk');
+    { LoadFrom picks up after the sheet line, the same as everywhere else }
+    I := 0;
+    while (I < Src.Count) and (Copy(Trim(Src[I]), 1, 6) <> 'SHEET ') do Inc(I);
+    Inc(I);
+    D.LoadFrom(Src, I);
+    Ok(D.Live > 100, Format('the glass loaded - %d things', [D.Live]));
+
+    { Looking down: the glass is 3.43 across and 3.43 deep.  Its 8.50 is the
+      height, and a plan does not show a height - which is the honest answer
+      and the one somebody laying parts out on a cutting mat wants. }
+    FillChar(Flat, SizeOf(Flat), 0);
+    Flat.Kind := vkPlan;
+    { the whole point: the answer does not depend on the zoom }
+    OneView(Flat, 20, 3.43, 3.43, 'in plan at 20 px a foot');
+    OneView(Flat, 137.5, 3.43, 3.43, 'in plan at 137.5 px a foot');
+
+    { Square on from the front, where the height is what you see. }
+    FillChar(Front, SizeOf(Front), 0);
+    Front.Kind := vkOrbit;
+    Front.Az := 0;
+    Front.El := 0;
+    OneView(Front, 20, 3.43, 8.50, 'from the front at 20 px a foot');
+    OneView(Front, 137.5, 3.43, 8.50, 'from the front at 137.5 px a foot');
+
+    { and metric says mm }
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 20;
+    L.Clear;
+    D.WriteSVG(L, V, usMetric, 1);
+    Head := '';
+    for I := 0 to L.Count - 1 do
+      if Pos('<svg ', L[I]) > 0 then Head := L[I];
+    Ok(Pos('mm"', Head) > 0, 'a metric drawing is written in millimetres');
+  finally
+    Src.Free;
+    L.Free;
+    D.Free;
+  end;
+end;
+
 { Flat panels only, so this is the toy's own check and not the glass's: a
   revolve makes rings of edges that enclose flat areas nobody meant as faces,
   and asking the same question of it would be asking the wrong one.
@@ -5210,6 +5330,7 @@ begin
   TestOverlappingEdges;  WriteLn;
   TestExampleDrawings;  WriteLn;
   TestExampleRegions;  WriteLn;
+  TestSvgIsTrueSize;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;

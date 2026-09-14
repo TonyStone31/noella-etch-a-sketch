@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Dragging a dialog no longer skips about.**  The windows that draw their' + LineEnding +
+    '  own title bar - Export, What''s new - were moved by measuring the pointer' + LineEnding +
+    '  against the window being moved, which on Linux feeds back on itself and' + LineEnding +
+    '  makes the window fight the hand.  They now measure against the screen, and' + LineEnding +
+    '  move once per twitch instead of twice.' + LineEnding +
+    '' + LineEnding +
+    '- **The program stops working while a dialog is up.**  It kept a sixty-a-' + LineEnding +
+    '  second heartbeat running underneath every dialog, including the system' + LineEnding +
+    '  print and colour ones, servicing a pointer that was somewhere else.  On a' + LineEnding +
+    '  machine with a compositor that is enough to make the dialog you are' + LineEnding +
+    '  dragging stutter.  Measured with a drawing of twenty-four wine glasses: the' + LineEnding +
+    '  window behind the export dialog went from 2.2% of a core to 0.2%.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.15' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

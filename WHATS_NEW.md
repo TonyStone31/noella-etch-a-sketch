@@ -14,6 +14,14 @@
 
 ### Fixed
 
+- **An exported SVG now says how big it is.**  It used to carry a bare
+  number - screen pixels at whatever zoom the view happened to be at - so a
+  part three and a half inches across arrived in Inkscape, or a print shop,
+  or a cutting machine, at some other size entirely, and at a different size
+  again if you had zoomed in first.  The file now says `3.430in` (or
+  millimetres, in a metric drawing) and opens at the size of the thing.
+  Export from a plan and what comes out is the real thing, full size.
+
 - **Dragging a dialog no longer skips about.**  The windows that draw their
   own title bar - Export, What's new - were moved by measuring the pointer
   against the window being moved, which on Linux feeds back on itself and

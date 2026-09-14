@@ -8128,7 +8128,8 @@ var
   I, K, H, Steps: Integer;
   PA, PB: TPointF;
   Ang, MinX, MinY, MaxX, MaxY: Double;
-  D: string;
+  PW, PH, WUnit: Double;
+  Un, D: string;
 
   procedure Grow(const P: TPointF);
   begin
@@ -8153,10 +8154,43 @@ begin
   end;
   MinX := MinX - 30; MinY := MinY - 30; MaxX := MaxX + 30; MaxY := MaxY + 30;
 
+  { The size of the thing, written down.
+
+    This said width="842" and nothing else, which is eight hundred and forty
+    two of nothing: the numbers inside are screen pixels at whatever zoom the
+    view happened to be at, so a six inch part arrived in Inkscape, or a
+    cutting machine, or a print shop, at an arbitrary size to be scaled back
+    by hand.  In a program whose whole argument is that things are the size
+    they say they are, that was the one file that did not say.
+
+    The fix is two attributes.  The numbers inside stay exactly as they were
+    - the viewBox is still in those pixels - and width and height give the
+    real size in real units, which is what maps one to the other.  Ppu is
+    pixels per world unit and the world unit is the foot, so the picture is
+    (MaxX - MinX) / Ppu feet across.
+
+    True size means the size of this view.  Square-on - a plan - that is the
+    size of the thing itself, which is what anybody cutting or printing
+    wants.  Turned, it is the size that picture would be, which is the only
+    honest answer for a picture of a solid seen at an angle. }
+  if V.Ppu > 1E-9 then WUnit := V.Ppu else WUnit := 1;
+  if U = usImperial then
+  begin
+    PW := (MaxX - MinX) / WUnit * 12;      { feet to inches }
+    PH := (MaxY - MinY) / WUnit * 12;
+    Un := 'in';
+  end
+  else
+  begin
+    PW := (MaxX - MinX) / WUnit * 304.8;   { feet to millimetres }
+    PH := (MaxY - MinY) / WUnit * 304.8;
+    Un := 'mm';
+  end;
+
   L.Add('<?xml version="1.0" encoding="UTF-8"?>');
-  L.Add(Format('<svg xmlns="http://www.w3.org/2000/svg" width="%.0f" height="%.0f" ' +
-    'viewBox="%.2f %.2f %.2f %.2f">',
-    [MaxX - MinX, MaxY - MinY, MinX, MinY, MaxX - MinX, MaxY - MinY], FS));
+  L.Add(Format('<svg xmlns="http://www.w3.org/2000/svg" ' +
+    'width="%.3f%s" height="%.3f%s" viewBox="%.2f %.2f %.2f %.2f">',
+    [PW, Un, PH, Un, MinX, MinY, MaxX - MinX, MaxY - MinY], FS));
 
   for I := 0 to FLive - 1 do
     case FEnts[I].Kind of
