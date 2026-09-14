@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Export to OpenSCAD.**  Export, then "OpenSCAD".  You get a `.scad` script
+  with one `polyhedron` per solid in your drawing, each in its own named
+  module, a module that unions them all, and a call to it - so a model in
+  several pieces stays in several pieces and you can get at them separately.
+  Millimetres, like the STL.
+
+  Be clear about what it is: the surface of your drawing, written out as
+  points and faces.  It is not built from cubes and cylinders and cannot be
+  taken apart into them, so the numbers in it are not parameters to tweak -
+  to change the shape, change it here and export it again.  What it is good
+  for is everything *around* it: cut holes in it, union it onto something,
+  fit it to a part you are describing in OpenSCAD.
+
 ## v2026.09.13.20
 
 ### Fixed
