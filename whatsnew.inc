@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## v2026.09.14.2' + LineEnding +
+    '## v2026.09.14.3' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
@@ -31,6 +31,17 @@ const
     '  back on the next launch, because the draft is written continuously and' + LineEnding +
     '  nothing ever told it the drawing had been closed on purpose.' + LineEnding +
     '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Closing an untouched sheet asks nothing.**  The example arrives with 310' + LineEnding +
+    '  things on it, so putting it down brought up "save the drawing first?" - a' + LineEnding +
+    '  question about somebody else''s work.  It asks only when something has' + LineEnding +
+    '  actually changed.' + LineEnding +
+    '' + LineEnding +
+    '## v2026.09.14.2' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
     '- **A portable program keeps its files with it.**  Drawings are offered a' + LineEnding +
     '  `drawings` folder beside the program and exports an `exports` folder, both' + LineEnding +
     '  made the first time they are needed.  Nothing is put in your home folder' + LineEnding +
@@ -43,11 +54,6 @@ const
     '  program''s own folder until you have opened something.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
-    '' + LineEnding +
-    '- **Closing an untouched sheet asks nothing.**  The example arrives with 310' + LineEnding +
-    '  things on it, so putting it down brought up "save the drawing first?" - a' + LineEnding +
-    '  question about somebody else''s work.  It asks only when something has' + LineEnding +
-    '  actually changed.' + LineEnding +
     '' + LineEnding +
     '- **The GIF settings are the ones that matter now.**  The seconds box, the' + LineEnding +
     '  frame rate box and the spin they described are gone: record a move and that' + LineEnding +
