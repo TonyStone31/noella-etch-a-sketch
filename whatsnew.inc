@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.4' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The What''s new screen is dressed like the rest of the program.**  It was' + LineEnding +
+    '  a stock white box with one weight of one colour and the bold markers of the' + LineEnding +
+    '  file showing as asterisks.  Now the version, the headings and the lead-in' + LineEnding +
+    '  of each note are told apart, and it scrolls with the wheel.' + LineEnding +
+    '' + LineEnding +
+    '- **An export says how far along it is.**  A twelve second film is three' + LineEnding +
+    '  hundred drawings of the model, and the window used to stop answering for' + LineEnding +
+    '  the whole of it.  There is a bar now, frame by frame, and an hourglass.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The splash screen fits its own window.**  On a Windows machine at a' + LineEnding +
+    '  scaled display it was drawing the panel and the writing at one size inside' + LineEnding +
+    '  a window at another, leaving them stranded in the corner.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.3' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
