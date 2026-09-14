@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.22' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **STL and OpenSCAD come out centred on the origin.**  A part used to open in' + LineEnding +
+    '  the slicer wherever the drawing happened to put it, which for something drawn' + LineEnding +
+    '  at building coordinates is a long way off the plate - and then you re-centre' + LineEnding +
+    '  it by hand in another program.  It arrives centred now.  There is a tick in' + LineEnding +
+    '  the export options if you want it left where it is.' + LineEnding +
+    '' + LineEnding +
+    '- **`/center` moves things onto the origin.**  Type `/center` and whatever is' + LineEnding +
+    '  selected moves so the middle of it sits at 0,0,0 - or the whole drawing, if' + LineEnding +
+    '  nothing is selected.  Worth doing to the drawing itself and not only on the' + LineEnding +
+    '  way out: a drawing that is centred is one where the exports, the dimensions' + LineEnding +
+    '  from the origin and the axis readings all agree.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.21' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
