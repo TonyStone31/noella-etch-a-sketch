@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.13.23' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
@@ -34,13 +34,21 @@ const
     '  clip this short, keeping it or doing it again are the only two things worth' + LineEnding +
     '  offering.' + LineEnding +
     '' + LineEnding +
-    '- **Four canned moves, so you need not fly it by hand.**' + LineEnding +
+    '- **Eight canned moves, so you need not fly it by hand.**' + LineEnding +
     '' + LineEnding +
     '  *Turntable* is one turn on the spot.  *Rise* turns while climbing, so a' + LineEnding +
-    '  thing shows you its sides and then its lid.  *The full look* goes over the' + LineEnding +
-    '  top, under, back to level and round, so every face comes past the camera.' + LineEnding +
-    '  *Push in* closes slowly with a little drift, for showing a detail without' + LineEnding +
-    '  losing where it sits.' + LineEnding +
+    '  thing shows you its sides and then its lid.  *Underneath to over the top*' + LineEnding +
+    '  starts below it looking up and finishes looking down.  *Nod* goes down to up' + LineEnding +
+    '  and back without turning at all, for something with a front that turning' + LineEnding +
+    '  would only hide.  *Half a turn and back* reads like somebody picking a thing' + LineEnding +
+    '  up rather than a machine spinning it.  *Corner to corner* sweeps from one' + LineEnding +
+    '  low corner to the opposite high one.  *The full look* goes over, under, back' + LineEnding +
+    '  to level and round, so every face comes past the camera.  And *push in*' + LineEnding +
+    '  closes slowly with a little drift, for a detail.' + LineEnding +
+    '' + LineEnding +
+    '  **The ones you use come to the top of the list**, and stay there between' + LineEnding +
+    '  sessions - eight is a comfortable number to offer and a tiresome number to' + LineEnding +
+    '  read every time, and most people settle on two or three.' + LineEnding +
     '' + LineEnding +
     '  All of them turn about **the middle of whatever you had selected** when you' + LineEnding +
     '  pressed Export, not about the drawing''s origin - so a building drawn half a' + LineEnding +
