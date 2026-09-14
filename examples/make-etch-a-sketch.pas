@@ -154,6 +154,126 @@ begin
   Face([P(X0, Y0, Z0), P(X1, Y1, Z0), P(X1, Y1, Z1), P(X0, Y0, Z1)], Ink);
 end;
 
+{ --- block capitals, drawn in lines -------------------------------------
+
+  Only seven letters are needed - H E C K R S T spell HECKERS SKETCH between
+  them - so this is not a font, it is seven shapes.
+
+  Each is drawn in a box six wide and ten tall, out of bars two thick, and
+  each bar is its own closed loop.  That is deliberate twice over.  A closed
+  loop is a face waiting to happen, so every bar of every letter can be
+  pushed up on its own - which is the demonstration the push/pull page wants.
+  And where two bars meet they leave a line across the join, which is exactly
+  what a real etch-a-sketch does, because a real one draws everything with
+  one unbroken line and cannot lift the stylus. }
+
+type
+  TBar = array[0..7] of Double;     { x,y four times round; a quad }
+
+{ One bar of a letter, placed and scaled.  OX and OY are where the letter's
+  bottom left corner goes, S is how big the six-by-ten box is drawn. }
+procedure Bar(const B: TBar; N: Integer; OX, OY, S, Z: Double);
+var
+  I: Integer;
+  Pts: array of TP3;
+begin
+  SetLength(Pts, N);
+  for I := 0 to N - 1 do
+    Pts[I] := P(OX + B[I * 2] * S, OY + B[I * 2 + 1] * S, Z);
+  for I := 0 to N - 1 do
+    D.AddLine(Pts[I], Pts[(I + 1) mod N], INK, 1.0, False);
+end;
+
+{ An upright bar of a letter, given as a rectangle. }
+procedure Rect_(X0, Y0, X1, Y1, OX, OY, S, Z: Double);
+var
+  B: TBar;
+begin
+  B[0] := X0; B[1] := Y0;
+  B[2] := X1; B[3] := Y0;
+  B[4] := X1; B[5] := Y1;
+  B[6] := X0; B[7] := Y1;
+  Bar(B, 4, OX, OY, S, Z);
+end;
+
+{ A leaning bar, for the legs of a K.  The two ends are horizontal, so it
+  reads as a stroke of a pen rather than a lozenge. }
+procedure Lean(AX0, AX1, AY, BX0, BX1, BY, OX, OY, S, Z: Double);
+var
+  B: TBar;
+begin
+  B[0] := AX0; B[1] := AY;
+  B[2] := AX1; B[3] := AY;
+  B[4] := BX1; B[5] := BY;
+  B[6] := BX0; B[7] := BY;
+  Bar(B, 4, OX, OY, S, Z);
+end;
+
+{ One letter.  Returns how wide it was, so the caller can walk along. }
+function Letter(C: Char; OX, OY, S, Z: Double): Double;
+begin
+  Result := 6 * S;
+  case C of
+    'H': begin
+           Rect_(0, 0, 2, 10, OX, OY, S, Z);
+           Rect_(4, 0, 6, 10, OX, OY, S, Z);
+           Rect_(2, 4, 4, 6, OX, OY, S, Z);
+         end;
+    'E': begin
+           Rect_(0, 0, 2, 10, OX, OY, S, Z);
+           Rect_(2, 0, 6, 2, OX, OY, S, Z);
+           Rect_(2, 4, 5, 6, OX, OY, S, Z);
+           Rect_(2, 8, 6, 10, OX, OY, S, Z);
+         end;
+    'C': begin
+           Rect_(0, 0, 2, 10, OX, OY, S, Z);
+           Rect_(2, 0, 6, 2, OX, OY, S, Z);
+           Rect_(2, 8, 6, 10, OX, OY, S, Z);
+         end;
+    'K': begin
+           Rect_(0, 0, 2, 10, OX, OY, S, Z);
+           Lean(2, 4, 5, 4, 6, 10, OX, OY, S, Z);
+           Lean(2, 4, 5, 4, 6, 0, OX, OY, S, Z);
+         end;
+    'R': begin
+           Rect_(0, 0, 2, 10, OX, OY, S, Z);
+           Rect_(2, 8, 6, 10, OX, OY, S, Z);
+           Rect_(4, 6, 6, 8, OX, OY, S, Z);
+           Rect_(2, 4, 6, 6, OX, OY, S, Z);
+           Lean(3, 5, 4, 4, 6, 0, OX, OY, S, Z);
+         end;
+    'S': begin
+           Rect_(0, 8, 6, 10, OX, OY, S, Z);
+           Rect_(0, 6, 2, 8, OX, OY, S, Z);
+           Rect_(0, 4, 6, 6, OX, OY, S, Z);
+           Rect_(4, 2, 6, 4, OX, OY, S, Z);
+           Rect_(0, 0, 6, 2, OX, OY, S, Z);
+         end;
+    'T': begin
+           Rect_(0, 8, 6, 10, OX, OY, S, Z);
+           Rect_(2, 0, 4, 8, OX, OY, S, Z);
+         end;
+    ' ': Result := 3 * S;
+  end;
+end;
+
+{ A word, centred on CX. }
+procedure Word_(const W: string; CX, OY, S, Z: Double);
+var
+  I: Integer;
+  Wide, X: Double;
+begin
+  Wide := 0;
+  for I := 1 to Length(W) do
+  begin
+    if W[I] = ' ' then Wide := Wide + 3 * S else Wide := Wide + 6 * S;
+    if I < Length(W) then Wide := Wide + S;
+  end;
+  X := CX - Wide / 2;
+  for I := 1 to Length(W) do
+    X := X + Letter(W[I], X, OY, S, Z) + S;
+end;
+
 { A line of the drawing on the screen. }
 procedure Stroke(X0, Y0, X1, Y1: Double);
 begin
@@ -236,6 +356,9 @@ begin
   Knob(KNOB_X0, KNOB_Y);
   Knob(KNOB_X1, KNOB_Y);
 
+  { --- the logo on the top edge, in the toy's own lines ---------------- }
+  Word_('HECKERS SKETCH', BW / 2, 8.05, 0.075, BT);
+
   { --- the robot, drawn on the screen -------------------------------- }
   BoxLine(5.2, 5.6, 6.8, 6.9);        { head }
   BoxLine(5.5, 6.1, 5.8, 6.4);        { left eye }
@@ -248,6 +371,11 @@ begin
   BoxLine(6.1, 2.6, 6.8, 3.4);        { right leg }
 
   { --- and out ------------------------------------------------------ }
+  { the same three lines the program writes when it puts this beside itself,
+    so the file it writes and the file in the repository are the same bytes }
+  L.Add('# Written out by Heckers Sketch every time it starts, over the top');
+  L.Add('# of whatever was here.  Draw on it all you like - to keep what you');
+  L.Add('# have done, save it under a name of your own.');
   L.Add('HECKERS-SKETCH 1');
   L.Add('SHEET Etch a Sketch');
   L.Add('UNITS 0');

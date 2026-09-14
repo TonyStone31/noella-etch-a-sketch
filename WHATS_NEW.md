@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The toy says HECKERS SKETCH on it**, in block capitals drawn the way the
+  toy itself would draw them - and every bar of every letter is a closed loop,
+  so you can push any one of them up off the frame.
+
+- **A new program icon**, which is the toy.
+
+- **An `examples` folder beside the program.**  The toy is written out there
+  every time it starts, over the top of whatever was there.  That is on
+  purpose: an example is a thing to take apart, and having taken it apart you
+  should find it whole again next time rather than meet your own
+  half-dismantled version.  Keep your own by saving it under a name of your
+  own.
+
+### Fixed
+
+- **The toy's corners are rounded** - on the body and around the screen - the
+  way a thing you would hand a child is.
+
 ## v2026.09.13.25
 
 ### New

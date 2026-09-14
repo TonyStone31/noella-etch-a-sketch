@@ -966,6 +966,7 @@ type
     procedure EndBusy;
     function RestoreDraft: Boolean;
     function LoadExample: Boolean;
+    procedure WriteExamples;
     procedure LoadSettings;
     procedure ApplyCommandLine;
     procedure FollowScreenSize;
@@ -2276,6 +2277,7 @@ begin
     orbit, a screen to look at, and a robot drawn in lines that is asking to
     be pushed.  Only when there is genuinely nothing: a drawing named on the
     command line wins, and so does a draft. }
+  WriteExamples;
   if not Opened then Opened := LoadExample;
   SplashLoaded(LoadedWords);
   { fingers on the drawing, where the platform gives them to us }
@@ -17421,6 +17423,38 @@ begin
       '.  Ctrl+S to write it back.'
   else
     FCmdMsg := 'Picked up where you left off.  Ctrl+S to give it a name.';
+end;
+
+{ Put the example drawings on disk, beside the program.
+
+  Every run, over the top of whatever is there.  That is on purpose: an
+  example is a thing to take apart, and somebody who has taken one apart
+  should find it whole again next time rather than meet their own
+  half-dismantled version and have to work out what it was meant to look
+  like.  Anybody who wants to keep their version saves it under a name of
+  their own, which is what Save As has always been for.
+
+  It is written out as well as carried inside, because the program being one
+  file is no help to somebody who wants to open the example again after
+  drawing over it, send it to a friend, or read it in a text editor. }
+procedure TMainForm.WriteExamples;
+var
+  L: TStringList;
+begin
+  try
+    if not ForceDirectories(ExamplesDir) then Exit;
+    L := TStringList.Create;
+    try
+      ExampleDrawing(L);
+      L.SaveToFile(ExamplesDir + 'etch-a-sketch.hsk');
+    finally
+      L.Free;
+    end;
+  except
+    { a read-only folder, a full disk, a stick pulled out halfway - none of
+      it is worth a word to somebody who only wanted to draw }
+    on E: Exception do ;
+  end;
 end;
 
 { The drawing somebody sees the first time they run this.

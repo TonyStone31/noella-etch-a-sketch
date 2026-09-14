@@ -1,0 +1,4 @@
+geometry 0 0 1500 850
+activate
+wait 1600
+shot /tmp/hsk-ex-dir.png

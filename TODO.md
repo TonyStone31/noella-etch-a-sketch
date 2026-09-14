@@ -890,6 +890,13 @@ to show: no drawing named on the command line and no draft to pick up.  So the
 first thing anybody ever sees is a toy with a robot on it rather than an empty
 sheet, and the portable build is still one file.
 
+**And the folder is done too.**  `uPaths.ExamplesDir` is `examples` beside the
+program, and it is written out on every run over the top of whatever was
+there.  The file the program writes is byte for byte the file the generator
+makes - the same three-line comment at the top of each - so the copy in the
+repository does not churn every time somebody runs the program from the source
+folder.
+
 What is left is the rest of Tony's idea below: a folder of SEVERAL examples,
 written out beside the executable so they can be opened, re-read and shown
 off.  The etch-a-sketch is the first of them; the wine glass and a few
