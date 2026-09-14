@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **/tozero puts a selection in the corner at 0,0,0.**  /center puts the
+  middle of a thing on the origin, which is what a slicer wants.  This puts
+  its near bottom corner there instead, so it stands on the floor with its
+  two near edges against zero - which is what you want when you are
+  measuring, because every number read off it is then a distance from
+  nothing rather than from half of itself.  It tells you how big the thing
+  is from there.  Also **Into the Corner at 0,0,0** on the right button,
+  beside Centre on the Origin.
+
 ## v2026.09.14.9
 
 ### New

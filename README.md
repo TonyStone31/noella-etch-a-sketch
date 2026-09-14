@@ -276,6 +276,13 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   STL and OpenSCAD arrive centred on the origin, so a slicer opens them where
   it expects to.  `/center`, or **Centre on the Origin** on the right button,
   does the same to the drawing itself.
+
+  `/tozero`, or **Into the Corner at 0,0,0**, is the other half of that: the
+  near bottom corner goes on the origin rather than the middle, so the thing
+  stands on the floor with its two near edges against zero.  Centred is what
+  a slicer wants; the corner is what you want when you are measuring, because
+  every number read off it is then a distance from nothing rather than from
+  half of itself.  It says how big the thing is from there.
 * **Record a little film of it.**  In the export room, pick GIF and *Record a
   move*.  Choose where to start - front, back, left, right, top or a corner -
   then either fly it yourself or take one of eight canned walks: a turntable,
@@ -403,6 +410,7 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | `/help` `/?` | about |
 | `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
 | `/print`, `/print all`, `/print full` | this sheet / every sheet / 1:1 across pages |
+| `/center` `/centre`, `/tozero` `/zero` | the selection's middle on the origin / its near bottom corner on it |
 | `/holes` `/openedges` | draw, in red, every edge where a solid is not closed - the answer a slicer will not give you |
 | `/quick` | quick frames while the camera moves, on or off |
 | `/regions`, `/rebuild`, `/rebuildfaces`, `/forget`, `/rendertime`, `/timings` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame, print the steps of each edit |

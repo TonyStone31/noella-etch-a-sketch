@@ -5022,7 +5022,7 @@ var
   Ch: Char;
   InBr: Boolean;
   Bad: Integer;
-  CMid: TP3;
+  CMid, CLo, CHi: TP3;
   CIdx: array of Integer;
 begin
   WriteLn('-- OpenSCAD --');
@@ -5135,6 +5135,32 @@ begin
     D.TranslateEnts(CIdx, P3(-CMid.X, -CMid.Y, -CMid.Z));
     Ok(D.MiddleOf([], CMid) and (Abs(CMid.X) < 1E-9) and (Abs(CMid.Y) < 1E-9)
        and (Abs(CMid.Z) < 1E-9), 'and after moving it, the middle is on zero');
+
+    { --- and /corner, which is the other half of the same want -------
+          Centred is what a slicer wants.  The corner is what somebody
+          measuring wants: the thing on the floor with its near edges against
+          zero, so every number read off it is a distance from nothing rather
+          than from half of itself.  The box is now -5..5, -2..2, -1.5..1.5,
+          so tucked into the corner it must run 0..10, 0..4, 0..3. }
+    Ok(D.SpanOf([], CLo, CHi), 'the box the drawing sits in was found');
+    Ok((Abs(CLo.X + 5) < 1E-9) and (Abs(CLo.Y + 2) < 1E-9) and
+       (Abs(CLo.Z + 1.5) < 1E-9),
+      Format('and its low corner is where centring left it (%.2f %.2f %.2f)',
+        [CLo.X, CLo.Y, CLo.Z]));
+    D.TranslateEnts(CIdx, P3(-CLo.X, -CLo.Y, -CLo.Z));
+    Ok(D.SpanOf([], CLo, CHi), 'moved into the corner');
+    Ok((Abs(CLo.X) < 1E-9) and (Abs(CLo.Y) < 1E-9) and (Abs(CLo.Z) < 1E-9),
+      Format('the near bottom corner is on 0,0,0 (%.2f %.2f %.2f)',
+        [CLo.X, CLo.Y, CLo.Z]));
+    Ok((Abs(CHi.X - 10) < 1E-9) and (Abs(CHi.Y - 4) < 1E-9) and
+       (Abs(CHi.Z - 3) < 1E-9),
+      Format('and it is still ten by four by three from there (%.2f %.2f %.2f)',
+        [CHi.X, CHi.Y, CHi.Z]));
+    { everything of it is in the quarter where the axes are drawn solid }
+    Ok((CLo.X >= -1E-9) and (CLo.Y >= -1E-9) and (CLo.Z >= -1E-9),
+      'with none of it behind the origin');
+    { and putting it back where it was leaves the check after this alone }
+    D.TranslateEnts(CIdx, P3(-5, -2, -1.5));
 
     { --- centred on the origin, which is what a slicer wants ---------
           Tony's uncle: a part opens in the next program wherever the drawing

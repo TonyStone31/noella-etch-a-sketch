@@ -165,6 +165,7 @@ type
     procedure KeepExportDir(const Ext, Dir: string);
     function SaveDirNow: string;
     function OpenDirNow: string;
+    procedure CornerSelection;
     procedure ShowOpenEdges;
     procedure OpenManual;
     { the system colour picker, for a pen that is not on the palette }
@@ -3044,6 +3045,12 @@ begin
   Add('Centre on the Origin', 5);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
 
+  { and the other half of the same want: not the middle on zero but the
+    corner, which is what you reach for when you are measuring rather than
+    printing }
+  Add('Into the Corner at 0,0,0', 6);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
+
   M := TMenuItem.Create(pmCanvas);
   M.Caption := '-';
   pmCanvas.Items.Add(M);
@@ -3089,6 +3096,7 @@ begin
         InvalidateStatus;
       end;
     5: CentreSelection;
+    6: CornerSelection;
   end;
 end;
 
@@ -3135,6 +3143,64 @@ begin
     FCmdMsg := Format('Moved %d things onto the origin.', [Length(FSel)])
   else
     FCmdMsg := 'Moved the whole drawing onto the origin.';
+  InvalidateStatus;
+  Invalidate;
+end;
+
+{ Into the corner at the origin, rather than centred on it.
+
+  Centring is what a slicer wants - it puts the middle of the thing on the
+  middle of the bed.  This is what a person wants when they are measuring:
+  the model sits on the floor with its two near edges against the origin, so
+  every number read off it is a distance from zero rather than a distance
+  from half of itself.  It is also the corner of the world where all three
+  axes are drawn solid, which is the quarter a drawing belongs in.
+
+  It moves the box, not the shape: the lowest corner of what is selected goes
+  to 0,0,0 and everything travels with it. }
+procedure TMainForm.CornerSelection;
+var
+  Lo, Hi: TP3;
+  Idx: array of Integer;
+  I: Integer;
+begin
+  if not FD.Doc.SpanOf(FSel, Lo, Hi) then
+  begin
+    FCmdMsg := 'Nothing to move.';
+    InvalidateStatus;
+    Exit;
+  end;
+  if (Abs(Lo.X) < 1E-9) and (Abs(Lo.Y) < 1E-9) and (Abs(Lo.Z) < 1E-9) then
+  begin
+    FCmdMsg := 'Already in the corner.';
+    InvalidateStatus;
+    Exit;
+  end;
+  PushUndo;
+  if Length(FSel) > 0 then
+  begin
+    SetLength(Idx, Length(FSel));
+    for I := 0 to High(FSel) do Idx[I] := FSel[I];
+  end
+  else
+  begin
+    SetLength(Idx, FD.Doc.Live);
+    for I := 0 to FD.Doc.Live - 1 do Idx[I] := I;
+  end;
+  FD.Doc.TranslateEnts(Idx, P3(-Lo.X, -Lo.Y, -Lo.Z));
+  RenderPro;
+  RecomposeAll;
+  FScreenDirty := True;
+  if Length(FSel) > 0 then
+    FCmdMsg := Format('Moved %d things into the corner at 0,0,0 - %s by %s ' +
+      'by %s from there.', [Length(FSel),
+      FormatLen(Hi.X - Lo.X, FD.Units), FormatLen(Hi.Y - Lo.Y, FD.Units),
+      FormatLen(Hi.Z - Lo.Z, FD.Units)])
+  else
+    FCmdMsg := Format('Moved the whole drawing into the corner at 0,0,0 - ' +
+      '%s by %s by %s from there.',
+      [FormatLen(Hi.X - Lo.X, FD.Units), FormatLen(Hi.Y - Lo.Y, FD.Units),
+       FormatLen(Hi.Z - Lo.Z, FD.Units)]);
   InvalidateStatus;
   Invalidate;
 end;
@@ -11247,6 +11313,14 @@ begin
   end
   else if (W = 'center') or (W = 'centre') then
     CentreSelection
+  { The other half of it: not the middle on the origin but the near bottom
+    corner, so the thing stands on the floor with its edges against zero.
+
+    Not /corner - that is already a view, the corner you look from rather
+    than the corner you put a thing in.  /tozero says what it does and
+    collides with nothing. }
+  else if (W = 'tozero') or (W = 'zero') or (W = 'tuck') then
+    CornerSelection
   else if (W = 'holes') or (W = 'openedges') or (W = 'notclosed') then
   begin
     ShowOpenEdges;

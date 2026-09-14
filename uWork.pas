@@ -437,6 +437,10 @@ type
     { The middle of a few things, or of everything if none are named.  What
       "centre this on the origin" has to know before it can do it. }
     function MiddleOf(const Idx: array of Integer; out Mid: TP3): Boolean;
+    { The box these things sit in - the same walk MiddleOf does, and the
+      middle is only the halfway point of it.  Wanted whole for putting a
+      selection into the corner at the origin rather than centred on it. }
+    function SpanOf(const Idx: array of Integer; out Lo, Hi: TP3): Boolean;
     { SketchUp's arrays.  N copies of Src along D - at D, 2D, 3D when
       Divide is off (3x), at D/N, 2D/N ... D when it is on (/3) - or turned
       about the axis by Ang, 2Ang ... likewise.  Made is every entity the
@@ -5199,8 +5203,18 @@ end;
 
 function TWorkDoc.MiddleOf(const Idx: array of Integer; out Mid: TP3): Boolean;
 var
-  I, J, K: Integer;
   Lo, Hi: TP3;
+begin
+  Result := SpanOf(Idx, Lo, Hi);
+  if Result then
+    Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2)
+  else
+    Mid := P3(0, 0, 0);
+end;
+
+function TWorkDoc.SpanOf(const Idx: array of Integer; out Lo, Hi: TP3): Boolean;
+var
+  I, J, K: Integer;
   Any: Boolean;
 
   procedure Grow(const P: TP3);
@@ -5239,14 +5253,13 @@ var
 
 begin
   Any := False;
-  Mid := P3(0, 0, 0);
+  Lo := P3(0, 0, 0);
+  Hi := P3(0, 0, 0);
   if Length(Idx) > 0 then
     for J := 0 to High(Idx) do Take(Idx[J])
   else
     for K := 0 to FLive - 1 do Take(K);
   Result := Any;
-  if Any then
-    Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
 end;
 
 procedure TWorkDoc.TranslateEnts(const Idx: array of Integer; const D: TP3);
