@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The letters of the logo, and the robot, can be pushed now.**  They were
+  lines with no faces under them, and a drawing read from a file never has its
+  faces worked out - everything in a saved file is taken as settled, so a
+  region with no face is one whose face was rubbed out on purpose.  Quite
+  right for a file the program saved, and it meant the example, which was
+  written by hand, could never grow them.  The faces are in the file now.
+
+- **The example opens framed, near the origin.**  It was written with no pan
+  at all, which put the origin in the corner of the view and the toy away off
+  to one side.
+
 ## v2026.09.13.27
 
 ### Fixed

@@ -42,6 +42,13 @@ const
   KNOB_Y = 1.125;
   KNOB_X0 = 2.25; KNOB_X1 = 9.75;
   KNOB_SIDES = 20;
+  { the body is the first solid; the knobs take the numbers after it, so
+    anything added later has to name this rather than trust a counter }
+  BODY = 1;
+  { the drawing area of a window somebody would actually open - only used to
+    work out where the camera should stand when the file is written }
+  ART_W = 1280;
+  ART_H = 720;
 
   { TColor is $00BBGGRR }
   RED   = $002030C8;    { the toy's red }
@@ -53,6 +60,8 @@ var
   D: TWorkDoc;
   L: TStringList;
   Grp: Integer;
+  { every closed loop drawn on a flat face, in the order it was drawn }
+  Drawn: array of TP3Array;
 
 { inches to the drawing's unit }
 function I_(V: Double): Double;
@@ -178,7 +187,7 @@ end;
 procedure Loop(const XY: array of Double; OX, OY, S, Z: Double);
 var
   I, N: Integer;
-  Pts: array of TP3;
+  Pts: TP3Array;
 begin
   N := Length(XY) div 2;
   SetLength(Pts, N);
@@ -186,6 +195,12 @@ begin
     Pts[I] := P(OX + XY[I * 2] * S, OY + XY[I * 2 + 1] * S, Z);
   for I := 0 to N - 1 do
     D.AddLine(Pts[I], Pts[(I + 1) mod N], INK, 1.0, False);
+  { kept as well as drawn.  A loop of lines is only a face once somebody has
+    worked the faces out, and a drawing read from a file does not get that
+    done to it - see the note by the faces at the bottom - so the faces go in
+    the file too. }
+  SetLength(Drawn, Length(Drawn) + 1);
+  Drawn[High(Drawn)] := Pts;
 end;
 
 { One letter.  Returns how wide it was, so the caller can walk along.
@@ -223,6 +238,36 @@ begin
   end;
 end;
 
+{ Is this loop the counter of the letter before it?  Only R has one, and it
+  is always the loop straight after R's outline, so "did the loop before me
+  contain me" is the whole test - and it is cheap because there are thirteen
+  of them and not thirteen thousand. }
+function IsCounter(const All: array of TP3Array; I: Integer): Boolean;
+var
+  Lo, Hi, PLo, PHi: TP3;
+
+  procedure Span(const Pts: TP3Array; out A, B: TP3);
+  var
+    K: Integer;
+  begin
+    A := Pts[0]; B := Pts[0];
+    for K := 1 to High(Pts) do
+    begin
+      A.X := Min(A.X, Pts[K].X); A.Y := Min(A.Y, Pts[K].Y);
+      B.X := Max(B.X, Pts[K].X); B.Y := Max(B.Y, Pts[K].Y);
+    end;
+  end;
+
+begin
+  Result := False;
+  if I = 0 then Exit;
+  Span(All[I], Lo, Hi);
+  Span(All[I - 1], PLo, PHi);
+  Result := (Lo.X > PLo.X - 1E-9) and (Hi.X < PHi.X + 1E-9) and
+            (Lo.Y > PLo.Y - 1E-9) and (Hi.Y < PHi.Y + 1E-9) and
+            ((Hi.X - Lo.X) < (PHi.X - PLo.X) - 1E-9);
+end;
+
 { A word, centred on CX. }
 procedure Word_(const W: string; CX, OY, S, Z: Double);
 var
@@ -246,13 +291,12 @@ begin
   D.AddLine(P(X0, Y0, BT - RECESS), P(X1, Y1, BT - RECESS), INK, 1.0, False);
 end;
 
-{ A box drawn in stylus lines, which is all the robot is made of. }
+{ A box drawn in stylus lines, which is all the robot is made of.  It goes
+  through Loop like the letters do, so it is remembered and gets a face of its
+  own - draw it with Stroke and it is four lines nobody can push. }
 procedure BoxLine(X0, Y0, X1, Y1: Double);
 begin
-  Stroke(X0, Y0, X1, Y0);
-  Stroke(X1, Y0, X1, Y1);
-  Stroke(X1, Y1, X0, Y1);
-  Stroke(X0, Y1, X0, Y0);
+  Loop([X0, Y0, X1, Y0, X1, Y1, X0, Y1], 0, 0, 1, BT - RECESS);
 end;
 
 { One knob: a short cylinder sunk a little into the frame so no two faces
@@ -288,15 +332,20 @@ end;
 
 var
   ZF: Double;
-  I: Integer;
+  I, TopFace, ScrFace: Integer;
   U: TStringList;
   Outer, Screen: TP3Array;
+  Logo, Robot: array of TP3Array;
   Holes: array of TP3Array;
+  BaseP, Diag, CamZoom: Double;
+  BLo, BHi, CamMid: TP3;
+  CamV: TProjector;
+  CamP: TPointF;
 begin
   D := TWorkDoc.Create;
   L := TStringList.Create;
   ZF := BT - RECESS;
-  Grp := 1;
+  Grp := BODY;
 
   { --- the body ----------------------------------------------------- }
   Outer := RoundRect(0, 0, BW, BH, BR, BT);
@@ -310,22 +359,26 @@ begin
     it is - which it did not until this model asked it to. }
   D.AddFaceRaw(Outer, RED, True);
   D.SetFaceGroup(D.Live - 1, Grp);
-  SetLength(Holes, 1);
-  Holes[0] := Reversed(Screen);
-  D.SetFaceHoles(D.Live - 1, Holes);
+  TopFace := D.Live - 1;
 
   Skirt(Outer, 0, BT, RED);                    { the outside, walling out }
   Skirt(Reversed(Screen), ZF, BT, RED);        { the pocket, walling in }
-  Face(RoundRect(SX0, SY0, SX1, SY1, SR, ZF), GREY);   { the screen }
+  D.AddFaceRaw(RoundRect(SX0, SY0, SX1, SY1, SR, ZF), GREY, True);
+  D.SetFaceGroup(D.Live - 1, Grp);
+  ScrFace := D.Live - 1;
 
   { --- the knobs ---------------------------------------------------- }
   Knob(KNOB_X0, KNOB_Y);
   Knob(KNOB_X1, KNOB_Y);
 
   { --- the logo on the top edge, in the toy's own lines ---------------- }
+  SetLength(Drawn, 0);
   Word_('HECKERS SKETCH', BW / 2, 8.05, 0.075, BT);
+  SetLength(Logo, Length(Drawn));
+  for I := 0 to High(Drawn) do Logo[I] := Drawn[I];
 
   { --- the robot, drawn on the screen -------------------------------- }
+  SetLength(Drawn, 0);
   BoxLine(5.2, 5.6, 6.8, 6.9);        { head }
   BoxLine(5.5, 6.1, 5.8, 6.4);        { left eye }
   BoxLine(6.2, 6.1, 6.5, 6.4);        { right eye }
@@ -335,6 +388,69 @@ begin
   BoxLine(7.2, 4.4, 8.4, 5.0);        { right arm }
   BoxLine(5.2, 2.6, 5.9, 3.4);        { left leg }
   BoxLine(6.1, 2.6, 6.8, 3.4);        { right leg }
+
+  SetLength(Robot, Length(Drawn));
+  for I := 0 to High(Drawn) do Robot[I] := Drawn[I];
+
+  { --- the faces under the drawing ------------------------------------
+
+    A loop of lines is only a face once somebody has worked the faces out,
+    and that is not done to a drawing read from a file: everything in a saved
+    file is taken as already settled, so a region with no face is one whose
+    face was rubbed out on purpose and it is never handed another.  Quite
+    right for a file the program saved - rub a face out, save, open it again,
+    and it should stay rubbed out - and it means a file written by hand has
+    to carry its faces or they will never appear.
+
+    So each letter and each piece of the robot gets a face, and is cut out of
+    the face it sits on.  Cut out, not laid over: two faces in the same place
+    is two faces fighting over the same pixels.  The hole's edge and the
+    letter's edge are then the same edge run opposite ways, which is what
+    keeps the whole toy a closed solid.
+
+    This is also what makes them push: click the H, push it, and the letter
+    stands up off the frame. }
+  SetLength(Holes, 1);
+  Holes[0] := Reversed(Screen);
+  for I := 0 to High(Logo) do
+  begin
+    { the counter is inside its letter, not inside the frame }
+    if IsCounter(Logo, I) then Continue;
+    SetLength(Holes, Length(Holes) + 1);
+    Holes[High(Holes)] := Reversed(Logo[I]);
+  end;
+  D.SetFaceHoles(TopFace, Holes);
+
+  SetLength(Holes, Length(Robot));
+  for I := 0 to High(Robot) do Holes[I] := Reversed(Robot[I]);
+  D.SetFaceHoles(ScrFace, Holes);
+
+  { the letters themselves.  R is the one with a counter: its hole is the
+    loop after it, and that loop is a face in its own right as well - the
+    island in the middle of the bowl. }
+  for I := 0 to High(Logo) do
+  begin
+    { a counter belongs to the letter before it and is dealt with there }
+    if IsCounter(Logo, I) then Continue;
+    D.AddFaceRaw(Logo[I], RED, True);
+    D.SetFaceGroup(D.Live - 1, BODY);
+    if (I < High(Logo)) and IsCounter(Logo, I + 1) then
+    begin
+      { the bowl of the R: a hole in the letter, and the island inside it is
+        a face of its own, wound the other way about }
+      SetLength(Holes, 1);
+      Holes[0] := Logo[I + 1];
+      D.SetFaceHoles(D.Live - 1, Holes);
+      D.AddFaceRaw(Reversed(Logo[I + 1]), RED, True);
+      D.SetFaceGroup(D.Live - 1, BODY);
+    end;
+  end;
+
+  for I := 0 to High(Robot) do
+  begin
+    D.AddFaceRaw(Robot[I], GREY, True);
+    D.SetFaceGroup(D.Live - 1, BODY);
+  end;
 
   { --- and out ------------------------------------------------------ }
   { the same three lines the program writes when it puts this beside itself,
@@ -350,9 +466,30 @@ begin
   L.Add('SCALE 4');
   L.Add('SNAP 1');
   L.Add('VIEW 2');
-  { looking down on it from the front left, which is how you would pick one
-    up off a table }
-  L.Add('CAMERA -0.785398 0.700000 1.000000 0.000 0.000');
+  { Where the camera stands, worked out the same way the Fit button works it
+    out, for a drawing area about the size of a window somebody would open.
+
+    Written out rather than guessed because the numbers are a zoom and a PAN,
+    and a pan of nought puts the world's origin in the top left corner of the
+    view - which is why this used to open with the toy away off to one side
+    and the origin somewhere in right field. }
+  BaseP := PixelsPerUnit(usImperial, ScaleTable(usImperial, 4), 96);
+  D.Bounds(BLo, BHi);
+  CamMid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, (BLo.Z + BHi.Z) / 2);
+  { in a free camera the diagonal is the safe bound from any angle, which is
+    what FitView uses }
+  Diag := Sqrt(Sqr(BHi.X - BLo.X) + Sqr(BHi.Y - BLo.Y) + Sqr(BHi.Z - BLo.Z));
+  CamZoom := Min((ART_W * 0.8) / (Diag * BaseP), (ART_H * 0.8) / (Diag * BaseP));
+  CamV.Kind := vkOrbit;
+  CamV.Az := -0.785398;
+  CamV.El := 0.700000;
+  CamV.Ppu := BaseP * CamZoom;
+  CamV.OX := 0;
+  CamV.OY := 0;
+  CamP := Project(CamV, CamMid);
+  L.Add(StringReplace(Format('CAMERA %.6f %.6f %.6f %.3f %.3f',
+    [CamV.Az, CamV.El, CamZoom, ART_W / 2 - CamP.X, ART_H / 2 - CamP.Y]),
+    DefaultFormatSettings.DecimalSeparator, '.', [rfReplaceAll]));
   D.SaveTo(L);
   L.Add('ENDSHEET');
   L.SaveToFile('etch-a-sketch.hsk');
