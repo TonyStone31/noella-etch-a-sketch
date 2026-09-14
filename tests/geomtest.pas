@@ -4945,6 +4945,7 @@ var
   Fac: array of array[0..2] of Integer;
   Vol, Want, Sc: Double;
   FS: TFormatSettings;
+  ScadShut: Boolean;
   Ch: Char;
   InBr: Boolean;
   Bad: Integer;
@@ -4967,7 +4968,8 @@ begin
     for I := 0 to D.Live - 1 do
       if D[I].Kind = ekFace then D.SetFaceGroup(I, 3);
 
-    NTri := D.WriteSCAD(L, usImperial, Solids);
+    NTri := D.WriteSCAD(L, usImperial, Solids, ScadShut);
+    Ok(ScadShut, 'and it says the box is closed, the way the STL does');
     Ok(NTri = 12, Format('a box is 12 triangles (%d)', [NTri]));
     Ok(Solids = 1, Format('in one piece (%d)', [Solids]));
     Ok(L.Text <> '', 'and it wrote something');

@@ -593,7 +593,7 @@ type
 
       Returns the triangle count, and says how many solids through Solids. }
     function WriteSCAD(L: TStrings; U: TUnitSystem; out Solids: Integer;
-      AtOrigin: Boolean = True): Integer;
+      out Closed: Boolean; AtOrigin: Boolean = True): Integer;
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
@@ -7648,7 +7648,7 @@ end;
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
   same size it prints. }
 function TWorkDoc.WriteSCAD(L: TStrings; U: TUnitSystem;
-  out Solids: Integer; AtOrigin: Boolean): Integer;
+  out Solids: Integer; out Closed: Boolean; AtOrigin: Boolean): Integer;
 var
   FS: TFormatSettings;
   Scale: Double;
@@ -7690,6 +7690,18 @@ var
 begin
   Result := 0;
   Solids := 0;
+  { the same question the STL answers on the way out, and for the same
+    person: OpenSCAD will render a surface that is not closed and the printer
+    will not }
+  Closed := True;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekFace then Continue;
+    if Length(FEnts[I].Poly) < 3 then Continue;
+    if FEnts[I].Solid and (FEnts[I].Grp > 0) and
+       not GroupClosed(FEnts[I].Grp) then Closed := False;
+    if not FEnts[I].Solid then Closed := False;
+  end;
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';
   if U = usMetric then Scale := 1000 else Scale := 304.8;

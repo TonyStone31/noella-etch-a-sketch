@@ -175,13 +175,30 @@ into the drawing; hammer the general tools before the generators.
   aimed at the middle of an edge travels with the edge.  Remembering which
   entity a note is tied to would be the thorough answer and wants a field in
   the file; this is the cheap nine-tenths of it.
-* **More in the settings lists.**  They can hold more than a row ever could
-  and nothing has been added to them.
-* **Custom mouse cursors.**  The tool's glyph rides beside the crosshair,
-  which says which tool is in hand without per-platform cursor images.  A real
-  cursor per tool would read better.
-* **Light mode is harder to read than dark.**  One deliberate pass over the
-  light palettes rather than nudging single colours.
+* **More in the settings lists - DONE 14 September 2026.**  The colour list
+  has a row past the twelve swatches that opens the platform's own picker,
+  which is the thing a row of swatches could never hold.  The palette stays
+  twelve: a wall of swatches is a worse list, not a better one.
+* **Custom mouse cursors - looked at 14 September, not done on purpose.**
+  The obvious half is already there: the drawing takes a crosshair, orbit and
+  the pan take the four-way, the chrome takes a hand.  What the entry means
+  is a *glyph per tool* as a real OS cursor, and that is not a small thing
+  and could easily be worse than what is there - Windows wants particular
+  sizes, and a hotspot out by two pixels is a drawing program that feels
+  wrong to use.  The glyph riding beside the crosshair was a deliberate
+  choice, not a stopgap.  Leave it until somebody says the crosshair is not
+  enough.
+* **Light mode is harder to read than dark - DONE 14 September 2026,
+  measured.**  The accent was the whole of it: at $1C7CD6 it made 3.7 to one
+  against the light panel where the dark theme's accent makes 8.4, and the
+  accent is text as often as it is a fill - the update line, a heading, the
+  tool in hand.  It is $176BBD now, which is 4.7, and the quiet text went
+  from 4.2 to 5.0.
+
+  The other half was that text on an accent fill was written down as "dark,
+  because the accents here are bright" in six places.  True of five themes
+  and false of the light one, where it put pale grey on mid blue.
+  `uSurface.OnPix` answers it from the fill's luminance instead, once.
 * **Neon on a light screen** is muted - the cost of going alpha-based so a
   drawing survives a theme change.
 * **A ground plane in the orbit view - DONE 14 September 2026.**  The four
@@ -190,7 +207,11 @@ into the drawing; hammer the general tools before the generators.
   use.  Faint, under everything, and off with the GRID button.  A camera
   looking along the ground casts its corners past the horizon, so the count
   is capped and the lattice dropped when the view is too flat to rule.
-* **Print more than one sheet** at a time.
+* **Print more than one sheet - DONE 14 September 2026.**  `/print all` sends
+  every sheet of the drawing, a page each.  `/print` still does the one on
+  screen, because printing tabs somebody is not looking at should be asked
+  for.  The loop itself has not been through a real printer - only the
+  dialog, the command and the tab being put back afterwards.
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
 * **Performance with fittings.**  /rendertime times a whole frame (paper,
@@ -363,10 +384,12 @@ Two small things that serve the spec directly, neither started:
   The marks are dropped the moment the drawing changes, because an answer
   about geometry that has been edited since is worse than none.
 
-  Left to do, and small: a "show me" button on the export dialog itself, so
-  somebody who has just been told their STL is open does not have to know a
-  command exists.  The dialog is modal, so it has to close first and tell the
-  main window - which is why it is not done yet rather than a difficulty.
+  **And the way in is done too, 14 September.**  There is no "show me" button
+  because there is nowhere to put one: the dialog has closed by the time the
+  message is read.  So an STL or an OpenSCAD script that comes out open marks
+  the edges on the drawing behind it as it goes, and says so.  OpenSCAD did
+  not answer the closed question at all until now - it does, the same way the
+  STL does, because it goes to the same printer.
 
   This is the thing that makes a SketchUp user look twice.  SketchUp has the
   same class of problem and the answer there is a third-party extension

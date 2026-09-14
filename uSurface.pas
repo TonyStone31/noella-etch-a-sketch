@@ -238,6 +238,8 @@ function Pix(R, G, B: Byte; A: Byte = 255): TPix; inline;
 function ColorToPix(C: TColor): TPix; inline;
 function PixToColor(const P: TPix): TColor; inline;
 function MixPix(const A, B: TPix; T: Single): TPix;
+{ Near-black or near-white, whichever reads on this colour. }
+function OnPix(const C: TPix): TPix;
 function ShadePix(const C: TPix; F: Single): TPix;
 function HSVPix(H, S, V: Single): TPix;
 function PtF(X, Y: Single): TPointF; inline;
@@ -293,6 +295,37 @@ begin
   Result.G := Round(A.G + (B.G - A.G) * T);
   Result.B := Round(A.B + (B.B - A.B) * T);
   Result.A := Round(A.A + (B.A - A.A) * T);
+end;
+
+{ Near-black or near-white, whichever can be read on this colour.
+
+  A theme puts text on its accent in half a dozen places - the lit row of a
+  list, the tool in hand, the button you came for - and every one of them had
+  the answer written into it as "dark, because the accents here are bright".
+  Which is true of five themes and false of the light one, where the accent
+  is a mid blue: dark text on it managed 4.2 to one and light grey text on it
+  rather less.  So it is asked rather than assumed, once, here.
+
+  The measure is the sRGB relative luminance the contrast standards use, and
+  the threshold is where the two answers cross. }
+function OnPix(const C: TPix): TPix;
+var
+  L: Single;
+
+  function Chan(V: Byte): Single;
+  var
+    F: Single;
+  begin
+    F := V / 255;
+    if F <= 0.03928 then Result := F / 12.92
+    else Result := Power((F + 0.055) / 1.055, 2.4);
+  end;
+
+begin
+  L := 0.2126 * Chan(C.R) + 0.7152 * Chan(C.G) + 0.0722 * Chan(C.B);
+  if L > 0.183 then Result := Pix(22, 22, 26)
+  else Result := Pix(246, 248, 252);
+  Result.A := 255;
 end;
 
 function ShadePix(const C: TPix; F: Single): TPix;

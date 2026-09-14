@@ -167,6 +167,8 @@ type
     function OpenDirNow: string;
     procedure ShowOpenEdges;
     procedure OpenManual;
+    { the system colour picker, for a pen that is not on the palette }
+    procedure PickAnyColour;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormDestroy(Sender: TObject);
@@ -959,6 +961,8 @@ type
     function LoadDocument(const FileName: string): Boolean;
     procedure DoExport;
     procedure DoPrint;
+    { every sheet of the drawing, a page each, rather than only this one }
+    procedure DoPrintSheets(All: Boolean);
     procedure DoPrintFull(const PngDir: string);
     procedure PrintTileMarks(Col, Row, Cols, Rows, PitchW, PitchH,
       SW, SH: Integer; const ScaleName: string);
@@ -4529,7 +4533,7 @@ begin
           PaintPill(FDeckSkin, R, Round(8 * FUIScale), C1, C2, Edge);
           if (It.Group = GRP_TOOL) and (FMode = mdPro) then
           begin
-            if Sel then Fg := Pix(22, 22, 26) else Fg := Theme.Text;
+            if Sel then Fg := OnPix(Theme.Accent) else Fg := Theme.Text;
             IR := Rect(R.Left + Round(5 * FUIScale),
               R.Top + Round(3 * FUIScale),
               R.Left + Round(5 * FUIScale) + (R.Bottom - R.Top) - Round(6 * FUIScale),
@@ -4547,7 +4551,7 @@ begin
           { a settings button says there is more behind it }
           if It.Group = GRP_POPUP then
           begin
-            if Sel then Fg := Pix(22, 22, 26) else Fg := Theme.TextDim;
+            if Sel then Fg := OnPix(Theme.Accent) else Fg := Theme.TextDim;
             IR := Rect(R.Right - Round(16 * FUIScale), R.Top,
               R.Right - Round(3 * FUIScale), R.Bottom);
             PaintIcon(FDeckSkin, ikChevron, IR, Fg, 0.9);
@@ -4639,7 +4643,7 @@ begin
     It := FDeck[I];
     if It.Kind <> dkSegment then Continue;
     if Selected(It) then
-      UIFont(pbDeck.Canvas, 10, True, Pix(22, 22, 26))
+      UIFont(pbDeck.Canvas, 10, True, OnPix(Theme.Accent))
     else
       UIFont(pbDeck.Canvas, 10, False, Theme.Text);
     TW := pbDeck.Canvas.TextWidth(It.Caption);
@@ -6020,7 +6024,7 @@ begin
     R := Rect(I * (W div 2), 0, (I + 1) * (W div 2), H);
     if I = 0 then S := 'TOY' else S := 'PRO';
     if Ord(FMode) = I then
-      UIFont(pbMode.Canvas, 11, True, Pix(22, 22, 26))
+      UIFont(pbMode.Canvas, 11, True, OnPix(Theme.Accent))
     else
       UIFont(pbMode.Canvas, 11, True, Theme.TextDim);
     TrackedText(pbMode.Canvas,
@@ -11324,6 +11328,7 @@ begin
   begin
     if (Rest = 'full') or (Rest = '1:1') or (Rest = 'fullsize') or
        (Rest = 'full size') then DoPrintFull('')
+    else if (Rest = 'all') or (Rest = 'sheets') then DoPrintSheets(True)
     else DoPrint;
   end
   { the same tiles as pictures, for a print shop - and for looking at what
@@ -12686,7 +12691,11 @@ begin
   case Which of
     POP_SCALE: Result := SCALE_COUNT;
     POP_SNAP: Result := SNAP_COUNT;
-    POP_COLOR: Result := Length(PALETTE);
+    { one row past the palette, for a colour that is not on it.  A list can
+      hold more than a row of swatches ever could, and twelve colours with
+      no way to ask for a thirteenth is the row's limit brought along by
+      accident. }
+    POP_COLOR: Result := Length(PALETTE) + 1;
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 7;
     POP_SHOP: Result := 3;
@@ -12703,7 +12712,8 @@ begin
     POP_SCALE: Result := ScaleTable(FD.Units, I).Name +
       IfThen(FD.Units = usImperial, '  =  1''-0"', '');
     POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
-    POP_COLOR: Result := '';
+    POP_COLOR:
+      if I = Length(PALETTE) then Result := 'Another colour...' else Result := '';
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
     POP_SHOP:
       case I of
@@ -12746,7 +12756,9 @@ begin
         FD.SnapIdx := EnsureRange(I, 0, SNAP_COUNT - 1);
         FCmdMsg := 'Snap: ' + SnapName(FD.Units, FD.SnapIdx);
       end;
-    POP_COLOR: SetInk(PALETTE[I], False);
+    POP_COLOR:
+      if I = Length(PALETTE) then PickAnyColour
+      else SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
     POP_SHOP:
       case I of
@@ -12899,7 +12911,8 @@ begin
       FPopupR.Right - Round(4 * FUIScale), Y + RowH - 1);
     { the one in force is lit, which the combined list never managed }
     Sel := (I = Cur) or
-      ((FPopup = POP_COLOR) and (PALETTE[I] = FInkColor)) or
+      ((FPopup = POP_COLOR) and (I < Length(PALETTE)) and
+       (PALETTE[I] = FInkColor)) or
       ((FPopup = POP_WIDTH) and
        (PEN_SIZES[I] = IfThen(FMode = mdPro, FEdgeW, FPenSize)));
     if Sel then
@@ -12913,7 +12926,7 @@ begin
       C.FillRect(R);
     end;
 
-    if FPopup = POP_COLOR then
+    if (FPopup = POP_COLOR) and (I < Length(PALETTE)) then
     begin
       C.Brush.Color := PALETTE[I];
       if Sel then
@@ -12929,7 +12942,7 @@ begin
     end;
 
     S := PopupCaption(FPopup, I);
-    if Sel then UIFont(C, 10, True, Pix(22, 22, 26))
+    if Sel then UIFont(C, 10, True, OnPix(Theme.Accent))
     else UIFont(C, 10, False, Theme.Text);
     C.TextOut(R.Left + Round(8 * FUIScale),
       R.Top + (RowH - C.TextHeight('X')) div 2, S);
@@ -17080,6 +17093,27 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ A colour that is not one of the twelve.
+
+  The palette is the twelve that get used, and it stays twelve - a wall of
+  swatches is a worse list, not a better one.  This is the way past it when
+  somebody wants a particular colour, and it is the platform's own picker
+  because that is the one with the eyedropper and the recent colours in it. }
+procedure TMainForm.PickAnyColour;
+var
+  D: TColorDialog;
+begin
+  D := TColorDialog.Create(nil);
+  try
+    D.Color := FInkColor;
+    if not D.Execute then Exit;
+    SetInk(D.Color, False);
+    FCmdMsg := 'Pen colour set.';
+  finally
+    D.Free;
+  end;
+end;
+
 { The manual: the copy that travels with the program if this build carries
   one, and the website if it does not.  A portable program whose help is on a
   website is no help on a machine that cannot reach one. }
@@ -17230,6 +17264,7 @@ procedure TMainForm.DoExport;
 var
   Msg, Base: string;
   ExpPivot: TP3;
+  Holes: Boolean;
 begin
   { The toy has no vectors and no model - what it has is a picture of a
     screen, so that is what it exports.  A room full of settings for it would
@@ -17263,12 +17298,22 @@ begin
     the dialog asks }
   Base := 'heckers-sketch-' + FormatDateTime('yyyymmdd-hhnnss', Now);
   Msg := '';
+  Holes := False;
   if RunExport(FD.Doc, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW,
        FArt.Width, FArt.Height, Base, Themes[FThemeIdx], ExpPivot,
-       @ReportFromDialog, @ExportDirFor, @KeepExportDir, Msg) then
+       @ReportFromDialog, @ExportDirFor, @KeepExportDir, Msg, Holes) then
   begin
     FHint := Msg;
     FCmdMsg := Msg;
+    { Told your STL is not closed, the next thing you want is where.  The
+      dialog has gone by the time the message is read, so there is nowhere
+      to put a button - the marks are simply already on the drawing when it
+      closes, and they go the moment anything is changed. }
+    if Holes then
+    begin
+      ShowOpenEdges;
+      FCmdMsg := Msg;
+    end;
   end
   else if Msg <> '' then
     FCmdMsg := Msg;
@@ -17529,7 +17574,17 @@ end;
 { In pro mode the page is re-rendered from the geometry at the printer's own
   resolution, so 1/4" = 1'-0" really does come out as a quarter inch on the
   paper.  Toy mode just fits the picture to the page. }
+{ All: every sheet of the drawing, a page each, rather than the one on
+  screen.  A drawing is one document with tabs across the top and printing
+  only the tab you happen to be looking at is the wrong default for a set of
+  shop drawings - but it is also the wrong thing to do without being asked,
+  so it is /print all. }
 procedure TMainForm.DoPrint;
+begin
+  DoPrintSheets(False);
+end;
+
+procedure TMainForm.DoPrintSheets(All: Boolean);
 var
   Sheet: TArtSurface;
   V: TProjector;
@@ -17539,11 +17594,25 @@ var
   P: TPointF;
   Scale: Double;
   R: TRect;
+  Was, Page, NPages: Integer;
 begin
   if not dlgPrint.Execute then Exit;
+  Was := FTabIdx;
+  if All then NPages := Length(FDrawings) else NPages := 1;
   try
     Printer.BeginDoc;
     try
+      for Page := 0 to NPages - 1 do
+      begin
+      if All then
+      begin
+        { the renderer reads the current sheet, its scale and its units off
+          FD, so the sheet being printed becomes the current one for as long
+          as it takes to draw it }
+        if Page > 0 then Printer.NewPage;
+        FTabIdx := Page;
+        FD := FDrawings[Page];
+      end;
       if (FMode = mdPro) and (Printer.XDPI > 0) and (Printer.YDPI > 0) then
       begin
         PageWIn := Printer.PageWidth / Printer.XDPI;
@@ -17571,9 +17640,15 @@ begin
         finally
           Sheet.Free;
         end;
-        FCmdMsg := 'Printed at ' + CurScale.Name +
-          IfThen(FD.Units = usImperial, ' = 1''-0"', '') +
-          '.  /print full lays it out 1:1 across sheets.';
+        if All then
+          FCmdMsg := Format('Printed %d sheets at %s%s.',
+            [NPages, CurScale.Name,
+             IfThen(FD.Units = usImperial, ' = 1''-0"', '')])
+        else
+          FCmdMsg := 'Printed at ' + CurScale.Name +
+            IfThen(FD.Units = usImperial, ' = 1''-0"', '') +
+            '.  /print all does every sheet; /print full lays it out 1:1 ' +
+            'across pages.';
       end
       else
       begin
@@ -17584,6 +17659,7 @@ begin
                     Round(FArt.Width * Scale), Round(FArt.Height * Scale));
         Printer.Canvas.StretchDraw(R, FArt.AsBitmap);
       end;
+      end;
     finally
       Printer.EndDoc;
     end;
@@ -17592,6 +17668,9 @@ begin
     on E: Exception do
       MessageDlg('Could not print', E.Message, mtError, [mbOK], 0);
   end;
+  { back to the sheet somebody was looking at }
+  FTabIdx := EnsureRange(Was, 0, High(FDrawings));
+  FD := FDrawings[FTabIdx];
   Invalidate;
 end;
 

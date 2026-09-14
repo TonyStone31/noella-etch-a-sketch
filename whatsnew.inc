@@ -13,6 +13,29 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **An STL that is not closed marks itself.**  Export one and the edges where' + LineEnding +
+    '  it is open are already drawn in red on the drawing when the dialog closes.' + LineEnding +
+    '  Being told a slicer will have to guess is the half you knew; where is the' + LineEnding +
+    '  half that helps.' + LineEnding +
+    '' + LineEnding +
+    '- **/print all sends every sheet**, a page each.  /print still does the one on' + LineEnding +
+    '  screen.' + LineEnding +
+    '' + LineEnding +
+    '- **Another colour...** at the bottom of the line-colour list, for a pen that' + LineEnding +
+    '  is not one of the twelve.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Light mode is easier to read.**  The accent blue was too pale against' + LineEnding +
+    '  light chrome - it makes 3.7 to one where the dark theme''s makes 8.4, and it' + LineEnding +
+    '  is text as often as it is a fill.  It is a shade deeper now, and whatever' + LineEnding +
+    '  goes on top of it when it is a fill is chosen to be readable rather than' + LineEnding +
+    '  assumed to be dark, which is what put pale grey on mid blue.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

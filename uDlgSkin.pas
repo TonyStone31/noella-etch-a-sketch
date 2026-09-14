@@ -125,11 +125,13 @@ begin
   case Kind of
     bkGo:
       begin
-        { the one you came for: the theme's own accent, and dark text on it
-          because the accents here are bright }
+        { the one you came for: the theme's own accent, with whichever of
+          black or white can be read on it.  It used to take the theme's
+          Shell2 on the reasoning that the accents are all bright - true of
+          five themes, and in the light one it put pale grey on mid blue. }
         Fill := PixToColor(DlgTheme.Accent);
         Edge := Shade(Fill, -0.25);
-        Txt := PixToColor(DlgTheme.Shell2);
+        Txt := PixToColor(OnPix(DlgTheme.Accent));
       end;
     bkQuiet:
       begin

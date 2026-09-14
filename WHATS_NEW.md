@@ -10,6 +10,30 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **An export that is not a closed solid marks itself.**  Send out an STL or
+  an OpenSCAD script and the edges where it is open are already drawn in red
+  on the drawing when the dialog closes.  Being told a slicer will have to
+  guess is the half you knew; where is the half that helps.  OpenSCAD did not
+  check at all before - it does now, because it goes to the same printer.
+
+- **/print all sends every sheet**, a page each.  /print still does the one on
+  screen.
+
+- **Another colour...** at the bottom of the line-colour list, for a pen that
+  is not one of the twelve.
+
+### Fixed
+
+- **Light mode is easier to read.**  The accent blue was too pale against
+  light chrome - it makes 3.7 to one where the dark theme's makes 8.4, and it
+  is text as often as it is a fill.  It is a shade deeper now, and whatever
+  goes on top of it when it is a fill is chosen to be readable rather than
+  assumed to be dark, which is what put pale grey on mid blue.
+
 ## v2026.09.14.7
 
 ### New

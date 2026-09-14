@@ -54,7 +54,7 @@ function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
   const Suggest: string; const T: TTheme; const Pivot: TP3;
   OnReport: TReportProc; DirFor: TDirFor; DirKeep: TDirKeep;
-  out Msg: string): Boolean;
+  out Msg: string; out ShowHoles: Boolean): Boolean;
 
 implementation
 
@@ -77,6 +77,10 @@ type
       which of half a dozen steps it died in - so now it says. }
     FStage: string;
     FOnReport: TReportProc;
+    { True when what went out was not a closed solid.  The dialog is gone by
+      the time somebody reads the message, so there is nowhere to put a
+      "show me" button - the drawing behind it does the showing instead. }
+    FOpenSolid: Boolean;
     { the name to offer, without a folder or an extension, and the two hooks
       that know where each kind of file belongs }
     FStem: string;
@@ -1143,7 +1147,7 @@ begin
         FStage := 'writing the OpenSCAD script';
         L := TStringList.Create;
         try
-          N := FDoc.WriteSCAD(L, FUnits, NTri, FMidOn);
+          N := FDoc.WriteSCAD(L, FUnits, NTri, Shut, FMidOn);
           L.SaveToFile(Fn);
         finally
           L.Free;
@@ -1151,6 +1155,14 @@ begin
         if N = 0 then
           FMsg := 'Nothing to describe - an OpenSCAD shape is made of faces, ' +
             'and this drawing has none.'
+        else if not Shut then
+        begin
+          FOpenSolid := True;
+          FMsg := Format('%d triangles in %d %s, in millimetres - but this ' +
+            'is not a closed solid, and a printer will not take it.  The ' +
+            'edges where it is open are marked in red on the drawing.',
+            [N, NTri, specialize IfThen<string>(NTri = 1, 'piece', 'pieces')]);
+        end
         else
           FMsg := Format('%d triangles in %d %s, in millimetres.',
             [N, NTri, specialize IfThen<string>(NTri = 1, 'piece', 'pieces')]);
@@ -1169,10 +1181,13 @@ begin
           FMsg := 'Nothing to print - an STL is made of faces, and this ' +
             'drawing has none.'
         else if not Shut then
+        begin
+          FOpenSolid := True;
           FMsg := Format('%d triangles, in millimetres - but this is not a ' +
             'closed solid, so a slicer will have to guess at the inside.  ' +
-            'Type /holes on the drawing to see where.',
-            [NTri])
+            'The edges where it is open are marked in red on the drawing.',
+            [NTri]);
+        end
         else
           FMsg := Format('%d triangles, in millimetres, closed and ready to ' +
             'slice.', [NTri]);
@@ -1210,7 +1225,7 @@ function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
   const Suggest: string; const T: TTheme; const Pivot: TP3;
   OnReport: TReportProc; DirFor: TDirFor; DirKeep: TDirKeep;
-  out Msg: string): Boolean;
+  out Msg: string; out ShowHoles: Boolean): Boolean;
 var
   Dlg: TExportDlg;
 begin
@@ -1223,6 +1238,7 @@ begin
     Dlg.ShowModal;
     Result := Dlg.FWrote;
     Msg := Dlg.FMsg;
+    ShowHoles := Dlg.FOpenSolid;
   finally
     Dlg.Free;
   end;

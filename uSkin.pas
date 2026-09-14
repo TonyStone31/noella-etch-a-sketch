@@ -198,9 +198,16 @@ begin
     Screen1 := Pix($FF, $FF, $FF);
     Screen2 := Pix($F4, $F5, $F6);
     Ink := Pix($1A, $1C, $20);
-    Accent := Pix($1C, $7C, $D6);
+    { A shade darker than it was.  The accent is text as often as it is a
+      fill - the update line, a heading, the tool in hand - and at $1C7CD6
+      it managed 3.7 to one against this panel where the dark theme's accent
+      manages 8.4.  That is the whole of "light mode is harder to read than
+      dark", measured.  At $176BBD it is 4.7, and what goes on top of it
+      when it is a fill is now chosen by OnPix rather than assumed. }
+    Accent := Pix($17, $6B, $BD);
     Text := Pix($22, $26, $2C);
-    TextDim := Pix($6A, $72, $7C);
+    { and the quiet text with it: 4.2 to one was under the readable line }
+    TextDim := Pix($5E, $66, $70);
     { dark enough to read on white paper - the old value was a shade off
       the paper itself and simply vanished }
     Grid := Pix($BE, $C6, $D0);
