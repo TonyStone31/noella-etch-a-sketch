@@ -1,0 +1,46 @@
+name: Manual
+
+# The help pages, on the web.
+#
+# Only docs/help goes up - not the whole of docs/.  Two things in there have
+# no business on a public site under our name: docs/sketchup is scraped
+# SketchUp documentation, kept as a spec to build against and somebody
+# else's to publish; and the design notes are working notes rather than
+# anything anybody came here to read.
+#
+# The manual is the site root rather than a /help subfolder, so the address
+# is the short one and it lands on the index instead of a folder listing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/help/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One at a time, and let a newer push win: a queued rebuild of a page is
+# worth nothing once the page has changed again.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/help
+      - id: deploy
+        uses: actions/deploy-pages@v4
