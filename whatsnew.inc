@@ -13,6 +13,36 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.18' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The Windows access violation on exporting a GIF.**  Your report had it:' + LineEnding +
+    '  a 15.9 second recording at 20 a second is 318 frames, and a GIF is built' + LineEnding +
+    '  whole in memory - every frame held until the last one is in, and then the' + LineEnding +
+    '  packing pass duplicates them all as it walks.  At 800 x 600 that is over' + LineEnding +
+    '  half a gigabyte of frames before it even starts packing.' + LineEnding +
+    '' + LineEnding +
+    '  The number of frames now comes from the size as well as the length,' + LineEnding +
+    '  whatever fits in a sensible budget, and the packing step is skipped when it' + LineEnding +
+    '  would cost more than it saves - which on a turning model is most of the' + LineEnding +
+    '  time, since every pixel changes between frames and there is nothing still' + LineEnding +
+    '  to leave out.  **The film keeps its full length**: what gives is the frame' + LineEnding +
+    '  rate, not the ending, because losing the end of your move is a worse answer' + LineEnding +
+    '  than making it slightly choppier.' + LineEnding +
+    '' + LineEnding +
+    '  Your 15.9 seconds at 800 x 600 now comes out as 104 frames at 7 a second,' + LineEnding +
+    '  still 15.9 seconds long.  The dialog says so before you press the button,' + LineEnding +
+    '  and tells you a smaller size buys you more frames.' + LineEnding +
+    '' + LineEnding +
+    '- **A recording no longer quietly ignores the seconds box.**  It fills it in' + LineEnding +
+    '  instead, so what it says is what you get - that mismatch is how four' + LineEnding +
+    '  seconds turned into three hundred frames.' + LineEnding +
+    '' + LineEnding +
+    '- **A failed export now names the frame.**  It used to say "while drawing the' + LineEnding +
+    '  frames", which covered the drawing, the packing and the writing all at' + LineEnding +
+    '  once.  It now says which of the three, and which frame of how many.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.17' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
