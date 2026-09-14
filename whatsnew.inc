@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.9' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A wine glass, beside the toy.**  The examples folder has two drawings in' + LineEnding +
+    '  it now, both written out beside the program every run.  The glass is eight' + LineEnding +
+    '  and a half inches tall with a hollow bowl and a solid stem, and it is a' + LineEnding +
+    '  closed solid - a slicer will take it.' + LineEnding +
+    '' + LineEnding +
+    '  It is built the way you would build it: the outline of half a glass, spun' + LineEnding +
+    '  about the blue axis with Revolve.  So it is also the picture for that tool.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
