@@ -19,10 +19,22 @@ It is a toy etch-a-sketch, near enough to the real one's size:
 | overall | 12.00 x 9.00 x 1.67 in |
 
 Three closed solids - the body and the two knobs - so nothing shows a blue
-back and it exports to STL as a printable object.  It sits centred on the
-origin, left to right and front to back, and rests on the ground the way a toy
-rests on a table, so the axes run through the middle of it rather than off one
-corner.
+back and it exports to STL as a printable object.
+
+Its near bottom left corner sits **on the origin**, so the whole toy lies in
+the quarter where all three axes are drawn solid rather than dashed.  Centred
+on zero was tried first and is tidier in a picture, but it puts half the
+drawing behind the dashed halves - the halves that mean *the other way* - and
+that is a strange place to keep something you are measuring.  This way nine
+inches along is nine inches, not minus four and a half.
+
+The logo is block capitals, and **each letter is one closed loop** rather than
+a pile of bars.  Bars were easier to write and left a line across every join,
+so pushing an H up meant pushing three pieces and getting a letter with seams
+down it.  One outline is one face: click it once, push it once, the whole
+letter stands up.  R is the only one needing a second loop, for the hole in
+its bowl - and a face with a hole extrudes with the hole, the same as a wall
+with a window in it.
 
 **The robot on the screen is lines, not faces**, exactly as a real
 etch-a-sketch drawing is.  That is on purpose and it is the model's other job:

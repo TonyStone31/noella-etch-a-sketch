@@ -60,12 +60,17 @@ begin
   Result := V / 12;
 end;
 
-{ Centred on the origin left to right and front to back, and sitting on it
-  the way a toy sits on a table.  The axes then run through the middle of the
-  thing rather than off one corner, which is what you want in a picture. }
+{ The near bottom left corner sits on the origin, so the whole toy lies in the
+  quarter where all three axes are solid rather than dashed.
+
+  Centred on zero was tried first and looks tidier in a picture, but it puts
+  half the drawing behind the dashed halves of the axes - the halves that mean
+  "the other way" - and that is a strange place to keep a thing you are
+  measuring.  Everything here reads positive: nine inches along is nine
+  inches, not minus four and a half. }
 function P(X, Y, Z: Double): TP3;
 begin
-  Result := P3(I_(X - BW / 2), I_(Y - BH / 2), I_(Z));
+  Result := P3(I_(X), I_(Y), I_(Z));
 end;
 
 { A rounded rectangle, anticlockwise seen from above, at height Z.
@@ -167,91 +172,52 @@ end;
   what a real etch-a-sketch does, because a real one draws everything with
   one unbroken line and cannot lift the stylus. }
 
-type
-  TBar = array[0..7] of Double;     { x,y four times round; a quad }
-
-{ One bar of a letter, placed and scaled.  OX and OY are where the letter's
-  bottom left corner goes, S is how big the six-by-ten box is drawn. }
-procedure Bar(const B: TBar; N: Integer; OX, OY, S, Z: Double);
+{ One closed loop, placed and scaled: x,y,x,y... round the outside of a
+  letter.  OX and OY are where the letter's bottom left corner goes and S is
+  how big the six-by-ten box is drawn. }
+procedure Loop(const XY: array of Double; OX, OY, S, Z: Double);
 var
-  I: Integer;
+  I, N: Integer;
   Pts: array of TP3;
 begin
+  N := Length(XY) div 2;
   SetLength(Pts, N);
   for I := 0 to N - 1 do
-    Pts[I] := P(OX + B[I * 2] * S, OY + B[I * 2 + 1] * S, Z);
+    Pts[I] := P(OX + XY[I * 2] * S, OY + XY[I * 2 + 1] * S, Z);
   for I := 0 to N - 1 do
     D.AddLine(Pts[I], Pts[(I + 1) mod N], INK, 1.0, False);
 end;
 
-{ An upright bar of a letter, given as a rectangle. }
-procedure Rect_(X0, Y0, X1, Y1, OX, OY, S, Z: Double);
-var
-  B: TBar;
-begin
-  B[0] := X0; B[1] := Y0;
-  B[2] := X1; B[3] := Y0;
-  B[4] := X1; B[5] := Y1;
-  B[6] := X0; B[7] := Y1;
-  Bar(B, 4, OX, OY, S, Z);
-end;
+{ One letter.  Returns how wide it was, so the caller can walk along.
 
-{ A leaning bar, for the legs of a K.  The two ends are horizontal, so it
-  reads as a stroke of a pen rather than a lozenge. }
-procedure Lean(AX0, AX1, AY, BX0, BX1, BY, OX, OY, S, Z: Double);
-var
-  B: TBar;
-begin
-  B[0] := AX0; B[1] := AY;
-  B[2] := AX1; B[3] := AY;
-  B[4] := BX1; B[5] := BY;
-  B[6] := BX0; B[7] := BY;
-  Bar(B, 4, OX, OY, S, Z);
-end;
-
-{ One letter.  Returns how wide it was, so the caller can walk along. }
+  Each letter is ONE loop round the outside of it, not a pile of bars.  Bars
+  were easier to write and left a line across every join, so pushing an H up
+  meant pushing three pieces and getting a letter with seams down it.  A
+  single outline is a single face: click it once, push it once, and the whole
+  letter stands up.  R is the only one that needs a second loop, for the hole
+  in its bowl - and a face with a hole in it extrudes with the hole, the same
+  as a wall with a window. }
 function Letter(C: Char; OX, OY, S, Z: Double): Double;
 begin
   Result := 6 * S;
   case C of
-    'H': begin
-           Rect_(0, 0, 2, 10, OX, OY, S, Z);
-           Rect_(4, 0, 6, 10, OX, OY, S, Z);
-           Rect_(2, 4, 4, 6, OX, OY, S, Z);
-         end;
-    'E': begin
-           Rect_(0, 0, 2, 10, OX, OY, S, Z);
-           Rect_(2, 0, 6, 2, OX, OY, S, Z);
-           Rect_(2, 4, 5, 6, OX, OY, S, Z);
-           Rect_(2, 8, 6, 10, OX, OY, S, Z);
-         end;
-    'C': begin
-           Rect_(0, 0, 2, 10, OX, OY, S, Z);
-           Rect_(2, 0, 6, 2, OX, OY, S, Z);
-           Rect_(2, 8, 6, 10, OX, OY, S, Z);
-         end;
-    'K': begin
-           Rect_(0, 0, 2, 10, OX, OY, S, Z);
-           Lean(2, 4, 5, 4, 6, 10, OX, OY, S, Z);
-           Lean(2, 4, 5, 4, 6, 0, OX, OY, S, Z);
-         end;
+    'H': Loop([0,0, 2,0, 2,4, 4,4, 4,0, 6,0,
+               6,10, 4,10, 4,6, 2,6, 2,10, 0,10], OX, OY, S, Z);
+    'E': Loop([0,0, 6,0, 6,2, 2,2, 2,4, 5,4,
+               5,6, 2,6, 2,8, 6,8, 6,10, 0,10], OX, OY, S, Z);
+    'C': Loop([0,0, 6,0, 6,2, 2,2, 2,8, 6,8, 6,10, 0,10], OX, OY, S, Z);
+    'T': Loop([2,0, 4,0, 4,8, 6,8, 6,10, 0,10, 0,8, 2,8], OX, OY, S, Z);
+    'S': Loop([0,0, 6,0, 6,6, 2,6, 2,8, 6,8,
+               6,10, 0,10, 0,4, 4,4, 4,2, 0,2], OX, OY, S, Z);
+    'K': Loop([0,0, 2,0, 2,3.5, 4,0, 6,0, 3,5,
+               6,10, 4,10, 2,6.5, 2,10, 0,10], OX, OY, S, Z);
     'R': begin
-           Rect_(0, 0, 2, 10, OX, OY, S, Z);
-           Rect_(2, 8, 6, 10, OX, OY, S, Z);
-           Rect_(4, 6, 6, 8, OX, OY, S, Z);
-           Rect_(2, 4, 6, 6, OX, OY, S, Z);
-           Lean(3, 5, 4, 4, 6, 0, OX, OY, S, Z);
-         end;
-    'S': begin
-           Rect_(0, 8, 6, 10, OX, OY, S, Z);
-           Rect_(0, 6, 2, 8, OX, OY, S, Z);
-           Rect_(0, 4, 6, 6, OX, OY, S, Z);
-           Rect_(4, 2, 6, 4, OX, OY, S, Z);
-           Rect_(0, 0, 6, 2, OX, OY, S, Z);
-         end;
-    'T': begin
-           Rect_(0, 8, 6, 10, OX, OY, S, Z);
-           Rect_(2, 0, 4, 8, OX, OY, S, Z);
+           { the leg leans, or it is a P with a heavy side }
+           Loop([0,0, 2,0, 2,4, 3.6,4, 4,0, 6,0, 5.6,4, 6,4,
+                 6,10, 0,10], OX, OY, S, Z);
+           { the counter, wound the other way about, which is what makes it
+             a hole and not a second letter }
+           Loop([2,6, 2,8, 4,8, 4,6], OX, OY, S, Z);
          end;
     ' ': Result := 3 * S;
   end;

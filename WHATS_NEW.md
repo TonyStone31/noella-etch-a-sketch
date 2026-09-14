@@ -15,8 +15,13 @@
 ### New
 
 - **The toy says HECKERS SKETCH on it**, in block capitals drawn the way the
-  toy itself would draw them - and every bar of every letter is a closed loop,
-  so you can push any one of them up off the frame.
+  toy itself would draw them.  Each letter is one closed shape, so clicking it
+  once and pushing lifts the whole letter - no seams, no doing it three times
+  for an H.
+
+- **The toy sits in the positive corner** now, with its near bottom left on the
+  origin, so the whole thing is inside the solid halves of the axes rather
+  than straddling the dashed ones.
 
 - **A new program icon**, which is the toy.
 
