@@ -13,14 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.14.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
-    '- **An STL that is not closed marks itself.**  Export one and the edges where' + LineEnding +
-    '  it is open are already drawn in red on the drawing when the dialog closes.' + LineEnding +
-    '  Being told a slicer will have to guess is the half you knew; where is the' + LineEnding +
-    '  half that helps.' + LineEnding +
+    '- **An export that is not a closed solid marks itself.**  Send out an STL or' + LineEnding +
+    '  an OpenSCAD script and the edges where it is open are already drawn in red' + LineEnding +
+    '  on the drawing when the dialog closes.  Being told a slicer will have to' + LineEnding +
+    '  guess is the half you knew; where is the half that helps.  OpenSCAD did not' + LineEnding +
+    '  check at all before - it does now, because it goes to the same printer.' + LineEnding +
     '' + LineEnding +
     '- **/print all sends every sheet**, a page each.  /print still does the one on' + LineEnding +
     '  screen.' + LineEnding +
