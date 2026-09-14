@@ -13,6 +13,33 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.19' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The GIF export crash, properly this time - and a correction.**  The last' + LineEnding +
+    '  release blamed memory and rationed the frames accordingly.  That was wrong.' + LineEnding +
+    '' + LineEnding +
+    '  It was one missing line.  A GIF holds 256 colours and something has to' + LineEnding +
+    '  choose which 256; in BGRABitmap that chooser is pluggable, and naming its' + LineEnding +
+    '  unit is not enough - the factory has to be handed over explicitly.  It never' + LineEnding +
+    '  was.  So any frame with more than 256 colours in it reached nothing at all' + LineEnding +
+    '  and the program fell over.' + LineEnding +
+    '' + LineEnding +
+    '  Which is exactly why it looked so strange: a plain line drawing exports' + LineEnding +
+    '  fine, because white paper, grey faces and black lines fit inside 256' + LineEnding +
+    '  colours easily.  Turn on the axes and three anti-aliased coloured lines put' + LineEnding +
+    '  it over, every time.  It had nothing to do with how long the film was.' + LineEnding +
+    '' + LineEnding +
+    '  Reproduced here on Linux in the end, tracked to the line, fixed, and there' + LineEnding +
+    '  is now a test that exports a film **with the axes on** - which is the' + LineEnding +
+    '  default, and which the old test did not do, which is how it got out.' + LineEnding +
+    '' + LineEnding +
+    '- **And the files were never big.**  A four second spin of a complicated' + LineEnding +
+    '  model is 1.35 MB at 800 x 600, and the 15.9 second recording that started' + LineEnding +
+    '  all this now comes out at 0.70 MB.  The dialog says roughly what it will' + LineEnding +
+    '  weigh before you press the button.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.18' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
