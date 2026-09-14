@@ -100,7 +100,8 @@ object MainForm: TMainForm
     Left = 1072
     Height = 32
     Top = 10
-    Width = 186
+    Width = 132
+    Visible = False
     OnMouseDown = pbModeMouseDown
     OnMouseLeave = pbModeMouseLeave
     OnMouseMove = pbModeMouseMove

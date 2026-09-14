@@ -31,3 +31,4 @@ drawing simple: the point of each one is the tool, not the model.
 - `typing.png` - Typing measurements.
 - `solids.png` - Solids and 3D printing.
 - `reporting.png` - When it breaks.
+- `commands.png` - The command list, open and narrowed: a slash typed, a couple of letters after it, the list showing what matched.

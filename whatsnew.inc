@@ -13,6 +13,37 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The manual is on the web.**  Help > The manual opens the copy that came with' + LineEnding +
+    '  the program if there is one and the website if not, and the website is now' + LineEnding +
+    '  a real set of pages you can read in a browser rather than a folder of files' + LineEnding +
+    '  on GitHub.' + LineEnding +
+    '' + LineEnding +
+    '- **The toy is a command.**  `/toy` takes you to the etch-a-sketch this' + LineEnding +
+    '  program started as, and the one button in the corner there brings you back.' + LineEnding +
+    '' + LineEnding +
+    '- **A help page about the commands**, since there was one about typing' + LineEnding +
+    '  measurements and nothing about typing a slash.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The TOY and PRO buttons are gone from the top right.**  They took up the' + LineEnding +
+    '  corner of a drawing program to offer you a choice you had already made.' + LineEnding +
+    '  Nothing is hidden - `/toy` is in the command list with everything else.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Seventeen pages of the manual were missing from the website.**  Every' + LineEnding +
+    '  page about a tool - Line, Push/Pull, Offset, all of them - was in the copy' + LineEnding +
+    '  that ships beside the program but had never been published.  They are' + LineEnding +
+    '  there now.' + LineEnding +
+    '' + LineEnding +
+    '- **The eraser''s help page was a version behind.**  It now mentions dragging' + LineEnding +
+    '  to gather several, and Ctrl to soften an edge rather than rub it out.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.11' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

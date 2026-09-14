@@ -644,6 +644,7 @@ type
     FSidesCircle, FSidesArc: Integer;
     FMovePending: Boolean;
     FScreenDirty: Boolean;
+    { 0 when the pointer is on the button out of the toy, -1 when it is not }
     FHotMode: Integer;
     FHotView: Integer;
     FHotSlice: Integer;         // which zone of the cut strip is under the pointer
@@ -1113,7 +1114,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The aliases all
     still work; they are in the README. }
-  CMD_LIST: array[0..65] of TCmdItem = (
+  CMD_LIST: array[0..66] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1173,6 +1174,7 @@ const
     (Name: 'threads';    Hint: 'background work, on or off';            Arg: False),
     (Name: 'timings';    Hint: 'print the steps of each edit';          Arg: False),
     (Name: 'top';        Hint: 'look from above';                       Arg: False),
+    (Name: 'toy';        Hint: 'the etch-a-sketch this program began as'; Arg: False),
     (Name: 'tozero';     Hint: 'put its near bottom corner on 0,0,0';   Arg: False),
     (Name: 'transition'; Hint: 'build a duct fitting';                  Arg: False),
     (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False),
@@ -2585,7 +2587,7 @@ begin
   DeckH := DeckHeight;
   Bezel := Round(16 * FUIScale);
   Gap := Round(16 * FUIScale);
-  ModeW := Round(186 * FUIScale);
+  ModeW := Round(132 * FUIScale);
   ModeH := Round(32 * FUIScale);
   if FMode = mdPro then
   begin
@@ -2599,10 +2601,11 @@ begin
     TabsH := Round(30 * FUIScale);
   end;
 
-  if FMode = mdPro then
-    pbMode.SetBounds(ClientWidth - M - ModeW, Round(3 * FUIScale),
-      ModeW, Round(22 * FUIScale))
-  else
+  { The mode button is the way out of the toy and nothing else.  In pro
+    there is no button at all: /toy is the way in, and the top right of a
+    drawing program is better spent on the drawing. }
+  pbMode.Visible := FMode = mdToy;
+  if pbMode.Visible then
     pbMode.SetBounds(ClientWidth - M - ModeW, Round(10 * FUIScale), ModeW, ModeH);
 
   { the file buttons, after the name and the version }
@@ -6369,11 +6372,15 @@ begin
   else if Button = mbRight then CycleViewPreset(-1);
 end;
 
+{ One button, only in the toy, and it goes back to pro.  It was a pair of
+  them once, TOY and PRO side by side, which made sense while the two halves
+  of the program were equals; they are not, and a switch offering to put you
+  where you already are is furniture. }
 procedure TMainForm.pbModePaint(Sender: TObject);
 var
-  W, H, I: Integer;
+  W, H: Integer;
   R: TRect;
-  C1, C2: TPix;
+  K: Single;
   S: string;
 begin
   W := pbMode.Width;
@@ -6385,43 +6392,26 @@ begin
   FModeSkin.RoundFrame(Rect(0, 0, W, H), H / 2, 1.0,
     MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.14));
 
-  for I := 0 to 1 do
-  begin
-    R := Rect(I * (W div 2) + 3, 3, (I + 1) * (W div 2) - 3, H - 3);
-    if Ord(FMode) = I then
-    begin
-      C1 := ShadePix(Theme.Accent, 1.10);
-      C2 := ShadePix(Theme.Accent, 0.80);
-      FModeSkin.RoundRectV(R, (R.Bottom - R.Top) / 2, C1, C2);
-    end
-    else if FHotMode = I then
-      FModeSkin.RoundRect(R, (R.Bottom - R.Top) / 2,
-        MixPix(Theme.Panel, Pix(255, 255, 255), 0.10));
-  end;
+  { filled whether or not the pointer is on it, because it is the only way
+    out of here and ought to look like the thing to press }
+  if FHotMode = 0 then K := 1.12 else K := 1.0;
+  R := Rect(3, 3, W - 3, H - 3);
+  FModeSkin.RoundRectV(R, (R.Bottom - R.Top) / 2,
+    ShadePix(Theme.Accent, 1.10 * K), ShadePix(Theme.Accent, 0.80 * K));
   FModeSkin.DrawTo(pbMode.Canvas, 0, 0);
 
-  for I := 0 to 1 do
-  begin
-    R := Rect(I * (W div 2), 0, (I + 1) * (W div 2), H);
-    if I = 0 then S := 'TOY' else S := 'PRO';
-    if Ord(FMode) = I then
-      UIFont(pbMode.Canvas, 11, True, OnPix(Theme.Accent))
-    else
-      UIFont(pbMode.Canvas, 11, True, Theme.TextDim);
-    TrackedText(pbMode.Canvas,
-      (R.Left + R.Right - (pbMode.Canvas.TextWidth(S) + 2 * Length(S))) div 2,
-      (H - pbMode.Canvas.TextHeight(S)) div 2, S, 2);
-  end;
+  S := 'BACK TO PRO';
+  UIFont(pbMode.Canvas, 11, True, OnPix(Theme.Accent));
+  TrackedText(pbMode.Canvas,
+    (W - (pbMode.Canvas.TextWidth(S) + 2 * Length(S))) div 2,
+    (H - pbMode.Canvas.TextHeight(S)) div 2, S, 2);
 end;
 
 procedure TMainForm.pbModeMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
-var
-  H: Integer;
 begin
-  if X < pbMode.Width div 2 then H := 0 else H := 1;
-  if H <> FHotMode then
+  if FHotMode <> 0 then
   begin
-    FHotMode := H;
+    FHotMode := 0;
     pbMode.Invalidate;
   end;
 end;
@@ -6436,7 +6426,7 @@ procedure TMainForm.pbModeMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   if Button <> mbLeft then Exit;
-  if X < pbMode.Width div 2 then SetMode(mdToy) else SetMode(mdPro);
+  SetMode(mdPro);
 end;
 
 { The command bar always says what it wants next, so nothing has to be
@@ -11717,6 +11707,31 @@ begin
     collides with nothing. }
   else if (W = 'tozero') or (W = 'zero') or (W = 'tuck') then
     CornerSelection
+  { The way into the toy.  It used to be a button in the corner, next to the
+    one for coming back, and the pair of them sat in the top right of a
+    program that had got serious enough not to want them there.  The toy is
+    not a secret and not hidden - it is in the command list with everything
+    else - it just no longer takes up room in the chrome of a drawing
+    program to say it exists. }
+  else if (W = 'toy') or (W = 'etch') or (W = 'etchasketch') then
+  begin
+    if FMode = mdToy then
+      FCmdMsg := 'Already in the toy.  The button up there goes back to pro.'
+    else
+    begin
+      SetMode(mdToy);
+      FCmdMsg := 'Have fun.  The button in the corner brings you back.';
+    end;
+  end
+  else if (W = 'pro') or (W = 'promode') then
+  begin
+    if FMode = mdPro then FCmdMsg := 'Already in pro.'
+    else
+    begin
+      SetMode(mdPro);
+      FCmdMsg := 'Back to work.';
+    end;
+  end
   else if (W = 'holes') or (W = 'openedges') or (W = 'notclosed') then
   begin
     ShowOpenEdges;
@@ -17229,7 +17244,9 @@ begin
       VK_G: RunCommand('grid');
       VK_U: RunCommand('units');
       VK_H: CycleTheme(1);
-      VK_W: SetMode(mdToy);
+      { no bare W into the toy any more.  It was the button's twin and it
+        went off under the hand of somebody reaching for something else;
+        /toy is the way in now, and it is in the command list. }
       VK_OEM_4: SetPenSize(FEdgeW - 1);
       VK_OEM_6: SetPenSize(FEdgeW + 1);
     else
@@ -17251,6 +17268,7 @@ begin
     VK_BACK: StartErase;
     VK_A: ToggleAuto;
     VK_T: CycleTheme(1);
+    { W still leaves, which is where it always went from in here }
     VK_W: SetMode(mdPro);
     VK_G: begin
             FShowGrid := not FShowGrid;
@@ -17734,7 +17752,7 @@ begin
   end
   else
   begin
-    OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
+    OpenInBrowser(MANUAL_URL);
     FCmdMsg := 'This copy has no manual beside it - opening the one on the web.';
   end;
 end;

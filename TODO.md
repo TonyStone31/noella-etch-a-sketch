@@ -43,8 +43,9 @@ at scale or full size across many sheets.
 Around the edges: portable, single instance, drafts that survive a crash,
 self-update, crash and bug reports that go somewhere, Windows on its own TLS.
 
-Two test suites, both green: `./tests/run.sh` (684 checks) and
-`./tests/run-region.sh` (84), plus GUI scripts driven through Xephyr.
+Two test suites, both green: `./tests/run.sh` (758 checks) and
+`./tests/run-region.sh` (84), plus `./tests/run-cmds.sh` reading the command
+table against the dispatcher, and GUI scripts driven through Xephyr.
 
 ---
 
@@ -401,7 +402,7 @@ Two small things that serve the spec directly, neither started:
   across all of them beats a good model in each.
   `docs/help/` is the skeleton: one
   page per tool, one per thing-you-do, a shared stylesheet in the program's
-  own dark colours, and `shots/NEEDED.md` listing the 24 screenshots wanted
+  own dark colours, and `shots/NEEDED.md` listing the 25 screenshots wanted
   and what should be in each.  Tony grabs the pictures.
 
   **The way in is done, 14 September**: Help > The manual, and `/manual`,
@@ -410,10 +411,24 @@ Two small things that serve the spec directly, neither started:
   portable program whose help is on a website is no help on a machine that
   cannot reach one.  With no copy beside it, it opens the website.
 
+  **On the web, 14 September**: `.github/workflows/pages.yml` publishes
+  `docs/help` - and only that, not `docs/sketchup`, which is somebody else's
+  documentation - to <https://tonystone31.github.io/noella-etch-a-sketch/>.
+  That address is what the program opens when there is no copy beside it.
+
+  That turned up a quiet one.  The privacy rule for the report collector was
+  written `tools/` with no leading slash, so git matched a folder of that
+  name at any depth, and `docs/help/tools` was one: seventeen of the
+  twenty-seven help files had never been committed.  They were on disk the
+  whole time, so nothing looked wrong until every tool link on the live site
+  came back 404.  The rule is `/tools/` now.  Worth remembering the shape of
+  it - an ignore rule meant for one folder, silently eating another.
+
   Left to do: the pictures, and a pass making sure the words match what the
   tools actually do now rather than what they did when the page was
-  written.  Worth keeping honest - it is the only documentation
-  a person who is not reading the README will ever see.
+  written - the eraser page was a version behind and has been corrected.
+  Worth keeping honest: it is the only documentation a person who is not
+  reading the README will ever see.
 
 * **Changing a size by typing it - DONE 13 September 2026, notes kept.**  Pick a
   dimension, type what it should read, press Enter.  `TWorkDoc.ResizeDim`
@@ -908,11 +923,18 @@ Two things it does not do, neither of them hard, neither of them asked for:
   so it will not float to the top.  An alias column on the table would fix
   both and is about ten lines.
 
-* **The table is written by hand and RunCommand is the truth.**  Add a
-  command and forget the table and it simply does not appear in the list -
-  nothing breaks and nothing says so.  Worth a test that walks CMD_LIST and
-  checks every name is one RunCommand answers to, which needs RunCommand to
-  be able to say "I know this word" without doing it.
+* **The table is written by hand and RunCommand is the truth - guarded, 14
+  September.**  `tests/run-cmds.sh` reads both out of uMain.pas and fails if
+  the table offers a name the dispatcher does not answer to, if the declared
+  bound does not match the number of entries, or if the list has fallen out
+  of alphabetical order.  It reads the source rather than asking the program,
+  which avoids having to give RunCommand a "do you know this word" mode for
+  the sake of a test; the cost is that it only knows the plain `W = 'x'`
+  comparisons, so a command dispatched some cleverer way would have to be
+  taught to it.
+
+  It deliberately does not check the other direction.  The chain is full of
+  aliases and debugging words that are not offered on purpose.
 
 ### The drive scripts now have a runner, and it is only a smoke test
 

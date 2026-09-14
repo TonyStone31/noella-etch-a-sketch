@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Every command the list offers is a command the program answers to.
+#
+# The autocomplete list in uMain is a hand-written table, and the dispatcher
+# in RunCommand is a hand-written chain of comparisons.  Nothing ties them
+# together, so a command can be added to one and not the other: offer a name
+# that does nothing, or hide a name that works.  This reads both out of the
+# source and says which names are in the list but not in the chain.
+#
+# It cannot go the other way round.  The chain is full of aliases and
+# debugging words that are deliberately not offered, and a list that had to
+# hold all of them would be worse than no list.
+set -u
+cd "$(dirname "$0")/.."
+
+python3 - <<'PY'
+import io, re, sys
+
+src = io.open('uMain.pas', encoding='utf-8', errors='replace').read()
+
+# the table: from its declaration to the closing of the array
+m = re.search(r"CMD_LIST: array\[0\.\.(\d+)\] of TCmdItem = \(", src)
+if not m:
+    print('CMD_LIST not found - has it been renamed?'); sys.exit(1)
+end = src.index('Arg: False));', m.end())
+table = src[m.end():end]
+names = re.findall(r"\(Name: '([a-z0-9]+)'", table)
+
+bad = 0
+bound = int(m.group(1))
+if bound != len(names) - 1:
+    print('CMD_LIST says [0..%d] but holds %d entries' % (bound, len(names)))
+    bad = 1
+
+if names != sorted(names):
+    for a, b in zip(names, sorted(names)):
+        if a != b:
+            print('CMD_LIST is out of alphabetical order at %r' % a)
+            break
+    bad = 1
+
+# the dispatcher: every quoted word it compares W against
+i = src.index('function TMainForm.RunCommand')
+tail = src[i + 10:]
+nxt = re.search(r"\n(?:function|procedure) TMainForm\.", tail)
+body = tail[:nxt.start()] if nxt else tail
+known = set(re.findall(r"W = '([a-z0-9]+)'", body))
+# a few are dispatched by prefix or by their own routine rather than by a
+# plain comparison, so the source is read for those separately
+known |= set(re.findall(r"Cmd = '([a-z0-9]+)'", body))
+known |= set(re.findall(r"Copy\(W, 1, \d+\) = '([a-z0-9]+)'", body))
+
+missing = [n for n in names if n not in known]
+if missing:
+    print('offered by the list, answered by nothing: ' + ', '.join(missing))
+    bad = 1
+
+print('%d commands offered, %d words the dispatcher knows' % (len(names), len(known)))
+print('command list ' + ('FAILED' if bad else 'ok'))
+sys.exit(bad)
+PY

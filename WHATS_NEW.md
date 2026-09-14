@@ -10,6 +10,37 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The manual is on the web.**  Help > The manual opens the copy that came with
+  the program if there is one and the website if not, and the website is now
+  a real set of pages you can read in a browser rather than a folder of files
+  on GitHub.
+
+- **The toy is a command.**  `/toy` takes you to the etch-a-sketch this
+  program started as, and the one button in the corner there brings you back.
+
+- **A help page about the commands**, since there was one about typing
+  measurements and nothing about typing a slash.
+
+### Changed
+
+- **The TOY and PRO buttons are gone from the top right.**  They took up the
+  corner of a drawing program to offer you a choice you had already made.
+  Nothing is hidden - `/toy` is in the command list with everything else.
+
+### Fixed
+
+- **Seventeen pages of the manual were missing from the website.**  Every
+  page about a tool - Line, Push/Pull, Offset, all of them - was in the copy
+  that ships beside the program but had never been published.  They are
+  there now.
+
+- **The eraser's help page was a version behind.**  It now mentions dragging
+  to gather several, and Ctrl to soften an edge rather than rub it out.
+
 ## v2026.09.14.11
 
 ### New

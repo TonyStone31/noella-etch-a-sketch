@@ -78,7 +78,8 @@ honest record of it.
 
 ## TOY
 
-The program Noella designed.  **W** swaps between it and PRO.
+The program Noella designed.  Type **`/toy`** in the command bar to go there;
+the one button in the corner - or **W** - brings you back.
 
 * **Two dials you actually grab and turn** - left moves across, right moves up
   and down, exactly like the toy.  Arrow keys work too, with **Shift** to
@@ -420,6 +421,7 @@ after it would be a question rather than an answer.
 | `/update`, `/update never`, `/update always` | fetch a newer build; stop looking daily; look again |
 | `/whatsnew` `/changes` | the release notes |
 | `/version` | which build this is |
+| `/toy` `/etch`, `/pro` | the etch-a-sketch this program began as, and back again |
 | `/help` `/?` | about |
 | `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
 | `/print`, `/print all`, `/print full` | this sheet / every sheet / 1:1 across pages |
@@ -447,7 +449,6 @@ length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
 | Ctrl+P | print |
 | Delete | shake to erase / clear the sheet |
 | G | grid on/off |
-| W | swap TOY and PRO |
 | F1 | about |
 | `[` `]` | thinner / thicker line |
 
@@ -463,6 +464,7 @@ length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
 | M | mirror |
 | A | auto-draw |
 | T | next theme |
+| W | back to PRO |
 
 **PRO**
 
@@ -588,8 +590,9 @@ Plain LCL throughout, so a macOS build should work too.
 ## Tests
 
 ```sh
-./tests/run.sh          # 717 headless geometry, document and fitting checks
+./tests/run.sh          # 758 headless geometry, document and fitting checks
 ./tests/run-region.sh   #  84 planar-region checks
+./tests/run-cmds.sh     # every command the list offers is one that exists
 ./tests/run-drive.sh    # drives the window itself, in a nested X server
 ```
 

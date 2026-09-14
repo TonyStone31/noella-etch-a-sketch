@@ -27,6 +27,11 @@ uses
 
 const
   UPDATE_REPO = 'TonyStone31/noella-etch-a-sketch';
+  { The manual on the web, for a copy that has no help folder beside it.
+    GitHub serves the repository's files as source, not as pages, so the
+    README was the only thing there was to point at; this is the same
+    docs/help, published by the Manual workflow and browseable. }
+  MANUAL_URL = 'https://tonystone31.github.io/noella-etch-a-sketch/';
   {$IFDEF WINDOWS}
   ASSET_NAME = 'heckers-sketch.exe';
   {$ELSE}
