@@ -10,6 +10,26 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **/reface no longer throws away a solid's faces.**  It rebuilds faces from
+  the lines, and a face pulled out of another face has no lines under it to
+  be rebuilt from - so running it on a drawing of duct fittings took all 606
+  faces off and brought none back, and on the example toy it stripped the
+  body bare.  What cannot be remade is now left alone, and it says how many.
+
+- **An export cannot be closed while it is writing.**  The bar that was added
+  last release works by letting the window paint between frames, which also
+  let Cancel and the close cross be pressed - and closing the window out from
+  under the code writing the file is a crash, not a cancel.
+
+- **The example opens with its faces already settled.**  Opening a file tells
+  the program which areas are filled, including the ones somebody emptied on
+  purpose; the example was skipping that step, so it did not quite look like
+  itself until you asked for a rebuild by hand.
+
 ## v2026.09.14.4
 
 ### New

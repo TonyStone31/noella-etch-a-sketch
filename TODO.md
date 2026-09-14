@@ -846,6 +846,53 @@ sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
 
 
+### The drive scripts now have a runner, and it is only a smoke test
+
+tests/run-drive.sh runs the scripts in tests/drive and says whether each one
+got through without the program falling over.  That is all it says: the
+scripts leave screenshots for a person to look at and nothing compares them.
+
+Two things worth knowing about it.  Several scripts expect a particular
+drawing - "a single upright panel, seen from behind" is not whatever happened
+to be open - and the runner carries that mapping, because naming alone does
+not cover it.  And it is flaky at the edges: a script occasionally reports
+failure and passes three times out of three on its own, which is the nested X
+server and not the program.  Do not read a single failure as a regression -
+run that script by itself before believing it.
+
+Worth doing some day: have the scripts compare their screenshots against
+kept ones, so a pass means something.
+
+### The logo letters come up red when they are raised
+
+Tony, 14 September: "i sort of like how i raised the letters and they have
+red lines around the letters however i dont understand why the letters became
+red, probably a bug!"
+
+Not a bug in the program - the generator gives the letter faces the toy's own
+red, the same ink as the body, on the reasoning that the logo is printed on a
+red toy.  Flat, they read as dark lines on the frame because the lines over
+them are black and the face is barely visible.  Raised a sixteenth, the sides
+and the top are suddenly red on a body that renders pale, and it looks like
+something went wrong.
+
+The question is what the logo should be, not where the bug is.  Worth asking
+Tony whether he wants the letters the colour of the frame - so raising one
+reads as embossing - or a deliberate contrast colour.  Whatever he says is a
+one line change in examples/make-etch-a-sketch.pas.
+
+### A GIF export that crashed after the fact
+
+Tony, 14 September: exported a GIF on the Windows machine, opened it, and
+thinks the program went down.  A report was promised and has not arrived; the
+one that came in at 07:41 was about /reface and carries no crash file.
+
+Nothing to go on yet.  What there is: the film is held whole in memory before
+a byte is written - a twelve second clip at 900x492 is about two hundred
+megabytes of frames - and the packing pass is already skipped past a size for
+that reason.  If a crash file turns up, the stage it died in is in the report
+now, frame by frame.
+
 ### Closing without saving: half done
 
 Tony, 14 September: closed the drawings, chose not to save, opened the program

@@ -13,6 +13,26 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **/reface no longer throws away a solid''s faces.**  It rebuilds faces from' + LineEnding +
+    '  the lines, and a face pulled out of another face has no lines under it to' + LineEnding +
+    '  be rebuilt from - so running it on a drawing of duct fittings took all 606' + LineEnding +
+    '  faces off and brought none back, and on the example toy it stripped the' + LineEnding +
+    '  body bare.  What cannot be remade is now left alone, and it says how many.' + LineEnding +
+    '' + LineEnding +
+    '- **An export cannot be closed while it is writing.**  The bar that was added' + LineEnding +
+    '  last release works by letting the window paint between frames, which also' + LineEnding +
+    '  let Cancel and the close cross be pressed - and closing the window out from' + LineEnding +
+    '  under the code writing the file is a crash, not a cancel.' + LineEnding +
+    '' + LineEnding +
+    '- **The example opens with its faces already settled.**  Opening a file tells' + LineEnding +
+    '  the program which areas are filled, including the ones somebody emptied on' + LineEnding +
+    '  purpose; the example was skipping that step, so it did not quite look like' + LineEnding +
+    '  itself until you asked for a rebuild by hand.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.4' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

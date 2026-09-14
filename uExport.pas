@@ -151,6 +151,7 @@ type
     procedure Working(On_: Boolean);
     procedure DoSay(Sender: TObject);
     procedure DoCancel(Sender: TObject);
+    procedure AskClose(Sender: TObject; var CanClose: Boolean);
     procedure DoBrowse(Sender: TObject);
     procedure DoGo(Sender: TObject);
     procedure SizeChanged(Sender: TObject);
@@ -463,6 +464,8 @@ begin
   FBrowse.OnClick := @DoBrowse;
   FCancel := MkBtn(Foot, 'Cancel', 690, 32, 76, 28, bkPlain);
   FCancel.OnClick := @DoCancel;
+  { and the window manager's own close, which does not go through a button }
+  OnCloseQuery := @AskClose;
   FGo := MkBtn(Foot, 'Export', 776, 32, 76, 28, bkGo);
   FGo.OnClick := @DoGo;
 
@@ -523,6 +526,13 @@ begin
   FSaveLbl.Visible := not On_;
   FBrowse.Enabled := not On_;
   FGo.Enabled := not On_;
+  { Cancel and the close cross go with them.  Letting the queue drain between
+    frames is what makes the bar move, and it also means a click can arrive
+    while the export is still running - and closing this window out from
+    under the code writing the file is a crash, not a cancel.  Stopping it
+    part way through would leave half a GIF anyway. }
+  FCancel.Enabled := not On_;
+  FShut.Enabled := not On_;
   if On_ then Screen.Cursor := crHourGlass else Screen.Cursor := crDefault;
   if On_ then
   begin
@@ -987,8 +997,17 @@ begin
   FOnReport('the export dialog', Fields);
 end;
 
+{ Nothing closes this window while it is writing a file. }
+procedure TExportDlg.AskClose(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := not FBusy;
+end;
+
 procedure TExportDlg.DoCancel(Sender: TObject);
 begin
+  { belt as well as braces: the buttons are disabled while an export runs,
+    and Escape does not close it either }
+  if FBusy then Exit;
   ModalResult := mrCancel;
 end;
 
@@ -1048,29 +1067,34 @@ begin
   uShoot.OnFilmStep := @FilmStep;
   Working(True);
   try
-    WriteIt;
-    FWrote := True;
-    { and that is where this kind of file goes from now on }
-    if Assigned(FDirKeep) then
-      FDirKeep(Ext, ExtractFileDir(ChangeFileExt(Trim(FPath.Text), Ext)));
-    ModalResult := mrOk;
-  except
-    on E: Exception do
-    begin
-      { the class as well as the message: an access violation carries no
-        message worth reading, and its name is the whole of what it says }
-      FMsg := Format('Could not export - %s while %s%s',
-        [E.ClassName, FStage,
-         specialize IfThen<string>(E.Message = '', '', ': ' + E.Message)]);
-      FHint.Caption := FMsg;
-      FTellBad.Caption := FMsg;
-      FTellBad.Visible := True;
-      FSay.Visible := Assigned(FOnReport);
+    try
+      WriteIt;
+      FWrote := True;
+      { and that is where this kind of file goes from now on }
+      if Assigned(FDirKeep) then
+        FDirKeep(Ext, ExtractFileDir(ChangeFileExt(Trim(FPath.Text), Ext)));
+    except
+      on E: Exception do
+      begin
+        { the class as well as the message: an access violation carries no
+          message worth reading, and its name is the whole of what it says }
+        FMsg := Format('Could not export - %s while %s%s',
+          [E.ClassName, FStage,
+           specialize IfThen<string>(E.Message = '', '', ': ' + E.Message)]);
+        FHint.Caption := FMsg;
+        FTellBad.Caption := FMsg;
+        FTellBad.Visible := True;
+        FSay.Visible := Assigned(FOnReport);
+      end;
     end;
+  finally
+    { Down before the window is asked to close, and not after: nothing shuts
+      this while it is working, so saying it is done has to come first. }
+    Working(False);
+    uShoot.OnFilmStage := nil;
+    uShoot.OnFilmStep := nil;
   end;
-  Working(False);
-  uShoot.OnFilmStage := nil;
-  uShoot.OnFilmStep := nil;
+  if FWrote then ModalResult := mrOk;
 end;
 
 procedure TExportDlg.WriteIt;

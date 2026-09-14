@@ -786,6 +786,101 @@ begin
   end;
 end;
 
+{ ---------------------------------------- the example drawing itself ----- }
+
+{ The toy the program opens with is written by hand - examples/make-etch-a-
+  sketch.pas - so nothing checks it on the way past unless something here
+  does.  Two things have to be true of it, and both were found the hard way
+  on 14 September.
+
+  Every face belongs to a solid.  That is what keeps /reface off it: a face
+  pulled out of another face has no loop of lines under it to be worked out
+  from again, so throwing it away loses it for good.  Tony ran /reface on a
+  drawing of duct fittings and lost all six hundred faces on it.
+
+  And every area the lines enclose already has a face on it.  A drawing that
+  carries its faces is taken as settled when it is opened, so a region left
+  without one would stay empty until somebody asked for a rebuild by hand -
+  which is what "it does not look quite right" turned out to mean. }
+procedure TestExampleDrawing;
+var
+  D: TWorkDoc;
+  L: TStringList;
+  Segs: TSegArray;
+  Regs: TRegionArray;
+  I, J, Idx, NFace, NSolid, NLoose, Grp: Integer;
+  A: Double;
+  Got: Boolean;
+begin
+  WriteLn('the example drawing the program opens with');
+  if not FileExists('examples/etch-a-sketch.hsk') then
+  begin
+    Ok(False, 'examples/etch-a-sketch.hsk is there to check');
+    Exit;
+  end;
+  D := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    L.LoadFromFile('examples/etch-a-sketch.hsk');
+    Idx := 0;
+    while (Idx < L.Count) and (Copy(Trim(L[Idx]), 1, 6) <> 'SHEET ') do Inc(Idx);
+    Ok(Idx < L.Count, 'it has a sheet in it');
+    Inc(Idx);
+    D.LoadFrom(L, Idx);
+    Ok(D.Live > 100, Format('and it loaded - %d things', [D.Live]));
+
+    NFace := 0;
+    NSolid := 0;
+    Grp := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then
+      begin
+        Inc(NFace);
+        if D[I].Solid then Inc(NSolid);
+        if D[I].Grp <> 0 then Grp := D[I].Grp;
+      end;
+    Ok(NFace > 50, Format('it carries its faces - %d of them', [NFace]));
+    EqI(NSolid, NFace, 'and every one belongs to a solid, so /reface leaves them');
+    Ok(Grp <> 0, 'the toy is one solid');
+    Ok(D.GroupClosed(Grp), 'and it is closed');
+
+    { every flat area the lines enclose already has a face on it }
+    SetLength(Segs, 0);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        SetLength(Segs, Length(Segs) + 1);
+        Segs[High(Segs)].A := D[I].A;
+        Segs[High(Segs)].B := D[I].B;
+      end;
+    Regs := BuildRegions(Segs);
+    Ok(Length(Regs) > 0, Format('the lines enclose %d flat areas', [Length(Regs)]));
+    NLoose := 0;
+    for I := 0 to High(Regs) do
+    begin
+      A := Abs(LoopArea(Regs[I].Outer, Regs[I].Normal));
+      Got := False;
+      for J := 0 to D.Live - 1 do
+      begin
+        if D[J].Kind <> ekFace then Continue;
+        if Length(D[J].Poly) < 3 then Continue;
+        if Abs(Abs(Dot3(D.FaceNormal(J), Regs[I].Normal)) - 1) > 1E-6 then Continue;
+        { the outline, not the area - a face with a hole in it covers less
+          ground than the ring of lines round it }
+        if Abs(Abs(LoopArea(D[J].Poly, Regs[I].Normal)) - A) >
+           Max(1E-7, A * 1E-4) then Continue;
+        Got := True;
+        Break;
+      end;
+      if not Got then Inc(NLoose);
+    end;
+    EqI(NLoose, 0, 'and every one of them has a face on it already');
+  finally
+    L.Free;
+    D.Free;
+  end;
+end;
+
 { ------------------------------- a face plugged into a hole in a solid ---- }
 
 { The logo letters on the etch-a-sketch example are faces sitting in holes cut
@@ -4846,6 +4941,7 @@ begin
   TestCutBoxTop;    WriteLn;
   TestWholeSideStillSlides; WriteLn;
   TestPlugInAHole;  WriteLn;
+  TestExampleDrawing;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;

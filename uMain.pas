@@ -10868,7 +10868,7 @@ function TMainForm.RunCommand(const S: string): Boolean;
 var
   ReDoomed: array of Boolean;
   W, Rest: string;
-  P, I, N: Integer;
+  P, I, N, J, K: Integer;
   RL, RL2: Double;
 begin
   Result := True;
@@ -11110,22 +11110,42 @@ begin
   end
   else if (W = 'rebuildfaces') or (W = 'reface') then
   begin
-    { Throw every face away and work them all out fresh from the lines,
-      as if none had ever been drawn.  A file saved by an older build can
-      hold faces that no longer match what the lines make of the area -
+    { Throw the flat faces away and work them out fresh from the lines, as
+      if none had ever been drawn.  A file saved by an older build can hold
+      faces that no longer match what the lines make of the area -
       concentric rings saved as stacked solids, say - and the ordinary
-      rebuild keeps what is there on purpose.  This one does not.  It is
-      for flat work; a pushed-up solid's faces go too, and only the flat
-      faces come back, so undo is right there if that was not wanted. }
+      rebuild keeps what is there on purpose.  This one does not.
+
+      A solid's faces are left alone, and that is the whole of what this
+      learned on 14 September.  It used to throw away every face there was.
+      The walls of a duct, a fitting, a spool piece, the body of the example
+      toy - none of them have a loop of lines under them to be worked out
+      from again, because they were pulled out of a face rather than drawn.
+      So they went, and nothing came back: 606 faces on Tony's fittings
+      drawing, all of them, and undo the only way home.  What cannot be
+      remade is not thrown away. }
     PushUndo;
     SetLength(ReDoomed, FD.Doc.Live);
-    for I := 0 to FD.Doc.Live - 1 do ReDoomed[I] := FD.Doc[I].Kind = ekFace;
+    J := 0;
+    K := 0;
+    for I := 0 to FD.Doc.Live - 1 do
+    begin
+      ReDoomed[I] := (FD.Doc[I].Kind = ekFace) and not FD.Doc[I].Solid;
+      if ReDoomed[I] then Inc(J)
+      else if FD.Doc[I].Kind = ekFace then Inc(K);
+    end;
     FD.Doc.DeleteMarked(ReDoomed);
     SetLength(FD.Seen, 0);
     I := RebuildFlatFaces;
     RenderPro;
     RecomposeAll;
-    FCmdMsg := Format('Threw the faces away and worked them out from the lines: %d.', [I]);
+    if K > 0 then
+      FCmdMsg := Format('Threw %d flat faces away and worked out %d from the ' +
+        'lines.  Left %d alone that belong to a solid - there are no lines ' +
+        'under those to work them out from.', [J, I, K])
+    else
+      FCmdMsg := Format('Threw the faces away and worked them out from the ' +
+        'lines: %d.', [I]);
   end
   else if (W = 'guides') or (W = 'noguides') then
   begin
@@ -17646,6 +17666,13 @@ begin
   { It is not somebody's work until they have changed it, so it does not
     count as unsaved and closing it asks nothing. }
   FSavedSeq := FEditSeq;
+  { The same as opening a file, and for the same reason: a drawing that
+    carries its faces is telling us which areas are filled, including the
+    ones somebody emptied on purpose.  Without this the example arrived with
+    nothing marked as seen, so the first rebuild after it went to work over
+    the top of faces that were already right - which is why it did not quite
+    look like itself until somebody asked for a rebuild by hand. }
+  SeedRegions;
   Result := True;
   FitView;
   Trail(Format('opened the example: %d things', [FD.Doc.Live]));

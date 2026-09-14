@@ -551,9 +551,17 @@ Plain LCL throughout, so a macOS build should work too.
 ## Tests
 
 ```sh
-./tests/run.sh          # 455 headless geometry, document and fitting checks
-./tests/run-region.sh   #  76 planar-region checks
+./tests/run.sh          # 717 headless geometry, document and fitting checks
+./tests/run-region.sh   #  84 planar-region checks
+./tests/run-drive.sh    # drives the window itself, in a nested X server
 ```
+
+The third needs Xephyr and LazHIDControl beside this folder.  It is a smoke
+test and says so: it opens the program on a display of its own, plays a
+script of clicks and keys at it, and reports whether it got through without
+falling over.  The screenshots it leaves behind are for a person to look at.
+It is flaky at the edges - a script that fails once and passes on its own is
+the nested X server, not the program.
 
 The region suite is worth a look on its own: squares cut in half, cuts that
 stop partway and divide nothing, tic-tac-toe grids, holes, concave shapes,
