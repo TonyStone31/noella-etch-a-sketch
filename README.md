@@ -634,6 +634,26 @@ its open ends are taken as seen so they are never capped.
 virtual display: the handler records the pointer position and returns, and
 all snapping, hit-testing and repainting happens once per tick.
 
+## The examples
+
+The program makes an `examples` folder beside itself and writes its drawings
+into it every time it starts, so a copy carried on a stick arrives with
+something to open.  There are two:
+
+* **`etch-a-sketch.hsk`** - a toy etch-a-sketch to scale, with a robot on the
+  screen.  Every face of it is something to push, and it is the drawing in
+  every help picture.
+* **`wine-glass.hsk`** - an outline spun about the blue axis: hollow bowl,
+  solid stem, and closed enough to print.
+
+Both are built by the programs in [`examples/`](examples/) rather than drawn
+and traced, so when a tool changes they can be made again rather than
+redrawn.  [`examples/README.md`](examples/README.md) has the sizes, the
+reasoning, and what a new one has to satisfy.
+
+They are rewritten over the top on every run, so draw on them all you like -
+to keep what you have done, save it under a name of your own.
+
 ## Help
 
 [`docs/help/`](docs/help/) is a small set of web pages - one for every tool,

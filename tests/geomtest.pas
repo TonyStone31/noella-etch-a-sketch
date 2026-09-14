@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples;
 
 var
   Fails: Integer = 0;
@@ -950,33 +950,123 @@ begin
   end;
 end;
 
-{ ---------------------------------------- the example drawing itself ----- }
+{ ---------------------------------------- the example drawings ----------- }
 
-{ The toy the program opens with is written by hand - examples/make-etch-a-
-  sketch.pas - so nothing checks it on the way past unless something here
-  does.  Two things have to be true of it, and both were found the hard way
-  on 14 September.
+{ The models the program opens with and writes out beside itself are written
+  by hand - examples/make-*.pas - so nothing checks them on the way past
+  unless something here does.  Three things have to be true of every one, and
+  all three were found the hard way.
 
-  Every face belongs to a solid.  That is what keeps /reface off it: a face
+  Every face belongs to a solid.  That is what keeps /reface off them: a face
   pulled out of another face has no loop of lines under it to be worked out
   from again, so throwing it away loses it for good.  Tony ran /reface on a
   drawing of duct fittings and lost all six hundred faces on it.
 
-  And every area the lines enclose already has a face on it.  A drawing that
-  carries its faces is taken as settled when it is opened, so a region left
-  without one would stay empty until somebody asked for a rebuild by hand -
-  which is what "it does not look quite right" turned out to mean. }
-procedure TestExampleDrawing;
+  Every one is a closed solid.  An example that will not print is an example
+  teaching the wrong lesson, and the toy and the glass are both meant to go
+  out as STL.
+
+  And the copy carried inside the program is the copy in the repository, byte
+  for byte.  They drifted apart once already: a build with a stale unit in it
+  wrote its own older idea of the toy over the file, and nothing noticed. }
+procedure TestExampleDrawings;
+var
+  D: TWorkDoc;
+  L, Own: TStringList;
+  I, J, Idx, NFace, NSolid, Grp: Integer;
+  Lo, Hi: TP3;
+  Path: string;
+  Same: Boolean;
+begin
+  WriteLn('the example drawings');
+  EqI(ExampleCount, 2, 'there are two of them');
+
+  for I := 0 to ExampleCount - 1 do
+  begin
+    Path := 'examples/' + ExampleFile(I);
+    if not FileExists(Path) then
+    begin
+      Ok(False, Path + ' is there to check');
+      Continue;
+    end;
+
+    { --- the file and the copy inside the program ---------------------- }
+    L := TStringList.Create;
+    Own := TStringList.Create;
+    try
+      L.LoadFromFile(Path);
+      ExampleLines(I, Own);
+      Same := L.Count = Own.Count;
+      if Same then
+        for J := 0 to L.Count - 1 do
+          if L[J] <> Own[J] then
+          begin
+            Same := False;
+            Break;
+          end;
+      Ok(Same, ExampleFile(I) + ' is the same as the copy inside the program');
+
+      { --- and what is in it -------------------------------------------- }
+      D := TWorkDoc.Create;
+      try
+        Idx := 0;
+        while (Idx < L.Count) and (Copy(Trim(L[Idx]), 1, 6) <> 'SHEET ') do
+          Inc(Idx);
+        Ok(Idx < L.Count, '  it has a sheet in it');
+        Inc(Idx);
+        D.LoadFrom(L, Idx);
+        Ok(D.Live > 100, Format('  and it loaded - %d things', [D.Live]));
+
+        NFace := 0;
+        NSolid := 0;
+        Grp := 0;
+        for J := 0 to D.Live - 1 do
+          if D[J].Kind = ekFace then
+          begin
+            Inc(NFace);
+            if D[J].Solid then Inc(NSolid);
+            if D[J].Grp <> 0 then Grp := D[J].Grp;
+          end;
+        Ok(NFace > 50, Format('  it carries its faces - %d of them', [NFace]));
+        EqI(NSolid, NFace,
+          '  and every one belongs to a solid, so /reface leaves them');
+        Ok(Grp <> 0, '  it is a solid');
+        Ok(D.GroupClosed(Grp), '  and it is closed, so it will print');
+
+        { an example that starts underground is an example about the wrong
+          thing - they all stand on the ground plane }
+        Ok(D.Bounds(Lo, Hi), '  it has a size');
+        Ok(Abs(Lo.Z) < 1E-6, Format('  and it stands on the ground (z %.4f)',
+          [Lo.Z]));
+      finally
+        D.Free;
+      end;
+    finally
+      Own.Free;
+      L.Free;
+    end;
+  end;
+end;
+
+{ Flat panels only, so this is the toy's own check and not the glass's: a
+  revolve makes rings of edges that enclose flat areas nobody meant as faces,
+  and asking the same question of it would be asking the wrong one.
+
+  A drawing that carries its faces is taken as settled when it is opened, so
+  a region left without one would stay empty until somebody asked for a
+  rebuild by hand - which is what "it does not look quite right" turned out
+  to mean. }
+procedure TestExampleRegions;
 var
   D: TWorkDoc;
   L: TStringList;
   Segs: TSegArray;
   Regs: TRegionArray;
-  I, J, Idx, NFace, NSolid, NLoose, Grp: Integer;
+  I, J, Idx, NLoose: Integer;
   A: Double;
   Got: Boolean;
 begin
-  WriteLn('the example drawing the program opens with');
+  WriteLn('every area the toy''s lines enclose has a face on it');
   if not FileExists('examples/etch-a-sketch.hsk') then
   begin
     Ok(False, 'examples/etch-a-sketch.hsk is there to check');
@@ -988,27 +1078,9 @@ begin
     L.LoadFromFile('examples/etch-a-sketch.hsk');
     Idx := 0;
     while (Idx < L.Count) and (Copy(Trim(L[Idx]), 1, 6) <> 'SHEET ') do Inc(Idx);
-    Ok(Idx < L.Count, 'it has a sheet in it');
     Inc(Idx);
     D.LoadFrom(L, Idx);
-    Ok(D.Live > 100, Format('and it loaded - %d things', [D.Live]));
 
-    NFace := 0;
-    NSolid := 0;
-    Grp := 0;
-    for I := 0 to D.Live - 1 do
-      if D[I].Kind = ekFace then
-      begin
-        Inc(NFace);
-        if D[I].Solid then Inc(NSolid);
-        if D[I].Grp <> 0 then Grp := D[I].Grp;
-      end;
-    Ok(NFace > 50, Format('it carries its faces - %d of them', [NFace]));
-    EqI(NSolid, NFace, 'and every one belongs to a solid, so /reface leaves them');
-    Ok(Grp <> 0, 'the toy is one solid');
-    Ok(D.GroupClosed(Grp), 'and it is closed');
-
-    { every flat area the lines enclose already has a face on it }
     SetLength(Segs, 0);
     for I := 0 to D.Live - 1 do
       if D[I].Kind = ekLine then
@@ -1018,7 +1090,8 @@ begin
         Segs[High(Segs)].B := D[I].B;
       end;
     Regs := BuildRegions(Segs);
-    Ok(Length(Regs) > 0, Format('the lines enclose %d flat areas', [Length(Regs)]));
+    Ok(Length(Regs) > 0, Format('the lines enclose %d flat areas',
+      [Length(Regs)]));
     NLoose := 0;
     for I := 0 to High(Regs) do
     begin
@@ -5109,7 +5182,8 @@ begin
   TestPlugInAHole;  WriteLn;
   TestLeaderFollows;  WriteLn;
   TestOverlappingEdges;  WriteLn;
-  TestExampleDrawing;  WriteLn;
+  TestExampleDrawings;  WriteLn;
+  TestExampleRegions;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;

@@ -15,6 +15,10 @@ link*.res
 etchasketch
 etchasketch.exe
 
+# --- the example generators, built in place by whoever is editing a model ---
+examples/makeetchasketch
+examples/makeglass
+
 # --- staged builds ----------------------------------------------------------
 dist/
 

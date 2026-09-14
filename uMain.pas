@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uDlgSkin, uShoot, uRecord, uExport, uExample, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -18004,13 +18004,18 @@ end;
 procedure TMainForm.WriteExamples;
 var
   L: TStringList;
+  I: Integer;
 begin
   try
     if not ForceDirectories(ExamplesDir) then Exit;
     L := TStringList.Create;
     try
-      ExampleDrawing(L);
-      L.SaveToFile(ExamplesDir + 'etch-a-sketch.hsk');
+      for I := 0 to ExampleCount - 1 do
+      begin
+        L.Clear;
+        ExampleLines(I, L);
+        if L.Count > 0 then L.SaveToFile(ExamplesDir + ExampleFile(I));
+      end;
     finally
       L.Free;
     end;

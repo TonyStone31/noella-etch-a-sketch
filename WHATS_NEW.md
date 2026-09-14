@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A wine glass, beside the toy.**  The examples folder has two drawings in
+  it now, both written out beside the program every run.  The glass is eight
+  and a half inches tall with a hollow bowl and a solid stem, and it is a
+  closed solid - a slicer will take it.
+
+  It is built the way you would build it: the outline of half a glass, spun
+  about the blue axis with Revolve.  So it is also the picture for that tool.
+
 ## v2026.09.14.8
 
 ### New

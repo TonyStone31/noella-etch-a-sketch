@@ -1001,10 +1001,23 @@ makes - the same three-line comment at the top of each - so the copy in the
 repository does not churn every time somebody runs the program from the source
 folder.
 
-What is left is the rest of Tony's idea below: a folder of SEVERAL examples,
-written out beside the executable so they can be opened, re-read and shown
-off.  The etch-a-sketch is the first of them; the wine glass and a few
-deliberately wild ones are still to make.
+**And there are two of them now, 14 September.**  The wine glass joins the
+toy: `examples/make-glass.pas` draws the outline of half a glass and calls
+`TWorkDoc.Revolve`, which is the same code the tool calls - so the model
+follows the tool rather than being traced once and slowly going stale.
+`uExamples.pas` is the list, and adding another is a generator and one line.
+
+The tests insist on four things for every example, all of them found the hard
+way: the file and the copy inside the program are the same bytes, every face
+belongs to a solid so `/reface` cannot eat it, the whole thing is a closed
+solid, and it stands on the ground.
+
+What is left of Tony's idea below: more of them - the crown, and a few
+deliberately wild ones - and the checksum rule, so an example improved in a
+later version replaces the old one while something somebody has edited and
+saved under its own name is left alone.  Today's version simply writes them
+out over the top every run, which is right for a file nobody has touched and
+wrong the moment they have.
 
 
 
