@@ -32,7 +32,8 @@ uses
   uSurface, uWork, uSkin, uDlgSkin, uShoot, uRecord;
 
 type
-  TExportKind = (exPng, exJpeg, exGif, exSvg, exDxfView, exDxfModel, exStl);
+  TExportKind = (exPng, exJpeg, exGif, exSvg, exDxfView, exDxfModel, exStl,
+    exScad);
 
 type
   { how the dialog asks the main window to send a bug report - it cannot do
@@ -172,9 +173,9 @@ const
   SIZE_MINE = 10;
 
   KIND_NAME: array[TExportKind] of string =
-    ('PNG', 'JPEG', 'GIF', 'SVG', 'DXF view', 'DXF model', 'STL');
+    ('PNG', 'JPEG', 'GIF', 'SVG', 'DXF view', 'DXF model', 'STL', 'OpenSCAD');
   KIND_EXT: array[TExportKind] of string =
-    ('.png', '.jpg', '.gif', '.svg', '.dxf', '.dxf', '.stl');
+    ('.png', '.jpg', '.gif', '.svg', '.dxf', '.dxf', '.stl', '.scad');
   KIND_BLURB: array[TExportKind] of string =
     ('A picture, with the paper behind it or nothing at all.',
      'A picture, smaller and slightly softened.  No transparency.',
@@ -182,7 +183,8 @@ const
      'The lines of this view, as vectors, for a drawing program.',
      'This view, flat, as entities somebody can measure in their own CAD.',
      'The model itself, in three dimensions, faces and all.',
-     'Triangles in millimetres, which is what a 3D printer wants.');
+     'Triangles in millimetres, which is what a 3D printer wants.',
+     'A polyhedron per solid, to cut and union in OpenSCAD.');
 
 { ------------------------------------------------------------------------ }
 
@@ -960,6 +962,24 @@ begin
           L.Free;
         end;
         FMsg := 'Wrote ' + ExtractFileName(Fn) + '.';
+      end;
+
+    exScad:
+      begin
+        FStage := 'writing the OpenSCAD script';
+        L := TStringList.Create;
+        try
+          N := FDoc.WriteSCAD(L, FUnits, NTri);
+          L.SaveToFile(Fn);
+        finally
+          L.Free;
+        end;
+        if N = 0 then
+          FMsg := 'Nothing to describe - an OpenSCAD shape is made of faces, ' +
+            'and this drawing has none.'
+        else
+          FMsg := Format('%d triangles in %d %s, in millimetres.',
+            [N, NTri, specialize IfThen<string>(NTri = 1, 'piece', 'pieces')]);
       end;
 
     exStl:

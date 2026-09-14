@@ -533,6 +533,27 @@ type
       able to tell somebody their model has holes in it before they wait an
       hour for it to print wrong. }
     function WriteSTL(St: TStream; U: TUnitSystem; out Closed: Boolean): Integer;
+    { The model as an OpenSCAD script.
+
+      A polyhedron, which is the only honest answer: OpenSCAD is a language
+      for describing shapes by construction and this drawing is not built
+      that way, so what goes out is the surface itself - the same triangles
+      STL gets, written as points and faces.  It is not parametric and
+      pretending otherwise would be a lie in a file somebody then has to
+      work with.  What it IS good for is the thing it was asked for: having
+      the shape in OpenSCAD so it can be cut, unioned and fitted to
+      something else.
+
+      One module per closed solid, so the parts stay separable, plus a module
+      that unions them and a call to it.  Millimetres, like the STL.
+
+      Note the winding.  OpenSCAD wants each face's points listed CLOCKWISE
+      seen from outside, which is the opposite of STL's rule, and getting it
+      backwards gives a shape that looks right in preview and is inside out
+      the moment anything is subtracted from it.
+
+      Returns the triangle count, and says how many solids through Solids. }
+    function WriteSCAD(L: TStrings; U: TUnitSystem; out Solids: Integer): Integer;
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
@@ -7110,6 +7131,209 @@ end;
 
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
   same size it prints. }
+function TWorkDoc.WriteSCAD(L: TStrings; U: TUnitSystem;
+  out Solids: Integer): Integer;
+var
+  FS: TFormatSettings;
+  Scale: Double;
+  Grp, Top, I, J, K, NPt, NTri, Slot: Integer;
+  Tris: TTriList;
+  Corners: TP3Array;
+  Nm, A, B, C, Cr, E1, E2: TP3;
+  Ix: TFPHashList;
+  Key: string;
+  Pts: TP3Array;
+  Names: TStringList;
+  Row: string;
+  Open_: Boolean;
+  Made: Boolean;
+
+  { A point's slot in this solid's list, adding it if it is new.  Welding
+    matters here in a way it does not for STL: STL repeats a corner for every
+    triangle that touches it and nobody minds, but a polyhedron is points AND
+    faces, and two copies of one corner leave a seam CGAL will refuse to
+    close. }
+  function SlotOf(const P: TP3): Integer;
+  begin
+    Key := Format('%d,%d,%d', [Round(P.X * 1E6), Round(P.Y * 1E6),
+                               Round(P.Z * 1E6)]);
+    Result := Ix.FindIndexOf(Key);
+    if Result >= 0 then
+    begin
+      Result := PtrInt(Ix.Items[Result]) - 1;
+      Exit;
+    end;
+    if NPt >= Length(Pts) then SetLength(Pts, Max(64, NPt * 2));
+    Pts[NPt] := P;
+    Ix.Add(Key, Pointer(PtrInt(NPt) + 1));
+    Result := NPt;
+    Inc(NPt);
+  end;
+
+begin
+  Result := 0;
+  Solids := 0;
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  if U = usMetric then Scale := 1000 else Scale := 304.8;
+
+  Top := 0;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekFace) and (FEnts[I].Grp > Top) then Top := FEnts[I].Grp;
+
+  Names := TStringList.Create;
+  try
+    L.Add('// Heckers Sketch - ' + FormatDateTime('yyyy-mm-dd hh:nn', Now));
+    L.Add('// Millimetres.  A surface, not a construction - see the notes at');
+    L.Add('// the bottom.');
+    L.Add('');
+
+    { Group 0 is everything loose, and it goes out too, in its own module, so
+      nothing is silently dropped - but it is named for what it is. }
+    for Grp := 0 to Top do
+    begin
+      Made := False;
+      NPt := 0;
+      NTri := 0;
+      SetLength(Pts, 0);
+      Ix := TFPHashList.Create;
+      try
+        Row := '';
+        for I := 0 to FLive - 1 do
+        begin
+          if FEnts[I].Kind <> ekFace then Continue;
+          if FEnts[I].Grp <> Grp then Continue;
+          Tris := FaceCut(I);
+          if Length(Tris) < 3 then Continue;
+          Corners := FaceCorners(I);
+          Nm := FaceNormal(I);
+          for J := 0 to (Length(Tris) div 3) - 1 do
+          begin
+            if (Tris[J*3] >= Length(Corners)) or (Tris[J*3+1] >= Length(Corners))
+              or (Tris[J*3+2] >= Length(Corners)) then Continue;
+            A := Corners[Tris[J*3]];
+            B := Corners[Tris[J*3+1]];
+            C := Corners[Tris[J*3+2]];
+            E1 := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+            E2 := P3(C.X - A.X, C.Y - A.Y, C.Z - A.Z);
+            Cr := Cross3(E1, E2);
+            if Sqrt(Sqr(Cr.X) + Sqr(Cr.Y) + Sqr(Cr.Z)) < 1E-12 then Continue;
+            { turn it so the three run anticlockwise seen from outside, the
+              same as STL does, and then write them out backwards, because
+              that is what OpenSCAD asks for }
+            if Dot3(Cr, Nm) < 0 then
+            begin
+              Cr := B;
+              B := C;
+              C := Cr;
+            end;
+            if Row <> '' then Row := Row + ', ';
+            Row := Row + Format('[%d,%d,%d]',
+              [SlotOf(C), SlotOf(B), SlotOf(A)]);
+            Inc(NTri);
+            if Length(Row) > 1200 then
+            begin
+              Names.Add('    ' + Row);
+              Row := '';
+            end;
+          end;
+        end;
+        if Row <> '' then Names.Add('    ' + Row);
+        Made := NTri > 0;
+
+        if Made then
+        begin
+          Open_ := (Grp = 0) or not GroupClosed(Grp);
+          if Grp = 0 then Key := 'hs_loose'
+          else Key := Format('hs_solid_%d', [Grp]);
+          if Open_ then
+            L.Add(Format('// %s - %d triangles.  NOT a closed solid; OpenSCAD',
+              [Key, NTri]))
+          else
+            L.Add(Format('// %s - %d triangles, closed.', [Key, NTri]));
+          if Open_ then
+            L.Add('// will render it but may refuse to cut with it.');
+          L.Add('module ' + Key + '() {');
+          L.Add('  polyhedron(');
+          L.Add('    points=[');
+          Row := '';
+          for K := 0 to NPt - 1 do
+          begin
+            if Row <> '' then Row := Row + ', ';
+            Row := Row + Format('[%.4f,%.4f,%.4f]',
+              [Pts[K].X * Scale, Pts[K].Y * Scale, Pts[K].Z * Scale], FS);
+            if Length(Row) > 1200 then
+            begin
+              L.Add('      ' + Row + ',');
+              Row := '';
+            end;
+          end;
+          if Row <> '' then L.Add('      ' + Row);
+          L.Add('    ],');
+          L.Add('    faces=[');
+          for K := 0 to Names.Count - 1 do
+            if K < Names.Count - 1 then L.Add('  ' + Names[K] + ',')
+            else L.Add('  ' + Names[K]);
+          L.Add('    ],');
+          { concavity is not the word - convexity is a hint about how many
+            times a ray can cross the surface, and the preview draws concave
+            shapes wrongly without it }
+          L.Add('    convexity=10);');
+          L.Add('}');
+          L.Add('');
+          Names.Clear;
+          Inc(Solids);
+          Inc(Result, NTri);
+          if Grp = 0 then Slot := 0 else Slot := Grp;
+          if Slot >= 0 then ;
+        end
+        else
+          Names.Clear;
+      finally
+        Ix.Free;
+      end;
+    end;
+
+    if Solids = 0 then
+    begin
+      L.Add('// This drawing has no faces, so there is no shape to describe.');
+      Exit;
+    end;
+
+    L.Add('module heckers_sketch() {');
+    L.Add('  union() {');
+    for Grp := 0 to Top do
+    begin
+      Made := False;
+      for I := 0 to FLive - 1 do
+        if (FEnts[I].Kind = ekFace) and (FEnts[I].Grp = Grp) and
+           (Length(FaceCut(I)) >= 3) then
+        begin
+          Made := True;
+          Break;
+        end;
+      if not Made then Continue;
+      if Grp = 0 then L.Add('    hs_loose();')
+      else L.Add(Format('    hs_solid_%d();', [Grp]));
+    end;
+    L.Add('  }');
+    L.Add('}');
+    L.Add('');
+    L.Add('heckers_sketch();');
+    L.Add('');
+    L.Add('// Notes.');
+    L.Add('// This is the surface of the drawing, written as points and');
+    L.Add('// faces.  It is not built out of cubes and cylinders and cannot');
+    L.Add('// be taken apart into them, so the sizes here are not parameters');
+    L.Add('// to change - to change the shape, change it in Heckers Sketch');
+    L.Add('// and export it again.');
+    L.Add('// What it is good for is everything around it: cut holes in it,');
+    L.Add('// union it onto something, fit it to a part you are describing.');
+  finally
+    Names.Free;
+  end;
+end;
+
 function TWorkDoc.WriteSTL(St: TStream; U: TUnitSystem;
   out Closed: Boolean): Integer;
 var

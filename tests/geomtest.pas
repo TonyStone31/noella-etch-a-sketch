@@ -4406,6 +4406,145 @@ begin
 end;
 
 
+{ --- OpenSCAD -----------------------------------------------------------
+
+  The trap here is the winding, and it is a quiet one.  OpenSCAD's
+  polyhedron() wants each face's points listed CLOCKWISE seen from outside,
+  which is the opposite of STL's rule.  Get it backwards and the shape looks
+  perfectly correct in preview and is inside out the moment anybody subtracts
+  it from something - by which time it is somebody else's afternoon.
+
+  There is no OpenSCAD on this machine to render it and say so, which is
+  exactly why the convention is pinned down here instead: add up the signed
+  volumes the way the faces are actually written, and for a shape wound
+  OpenSCAD's way round the total must come out NEGATIVE, and the size of a
+  box. }
+procedure TestScad;
+var
+  D: TWorkDoc;
+  L: TStringList;
+  I, J, NTri, Solids, NP, NF, Depth: Integer;
+  Sect: Integer;          { 0 nowhere, 1 points, 2 faces }
+  S, Tok: string;
+  Nums: array[0..2] of Double;
+  NN: Integer;
+  Pts: array of TP3;
+  Fac: array of array[0..2] of Integer;
+  Vol, Want, Sc: Double;
+  FS: TFormatSettings;
+  Ch: Char;
+  InBr: Boolean;
+  Bad: Integer;
+begin
+  WriteLn('-- OpenSCAD --');
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  D := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    { the same 10 x 4 x 3 box the STL check uses }
+    D.AddFaceRaw([P3(0,0,0), P3(0,4,0), P3(10,4,0), P3(10,0,0)], 0, True);
+    D.AddFaceRaw([P3(0,0,3), P3(10,0,3), P3(10,4,3), P3(0,4,3)], 0, True);
+    D.AddFaceRaw([P3(0,0,0), P3(10,0,0), P3(10,0,3), P3(0,0,3)], 0, True);
+    D.AddFaceRaw([P3(10,4,0), P3(0,4,0), P3(0,4,3), P3(10,4,3)], 0, True);
+    D.AddFaceRaw([P3(0,4,0), P3(0,0,0), P3(0,0,3), P3(0,4,3)], 0, True);
+    D.AddFaceRaw([P3(10,0,0), P3(10,4,0), P3(10,4,3), P3(10,0,3)], 0, True);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then D.SetFaceGroup(I, 3);
+
+    NTri := D.WriteSCAD(L, usImperial, Solids);
+    Ok(NTri = 12, Format('a box is 12 triangles (%d)', [NTri]));
+    Ok(Solids = 1, Format('in one piece (%d)', [Solids]));
+    Ok(L.Text <> '', 'and it wrote something');
+    Ok(Pos('module hs_solid_3()', L.Text) > 0,
+      'with a module named for the solid, so the parts stay separable');
+    Ok(Pos('convexity=10', L.Text) > 0,
+      'and a convexity hint, without which the preview draws hollows wrongly');
+    Ok(Pos('heckers_sketch();', L.Text) > 0, 'and it calls itself');
+
+    { --- read it back and check the shape it describes ---------------- }
+    NP := 0; NF := 0; Sect := 0;
+    SetLength(Pts, 0); SetLength(Fac, 0);
+    for I := 0 to L.Count - 1 do
+    begin
+      S := Trim(L[I]);
+      if Pos('points=[', S) = 1 then begin Sect := 1; Continue; end;
+      if Pos('faces=[', S) = 1 then begin Sect := 2; Continue; end;
+      if Pos('],', S) = 1 then begin Sect := 0; Continue; end;
+      if Sect = 0 then Continue;
+      { pull out every [a,b,c] on the line }
+      Tok := ''; NN := 0; InBr := False;
+      for J := 1 to Length(S) do
+      begin
+        Ch := S[J];
+        if Ch = '[' then begin InBr := True; Tok := ''; NN := 0; Continue; end;
+        if not InBr then Continue;
+        if (Ch = ',') or (Ch = ']') then
+        begin
+          if NN < 3 then Nums[NN] := StrToFloatDef(Trim(Tok), 0, FS);
+          Inc(NN);
+          Tok := '';
+          if Ch = ']' then
+          begin
+            InBr := False;
+            if NN >= 3 then
+            begin
+              if Sect = 1 then
+              begin
+                SetLength(Pts, NP + 1);
+                Pts[NP] := P3(Nums[0], Nums[1], Nums[2]);
+                Inc(NP);
+              end
+              else
+              begin
+                SetLength(Fac, NF + 1);
+                Fac[NF][0] := Round(Nums[0]);
+                Fac[NF][1] := Round(Nums[1]);
+                Fac[NF][2] := Round(Nums[2]);
+                Inc(NF);
+              end;
+            end;
+          end;
+          Continue;
+        end;
+        Tok := Tok + Ch;
+      end;
+    end;
+
+    Ok(NP = 8, Format('a box has 8 corners and they were welded to 8 (%d)',
+      [NP]));
+    Ok(NF = 12, Format('and 12 faces came back out (%d)', [NF]));
+    Bad := 0;
+    for I := 0 to NF - 1 do
+      for J := 0 to 2 do
+        if (Fac[I][J] < 0) or (Fac[I][J] >= NP) then Inc(Bad);
+    Ok(Bad = 0, Format('every face points at a corner that exists (%d do not)',
+      [Bad]));
+
+    Vol := 0;
+    for I := 0 to NF - 1 do
+      Vol := Vol +
+        (Pts[Fac[I][0]].X * (Pts[Fac[I][1]].Y * Pts[Fac[I][2]].Z -
+                             Pts[Fac[I][1]].Z * Pts[Fac[I][2]].Y) -
+         Pts[Fac[I][0]].Y * (Pts[Fac[I][1]].X * Pts[Fac[I][2]].Z -
+                             Pts[Fac[I][1]].Z * Pts[Fac[I][2]].X) +
+         Pts[Fac[I][0]].Z * (Pts[Fac[I][1]].X * Pts[Fac[I][2]].Y -
+                             Pts[Fac[I][1]].Y * Pts[Fac[I][2]].X)) / 6;
+    Sc := 304.8;
+    Want := 10 * Sc * 4 * Sc * 3 * Sc;
+    Ok(Vol < 0,
+      'the faces are listed clockwise from outside, which is OpenSCAD''s ' +
+      'rule and the opposite of the STL''s');
+    Ok(Abs(Abs(Vol) - Want) < 1E-4 * Want,
+      Format('and they enclose the box (%.0f mm3, wanted %.0f)',
+        [Abs(Vol), Want]));
+  finally
+    L.Free;
+    D.Free;
+  end;
+end;
+
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -4465,6 +4604,7 @@ begin
   TestStl;          WriteLn;
   TestShells;       WriteLn;
   TestExport;       WriteLn;
+  TestScad;         WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

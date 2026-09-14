@@ -1178,6 +1178,37 @@ does both.
 Left standing: the -O3 local-first workaround, which was a real hazard whether
 or not it was this one.
 
+### Done 13 September: OpenSCAD export
+
+Tony's uncle asked for it, having printed the crown off the STL.
+
+`TWorkDoc.WriteSCAD`, on the same `FaceCut` / `FaceCorners` pair the STL uses.
+One `polyhedron` per group, each in its own module, so a drawing in ten pieces
+arrives as ten modules and a union rather than one undifferentiated lump -
+which is the difference between a file somebody can work with and a file
+somebody has to re-cut.  Loose faces go out too, in `hs_loose`, labelled as
+not closed, because dropping geometry silently is worse than shipping
+something OpenSCAD may grumble at.
+
+Two things that had to be right and are easy to get wrong.
+
+**The winding is the opposite of the STL's.**  `polyhedron()` wants each
+face's points listed CLOCKWISE seen from outside; STL wants anticlockwise.
+Backwards, the shape previews perfectly and is inside out the moment anybody
+subtracts it from anything.  There is no OpenSCAD on this machine to catch
+that, so the geom suite pins it instead: it reads the emitted script back and
+adds up the signed volumes the way the faces are actually written, and insists
+the total comes out **negative** and the size of the box.
+
+**Corners have to be welded.**  An STL repeats a corner for every triangle
+touching it and nobody minds; a polyhedron is points AND faces, so two copies
+of one corner leave a seam CGAL will not close.  A box comes out with exactly
+8 points, the crown with 336, and both read back as closed manifolds.
+
+Not done, and deliberately: reconstructing primitives.  A drawing made of
+push/pull and revolves is not a stack of `cube()` and `cylinder()` calls and
+guessing at which ones would be a lie in a file somebody then has to trust.
+
 ### Our own fork of BGRABitmap, for later
 
 Tony, 13 September: he likes the project and wants to keep using and
