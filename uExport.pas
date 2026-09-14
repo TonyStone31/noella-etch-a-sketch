@@ -42,10 +42,19 @@ type
 
 { Run the whole thing.  Returns True if something was written, and puts a
   line about it in Msg either way. }
+{ Where a file of this kind went last time, and somewhere to say where it
+  went this time.  The dialog owns neither - it asks, because people keep
+  their STLs in one place and their pictures for a forum in another, and
+  which is which is the program's business to remember. }
+type
+  TDirFor = function(const Ext: string): string of object;
+  TDirKeep = procedure(const Ext, Dir: string) of object;
+
 function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
   const Suggest: string; const T: TTheme; const Pivot: TP3;
-  OnReport: TReportProc; out Msg: string): Boolean;
+  OnReport: TReportProc; DirFor: TDirFor; DirKeep: TDirKeep;
+  out Msg: string): Boolean;
 
 implementation
 
@@ -68,9 +77,14 @@ type
       which of half a dozen steps it died in - so now it says. }
     FStage: string;
     FOnReport: TReportProc;
+    { the name to offer, without a folder or an extension, and the two hooks
+      that know where each kind of file belongs }
+    FStem: string;
+    FDirFor: TDirFor;
+    FDirKeep: TDirKeep;
 
-    { the camera in the preview, and the two the animation runs between }
-    FView, FVA, FVB: TProjector;
+    { the camera in the preview }
+    FView: TProjector;
     FPivot: TP3;
     FDragging, FPanning: Boolean;
     FDragX, FDragY: Integer;
@@ -80,14 +94,14 @@ type
     { chrome }
     FKindBtn: array[TExportKind] of TBCButton;
     FPrev: TPaintBox;
-    FHint: TBCLabel;
+    FHint: TLabel;
     FOptTitle: TBCLabel;
     FPath: TEdit;
     FBrowse, FGo, FCancel: TBCButton;
 
     { options - all built, shown as the format needs }
-    FSizeLbl, FQualLbl, FSecLbl, FFpsLbl, FNoteLbl, FShotLbl, FByLbl,
-    FClipLbl: TBCLabel;
+    FSizeLbl, FQualLbl, FByLbl: TBCLabel;
+    FNoteLbl, FShotLbl, FClipLbl: TLabel;
     FHead: TBCPanel;
     FTitle: TBCLabel;
     FShut: TBCButton;
@@ -98,12 +112,12 @@ type
     FTransp, FLoop, FAxes, FMid: TBCButton;
     FTranspOn, FLoopOn, FAxesOn, FMidOn: Boolean;
     FQual: TTrackBar;
-    FSec, FFps: TEdit;
     FPlay, FRec, FSay: TBCButton;
-    FTellBad: TBCLabel;
+    FTellBad: TLabel;
     FCam: TCamPath;
     FDxfWhat: TComboBox;
     FTimer: TTimer;
+    FPrevS: TArtSurface;
 
     procedure ComboDraw(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
@@ -135,14 +149,18 @@ type
     procedure Ticked(Sender: TObject);
     procedure ShowTick(B: TBCButton; On_: Boolean; const Cap: string);
     function Ext: string;
+    { the whole path to offer for a format: the folder that kind of file went
+      to last time, and whatever name is in the box now }
+    function PathFor(K: TExportKind): string;
     function Weigh(Frames, W, H: Integer): string;
     function OutSize(out W, H: Integer): Boolean;
     function Tween(T: Double): TProjector;
     procedure WriteIt;
   public
+    destructor Destroy; override;
     constructor Make(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
       AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-      SrcW, SrcH: Integer; const Suggest: string); reintroduce;
+      SrcW, SrcH: Integer; const Suggest: string; DirFor: TDirFor; DirKeep: TDirKeep); reintroduce;
   end;
 
 type
@@ -178,7 +196,7 @@ const
   KIND_BLURB: array[TExportKind] of string =
     ('A picture, with the paper behind it or nothing at all.',
      'A picture, smaller and slightly softened.  No transparency.',
-     'A little film that swings round the model.',
+     'A little film of a move you record yourself.',
      'The lines of this view, as vectors, for a drawing program.',
      'This view, flat, as entities somebody can measure in their own CAD.',
      'The model itself, in three dimensions, faces and all.',
@@ -187,9 +205,16 @@ const
 
 { ------------------------------------------------------------------------ }
 
+destructor TExportDlg.Destroy;
+begin
+  FPrevS.Free;
+  inherited Destroy;
+end;
+
 constructor TExportDlg.Make(Doc: TWorkDoc; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-  SrcW, SrcH: Integer; const Suggest: string);
+  SrcW, SrcH: Integer; const Suggest: string;
+  DirFor: TDirFor; DirKeep: TDirKeep);
 begin
   inherited CreateNew(nil);
   FDoc := Doc;
@@ -200,13 +225,13 @@ begin
   FSrcW := SrcW;
   FSrcH := SrcH;
   FView := V;
-  FVA := V;
-  FVB := V;
-  FVB.Az := V.Az + 2 * Pi;      { a full turn, which is what most people want }
   FKind := exPng;
   FWrote := False;
+  FStem := Suggest;
+  FDirFor := DirFor;
+  FDirKeep := DirKeep;
   BuildChrome;
-  FPath.Text := Suggest + KIND_EXT[FKind];
+  FPath.Text := PathFor(FKind);
   ShowOptions;
 end;
 
@@ -230,6 +255,24 @@ procedure TExportDlg.BuildChrome;
     Result.SetBounds(L, T, W, 20);
     Result.Caption := Cap;
     uDlgSkin.SkinLabel(Result, Dim, FH, Bold);
+  end;
+
+  { A paragraph rather than a caption.  The drawn label centres one line and
+    lets it run off both ends - which is how the STL note lost its first
+    letter and its last - so anything that is a sentence gets a plain label
+    that wraps inside the width it was given. }
+  function MkPara(Parent: TWinControl; const Cap: string;
+    L, T, W, H: Integer): TLabel;
+  begin
+    Result := TLabel.Create(Self);
+    Result.Parent := Parent;
+    Result.SetBounds(L, T, W, H);
+    Result.Caption := Cap;
+    Result.AutoSize := False;
+    Result.WordWrap := True;
+    Result.Transparent := True;
+    Result.Font.Height := -12;
+    Result.Font.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.TextDim);
   end;
 
 var
@@ -295,9 +338,9 @@ begin
   FPrev.OnMouseUp := @PrevUp;
   FPrev.OnMouseWheel := @PrevWheel;
 
-  FHint := MkLbl(Mid, 'Middle-drag turns it, right-drag slides it, wheel zooms - '
-    + 'the same as the drawing.  This is the shot.',
-    10, 414, 420, True, False, -12);
+  FHint := MkPara(Mid, 'Middle-drag turns it, right-drag slides it, wheel '
+    + 'zooms - the same as the drawing.  This is the shot.',
+    10, 412, 420, 34);
 
   { --- what this format needs to be asked, on the right ------------- }
   Opt := TBCPanel.Create(Self);
@@ -306,9 +349,7 @@ begin
   uDlgSkin.SkinPanel(Opt, False, 12);
 
   FOptTitle := MkLbl(Opt, 'PNG', 14, 12, 232, False, True, -17);
-  FNoteLbl := MkLbl(Opt, '', 14, 38, 232, True, False, -12);
-  FNoteLbl.AutoSize := False;
-  FNoteLbl.Height := 52;
+  FNoteLbl := MkPara(Opt, '', 14, 38, 232, 52);
 
   FSizeLbl := MkLbl(Opt, 'Size', 14, 96, 232, True, False, -12);
   FSize := TComboBox.Create(Self);
@@ -348,32 +389,22 @@ begin
   FQual.OnChange := @SizeChanged;
   uDlgSkin.SkinTrack(FQual);
 
-  FSecLbl := MkLbl(Opt, 'Seconds', 14, 212, 110, True, False, -12);
-  FSec := TEdit.Create(Self);
-  FSec.Parent := Opt;
-  FSec.SetBounds(14, 232, 100, 26);
-  FSec.Text := '4';
-  FSec.OnChange := @SizeChanged;
-  uDlgSkin.SkinEdit(FSec);
-
-  FFpsLbl := MkLbl(Opt, 'Frames a second, at most', 14, 212, 232, True, False, -12);
-  FFps := TEdit.Create(Self);
-  FFps.Parent := Opt;
-  FFps.SetBounds(14, 232, 100, 26);
-  FFps.Text := '20';
-  FFps.OnChange := @SizeChanged;
-  uDlgSkin.SkinEdit(FFps);
-
+  { The film is whatever was recorded, and nothing else.  There used to be a
+    pair of views here with a full turn between them, and a seconds box and a
+    frame rate box to describe it with - a way of saying what a move should
+    be without making one.  The recording room says it better, so the two
+    ends and the boxes are gone: record a move, then this plays it back. }
   FLoopOn := True;
-  FLoop := MkBtn(Opt, '', 14, 264, 232, 26, bkPlain);
+  FLoop := MkBtn(Opt, '', 14, 212, 232, 26, bkPlain);
   FLoop.Tag := 2;
   FLoop.OnClick := @Ticked;
   ShowTick(FLoop, True, 'Go round for ever');
 
-  FPlay := MkBtn(Opt, 'Play the clip', 14, 330, 232, 30, bkPlain);
-  FPlay.OnClick := @DoPlay;
-  FRec := MkBtn(Opt, 'Record a move...', 14, 294, 232, 32, bkGo);
+  FRec := MkBtn(Opt, 'Record a move...', 14, 248, 232, 32, bkGo);
   FRec.OnClick := @DoRecord;
+
+  FPlay := MkBtn(Opt, 'Play it', 14, 314, 232, 30, bkPlain);
+  FPlay.OnClick := @DoPlay;
 
   FMidOn := True;
   FMid := MkBtn(Opt, '', 14, 116, 232, 26, bkPlain);
@@ -387,8 +418,8 @@ begin
   FAxes.OnClick := @Ticked;
   ShowTick(FAxes, True, 'Show the axes');
 
-  FClipLbl := MkLbl(Opt, '', 14, 262, 232, True, False, -12);
-  FShotLbl := MkLbl(Opt, '', 14, 432, 232, True, False, -12);
+  FClipLbl := MkPara(Opt, '', 14, 286, 232, 24);
+  FShotLbl := MkPara(Opt, '', 14, 398, 232, 46);
 
   FDxfWhat := TComboBox.Create(Self);
   FDxfWhat.Parent := Opt;
@@ -414,7 +445,7 @@ begin
   FPath.SetBounds(14, 32, 560, 28);
   uDlgSkin.SkinEdit(FPath);
 
-  FTellBad := MkLbl(Foot, '', 14, 4, 700, True, False, -12);
+  FTellBad := MkPara(Foot, '', 14, 2, 700, 34);
   FTellBad.Visible := False;
   FSay := MkBtn(Foot, 'Send a bug report about this', 584, 4, 268, 22, bkPlain);
   FSay.OnClick := @DoSay;
@@ -461,7 +492,9 @@ end;
 procedure TExportDlg.PickKind(Sender: TObject);
 begin
   FKind := TExportKind((Sender as TBCButton).Tag);
-  FPath.Text := ChangeFileExt(FPath.Text, KIND_EXT[FKind]);
+  { the name follows, the folder does not: an STL belongs wherever the last
+    STL went, not wherever the last PNG went }
+  FPath.Text := PathFor(FKind);
   ShowOptions;
 end;
 
@@ -491,20 +524,16 @@ begin
   FQualLbl.Visible := FKind = exJpeg;
   FQual.Visible := FKind = exJpeg;
 
-  FSecLbl.Visible := False;
-  FSec.Visible := False;
-  FFpsLbl.Visible := Anim;
-  FFps.Visible := Anim;
   FLoop.Visible := Anim;
   FPlay.Visible := Anim and (Length(FCam) >= 2);
   FShotLbl.Visible := Raster;
   if Anim then
   begin
     if Length(FCam) >= 2 then
-      FClipLbl.Caption := Format('A clip of %.1f seconds is ready.',
+      FClipLbl.Caption := Format('%.1f seconds recorded.',
         [CamPathLength(FCam)])
     else
-      FClipLbl.Caption := 'No clip yet - record one.';
+      FClipLbl.Caption := 'Nothing recorded yet.';
   end;
   FClipLbl.Visible := Anim;
   FAxes.Visible := Raster;
@@ -529,7 +558,7 @@ begin
         Secs := Max(0.2, Min(GIF_MAX_SECONDS, CamPathLength(FCam)))
       else
         Secs := 0;
-      FilmPlan(Secs, StrToIntDef(FFps.Text, 20), W, H, NF, Rate);
+      FilmPlan(Secs, GIF_FPS, W, H, NF, Rate);
       { A big picture buys fewer frames - the whole film has to be held in
         memory at once - so say so here rather than let somebody wait for it
         and wonder why it came out jerky. }
@@ -537,7 +566,7 @@ begin
         and nobody should have to export one to find out }
       if Secs <= 0 then
         FShotLbl.Caption := Format('%d x %d - record a move first', [W, H])
-      else if Rate < StrToIntDef(FFps.Text, 20) then
+      else if Rate < GIF_FPS then
         FShotLbl.Caption := Format('%d x %d, %.1fs at %d a second, about %s' +
           '  (a smaller size buys more frames)',
           [W, H, Secs, Rate, Weigh(NF, W, H)])
@@ -665,30 +694,53 @@ begin
   Result := KIND_EXT[FKind];
 end;
 
+function TExportDlg.PathFor(K: TExportKind): string;
+var
+  Dir, Name_: string;
+begin
+  Name_ := '';
+  if Assigned(FPath) then
+    Name_ := ExtractFileName(Trim(FPath.Text));
+  if Name_ = '' then Name_ := FStem;
+  Name_ := ChangeFileExt(Name_, '');
+  if Name_ = '' then Name_ := FStem;
+
+  Dir := '';
+  if Assigned(FDirFor) then Dir := FDirFor(KIND_EXT[K]);
+  if Dir = '' then Result := Name_ + KIND_EXT[K]
+  else Result := IncludeTrailingPathDelimiter(Dir) + Name_ + KIND_EXT[K];
+end;
+
+{ Where the camera is, T seconds into the recording. }
 function TExportDlg.Tween(T: Double): TProjector;
 begin
-  Result := TweenView(FVA, FVB, T);
+  Result := SampleCamPath(FCam, T);
 end;
 
 procedure TExportDlg.PrevPaint(Sender: TObject);
 var
   S: TArtSurface;
-  Bmp: TBitmap;
   V: TProjector;
   Bg: TPix;
 begin
-  if FPlaying then V := Tween(FPlayT) else V := FView;
+  { Playing means playing the recording.  With nothing recorded there is
+    nothing to play and the preview is simply the shot, held still - it never
+    wanders off round the model on its own. }
+  if FPlaying and (Length(FCam) >= 2) then V := Tween(FPlayT) else V := FView;
   if (FKind = exPng) and FTranspOn then Bg := Pix(255, 255, 255, 0)
   else Bg := Pix(255, 255, 255);
-  S := ShootFrame(FDoc, Fitted(V, FSrcW, FSrcH, FPrev.Width, FPrev.Height),
-    FPrev.Width, FPrev.Height, FUnits, FFont, FLabelCol, FEdgeW, Bg,
-    FDragging or FPlaying);
-  try
-    Bmp := S.AsBitmap;
-    FPrev.Canvas.Draw(0, 0, Bmp);
-  finally
-    S.Free;
-  end;
+  { One surface, kept, rather than a new one every repaint.  While a clip is
+    playing this runs twenty-five times a second, and building and throwing
+    away a picture the size of the preview that often is work the machine can
+    feel. }
+  if (FPrevS <> nil) and ((FPrevS.Width <> FPrev.Width) or
+     (FPrevS.Height <> FPrev.Height)) then FreeAndNil(FPrevS);
+  if FPrevS = nil then
+    FPrevS := TArtSurface.Create(Max(1, FPrev.Width), Max(1, FPrev.Height));
+  S := FPrevS;
+  ShootInto(S, FDoc, Fitted(V, FSrcW, FSrcH, FPrev.Width, FPrev.Height),
+    FUnits, FFont, FLabelCol, FEdgeW, Bg, FDragging or FPlaying);
+  FPrev.Canvas.Draw(0, 0, S.AsBitmap);
 end;
 
 { The same buttons as the drawing area, because a preview that answers to
@@ -759,16 +811,26 @@ end;
 
 procedure TExportDlg.Tick(Sender: TObject);
 var
-  T: Double;
+  T, Len: Double;
 begin
-  T := FPlayT + 0.02;                     { a local first - see OrbitBy }
+  Len := CamPathLength(FCam);
+  if Len <= 0 then
+  begin
+    FPlaying := False;
+    FTimer.Enabled := False;
+    Exit;
+  end;
+  { the clock runs in seconds of the recording, so what plays here runs at
+    the speed it was made at }
+  T := FPlayT + FTimer.Interval / 1000;   { a local first - see OrbitBy }
   FPlayT := T;
-  if FPlayT > 1 then FPlayT := 0;
+  if FPlayT > Len then FPlayT := 0;
   FPrev.Invalidate;
 end;
 
 procedure TExportDlg.DoPlay(Sender: TObject);
 begin
+  if Length(FCam) < 2 then Exit;
   FPlaying := not FPlaying;
   FPlayT := 0;
   FTimer.Enabled := FPlaying;
@@ -830,11 +892,11 @@ begin
   Fields := Format(
     'export=%s stage=%s' + LineEnding +
     'asked for=%dx%d from a %dx%d screen, size choice %d' + LineEnding +
-    'gif=%s seconds, %s a second, loop=%s, recorded=%.1fs, axes=%s' + LineEnding +
+    'gif=%d a second, loop=%s, recorded=%.1fs, axes=%s' + LineEnding +
     'what it said: %s' + LineEnding +
     'path=%s',
     [KIND_NAME[FKind], FStage, W, H, FSrcW, FSrcH, FSize.ItemIndex,
-     FSec.Text, FFps.Text, BoolToStr(FLoopOn, 'yes', 'no'),
+     GIF_FPS, BoolToStr(FLoopOn, 'yes', 'no'),
      CamPathLength(FCam), BoolToStr(FAxesOn, 'yes', 'no'),
      FMsg, ExtractFileName(FPath.Text)]);
   ModalResult := mrCancel;
@@ -863,12 +925,10 @@ begin
          FSrcW, FSrcH, FAxesOn, FPivot, Got) then
     begin
       FCam := Got;
-      { and it goes in the box, because a recording that quietly overrode
-        whatever the box said is how a four second export turned into three
-        hundred frames }
-      FSec.Text := Format('%.1f', [CamPathLength(FCam)]);
+      FPlayT := 0;
       FHint.Caption := Format('Recorded %.1f seconds.  That is the shot now - ' +
-        'press Record again to do it over.', [CamPathLength(FCam)]);
+        'press Play it to watch, or Record again to do it over.',
+        [CamPathLength(FCam)]);
     end;
   finally
     Show;
@@ -885,6 +945,7 @@ begin
     D.Filter := KIND_NAME[FKind] + '|*' + Ext;
     D.DefaultExt := Ext;
     D.FileName := FPath.Text;
+    D.InitialDir := ExtractFileDir(FPath.Text);
     if D.Execute then FPath.Text := ChangeFileExt(D.FileName, Ext);
   finally
     D.Free;
@@ -905,6 +966,9 @@ begin
   try
     WriteIt;
     FWrote := True;
+    { and that is where this kind of file goes from now on }
+    if Assigned(FDirKeep) then
+      FDirKeep(Ext, ExtractFileDir(ChangeFileExt(Trim(FPath.Text), Ext)));
     ModalResult := mrOk;
   except
     on E: Exception do
@@ -933,6 +997,10 @@ var
 begin
   FStage := 'working out where to put it';
   Fn := ChangeFileExt(Trim(FPath.Text), Ext);
+  { A folder somebody typed or browsed to may not be there yet - and a
+    portable program's own exports folder will not be, the first time. }
+  if ExtractFileDir(Fn) <> '' then
+    ForceDirectories(ExtractFileDir(Fn));
   case FKind of
     exSvg:
       begin
@@ -1006,14 +1074,8 @@ begin
           raise Exception.Create('there is no clip yet - press Record a move');
         if not OutSize(W, H) then raise Exception.Create('that size will not do');
         FStage := Format('drawing the frames at %dx%d', [W, H]);
-        if Length(FCam) >= 2 then
-          N := SavePathGif(FDoc, FCam, FSrcW, FSrcH, W, H, FUnits, FFont,
-            FLabelCol, FEdgeW, StrToIntDef(FFps.Text, 20), FLoopOn,
-            FAxesOn, Fn)
-        else
-          N := SaveOrbitGif(FDoc, FVA, FVB, FSrcW, FSrcH, W, H, FUnits, FFont,
-            FLabelCol, FEdgeW, StrToFloatDef(FSec.Text, 4),
-            StrToIntDef(FFps.Text, 20), FLoopOn, FAxesOn, Fn);
+        N := SavePathGif(FDoc, FCam, FSrcW, FSrcH, W, H, FUnits, FFont,
+          FLabelCol, FEdgeW, GIF_FPS, FLoopOn, FAxesOn, Fn);
         FMsg := Format('Wrote %s - %d frames, %d x %d.',
           [ExtractFileName(Fn), N, W, H]);
       end;
@@ -1036,13 +1098,14 @@ end;
 function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
   const Suggest: string; const T: TTheme; const Pivot: TP3;
-  OnReport: TReportProc; out Msg: string): Boolean;
+  OnReport: TReportProc; DirFor: TDirFor; DirKeep: TDirKeep;
+  out Msg: string): Boolean;
 var
   Dlg: TExportDlg;
 begin
   uDlgSkin.UseTheme(T);
   Dlg := TExportDlg.Make(Doc, V, U, AFont, LabelCol, EdgeW, SrcW, SrcH,
-    Suggest);
+    Suggest, DirFor, DirKeep);
   Dlg.FOnReport := OnReport;
   Dlg.FPivot := Pivot;
   try

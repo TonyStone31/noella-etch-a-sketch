@@ -10,6 +10,44 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A portable program keeps its files with it.**  Drawings are offered a
+  `drawings` folder beside the program and exports an `exports` folder, both
+  made the first time they are needed.  Nothing is put in your home folder
+  any more - carry the program on a stick and the work goes with it.
+
+- **It remembers where you put things.**  The last folder you saved a drawing
+  to, the last one you opened from, and the last one you sent each kind of
+  export to - so STLs go where the printer looks and pictures go where the
+  forum post is being written, without being asked twice.  Open starts in the
+  program's own folder until you have opened something.
+
+### Fixed
+
+- **The GIF settings are the ones that matter now.**  The seconds box, the
+  frame rate box and the spin they described are gone: record a move and that
+  is the film.  Play plays back what you recorded rather than a turn of its
+  own, and the line saying there was no clip yet is no longer printed across
+  the button underneath it.
+
+- **A three second count-in takes three seconds.**  The recorder was counting
+  timer ticks instead of looking at the clock, and every tick redraws the
+  model - so on a drawing of any size the count-in stretched to eight.  Worse,
+  it then wrote down three seconds of timestamps over eight seconds of
+  movement, which is what made the film jumpy.
+
+- **The recorder no longer makes the whole program sticky.**  It was building
+  and throwing away a picture the size of the preview thirty times a second.
+  It keeps one and draws into it, and redraws only as often as the eye needs
+  rather than as often as the camera is written down.  The export preview did
+  the same thing and now does not.
+
+- **Notes that are whole sentences wrap instead of running off both ends.**
+  The STL note was losing its first letter and its last.
+
 ## v2026.09.14.1
 
 ### Fixed

@@ -32,6 +32,25 @@ function DraftFile: string;
   and in the user's folder when it is not. }
 function ExamplesDir: string;
 
+{ Where a drawing is saved, and where a picture is exported, when nobody has
+  said otherwise: folders beside the program, made the first time one is
+  needed.
+
+  This is the same argument as the settings and the draft.  A portable
+  program that drops the user in their home folder the moment they press Save
+  has scattered their work across a machine they may not even own - and the
+  next time they plug the stick in somewhere else, none of it is there.
+  Beside the program, it travels with the program.
+
+  Wherever they go instead is remembered, per kind of file, because people
+  keep drawings in one place and pictures for a forum in another.  That is
+  the caller's business; these are only the defaults. }
+function DrawingsDir: string;
+function ExportsDir: string;
+{ A folder beside the program, made if it is not there.  Comes back empty if
+  it cannot be made, which is the caller's signal to let the dialog decide. }
+function WorkDir(const Name: string): string;
+
 implementation
 
 uses
@@ -98,6 +117,24 @@ end;
 function ExamplesDir: string;
 begin
   Result := AppDataDir + 'examples' + PathDelim;
+end;
+
+function WorkDir(const Name: string): string;
+begin
+  Result := AppDataDir + Name + PathDelim;
+  if not DirectoryExists(Result) then
+    if not ForceDirectories(Result) then
+      Result := '';
+end;
+
+function DrawingsDir: string;
+begin
+  Result := WorkDir('drawings');
+end;
+
+function ExportsDir: string;
+begin
+  Result := WorkDir('exports');
 end;
 
 end.

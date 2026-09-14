@@ -161,6 +161,10 @@ type
     pbMode: TPaintBox;
     pbScreen: TPaintBox;
     tmrTick: TTimer;
+    function ExportDirFor(const Ext: string): string;
+    procedure KeepExportDir(const Ext, Dir: string);
+    function SaveDirNow: string;
+    function OpenDirNow: string;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormDestroy(Sender: TObject);
@@ -310,6 +314,20 @@ type
     FDirLock: Integer;           // -1 none, else an index into AxisDir
     FInput: string;              // what has been typed into the command bar
     FCmdMsg: string;             // last result / error shown in the bar
+    { Where things were last put, so they go back to the same place.
+
+      This is a portable program.  Left to itself a save dialog opens in the
+      user's home folder, which for a program carried on a stick means
+      somebody's work ends up scattered across a machine they may not own -
+      and the next time they plug the stick in somewhere else, none of it is
+      there.  So the first offer is a folder beside the program, and after
+      that it is wherever they actually went.
+
+      Exports are remembered per kind of file, because people keep STLs where
+      the printer looks and pictures where the forum post is being written.
+      The list is "ext=folder" lines. }
+    FSaveDir, FOpenDir: string;
+    FExportDirs: TStringList;
     FDimFont: TFont;
 
     { --- input ---------------------------------------------------------- }
@@ -2054,6 +2072,7 @@ var
   A: string;
 begin
   Application.OnException := @ReportCrash;
+  FExportDirs := TStringList.Create;
   Randomize;
   FRunTag := IntToHex(GetTickCount64 and $FFFFFF, 6) + IntToHex(Random($10000), 4);
   for I := 1 to ParamCount do
@@ -2219,6 +2238,7 @@ begin
     screen and it is still there next time. }
   if FEditSeq <> FDraftSeq then SaveDraft;
   SaveSettings;
+  FExportDirs.Free;
   FDimFont.Free;
   for I := High(FDrawings) downto 0 do
     FDrawings[I].Free;
@@ -16471,8 +16491,9 @@ procedure TMainForm.DoOpen;
 begin
   dlgOpen.Filter := 'Heckers Sketch drawing|*.hsk|All files|*.*';
   dlgOpen.DefaultExt := '.hsk';
-  if dlgOpen.InitialDir = '' then dlgOpen.InitialDir := GetUserDir;
+  dlgOpen.InitialDir := OpenDirNow;
   if not dlgOpen.Execute then Exit;
+  FOpenDir := ExtractFileDir(dlgOpen.FileName);
   LoadDocument(dlgOpen.FileName);
 end;
 
@@ -16730,13 +16751,15 @@ procedure TMainForm.DoSaveAs;
 begin
   dlgSave.Filter := 'Heckers Sketch drawing|*.hsk';
   dlgSave.DefaultExt := '.hsk';
-  if dlgSave.InitialDir = '' then dlgSave.InitialDir := GetUserDir;
+  dlgSave.InitialDir := SaveDirNow;
   if FDocPath <> '' then
     dlgSave.FileName := FDocPath
   else
-    dlgSave.FileName := 'drawing.hsk';
+    dlgSave.FileName := IncludeTrailingPathDelimiter(dlgSave.InitialDir) +
+      'drawing.hsk';
   if not dlgSave.Execute then Exit;
   FDocPath := dlgSave.FileName;
+  FSaveDir := ExtractFileDir(FDocPath);
   DoSave;
 end;
 
@@ -16776,6 +16799,43 @@ begin
   pbCmd.Invalidate;
 end;
 
+{ Where a file of this kind went last time.  Nothing remembered, or the
+  folder has gone: the program's own exports folder, beside the executable.
+  If even that cannot be made - a copy run off a read-only stick - the answer
+  is empty and the dialog offers a bare file name, which lands wherever the
+  file dialog thinks best. }
+function TMainForm.ExportDirFor(const Ext: string): string;
+begin
+  Result := FExportDirs.Values[Ext];
+  if (Result <> '') and DirectoryExists(Result) then Exit;
+  Result := ExportsDir;
+end;
+
+procedure TMainForm.KeepExportDir(const Ext, Dir: string);
+begin
+  if (Ext = '') or (Dir = '') then Exit;
+  FExportDirs.Values[Ext] := Dir;
+end;
+
+{ The same for drawings, which are all one kind. }
+function TMainForm.SaveDirNow: string;
+begin
+  Result := FSaveDir;
+  if (Result <> '') and DirectoryExists(Result) then Exit;
+  Result := DrawingsDir;
+  if Result = '' then Result := AppDataDir;
+end;
+
+{ And where to go looking.  Wherever a drawing was last opened from, and
+  failing that the program's own folder - which is where the examples and the
+  drawings folders are, so both are one click away. }
+function TMainForm.OpenDirNow: string;
+begin
+  Result := FOpenDir;
+  if (Result <> '') and DirectoryExists(Result) then Exit;
+  Result := AppDataDir;
+end;
+
 procedure TMainForm.DoExport;
 var
   Msg, Base: string;
@@ -16788,12 +16848,14 @@ begin
   begin
     dlgSave.Filter := 'PNG image|*.png';
     dlgSave.DefaultExt := '.png';
-    if dlgSave.InitialDir = '' then dlgSave.InitialDir := GetUserDir;
-    dlgSave.FileName := 'heckers-sketch-' +
-      FormatDateTime('yyyymmdd-hhnnss', Now) + '.png';
+    dlgSave.InitialDir := ExportDirFor('.png');
+    dlgSave.FileName := IncludeTrailingPathDelimiter(dlgSave.InitialDir) +
+      'heckers-sketch-' + FormatDateTime('yyyymmdd-hhnnss', Now) + '.png';
     if not dlgSave.Execute then Exit;
     try
+      ForceDirectories(ExtractFileDir(dlgSave.FileName));
       FArt.SaveToPNG(ChangeFileExt(dlgSave.FileName, '.png'));
+      KeepExportDir('.png', ExtractFileDir(dlgSave.FileName));
       FCmdMsg := 'Exported ' + ExtractFileName(dlgSave.FileName);
     except
       on E: Exception do
@@ -16807,12 +16869,13 @@ begin
     whole drawing when nothing is - because that is what somebody was looking
     at when they pressed the button }
   if not FD.Doc.MiddleOf(FSel, ExpPivot) then ExpPivot := P3(0, 0, 0);
-  Base := IncludeTrailingPathDelimiter(GetUserDir) + 'heckers-sketch-' +
-    FormatDateTime('yyyymmdd-hhnnss', Now);
+  { a name only - which folder it belongs in is a question per format, and
+    the dialog asks }
+  Base := 'heckers-sketch-' + FormatDateTime('yyyymmdd-hhnnss', Now);
   Msg := '';
   if RunExport(FD.Doc, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW,
        FArt.Width, FArt.Height, Base, Themes[FThemeIdx], ExpPivot,
-       @ReportFromDialog, Msg) then
+       @ReportFromDialog, @ExportDirFor, @KeepExportDir, Msg) then
   begin
     FHint := Msg;
     FCmdMsg := Msg;
@@ -17560,6 +17623,13 @@ begin
     Ini := TIniFile.Create(ConfigFile);
     try
       uRecord.RecentWalks := Ini.ReadString('export', 'recentwalks', '');
+      { Where things went last time.  Written as one "ext=folder" line per
+        kind of file, because there is no telling in advance which kinds
+        somebody uses. }
+      FSaveDir := Ini.ReadString('paths', 'drawings', '');
+      FOpenDir := Ini.ReadString('paths', 'open', '');
+      FExportDirs.Clear;
+      Ini.ReadSectionValues('exportpaths', FExportDirs);
       FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
         0, THEME_COUNT - 1);
       FToyTheme := EnsureRange(Ini.ReadInteger('look', 'toytheme', 0),
@@ -17649,6 +17719,7 @@ end;
 procedure TMainForm.SaveSettings;
 var
   Ini: TIniFile;
+  I: Integer;
 begin
   try
     ForceDirectories(ExtractFilePath(ConfigFile));
@@ -17671,6 +17742,13 @@ begin
       Ini.WriteInteger('pro', 'scale', FD.ScaleIdx);
       { which camera moves get used, so the list offers them first next time }
       Ini.WriteString('export', 'recentwalks', uRecord.RecentWalks);
+      Ini.WriteString('paths', 'drawings', FSaveDir);
+      Ini.WriteString('paths', 'open', FOpenDir);
+      Ini.EraseSection('exportpaths');
+      for I := 0 to FExportDirs.Count - 1 do
+        if FExportDirs.Names[I] <> '' then
+          Ini.WriteString('exportpaths', FExportDirs.Names[I],
+            FExportDirs.ValueFromIndex[I]);
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
       Ini.WriteInteger('pro', 'precision', FLenDenom);
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));

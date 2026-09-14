@@ -45,6 +45,9 @@ implementation
 
 const
   SAMPLE_HZ = 30;         { how often the camera is written down }
+  { and how often the picture is redrawn, which is a different question: the
+    camera is cheap to write down and the model is not }
+  PAINT_MS  = 55;
   READY_FOR = 3;          { seconds of counting you in }
   STRIP_N   = 16;         { snapshots along the bottom }
   STRIP_W   = 96;
@@ -88,6 +91,23 @@ type
     FRolling: Boolean;
     FCount: Double;
     FElapsed: Double;
+    { The clock this runs on is the wall clock, not the number of times the
+      timer has gone off.
+
+      Counting ticks assumes the timer keeps up, and it does not: every tick
+      redraws the model, and on a drawing of any size that takes longer than
+      the thirty-third of a second between ticks.  So a three second count-in
+      took eight, and worse, the recording wrote down three seconds of
+      timestamps over eight seconds of movement - which is exactly why the
+      film came out jumpy.  Asking the clock costs nothing and is right
+      however slow the drawing is. }
+    FClock: QWord;
+    FPainted: QWord;
+    { one surface for the preview, kept.  Making a new one per frame meant
+      allocating and freeing a couple of megabytes thirty times a second,
+      which is most of what made the whole program feel sticky while this
+      window was open. }
+    FCanvasS: TArtSurface;
     FPlaying: Boolean;
     FPlayT: Double;
 
@@ -111,6 +131,7 @@ type
     procedure PaintView(Sender: TObject);
     procedure PaintFilm(Sender: TObject);
     procedure Tick(Sender: TObject);
+    procedure Repaint_;
     procedure Down(Sender: TObject; Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer);
     procedure Move_(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -146,6 +167,7 @@ var
   I: Integer;
 begin
   for I := 0 to STRIP_N - 1 do FStrip[I].Free;
+  FCanvasS.Free;
   inherited Destroy;
 end;
 
@@ -454,6 +476,16 @@ begin
   FFilm.Invalidate;
 end;
 
+{ Seconds since a mark on the clock. }
+function Since(Mark: QWord): Double;
+var
+  Now_: QWord;
+begin
+  Now_ := GetTickCount64;
+  if Now_ <= Mark then Result := 0
+  else Result := (Now_ - Mark) / 1000;
+end;
+
 procedure TRecordWin.Grab;
 begin
   if FN >= Length(FCam) then SetLength(FCam, Max(64, FN * 2));
@@ -491,32 +523,38 @@ var
 begin
   if FPlaying then
   begin
-    Step := FPlayT + (1 / SAMPLE_HZ) / Max(0.2, CamPathLength(FCam));
+    Step := Since(FClock) / Max(0.2, CamPathLength(FCam));
     FPlayT := Step;
-    if FPlayT > 1 then FPlayT := 0;
-    FBox.Invalidate;
+    if FPlayT > 1 then
+    begin
+      FPlayT := 0;
+      FClock := GetTickCount64;
+    end;
+    Repaint_;
     Exit;
   end;
 
   if FCount > 0 then
   begin
-    Step := FCount - 1 / SAMPLE_HZ;
+    Step := READY_FOR - Since(FClock);
     FCount := Step;
     if FCount <= 0 then
     begin
+      FCount := 0;
       FRolling := True;
       FElapsed := 0;
+      FClock := GetTickCount64;
       FTitle.Caption := 'Recording';
       Grab;
       Shelve;
       Refresh_;
     end;
-    FBox.Invalidate;
+    Repaint_;
     Exit;
   end;
 
   if not FRolling then Exit;
-  Step := FElapsed + 1 / SAMPLE_HZ;
+  Step := Since(FClock);
   FElapsed := Step;
   { a canned walk drives the camera; a free hand has already moved it }
   if ChosenWalk(Kind) then
@@ -529,6 +567,19 @@ begin
     DoStop(nil);
     Exit;
   end;
+  Repaint_;
+end;
+
+{ The camera is written down thirty times a second because that is what makes
+  a smooth recording, and it costs nothing.  Drawing the model is the
+  expensive part and the eye does not need it that often - so it is asked for
+  on its own, slower clock.  Without this, a big drawing spent every scrap of
+  time redrawing a preview nobody was looking that closely at, which is what
+  made the rest of the program feel stuck. }
+procedure TRecordWin.Repaint_;
+begin
+  if GetTickCount64 - FPainted < PAINT_MS then Exit;
+  FPainted := GetTickCount64;
   FBox.Invalidate;
 end;
 
@@ -544,14 +595,17 @@ begin
       FSrcW, FSrcH, FBox.Width, FBox.Height)
   else
     V := Frame(FBox.Width, FBox.Height);
-  S := ShootFrame(FDoc, V, FBox.Width, FBox.Height, FUnits, FFont, FLabelCol,
-    FEdgeW, Pix(255, 255, 255), FDrag or FPan or FRolling or FPlaying);
-  try
-    if FAxes then PaintAxesOn(S, V);
-    FBox.Canvas.Draw(0, 0, S.AsBitmap);
-  finally
-    S.Free;
-  end;
+
+  { the same surface every time, unless the window has been resized }
+  if (FCanvasS <> nil) and ((FCanvasS.Width <> FBox.Width) or
+     (FCanvasS.Height <> FBox.Height)) then FreeAndNil(FCanvasS);
+  if FCanvasS = nil then
+    FCanvasS := TArtSurface.Create(Max(1, FBox.Width), Max(1, FBox.Height));
+  S := FCanvasS;
+  ShootInto(S, FDoc, V, FUnits, FFont, FLabelCol, FEdgeW,
+    Pix(255, 255, 255), FDrag or FPan or FRolling or FPlaying);
+  if FAxes then PaintAxesOn(S, V);
+  FBox.Canvas.Draw(0, 0, S.AsBitmap);
 
   C := FBox.Canvas;
   C.Brush.Style := bsClear;
@@ -684,6 +738,7 @@ begin
   DoClear(nil);
   FHome := FView;
   FCount := READY_FOR;
+  FClock := GetTickCount64;
   FRolling := False;
   FPlaying := False;
   FGo.Visible := False;
@@ -715,6 +770,7 @@ begin
   if FN < 2 then Exit;
   FPlaying := not FPlaying;
   FPlayT := 0;
+  FClock := GetTickCount64;
   if FPlaying then FPlay.Caption := 'Stop' else FPlay.Caption := 'Play';
   FBox.Invalidate;
 end;

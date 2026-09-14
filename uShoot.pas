@@ -29,6 +29,11 @@ const
     for it. }
   GIF_MAX_SECONDS = 20;
   GIF_MAX_FRAMES  = 300;
+  { What a film is asked to run at.  It used to be a box on the export
+    dialog, which is a question nobody has an opinion about: the length of
+    the recording and the size of the picture between them decide how many
+    frames there is room for, and FilmPlan hands back what it could afford. }
+  GIF_FPS = 20;
   { And a ceiling on the whole film, not just the number of frames.
 
     Not because it crashes - that was a missing colour quantizer and is fixed
@@ -174,13 +179,6 @@ function TweenView(const A, B: TProjector; T: Double): TProjector;
 procedure SaveStill(Doc: TWorkDoc; const V: TProjector; SrcW, SrcH, W, H: Integer;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
   const Path: string; Jpeg: Boolean; Quality: Integer; Transparent, Axes: Boolean);
-
-{ The little film: N frames easing from VA to VB, written as an animated GIF.
-  Returns how many frames went in. }
-function SaveOrbitGif(Doc: TWorkDoc; const VA, VB: TProjector;
-  SrcW, SrcH, W, H: Integer; U: TUnitSystem; AFont: TFont;
-  const LabelCol: TPix; EdgeW: Single; Seconds: Double; Fps: Integer;
-  Loop, Axes: Boolean; const Path: string): Integer;
 
 type
   { where a film says what it is up to }
@@ -663,30 +661,6 @@ begin
     Gif.Free;
     S.Free;
   end;
-end;
-
-function SaveOrbitGif(Doc: TWorkDoc; const VA, VB: TProjector;
-  SrcW, SrcH, W, H: Integer; U: TUnitSystem; AFont: TFont;
-  const LabelCol: TPix; EdgeW: Single; Seconds: Double; Fps: Integer;
-  Loop, Axes: Boolean; const Path: string): Integer;
-var
-  A, B: TProjector;
-  N, Rate: Integer;
-
-  { One frame short of the whole way round.  The last frame of a loop IS the
-    first one, and sending both makes the spin catch once every time round. }
-  function At(I, Count: Integer): TProjector;
-  begin
-    Result := TweenView(A, B, I / Count);
-  end;
-
-begin
-  A := VA;
-  B := VB;
-  Seconds := Max(0.2, Min(GIF_MAX_SECONDS, Seconds));
-  FilmPlan(Seconds, Fps, W, H, N, Rate);
-  Result := WriteFilm(Doc, SrcW, SrcH, W, H, U, AFont, LabelCol, EdgeW,
-    N, Seconds, Loop, Axes, Path, @At);
 end;
 
 function SavePathGif(Doc: TWorkDoc; const Cam: TCamPath;

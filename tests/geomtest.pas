@@ -4383,6 +4383,7 @@ var
   D: TWorkDoc;
   Dir: string;
   V, VB, M: TProjector;
+  Path: TCamPath;
   F: TFont;
 
   { the width, height and colour type out of a PNG's IHDR }
@@ -4504,10 +4505,17 @@ begin
     Ok(CT = 6, Format('and it kept its alpha channel (type %d, wanted 6)',
       [CT]));
 
+    { A recording of a full turn, which is what the recording room hands the
+      export dialog.  It is the only way a film is made now - the two-ends
+      spin the dialog used to offer has gone with the boxes that described
+      it. }
     VB := V;
     VB.Az := V.Az + 2 * Pi;
-    N := SaveOrbitGif(D, V, VB, 900, 700, 240, 180, usImperial, F,
-      Pix(0, 0, 0), 1.0, 1.0, 10, True, False, Dir + PathDelim + 'd.gif');
+    SetLength(Path, 2);
+    Path[0].T := 0;   Path[0].V := V;
+    Path[1].T := 1;   Path[1].V := VB;
+    N := SavePathGif(D, Path, 900, 700, 240, 180, usImperial, F,
+      Pix(0, 0, 0), 1.0, 10, True, False, Dir + PathDelim + 'd.gif');
     Ok(N = 10, Format('one second at ten a second is ten frames (%d)', [N]));
     Ok(GifIs(Dir + PathDelim + 'd.gif', W, H),
       'and what came out is a GIF89a, which is the animated kind');
@@ -4523,10 +4531,8 @@ begin
           Tony's Windows crash of 13 September was this and nothing else.
 
           So: a film WITH the axes on, which is the case that broke. }
-    VB := V;
-    VB.Az := V.Az + 2 * Pi;
-    N := SaveOrbitGif(D, V, VB, 900, 700, 200, 150, usImperial, F,
-      Pix(0, 0, 0), 1.0, 1.0, 8, True, True, Dir + PathDelim + 'ax.gif');
+    N := SavePathGif(D, Path, 900, 700, 200, 150, usImperial, F,
+      Pix(0, 0, 0), 1.0, 8, True, True, Dir + PathDelim + 'ax.gif');
     Ok(N >= 2, Format('a film with the axes on came out (%d frames)', [N]));
     Ok(GifIs(Dir + PathDelim + 'ax.gif', W, H) and (W = 200) and (H = 150),
       'and it is a real GIF89a at the size asked for');
