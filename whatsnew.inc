@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **/holes shows you where a solid is not closed.**  Type it and every edge' + LineEnding +
+    '  that nothing meets is drawn over the model in red.  It checks what you have' + LineEnding +
+    '  selected, or every solid in the drawing if nothing is.  That is the answer' + LineEnding +
+    '  a slicer will not give you when it refuses your model - the export could' + LineEnding +
+    '  already say a shape was open, but not where.  The marks go the moment you' + LineEnding +
+    '  change the drawing.' + LineEnding +
+    '' + LineEnding +
+    '- **The manual travels with the program.**  Help > The manual, or /manual,' + LineEnding +
+    '  opens the copy in the `help` folder beside the executable; the release zip' + LineEnding +
+    '  carries it now.  With no copy there it opens the website, as before.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.5' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

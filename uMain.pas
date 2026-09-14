@@ -165,6 +165,8 @@ type
     procedure KeepExportDir(const Ext, Dir: string);
     function SaveDirNow: string;
     function OpenDirNow: string;
+    procedure ShowOpenEdges;
+    procedure OpenManual;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormDestroy(Sender: TObject);
@@ -326,6 +328,12 @@ type
       Exports are remembered per kind of file, because people keep STLs where
       the printer looks and pictures where the forum post is being written.
       The list is "ext=folder" lines. }
+    { The edges where a solid is not closed, in pairs, and whether to show
+      them.  Worked out by TWorkDoc.OpenEdges and kept until the drawing
+      changes - an answer about geometry that has since been edited is worse
+      than no answer. }
+    FOpenEdges: TP3Array;
+    FOpenSeq: Int64;
     FSaveDir, FOpenDir: string;
     FExportDirs: TStringList;
     FDimFont: TFont;
@@ -8948,6 +8956,28 @@ begin
   C.TextOut(AX + Round(BarPx) + Round(12 * FUIScale), AY - Round(20 * FUIScale),
     Format('%s   (view %.0f%%)', [S1, FD.Zoom * 100]));
 
+  { --- where a solid is not closed ------------------------------------- }
+  { Laid over everything, in the colour of a warning, because the question
+    somebody has when a slicer refuses their model is not "is it open" - the
+    export already answers that - but "where".  Dropped the moment the
+    drawing changes: an answer about geometry that has been edited since is
+    worse than no answer at all. }
+  if (Length(FOpenEdges) >= 2) and (FOpenSeq = FEditSeq) then
+  begin
+    C.Pen.Width := Max(3, Round(3 * FUIScale));
+    C.Pen.Color := PixToColor(Pix(235, 60, 60));
+    AY := 0;
+    while AY + 1 <= High(FOpenEdges) do
+    begin
+      PA := ScreenOf(FOpenEdges[AY]);
+      PB := ScreenOf(FOpenEdges[AY + 1]);
+      C.MoveTo(Round(PA.X), Round(PA.Y));
+      C.LineTo(Round(PB.X), Round(PB.Y));
+      Inc(AY, 2);
+    end;
+    C.Pen.Width := 1;
+  end;
+
   { --- what is selected ------------------------------------------------ }
   { A selection of thousands is not traced against the depth buffer piece
     by piece - that was half a second a repaint on thirty thousand things.
@@ -11096,6 +11126,10 @@ begin
   end
   else if (W = 'center') or (W = 'centre') then
     CentreSelection
+  else if (W = 'holes') or (W = 'openedges') or (W = 'notclosed') then
+  begin
+    ShowOpenEdges;
+  end
   else if W = 'rebuild' then
   begin
     PushUndo;
@@ -11217,6 +11251,7 @@ begin
       on E: Exception do FCmdMsg := 'Could not write it: ' + E.Message;
     end;
   end
+  else if (W = 'manual') or (W = 'docs') then OpenManual
   else if (W = 'help') or (W = '?') then ShowAbout
   else
     Result := False;
@@ -12610,7 +12645,7 @@ begin
         1: begin CheckForUpdate(True); DoUpdate; end;
         2: ShowWhatsNew;
         3: OpenInBrowser('https://github.com/' + UPDATE_REPO + '/releases/latest');
-        4: OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
+        4: OpenManual;
         5: ReportBug;
       else
         OpenInBrowser('https://github.com/' + UPDATE_REPO);
@@ -13002,6 +13037,9 @@ procedure TMainForm.LeaveSheet;
 begin
   SetLength(FSel, 0);
   SetLength(FDoomed, 0);
+  { and the open-edge marks: they are points in this sheet's space and mean
+    nothing over the next one }
+  SetLength(FOpenEdges, 0);
   FHoverEnt := -1;
   FHoverFace := -1;
   FPushFace := -1;
@@ -15581,6 +15619,8 @@ end;
 procedure TMainForm.DoUndo;
 begin
   Trail('undo');
+  { the drawing is about to become a different one }
+  SetLength(FOpenEdges, 0);
   Act('undo');
   SelectNone;   // the numbers it held mean something else now
   if not CanUndo then Exit;
@@ -15613,6 +15653,8 @@ end;
 procedure TMainForm.DoRedo;
 begin
   Trail('redo');
+  { the drawing is about to become a different one }
+  SetLength(FOpenEdges, 0);
   Act('redo');
   SelectNone;
   if not CanRedo then Exit;
@@ -16861,6 +16903,115 @@ begin
   end;
   Invalidate;
   pbCmd.Invalidate;
+end;
+
+{ The manual: the copy that travels with the program if this build carries
+  one, and the website if it does not.  A portable program whose help is on a
+  website is no help on a machine that cannot reach one. }
+procedure TMainForm.OpenManual;
+var
+  Page: string;
+begin
+  Page := HelpPage;
+  if Page <> '' then
+  begin
+    OpenInBrowser('file://' + Page);
+    FCmdMsg := 'Opened the manual.';
+  end
+  else
+  begin
+    OpenInBrowser('https://github.com/' + UPDATE_REPO + '#readme');
+    FCmdMsg := 'This copy has no manual beside it - opening the one on the web.';
+  end;
+end;
+
+{ Every edge where a solid is not closed, drawn on the model.
+
+  The export can already tell somebody their STL is not a closed solid,
+  which is the half of the answer that does not help - a slicer said as
+  much.  Where is the half that does.  TWorkDoc.OpenEdges does the work,
+  with the same T-junction resolution GroupClosed uses so a seam merely
+  divided unevenly is not reported as a hole.
+
+  Whatever is selected is what gets checked, so a drawing full of fittings
+  can be asked about one of them; with nothing selected it checks every
+  solid there is. }
+procedure TMainForm.ShowOpenEdges;
+var
+  I, J, G, NGrp, NBad: Integer;
+  Grps: array of Integer;
+  Edges: TP3Array;
+
+  procedure Want(AG: Integer);
+  var
+    K: Integer;
+  begin
+    if AG = 0 then Exit;
+    for K := 0 to NGrp - 1 do
+      if Grps[K] = AG then Exit;
+    if NGrp >= Length(Grps) then SetLength(Grps, Max(8, NGrp * 2));
+    Grps[NGrp] := AG;
+    Inc(NGrp);
+  end;
+
+begin
+  SetLength(FOpenEdges, 0);
+  FOpenSeq := FEditSeq;
+  NGrp := 0;
+  SetLength(Grps, 8);
+
+  if Length(FSel) > 0 then
+    for I := 0 to High(FSel) do
+      if (FSel[I] >= 0) and (FSel[I] < FD.Doc.Live) then
+        Want(FD.Doc[FSel[I]].Grp);
+  if NGrp = 0 then
+    for I := 0 to FD.Doc.Live - 1 do
+      if (FD.Doc[I].Kind = ekFace) and FD.Doc[I].Solid then
+        Want(FD.Doc[I].Grp);
+
+  if NGrp = 0 then
+  begin
+    FCmdMsg := 'Nothing here is a solid - there is nothing to be open.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
+
+  NBad := 0;
+  for I := 0 to NGrp - 1 do
+  begin
+    G := Grps[I];
+    if FD.Doc.GroupClosed(G) then Continue;
+    Inc(NBad);
+    Edges := FD.Doc.OpenEdges(G);
+    for J := 0 to High(Edges) do
+    begin
+      SetLength(FOpenEdges, Length(FOpenEdges) + 1);
+      FOpenEdges[High(FOpenEdges)] := Edges[J];
+    end;
+  end;
+
+  if NBad = 0 then
+    FCmdMsg := Format('%s closed - a slicer will take %s.',
+      [specialize IfThen<string>(NGrp = 1, 'That solid is',
+        Format('All %d solids are', [NGrp])),
+       specialize IfThen<string>(NGrp = 1, 'it', 'them')])
+  else if Length(FOpenEdges) = 0 then
+    FCmdMsg := Format('%d of %d solids are open, but the edges could not be ' +
+      'pinned down - send this drawing in.', [NBad, NGrp])
+  else
+  begin
+    if NGrp = 1 then
+      FCmdMsg := 'This solid is open.'
+    else if NBad = 1 then
+      FCmdMsg := Format('One of the %d solids is open.', [NGrp])
+    else
+      FCmdMsg := Format('%d of the %d solids are open.', [NBad, NGrp]);
+    FCmdMsg := FCmdMsg + Format('  %d edges are drawn in red where nothing ' +
+      'meets them - type /holes again once you have mended them.',
+      [Length(FOpenEdges) div 2]);
+  end;
+  pbCmd.Invalidate;
+  Invalidate;
 end;
 
 { Where a file of this kind went last time.  Nothing remembered, or the

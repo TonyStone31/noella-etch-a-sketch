@@ -47,6 +47,11 @@ function ExamplesDir: string;
   the caller's business; these are only the defaults. }
 function DrawingsDir: string;
 function ExportsDir: string;
+{ The manual, if this copy carries one: a folder of web pages beside the
+  program, put there by the build.  Comes back empty when there is none,
+  which is the caller's signal to send somebody to the website instead. }
+function HelpPage: string;
+
 { A folder beside the program, made if it is not there.  Comes back empty if
   it cannot be made, which is the caller's signal to let the dialog decide. }
 function WorkDir(const Name: string): string;
@@ -117,6 +122,16 @@ end;
 function ExamplesDir: string;
 begin
   Result := AppDataDir + 'examples' + PathDelim;
+end;
+
+function HelpPage: string;
+begin
+  Result := AppDataDir + 'help' + PathDelim + 'index.html';
+  if FileExists(Result) then Exit;
+  { and running from the source folder, where it lives under docs }
+  Result := AppDataDir + 'docs' + PathDelim + 'help' + PathDelim + 'index.html';
+  if FileExists(Result) then Exit;
+  Result := '';
 end;
 
 function WorkDir(const Name: string): string;

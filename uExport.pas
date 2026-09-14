@@ -1170,7 +1170,8 @@ begin
             'drawing has none.'
         else if not Shut then
           FMsg := Format('%d triangles, in millimetres - but this is not a ' +
-            'closed solid, so a slicer will have to guess at the inside.',
+            'closed solid, so a slicer will have to guess at the inside.  ' +
+            'Type /holes on the drawing to see where.',
             [NTri])
         else
           FMsg := Format('%d triangles, in millimetres, closed and ready to ' +

@@ -388,6 +388,8 @@ Type `/` in PRO and then one of these.  Most tools also have a key.
 | `/whatsnew` `/changes` | the release notes |
 | `/version` | which build this is |
 | `/help` `/?` | about |
+| `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
+| `/holes` `/openedges` | draw, in red, every edge where a solid is not closed - the answer a slicer will not give you |
 | `/quick` | quick frames while the camera moves, on or off |
 | `/regions`, `/rebuild`, `/rebuildfaces`, `/forget`, `/rendertime`, `/timings` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame, print the steps of each edit |
 | `/touch` | whether the touchscreen hook is in, and how many finger events have come |

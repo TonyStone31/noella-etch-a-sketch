@@ -67,6 +67,16 @@ pack_all() {
   [ -f "$DIST/dbg/$APP.exe" ] && cp "$DIST/dbg/$APP.exe" "$tmp/checked/heckers-sketch.exe"
   [ -f "$DIST/dbg/$APP" ]     && cp "$DIST/dbg/$APP"     "$tmp/checked/heckers-sketch-linux"
 
+  # The manual travels with the program.  It is a folder of static pages and
+  # a stylesheet - a hundred kilobytes against a fifteen megabyte binary -
+  # and a portable program whose help is on a website is no help at all to
+  # somebody on a machine that cannot reach one.  Help > The manual opens
+  # this copy when it is there and the website when it is not.
+  if [ -d "$ROOT/docs/help" ]; then
+    mkdir -p "$tmp/help"
+    cp -r "$ROOT/docs/help/." "$tmp/help/"
+  fi
+
   cat > "$tmp/README.txt" <<TXT
 Heckers Sketch - $s
 
@@ -74,6 +84,7 @@ No installer, no DLLs.  Unzip and run.
 
   heckers-sketch.exe        Windows
   heckers-sketch-linux      Linux
+  help/                     the manual, as web pages - Help > The manual
   checked/                  the same two, built with every check switched on
 
 Run the ones in the top folder.  The checked build is slower, and prints a

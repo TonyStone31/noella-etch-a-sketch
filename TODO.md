@@ -336,20 +336,20 @@ Two small things that serve the spec directly, neither started:
 
 ### Worth doing
 
-* **Show people WHERE a shape is not closed.**  The export already says a
-  shape is not a closed solid; it does not say where, which is the answer
-  somebody actually needs when a slicer has just refused their model.
+* **Show people WHERE a shape is not closed - DONE 14 September 2026.**
+  `/holes` (also `/openedges`, `/notclosed`) checks whatever is selected, or
+  every solid in the drawing when nothing is, and draws every unshared edge
+  over the model in red.  `TWorkDoc.OpenEdges` does the finding, with the
+  same T-junction resolution `GroupClosed` uses so a seam merely divided
+  unevenly is not reported as a hole.  The STL export's message points at it.
 
-  **The analysis is written and tested** - `TWorkDoc.OpenEdges` returns the
-  offending edges in pairs, ready to draw, with the same T-junction
-  resolution `GroupClosed` uses so that a seam merely divided unevenly is not
-  reported as a hole.  It found the four edges of a deliberately missing box
-  end in the geom suite.  Nothing draws them yet.
+  The marks are dropped the moment the drawing changes, because an answer
+  about geometry that has been edited since is worse than none.
 
-  What is left is the easy half: a way to ask for it, and a paint pass that
-  lays those edges over the drawing in a colour that means trouble.  Probably
-  off the export dialog when the STL is not closed - "show me" - and probably
-  also a command.
+  Left to do, and small: a "show me" button on the export dialog itself, so
+  somebody who has just been told their STL is open does not have to know a
+  command exists.  The dialog is modal, so it has to close first and tell the
+  main window - which is why it is not done yet rather than a difficulty.
 
   This is the thing that makes a SketchUp user look twice.  SketchUp has the
   same class of problem and the answer there is a third-party extension
@@ -364,11 +364,15 @@ Two small things that serve the spec directly, neither started:
   own dark colours, and `shots/NEEDED.md` listing the 24 screenshots wanted
   and what should be in each.  Tony grabs the pictures.
 
-  Left to do: the pictures; a way to open it from inside the program (Help on
-  the deck should go to `docs/help/index.html`, and the portable build needs
-  to carry the folder or point at the website); and a pass making sure the
-  words match what the tools actually do now rather than what they did when
-  the page was written.  Worth keeping honest - it is the only documentation
+  **The way in is done, 14 September**: Help > The manual, and `/manual`,
+  open the copy beside the program, and the release zip now carries
+  `help/` - a hundred kilobytes against a fifteen megabyte binary, and a
+  portable program whose help is on a website is no help on a machine that
+  cannot reach one.  With no copy beside it, it opens the website.
+
+  Left to do: the pictures, and a pass making sure the words match what the
+  tools actually do now rather than what they did when the page was
+  written.  Worth keeping honest - it is the only documentation
   a person who is not reading the README will ever see.
 
 * **Changing a size by typing it - DONE 13 September 2026, notes kept.**  Pick a

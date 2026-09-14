@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **/holes shows you where a solid is not closed.**  Type it and every edge
+  that nothing meets is drawn over the model in red.  It checks what you have
+  selected, or every solid in the drawing if nothing is.  That is the answer
+  a slicer will not give you when it refuses your model - the export could
+  already say a shape was open, but not where.  The marks go the moment you
+  change the drawing.
+
+- **The manual travels with the program.**  Help > The manual, or /manual,
+  opens the copy in the `help` folder beside the executable; the release zip
+  carries it now.  With no copy there it opens the website, as before.
+
 ## v2026.09.14.5
 
 ### Fixed
