@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.15' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The wheel scrolls the command list.**  It used to zoom the drawing' + LineEnding +
+    '  behind it instead, which was true of every list in the program - the' + LineEnding +
+    '  command list is just the first one long enough to make it obvious.  A list' + LineEnding +
+    '  in front of the drawing now gets the wheel before the drawing does.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.14' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
