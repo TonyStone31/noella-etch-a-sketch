@@ -1,0 +1,9 @@
+# The very first run, with nothing to open.
+#
+# What this proves: with no drawing named on the command line and no draft
+# to pick up, the program opens the example toy rather than an empty sheet.
+
+geometry 0 0 1500 850
+activate
+wait 1800
+shot /tmp/hsk-firstrun.png

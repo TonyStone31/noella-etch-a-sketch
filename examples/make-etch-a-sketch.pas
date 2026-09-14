@@ -36,6 +36,8 @@ const
   SX0 = 1.5;      SX1 = 10.5;                   { the screen opening }
   SY0 = 2.25;     SY1 = 7.75;
   RECESS = 0.12;                                { how far the screen sits in }
+  BR = 0.70;      SR = 0.30;                    { the rounding on each }
+  ROUND_STEPS = 7;                              { pieces per quarter turn }
   KNOB_R = 0.625; KNOB_H = 0.42;                { the knobs }
   KNOB_Y = 1.125;
   KNOB_X0 = 2.25; KNOB_X1 = 9.75;
@@ -66,6 +68,48 @@ begin
   Result := P3(I_(X - BW / 2), I_(Y - BH / 2), I_(Z));
 end;
 
+{ A rounded rectangle, anticlockwise seen from above, at height Z.
+
+  The corners are the whole point of it: a real toy has no sharp edge on it
+  anywhere, and a box with square corners reads as a box rather than as a
+  thing somebody would hand a child. }
+function RoundRect(X0, Y0, X1, Y1, R, Z: Double): TP3Array;
+var
+  C, I, N: Integer;
+  A, CX, CY, A0: Double;
+begin
+  R := Min(R, Min((X1 - X0) / 2, (Y1 - Y0) / 2));
+  N := 0;
+  SetLength(Result, 4 * (ROUND_STEPS + 1));
+  for C := 0 to 3 do
+  begin
+    { anticlockwise from the bottom right, so the whole ring is anticlockwise }
+    case C of
+      0: begin CX := X1 - R; CY := Y0 + R; A0 := -Pi / 2; end;
+      1: begin CX := X1 - R; CY := Y1 - R; A0 := 0;       end;
+      2: begin CX := X0 + R; CY := Y1 - R; A0 := Pi / 2;  end;
+    else begin CX := X0 + R; CY := Y0 + R; A0 := Pi;      end;
+    end;
+    for I := 0 to ROUND_STEPS do
+    begin
+      A := A0 + (Pi / 2) * I / ROUND_STEPS;
+      Result[N] := P(CX + R * Cos(A), CY + R * Sin(A), Z);
+      Inc(N);
+    end;
+  end;
+  SetLength(Result, N);
+end;
+
+{ The same ring the other way round, which is what a hole and an underside
+  both want. }
+function Reversed(const Pts: TP3Array): TP3Array;
+var
+  I: Integer;
+begin
+  SetLength(Result, Length(Pts));
+  for I := 0 to High(Pts) do Result[I] := Pts[High(Pts) - I];
+end;
+
 { A face, wound as given, belonging to this solid. }
 procedure Face(const Pts: array of TP3; Ink: TColor);
 begin
@@ -81,6 +125,25 @@ begin
     Face([P(X0, Y0, Z), P(X1, Y0, Z), P(X1, Y1, Z), P(X0, Y1, Z)], Ink)
   else
     Face([P(X0, Y0, Z), P(X0, Y1, Z), P(X1, Y1, Z), P(X1, Y0, Z)], Ink);
+end;
+
+{ A wall all the way round a ring, from Z0 up to Z1.  Wound so the normal is
+  to the right of the way round, which means an anticlockwise ring walls
+  itself outwards and a clockwise one walls itself inwards - a body and a
+  pocket from the same routine. }
+procedure Skirt(const Ring: TP3Array; Z0, Z1: Double; Ink: TColor);
+var
+  I, N: Integer;
+  A, B: TP3;
+begin
+  N := Length(Ring);
+  for I := 0 to N - 1 do
+  begin
+    A := Ring[I];
+    B := Ring[(I + 1) mod N];
+    Face([P3(A.X, A.Y, I_(Z0)), P3(B.X, B.Y, I_(Z0)),
+          P3(B.X, B.Y, I_(Z1)), P3(A.X, A.Y, I_(Z1))], Ink);
+  end;
 end;
 
 { An upright wall between two points, from Z0 up to Z1.  Wound so its normal
@@ -139,6 +202,10 @@ end;
 
 var
   ZF: Double;
+  I: Integer;
+  U: TStringList;
+  Outer, Screen: TP3Array;
+  Holes: array of TP3Array;
 begin
   D := TWorkDoc.Create;
   L := TStringList.Create;
@@ -146,30 +213,24 @@ begin
   Grp := 1;
 
   { --- the body ----------------------------------------------------- }
-  Flat(0, 0, BW, BH, 0, RED, False);                  { underneath }
+  Outer := RoundRect(0, 0, BW, BH, BR, BT);
+  Screen := RoundRect(SX0, SY0, SX1, SY1, SR, BT);
 
-  { the frame around the screen, in four strips rather than one face with a
-    hole in it - every edge is then an ordinary edge and the shape reads as
-    closed, which a face with a hole does not }
-  Flat(0, 0, BW, SY0, BT, RED, True);
-  Flat(0, SY1, BW, BH, BT, RED, True);
-  Flat(0, SY0, SX0, SY1, BT, RED, True);
-  Flat(SX1, SY0, BW, SY1, BT, RED, True);
+  { underneath: the same ring the other way about, so it looks down }
+  Face(Reversed(RoundRect(0, 0, BW, BH, BR, 0)), RED);
 
-  { the four outside walls, anticlockwise seen from above }
-  Wall(0, 0, BW, 0, 0, BT, RED);
-  Wall(BW, 0, BW, BH, 0, BT, RED);
-  Wall(BW, BH, 0, BH, 0, BT, RED);
-  Wall(0, BH, 0, 0, 0, BT, RED);
+  { the top, in one piece with the screen opening cut out of it.  It reads as
+    a closed solid because GroupClosed counts a hole's edge as the boundary
+    it is - which it did not until this model asked it to. }
+  D.AddFaceRaw(Outer, RED, True);
+  D.SetFaceGroup(D.Live - 1, Grp);
+  SetLength(Holes, 1);
+  Holes[0] := Reversed(Screen);
+  D.SetFaceHoles(D.Live - 1, Holes);
 
-  { the pocket the screen sits in: four walls going down, wound the other way
-    round because the material is outside them }
-  Wall(SX0, SY0, SX0, SY1, ZF, BT, RED);
-  Wall(SX0, SY1, SX1, SY1, ZF, BT, RED);
-  Wall(SX1, SY1, SX1, SY0, ZF, BT, RED);
-  Wall(SX1, SY0, SX0, SY0, ZF, BT, RED);
-
-  Flat(SX0, SY0, SX1, SY1, ZF, GREY, True);           { the screen }
+  Skirt(Outer, 0, BT, RED);                    { the outside, walling out }
+  Skirt(Reversed(Screen), ZF, BT, RED);        { the pocket, walling in }
+  Face(RoundRect(SX0, SY0, SX1, SY1, SR, ZF), GREY);   { the screen }
 
   { --- the knobs ---------------------------------------------------- }
   Knob(KNOB_X0, KNOB_Y);
@@ -201,5 +262,48 @@ begin
   D.SaveTo(L);
   L.Add('ENDSHEET');
   L.SaveToFile('etch-a-sketch.hsk');
-  WriteLn(Format('%d things -> etch-a-sketch.hsk', [D.Live]));
+
+  { And the same thing as a unit, so the program carries it without needing a
+    file beside it.  A portable build is one executable and nothing else; an
+    example drawing that only exists as a file on disk is an example most
+    people would never see. }
+  U := TStringList.Create;
+  U.Add('unit uExample;');
+  U.Add('');
+  U.Add('{ The drawing somebody sees the first time they run this.');
+  U.Add('');
+  U.Add('  Generated by examples/make-etch-a-sketch.pas - do not edit this by');
+  U.Add('  hand, edit that and run it again.  It is the same toy etch-a-sketch');
+  U.Add('  as examples/etch-a-sketch.hsk, carried inside the program so that a');
+  U.Add('  portable build is still one file and nothing else.');
+  U.Add('');
+  U.Add('  Why have one at all: an empty sheet tells somebody nothing about');
+  U.Add('  what this is for, and the first thing most people do with a drawing');
+  U.Add('  program is look for something to click.  A toy with a robot on it');
+  U.Add('  answers both - and every one of its faces is something to push. }');
+  U.Add('');
+  U.Add('{$mode objfpc}{$H+}');
+  U.Add('');
+  U.Add('interface');
+  U.Add('');
+  U.Add('uses');
+  U.Add('  Classes;');
+  U.Add('');
+  U.Add('{ The example drawing, as the lines of a .hsk file. }');
+  U.Add('procedure ExampleDrawing(L: TStrings);');
+  U.Add('');
+  U.Add('implementation');
+  U.Add('');
+  U.Add('procedure ExampleDrawing(L: TStrings);');
+  U.Add('begin');
+  for I := 0 to L.Count - 1 do
+    U.Add('  L.Add(' + QuotedStr(L[I]) + ');');
+  U.Add('end;');
+  U.Add('');
+  U.Add('end.');
+  U.SaveToFile('../uExample.pas');
+  U.Free;
+
+  WriteLn(Format('%d things -> etch-a-sketch.hsk and uExample.pas (%d lines)',
+    [D.Live, L.Count]));
 end.

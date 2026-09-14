@@ -146,6 +146,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="uExample.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="uExport.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

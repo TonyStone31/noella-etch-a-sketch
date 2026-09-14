@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **It opens with something on it now.**  A run with nothing to show - no
+  drawing named, no draft to pick up - used to be an empty sheet, which tells
+  you nothing about what this is for.  It opens a toy etch-a-sketch instead:
+  a solid to orbit, a screen to look at, and a robot drawn on it in lines
+  that is asking to be pushed.  **Ctrl+N** for an empty sheet, and once you
+  have drawn anything you will never see it again.
+
+  It is carried inside the program, so a portable build is still one file.
+
+### Fixed
+
+- **A shape with a hole in it can be closed.**  A picture frame, or the
+  surround of a recessed screen, is a face with a hole cut out of it - and
+  the hole's edge is as much the boundary of the solid as the outside is.
+  It was only counting the outside, so anything shaped that way read as not
+  closed however well it was built, and the STL said a slicer would have to
+  guess.
+
 ## v2026.09.13.24
 
 ### Fixed

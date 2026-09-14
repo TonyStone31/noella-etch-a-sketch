@@ -2596,6 +2596,8 @@ var
   Way: PtrInt;
   PA, PB, CutA, CutB: TP3;
   Verts: array of TP3;
+  Loops: array of TP3Array;
+  LI: Integer;
   Cuts: array of Double;
   T, TSwap: Double;
   Ends: array of TP3;
@@ -2630,16 +2632,20 @@ begin
     begin
       if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
       if FEnts[I].Grp <> G then Continue;
-      for J := 0 to High(FEnts[I].Poly) do
-      begin
-        Key := Format('%d,%d,%d', [Round(FEnts[I].Poly[J].X * 1E6),
-          Round(FEnts[I].Poly[J].Y * 1E6), Round(FEnts[I].Poly[J].Z * 1E6)]);
-        if Jx.FindIndexOf(Key) >= 0 then Continue;
-        Jx.Add(Key, Pointer(1));
-        if NV >= Length(Verts) then SetLength(Verts, Max(64, NV * 2));
-        Verts[NV] := FEnts[I].Poly[J];
-        Inc(NV);
-      end;
+      SetLength(Loops, 1 + Length(FEnts[I].Holes));
+      Loops[0] := FEnts[I].Poly;
+      for J := 0 to High(FEnts[I].Holes) do Loops[J + 1] := FEnts[I].Holes[J];
+      for LI := 0 to High(Loops) do
+        for J := 0 to High(Loops[LI]) do
+        begin
+          Key := Format('%d,%d,%d', [Round(Loops[LI][J].X * 1E6),
+            Round(Loops[LI][J].Y * 1E6), Round(Loops[LI][J].Z * 1E6)]);
+          if Jx.FindIndexOf(Key) >= 0 then Continue;
+          Jx.Add(Key, Pointer(1));
+          if NV >= Length(Verts) then SetLength(Verts, Max(64, NV * 2));
+          Verts[NV] := Loops[LI][J];
+          Inc(NV);
+        end;
     end;
   finally
     Jx.Free;
@@ -2654,12 +2660,17 @@ begin
     begin
       if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
       if FEnts[I].Grp <> G then Continue;
-      N := Length(FEnts[I].Poly);
+      SetLength(Loops, 1 + Length(FEnts[I].Holes));
+      Loops[0] := FEnts[I].Poly;
+      for J := 0 to High(FEnts[I].Holes) do Loops[J + 1] := FEnts[I].Holes[J];
+      for LI := 0 to High(Loops) do
+      begin
+      N := Length(Loops[LI]);
       if N < 3 then Continue;
       for J := 0 to N - 1 do
       begin
-        PA := FEnts[I].Poly[J];
-        PB := FEnts[I].Poly[(J + 1) mod N];
+        PA := Loops[LI][J];
+        PB := Loops[LI][(J + 1) mod N];
         NCut := 0;
         for C2 := 0 to NV - 1 do
           if Between(PA, PB, Verts[C2], T) then
@@ -2702,6 +2713,7 @@ begin
             Ix.Items[C2] := Pointer(PtrInt(Ix.Items[C2]) + Way);
           CutA := CutB;
         end;
+      end;
       end;
     end;
 
@@ -2780,6 +2792,8 @@ var
   EdgeG: array of Integer;
   { the second chance, for groups the plain count says are open }
   Suspect: array of Boolean;
+  Loops: array of TP3Array;
+  LI: Integer;
   Verts: array of TP3;
   NV, NU, Budget: Integer;
   Cuts: array of Double;
@@ -2814,10 +2828,27 @@ begin
         if FEnts[I].Grp <= 0 then Continue;
         N := Length(FEnts[I].Poly);
         if N < 3 then Continue;
+        { The outline AND everything cut out of it.
+
+          A hole's edge is every bit as much a boundary of the solid as the
+          outline is - on a picture frame it is the inside of the frame, and
+          the wall of the rebate meets it there.  Walking only the outline
+          left every hole edge used once by that wall and never by the face,
+          so a frame with a hole in it read as open however well it was
+          built, and the STL said a slicer would have to guess.  Found
+          modelling the example etch-a-sketch, whose screen surround is
+          exactly that shape. }
+        SetLength(Loops, 1 + Length(FEnts[I].Holes));
+        Loops[0] := FEnts[I].Poly;
+        for J := 0 to High(FEnts[I].Holes) do Loops[J + 1] := FEnts[I].Holes[J];
+        for LI := 0 to High(Loops) do
+        begin
+        N := Length(Loops[LI]);
+        if N < 3 then Continue;
         for J := 0 to N - 1 do
         begin
           Key := IntToStr(FEnts[I].Grp) + '@' +
-                 EKey(FEnts[I].Poly[J], FEnts[I].Poly[(J + 1) mod N], Way);
+                 EKey(Loops[LI][J], Loops[LI][(J + 1) mod N], Way);
           K := Ix.FindIndexOf(Key);
           if K < 0 then
           begin
@@ -2830,11 +2861,12 @@ begin
               SetLength(EdgeB, Ix.Count * 2);
               SetLength(EdgeG, Ix.Count * 2);
             end;
-            EdgeA[Ix.Count - 1] := FEnts[I].Poly[J];
-            EdgeB[Ix.Count - 1] := FEnts[I].Poly[(J + 1) mod N];
+            EdgeA[Ix.Count - 1] := Loops[LI][J];
+            EdgeB[Ix.Count - 1] := Loops[LI][(J + 1) mod N];
             EdgeG[Ix.Count - 1] := FEnts[I].Grp;
           end
           else Ix.Items[K] := Pointer(PtrInt(Ix.Items[K]) + Way);
+        end;
         end;
       end;
       { an edge used once each way leaves its tally back at eight; anything
@@ -2887,16 +2919,20 @@ begin
           begin
             if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
             if FEnts[I].Grp <> K then Continue;
-            for J := 0 to High(FEnts[I].Poly) do
-            begin
-              Key := Format('%d,%d,%d', [Round(FEnts[I].Poly[J].X * 1E6),
-                Round(FEnts[I].Poly[J].Y * 1E6), Round(FEnts[I].Poly[J].Z * 1E6)]);
-              if Jx.FindIndexOf(Key) >= 0 then Continue;
-              Jx.Add(Key, Pointer(1));
-              if NV >= Length(Verts) then SetLength(Verts, Max(64, NV * 2));
-              Verts[NV] := FEnts[I].Poly[J];
-              Inc(NV);
-            end;
+            SetLength(Loops, 1 + Length(FEnts[I].Holes));
+            Loops[0] := FEnts[I].Poly;
+            for J := 0 to High(FEnts[I].Holes) do Loops[J + 1] := FEnts[I].Holes[J];
+            for LI := 0 to High(Loops) do
+              for J := 0 to High(Loops[LI]) do
+              begin
+                Key := Format('%d,%d,%d', [Round(Loops[LI][J].X * 1E6),
+                  Round(Loops[LI][J].Y * 1E6), Round(Loops[LI][J].Z * 1E6)]);
+                if Jx.FindIndexOf(Key) >= 0 then Continue;
+                Jx.Add(Key, Pointer(1));
+                if NV >= Length(Verts) then SetLength(Verts, Max(64, NV * 2));
+                Verts[NV] := Loops[LI][J];
+                Inc(NV);
+              end;
           end;
         finally
           Jx.Free;
@@ -2926,12 +2962,17 @@ begin
           begin
             if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
             if FEnts[I].Grp <> K then Continue;
-            N := Length(FEnts[I].Poly);
+            SetLength(Loops, 1 + Length(FEnts[I].Holes));
+            Loops[0] := FEnts[I].Poly;
+            for J := 0 to High(FEnts[I].Holes) do Loops[J + 1] := FEnts[I].Holes[J];
+            for LI := 0 to High(Loops) do
+            begin
+            N := Length(Loops[LI]);
             if N < 3 then Continue;
             for J := 0 to N - 1 do
             begin
-              PA := FEnts[I].Poly[J];
-              PB := FEnts[I].Poly[(J + 1) mod N];
+              PA := Loops[LI][J];
+              PB := Loops[LI][(J + 1) mod N];
               NCut := 0;
               for C2 := 0 to NV - 1 do
                 if Between(PA, PB, Verts[C2], T) then
@@ -2969,6 +3010,7 @@ begin
                 else Jx.Items[C2] := Pointer(PtrInt(Jx.Items[C2]) + Way);
                 CutA := CutB;
               end;
+            end;
             end;
           end;
 

@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uDlgSkin, uShoot, uRecord, uExport, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uDlgSkin, uShoot, uRecord, uExport, uExample, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -964,7 +964,8 @@ type
     procedure KeepReportCopy(const AName, Body: string; Shot: TStream);
     function LoadedWords: string;
     procedure EndBusy;
-    procedure RestoreDraft;
+    function RestoreDraft: Boolean;
+    function LoadExample: Boolean;
     procedure LoadSettings;
     procedure ApplyCommandLine;
     procedure FollowScreenSize;
@@ -2268,7 +2269,14 @@ begin
   { Nothing named on the command line, so carry on from last time.  A file
     asked for by name always wins - it is a clear instruction, and the draft
     is only a safety net. }
-  if not Opened then RestoreDraft;
+  if not Opened then Opened := RestoreDraft;
+  { Still nothing?  Then this is either somebody's first run or a fresh
+    folder, and an empty sheet is a poor way to explain what a drawing
+    program is for.  Put the example toy up instead - it has a solid to
+    orbit, a screen to look at, and a robot drawn in lines that is asking to
+    be pushed.  Only when there is genuinely nothing: a drawing named on the
+    command line wins, and so does a draft. }
+  if not Opened then Opened := LoadExample;
   SplashLoaded(LoadedWords);
   { fingers on the drawing, where the platform gives them to us }
   FTouchOn := HookTouch(Self, @OnTouch);
@@ -17279,12 +17287,13 @@ end;
   It comes back as the drawing but not as the file: FDocPath is cleared, so
   Ctrl+S asks where to put it.  Anything else would have the program quietly
   writing over a file the drawing only half came from. }
-procedure TMainForm.RestoreDraft;
+function TMainForm.RestoreDraft: Boolean;
 var
   L: TStringList;
   Was, Aside: string;
   Ini: TIniFile;
 begin
+  Result := False;
   if not FileExists(DraftFile) then Exit;
   { an empty draft is not worth restoring }
   L := TStringList.Create;
@@ -17404,6 +17413,7 @@ begin
   if Was <> '' then FHint := 'Not saved since ' + Was
   else FHint := 'Not saved to a file yet  -  Ctrl+S';
   FRestored := True;
+  Result := True;
   FDraftSeq := FEditSeq;
   Trail(Format('restored a draft: %d things (%s)', [FD.Doc.Live, KindCounts]));
   if Was <> '' then
@@ -17411,6 +17421,57 @@ begin
       '.  Ctrl+S to write it back.'
   else
     FCmdMsg := 'Picked up where you left off.  Ctrl+S to give it a name.';
+end;
+
+{ The drawing somebody sees the first time they run this.
+
+  An empty sheet explains nothing.  Most people open a drawing program and
+  look for something to click, and a toy etch-a-sketch answers that in one
+  glance: a solid to orbit, a screen that is clearly a face, and a robot
+  drawn in lines that is asking to be pushed.
+
+  It arrives as a drawing and not as a file - FDocPath stays empty - so
+  Ctrl+S asks where to put it and nothing can be written over.  Anybody who
+  wants a clean sheet presses Ctrl+N, and having done so will never see this
+  again, because from then on there is a draft. }
+function TMainForm.LoadExample: Boolean;
+var
+  L: TStringList;
+  Idx: Integer;
+begin
+  Result := False;
+  L := TStringList.Create;
+  try
+    try
+      ExampleDrawing(L);
+      Idx := 0;
+      while (Idx < L.Count) and (Copy(Trim(L[Idx]), 1, 6) <> 'SHEET ') do
+        Inc(Idx);
+      if Idx >= L.Count then Exit;
+      FD.Name := Trim(Copy(Trim(L[Idx]), 7, MaxInt));
+      Inc(Idx);
+      FD.Doc.LoadFrom(L, Idx);
+    except
+      { an example that will not load is not worth taking the program down
+        for - a clean sheet is a perfectly good fallback }
+      on E: Exception do Exit;
+    end;
+  finally
+    L.Free;
+  end;
+  if FD.Doc.Live = 0 then Exit;
+  FD.View := vkOrbit;
+  FD.Az := -0.785398;
+  FD.El := 0.700000;
+  FD.ScaleIdx := 4;
+  FD.SnapIdx := 1;
+  FDocPath := '';
+  Result := True;
+  FitView;
+  Trail(Format('opened the example: %d things', [FD.Doc.Live]));
+  FHint := 'An example to poke at.  Ctrl+N for an empty sheet.';
+  FCmdMsg := 'This is the example drawing - orbit it, push a face, or ' +
+    'press Ctrl+N to start your own.';
 end;
 
 { Is a window at this place actually reachable?
