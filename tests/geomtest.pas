@@ -4094,6 +4094,7 @@ procedure TestShells;
 var
   D: TWorkDoc;
   I, Turned, Grp: Integer;
+  Gap: TP3Array;
   Nm, Cen, Mid: TP3;
   Bad, NF: Integer;
 begin
@@ -4128,6 +4129,10 @@ begin
       is every bit as watertight as it was before the top was divided. }
     Ok(D.GroupClosed(Grp),
       'a box whose top has been divided in two is still a closed box');
+    { and nothing is reported against it, because a seam divided unevenly is
+      not a hole }
+    Ok(Length(D.OpenEdges(Grp)) = 0,
+      'and nothing is reported against it as a gap');
   finally
     D.Free;
   end;
@@ -4147,6 +4152,23 @@ begin
       if D[I].Kind = ekFace then D.SetFaceGroup(I, Grp);
     Ok(not D.GroupClosed(Grp),
       'but a box with one end missing is still open');
+
+    { --- and WHERE it is open, which is the answer somebody needs ----
+          GroupClosed says yes or no.  When a slicer has just refused a model
+          that is not much help, so OpenEdges hands back the edges themselves,
+          in pairs, ready to be drawn on the screen.  Nothing draws them yet -
+          this is the analysis, saved because it is the hard half. }
+    Gap := D.OpenEdges(Grp);
+    Ok(Length(Gap) = 8,
+      Format('and it names the four edges of the missing end (%d points = ' +
+        '%d edges)', [Length(Gap), Length(Gap) div 2]));
+    { the end that is missing is the one at x = 10, so every reported point
+      has to be on it }
+    Bad := 0;
+    for I := 0 to High(Gap) do
+      if Abs(Gap[I].X - 10) > 1E-9 then Inc(Bad);
+    Ok(Bad = 0, Format('all of them on the face that is not there (%d were ' +
+      'not)', [Bad]));
   finally
     D.Free;
   end;

@@ -416,7 +416,7 @@ begin
 
   FTellBad := MkLbl(Foot, '', 14, 4, 700, True, False, -12);
   FTellBad.Visible := False;
-  FSay := MkBtn(Foot, 'Tell Tony about it', 584, 4, 268, 22, bkPlain);
+  FSay := MkBtn(Foot, 'Send a bug report about this', 584, 4, 268, 22, bkPlain);
   FSay.OnClick := @DoSay;
   FSay.Visible := False;
 

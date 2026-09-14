@@ -19,26 +19,32 @@ out of date.
 
 ---
 
-## Where it stands, 5 September 2026
+## Where it stands, 14 September 2026
 
-Drawing: lines, rectangles, circles, arcs, offset, push/pull, move, rotate,
-erase, text with leader lines, dimensions you place yourself, the tape
-measure with guides and the protractor with angled ones.  Snapping and inference - endpoints, midpoints, the midpoints a
-crossing makes, on-edge, axis locks, From Point - and a snapped point now
+Drawing: lines, rectangles, circles, arcs, offset, push/pull, revolve, drill,
+move, rotate, erase, text with leader lines, dimensions you place yourself -
+and can retype to resize what they measure - the tape measure with guides and
+the protractor with angled ones.  Snapping and inference, and a snapped point
 holds until you mean to leave it.
 
 Faces are derived from the edges that close them, in any plane, including
-sloped ones - a circle goes on a roof and pulls out square to it.
+sloped ones.  Faces that are not flat are cut into triangles before they are
+drawn, so their depth is exact rather than fitted.  Loose faces are wound
+against their neighbours rather than one at a time.  The program knows whether
+a solid is closed, and says so on the way out.
 
-Three views that each know what they are for: PLAN draws on the ground, ISO
-locks to the three paper axes with Shift to come off them, 3D is the free
-camera and the only place anything goes off-axis.
+Views: PLAN draws on the ground and can cut a slice through the model at a
+height, ISO locks to the three paper axes, 3D is the free camera.
+
+Getting it out: an export room with a live preview - PNG, JPEG, animated GIF
+with a camera recorder, SVG, DXF flat or in 3D, STL, and OpenSCAD.  Printing
+at scale or full size across many sheets.
 
 Around the edges: portable, single instance, drafts that survive a crash,
 self-update, crash and bug reports that go somewhere, Windows on its own TLS.
 
-Two test suites, both green: `./tests/run.sh` (333 checks) and
-`./tests/run-region.sh` (76).
+Two test suites, both green: `./tests/run.sh` (684 checks) and
+`./tests/run-region.sh` (84), plus GUI scripts driven through Xephyr.
 
 ---
 
@@ -330,24 +336,39 @@ Two small things that serve the spec directly, neither started:
 
 ### Worth doing
 
-* **STL export.**  DONE 13 September - see "Done 13 September" below.  A `WriteSTL` beside `WriteDXF` and a fifth line in the
-  Ctrl+E dialog.  Every push/pull shape then goes into a slicer, into
-  Blender, onto a printer - and it reaches an audience that has no interest
-  whatever in duct fittings, which is the audience that turns a tool into
-  something people play with.
+* **Show people WHERE a shape is not closed.**  The export already says a
+  shape is not a closed solid; it does not say where, which is the answer
+  somebody actually needs when a slicer has just refused their model.
 
-  The catch: faces are an outline plus holes and nothing here triangulates -
-  the fill is even-odd scanline.  So it needs a real ear-clipping
-  triangulator with hole bridging, call it 200-250 lines, self-contained and
-  exactly the sort of thing the geom suite can prove (the triangles have to
-  come to the same area as the polygon).
+  **The analysis is written and tested** - `TWorkDoc.OpenEdges` returns the
+  offending edges in pairs, ready to draw, with the same T-junction
+  resolution `GroupClosed` uses so that a seam merely divided unevenly is not
+  reported as a hole.  It found the four edges of a deliberately missing box
+  end in the geom suite.  Nothing draws them yet.
 
-  The prize behind it: **an STL wants a closed manifold**, which finally
-  gives "making a solid out of what you drew" above a reason to exist, and
-  that is the proper fix for a face coming out inside out rather than the
-  axis-rule guess we ship today.
+  What is left is the easy half: a way to ask for it, and a paint pass that
+  lays those edges over the drawing in a colour that means trouble.  Probably
+  off the export dialog when the STL is not closed - "show me" - and probably
+  also a command.
 
-* **Changing a size by typing it - built 13 September 2026.**  Pick a
+  This is the thing that makes a SketchUp user look twice.  SketchUp has the
+  same class of problem and the answer there is a third-party extension
+  (Solid Inspector), which is a fair sign of how much is being left on the
+  table.
+
+* **A proper help system, as web pages.**  `docs/help/` is the skeleton: one
+  page per tool, one per thing-you-do, a shared stylesheet in the program's
+  own dark colours, and `shots/NEEDED.md` listing the 24 screenshots wanted
+  and what should be in each.  Tony grabs the pictures.
+
+  Left to do: the pictures; a way to open it from inside the program (Help on
+  the deck should go to `docs/help/index.html`, and the portable build needs
+  to carry the folder or point at the website); and a pass making sure the
+  words match what the tools actually do now rather than what they did when
+  the page was written.  Worth keeping honest - it is the only documentation
+  a person who is not reading the README will ever see.
+
+* **Changing a size by typing it - DONE 13 September 2026, notes kept.**  Pick a
   dimension, type what it should read, press Enter.  `TWorkDoc.ResizeDim`
   and `VertsBeyond` in uWork; the command is `/resize`, and a bare length
   with a dimension picked does the same because typing a length and pressing
@@ -681,6 +702,212 @@ reads correctly with its red and blue sides.  So the plane says it itself:
 own two directions, in their own axis colours.  Red and blue is upright, red
 and green is flat.
 
+
+### Still to discuss
+
+* **The other two visual worlds - and Tony has already solved this once.**
+  The main window is eight paint boxes and nothing else; `uSpool`,
+  `uTransition` and `uUpdateForm` are 48 TLabels, 22 TEdits, 15 TButtons and
+  13 TComboBoxes of plain LCL.  A wizard that looks like a system dialog next
+  to a hand-drawn dark chassis is the real "looks unprofessional".
+
+  **Look at `../lazrandr`.**  That is the pattern, and it is his own:
+
+  * The LFM files carry plain, designer-friendly components with ordinary
+    anchors, *"so the forms stay openable in the Lazarus designer"* - his
+    words, in `utheme.pas`, and that discipline is the whole reason it stays
+    maintainable.
+  * `utheme.pas` applies the look at **runtime**: a palette (`clWindowBg`,
+    `clSurface`, `clRaised`, `clAccent`, `clDanger`...) and *kinds* rather
+    than per-control settings - `bkPrimary`, `bkNeutral`, `bkDanger`,
+    `bkGhost` for buttons, `pkWindow`, `pkSurface`, `pkRaised`, `pkHeader`
+    for panels.
+  * BCButton, BCLabel and BCPanel for the parts worth styling; **TComboBox,
+    TCheckBox and TMemo left native**, which is exactly the gap in
+    BGRAControls and evidently not a problem in practice.
+
+  That is what "sexy but official" means: a conventional desktop form, laid
+  out the way a desktop form is laid out, whose buttons happen to be
+  handsome.  It is the right answer for our dialogs and wizards.
+
+  **It is not the answer for the drawing chrome**, and the measurement above
+  says why: the hand-drawn window costs 0.4 ms a paint, looks identical on
+  both platforms, and GTK3 cannot get at it.  The line to hold is that the
+  main window is a canvas and the dialogs are forms, and they are allowed to
+  be built differently as long as they share a palette.
+
+  What it costs, said properly: BGRABitmap becomes a dependency **of the
+  build**, not of the program.  It links in statically, so what somebody
+  downloads is still one executable with no installer and nothing to go and
+  find - which is the thing that line in the README is actually promising,
+  and it stays true.  What changes is that a person building from source
+  needs the package installed, which is already true of Lazarus itself.
+  When the day comes, say it that way in the README rather than deleting the
+  claim.
+
+  Licence is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
+  program.  Worth doing the next time a wizard needs work rather than as a
+  project of its own, and `utheme.pas` is most of the way there already.
+
+* **A control base class.**  The cut strip is the second hand-rolled control
+  in a fortnight (after the command bar) and the pattern is the same each
+  time: hit test, hover, press, paint into a TArtSurface.  One base class
+  with subclasses for button, field, spin and slider is maybe 300 lines and
+  would make the next ten cheap.  Worth doing the next time a control is
+  needed rather than as a project of its own.
+
+
+## Open questions
+
+* **A perspective camera, for looking only.**  A report on 11 September asked
+  whether the far end of a hundred foot barn should not look narrower than the
+  near end.  It should, to the eye - and it does not, because the 3D view is a
+  parallel projection and `docs/isometric-views.md` turned perspective off on
+  purpose so that lengths stay to scale.  SketchUp has both and defaults to
+  perspective, which is where the expectation comes from; its Parallel
+  Projection behaves exactly as ours does.
+
+  The shape of it, if we do it: perspective is a *viewing* mode, never a
+  working one.  Turn it on to show somebody the model, turn it off to draw,
+  and never let a dimension be read off a perspective view.  `Project` would
+  gain a divide by depth and `Unproject` a matching one, both behind the same
+  `TProjector`, so the tools would not need to know.  What has to be decided
+  first is what the tools do while it is on: refuse to draw, or quietly snap
+  back to parallel for the duration.  Until that is answered this is not
+  ready to build.
+
+* **Which way a loose face is meant to point.**  A face the region finder
+  works out is now wound to face along whichever axis it is squarest to,
+  positively - the same rule a face you draw has always followed.  That gets
+  a roof right, because both slopes are squarest to blue.  It cannot get the
+  two ends of a barn right: they are back to back, they both come out facing
+  the same way, and one of them therefore shows its back.  Nor can it help a
+  roof steeper than 45 degrees, where the slopes are squarest to the ground
+  axes and go one each way again.
+
+  Reverse Face on the right button is the answer for now, and it is the
+  answer SketchUp gives too: when the rule guesses wrong, the person looking
+  at it says so.  Doing better without being told means knowing which side is
+  outside, and the only thing that really knows is a closed solid.  Orienting away from the model's centre
+  would fix the barn and break a plan drawn on the ground beside a building.
+  Making every face agree with its neighbours across shared edges cannot be
+  done at all where three faces meet on one edge - the top of a wall, the
+  wall under it, the gable standing on it - which is every house.  Worth
+  coming back to when there is a real notion of a solid to hang it on.
+
+* **Making a solid out of what you drew.**  A face already carries `Solid`
+  and `Grp` - which solid it belongs to, or 0 for loose drawing - and
+  push/pull sets both, the file keeps them, back-face culling and push/pull's
+  drag-along both read them.  What is missing is anything that promotes loose
+  faces into one: a roof built on top of a box is loose faces sitting on a
+  solid, and nothing ever looks at that closed shell and says so.
+
+  The test is not vague - within a candidate set, every edge is used by
+  exactly two faces - and once it passes, orienting the whole shell outwards
+  once settles winding, culling and every later question about which side is
+  out.  Inference gets it too: the snap could prefer the skin facing the
+  camera over a point on the far side.  What has to be decided first is
+  **when** it happens.  Every region rebuild would be expensive and would
+  change what geometry *is* while somebody is drawing on it.  SketchUp only
+  does it inside a group, on demand.  Until that trigger is chosen this is
+  not ready to build.
+
+* **Five things about the transition ticket** are listed at the end of
+  `docs/transition-ticket.md` and want checking against a real one - the first
+  being which side an arrow names.
+* **DXF import** is deliberately last.  Writing is bounded work; reading is
+  not, and a file that opens looking right at a twelfth of its size is worse
+  than one that refuses.  Only when there is a particular file that has to
+  come in.
+
+---
+
+## Where the line is
+
+No objects, no groups, no components.  No booleans, no curved surfaces, no
+materials - no library, no shading model, no reflectance.  A picture
+stretched on a face is a different thing and is discussed above; materials
+are what turns a sketch pad into something that needs a render farm.
+
+Those are where this stops being a quick tool and starts being a worse copy of
+SketchUp.
+
+Two things that were on this list have since been built, on purpose and with
+the reasons written down elsewhere: Follow Me (uWork.Revolve and Sweep), and
+touch (uTouch.pas and docs/touch.md - the all-in-one made it worth having).
+
+**And there is already a CAD program written in Lazarus: zcad.**  We are not
+competing with it and we should not try.  It is a CAD program; this is a
+sketch pad that happens to be to scale.  The moment a feature here only makes
+sense to somebody who would otherwise be using a CAD program, it belongs in
+zcad and not in this.  Simple is the product.
+
+
+### Our own fork of BGRABitmap, for later
+
+Tony, 13 September: he likes the project and wants to keep using and
+supporting it, and to send improvements back when we have any.  So the plan is
+a fork we build against, not a vendored copy we quietly diverge with - the
+point is to be able to contribute, which means staying close enough to upstream
+that a patch still applies.
+
+Not a priority.  Nothing is blocked on it: BGRABitmap does everything asked of
+it so far, and the one fault we hit was ours - `BGRAColorQuantizerFactory` was
+never assigned.  Worth revisiting the first time we want a change in it rather
+than around it.
+
+The one we already know we would want: **a streaming GIF writer**.
+TBGRAAnimatedGif assembles the whole film in memory before writing a byte,
+which is the only reason there is a frame budget at all.  A writer that took
+one frame at a time and emitted it would remove the ceiling entirely and let a
+recording run as long as somebody likes at any size.  That is a real
+contribution rather than a private patch, so it belongs upstream.
+
+### The recording workflow needs another pass
+
+Tony, having used it: "the workflow for recording a gif isn't too intuitive but
+it did work."  He is going to send specific notes.  Known already, and fixed on
+14 September: the popup did not pan or zoom the way the drawing area does -
+left-drag turned it, the wheel zoomed to the middle rather than the cursor, and
+the buttons did not match.  Now middle turns, right slides, left does nothing,
+and the wheel zooms 1.15 anchored on the pointer, the same as `ZoomAt` in the
+drawing area.
+
+Still open, and worth thinking about before he writes: getting to it takes
+Export, then GIF, then a button - three steps before you find out it exists.
+It may want to be reachable straight from the toolbar, or from the right button
+on the drawing itself.
+
+### Examples written out beside the portable exe
+
+Tony, 13 September.  The program ships as one executable on purpose and that
+should not change, so the examples have to come out of it rather than beside
+it: on first run it makes an `examples` folder next to itself and writes them
+out, and it does it again for any that have gone missing or been altered.
+The very first run ever opens a couple of them, so somebody who has just
+downloaded it sees the thing working instead of an empty sheet.
+
+Content: the wine glass, the crown, and a handful of deliberately wild ones -
+the point is demonstration, not tuition.  Worth accumulating over time, so
+the list wants to be easy to add to: drawings as resources compiled in, a
+table of name and bytes, and one pass that writes any that are absent or do
+not match.
+
+Two things to get right.  Altered means altered by us as well as by them - a
+checksum per file, so an example improved in a later version replaces the old
+one instead of being left because a file of that name exists.  And it must
+never overwrite something the person has been working on: an example they
+have edited and saved under its own name is theirs now, so the check should
+be against what we wrote last, not against what the example currently says.
+
+---
+
+# Done and settled, and why it is worth remembering
+
+These stay because the reasoning in them is the expensive part - the
+measurement that settled an argument, the trap that cost a day, the thing
+that looked obvious and was wrong.
+
 ### Done 13 September: faces are cut into triangles before rasterising
 
 **Why it was needed.**  A face is a polygon and the depth of it was worked
@@ -905,145 +1132,6 @@ machines without a usable one.  Triangulation is the prerequisite for that
 door as well as the fix on its own merits, which is why it goes first either
 way.
 
-### Still to discuss
-
-* **The other two visual worlds - and Tony has already solved this once.**
-  The main window is eight paint boxes and nothing else; `uSpool`,
-  `uTransition` and `uUpdateForm` are 48 TLabels, 22 TEdits, 15 TButtons and
-  13 TComboBoxes of plain LCL.  A wizard that looks like a system dialog next
-  to a hand-drawn dark chassis is the real "looks unprofessional".
-
-  **Look at `../lazrandr`.**  That is the pattern, and it is his own:
-
-  * The LFM files carry plain, designer-friendly components with ordinary
-    anchors, *"so the forms stay openable in the Lazarus designer"* - his
-    words, in `utheme.pas`, and that discipline is the whole reason it stays
-    maintainable.
-  * `utheme.pas` applies the look at **runtime**: a palette (`clWindowBg`,
-    `clSurface`, `clRaised`, `clAccent`, `clDanger`...) and *kinds* rather
-    than per-control settings - `bkPrimary`, `bkNeutral`, `bkDanger`,
-    `bkGhost` for buttons, `pkWindow`, `pkSurface`, `pkRaised`, `pkHeader`
-    for panels.
-  * BCButton, BCLabel and BCPanel for the parts worth styling; **TComboBox,
-    TCheckBox and TMemo left native**, which is exactly the gap in
-    BGRAControls and evidently not a problem in practice.
-
-  That is what "sexy but official" means: a conventional desktop form, laid
-  out the way a desktop form is laid out, whose buttons happen to be
-  handsome.  It is the right answer for our dialogs and wizards.
-
-  **It is not the answer for the drawing chrome**, and the measurement above
-  says why: the hand-drawn window costs 0.4 ms a paint, looks identical on
-  both platforms, and GTK3 cannot get at it.  The line to hold is that the
-  main window is a canvas and the dialogs are forms, and they are allowed to
-  be built differently as long as they share a palette.
-
-  What it costs, said properly: BGRABitmap becomes a dependency **of the
-  build**, not of the program.  It links in statically, so what somebody
-  downloads is still one executable with no installer and nothing to go and
-  find - which is the thing that line in the README is actually promising,
-  and it stays true.  What changes is that a person building from source
-  needs the package installed, which is already true of Lazarus itself.
-  When the day comes, say it that way in the README rather than deleting the
-  claim.
-
-  Licence is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
-  program.  Worth doing the next time a wizard needs work rather than as a
-  project of its own, and `utheme.pas` is most of the way there already.
-
-* **A control base class.**  The cut strip is the second hand-rolled control
-  in a fortnight (after the command bar) and the pattern is the same each
-  time: hit test, hover, press, paint into a TArtSurface.  One base class
-  with subclasses for button, field, spin and slider is maybe 300 lines and
-  would make the next ten cheap.  Worth doing the next time a control is
-  needed rather than as a project of its own.
-
-
-## Open questions
-
-* **A perspective camera, for looking only.**  A report on 11 September asked
-  whether the far end of a hundred foot barn should not look narrower than the
-  near end.  It should, to the eye - and it does not, because the 3D view is a
-  parallel projection and `docs/isometric-views.md` turned perspective off on
-  purpose so that lengths stay to scale.  SketchUp has both and defaults to
-  perspective, which is where the expectation comes from; its Parallel
-  Projection behaves exactly as ours does.
-
-  The shape of it, if we do it: perspective is a *viewing* mode, never a
-  working one.  Turn it on to show somebody the model, turn it off to draw,
-  and never let a dimension be read off a perspective view.  `Project` would
-  gain a divide by depth and `Unproject` a matching one, both behind the same
-  `TProjector`, so the tools would not need to know.  What has to be decided
-  first is what the tools do while it is on: refuse to draw, or quietly snap
-  back to parallel for the duration.  Until that is answered this is not
-  ready to build.
-
-* **Which way a loose face is meant to point.**  A face the region finder
-  works out is now wound to face along whichever axis it is squarest to,
-  positively - the same rule a face you draw has always followed.  That gets
-  a roof right, because both slopes are squarest to blue.  It cannot get the
-  two ends of a barn right: they are back to back, they both come out facing
-  the same way, and one of them therefore shows its back.  Nor can it help a
-  roof steeper than 45 degrees, where the slopes are squarest to the ground
-  axes and go one each way again.
-
-  Reverse Face on the right button is the answer for now, and it is the
-  answer SketchUp gives too: when the rule guesses wrong, the person looking
-  at it says so.  Doing better without being told means knowing which side is
-  outside, and the only thing that really knows is a closed solid.  Orienting away from the model's centre
-  would fix the barn and break a plan drawn on the ground beside a building.
-  Making every face agree with its neighbours across shared edges cannot be
-  done at all where three faces meet on one edge - the top of a wall, the
-  wall under it, the gable standing on it - which is every house.  Worth
-  coming back to when there is a real notion of a solid to hang it on.
-
-* **Making a solid out of what you drew.**  A face already carries `Solid`
-  and `Grp` - which solid it belongs to, or 0 for loose drawing - and
-  push/pull sets both, the file keeps them, back-face culling and push/pull's
-  drag-along both read them.  What is missing is anything that promotes loose
-  faces into one: a roof built on top of a box is loose faces sitting on a
-  solid, and nothing ever looks at that closed shell and says so.
-
-  The test is not vague - within a candidate set, every edge is used by
-  exactly two faces - and once it passes, orienting the whole shell outwards
-  once settles winding, culling and every later question about which side is
-  out.  Inference gets it too: the snap could prefer the skin facing the
-  camera over a point on the far side.  What has to be decided first is
-  **when** it happens.  Every region rebuild would be expensive and would
-  change what geometry *is* while somebody is drawing on it.  SketchUp only
-  does it inside a group, on demand.  Until that trigger is chosen this is
-  not ready to build.
-
-* **Five things about the transition ticket** are listed at the end of
-  `docs/transition-ticket.md` and want checking against a real one - the first
-  being which side an arrow names.
-* **DXF import** is deliberately last.  Writing is bounded work; reading is
-  not, and a file that opens looking right at a twelfth of its size is worse
-  than one that refuses.  Only when there is a particular file that has to
-  come in.
-
----
-
-## Where the line is
-
-No objects, no groups, no components.  No booleans, no curved surfaces, no
-materials - no library, no shading model, no reflectance.  A picture
-stretched on a face is a different thing and is discussed above; materials
-are what turns a sketch pad into something that needs a render farm.
-
-Those are where this stops being a quick tool and starts being a worse copy of
-SketchUp.
-
-Two things that were on this list have since been built, on purpose and with
-the reasons written down elsewhere: Follow Me (uWork.Revolve and Sweep), and
-touch (uTouch.pas and docs/touch.md - the all-in-one made it worth having).
-
-**And there is already a CAD program written in Lazarus: zcad.**  We are not
-competing with it and we should not try.  It is a CAD program; this is a
-sketch pad that happens to be to scale.  The moment a feature here only makes
-sense to somebody who would otherwise be using a CAD program, it belongs in
-zcad and not in this.  Simple is the product.
-
 ### Done 13 September: an export dialog, and a GIF that turns
 
 Tony pressed Export expecting to be asked something and got a save dialog
@@ -1257,60 +1345,3 @@ of one corner leave a seam CGAL will not close.  A box comes out with exactly
 Not done, and deliberately: reconstructing primitives.  A drawing made of
 push/pull and revolves is not a stack of `cube()` and `cylinder()` calls and
 guessing at which ones would be a lie in a file somebody then has to trust.
-
-### Our own fork of BGRABitmap, for later
-
-Tony, 13 September: he likes the project and wants to keep using and
-supporting it, and to send improvements back when we have any.  So the plan is
-a fork we build against, not a vendored copy we quietly diverge with - the
-point is to be able to contribute, which means staying close enough to upstream
-that a patch still applies.
-
-Not a priority.  Nothing is blocked on it: BGRABitmap does everything asked of
-it so far, and the one fault we hit was ours - `BGRAColorQuantizerFactory` was
-never assigned.  Worth revisiting the first time we want a change in it rather
-than around it.
-
-The one we already know we would want: **a streaming GIF writer**.
-TBGRAAnimatedGif assembles the whole film in memory before writing a byte,
-which is the only reason there is a frame budget at all.  A writer that took
-one frame at a time and emitted it would remove the ceiling entirely and let a
-recording run as long as somebody likes at any size.  That is a real
-contribution rather than a private patch, so it belongs upstream.
-
-### The recording workflow needs another pass
-
-Tony, having used it: "the workflow for recording a gif isn't too intuitive but
-it did work."  He is going to send specific notes.  Known already, and fixed on
-14 September: the popup did not pan or zoom the way the drawing area does -
-left-drag turned it, the wheel zoomed to the middle rather than the cursor, and
-the buttons did not match.  Now middle turns, right slides, left does nothing,
-and the wheel zooms 1.15 anchored on the pointer, the same as `ZoomAt` in the
-drawing area.
-
-Still open, and worth thinking about before he writes: getting to it takes
-Export, then GIF, then a button - three steps before you find out it exists.
-It may want to be reachable straight from the toolbar, or from the right button
-on the drawing itself.
-
-### Examples written out beside the portable exe
-
-Tony, 13 September.  The program ships as one executable on purpose and that
-should not change, so the examples have to come out of it rather than beside
-it: on first run it makes an `examples` folder next to itself and writes them
-out, and it does it again for any that have gone missing or been altered.
-The very first run ever opens a couple of them, so somebody who has just
-downloaded it sees the thing working instead of an empty sheet.
-
-Content: the wine glass, the crown, and a handful of deliberately wild ones -
-the point is demonstration, not tuition.  Worth accumulating over time, so
-the list wants to be easy to add to: drawings as resources compiled in, a
-table of name and bytes, and one pass that writes any that are absent or do
-not match.
-
-Two things to get right.  Altered means altered by us as well as by them - a
-checksum per file, so an example improved in a later version replaces the old
-one instead of being left because a file of that name exists.  And it must
-never overwrite something the person has been working on: an example they
-have edited and saved under its own name is theirs now, so the check should
-be against what we wrote last, not against what the example currently says.

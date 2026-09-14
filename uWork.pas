@@ -285,6 +285,24 @@ type
       run opposite ways?  On one that is, a face turned away from the camera
       can never be seen, so it need not be drawn at all. }
     function GroupClosed(G: Integer): Boolean;
+    { The edges of a group that are not shared by exactly two faces run
+      opposite ways - which is to say, the places where a solid is not
+      closed.
+
+      GroupClosed answers yes or no; this says WHERE, which is the answer
+      somebody actually needs when a slicer has refused their model.  Points
+      come back in pairs, each pair one bad edge, so a caller can simply draw
+      them.  The same T-junction resolution GroupClosed uses is applied
+      first, so a seam that is merely divided unevenly is not reported as a
+      hole - it is not one.
+
+      Nothing draws these yet.  It is here because the analysis is the hard
+      part and it already existed, scattered across a scratch program used to
+      find what was wrong with Tony's robot; putting it where it belongs cost
+      nothing and means the day somebody wants it highlighted on screen, the
+      work is a paint routine and not an investigation. }
+    function OpenEdges(G: Integer): TP3Array;
+
     { This face cut into triangles, as triples of indices into FaceCorners -
       which is the outline followed by each hole, in order.
 
@@ -2565,6 +2583,141 @@ begin
   if not Triangulate(Flat2, Ring, Holes, Result) then Result := nil;
   FCut[Index].Seq := FEditSeq;
   FCut[Index].Tris := Result;
+end;
+
+{ defined further down, beside OrientFace, and wanted up here }
+function EdgeKeyOf(const A, B: TP3; out Way: PtrInt): string; forward;
+
+function TWorkDoc.OpenEdges(G: Integer): TP3Array;
+var
+  Ix, Jx: TFPHashList;
+  I, J, N, NV, NOut, C1, C2, NCut: Integer;
+  Key: string;
+  Way: PtrInt;
+  PA, PB, CutA, CutB: TP3;
+  Verts: array of TP3;
+  Cuts: array of Double;
+  T, TSwap: Double;
+  Ends: array of TP3;
+
+  { the same test GroupClosed uses - a corner lying along an edge, strictly
+    between its ends }
+  function Between(const A, B, P: TP3; out U: Double): Boolean;
+  var
+    DX, DY, DZ, L2, CX, CY, CZ: Double;
+  begin
+    Result := False;
+    DX := B.X - A.X; DY := B.Y - A.Y; DZ := B.Z - A.Z;
+    L2 := DX * DX + DY * DY + DZ * DZ;
+    if L2 < 1E-18 then Exit;
+    U := ((P.X - A.X) * DX + (P.Y - A.Y) * DY + (P.Z - A.Z) * DZ) / L2;
+    if (U <= 1E-9) or (U >= 1 - 1E-9) then Exit;
+    CX := (P.Y - A.Y) * DZ - (P.Z - A.Z) * DY;
+    CY := (P.Z - A.Z) * DX - (P.X - A.X) * DZ;
+    CZ := (P.X - A.X) * DY - (P.Y - A.Y) * DX;
+    Result := (CX * CX + CY * CY + CZ * CZ) <= 1E-10 * L2;
+  end;
+
+begin
+  Result := nil;
+  if G <= 0 then Exit;
+
+  { the group's own corners, which is what an edge can be interrupted at }
+  NV := 0;
+  Jx := TFPHashList.Create;
+  try
+    for I := 0 to FLive - 1 do
+    begin
+      if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
+      if FEnts[I].Grp <> G then Continue;
+      for J := 0 to High(FEnts[I].Poly) do
+      begin
+        Key := Format('%d,%d,%d', [Round(FEnts[I].Poly[J].X * 1E6),
+          Round(FEnts[I].Poly[J].Y * 1E6), Round(FEnts[I].Poly[J].Z * 1E6)]);
+        if Jx.FindIndexOf(Key) >= 0 then Continue;
+        Jx.Add(Key, Pointer(1));
+        if NV >= Length(Verts) then SetLength(Verts, Max(64, NV * 2));
+        Verts[NV] := FEnts[I].Poly[J];
+        Inc(NV);
+      end;
+    end;
+  finally
+    Jx.Free;
+  end;
+  if NV = 0 then Exit;
+
+  { every edge, cut at any corner lying along it, tallied by direction }
+  Ix := TFPHashList.Create;
+  SetLength(Ends, 0);
+  try
+    for I := 0 to FLive - 1 do
+    begin
+      if (FEnts[I].Kind <> ekFace) or not FEnts[I].Solid then Continue;
+      if FEnts[I].Grp <> G then Continue;
+      N := Length(FEnts[I].Poly);
+      if N < 3 then Continue;
+      for J := 0 to N - 1 do
+      begin
+        PA := FEnts[I].Poly[J];
+        PB := FEnts[I].Poly[(J + 1) mod N];
+        NCut := 0;
+        for C2 := 0 to NV - 1 do
+          if Between(PA, PB, Verts[C2], T) then
+          begin
+            if NCut >= Length(Cuts) then SetLength(Cuts, Max(8, NCut * 2));
+            Cuts[NCut] := T;
+            Inc(NCut);
+          end;
+        for C1 := 1 to NCut - 1 do
+        begin
+          TSwap := Cuts[C1];
+          C2 := C1 - 1;
+          while (C2 >= 0) and (Cuts[C2] > TSwap) do
+          begin
+            Cuts[C2 + 1] := Cuts[C2];
+            Dec(C2);
+          end;
+          Cuts[C2 + 1] := TSwap;
+        end;
+        CutA := PA;
+        for C1 := 0 to NCut do
+        begin
+          if C1 = NCut then CutB := PB
+          else
+          begin
+            T := Cuts[C1];
+            CutB := P3(PA.X + (PB.X - PA.X) * T, PA.Y + (PB.Y - PA.Y) * T,
+                       PA.Z + (PB.Z - PA.Z) * T);
+          end;
+          Key := EdgeKeyOf(CutA, CutB, Way);
+          C2 := Ix.FindIndexOf(Key);
+          if C2 < 0 then
+          begin
+            Ix.Add(Key, Pointer(Way + 8));
+            SetLength(Ends, Ix.Count * 2);
+            Ends[(Ix.Count - 1) * 2] := CutA;
+            Ends[(Ix.Count - 1) * 2 + 1] := CutB;
+          end
+          else
+            Ix.Items[C2] := Pointer(PtrInt(Ix.Items[C2]) + Way);
+          CutA := CutB;
+        end;
+      end;
+    end;
+
+    { an edge used once each way leaves its tally back at eight }
+    NOut := 0;
+    for I := 0 to Ix.Count - 1 do
+      if PtrInt(Ix.Items[I]) <> 8 then
+      begin
+        SetLength(Result, NOut + 2);
+        Result[NOut] := Ends[I * 2];
+        Result[NOut + 1] := Ends[I * 2 + 1];
+        Inc(NOut, 2);
+      end;
+  finally
+    Ix.Free;
+  end;
 end;
 
 function TWorkDoc.GroupClosed(G: Integer): Boolean;

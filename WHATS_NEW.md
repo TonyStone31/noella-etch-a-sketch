@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The button on a failed export said "Tell Tony about it".**  It sends a
+  bug report, so now it says so.
+
+### New
+
+- **Help pages.**  `docs/help/index.html` - one page for every tool and one
+  for each of the things you do with a drawing.  They have no pictures in
+  them yet; the words are there.
+
 ## v2026.09.13.23
 
 ### New

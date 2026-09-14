@@ -110,7 +110,7 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   command - the full list is below.  Every tool's tip shows an example of
   what it will take typed.
 * **Tools** - select, line (chained), rectangle, arc, circle, push/pull,
-  drill, follow me, offset, move, rotate, tape measure, protractor,
+  revolve, drill, offset, move, rotate, tape measure, protractor,
   dimension, text note, eraser, orbit.  Clicking the lit tool puts it away; **Esc** backs out
   one step at a time.
 * **Circles and arcs take a side count.**  `24s` or `s24` while the tool is
@@ -161,6 +161,11 @@ The same idea taken seriously.  The program starts here, in the 3D view.
 * **Right-click a dimension to write over its figure** - a nominal size, a
   cut length, `FIELD VERIFY`.  The measurement underneath never changes, and
   the written figure goes out in the SVG export too.
+* **Type over a dimension and the drawing changes.**  Select one, type a new
+  length, and what it measures is resized to suit - the far end moves, the
+  near end stays put, and everything beyond the far end goes with it.  It is
+  a one-off edit and not a constraint: nothing is remembered, so nothing can
+  fight you later.
 * **PREC** sets the fraction the drawing reads and writes in, 1/2 through
   1/64 or hundredths.
 
@@ -196,6 +201,22 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   lines up with a point elsewhere it is pulled onto that line and a dotted
   guide is drawn back to it.  **SNAP OFF** kills all of it; holding **Alt**
   suspends it.
+* **It knows whether a solid is closed**, which is the only thing that
+  decides whether a shape will 3D print.  Every edge of a closed solid is
+  shared by exactly two faces run opposite ways; a seam that has merely been
+  divided unevenly - a top split in two against a wall still in one piece -
+  is recognised as the seam it is rather than reported as a hole.  The export
+  says so on the way out: *closed and ready to slice*, or that a slicer will
+  have to guess at the inside.
+* **Faces worked out from lines are wound against their neighbours.**  A face
+  on its own can only guess which way is out, and guessing one at a time puts
+  half a roof inside out.  They are settled as a sheet instead, so a roof
+  points out of the building.  `/rebuild` puts an old drawing right.
+* **Faces that are not flat are cut into triangles before they are drawn.**
+  Spinning or pushing a sloped edge makes a face whose corners lie in no one
+  plane, and there is no right flat sheet for one of those.  A triangle has
+  exactly one plane and always lies in it, so the depth is exact by
+  construction.  Flat faces - most of them - keep the faster path.
 * **Profiles and back faces.**  The silhouette of a shape is drawn heavier
   than the edges inside it, the facets of a curved surface are softened away,
   and the back of a face is painted pale blue, SketchUp's way of showing a
@@ -211,13 +232,50 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   real 30° isometric paper, +X down-right, +Y down-left, +Z straight up, the
   way a pipe spool is drawn.  Work done on paper is kept when you go back to
   3D.
+* **PLAN cuts through.**  Set a height and a depth and only what lies inside
+  that slice is drawn - a floor at a time through a building, the way a plan
+  is meant to be read.  Ctrl and the wheel over the drawing moves the slice up
+  and down, so your eyes stay on the plan.  Right-click a floor and take
+  *Plan From Here*.  What is cut away is not snapped to either, so you cannot
+  catch a point on a storey you cannot see.
 * **Tabs** - as many sheets as you like, each with its own scale, units and
   view.  All of them save into one file.
 * **Its own file format.**  Drawings save as `.hsk` - plain text, one line
   per entity, so it stays readable and diffable and old files keep opening.
-  PNG and **SVG** are exports, not saves; the SVG is real vector output with
-  the dimensions as text.  A flat pattern goes out as **DXF** for a cutting
-  table.  `heckers-sketch drawing.hsk` opens one straight from the shell.
+  `heckers-sketch drawing.hsk` opens one straight from the shell.
+* **An export room, not a file box.**  The formats down one side, a live view
+  of the model in the middle that you turn and zoom to frame the shot, and
+  that format's own settings on the right.  What is in the middle is what
+  comes out.
+
+  * **PNG** and **JPEG** at any size - twice or four times the screen, one of
+    the ready-made shapes for wherever you are posting it, or a size you
+    type.  A PNG can have nothing behind it.
+  * **GIF** - a little film that swings round the model.  See below.
+  * **SVG** - real vector output of this view, with the dimensions as text.
+  * **DXF** - this view flat for a cutting table, or the model in three
+    dimensions, as entities somebody can measure in their own CAD.
+  * **STL** - triangles in millimetres, which is what a 3D printer wants,
+    with a word about whether the shape is actually closed.
+  * **OpenSCAD** - a `polyhedron` per solid, each in its own module, to cut
+    and union against something you are describing in OpenSCAD.
+
+  STL and OpenSCAD arrive centred on the origin, so a slicer opens them where
+  it expects to.  `/center`, or **Centre on the Origin** on the right button,
+  does the same to the drawing itself.
+* **Record a little film of it.**  In the export room, pick GIF and *Record a
+  move*.  Choose where to start - front, back, left, right, top or a corner -
+  then either fly it yourself or take one of eight canned walks: a turntable,
+  a rise, underneath to over the top, a nod with no turn at all, half a turn
+  and back, corner to corner, the full look, or a slow push in.  Say how long
+  it should run and that decides the frame rate.
+
+  It counts you in from three and a strip along the bottom fills with
+  snapshots as it goes, so you can see it working.  Play it, clear it and go
+  again, or keep it.  Everything turns about the middle of whatever you had
+  selected, and what is recorded is where the camera was - not the screen -
+  so the cursor, the snapping lines and the hover marks are nowhere in it and
+  it can be saved at any size afterwards.
 * **Nothing is ever lost.**  A couple of seconds after you stop drawing the
   whole session is written to a draft beside the settings, and the next
   launch picks it straight back up.  Pull the plug and it is still there.
@@ -551,6 +609,17 @@ its open ends are taken as seen so they are never capped.
 virtual display: the handler records the pointer position and returns, and
 all snapping, hit-testing and repainting happens once per tick.
 
+## Help
+
+[`docs/help/`](docs/help/) is a small set of web pages - one for every tool,
+and one for each of the things you do with a drawing.  Open
+`docs/help/index.html` in a browser.
+
+It is a skeleton at the moment: the words are there and the pictures are not.
+[`docs/help/shots/NEEDED.md`](docs/help/shots/NEEDED.md) lists every screenshot
+the pages are waiting for and what should be in each one; drop them in that
+folder under those names and they appear.
+
 ## Not there yet
 
 There is a fuller list, with notes on what each one would take, in
@@ -562,10 +631,16 @@ There is a fuller list, with notes on what each one would take, in
 * The dimension tool has no radius or diameter mode yet.
 * Orbiting a drawing full of fittings gets sluggish; there is a performance
   pass to do before anything is threaded.
-* Two solids that interpenetrate sort wrongly - the painter's algorithm
-  works on whole faces, so it will show a seam.
+* The depth is settled per pixel, so two solids that run through each other
+  come out right; what is still imperfect is the last pixel or two along a
+  silhouette, where the rule that decides which face owns a part-covered
+  pixel and the rule that decides its depth do not quite agree.
 * Nothing imports.  Tracing a PDF or an SVG would be a lovely thing to have
   and is not here.
+* The help pages have no pictures in them yet, and no way to open them from
+  inside the program.
+* When a shape will not print, it says so but not *where*.  The analysis that
+  finds the open edges is written and tested; nothing draws them yet.
 
 ## License
 
