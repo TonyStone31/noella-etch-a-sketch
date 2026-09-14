@@ -13,6 +13,29 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.7' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The eraser softens as well as deletes.**  Hold Ctrl and it hides the edge' + LineEnding +
+    '  instead of rubbing it out; Ctrl+Shift brings it back.  The creases down the' + LineEnding +
+    '  side of a pulled circle are not edges anybody drew, and hiding them is what' + LineEnding +
+    '  makes a cylinder look like a pipe rather than a barrel of staves.' + LineEnding +
+    '' + LineEnding +
+    '- **A line drawn along one already there splits both** where they share, so' + LineEnding +
+    '  the overlap is one edge and the two tails are their own.  Before, an edge' + LineEnding +
+    '  landing exactly on one was skipped and one landing halfway along it was' + LineEnding +
+    '  laid on top - two lines covering the same run, which you cannot see and the' + LineEnding +
+    '  program has to think about twice.' + LineEnding +
+    '' + LineEnding +
+    '- **A note follows the edge it points at.**  Move the edge and the leader goes' + LineEnding +
+    '  with it, rather than staying aimed at where the edge used to be.' + LineEnding +
+    '' + LineEnding +
+    '- **The free camera has a floor.**  A faint grid on the ground, ruled at the' + LineEnding +
+    '  same pitch as the paper and the scale bar, so a model stands on something' + LineEnding +
+    '  and you can read how far across it a thing sits.  The GRID button turns it' + LineEnding +
+    '  off with the rest.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.6' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
