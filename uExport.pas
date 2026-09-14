@@ -44,8 +44,8 @@ type
   line about it in Msg either way. }
 function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
-  const Suggest: string; const T: TTheme; OnReport: TReportProc;
-  out Msg: string): Boolean;
+  const Suggest: string; const T: TTheme; const Pivot: TP3;
+  OnReport: TReportProc; out Msg: string): Boolean;
 
 implementation
 
@@ -71,6 +71,7 @@ type
 
     { the camera in the preview, and the two the animation runs between }
     FView, FVA, FVB: TProjector;
+    FPivot: TP3;
     FDragging, FPanning: Boolean;
     FDragX, FDragY: Integer;
     FPlaying: Boolean;
@@ -85,7 +86,8 @@ type
     FBrowse, FGo, FCancel: TBCButton;
 
     { options - all built, shown as the format needs }
-    FSizeLbl, FQualLbl, FSecLbl, FFpsLbl, FNoteLbl, FShotLbl, FByLbl: TBCLabel;
+    FSizeLbl, FQualLbl, FSecLbl, FFpsLbl, FNoteLbl, FShotLbl, FByLbl,
+    FClipLbl: TBCLabel;
     FHead: TBCPanel;
     FTitle: TBCLabel;
     FShut: TBCButton;
@@ -97,7 +99,7 @@ type
     FTranspOn, FLoopOn, FAxesOn, FMidOn: Boolean;
     FQual: TTrackBar;
     FSec, FFps: TEdit;
-    FSetA, FSetB, FSpin, FPlay, FRec, FSay: TBCButton;
+    FPlay, FRec, FSay: TBCButton;
     FTellBad: TBCLabel;
     FCam: TCamPath;
     FDxfWhat: TComboBox;
@@ -117,9 +119,6 @@ type
     procedure PrevWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
     procedure Tick(Sender: TObject);
-    procedure DoSetA(Sender: TObject);
-    procedure DoSetB(Sender: TObject);
-    procedure DoSpin(Sender: TObject);
     procedure DoPlay(Sender: TObject);
     procedure DoRecord(Sender: TObject);
     procedure HeadDown(Sender: TObject; Button: TMouseButton;
@@ -357,10 +356,10 @@ begin
   FSec.OnChange := @SizeChanged;
   uDlgSkin.SkinEdit(FSec);
 
-  FFpsLbl := MkLbl(Opt, 'Frames a second', 146, 212, 110, True, False, -12);
+  FFpsLbl := MkLbl(Opt, 'Frames a second, at most', 14, 212, 232, True, False, -12);
   FFps := TEdit.Create(Self);
   FFps.Parent := Opt;
-  FFps.SetBounds(146, 232, 100, 26);
+  FFps.SetBounds(14, 232, 100, 26);
   FFps.Text := '20';
   FFps.OnChange := @SizeChanged;
   uDlgSkin.SkinEdit(FFps);
@@ -371,15 +370,9 @@ begin
   FLoop.OnClick := @Ticked;
   ShowTick(FLoop, True, 'Go round for ever');
 
-  FSetA := MkBtn(Opt, 'Set start', 14, 296, 110, 30, bkPlain);
-  FSetA.OnClick := @DoSetA;
-  FSetB := MkBtn(Opt, 'Set end', 136, 296, 110, 30, bkPlain);
-  FSetB.OnClick := @DoSetB;
-  FSpin := MkBtn(Opt, 'Full spin from here', 14, 330, 232, 30, bkPlain);
-  FSpin.OnClick := @DoSpin;
-  FPlay := MkBtn(Opt, 'Play it', 14, 364, 232, 30, bkPlain);
+  FPlay := MkBtn(Opt, 'Play the clip', 14, 330, 232, 30, bkPlain);
   FPlay.OnClick := @DoPlay;
-  FRec := MkBtn(Opt, 'Record a move instead', 14, 398, 232, 30, bkPlain);
+  FRec := MkBtn(Opt, 'Record a move...', 14, 294, 232, 32, bkGo);
   FRec.OnClick := @DoRecord;
 
   FMidOn := True;
@@ -394,6 +387,7 @@ begin
   FAxes.OnClick := @Ticked;
   ShowTick(FAxes, True, 'Show the axes');
 
+  FClipLbl := MkLbl(Opt, '', 14, 262, 232, True, False, -12);
   FShotLbl := MkLbl(Opt, '', 14, 432, 232, True, False, -12);
 
   FDxfWhat := TComboBox.Create(Self);
@@ -497,16 +491,22 @@ begin
   FQualLbl.Visible := FKind = exJpeg;
   FQual.Visible := FKind = exJpeg;
 
-  FSecLbl.Visible := Anim;
-  FSec.Visible := Anim;
+  FSecLbl.Visible := False;
+  FSec.Visible := False;
   FFpsLbl.Visible := Anim;
   FFps.Visible := Anim;
   FLoop.Visible := Anim;
-  FSetA.Visible := Anim;
-  FSetB.Visible := Anim;
-  FSpin.Visible := Anim;
-  FPlay.Visible := Anim;
+  FPlay.Visible := Anim and (Length(FCam) >= 2);
   FShotLbl.Visible := Raster;
+  if Anim then
+  begin
+    if Length(FCam) >= 2 then
+      FClipLbl.Caption := Format('A clip of %.1f seconds is ready.',
+        [CamPathLength(FCam)])
+    else
+      FClipLbl.Caption := 'No clip yet - record one.';
+  end;
+  FClipLbl.Visible := Anim;
   FAxes.Visible := Raster;
   FRec.Visible := Anim;
   FDxfWhat.Visible := FKind in [exDxfView, exDxfModel];
@@ -525,14 +525,19 @@ begin
   begin
     if Anim then
     begin
-      Secs := Max(0.2, Min(GIF_MAX_SECONDS, StrToFloatDef(FSec.Text, 4)));
+      if Length(FCam) >= 2 then
+        Secs := Max(0.2, Min(GIF_MAX_SECONDS, CamPathLength(FCam)))
+      else
+        Secs := 0;
       FilmPlan(Secs, StrToIntDef(FFps.Text, 20), W, H, NF, Rate);
       { A big picture buys fewer frames - the whole film has to be held in
         memory at once - so say so here rather than let somebody wait for it
         and wonder why it came out jerky. }
       { say what it will weigh, because that is the question behind the size
         and nobody should have to export one to find out }
-      if Rate < StrToIntDef(FFps.Text, 20) then
+      if Secs <= 0 then
+        FShotLbl.Caption := Format('%d x %d - record a move first', [W, H])
+      else if Rate < StrToIntDef(FFps.Text, 20) then
         FShotLbl.Caption := Format('%d x %d, %.1fs at %d a second, about %s' +
           '  (a smaller size buys more frames)',
           [W, H, Secs, Rate, Weigh(NF, W, H)])
@@ -762,26 +767,6 @@ begin
   FPrev.Invalidate;
 end;
 
-procedure TExportDlg.DoSetA(Sender: TObject);
-begin
-  FVA := FView;
-  FHint.Caption := 'Start set.  Now frame where it should end.';
-end;
-
-procedure TExportDlg.DoSetB(Sender: TObject);
-begin
-  FVB := FView;
-  FHint.Caption := 'End set.  Press Play it to see the move.';
-end;
-
-procedure TExportDlg.DoSpin(Sender: TObject);
-begin
-  FVA := FView;
-  FVB := FView;
-  FVB.Az := FView.Az + 2 * Pi;
-  FHint.Caption := 'A full turn from where you are looking now.';
-end;
-
 procedure TExportDlg.DoPlay(Sender: TObject);
 begin
   FPlaying := not FPlaying;
@@ -875,7 +860,7 @@ begin
   Hide;
   try
     if RecordMove(FDoc, FView, FUnits, FFont, FLabelCol, FEdgeW,
-         FSrcW, FSrcH, FAxesOn, Got) then
+         FSrcW, FSrcH, FAxesOn, FPivot, Got) then
     begin
       FCam := Got;
       { and it goes in the box, because a recording that quietly overrode
@@ -1017,6 +1002,8 @@ begin
     exGif:
       begin
         FStage := 'working out the size';
+        if Length(FCam) < 2 then
+          raise Exception.Create('there is no clip yet - press Record a move');
         if not OutSize(W, H) then raise Exception.Create('that size will not do');
         FStage := Format('drawing the frames at %dx%d', [W, H]);
         if Length(FCam) >= 2 then
@@ -1048,8 +1035,8 @@ end;
 
 function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
-  const Suggest: string; const T: TTheme; OnReport: TReportProc;
-  out Msg: string): Boolean;
+  const Suggest: string; const T: TTheme; const Pivot: TP3;
+  OnReport: TReportProc; out Msg: string): Boolean;
 var
   Dlg: TExportDlg;
 begin
@@ -1057,6 +1044,7 @@ begin
   Dlg := TExportDlg.Make(Doc, V, U, AFont, LabelCol, EdgeW, SrcW, SrcH,
     Suggest);
   Dlg.FOnReport := OnReport;
+  Dlg.FPivot := Pivot;
   try
     Dlg.ShowModal;
     Result := Dlg.FWrote;

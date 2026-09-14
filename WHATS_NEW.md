@@ -10,6 +10,51 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The GIF recorder is one room now.**  Setting a start and an end used to be
+  in the export dialog while the recording was in a window of its own - two
+  ways to do one thing, and no sign in the dialog which of them you had used.
+  It is all in the one window, and the export dialog either has a clip or it
+  does not.
+
+  In it: where to **start from** - front, back, left, right, top, or any of the
+  four corners - **what move** to make, and **how long** it should last.  Then
+  Record.
+
+  **A filmstrip along the bottom fills up as it records**, so you can see there
+  is something there rather than take it on trust.  Play it, Clear it and go
+  again, or Use this clip - which drops you back to the export dialog with it
+  in hand.  There is deliberately nothing else you can do to the strip: for a
+  clip this short, keeping it or doing it again are the only two things worth
+  offering.
+
+- **Eight canned moves, so you need not fly it by hand.**
+
+  *Turntable* is one turn on the spot.  *Rise* turns while climbing, so a
+  thing shows you its sides and then its lid.  *Underneath to over the top*
+  starts below it looking up and finishes looking down.  *Nod* goes down to up
+  and back without turning at all, for something with a front that turning
+  would only hide.  *Half a turn and back* reads like somebody picking a thing
+  up rather than a machine spinning it.  *Corner to corner* sweeps from one
+  low corner to the opposite high one.  *The full look* goes over, under, back
+  to level and round, so every face comes past the camera.  And *push in*
+  closes slowly with a little drift, for a detail.
+
+  **The ones you use come to the top of the list**, and stay there between
+  sessions - eight is a comfortable number to offer and a tiresome number to
+  read every time, and most people settle on two or three.
+
+  All of them turn about **the middle of whatever you had selected** when you
+  pressed Export, not about the drawing's origin - so a building drawn half a
+  mile from zero does not swing out of frame.  Set the zoom you want with the
+  wheel first and the move starts from there.
+
+- **Centre on the Origin is on the right button.**  Select something, right
+  click, and it moves onto 0,0,0.  Same thing as `/center`.
+
 ## v2026.09.13.22
 
 ### New

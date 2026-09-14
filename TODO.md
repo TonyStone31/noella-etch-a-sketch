@@ -1178,7 +1178,7 @@ does both.
 Left standing: the -O3 local-first workaround, which was a real hazard whether
 or not it was this one.
 
-### The GIF recorder, redesigned - Tony's brief, 13 September
+### Done 13 September: the GIF recorder, one room
 
 The complaint is not that it is buried in the export tool; that is fine.  It is
 that there are **two places to record**: the export dialog has Set start / Set
@@ -1206,11 +1206,26 @@ What the window wants, in his words and order:
   rather than driving it live.
 * centre on the selection **from the moment Export is pressed**.
 
-Two decisions taken rather than asked: a canned walk orbits the middle of the
-SELECTION (falling back to the whole drawing when nothing is selected); and
-Accept keeps the camera path rather than encoding a GIF there and then, so
-changing the size or the rate afterwards still re-renders properly and the
-export dialog's Play shows the real move.
+Two decisions taken rather than asked, and both stood up: a canned walk orbits
+the middle of the SELECTION, falling back to the whole drawing when nothing is
+selected; and Accept keeps the camera path rather than encoding a GIF there and
+then, so changing the size or the rate afterwards still re-renders properly.
+
+**The piece that made it possible** is `HoldAt`.  A TProjector turns about the
+world origin - there is no pivot in it - so spinning a building drawn half a
+mile from zero swings it clean out of frame.  Every camera move now ends by
+putting the point of interest back where it belongs, which costs one
+projection and makes the whole thing behave as though it had a pivot.  The
+canned walks are written against that, so they all orbit what you are looking
+at.
+
+**The four walks** are in `uShoot`, as `TWalk`: turntable, rise, the full look
+(Tony's sketch - over the top, under, level, round), and push in.  Length
+chooses the frame rate rather than the other way round, as asked.
+
+Left as is, on purpose: no trimming on the filmstrip.  For a clip of five
+seconds the only two useful things are keeping it and doing it again, and
+handles to drag would be a worse answer than a Clear button.
 
 ### Done 13 September: OpenSCAD export
 

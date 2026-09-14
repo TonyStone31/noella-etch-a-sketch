@@ -13,6 +13,43 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The GIF recorder is one room now.**  Setting a start and an end used to be' + LineEnding +
+    '  in the export dialog while the recording was in a window of its own - two' + LineEnding +
+    '  ways to do one thing, and no sign in the dialog which of them you had used.' + LineEnding +
+    '  It is all in the one window, and the export dialog either has a clip or it' + LineEnding +
+    '  does not.' + LineEnding +
+    '' + LineEnding +
+    '  In it: where to **start from** - front, back, left, right, top, or any of the' + LineEnding +
+    '  four corners - **what move** to make, and **how long** it should last.  Then' + LineEnding +
+    '  Record.' + LineEnding +
+    '' + LineEnding +
+    '  **A filmstrip along the bottom fills up as it records**, so you can see there' + LineEnding +
+    '  is something there rather than take it on trust.  Play it, Clear it and go' + LineEnding +
+    '  again, or Use this clip - which drops you back to the export dialog with it' + LineEnding +
+    '  in hand.  There is deliberately nothing else you can do to the strip: for a' + LineEnding +
+    '  clip this short, keeping it or doing it again are the only two things worth' + LineEnding +
+    '  offering.' + LineEnding +
+    '' + LineEnding +
+    '- **Four canned moves, so you need not fly it by hand.**' + LineEnding +
+    '' + LineEnding +
+    '  *Turntable* is one turn on the spot.  *Rise* turns while climbing, so a' + LineEnding +
+    '  thing shows you its sides and then its lid.  *The full look* goes over the' + LineEnding +
+    '  top, under, back to level and round, so every face comes past the camera.' + LineEnding +
+    '  *Push in* closes slowly with a little drift, for showing a detail without' + LineEnding +
+    '  losing where it sits.' + LineEnding +
+    '' + LineEnding +
+    '  All of them turn about **the middle of whatever you had selected** when you' + LineEnding +
+    '  pressed Export, not about the drawing''s origin - so a building drawn half a' + LineEnding +
+    '  mile from zero does not swing out of frame.  Set the zoom you want with the' + LineEnding +
+    '  wheel first and the move starts from there.' + LineEnding +
+    '' + LineEnding +
+    '- **Centre on the Origin is on the right button.**  Select something, right' + LineEnding +
+    '  click, and it moves onto 0,0,0.  Same thing as `/center`.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.22' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

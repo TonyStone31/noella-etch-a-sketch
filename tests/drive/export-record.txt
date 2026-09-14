@@ -1,0 +1,37 @@
+# The recording room: one place to make a clip.
+#
+# What this proves: the GIF panel offers Record, that opens a window with a
+# start view, a choice of move, a length and a filmstrip along the bottom -
+# and that a canned walk records itself and fills the strip without anybody
+# touching the mouse.
+
+geometry 0 0 1500 850
+activate
+wait 600
+key escape
+key slash
+type fit
+key return
+wait 1500
+
+at 190 16
+click
+wait 1600
+at 388 278
+click
+wait 800
+shot /tmp/hsk-rec-gifpanel.png
+
+# Record a move...
+at 1046 470
+click
+wait 1200
+shot /tmp/hsk-rec-room.png
+
+# Record, and let the canned walk run itself - 3 counting in, then 5
+at 1018 110
+click
+wait 2000
+shot /tmp/hsk-rec-counting.png
+wait 7000
+shot /tmp/hsk-rec-strip.png

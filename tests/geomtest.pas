@@ -4273,6 +4273,11 @@ var
   W, H, CT, N: Integer;
   Got: Boolean;
   Cam: TCamPath;
+  Wk: TWalk;
+  WV: TProjector;
+  PivotAt: TP3;
+  PP: TPointF;
+  Held, Moved: Integer;
 begin
   WriteLn('-- exporting --');
 
@@ -4384,6 +4389,38 @@ begin
     FilmPlan(3, 20, 320, 240, N, W);
     Ok((N = 60) and (W = 20),
       Format('a short small one is left alone (%d frames at %d)', [N, W]));
+
+    { --- the canned walks hold on to what they are looking at --------
+          A TProjector turns about the world origin - there is no pivot in it
+          - so a building drawn half a mile from zero swings clean out of
+          frame the moment it spins.  Every walk ends by putting the point of
+          interest back in the middle, and this is the check that says so:
+          the pivot is put a long way from the origin on purpose. }
+    V.Kind := vkOrbit; V.Az := 0; V.El := 0.62; V.Ppu := 2;
+    V.OX := 450; V.OY := 350;
+    PivotAt := P3(100, 200, 30);
+    Held := 0;
+    Moved := 0;
+    for Wk := Low(TWalk) to High(TWalk) do
+      for N := 0 to 40 do
+      begin
+        WV := WalkAt(Wk, V, PivotAt, 450, 350, N / 40);
+        PP := Project(WV, PivotAt);
+        if (Abs(PP.X - 450) < 0.01) and (Abs(PP.Y - 350) < 0.01) then
+          Inc(Held)
+        else
+          Inc(Moved);
+      end;
+    Ok(Moved = 0, Format('every walk keeps the pivot dead centre (%d of %d ' +
+      'frames held it)', [Held, Held + Moved]));
+
+    { and they are not all the same walk }
+    Ok(Abs(WalkAt(wkNod, V, PivotAt, 450, 350, 0.5).Az - V.Az) < 1E-9,
+      'the nod does not turn at all, which is the point of it');
+    Ok(WalkAt(wkUnderOver, V, PivotAt, 450, 350, 0).El < -0.9,
+      'underneath-to-over really does start underneath');
+    Ok(WalkAt(wkUnderOver, V, PivotAt, 450, 350, 1).El > 0.9,
+      'and really does finish over the top');
 
     { --- a recorded move, sampled back ------------------------------
           A recording is a list of where the camera was and when.  Reading it

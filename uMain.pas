@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uDlgSkin, uExport, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uDlgSkin, uShoot, uRecord, uExport, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -692,6 +692,7 @@ type
     procedure RightClickAt(X, Y: Integer);
     procedure FillCanvasMenu;
     procedure CanvasMenuClick(Sender: TObject);
+    procedure CentreSelection;
     function ReverseSelectedFaces: Integer;
     function SelectedDim: Integer;
     procedure ApplySlice;
@@ -2983,6 +2984,12 @@ begin
   Add('Plan From Here', 4);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Faces = 1;
 
+  { Asked for by Tony: having centred a selection is what makes an export
+    arrive where a slicer expects it, and the right button is where you
+    already are when you have just selected the thing. }
+  Add('Centre on the Origin', 5);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
+
   M := TMenuItem.Create(pmCanvas);
   M.Caption := '-';
   pmCanvas.Items.Add(M);
@@ -3027,7 +3034,55 @@ begin
         FScreenDirty := True;
         InvalidateStatus;
       end;
+    5: CentreSelection;
   end;
+end;
+
+{ Move what is selected - or the whole drawing, when nothing is - so the
+  middle of it sits on the origin.
+
+  Worth having on the drawing and not only on the way out to an STL: a
+  drawing that is centred is one where the exports, the dimensions taken from
+  the origin and the three axis readings all agree with each other. }
+procedure TMainForm.CentreSelection;
+var
+  Mid: TP3;
+  Idx: array of Integer;
+  I: Integer;
+begin
+  if not FD.Doc.MiddleOf(FSel, Mid) then
+  begin
+    FCmdMsg := 'Nothing to centre.';
+    InvalidateStatus;
+    Exit;
+  end;
+  if (Abs(Mid.X) < 1E-9) and (Abs(Mid.Y) < 1E-9) and (Abs(Mid.Z) < 1E-9) then
+  begin
+    FCmdMsg := 'Already on the origin.';
+    InvalidateStatus;
+    Exit;
+  end;
+  PushUndo;
+  if Length(FSel) > 0 then
+  begin
+    SetLength(Idx, Length(FSel));
+    for I := 0 to High(FSel) do Idx[I] := FSel[I];
+  end
+  else
+  begin
+    SetLength(Idx, FD.Doc.Live);
+    for I := 0 to FD.Doc.Live - 1 do Idx[I] := I;
+  end;
+  FD.Doc.TranslateEnts(Idx, P3(-Mid.X, -Mid.Y, -Mid.Z));
+  RenderPro;
+  RecomposeAll;
+  FScreenDirty := True;
+  if Length(FSel) > 0 then
+    FCmdMsg := Format('Moved %d things onto the origin.', [Length(FSel)])
+  else
+    FCmdMsg := 'Moved the whole drawing onto the origin.';
+  InvalidateStatus;
+  Invalidate;
 end;
 
 { A right click that did not turn into a pan.
@@ -10728,8 +10783,6 @@ var
   W, Rest: string;
   P, I, N: Integer;
   RL, RL2: Double;
-  CenMid: TP3;
-  CenAll: array of Integer;
 begin
   Result := True;
   W := LowerCase(Trim(S));
@@ -10955,42 +11008,7 @@ begin
     FCmdMsg := Format('Forgot what was seen and worked the faces out again: %d.', [I]);
   end
   else if (W = 'center') or (W = 'centre') then
-  begin
-    { Move what is selected - or the whole drawing if nothing is - so its
-      middle sits on the origin.
-
-      Asked for because an STL or a SCAD opens in the next program wherever
-      the drawing happened to put it, which for something drawn at building
-      coordinates is a long way off the plate.  The exports centre themselves
-      now, but a drawing that is centred to begin with is a drawing where
-      every export, every dimension from the origin and every axis reading
-      agrees, so it is worth being able to say it here too. }
-    if FD.Doc.MiddleOf(FSel, CenMid) then
-    begin
-      PushUndo;
-      SetLength(CenAll, 0);
-      if Length(FSel) > 0 then
-      begin
-        SetLength(CenAll, Length(FSel));
-        for I := 0 to High(FSel) do CenAll[I] := FSel[I];
-      end
-      else
-      begin
-        SetLength(CenAll, FD.Doc.Live);
-        for I := 0 to FD.Doc.Live - 1 do CenAll[I] := I;
-      end;
-      FD.Doc.TranslateEnts(CenAll, P3(-CenMid.X, -CenMid.Y, -CenMid.Z));
-      RenderPro;
-      RecomposeAll;
-      if Length(FSel) > 0 then
-        FCmdMsg := Format('Moved %d things so the middle of them is on the ' +
-          'origin.', [Length(FSel)])
-      else
-        FCmdMsg := 'Moved the whole drawing so its middle is on the origin.';
-    end
-    else
-      FCmdMsg := 'Nothing to centre.';
-  end
+    CentreSelection
   else if W = 'rebuild' then
   begin
     PushUndo;
@@ -16736,6 +16754,7 @@ end;
 procedure TMainForm.DoExport;
 var
   Msg, Base: string;
+  ExpPivot: TP3;
 begin
   { The toy has no vectors and no model - what it has is a picture of a
     screen, so that is what it exports.  A room full of settings for it would
@@ -16759,12 +16778,16 @@ begin
     Exit;
   end;
 
+  { what the export turns about: the middle of what is selected, or of the
+    whole drawing when nothing is - because that is what somebody was looking
+    at when they pressed the button }
+  if not FD.Doc.MiddleOf(FSel, ExpPivot) then ExpPivot := P3(0, 0, 0);
   Base := IncludeTrailingPathDelimiter(GetUserDir) + 'heckers-sketch-' +
     FormatDateTime('yyyymmdd-hhnnss', Now);
   Msg := '';
   if RunExport(FD.Doc, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW,
-       FArt.Width, FArt.Height, Base, Themes[FThemeIdx], @ReportFromDialog,
-       Msg) then
+       FArt.Width, FArt.Height, Base, Themes[FThemeIdx], ExpPivot,
+       @ReportFromDialog, Msg) then
   begin
     FHint := Msg;
     FCmdMsg := Msg;
@@ -17426,6 +17449,7 @@ begin
   try
     Ini := TIniFile.Create(ConfigFile);
     try
+      uRecord.RecentWalks := Ini.ReadString('export', 'recentwalks', '');
       FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
         0, THEME_COUNT - 1);
       FToyTheme := EnsureRange(Ini.ReadInteger('look', 'toytheme', 0),
@@ -17535,6 +17559,8 @@ begin
       Ini.WriteBool('pro', 'dials', FProDials);
       Ini.WriteBool('pro', 'toolnames', FToolsWide);
       Ini.WriteInteger('pro', 'scale', FD.ScaleIdx);
+      { which camera moves get used, so the list offers them first next time }
+      Ini.WriteString('export', 'recentwalks', uRecord.RecentWalks);
       Ini.WriteInteger('pro', 'snap', FD.SnapIdx);
       Ini.WriteInteger('pro', 'precision', FLenDenom);
       Ini.WriteInteger('pro', 'units', Ord(FD.Units));

@@ -125,6 +125,38 @@ procedure ZoomBy(var V: TProjector; Factor: Double);
   Ppu by k and holding A still gives O' = A - k * (A - O). }
 procedure ZoomAt(var V: TProjector; Factor, AX, AY: Double);
 
+{ Keep a point of the model at a fixed place on the screen.
+
+  A TProjector turns about the world origin - there is no pivot in it - so
+  spinning a building drawn half a mile from zero swings it clean out of
+  frame.  Every camera move here therefore ends by putting the point of
+  interest back where it belongs, which costs one projection and makes the
+  whole thing behave as though it had a pivot. }
+procedure HoldAt(var V: TProjector; const P: TP3; SX, SY: Double);
+
+{ A canned camera move: where to look at the moment T of a walk that lasts
+  one unit, turning about C and starting from V0.  These are the "show me the
+  thing" moves - see TWalk. }
+type
+  TWalk = (wkTurntable, wkRise, wkUnderOver, wkNod, wkHalfBack, wkCorners,
+           wkLookAll, wkPushIn);
+
+const
+  WALK_NAME: array[TWalk] of string =
+    ('Turntable - one turn on the spot',
+     'Rise - a turn, climbing as it goes',
+     'Underneath to over the top',
+     'Nod - down to up and back, no turn',
+     'Half a turn, and back again',
+     'Corner to corner, over the top',
+     'The full look - round, over and under',
+     'Push in - closing, drifting round');
+
+{ Where a canned walk is looking at the moment T, 0 to 1.  C is what it turns
+  about, and Frame is the screen point to hold it at. }
+function WalkAt(Kind: TWalk; const V0: TProjector; const C: TP3;
+  FrameX, FrameY, T: Double): TProjector;
+
 { The scale Fitted uses to put a source-sized view into a W by H picture, so
   a mouse movement measured in the preview can be handed back in the terms
   the view is actually kept in. }
@@ -319,6 +351,108 @@ begin
   if P < 1E-4 then P := 1E-4;
   if P > 1E6 then P := 1E6;
   V.Ppu := P;
+end;
+
+procedure HoldAt(var V: TProjector; const P: TP3; SX, SY: Double);
+var
+  Q: TPointF;
+  X, Y: Double;
+begin
+  Q := Project(V, P);
+  if IsNan(Q.X) or IsNan(Q.Y) then Exit;
+  X := V.OX + (SX - Q.X);
+  Y := V.OY + (SY - Q.Y);
+  V.OX := X;
+  V.OY := Y;
+end;
+
+function WalkAt(Kind: TWalk; const V0: TProjector; const C: TP3;
+  FrameX, FrameY, T: Double): TProjector;
+var
+  Turn: Double;
+
+  { in and out again, 0 at both ends and 1 in the middle }
+  function Hump(U: Double): Double;
+  begin
+    Result := Sin(Max(0, Min(1, U)) * Pi);
+  end;
+
+begin
+  Result := V0;
+  T := Max(0, Min(1, T));
+  case Kind of
+    wkTurntable:
+      Result.Az := V0.Az + 2 * Pi * T;
+
+    wkRise:
+      begin
+        { one turn, climbing from just above the horizon to looking well
+          down on it - a box shows you its sides and then its lid }
+        Result.Az := V0.Az + 2 * Pi * T;
+        Result.El := 0.18 + (1.15 - 0.18) * T;
+      end;
+
+    wkUnderOver:
+      begin
+        { starts below it looking up and climbs right over the top, with a
+          quarter turn so it is not a flat sweep - the one for a part whose
+          underside matters as much as its face }
+        Result.Az := V0.Az + 0.5 * Pi * T;
+        Result.El := -1.15 + (1.15 - -1.15) * T;
+      end;
+
+    wkNod:
+      begin
+        { no turn at all: straight down to straight up and back.  For
+          something with a front, where turning it only hides the front. }
+        Result.El := V0.El - 1.0 + 2.0 * Hump(T);
+      end;
+
+    wkHalfBack:
+      begin
+        { half a turn one way and back, which reads as somebody picking a
+          thing up and looking at it rather than a machine spinning it }
+        Turn := Hump(T);
+        Result.Az := V0.Az + Pi * Turn;
+        Result.El := V0.El + 0.35 * Turn;
+      end;
+
+    wkCorners:
+      begin
+        { from one corner low to the opposite corner high, going over the
+          top on the way - a single sweep that shows three faces }
+        Result.Az := V0.Az - Pi / 4 + (3 * Pi / 2) * T;
+        Result.El := 0.15 + 1.05 * T;
+      end;
+
+    wkLookAll:
+      begin
+        { Tony's sketch: up, down, back to level, then round, and a dip at
+          the far side.  Two turns of azimuth with the elevation doing its
+          own thing over the top, so nothing repeats and every face comes
+          past the camera at some point. }
+        Result.Az := V0.Az + 2 * Pi * T;
+        if T < 0.25 then
+          Result.El := 0.45 + 0.85 * Hump(T / 0.25)        { over the top }
+        else if T < 0.5 then
+          Result.El := 0.45 - 1.20 * Hump((T - 0.25) / 0.25)  { and under }
+        else
+          Result.El := 0.45 + 0.55 * Hump((T - 0.5) / 0.5);   { level, then a lean }
+      end;
+
+    wkPushIn:
+      begin
+        { a slow close with a little drift, which is how somebody shows you a
+          detail without you losing where it sits }
+        Result.Az := V0.Az + 0.7 * Pi * T;
+        Result.El := V0.El + 0.25 * T;
+        Result.Ppu := V0.Ppu * Exp(Ln(2.4) * T);
+      end;
+  end;
+  if Result.El < -1.45 then Result.El := -1.45;
+  if Result.El > 1.45 then Result.El := 1.45;
+  { and whatever the angles did, the thing being looked at stays put }
+  HoldAt(Result, C, FrameX, FrameY);
 end;
 
 function ViewScale(SrcW, SrcH, W, H: Integer): Double;
