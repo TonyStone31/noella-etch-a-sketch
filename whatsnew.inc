@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.24' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The button on a failed export said "Tell Tony about it".**  It sends a' + LineEnding +
+    '  bug report, so now it says so.' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Help pages.**  `docs/help/index.html` - one page for every tool and one' + LineEnding +
+    '  for each of the things you do with a drawing.  They have no pictures in' + LineEnding +
+    '  them yet; the words are there.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.23' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
