@@ -1,0 +1,26 @@
+# The command list: half the window, and an example on the highlighted row.
+#
+# What this proves: the list no longer runs the whole height of the window,
+# and the row under the pointer shows a real use of the command instead of
+# the description when the command takes something after it.  /sc leaves
+# /scale highlighted, and the row should read "/scale 1/4"" rather than
+# "the print scale".
+#
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 600
+key slash
+wait 900
+shot /tmp/hsk-eg-all.png
+type sc
+wait 900
+shot /tmp/hsk-eg-scale.png
+key escape
+wait 400
+key slash
+wait 600
+type p
+wait 700
+shot /tmp/hsk-eg-p.png

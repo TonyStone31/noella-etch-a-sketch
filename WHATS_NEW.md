@@ -10,6 +10,26 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The command list shows you how to use a command, not just what it is.**
+  Highlight a row - with the arrow keys or the pointer - and if that command
+  takes something after it, the line beside it turns into a real example.
+  `/scale` reads `/scale 1/4"`, `/cut` reads `/cut 0 9'`, `/plane` reads
+  `/plane xz`.  The rest go on saying what they do.
+
+### Changed
+
+- **The command list is half the height of the window** instead of all of
+  it.  Sixty rows from the prompt to the title bar was a wall in front of
+  the drawing you were about to do something to; the rest is a scroll away.
+
+- **The reading along the top goes to the corner now.**  X, Y, Z, the plane,
+  the length and the area used to stop two hundred pixels short to clear the
+  TOY/PRO switch.  The switch is gone, so the room is the reading's.
+
 ## v2026.09.14.12
 
 ### New

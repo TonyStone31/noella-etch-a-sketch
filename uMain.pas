@@ -903,6 +903,7 @@ type
     function EraseModeOf(Shift: TShiftState): Integer;
     { the gathered edges, softened or un-softened rather than deleted }
     procedure SoftenDoomed(On_: Boolean);
+    function PopupMaxHeight(Which: Integer): Integer;
     procedure OpenPopup(Which: Integer);
     procedure ClosePopup;
     function PopupCount(Which: Integer): Integer;
@@ -1104,6 +1105,15 @@ type
     Name: string;      { what to type, without the slash }
     Hint: string;      { what it does, in a few words }
     Arg: Boolean;      { True when it wants something after it }
+    { One made-up line showing the command with something after it, shown
+      in place of the hint while the row is highlighted.  Only the ones
+      that take something have one; the rest leave it empty and go on
+      showing what they do, because "/undo" is not an example of anything.
+
+      A trailing field may be left off a record constant in FPC and comes
+      out empty, which is why sixty of the rows below say nothing about
+      it. }
+    Eg: string;
   end;
 
 const
@@ -1123,7 +1133,8 @@ const
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
     (Name: 'corner';     Hint: 'look from a corner';                    Arg: False),
-    (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True),
+    (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True;
+                         Eg:   '/cut 0 9'''),
     (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False),
     (Name: 'drill';      Hint: 'push a shape right through';            Arg: False),
     (Name: 'erase';      Hint: 'the eraser';                            Arg: False),
@@ -1146,8 +1157,10 @@ const
     (Name: 'orbit';      Hint: 'the free camera';                       Arg: False),
     (Name: 'origin';     Hint: 'put the view back on 0,0,0';            Arg: False),
     (Name: 'plan';       Hint: 'look straight down';                    Arg: False),
-    (Name: 'plane';      Hint: 'the working plane: xy, xz or yz';       Arg: True),
-    (Name: 'print';      Hint: 'this sheet - or "all", or "full"';      Arg: True),
+    (Name: 'plane';      Hint: 'the working plane: xy, xz or yz';       Arg: True;
+                         Eg:   '/plane xz'),
+    (Name: 'print';      Hint: 'this sheet - or "all", or "full"';      Arg: True;
+                         Eg:   '/print all'),
     (Name: 'protractor'; Hint: 'lay a guide at an angle';               Arg: False),
     (Name: 'push';       Hint: 'push or pull a face';                   Arg: False),
     (Name: 'quick';      Hint: 'quick frames while the camera moves';   Arg: False),
@@ -1157,17 +1170,21 @@ const
     (Name: 'reface';     Hint: 'throw the flat faces away and rebuild'; Arg: False),
     (Name: 'regions';    Hint: 'report the flat areas found';           Arg: False),
     (Name: 'rendertime'; Hint: 'time a whole frame';                    Arg: False),
-    (Name: 'replay';     Hint: 'play back a session from a report';     Arg: False),
+    (Name: 'replay';     Hint: 'play back a session from a report';     Arg: False;
+                         Eg:   '/replay session.txt'),
     (Name: 'report';     Hint: 'send a bug report, with a picture';     Arg: False),
-    (Name: 'resize';     Hint: 'retype a picked dimension';             Arg: True),
+    (Name: 'resize';     Hint: 'retype a picked dimension';             Arg: True;
+                         Eg:   '/resize 4''6"'),
     (Name: 'reverse';    Hint: 'turn the picked faces over';            Arg: False),
     (Name: 'right';      Hint: 'look from the right';                   Arg: False),
     (Name: 'rotate';     Hint: 'the rotate tool';                       Arg: False),
     (Name: 'save';       Hint: 'save the drawing';                      Arg: False),
     (Name: 'saveas';     Hint: 'save it under a new name';              Arg: False),
-    (Name: 'scale';      Hint: 'the print scale: 1/4", 1" and so on';   Arg: True),
+    (Name: 'scale';      Hint: 'the print scale: 1/4", 1" and so on';   Arg: True;
+                         Eg:   '/scale 1/4"'),
     (Name: 'select';     Hint: 'the select tool';                       Arg: False),
-    (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False),
+    (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False;
+                         Eg:   '/session session.txt'),
     (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False),
     (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False),
     (Name: 'text';       Hint: 'a note on the drawing';                 Arg: False),
@@ -1180,7 +1197,8 @@ const
     (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False),
     (Name: 'unfold';     Hint: 'lay a piece out flat';                  Arg: False),
     (Name: 'units';      Hint: 'feet and inches, or millimetres';       Arg: False),
-    (Name: 'update';     Hint: 'look for a newer build';                Arg: False),
+    (Name: 'update';     Hint: 'look for a newer build';                Arg: False;
+                         Eg:   '/update never'),
     (Name: 'whatsnew';   Hint: 'the release notes';                     Arg: False));
 
 const
@@ -3289,8 +3307,8 @@ begin
   FPopupN := Length(FCmdOrder);
   { and the panel shrinks to what is left in it - a list of four rows in a
     box built for sixty is a box with a hole in it }
-  H := FPopupN * Round(22 * FUIScale) + Round(12 * FUIScale);
-  if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
+  H := Min(FPopupN * Round(22 * FUIScale) + Round(12 * FUIScale),
+           PopupMaxHeight(POP_CMDS));
   FPopupR := Rect(FPopupR.Left, FPopupR.Bottom - H, FPopupR.Right,
                   FPopupR.Bottom);
   if FPopupR.Top < 4 then
@@ -13301,6 +13319,21 @@ begin
   pbDeck.Invalidate;
 end;
 
+{ How tall a list is allowed to get.
+
+  Most of them are short enough that it never comes up.  The command list is
+  not: sixty-odd rows at twenty-two pixels is taller than the window, and
+  before this it simply ran the whole height of it - a wall of text from the
+  prompt to the title bar, over the top of the drawing the command is about
+  to act on.  Half the window is enough to choose from and leaves the model
+  visible behind it, and the rest of the list is a scroll away. }
+function TMainForm.PopupMaxHeight(Which: Integer): Integer;
+begin
+  Result := pbScreen.Height - 20;
+  if Which = POP_CMDS then
+    Result := Min(Result, Max(Round(180 * FUIScale), pbScreen.Height div 2));
+end;
+
 procedure TMainForm.OpenPopup(Which: Integer);
 var
   N, I, W, H, RowH, LeftX, Bottom, TopY: Integer;
@@ -13356,9 +13389,8 @@ begin
   { wide, because every row carries what the command does beside its name -
     a hint you have to hover for is a hint you have to already suspect }
   if Which = POP_CMDS then W := Round(430 * FUIScale);
-  H := N * RowH + Round(12 * FUIScale);
+  H := Min(N * RowH + Round(12 * FUIScale), PopupMaxHeight(Which));
   Bottom := pbScreen.Height - Round(6 * FUIScale);
-  if H > pbScreen.Height - 20 then H := pbScreen.Height - 20;
   LeftX := EnsureRange(LeftX, 4, Max(4, pbScreen.Width - W - 4));
   if TopY >= 0 then
   begin
@@ -13475,14 +13507,24 @@ begin
     C.TextOut(R.Left + Round(8 * FUIScale),
       R.Top + (RowH - C.TextHeight('X')) div 2, S);
 
-    { what it does, beside what it is called }
+    { What it does, beside what it is called - and on the row under the
+      pointer, for the ones that take something after them, what a real use
+      of it looks like instead.  The hint says what /scale is for; it does
+      not say that what goes after it is 1/4" rather than 4 or 1:48, and
+      that is the thing somebody opens the manual to find out. }
     if (FPopup = POP_CMDS) and (I < Length(FCmdOrder)) then
     begin
-      if Sel then UIFont(C, 10, False, OnPix(Theme.Accent))
+      S := CMD_LIST[FCmdOrder[I]].Hint;
+      if (I = FPopupHot) and (CMD_LIST[FCmdOrder[I]].Eg <> '') then
+      begin
+        S := CMD_LIST[FCmdOrder[I]].Eg;
+        { in the typing face, because it is something to type }
+        UIFont(C, 10, False, Theme.Accent, True);
+      end
+      else if Sel then UIFont(C, 10, False, OnPix(Theme.Accent))
       else UIFont(C, 10, False, Theme.TextDim);
       C.TextOut(R.Left + Round(120 * FUIScale),
-        R.Top + (RowH - C.TextHeight('X')) div 2,
-        CMD_LIST[FCmdOrder[I]].Hint);
+        R.Top + (RowH - C.TextHeight('X')) div 2, S);
     end;
   end;
 
@@ -15951,9 +15993,18 @@ begin
       first thing anybody has to say when something goes wrong. }
     Y := Round(5 * FUIScale);
 
-    { the TOY/PRO switch lives at the right of this same line, so the reading
-      stops short of it rather than running underneath }
-    RightEdge := ClientWidth - M - Round(186 * FUIScale) - Round(14 * FUIScale);
+    { The reading goes hard against the right edge.
+
+      It used to stop two hundred pixels short, because the TOY/PRO switch
+      sat at the right of this same line and a reading that ran underneath
+      it was unreadable.  The switch is gone and the room is the reading's:
+      X, Y, Z, the plane, the length and the area all grow leftwards from
+      here, and every one of them is a number somebody is reading while
+      they drag.
+
+      Hard against ClientWidth - M, which is exactly where the VIEW button
+      on the row below ends, so the two right edges line up. }
+    RightEdge := ClientWidth - M;
     UIFont(Canvas, 11, True, Theme.Text, True);
     S := StatusLine;
     TW := Canvas.TextWidth(S);

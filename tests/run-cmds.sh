@@ -22,7 +22,8 @@ src = io.open('uMain.pas', encoding='utf-8', errors='replace').read()
 m = re.search(r"CMD_LIST: array\[0\.\.(\d+)\] of TCmdItem = \(", src)
 if not m:
     print('CMD_LIST not found - has it been renamed?'); sys.exit(1)
-end = src.index('Arg: False));', m.end())
+# the terminator belongs to the last row, so take it with it
+end = src.index('Arg: False));', m.end()) + len('Arg: False))')
 table = src[m.end():end]
 names = re.findall(r"\(Name: '([a-z0-9]+)'", table)
 
@@ -49,6 +50,24 @@ known = set(re.findall(r"W = '([a-z0-9]+)'", body))
 # plain comparison, so the source is read for those separately
 known |= set(re.findall(r"Cmd = '([a-z0-9]+)'", body))
 known |= set(re.findall(r"Copy\(W, 1, \d+\) = '([a-z0-9]+)'", body))
+
+# the examples: one per row that wants something after it, each one a real
+# use of that command.  A Pascal string doubles its apostrophes, so 4''6"
+# in the source is 4'6" on the screen - undo that before reading it.
+rows = re.findall(r"\(Name: '([a-z0-9]+)';.*?Arg: (True|False);?"
+                  r"(?:\s*Eg:\s*'((?:[^']|'')*)')?\s*\)", table, re.S)
+if len(rows) != len(names):
+    print('could not read every row of CMD_LIST (%d of %d)' % (len(rows), len(names)))
+    bad = 1
+for nm, arg, eg in rows:
+    eg = (eg or '').replace("''", "'")
+    if arg == 'True' and not eg:
+        print('/%s wants something after it and has no example' % nm)
+        bad = 1
+    if eg and not eg.startswith('/' + nm + ' '):
+        print('/%s has the example %r, which is not that command with '
+              'something after it' % (nm, eg))
+        bad = 1
 
 missing = [n for n in names if n not in known]
 if missing:

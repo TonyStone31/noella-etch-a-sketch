@@ -914,7 +914,20 @@ used lately float to the top.  `CMD_LIST` in uMain is the table; the order is
 then the ones that merely contain it - and within each sweep puts the recent
 ones first.
 
-Two things it does not do, neither of them hard, neither of them asked for:
+**Examples on the highlighted row, 14 September.**  `TCmdItem` gained an
+`Eg` field: the eight commands that take something after them carry one made-up
+line showing it, drawn in the mono face in place of the hint while that row is
+highlighted.  The hint says what /scale is for; the example says that what
+goes after it is 1/4" rather than 4 or 1:48, which is the thing somebody
+opens the manual to find out.  A trailing field may be left off a record
+constant in FPC, so the other fifty-nine rows say nothing about it.
+
+The panel is capped at half the window (`PopupMaxHeight`) rather than the
+whole of it.  Sixty rows from the prompt to the title bar was a wall in front
+of the drawing the command is about to act on.
+
+One thing it still does not do, and one that used to be a risk and is not
+any more:
 
 * **Aliases are not in it.**  `/e`, `/mv`, `/tape` and the rest all still
   work and the README lists them, but the list shows one row per action - the
@@ -935,6 +948,12 @@ Two things it does not do, neither of them hard, neither of them asked for:
 
   It deliberately does not check the other direction.  The chain is full of
   aliases and debugging words that are not offered on purpose.
+
+  It also checks the examples: every row flagged as wanting an argument has
+  one, and every example is that command with something after it.  A Pascal
+  string doubles its apostrophes, so the test undoes that before reading -
+  `4''6"` in the source is `4'6"` on the screen, and the first version of
+  `/cut 0 9'` had one apostrophe too many and would not compile.
 
 ### The drive scripts now have a runner, and it is only a smoke test
 
