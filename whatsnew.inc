@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.25' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **It opens with something on it now.**  A run with nothing to show - no' + LineEnding +
+    '  drawing named, no draft to pick up - used to be an empty sheet, which tells' + LineEnding +
+    '  you nothing about what this is for.  It opens a toy etch-a-sketch instead:' + LineEnding +
+    '  a solid to orbit, a screen to look at, and a robot drawn on it in lines' + LineEnding +
+    '  that is asking to be pushed.  **Ctrl+N** for an empty sheet, and once you' + LineEnding +
+    '  have drawn anything you will never see it again.' + LineEnding +
+    '' + LineEnding +
+    '  It is carried inside the program, so a portable build is still one file.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A shape with a hole in it can be closed.**  A picture frame, or the' + LineEnding +
+    '  surround of a recessed screen, is a face with a hole cut out of it - and' + LineEnding +
+    '  the hole''s edge is as much the boundary of the solid as the outside is.' + LineEnding +
+    '  It was only counting the outside, so anything shaped that way read as not' + LineEnding +
+    '  closed however well it was built, and the STL said a slicer would have to' + LineEnding +
+    '  guess.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.24' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
