@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The preview and the recording window now handle like the drawing.**
+  Middle-drag turns it, right-drag slides it, the left button does nothing,
+  and the wheel zooms on the pointer rather than the middle of the picture -
+  all the same as the drawing area, at the same speed.  They were all
+  different before, which is why moving around in there felt odd.
+
 ## v2026.09.13.19
 
 ### Fixed
