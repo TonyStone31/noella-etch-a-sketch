@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The letters of the logo, and the robot, can be pushed now.**  They were' + LineEnding +
+    '  lines with no faces under them, and a drawing read from a file never has its' + LineEnding +
+    '  faces worked out - everything in a saved file is taken as settled, so a' + LineEnding +
+    '  region with no face is one whose face was rubbed out on purpose.  Quite' + LineEnding +
+    '  right for a file the program saved, and it meant the example, which was' + LineEnding +
+    '  written by hand, could never grow them.  The faces are in the file now.' + LineEnding +
+    '' + LineEnding +
+    '- **The example opens framed, near the origin.**  It was written with no pan' + LineEnding +
+    '  at all, which put the origin in the corner of the view and the toy away off' + LineEnding +
+    '  to one side.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.27' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
