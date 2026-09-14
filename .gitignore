@@ -43,7 +43,11 @@ CLAUDE.local.md
 # The report collector and what it collects stay off GitHub.  The script is
 # the operator's side of the arrangement, and the reports are other people's
 # drawings and words.
-tools/
+#
+# Anchored to the root on purpose.  Unanchored, this matched a folder called
+# tools at any depth, and it quietly swallowed docs/help/tools - seventeen
+# pages of the manual that were written, built against, and never committed.
+/tools/
 
 # the program's own outbox, written next to the executable when a report is
 # sent from a build run out of the source tree.  Somebody's drawing and
