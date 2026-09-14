@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.11' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **You do not have to remember the commands any more.**  Type `/` and the' + LineEnding +
+    '  whole list comes up with a word about what each one does.  Keep typing and' + LineEnding +
+    '  it narrows, the way an editor''s autocomplete does - `/re` leaves you' + LineEnding +
+    '  /rebuild, /rect, /redo, /reface and the rest.  Up and down walk it, Enter' + LineEnding +
+    '  takes what is highlighted, Tab completes without running it, Escape puts it' + LineEnding +
+    '  away, and clicking a row does the same as Enter on it.' + LineEnding +
+    '' + LineEnding +
+    '  The ones you have used lately sit at the top and the rest are alphabetical,' + LineEnding +
+    '  so it works whether or not you know what the thing is called.  It remembers' + LineEnding +
+    '  them between sessions.' + LineEnding +
+    '' + LineEnding +
+    '  There is a `/` button at the left of the command bar for anybody who has' + LineEnding +
+    '  not found the keyboard yet.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.10' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
