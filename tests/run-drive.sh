@@ -33,7 +33,7 @@ if [ $# -gt 0 ]; then
 else
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
          glass-revolve plan-slice plan-hidden command-list toy-command
-         cmd-example"
+         cmd-example cmd-wheel"
 fi
 
 BAD=0

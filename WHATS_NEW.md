@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The wheel scrolls the command list.**  It used to zoom the drawing
+  behind it instead, which was true of every list in the program - the
+  command list is just the first one long enough to make it obvious.  A list
+  in front of the drawing now gets the wheel before the drawing does.
+
 ## v2026.09.14.14
 
 ### Fixed

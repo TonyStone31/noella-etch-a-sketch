@@ -926,6 +926,14 @@ The panel is capped at half the window (`PopupMaxHeight`) rather than the
 whole of it.  Sixty rows from the prompt to the title bar was a wall in front
 of the drawing the command is about to act on.
 
+The wheel scrolls it (`ScrollPopup`).  It did not, and had never scrolled any
+list: `pbScreenMouseWheel` was zoom and only zoom, so turning the wheel over
+an open menu zoomed the model behind the menu.  Every popup in the program
+had it; none of them was tall enough for anybody to notice until this one
+arrived with sixty rows in a box that holds fourteen.  An open list now takes
+the wheel whether or not it has anywhere to scroll, rather than letting it
+through to the drawing.
+
 One thing it still does not do, and one that used to be a risk and is not
 any more:
 

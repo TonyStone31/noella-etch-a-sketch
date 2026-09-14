@@ -1,0 +1,26 @@
+# The wheel scrolls the command list instead of zooming the drawing behind it.
+#
+# What this proves: with the list open, a wheel notch moves the list and
+# leaves the model where it was.  Compare hsk-wheel-top with
+# hsk-wheel-down - the rows should have changed and the etch-a-sketch
+# behind them should be exactly the same size.
+#
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 600
+key slash
+wait 900
+at 400 600
+wait 300
+shot /tmp/hsk-wheel-top.png
+scroll down 5
+wait 700
+shot /tmp/hsk-wheel-down.png
+scroll down 40
+wait 700
+shot /tmp/hsk-wheel-end.png
+scroll up 60
+wait 700
+shot /tmp/hsk-wheel-back.png

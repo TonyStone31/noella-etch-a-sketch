@@ -910,6 +910,7 @@ type
     function PopupCaption(Which, I: Integer): string;
     procedure PopupChoose(Which, I: Integer);
     function PopupItemAt(SX, SY: Integer): Integer;
+    function ScrollPopup(Lines, SX, SY: Integer): Boolean;
     procedure PaintPopup(C: TCanvas);
     procedure PaintToolGlyph(C: TCanvas; AX, AY: Integer);
     function PivotAt(SX, SY: Integer): TP3;
@@ -13429,6 +13430,39 @@ begin
   if (Result < FPopupTop) or (Result >= FPopupN) then Result := -1;
 end;
 
+{ The wheel, while a list is open.
+
+  It belongs to whatever is in front.  Before this the wheel was zoom and
+  only zoom, so turning it over an open menu zoomed the drawing behind the
+  menu - which nobody has ever wanted, and which no list of ours was short
+  enough to make obvious until the command list arrived with sixty rows in a
+  box that holds fourteen.
+
+  True means the wheel was ours, whether or not anything moved: a list with
+  nothing to scroll still swallows it rather than letting it through to the
+  model underneath.
+
+  The highlight is left where it is - scrolling is looking, not choosing,
+  and Enter must not start meaning something else because the view moved.
+  The one exception is the row under the pointer, which really has changed. }
+function TMainForm.ScrollPopup(Lines, SX, SY: Integer): Boolean;
+var
+  RowH, Rows, Was, Hot: Integer;
+begin
+  Result := FPopup <> POP_NONE;
+  if not Result then Exit;
+  RowH := Max(1, Round(22 * FUIScale));
+  Rows := Max(1, (FPopupR.Bottom - FPopupR.Top - Round(12 * FUIScale)) div RowH);
+  if FPopupN <= Rows then Exit;
+  Was := FPopupTop;
+  FPopupTop := EnsureRange(FPopupTop + Lines, 0, FPopupN - Rows);
+  if FPopupTop = Was then Exit;
+  Hot := PopupItemAt(SX, SY);
+  if Hot >= 0 then FPopupHot := Hot;
+  FScreenDirty := True;
+  pbScreen.Invalidate;
+end;
+
 { A small badge of the current tool, drawn through a scratch surface so it
   gets the same anti-aliasing as everything else on the canvas. }
 procedure TMainForm.PaintToolGlyph(C: TCanvas; AX, AY: Integer);
@@ -15839,9 +15873,18 @@ end;
 
 procedure TMainForm.pbScreenMouseWheel(Sender: TObject; Shift: TShiftState;
   WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+const
+  WHEEL_ROWS = 3;      { rows per notch, the same as most lists }
 begin
   if FBusy then Exit;
   if FMode <> mdPro then Exit;
+  { a list in front of the drawing gets the wheel before the drawing does }
+  if ScrollPopup(IfThen(WheelDelta > 0, -WHEEL_ROWS, WHEEL_ROWS),
+                 MousePos.X, MousePos.Y) then
+  begin
+    Handled := True;
+    Exit;
+  end;
   { Ctrl and the wheel travels up and down through the model, carrying the
     whole slice with it.
 
