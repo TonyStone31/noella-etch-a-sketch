@@ -100,7 +100,7 @@ type
     FBrowse, FGo, FCancel: TBCButton;
 
     { options - all built, shown as the format needs }
-    FSizeLbl, FQualLbl, FByLbl: TBCLabel;
+    FSizeLbl, FQualLbl, FByLbl, FSaveLbl: TBCLabel;
     FNoteLbl, FShotLbl, FClipLbl: TLabel;
     FHead: TBCPanel;
     FTitle: TBCLabel;
@@ -118,6 +118,11 @@ type
     FDxfWhat: TComboBox;
     FTimer: TTimer;
     FPrevS: TArtSurface;
+    { how far along an export is, and what it is doing }
+    FBar: TPaintBox;
+    FBusy: Boolean;
+    FDone, FTotal: Integer;
+    FDoing: string;
 
     procedure ComboDraw(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
@@ -141,6 +146,9 @@ type
     procedure HeadUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure FilmSays(const S: string);
+    procedure FilmStep(Done, Total: Integer; const What: string);
+    procedure BarPaint(Sender: TObject);
+    procedure Working(On_: Boolean);
     procedure DoSay(Sender: TObject);
     procedure DoCancel(Sender: TObject);
     procedure DoBrowse(Sender: TObject);
@@ -439,7 +447,7 @@ begin
   Foot.SetBounds(12, 520, 856, 72);
   uDlgSkin.SkinPanel(Foot, False, 12);
 
-  MkLbl(Foot, 'Save it as', 14, 10, 120, True, False, -12);
+  FSaveLbl := MkLbl(Foot, 'Save it as', 14, 10, 120, True, False, -12);
   FPath := TEdit.Create(Self);
   FPath.Parent := Foot;
   FPath.SetBounds(14, 32, 560, 28);
@@ -458,10 +466,84 @@ begin
   FGo := MkBtn(Foot, 'Export', 776, 32, 76, 28, bkGo);
   FGo.OnClick := @DoGo;
 
+  { The bar sits where the path is, because while an export is running the
+    path is settled and what somebody wants to know is how much longer. }
+  FBar := TPaintBox.Create(Self);
+  FBar.Parent := Foot;
+  FBar.SetBounds(14, 10, 560, 52);
+  FBar.OnPaint := @BarPaint;
+  FBar.Visible := False;
+
   FTimer := TTimer.Create(Self);
   FTimer.Interval := 40;
   FTimer.Enabled := False;
   FTimer.OnTimer := @Tick;
+end;
+
+{ What the export is up to, drawn rather than guessed at.  A twelve second
+  film is three hundred drawings of the model, which is a real wait on a
+  drawing of any size - and a window that stops answering for that long is a
+  window somebody force-quits. }
+procedure TExportDlg.BarPaint(Sender: TObject);
+var
+  C: TCanvas;
+  T: TTheme;
+  W, Y: Integer;
+begin
+  C := FBar.Canvas;
+  T := uDlgSkin.DlgTheme;
+  C.Brush.Color := uSurface.PixToColor(T.Panel);
+  C.Brush.Style := bsSolid;
+  C.FillRect(0, 0, FBar.Width, FBar.Height);
+
+  Y := 30;
+  C.Brush.Color := uDlgSkin.Shade(uSurface.PixToColor(T.Panel), -0.30);
+  C.FillRect(0, Y, FBar.Width, Y + 10);
+  if FTotal > 0 then
+  begin
+    W := Round(FBar.Width * EnsureRange(FDone / FTotal, 0, 1));
+    C.Brush.Color := uSurface.PixToColor(T.Accent);
+    C.FillRect(0, Y, W, Y + 10);
+  end;
+  C.Brush.Style := bsClear;
+
+  C.Font.Height := -13;
+  C.Font.Style := [];
+  C.Font.Color := uSurface.PixToColor(T.Text);
+  C.TextOut(0, 6, FDoing);
+end;
+
+{ Everything that says an export is running: the cursor, the bar, and the
+  buttons that must not be pressed twice while one is. }
+procedure TExportDlg.Working(On_: Boolean);
+begin
+  FBusy := On_;
+  FBar.Visible := On_;
+  FPath.Visible := not On_;
+  FSaveLbl.Visible := not On_;
+  FBrowse.Enabled := not On_;
+  FGo.Enabled := not On_;
+  if On_ then Screen.Cursor := crHourGlass else Screen.Cursor := crDefault;
+  if On_ then
+  begin
+    FDone := 0;
+    FTotal := 0;
+    FDoing := 'Working...';
+  end;
+  FBar.Invalidate;
+  Application.ProcessMessages;
+end;
+
+procedure TExportDlg.FilmStep(Done, Total: Integer; const What: string);
+begin
+  FDone := Done;
+  FTotal := Total;
+  FDoing := What;
+  FBar.Invalidate;
+  { So it actually paints.  The export runs on the same thread as the window,
+    which is what made the program look hung; letting the queue drain between
+    frames is what turns that into a bar that moves. }
+  Application.ProcessMessages;
 end;
 
 { Windows paints a themed combo box itself and takes no notice of Font.Color,
@@ -963,6 +1045,8 @@ begin
   end;
   FStage := 'starting';
   uShoot.OnFilmStage := @FilmSays;
+  uShoot.OnFilmStep := @FilmStep;
+  Working(True);
   try
     WriteIt;
     FWrote := True;
@@ -984,7 +1068,9 @@ begin
       FSay.Visible := Assigned(FOnReport);
     end;
   end;
+  Working(False);
   uShoot.OnFilmStage := nil;
+  uShoot.OnFilmStep := nil;
 end;
 
 procedure TExportDlg.WriteIt;

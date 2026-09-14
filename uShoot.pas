@@ -183,9 +183,15 @@ procedure SaveStill(Doc: TWorkDoc; const V: TProjector; SrcW, SrcH, W, H: Intege
 type
   { where a film says what it is up to }
   TStageSay = procedure(const S: string) of object;
+  { and how far along it is, for something to show.  A twelve second film is
+    three hundred drawings of the model and the wait is real, so it says so
+    as it goes rather than leaving somebody looking at a window that has
+    stopped answering. }
+  TFilmStep = procedure(Done, Total: Integer; const What: string) of object;
 
 var
   OnFilmStage: TStageSay = nil;
+  OnFilmStep: TFilmStep = nil;
 
 { How many frames a film of this length at this size will actually come to,
   and the rate that gives.  The dialog asks so it can say, rather than
@@ -212,6 +218,11 @@ type
 procedure Say(const S: string);
 begin
   if Assigned(OnFilmStage) then OnFilmStage(S);
+end;
+
+procedure Step(Done, Total: Integer; const What: string);
+begin
+  if Assigned(OnFilmStep) then OnFilmStep(Done, Total, What);
 end;
 
 procedure FilmPlan(Seconds: Double; Fps, W, H: Integer;
@@ -635,6 +646,7 @@ begin
     for I := 0 to Frames - 1 do
     begin
       Say(Format('drawing frame %d of %d at %dx%d', [I + 1, Frames, W, H]));
+      Step(I, Frames, Format('Drawing frame %d of %d', [I + 1, Frames]));
       V := Fitted(ViewAt(I, Frames), SrcW, SrcH, W, H);
       ShootInto(S, Doc, V, U, AFont, LabelCol, EdgeW, Pix(255, 255, 255), False);
       { the axes go on after the drawing rather than under it - at this
@@ -653,9 +665,11 @@ begin
     if Int64(Frames) * W * H <= GIF_PACK_PIXELS then
     begin
       Say(Format('packing %d frames', [Frames]));
+      Step(Frames, Frames, 'Packing the frames...');
       Gif.OptimizeFrames;
     end;
     Say(Format('writing %s', [ExtractFileName(Path)]));
+    Step(Frames, Frames, 'Writing ' + ExtractFileName(Path) + '...');
     Gif.SaveToFile(Path);
   finally
     Gif.Free;

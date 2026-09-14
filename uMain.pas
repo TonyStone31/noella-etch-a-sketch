@@ -6975,7 +6975,10 @@ procedure TMainForm.ShowWhatsNew;
 var
   F: TWhatsNewForm;
 begin
-  F := TWhatsNewForm.Create(Self);
+  { the dialogs read one palette and it is the one the window is wearing }
+  uDlgSkin.UseTheme(Themes[FThemeIdx]);
+  { built in code, not from a form resource - so CreateNew, not Create }
+  F := TWhatsNewForm.CreateNew(Self);
   try
     F.ShowAll;
   finally
@@ -15781,7 +15784,8 @@ begin
     if (FUpdatedFrom <> '') and not FWhatsNewShown and (FUpTime > 0.5) then
     begin
       FWhatsNewShown := True;
-      WhatsNewForm := TWhatsNewForm.Create(Self);
+      uDlgSkin.UseTheme(Themes[FThemeIdx]);
+      WhatsNewForm := TWhatsNewForm.CreateNew(Self);
       try
         WhatsNewForm.ShowRelease(FUpdatedFrom, CurrentVersion);
       finally

@@ -10,6 +10,25 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The What's new screen is dressed like the rest of the program.**  It was
+  a stock white box with one weight of one colour and the bold markers of the
+  file showing as asterisks.  Now the version, the headings and the lead-in
+  of each note are told apart, and it scrolls with the wheel.
+
+- **An export says how far along it is.**  A twelve second film is three
+  hundred drawings of the model, and the window used to stop answering for
+  the whole of it.  There is a bar now, frame by frame, and an hourglass.
+
+### Fixed
+
+- **The splash screen fits its own window.**  On a Windows machine at a
+  scaled display it was drawing the panel and the writing at one size inside
+  a window at another, leaving them stranded in the corner.
+
 ## v2026.09.14.3
 
 ### New

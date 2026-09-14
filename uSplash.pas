@@ -69,6 +69,13 @@ begin
   inherited CreateNew(nil);
   FTheme := Themes[THEME_PRO_DARK];
   FScale := Max(1.0, Screen.PixelsPerInch / 96);
+  { Nothing on this form is a control, so there is nothing for the LCL's own
+    high-DPI pass to lay out - and letting it run scaled the window a second
+    time on top of the scaling done here.  The window came out big and the
+    drawing inside it stayed the size it was first asked for, which is a
+    panel and a row of labels sitting in the top corner of a much larger
+    box. }
+  Scaled := False;
   BorderStyle := bsNone;
   { not fsSplash: the LCL hides every fsSplash form the moment the main
     window shows, and this one is meant to outlast that by a few seconds }
@@ -126,6 +133,20 @@ var
 begin
   W := ClientWidth;
   H := ClientHeight;
+
+  { Whatever size the window actually came out - the scaling asked for, a
+    second pass by the widgetset, a window manager with opinions - the
+    drawing is made to fit it rather than to fit what was asked for.  The
+    surface was built once at construction and never looked at again, so a
+    window that ended up any other size had its artwork stranded in the
+    corner. }
+  if (FSkin = nil) or (FSkin.Width <> W) or (FSkin.Height <> H) then
+  begin
+    FSkin.Free;
+    FSkin := TArtSurface.Create(Max(1, W), Max(1, H));
+  end;
+  FScale := Max(0.5, W / 620);
+
   Pad := Round(36 * FScale);
   PaintShell(FSkin, FTheme);
   FSkin.RoundFrame(Rect(1, 1, W - 1, H - 1), Round(16 * FScale), 2.0, FTheme.Accent, 0.85);

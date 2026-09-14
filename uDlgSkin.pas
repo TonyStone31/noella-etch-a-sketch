@@ -91,6 +91,12 @@ begin
   else Base := PixToColor(DlgTheme.Panel);
   P.Background.Style := bbsColor;
   P.Background.Color := Base;
+  { and the plain LCL colour with it.  A BCPanel paints its own background
+    and leaves Color alone, but a child with ParentColor set - which a
+    BCLabel has by default - reads Color, not what was painted.  So a label
+    on a skinned panel was filling its own rectangle with the form's default
+    grey and printing the title inside a pale box. }
+  P.Color := Base;
   P.Border.Style := bboSolid;
   P.Border.Color := PixToColor(DlgTheme.Bezel1);
   P.Border.Width := 1;
