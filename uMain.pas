@@ -7287,7 +7287,7 @@ var
   Res: Integer;
   Body, Name_, Err, Note, ShotErr: string;
   WantShot: Boolean;
-  NThings: Integer;
+  NThings, LblW, Grow: Integer;
   Shot: TMemoryStream;
   L: TStringList;
 begin
@@ -7342,8 +7342,9 @@ begin
     { Wrapped, and given the room to wrap into.  It was running off the
       right-hand side, which is what happens to a fixed height with a
       variable amount of text in it. }
+    LblW := Dlg.ClientWidth - Round(24 * FUIScale);
     Lbl.SetBounds(Round(12 * FUIScale), Round(10 * FUIScale),
-      Dlg.ClientWidth - Round(24 * FUIScale), Round(62 * FUIScale));
+      LblW, Round(62 * FUIScale));
     Lbl.WordWrap := True;
     Lbl.AutoSize := False;
     if Preamble <> '' then
@@ -7359,9 +7360,23 @@ begin
         'and what machine this is: RAM, processor, graphics, operating ' +
         'system.  Nothing about you.';
 
+    { And then let it measure itself.  Four lines of room was enough for the
+      words at the font this was written at and not at a larger one, so the
+      last line was being cut off halfway down - the sentence explaining what
+      goes in the report was the part you could not read.  Pinning the width
+      and asking the label how tall it needs to be gets the true answer for
+      whatever font and scaling this machine turned out to have, and the rest
+      of the form drops by the difference. }
+    Lbl.Constraints.MinWidth := LblW;
+    Lbl.Constraints.MaxWidth := LblW;
+    Lbl.AutoSize := True;
+    Grow := Lbl.Height - Round(62 * FUIScale);
+    if Grow < 0 then Grow := 0;
+    Dlg.ClientHeight := Dlg.ClientHeight + Grow;
+
     Memo := TMemo.Create(Dlg);
     Memo.Parent := Dlg;
-    Memo.SetBounds(Round(12 * FUIScale), Round(78 * FUIScale),
+    Memo.SetBounds(Round(12 * FUIScale), Round(78 * FUIScale) + Grow,
       Dlg.ClientWidth - Round(24 * FUIScale), Round(180 * FUIScale));
     Memo.ScrollBars := ssAutoVertical;
     Memo.WordWrap := True;
@@ -7376,7 +7391,7 @@ begin
     WithDoc.Parent := Dlg;
     { A check box will not wrap, so its words have to fit on one line and the
       rest of the thought goes underneath it. }
-    WithDoc.SetBounds(Round(12 * FUIScale), Round(268 * FUIScale),
+    WithDoc.SetBounds(Round(12 * FUIScale), Round(268 * FUIScale) + Grow,
       Dlg.ClientWidth - Round(24 * FUIScale), Round(22 * FUIScale));
     { The count is of the drawing that will actually go, which for a crash is
       the one saved when it happened rather than whatever is on screen now -
@@ -7408,7 +7423,7 @@ begin
 
     Fine := TLabel.Create(Dlg);
     Fine.Parent := Dlg;
-    Fine.SetBounds(Round(30 * FUIScale), Round(290 * FUIScale),
+    Fine.SetBounds(Round(30 * FUIScale), Round(290 * FUIScale) + Grow,
       Dlg.ClientWidth - Round(42 * FUIScale), Round(40 * FUIScale));
     Fine.WordWrap := True;
     Fine.AutoSize := False;
@@ -7425,7 +7440,7 @@ begin
     begin
       Shown := TImage.Create(Dlg);
       Shown.Parent := Dlg;
-      Shown.SetBounds(Round(12 * FUIScale), Round(336 * FUIScale),
+      Shown.SetBounds(Round(12 * FUIScale), Round(336 * FUIScale) + Grow,
         Dlg.ClientWidth - Round(24 * FUIScale), Round(170 * FUIScale));
       Shown.Stretch := True;
       Shown.Proportional := True;
@@ -7439,7 +7454,7 @@ begin
       NoPic.Caption := 'No picture with this report.';
       NoPic.Alignment := taCenter;
       NoPic.AutoSize := False;
-      NoPic.SetBounds(Round(12 * FUIScale), Round(410 * FUIScale),
+      NoPic.SetBounds(Round(12 * FUIScale), Round(410 * FUIScale) + Grow,
         Dlg.ClientWidth - Round(24 * FUIScale), Round(22 * FUIScale));
     end;
 

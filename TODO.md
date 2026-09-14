@@ -846,26 +846,6 @@ sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
 
 
-### Pushing a face that is an island leaves the solid open
-
-Found pushing a letter of the logo, 14 September.  The letter is a face whose
-whole edge is shared with a hole in the face it sits in - an island.  PushPull
-moves it and does not build the walls, so the letter rises and the solid is
-left open underneath it: `GroupClosed` says no straight afterwards, and an STL
-would tell a slicer to guess.
-
-The letter DOES push, which is what was reported and is fixed; this is the
-next layer down.  It is not about the example model - any face bounded
-entirely by another face's hole will do it, which is a window pane, a plaque
-on a wall, a raised panel on a door.
-
-Likely where to look: PushPull decides where walls go from the edges the face
-shares, and an island's edges are all shared with exactly one other face, so
-it reads as an internal face rather than a boundary.  The test is written and
-lives in the scratch program `pushtest.pas`: load the example, find the first
-letter-sized upward face on the frame, push it a quarter inch, and ask
-GroupClosed.  It currently answers "open".
-
 ### Closing without saving still leaves the draft behind
 
 Tony, 14 September: closed the drawings, chose not to save, opened the program

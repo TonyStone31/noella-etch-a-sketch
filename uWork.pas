@@ -4450,14 +4450,14 @@ function TWorkDoc.IsPatch(Index: Integer): Boolean;
 const
   TOL = 1E-6;
 var
-  I, Q, K, N, M: Integer;
+  I, Q, K, N, M, RB: Integer;
   Nm: TP3;
   PlaneD: Double;
+  A, B: TP3Array;
 begin
   Result := False;
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
-  N := Length(FEnts[Index].Poly);
-  if N < 3 then Exit;
+  if Length(FEnts[Index].Poly) < 3 then Exit;
   Nm := FaceNormal(Index);
   PlaneD := Dot3(Nm, FEnts[Index].Poly[0]);
 
@@ -4465,20 +4465,39 @@ begin
   begin
     if I = Index then Continue;
     if FEnts[I].Kind <> ekFace then Continue;
-    M := Length(FEnts[I].Poly);
-    if M < 3 then Continue;
+    if Length(FEnts[I].Poly) < 3 then Continue;
     { in the same plane?  the normals may point opposite ways }
     if Abs(Abs(Dot3(FaceNormal(I), Nm)) - 1) > TOL then Continue;
     if Abs(Dot3(Nm, FEnts[I].Poly[0]) - PlaneD) > TOL then Continue;
-    { sharing an edge with it? }
-    for Q := 0 to N - 1 do
-      for K := 0 to M - 1 do
-        if ((Dist(FEnts[Index].Poly[Q], FEnts[I].Poly[K]) < TOL) and
-            (Dist(FEnts[Index].Poly[(Q + 1) mod N],
-                  FEnts[I].Poly[(K + 1) mod M]) < TOL)) or
-           ((Dist(FEnts[Index].Poly[Q], FEnts[I].Poly[(K + 1) mod M]) < TOL) and
-            (Dist(FEnts[Index].Poly[(Q + 1) mod N], FEnts[I].Poly[K]) < TOL)) then
-          Exit(True);
+    { Sharing an edge with it?
+
+      The neighbour's openings count.  A letter sitting in a hole cut out of
+      the panel under it touches that panel along the hole and nowhere else,
+      never along the panel's outline - so reading outlines only made an
+      island look like the whole flat side of a solid, and pushing one slid
+      the whole toy instead of raising the letter.
+
+      This face's own openings do not count, though, and that is the other
+      half of it: a patch is a piece of somebody else's surface.  What has
+      been cut out of this one belongs to it, and the plugs filling those
+      cutouts are its tenants rather than its neighbours.  The screen of the
+      toy has the whole robot cut into it and is still the entire floor of
+      its recess. }
+    A := FEnts[Index].Poly;
+    N := Length(A);
+    for RB := 0 to Length(FEnts[I].Holes) do
+    begin
+      if RB = 0 then B := FEnts[I].Poly else B := FEnts[I].Holes[RB - 1];
+      M := Length(B);
+      if M < 3 then Continue;
+      for Q := 0 to N - 1 do
+        for K := 0 to M - 1 do
+          if ((Dist(A[Q], B[K]) < TOL) and
+              (Dist(A[(Q + 1) mod N], B[(K + 1) mod M]) < TOL)) or
+             ((Dist(A[Q], B[(K + 1) mod M]) < TOL) and
+              (Dist(A[(Q + 1) mod N], B[K]) < TOL)) then
+            Exit(True);
+    end;
   end;
 end;
 
@@ -4540,7 +4559,7 @@ const
   TOL = 1E-6;
 var
   Was: TP3Array;
-  I, K, N, G: Integer;
+  I, J, K, N, G: Integer;
   Nm, BU, BV: TP3;
   PlaneD: Double;
 
@@ -4635,6 +4654,13 @@ begin
     if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
     for K := 0 to High(FEnts[I].Poly) do
       Shift(FEnts[I].Poly[K]);
+    { What is cut out of a face travels with it.  The logo is holes in the
+      top of the toy with the letters plugged into them; sliding the top
+      moved the panel and left all fourteen openings behind at the old
+      height, which tore the solid open along every letter. }
+    for J := 0 to High(FEnts[I].Holes) do
+      for K := 0 to High(FEnts[I].Holes[J]) do
+        Shift(FEnts[I].Holes[J][K]);
   end;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
@@ -5529,6 +5555,7 @@ var
   Quad: array[0..3] of TP3;
   Ink: TColor;
   Wt: Single;
+  Plug: Boolean;
 begin
   Result := False;
   FLastBore := -1;
@@ -5555,7 +5582,8 @@ begin
     could cut a solid's face.  Half a box top still belongs to the solid, but
     pushing it has to lift that half out - sliding it would shear the box.
     Asking whether the face is a patch answers both cases with one question. }
-  if FEnts[Index].Solid and not IsPatch(Index) then
+  Plug := FEnts[Index].Solid and IsPatch(Index);
+  if FEnts[Index].Solid and not Plug then
   begin
     MoveFaceWith(Index, P3(Nm.X * Dist, Nm.Y * Dist, Nm.Z * Dist));
     Exit(True);
@@ -5648,22 +5676,32 @@ begin
       for I := 0 to M - 1 do FEnts[Index].Holes[H][I] := HTop[H][M - 1 - I];
   end;
 
-  AddFaceRaw(Rev, Ink, True);
-  FEnts[FLive - 1].Grp := G;
-  { and so does the one left behind, wound to match its own outline }
-  if Length(HBase) > 0 then
+  { A plug - a face sitting in the surface of a solid, like a letter in the
+    panel cut out to hold it - has material under it already.  Capping the
+    opening it leaves would lay a face inside the solid, and every edge round
+    the plug would then be used three times: by the panel, by the cap, and by
+    the wall standing on it.  That reads as open.  So the cap is only for a
+    face with nothing but air below, which is the shape a box is pulled out
+    of when you draw a rectangle and push it. }
+  if not Plug then
   begin
-    SetLength(RevH, Length(HBase));
-    for H := 0 to High(HBase) do
+    AddFaceRaw(Rev, Ink, True);
+    FEnts[FLive - 1].Grp := G;
+    { and so does the one left behind, wound to match its own outline }
+    if Length(HBase) > 0 then
     begin
-      M := Length(HBase[H]);
-      SetLength(RevH[H], M);
-      if Dist >= 0 then
-        for I := 0 to M - 1 do RevH[H][I] := HBase[H][M - 1 - I]
-      else
-        for I := 0 to M - 1 do RevH[H][I] := HBase[H][I];
+      SetLength(RevH, Length(HBase));
+      for H := 0 to High(HBase) do
+      begin
+        M := Length(HBase[H]);
+        SetLength(RevH[H], M);
+        if Dist >= 0 then
+          for I := 0 to M - 1 do RevH[H][I] := HBase[H][M - 1 - I]
+        else
+          for I := 0 to M - 1 do RevH[H][I] := HBase[H][I];
+      end;
+      SetFaceHoles(FLive - 1, RevH);
     end;
-    SetFaceHoles(FLive - 1, RevH);
   end;
 
   { walls, plus the edges so it reads as a solid in wireframe too }
@@ -5693,9 +5731,23 @@ begin
     FEnts[FLive - 1].Grp := G;
   end;
 
-  { The lining of each opening.  Same walls, wound the other way round,
-    because the material is outside a hole rather than inside it - so its
-    faces have to look inward, at the space the hole leaves. }
+  { The lining of each opening: the same walls, wound the same way round as
+    the ones outside.
+
+    That reads wrong at first - the material is outside a hole rather than
+    inside it, so the lining has to look inward at the space the hole leaves,
+    which sounds like the opposite winding.  But an opening is already stored
+    turning the opposite way to the outline it is cut in, so walking it in
+    the same direction is already walking the other way round, and reversing
+    it a second time put the lining in inside out.
+
+    What decides it is what the ring meets at the bottom.  Either a cap was
+    laid to close what the face left behind, and the cap's copy of the ring
+    is the ring reversed; or nothing was, because the face was a plug and the
+    material under it goes on - and then the ring meets whatever was plugged
+    into the opening, which had to run opposite to it or the solid was never
+    closed to begin with.  Both ways the lining runs along the ring, not
+    against it. }
   for H := 0 to High(HBase) do
   begin
     M := Length(HBase[H]);
@@ -5704,13 +5756,13 @@ begin
       J := (I + 1) mod M;
       if Dist >= 0 then
       begin
-        Quad[0] := HBase[H][J]; Quad[1] := HBase[H][I];
-        Quad[2] := HTop[H][I];  Quad[3] := HTop[H][J];
+        Quad[0] := HBase[H][I]; Quad[1] := HBase[H][J];
+        Quad[2] := HTop[H][J];  Quad[3] := HTop[H][I];
       end
       else
       begin
-        Quad[0] := HBase[H][I]; Quad[1] := HBase[H][J];
-        Quad[2] := HTop[H][J];  Quad[3] := HTop[H][I];
+        Quad[0] := HBase[H][J]; Quad[1] := HBase[H][I];
+        Quad[2] := HTop[H][I];  Quad[3] := HTop[H][J];
       end;
       AddFaceRaw(Quad, Ink, True);
       FEnts[FLive - 1].Grp := G;

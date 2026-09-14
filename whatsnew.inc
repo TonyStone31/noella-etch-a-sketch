@@ -13,6 +13,36 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Pushing a letter, or a piece of the robot, raises it with walls.**  It' + LineEnding +
+    '  used to slide the whole toy instead.  A shape drawn inside another shape -' + LineEnding +
+    '  a letter in a panel, a plaque on a wall, a window pane - only ever touches' + LineEnding +
+    '  what it sits in along the opening cut to hold it, and push/pull was only' + LineEnding +
+    '  looking at outlines, so it read the letter as the whole flat side of the' + LineEnding +
+    '  toy and moved the toy.' + LineEnding +
+    '' + LineEnding +
+    '- **Push a whole side of a solid and whatever is cut out of it comes too.**' + LineEnding +
+    '  The top of the toy has fourteen letter-shaped openings in it; sliding the' + LineEnding +
+    '  top left all fourteen behind at the old height and tore the solid open' + LineEnding +
+    '  along every letter.  Of the 133 faces on the example, 56 used to leave it' + LineEnding +
+    '  open when pushed.  None do now.' + LineEnding +
+    '' + LineEnding +
+    '- **An opening pushed up is lined the right way out.**  A ring pushed into a' + LineEnding +
+    '  foundation wall had the inside of the hole wound inside out, which is a' + LineEnding +
+    '  solid no slicer can read.' + LineEnding +
+    '' + LineEnding +
+    '- **The robot''s eyes are drawn inside its head.**  They were cut out of the' + LineEnding +
+    '  screen instead, so the head lay straight over the top of them - two faces' + LineEnding +
+    '  fighting over the same pixels, and a solid that came apart as soon as' + LineEnding +
+    '  either was pushed.' + LineEnding +
+    '' + LineEnding +
+    '- **The Report a problem box no longer cuts off the paragraph at the top.**' + LineEnding +
+    '  It had room for four lines of text at the font it was written at, and not' + LineEnding +
+    '  at a larger one.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

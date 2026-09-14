@@ -730,6 +730,145 @@ begin
   end;
 end;
 
+{ ------------------------------------- the lining of an opening ---------- }
+
+{ A ring pushed up is a foundation wall: hollow down the middle, and only a
+  closed solid if the lining of the hole turns the same way round as the
+  walls outside it.  It used to be laid in reversed, on the reasoning that a
+  hole faces inward - but a hole is already stored turning the opposite way
+  to the outline, so reversing it again put the lining in inside out and left
+  two faces running every edge round the opening the same direction.
+
+  Openings do not all arrive wound the same way about either: the region
+  finder hands one back turning with the outline it sits in, a face built by
+  hand turns it against.  Both have to come out closed, so both are here. }
+procedure TestRingLining;
+var
+  D: TWorkDoc;
+  Outer, Inner: TP3Array;
+  Holes: array of TP3Array;
+  I, Ring: Integer;
+
+  { a 10 x 6 face with an 8 x 4 opening, the opening wound as asked }
+  procedure Build(Against: Boolean);
+  var
+    K: Integer;
+  begin
+    D := TWorkDoc.Create;
+    Outer := Rect4(0, 0, 10, 6, 0);
+    Inner := Rect4(1, 1, 9, 5, 0);
+    D.AddFace(Outer, 0, False);
+    Ring := D.Live - 1;
+    SetLength(Holes, 1);
+    SetLength(Holes[0], 4);
+    for K := 0 to 3 do
+      if Against then Holes[0][K] := Inner[3 - K] else Holes[0][K] := Inner[K];
+    D.SetFaceHoles(Ring, Holes);
+  end;
+
+begin
+  WriteLn('the lining of an opening pushed up');
+  for I := 0 to 1 do
+  begin
+    Build(I = 0);
+    try
+      Ok(D.PushPull(Ring, 2), specialize IfThen<string>(I = 0,
+        'a ring with its opening wound against the outline pushes',
+        'and one with the opening wound the same way as the outline'));
+      Ok(D.GroupClosed(D[Ring].Grp),
+         'what it made is a closed solid - the opening is lined right way out');
+      { and the lining really is there: four walls inside, four outside }
+      Ok(CountKind(D, ekFace) >= 10,
+         'two caps, four walls and four lining pieces');
+    finally
+      D.Free;
+    end;
+  end;
+end;
+
+{ ------------------------------- a face plugged into a hole in a solid ---- }
+
+{ The logo letters on the etch-a-sketch example are faces sitting in holes cut
+  out of the panel behind them.  Pushing one slid the whole toy instead of
+  raising the letter, because the test for "is this the whole flat side of a
+  solid" only ever compared outlines - and a plug touches its panel along the
+  panel's hole, never along the panel's outline.  Then, once it did extrude, a
+  cap was left behind under the letter, inside solid material, which put three
+  faces on every edge round the letter and read as an open solid. }
+procedure TestPlugInAHole;
+var
+  D: TWorkDoc;
+  I, Top, Isle, Grp, Before: Integer;
+  Hole: array of TP3Array;
+  Ring: TP3Array;
+begin
+  WriteLn('a face plugged into a hole in a solid');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 8), 'a box');
+
+    Top := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D.FaceNormal(I).Z - 1) < 1E-9) and
+         (Abs(D[I].Poly[0].Z - 8) < 1E-9) then
+        Top := I;
+    Ok(Top >= 0, 'found the top');
+    Grp := D[Top].Grp;
+    Ok(Grp <> 0, 'the box has a group');
+    Ok(D.GroupClosed(Grp), 'and it is closed to start with');
+
+    { a square cut out of the top, wound the other way round so it reads as
+      an opening rather than a second outline }
+    SetLength(Ring, 4);
+    Ring[0] := P3(4, 2, 8); Ring[1] := P3(6, 2, 8);
+    Ring[2] := P3(6, 4, 8); Ring[3] := P3(4, 4, 8);
+    SetLength(Hole, 1);
+    SetLength(Hole[0], 4);
+    for I := 0 to 3 do Hole[0][I] := Ring[3 - I];
+    D.SetFaceHoles(Top, Hole);
+
+    { and the plug that fills it }
+    D.AddFaceRaw(Ring, 0, True);
+    Isle := D.Live - 1;
+    D.SetGroup(Isle, Grp);
+    Ok(D.GroupClosed(Grp), 'the plug closes the opening again');
+
+    Ok(D.IsPatch(Isle), 'the plug is a patch, not the whole side');
+    Ok(not D.IsPatch(Top), 'while the panel round it is still a whole side');
+
+    { The panel is a whole side, so pushing it resizes the box - and what is
+      cut out of it has to come too.  The opening used to stay behind at the
+      old height, which tore the solid open right round the plug. }
+    Before := D.Live;
+    Ok(D.PushPull(Top, 1), 'pushed the panel up a foot');
+    EqI(D.Live, Before, 'nothing was added - the box resized');
+    EqF(D[Top].Poly[0].Z, 9, 'the panel is at nine');
+    EqF(D[Top].Holes[0][0].Z, 9, 'and the opening came with it');
+    EqF(D[Isle].Poly[0].Z, 9, 'and so did the plug filling it');
+    Ok(D.GroupClosed(Grp), 'the solid is still closed after the slide');
+
+    Before := D.Live;
+    Ok(D.PushPull(Isle, 2), 'pushed the plug up two feet');
+    Ok(D.Live > Before, 'which built walls rather than sliding the box');
+    EqF(D[Isle].Poly[0].Z, 11, 'the plug is at eleven');
+    EqF(D[Top].Poly[0].Z, 9, 'and the panel stayed at nine');
+    Ok(D.GroupClosed(Grp), 'and the solid is still closed');
+
+    { no cap was laid under the plug, inside the material }
+    Isle := 0;
+    for I := 0 to D.Live - 1 do
+      if (I <> Top) and (D[I].Kind = ekFace) and (Length(D[I].Poly) = 4) and
+         (Abs(D[I].Poly[0].Z - 9) < 1E-9) and (Abs(D[I].Poly[2].Z - 9) < 1E-9) and
+         (Abs(D.FaceArea(I) - 4) < 1E-6) then
+        Inc(Isle);
+    EqI(Isle, 0, 'and no cap was left behind inside the material');
+  finally
+    D.Free;
+  end;
+end;
+
 { ---------------------------------- and an uncut side still resizes ------- }
 procedure TestWholeSideStillSlides;
 var
@@ -4700,6 +4839,8 @@ begin
   TestPushLeavesNeighborAlone; WriteLn;
   TestCutBoxTop;    WriteLn;
   TestWholeSideStillSlides; WriteLn;
+  TestPlugInAHole;  WriteLn;
+  TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;
   TestSolidClaimsItsEdges; WriteLn;

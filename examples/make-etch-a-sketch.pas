@@ -268,6 +268,55 @@ begin
             ((Hi.X - Lo.X) < (PHi.X - PLo.X) - 1E-9);
 end;
 
+{ Which of these loops this one sits inside, or -1 for one that sits on the
+  drawing itself.  The smallest container wins, so a thing inside a thing
+  inside a thing lands on its own immediate parent.
+
+  A drawing is not a flat list of shapes.  The robot's eyes are inside its
+  head, and the hole cut to hold an eye has to be cut out of the head, not
+  out of the screen two shapes back.  Cut both out of the screen and the
+  screen ends up with a hole inside a hole and the head laid straight over
+  the eyes - two faces fighting over the same pixels, and a solid that stops
+  being closed the moment either one is pushed. }
+function ParentOf(const All: array of TP3Array; I: Integer): Integer;
+var
+  J: Integer;
+  Lo, Hi, QLo, QHi, BestLo, BestHi: TP3;
+
+  procedure Span(const Pts: TP3Array; out A, B: TP3);
+  var
+    K: Integer;
+  begin
+    A := Pts[0]; B := Pts[0];
+    for K := 1 to High(Pts) do
+    begin
+      A.X := Min(A.X, Pts[K].X); A.Y := Min(A.Y, Pts[K].Y);
+      B.X := Max(B.X, Pts[K].X); B.Y := Max(B.Y, Pts[K].Y);
+    end;
+  end;
+
+begin
+  Result := -1;
+  Span(All[I], Lo, Hi);
+  BestLo := P3(0, 0, 0); BestHi := P3(0, 0, 0);
+  for J := 0 to High(All) do
+  begin
+    if J = I then Continue;
+    Span(All[J], QLo, QHi);
+    if (Lo.X < QLo.X - 1E-9) or (Hi.X > QHi.X + 1E-9) or
+       (Lo.Y < QLo.Y - 1E-9) or (Hi.Y > QHi.Y + 1E-9) then Continue;
+    { the same size is not inside }
+    if ((QHi.X - QLo.X) - (Hi.X - Lo.X) < 1E-9) and
+       ((QHi.Y - QLo.Y) - (Hi.Y - Lo.Y) < 1E-9) then Continue;
+    if (Result < 0) or
+       ((QHi.X - QLo.X) * (QHi.Y - QLo.Y) <
+        (BestHi.X - BestLo.X) * (BestHi.Y - BestLo.Y)) then
+    begin
+      Result := J; BestLo := QLo; BestHi := QHi;
+    end;
+  end;
+end;
+
 { A word, centred on CX. }
 procedure Word_(const W: string; CX, OY, S, Z: Double);
 var
@@ -332,7 +381,7 @@ end;
 
 var
   ZF: Double;
-  I, TopFace, ScrFace: Integer;
+  I, J, TopFace, ScrFace: Integer;
   U: TStringList;
   Outer, Screen: TP3Array;
   Logo, Robot: array of TP3Array;
@@ -421,8 +470,15 @@ begin
   end;
   D.SetFaceHoles(TopFace, Holes);
 
-  SetLength(Holes, Length(Robot));
-  for I := 0 to High(Robot) do Holes[I] := Reversed(Robot[I]);
+  { Only the pieces that sit straight on the screen are cut out of it.  An
+    eye is cut out of the head it is drawn inside, further down. }
+  SetLength(Holes, 0);
+  for I := 0 to High(Robot) do
+    if ParentOf(Robot, I) < 0 then
+    begin
+      SetLength(Holes, Length(Holes) + 1);
+      Holes[High(Holes)] := Reversed(Robot[I]);
+    end;
   D.SetFaceHoles(ScrFace, Holes);
 
   { the letters themselves.  R is the one with a counter: its hole is the
@@ -450,6 +506,15 @@ begin
   begin
     D.AddFaceRaw(Robot[I], GREY, True);
     D.SetFaceGroup(D.Live - 1, BODY);
+    { and whatever was drawn inside it is cut out of it }
+    SetLength(Holes, 0);
+    for J := 0 to High(Robot) do
+      if ParentOf(Robot, J) = I then
+      begin
+        SetLength(Holes, Length(Holes) + 1);
+        Holes[High(Holes)] := Reversed(Robot[J]);
+      end;
+    if Length(Holes) > 0 then D.SetFaceHoles(D.Live - 1, Holes);
   end;
 
   { --- and out ------------------------------------------------------ }
