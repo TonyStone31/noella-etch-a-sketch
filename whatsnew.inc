@@ -13,6 +13,44 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.2' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A portable program keeps its files with it.**  Drawings are offered a' + LineEnding +
+    '  `drawings` folder beside the program and exports an `exports` folder, both' + LineEnding +
+    '  made the first time they are needed.  Nothing is put in your home folder' + LineEnding +
+    '  any more - carry the program on a stick and the work goes with it.' + LineEnding +
+    '' + LineEnding +
+    '- **It remembers where you put things.**  The last folder you saved a drawing' + LineEnding +
+    '  to, the last one you opened from, and the last one you sent each kind of' + LineEnding +
+    '  export to - so STLs go where the printer looks and pictures go where the' + LineEnding +
+    '  forum post is being written, without being asked twice.  Open starts in the' + LineEnding +
+    '  program''s own folder until you have opened something.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The GIF settings are the ones that matter now.**  The seconds box, the' + LineEnding +
+    '  frame rate box and the spin they described are gone: record a move and that' + LineEnding +
+    '  is the film.  Play plays back what you recorded rather than a turn of its' + LineEnding +
+    '  own, and the line saying there was no clip yet is no longer printed across' + LineEnding +
+    '  the button underneath it.' + LineEnding +
+    '' + LineEnding +
+    '- **A three second count-in takes three seconds.**  The recorder was counting' + LineEnding +
+    '  timer ticks instead of looking at the clock, and every tick redraws the' + LineEnding +
+    '  model - so on a drawing of any size the count-in stretched to eight.  Worse,' + LineEnding +
+    '  it then wrote down three seconds of timestamps over eight seconds of' + LineEnding +
+    '  movement, which is what made the film jumpy.' + LineEnding +
+    '' + LineEnding +
+    '- **The recorder no longer makes the whole program sticky.**  It was building' + LineEnding +
+    '  and throwing away a picture the size of the preview thirty times a second.' + LineEnding +
+    '  It keeps one and draws into it, and redraws only as often as the eye needs' + LineEnding +
+    '  rather than as often as the camera is written down.  The export preview did' + LineEnding +
+    '  the same thing and now does not.' + LineEnding +
+    '' + LineEnding +
+    '- **Notes that are whole sentences wrap instead of running off both ends.**' + LineEnding +
+    '  The STL note was losing its first letter and its last.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
