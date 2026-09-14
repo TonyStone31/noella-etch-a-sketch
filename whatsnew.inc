@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.14.10' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **/tozero puts a selection in the corner at 0,0,0.**  /center puts the' + LineEnding +
+    '  middle of a thing on the origin, which is what a slicer wants.  This puts' + LineEnding +
+    '  its near bottom corner there instead, so it stands on the floor with its' + LineEnding +
+    '  two near edges against zero - which is what you want when you are' + LineEnding +
+    '  measuring, because every number read off it is then a distance from' + LineEnding +
+    '  nothing rather than from half of itself.  It tells you how big the thing' + LineEnding +
+    '  is from there.  Also **Into the Corner at 0,0,0** on the right button,' + LineEnding +
+    '  beside Centre on the Origin.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.9' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
