@@ -13,13 +13,32 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.13.27' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Each letter of the logo is one shape now.**  It was built out of separate' + LineEnding +
+    '  bars, which left a line across every join and meant pushing an H up took' + LineEnding +
+    '  three goes and came out with seams down it.  Click a letter once and push it' + LineEnding +
+    '  once, and the whole letter stands up.' + LineEnding +
+    '' + LineEnding +
+    '- **The toy sits in the positive corner.**  Its near bottom left is on the' + LineEnding +
+    '  origin, so the whole thing is inside the solid halves of the axes instead of' + LineEnding +
+    '  straddling the dashed ones - nine inches along is nine inches, not minus' + LineEnding +
+    '  four and a half.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.13.26' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
     '- **The toy says HECKERS SKETCH on it**, in block capitals drawn the way the' + LineEnding +
-    '  toy itself would draw them - and every bar of every letter is a closed loop,' + LineEnding +
-    '  so you can push any one of them up off the frame.' + LineEnding +
+    '  toy itself would draw them.  Each letter is one closed shape, so clicking it' + LineEnding +
+    '  once and pushing lifts the whole letter - no seams, no doing it three times' + LineEnding +
+    '  for an H.' + LineEnding +
+    '' + LineEnding +
+    '- **The toy sits in the positive corner** now, with its near bottom left on the' + LineEnding +
+    '  origin, so the whole thing is inside the solid halves of the axes rather' + LineEnding +
+    '  than straddling the dashed ones.' + LineEnding +
     '' + LineEnding +
     '- **A new program icon**, which is the toy.' + LineEnding +
     '' + LineEnding +
