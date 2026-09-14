@@ -14,9 +14,11 @@ type fit
 key return
 wait 1500
 
-# the Export button, top left
-at 190 16
-click
+# Ctrl+E.  hidctl holds a modifier with "hold" and lets it go with "let" -
+# it was there all along and I had the syntax wrong.
+hold ctrl
+key e
+let ctrl
 wait 1800
 shot /tmp/hsk-export-png.png
 

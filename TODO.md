@@ -846,20 +846,6 @@ sense to somebody who would otherwise be using a CAD program, it belongs in
 zcad and not in this.  Simple is the product.
 
 
-### The drive harness cannot press Ctrl
-
-Found writing the export tests: `key ctrl+e` comes back "unknown key ctrl+e",
-and there is no modifier handling in `tools/xephyr.sh` or in hidctl's key
-vocabulary.  Every keyboard shortcut in the program is therefore untestable -
-the export test clicks the toolbar button instead, which tests the button and
-not the shortcut it advertises.
-
-Not urgent, and the workaround is honest as far as it goes.  But Ctrl+S,
-Ctrl+Z, Ctrl+N and the rest are the paths people actually use, and none of
-them has ever been exercised by a test.  It belongs in LazHIDControl rather
-than here: a `key ctrl+e` that holds the modifier down, sends the key, and
-lets go.  Tony has said before that extending that package is fair game.
-
 ### Our own fork of BGRABitmap, for later
 
 Tony, 13 September: he likes the project and wants to keep using and
