@@ -10728,6 +10728,8 @@ var
   W, Rest: string;
   P, I, N: Integer;
   RL, RL2: Double;
+  CenMid: TP3;
+  CenAll: array of Integer;
 begin
   Result := True;
   W := LowerCase(Trim(S));
@@ -10951,6 +10953,43 @@ begin
     RenderPro;
     RecomposeAll;
     FCmdMsg := Format('Forgot what was seen and worked the faces out again: %d.', [I]);
+  end
+  else if (W = 'center') or (W = 'centre') then
+  begin
+    { Move what is selected - or the whole drawing if nothing is - so its
+      middle sits on the origin.
+
+      Asked for because an STL or a SCAD opens in the next program wherever
+      the drawing happened to put it, which for something drawn at building
+      coordinates is a long way off the plate.  The exports centre themselves
+      now, but a drawing that is centred to begin with is a drawing where
+      every export, every dimension from the origin and every axis reading
+      agrees, so it is worth being able to say it here too. }
+    if FD.Doc.MiddleOf(FSel, CenMid) then
+    begin
+      PushUndo;
+      SetLength(CenAll, 0);
+      if Length(FSel) > 0 then
+      begin
+        SetLength(CenAll, Length(FSel));
+        for I := 0 to High(FSel) do CenAll[I] := FSel[I];
+      end
+      else
+      begin
+        SetLength(CenAll, FD.Doc.Live);
+        for I := 0 to FD.Doc.Live - 1 do CenAll[I] := I;
+      end;
+      FD.Doc.TranslateEnts(CenAll, P3(-CenMid.X, -CenMid.Y, -CenMid.Z));
+      RenderPro;
+      RecomposeAll;
+      if Length(FSel) > 0 then
+        FCmdMsg := Format('Moved %d things so the middle of them is on the ' +
+          'origin.', [Length(FSel)])
+      else
+        FCmdMsg := 'Moved the whole drawing so its middle is on the origin.';
+    end
+    else
+      FCmdMsg := 'Nothing to centre.';
   end
   else if W = 'rebuild' then
   begin

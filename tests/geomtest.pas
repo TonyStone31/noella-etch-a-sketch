@@ -3981,6 +3981,7 @@ var
   Attr: Word;
   Area, Vol, L2, Sc: Double;
   Ax, Ay, Az, Bx, By, Bz, Cx, Cy, Cz, Ux, Uy, Uz, Vx, Vy, Vz, Nx, Ny, Nz: Double;
+  MinX, MaxX, MinY, MaxY, MinZ, MaxZ: Double;
 begin
   WriteLn('-- STL export --');
   D := TWorkDoc.Create;
@@ -4034,7 +4035,22 @@ begin
            (Abs(F[2] - Nz / L2) < 1E-3) then Inc(NT);
         Vol := Vol + (Ax * (By * Cz - Bz * Cy) - Ay * (Bx * Cz - Bz * Cx)
                     + Az * (Bx * Cy - By * Cx)) / 6;
+        if I = 0 then
+        begin
+          MinX := Ax; MaxX := Ax; MinY := Ay; MaxY := Ay; MinZ := Az; MaxZ := Az;
+        end;
+        MinX := Min(MinX, Min(Ax, Min(Bx, Cx)));
+        MaxX := Max(MaxX, Max(Ax, Max(Bx, Cx)));
+        MinY := Min(MinY, Min(Ay, Min(By, Cy)));
+        MaxY := Max(MaxY, Max(Ay, Max(By, Cy)));
+        MinZ := Min(MinZ, Min(Az, Min(Bz, Cz)));
+        MaxZ := Max(MaxZ, Max(Az, Max(Bz, Cz)));
       end;
+      { and the same centring the SCAD gets - the uncle's actual complaint }
+      Ok((Abs(MinX + MaxX) < 1E-2) and (Abs(MinY + MaxY) < 1E-2) and
+         (Abs(MinZ + MaxZ) < 1E-2),
+        Format('the STL is centred on the origin too (x %.1f..%.1f)',
+          [MinX, MaxX]));
       Ok(NT = Integer(Cnt),
         Format('every triangle''s stated normal matches its corners (%d of %d)',
           [NT, Cnt]));
@@ -4419,6 +4435,40 @@ end;
   volumes the way the faces are actually written, and for a shape wound
   OpenSCAD's way round the total must come out NEGATIVE, and the size of a
   box. }
+function MinOf3(const P: array of TP3; N, Ax: Integer): Double;
+var
+  I: Integer;
+  V: Double;
+begin
+  Result := 1E30;
+  for I := 0 to N - 1 do
+  begin
+    case Ax of
+      0: V := P[I].X;
+      1: V := P[I].Y;
+    else V := P[I].Z;
+    end;
+    if V < Result then Result := V;
+  end;
+end;
+
+function MaxOf3(const P: array of TP3; N, Ax: Integer): Double;
+var
+  I: Integer;
+  V: Double;
+begin
+  Result := -1E30;
+  for I := 0 to N - 1 do
+  begin
+    case Ax of
+      0: V := P[I].X;
+      1: V := P[I].Y;
+    else V := P[I].Z;
+    end;
+    if V > Result then Result := V;
+  end;
+end;
+
 procedure TestScad;
 var
   D: TWorkDoc;
@@ -4435,6 +4485,8 @@ var
   Ch: Char;
   InBr: Boolean;
   Bad: Integer;
+  CMid: TP3;
+  CIdx: array of Integer;
 begin
   WriteLn('-- OpenSCAD --');
   FS := DefaultFormatSettings;
@@ -4532,6 +4584,34 @@ begin
                              Pts[Fac[I][1]].Y * Pts[Fac[I][2]].X)) / 6;
     Sc := 304.8;
     Want := 10 * Sc * 4 * Sc * 3 * Sc;
+    { --- and the same thing as a command on the drawing itself -------
+          /center moves what is selected, or everything, so its middle is on
+          the origin.  MiddleOf and TranslateEnts are what it is made of. }
+    Ok(D.MiddleOf([], CMid), 'the middle of the whole drawing was found');
+    Ok((Abs(CMid.X - 5) < 1E-9) and (Abs(CMid.Y - 2) < 1E-9) and
+       (Abs(CMid.Z - 1.5) < 1E-9),
+      Format('and it is where it should be (%.2f %.2f %.2f)',
+        [CMid.X, CMid.Y, CMid.Z]));
+    SetLength(CIdx, D.Live);
+    for I := 0 to D.Live - 1 do CIdx[I] := I;
+    D.TranslateEnts(CIdx, P3(-CMid.X, -CMid.Y, -CMid.Z));
+    Ok(D.MiddleOf([], CMid) and (Abs(CMid.X) < 1E-9) and (Abs(CMid.Y) < 1E-9)
+       and (Abs(CMid.Z) < 1E-9), 'and after moving it, the middle is on zero');
+
+    { --- centred on the origin, which is what a slicer wants ---------
+          Tony's uncle: a part opens in the next program wherever the drawing
+          put it, and for something drawn at building coordinates that is a
+          long way off the plate.  The box above sits at 0..10, 0..4, 0..3, so
+          centred it must run -5..5, -2..2, -1.5..1.5 in feet. }
+    Ok(Abs(MinOf3(Pts, NP, 0) + MaxOf3(Pts, NP, 0)) < 1E-3,
+      Format('centred in x (%.1f to %.1f mm)',
+        [MinOf3(Pts, NP, 0), MaxOf3(Pts, NP, 0)]));
+    Ok(Abs(MinOf3(Pts, NP, 1) + MaxOf3(Pts, NP, 1)) < 1E-3, 'centred in y');
+    Ok(Abs(MinOf3(Pts, NP, 2) + MaxOf3(Pts, NP, 2)) < 1E-3, 'centred in z');
+    Ok(Abs(MaxOf3(Pts, NP, 0) - 5 * 304.8) < 1E-2,
+      Format('and still ten feet wide (%.1f mm each way)',
+        [MaxOf3(Pts, NP, 0)]));
+
     Ok(Vol < 0,
       'the faces are listed clockwise from outside, which is OpenSCAD''s ' +
       'rule and the opposite of the STL''s');

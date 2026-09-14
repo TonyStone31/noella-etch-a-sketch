@@ -1178,6 +1178,40 @@ does both.
 Left standing: the -O3 local-first workaround, which was a real hazard whether
 or not it was this one.
 
+### The GIF recorder, redesigned - Tony's brief, 13 September
+
+The complaint is not that it is buried in the export tool; that is fine.  It is
+that there are **two places to record**: the export dialog has Set start / Set
+end / Full spin, and there is also a recording window.  And the dialog gives no
+sign that the two states were ever set - a play button is not enough to tell
+you there is something to play.
+
+So the start/end business moves INTO the recording window and leaves the export
+dialog entirely.  The export dialog then has a clip or it does not.
+
+What the window wants, in his words and order:
+
+* a **filmstrip along the bottom**, like a video editor, filling with
+  snapshots as it records, so you can see there is something there.  No
+  editing on it - clear and retry, nothing else.
+* **Play** and **Retry**, and an **Accept** that drops back to the export
+  dialog with the clip in hand.
+* a **start view** with the usual choices - top, front, back, left, iso
+  corners - rather than only wherever the camera happens to be.
+* **canned walks** as an alternative to following the mouse.  His sketch: up,
+  down, back to centre, round, and maybe up and down again at the back.  How
+  far it gets through that is set by how long the clip is meant to be.
+* orbiting **around the middle of the selection**, with a **starting zoom**
+  you can set - and possibly the wheel setting the zoom of a canned walk
+  rather than driving it live.
+* centre on the selection **from the moment Export is pressed**.
+
+Two decisions taken rather than asked: a canned walk orbits the middle of the
+SELECTION (falling back to the whole drawing when nothing is selected); and
+Accept keeps the camera path rather than encoding a GIF there and then, so
+changing the size or the rate afterwards still re-renders properly and the
+export dialog's Play shows the real move.
+
 ### Done 13 September: OpenSCAD export
 
 Tony's uncle asked for it, having printed the crown off the STL.

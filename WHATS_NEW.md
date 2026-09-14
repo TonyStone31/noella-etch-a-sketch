@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **STL and OpenSCAD come out centred on the origin.**  A part used to open in
+  the slicer wherever the drawing happened to put it, which for something drawn
+  at building coordinates is a long way off the plate - and then you re-centre
+  it by hand in another program.  It arrives centred now.  There is a tick in
+  the export options if you want it left where it is.
+
+- **`/center` moves things onto the origin.**  Type `/center` and whatever is
+  selected moves so the middle of it sits at 0,0,0 - or the whole drawing, if
+  nothing is selected.  Worth doing to the drawing itself and not only on the
+  way out: a drawing that is centred is one where the exports, the dimensions
+  from the origin and the axis readings all agree.
+
 ## v2026.09.13.21
 
 ### New

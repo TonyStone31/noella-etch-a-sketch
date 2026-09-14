@@ -403,6 +403,9 @@ type
     { These entities shift whole, whatever they touch - a built part being
       put down, which must not drag the corner it happened to be built on. }
     procedure TranslateEnts(const Idx: array of Integer; const D: TP3);
+    { The middle of a few things, or of everything if none are named.  What
+      "centre this on the origin" has to know before it can do it. }
+    function MiddleOf(const Idx: array of Integer; out Mid: TP3): Boolean;
     { SketchUp's arrays.  N copies of Src along D - at D, 2D, 3D when
       Divide is off (3x), at D/N, 2D/N ... D when it is on (/3) - or turned
       about the axis by Ang, 2Ang ... likewise.  Made is every entity the
@@ -532,7 +535,12 @@ type
       an open shell, but it is guessing when it does, so it is worth being
       able to tell somebody their model has holes in it before they wait an
       hour for it to print wrong. }
-    function WriteSTL(St: TStream; U: TUnitSystem; out Closed: Boolean): Integer;
+    { AtOrigin moves the middle of the model to 0,0,0 on the way out.  A
+      slicer opens a part where the drawing put it, which for a drawing made
+      at building coordinates is a long way off the plate, and re-centring it
+      by hand in another program is a chore nobody should inherit from us. }
+    function WriteSTL(St: TStream; U: TUnitSystem; out Closed: Boolean;
+      AtOrigin: Boolean = True): Integer;
     { The model as an OpenSCAD script.
 
       A polyhedron, which is the only honest answer: OpenSCAD is a language
@@ -553,7 +561,8 @@ type
       the moment anything is subtracted from it.
 
       Returns the triangle count, and says how many solids through Solids. }
-    function WriteSCAD(L: TStrings; U: TUnitSystem; out Solids: Integer): Integer;
+    function WriteSCAD(L: TStrings; U: TUnitSystem; out Solids: Integer;
+      AtOrigin: Boolean = True): Integer;
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
@@ -4759,6 +4768,58 @@ begin
   end;
 end;
 
+function TWorkDoc.MiddleOf(const Idx: array of Integer; out Mid: TP3): Boolean;
+var
+  I, J, K: Integer;
+  Lo, Hi: TP3;
+  Any: Boolean;
+
+  procedure Grow(const P: TP3);
+  begin
+    if not Any then
+    begin
+      Lo := P;
+      Hi := P;
+      Any := True;
+      Exit;
+    end;
+    Lo.X := Min(Lo.X, P.X); Lo.Y := Min(Lo.Y, P.Y); Lo.Z := Min(Lo.Z, P.Z);
+    Hi.X := Max(Hi.X, P.X); Hi.Y := Max(Hi.Y, P.Y); Hi.Z := Max(Hi.Z, P.Z);
+  end;
+
+  procedure Take(I: Integer);
+  var
+    M: Integer;
+  begin
+    if (I < 0) or (I >= FLive) then Exit;
+    case FEnts[I].Kind of
+      ekArc:
+        begin
+          Grow(P3(FEnts[I].C.X - FEnts[I].R, FEnts[I].C.Y - FEnts[I].R,
+                  FEnts[I].C.Z - FEnts[I].R));
+          Grow(P3(FEnts[I].C.X + FEnts[I].R, FEnts[I].C.Y + FEnts[I].R,
+                  FEnts[I].C.Z + FEnts[I].R));
+        end;
+      ekFace:
+        for M := 0 to High(FEnts[I].Poly) do Grow(FEnts[I].Poly[M]);
+    else
+      Grow(FEnts[I].A);
+      Grow(FEnts[I].B);
+    end;
+  end;
+
+begin
+  Any := False;
+  Mid := P3(0, 0, 0);
+  if Length(Idx) > 0 then
+    for J := 0 to High(Idx) do Take(Idx[J])
+  else
+    for K := 0 to FLive - 1 do Take(K);
+  Result := Any;
+  if Any then
+    Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
+end;
+
 procedure TWorkDoc.TranslateEnts(const Idx: array of Integer; const D: TP3);
 var
   J, I, K, H: Integer;
@@ -7132,10 +7193,11 @@ end;
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
   same size it prints. }
 function TWorkDoc.WriteSCAD(L: TStrings; U: TUnitSystem;
-  out Solids: Integer): Integer;
+  out Solids: Integer; AtOrigin: Boolean): Integer;
 var
   FS: TFormatSettings;
   Scale: Double;
+  Mid, BLo, BHi: TP3;
   Grp, Top, I, J, K, NPt, NTri, Slot: Integer;
   Tris: TTriList;
   Corners: TP3Array;
@@ -7176,6 +7238,9 @@ begin
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';
   if U = usMetric then Scale := 1000 else Scale := 304.8;
+  Mid := P3(0, 0, 0);
+  if AtOrigin and Bounds(BLo, BHi) then
+    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, (BLo.Z + BHi.Z) / 2);
 
   Top := 0;
   for I := 0 to FLive - 1 do
@@ -7184,7 +7249,11 @@ begin
   Names := TStringList.Create;
   try
     L.Add('// Heckers Sketch - ' + FormatDateTime('yyyy-mm-dd hh:nn', Now));
-    L.Add('// Millimetres.  A surface, not a construction - see the notes at');
+    if AtOrigin then
+      L.Add('// Millimetres, centred on the origin.  A surface, not a')
+    else
+      L.Add('// Millimetres, where the drawing put it.  A surface, not a');
+    L.Add('// construction - see the notes at');
     L.Add('// the bottom.');
     L.Add('');
 
@@ -7261,7 +7330,8 @@ begin
           begin
             if Row <> '' then Row := Row + ', ';
             Row := Row + Format('[%.4f,%.4f,%.4f]',
-              [Pts[K].X * Scale, Pts[K].Y * Scale, Pts[K].Z * Scale], FS);
+              [(Pts[K].X - Mid.X) * Scale, (Pts[K].Y - Mid.Y) * Scale,
+               (Pts[K].Z - Mid.Z) * Scale], FS);
             if Length(Row) > 1200 then
             begin
               L.Add('      ' + Row + ',');
@@ -7335,9 +7405,10 @@ begin
 end;
 
 function TWorkDoc.WriteSTL(St: TStream; U: TUnitSystem;
-  out Closed: Boolean): Integer;
+  out Closed: Boolean; AtOrigin: Boolean): Integer;
 var
   I, J, N: Integer;
+  Mid, BLo, BHi: TP3;
   Tris: TTriList;
   Corners: TP3Array;
   Nm, A, B, C, E1, E2, Cr, Tmp: TP3;
@@ -7347,14 +7418,14 @@ var
   Attr: Word;
   Lbl: AnsiString;
 
-  { a corner, in millimetres }
+  { a corner, in millimetres, measured from the middle of the model }
   procedure PutP(const P: TP3);
   var
     F: array[0..2] of Single;
   begin
-    F[0] := P.X * Scale;
-    F[1] := P.Y * Scale;
-    F[2] := P.Z * Scale;
+    F[0] := (P.X - Mid.X) * Scale;
+    F[1] := (P.Y - Mid.Y) * Scale;
+    F[2] := (P.Z - Mid.Z) * Scale;
     St.WriteBuffer(F, SizeOf(F));
   end;
 
@@ -7374,6 +7445,9 @@ begin
   Result := 0;
   Closed := True;
   if U = usMetric then Scale := 1000 else Scale := 304.8;
+  Mid := P3(0, 0, 0);
+  if AtOrigin and Bounds(BLo, BHi) then
+    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, (BLo.Z + BHi.Z) / 2);
 
   { The header is 80 bytes of anything at all, except that it must not begin
     with the word "solid" - a reader that sees that decides the file is the

@@ -93,8 +93,8 @@ type
     FHeadX, FHeadY: Integer;
     FSize: TComboBox;
     FWEdit, FHEdit: TEdit;
-    FTransp, FLoop, FAxes: TBCButton;
-    FTranspOn, FLoopOn, FAxesOn: Boolean;
+    FTransp, FLoop, FAxes, FMid: TBCButton;
+    FTranspOn, FLoopOn, FAxesOn, FMidOn: Boolean;
     FQual: TTrackBar;
     FSec, FFps: TEdit;
     FSetA, FSetB, FSpin, FPlay, FRec, FSay: TBCButton;
@@ -382,6 +382,12 @@ begin
   FRec := MkBtn(Opt, 'Record a move instead', 14, 398, 232, 30, bkPlain);
   FRec.OnClick := @DoRecord;
 
+  FMidOn := True;
+  FMid := MkBtn(Opt, '', 14, 116, 232, 26, bkPlain);
+  FMid.Tag := 4;
+  FMid.OnClick := @Ticked;
+  ShowTick(FMid, True, 'Centre it on the origin');
+
   FAxesOn := True;
   FAxes := MkBtn(Opt, '', 14, 180, 232, 26, bkPlain);
   FAxes.Tag := 3;
@@ -504,6 +510,7 @@ begin
   FAxes.Visible := Raster;
   FRec.Visible := Anim;
   FDxfWhat.Visible := FKind in [exDxfView, exDxfModel];
+  FMid.Visible := FKind in [exStl, exScad];
 
   if not Anim then
   begin
@@ -573,6 +580,10 @@ begin
     3: begin
          FAxesOn := not FAxesOn;
          ShowTick(FAxes, FAxesOn, 'Show the axes');
+       end;
+    4: begin
+         FMidOn := not FMidOn;
+         ShowTick(FMid, FMidOn, 'Centre it on the origin');
        end;
   end;
   FPrev.Invalidate;
@@ -969,7 +980,7 @@ begin
         FStage := 'writing the OpenSCAD script';
         L := TStringList.Create;
         try
-          N := FDoc.WriteSCAD(L, FUnits, NTri);
+          N := FDoc.WriteSCAD(L, FUnits, NTri, FMidOn);
           L.SaveToFile(Fn);
         finally
           L.Free;
@@ -987,7 +998,7 @@ begin
         FStage := 'writing the STL';
         FS := TFileStream.Create(Fn, fmCreate);
         try
-          NTri := FDoc.WriteSTL(FS, FUnits, Shut);
+          NTri := FDoc.WriteSTL(FS, FUnits, Shut, FMidOn);
         finally
           FS.Free;
         end;
