@@ -1228,8 +1228,75 @@ weighing first: many equipment DXFs are 2D plan and elevation outlines, which
 are lighter, more useful for a coordination drawing, and import as ordinary
 lines with no new concepts at all.
 
-Nothing decided.  The smallest first step, if this is wanted, is reading a 3D
-DXF into a block and drawing it - not a general DXF importer.
+**A DXF importer is wanted.**  Tony, 15 September: it is the first way in.
+Not built, and on this list on purpose.
+
+### Somebody else's converter, as a door rather than a dependency
+
+Tony's idea, and it is a good one: rather than teach this program every
+format, find the free converter that already reads them all, keep it OUT of
+our build, and either hand its output to our importer or simply tell the
+person where to get it and what to do.  Nothing bundled - they install it.
+
+**FreeCAD is the answer to "is there an amazing free one".**  LGPL, genuinely
+open source, on all three platforms, and built on Open CASCADE - so it reads
+STEP and IGES properly, as B-rep, which is the hard part nobody else gives
+away.  It also reads DXF, OBJ, STL and BREP, and writes DXF, STL and OBJ.  It
+has a headless mode - `freecadcmd` on Linux and macOS, `FreeCADCmd.exe` on
+Windows - that runs a Python script with no window, so a conversion is one
+command and no clicking.
+
+**DWG needs a step before that**, even for FreeCAD, which cannot read it
+alone.  It names three helpers: **LibreDWG** (GPL-3, genuinely open, and its
+own documentation says it is a work in progress that lacks some entities),
+the **ODA File Converter** (free to use but proprietary - the de-facto
+standard, and what FreeCAD and LibreCAD both point people at), and QCAD Pro,
+which is paid.  So the open path is LibreDWG and the reliable one is ODA, and
+neither can be shipped with us - which is fine, because neither should be.
+
+**The pipeline that falls out of this:**
+
+    anything  ->  FreeCAD (installed by them)  ->  DXF or STL  ->  us
+    DWG       ->  ODA or LibreDWG  ->  DXF  ->  FreeCAD or straight to us
+
+**And it changes what our first importer should be.**  STL is the better
+first target, not DXF:
+
+* it is triangles and nothing else, so reading it is a few dozen lines, and
+  we already WRITE it so the units and the winding are understood here;
+* FreeCAD will turn anything it can read into one;
+* and equipment is exactly the case where triangles are enough - an air
+  handler is a thing you place and measure against, not a thing you edit.
+
+DXF stays worth doing and stays the better answer for the other half of the
+job: 2D plan and elevation outlines, which arrive as real lines and arcs
+rather than a mesh, and which are what a coordination drawing actually wants.
+So: two importers, smallest first, and STL is the smaller.
+
+**If we ever want to read DXF ourselves rather than convert into it**, the
+reference to read is `ezdxf` - MIT, Python, full read and write of R12
+through R2018 in both ASCII and binary, and the best documentation of the
+format outside Autodesk's own.  Not to depend on; to learn from.
+
+**What "quickly accessible from our program" could mean**, in rising order of
+work and none of it decided:
+
+1. Say so.  The open dialog, offered a .step or a .dwg, explains what it is
+   and where FreeCAD is, and offers to open that page.  No detection, no
+   processes, and it is most of the value.
+2. Find it.  Look for freecadcmd in the usual places, and if it is there
+   offer "convert this with FreeCAD" - one process, one temporary file, and
+   our own importer on the far end.
+3. Drive it.  Ship the little Python script the conversion needs and run it
+   headless.  Still no bundling - the script is ours and it is twenty lines.
+
+Licence-wise all three are clean: running a program is not linking to it, so
+FreeCAD being LGPL and the ODA converter being proprietary freeware are both
+fine as long as we ship neither.
+
+Nothing decided.  The smallest first step, if this is wanted, is an STL
+reader and option 1 above - a sentence in a dialog - and neither needs the
+other.
 
 ### Cutting machines, and the Cricut in particular
 
