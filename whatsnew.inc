@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## v2026.09.14.16' + LineEnding +
+    '## v2026.09.14.17' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
@@ -35,6 +35,10 @@ const
     '  which way it had gone.  Now it rolls there, the short way round, in about a' + LineEnding +
     '  third of a second - and that goes for the VIEW button and `/front` and the' + LineEnding +
     '  rest as much as for the cube.' + LineEnding +
+    '' + LineEnding +
+    '## v2026.09.14.16' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
     '' + LineEnding +
     '- **A film comes back to where it started.**  A move that ends somewhere' + LineEnding +
     '  else - a rise, a push in, or one you pointed by hand - used to jump every' + LineEnding +
