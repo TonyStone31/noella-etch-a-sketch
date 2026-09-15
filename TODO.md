@@ -1000,8 +1000,46 @@ z=0.1042 and 33 at z=0.0942, a tenth of an inch apart, so the case lip and
 the screen recess are on the same pixel at any working zoom.  A good example
 drawing turns out to be a good test drawing.
 
-Worth asking of the other pickers, none of which have been checked: DoomAt,
-the face picker, the note picker.
+### Every picker needs the same audit, and it is bigger than "is it hidden"
+
+Tony, after the EdgeSnap fix: run these checks over all of the tools and
+inspect the code, because snapping a line, snapping a point, and snapping a
+point ON a line are three different questions and there is a lot of inference
+behind each of them.
+
+He is right, and the EdgeSnap bug is the argument: the rule it was missing
+had been written down and tested in BestSnap for weeks, twenty lines away,
+and nobody had asked whether the line version needed it too.  These grew one
+at a time as tools were built, and nothing has ever gone over them together.
+
+**The pickers, none of them checked:**
+
+* `DoomAt` - what the eraser gathers.  Can it take an edge behind a solid?
+* the face picker - `FHoverFace`, and what push/pull and drill act on.
+* the note picker - `FNoteDrag`, and what a click on a note takes.
+* `AxisSnap` - the three axes are infinite lines and are never hidden, which
+  may be right and has never been said out loud.
+* the selection box - does a right-to-left box take things it cannot see?
+
+**The questions to ask of each, which is the part that is bigger than one
+bug:**
+
+1. *Can it see it?*  The EdgeSnap fault.  `HiddenAt`, on the candidate that
+   would win.
+2. *What breaks a tie?*  Two candidates on one pixel: nearer the eye, or
+   whichever was drawn first?  EdgeSnap had no rule at all.
+3. *What beats what?*  A point beats a line beats an axis beats a guide, and
+   the reach of each is different - LOCK_PX, EDGE_PX, SNAP_PX, the shorter
+   reach a piece-midpoint gets.  Written in ResolveSnap and nowhere else.
+4. *What holds?*  FStick - taken from close in, released from further out.
+   Only points stick; should a line?
+5. *What does it say it did?*  Every snap sets FSnapKind and the status
+   reads it.  A snap that cannot be named cannot be trusted or reported.
+
+Worth doing as one pass with one test file, the way `TestEdgeSnapSeesOnlyWhatIsVisible`
+is written: walk a grid of cursor positions over a solid and assert the
+invariant, rather than testing one aimed click.  That is what found 633 bad
+positions out of 2266 - no aimed test would have.
 
 ### What's new is a paint box, and that has consequences
 
@@ -1143,6 +1181,55 @@ Done 14 September.  Three things that all showed as "the GIF looks wrong".
 
 Also: how long the film runs is now a choice at export time rather than
 whatever the clip happened to take, which is the same thing as its speed.
+
+### Importing manufacturers' equipment models
+
+Tony: the heating and cooling makers publish models of their equipment and it
+would be good to bring those in - an air handler, a fan, a rooftop unit -
+rather than drawing a box the right size and hoping.
+
+**What they actually publish**, checked rather than guessed (Greenheck,
+Daikin, and the aggregators - BIMobject, CADdetails, ARCAT):
+
+* **RFA** - Revit families, the main event for MEP.  Proprietary, no spec,
+  cannot be read.  Same wall as writing one; see the Cricut note for the
+  same conclusion reached from the other side.
+* **IPT** and **F3D** - Inventor and Fusion.  Also proprietary.
+* **DWG** - everywhere, and AutoCAD's own binary.  Reverse-engineered by
+  others (LibreDWG) but a large job to do ourselves.
+* **DXF** - AutoCAD's documented interchange format, and text.  Often offered
+  beside the DWG; anything DWG converts to it with the ODA free converter or
+  by the person sending it.
+* **STEP** - some makers offer it.  The honest neutral 3D format and a real
+  parser is a big piece of work: an EXPRESS schema, B-rep topology and NURBS
+  surfaces, none of which this program has a representation for.
+
+**So DXF is the way in, and it is the one we are already halfway to.**  We
+write it - uDxf.pas - so the group codes, the units and the layer handling
+are already understood at this end.  Reading needs: 3DFACE, POLYLINE/VERTEX
+meshes, LINE, LWPOLYLINE, CIRCLE, ARC, and INSERT/BLOCK for anything
+assembled out of parts.  $INSUNITS decides the scale, which is the thing that
+has to be right or the unit arrives eight feet tall or eight inches.
+STL and OBJ are nearly free if anyone ships them - both are a few dozen lines
+and we already write STL.
+
+**The design question is what an imported unit BECOMES**, and it matters more
+than the parsing.  This document is faces and lines with a region engine over
+it, and a manufacturer's air handler is thousands of triangles.  Dropped in
+as loose geometry it would be slow, would confuse the region finder, and
+would be senseless to push or pull.  What somebody actually wants from it is
+coordination: does this thing fit the ceiling, does the duct clear it, what
+is the clearance to the filter door.
+
+So the likely right shape is a **block**: one group that moves, turns, snaps
+and measures as a unit, draws as itself, and is not editable geometry.  That
+also sidesteps the region engine entirely.  A second, cheaper option worth
+weighing first: many equipment DXFs are 2D plan and elevation outlines, which
+are lighter, more useful for a coordination drawing, and import as ordinary
+lines with no new concepts at all.
+
+Nothing decided.  The smallest first step, if this is wanted, is reading a 3D
+DXF into a block and drawing it - not a general DXF importer.
 
 ### Cutting machines, and the Cricut in particular
 
