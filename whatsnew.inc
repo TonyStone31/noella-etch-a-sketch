@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.15.2' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A part for printing now arrives standing on the bed.**  "Centre it on' + LineEnding +
+    '  the origin" centred all three directions, which buries the bottom half of' + LineEnding +
+    '  the thing in the build plate; slicers quietly lift it back out, so nothing' + LineEnding +
+    '  ever looked wrong, but it is the sort of thing you open another program to' + LineEnding +
+    '  put right before printing.  It is centred across the bed and standing on it' + LineEnding +
+    '  now - the STL, the OpenSCAD, and `/center` itself.  `/tozero` is unchanged:' + LineEnding +
+    '  the near bottom corner on the origin rather than the middle.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
