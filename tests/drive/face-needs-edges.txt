@@ -1,0 +1,81 @@
+# A face is what a closed run of edges encloses.
+#
+# Tony, 15 September: "in SketchUp I don't think you can even have a filled
+# face unless it is enclosed by lines.  So when I am erasing lines on a cube
+# it will leave behind faces and I think that is wrong.  I think also when I
+# delete a face in SketchUp let's say in a cube there is a way to put it back
+# if I remember correctly but it was a pain in the ass."
+#
+# He is right on both counts and SketchUp says so in as many words - "faces
+# are erased when you erase their bounding edges", and "Undo, or redraw the
+# line that was removed - the face comes back on its own".
+#
+# A loose face got the first for free: they are all thrown away and worked
+# out again from the edges whenever anything changes.  A built solid's faces
+# are kept as they were made, so rubbing an edge off a box left six sides
+# standing with nothing under one of them.
+#
+# What to look for: hsk-fne-box is the box; hsk-fne-erased has the top front
+# edge gone and with it the top and the front wall, so you are looking into
+# an open box; hsk-fne-healed has the edge traced back in with the line tool
+# and the two sides back with it.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+wait 600
+
+# a square on the floor
+key r
+wait 300
+at 520 330
+click l
+wait 300
+at 1000 620
+click l
+wait 900
+
+# pulled up into a box
+key escape
+key p
+wait 400
+at 760 470
+wait 600
+click l
+wait 400
+at 760 330
+wait 500
+click l
+wait 1200
+shot /tmp/hsk-fne-box.png
+
+# rub out the top edge along the right-hand wall - the top and that wall are
+# both standing on it
+key escape
+key e
+wait 400
+at 993 422
+wait 900
+shot /tmp/hsk-fne-aiming.png
+click l
+wait 1200
+key escape
+wait 600
+shot /tmp/hsk-fne-erased.png
+
+# and trace it back in, corner to corner, which is SketchUp's healing
+key escape
+key l
+wait 400
+at 890 483
+wait 700
+click l
+wait 500
+at 1097 362
+wait 700
+click l
+wait 1500
+key escape
+wait 800
+shot /tmp/hsk-fne-healed.png

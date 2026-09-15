@@ -401,6 +401,18 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { The edge just drawn over one already there.  SketchUp calls this
+      healing: "Undo, or redraw the line that was removed - the face comes
+      back on its own."  A face rubbed out leaves its edges behind and the
+      area is remembered as one somebody did not want, so working the areas
+      out again does not hand it back.  Tracing one of its edges says they
+      do want it after all, and this is how that reaches the region loop.
+
+      Tony, 15 September: "when I delete a face in SketchUp let's say in a
+      cube there is a way to put it back if I remember correctly but it was
+      a pain in the ass... We need to be able to do the same thing." }
+    FHealOn: Boolean;
+    FHealA, FHealB: TP3;
     { /detach: a move takes what is selected away on its own instead of
       stretching what it is joined to.  Tony asked for both ways; the
       stretching one is what SketchUp does and stays what you get by
@@ -11335,6 +11347,28 @@ begin
     Exit;
   end;
 
+  { One length, where the rectangle wanted two.
+
+    This reads perfectly well as a length, so nothing above it objects -
+    and then RectTarget finds no separator, quietly gives up, and the corner
+    comes from the cursor.  A rectangle of the wrong size and not a word
+    said about why.
+
+    Tony, 15 September: "uhm dude wtf happened to being able to enter
+    dimensions like the truss guys do!?  that should have worked for my
+    rectangle!"  The truss form works - 6-8-15x4-0-0 makes a rectangle six
+    foot eight and fifteen sixteenths by four foot - and one on its own did
+    nothing and said nothing, which is indistinguishable from the notation
+    having stopped working. }
+  if (FTool = ptRect) and (P = 0) and ParseLen(T, FD.Units, D) then
+  begin
+    Result := Format('%s reads fine - a rectangle wants both sides.  ' +
+      'Type %s x 4-0-0, or %s/4-0-0 from the number pad.  A comma on the ' +
+      'end instead sets that side and leaves the other on the cursor.',
+      [T, T, T]);
+    Exit;
+  end;
+
   if ParseLen(T, FD.Units, D) then Exit;
 
   { The dashed form, wrong in the one way it is usually wrong: a last field
@@ -11468,6 +11502,13 @@ begin
         if Dist(FP1, T) > 1E-9 then
         begin
           PushUndo;
+          { Whether or not this line is new, it says the areas it bounds are
+            wanted.  Drawn over one already there that is the only thing it
+            can be saying, and it is how a face that was rubbed out comes
+            back - SketchUp's healing.  See FHealOn. }
+          FHealOn := True;
+          FHealA := FP1;
+          FHealB := T;
           if FD.Doc.HasLine(FP1, T) then
             FCmdMsg := FormatLen(Dist(FP1, T), FD.Units) + '   (already an edge)'
           else
@@ -11497,6 +11538,7 @@ begin
             what the edges enclose, rather than by a rule per case. }
           I := FaceCount;
           K := RebuildFlatFaces;
+          FHealOn := False;
           if K > I then
             FCmdMsg := FCmdMsg + Format('   %d face%s now',
               [K, IfThen(K = 1, '', 's')]);
@@ -14675,6 +14717,7 @@ procedure TMainForm.DeleteSelection;
 var
   I, N: Integer;
   Doomed: array of Boolean;
+  Held: TIntArrayW;
   Tk: QWord;
 begin
   N := Length(FSel);
@@ -14688,6 +14731,9 @@ begin
   for I := 0 to High(Doomed) do Doomed[I] := False;
   for I := 0 to N - 1 do
     if (FSel[I] >= 0) and (FSel[I] < Length(Doomed)) then Doomed[FSel[I]] := True;
+  { and the faces those edges were holding up - see FacesOnEdges }
+  FD.Doc.FacesOnEdges(FSel, Held);
+  for I := 0 to High(Held) do Doomed[Held[I]] := True;
   FD.Doc.DeleteMarked(Doomed);
   Took('delete selection', Tk);
   SetLength(FSel, 0);
@@ -15204,6 +15250,8 @@ var
   I, J, T, N: Integer;
   EA, EB: array of TP3;
   Kinds: array of TEntKind;
+  Held: TIntArrayW;
+  Gone: array of Boolean;
 begin
   N := Length(FDoomed);
   if N = 0 then Exit;
@@ -15228,8 +15276,17 @@ begin
 
   PushUndo;
   J := FaceCount;
-  for I := 0 to N - 1 do
-    FD.Doc.Delete(FDoomed[I]);
+  { The faces these edges were holding up go with them.  A loose face would
+    have gone anyway - they are all thrown away and worked out again from
+    what is left - but a built solid's faces are kept as they were made, so
+    rubbing an edge off a box used to leave the box's six sides standing
+    with nothing under one of them. }
+  FD.Doc.FacesOnEdges(FDoomed, Held);
+  SetLength(Gone, FD.Doc.Live);
+  for I := 0 to High(Gone) do Gone[I] := False;
+  for I := 0 to N - 1 do Gone[FDoomed[I]] := True;
+  for I := 0 to High(Held) do Gone[Held[I]] := True;
+  FD.Doc.DeleteMarked(Gone);
   { Faces joining up where a line went, and faces disappearing because their
     outline is no longer closed, both come out of working the areas out again
     from what is left. }
@@ -15493,6 +15550,7 @@ var
   Ink: TColor;
   Dup, HadFace, Known: Boolean;
   Sig: TRegionSig;
+  HealGrp: Integer;
   SolidIx: TIntArrayW;
   SolidN, SolidP0, SolidMid, RMid: array of TP3;
   SolidRad: array of Double;
@@ -15749,9 +15807,9 @@ var
     end;
   end;
 
-  function OpeningOfSolid(const Rg: TRegion): Boolean;
+  function OpeningOfSolid(const Rg: TRegion; out Grp: Integer): Boolean;
   var
-    E, L, Grp: Integer;
+    E, L: Integer;
     P, Q: TP3;
   begin
     Result := False;
@@ -15766,6 +15824,48 @@ var
       Grp := FD.Doc[L].Grp;
     end;
     Result := Grp > 0;
+  end;
+
+  { the middle of a built solid, for pointing a face away from it }
+  function SolidMidOf(G: Integer): TP3;
+  var
+    E, K, N: Integer;
+  begin
+    Result := P3(0, 0, 0);
+    N := 0;
+    for E := 0 to FD.Doc.Live - 1 do
+      if (FD.Doc[E].Kind = ekFace) and (FD.Doc[E].Grp = G) then
+        for K := 0 to High(FD.Doc[E].Poly) do
+        begin
+          Result := P3(Result.X + FD.Doc[E].Poly[K].X,
+                       Result.Y + FD.Doc[E].Poly[K].Y,
+                       Result.Z + FD.Doc[E].Poly[K].Z);
+          Inc(N);
+        end;
+    if N > 0 then Result := P3(Result.X / N, Result.Y / N, Result.Z / N);
+  end;
+
+  { Has the line just drawn been traced along one of this region's sides?
+
+    That is SketchUp's healing gesture and the only way back to a face that
+    was deliberately rubbed out: the area is remembered as one somebody did
+    not want, and redrawing a bounding edge says otherwise.  It beats both
+    that memory and the rule about a built solid's openings, because either
+    way the person has just gone to the trouble of tracing an edge that was
+    already there, and there is nothing else that gesture could mean. }
+  function HealsThis(const Rg: TRegion): Boolean;
+  var
+    E: Integer;
+    P, Q: TP3;
+  begin
+    Result := False;
+    if not FHealOn then Exit;
+    for E := 0 to High(Rg.Outer) do
+    begin
+      P := Rg.Outer[E];
+      Q := Rg.Outer[(E + 1) mod Length(Rg.Outer)];
+      if SharesRun(P, Q, FHealA, FHealB) then Exit(True);
+    end;
   end;
 
   { whether the face that was here lies in the plane of the region being
@@ -16111,7 +16211,7 @@ begin
         HadFace := True;
         Break;
       end;
-    if not HadFace then
+    if not HadFace and not HealsThis(R[I]) then
     begin
       { An opening of a built solid - a duct end, a pipe end, a hole rubbed
         out of a box - is edged entirely by that solid's own edges.  It is
@@ -16120,7 +16220,7 @@ begin
         seen before.  Something drawn across it is a loose edge, and then it
         is a new area like any other. }
       Lap(2);
-      if OpeningOfSolid(R[I]) then begin Lap(3); Continue; end;
+      if OpeningOfSolid(R[I], HealGrp) then begin Lap(3); Continue; end;
       Lap(3);
       Sig := RegionSig(R[I]);
       Known := False;
@@ -16148,6 +16248,21 @@ begin
       was filled in solid and the window could only be seen by its edges. }
     if Length(R[I].Holes) > 0 then
       FD.Doc.SetFaceHoles(FD.Doc.Live - 1, R[I].Holes);
+    { A side of a box traced back in belongs to the box, not beside it.
+      Left loose it would be thrown away and worked out again on the next
+      rebuild - and refused, because the hole in a solid is not a place for
+      a loose face - so the healing would last until the next edit.  Joined
+      to the solid it stays, and /holes agrees the box is closed again. }
+    if FHealOn and HealsThis(R[I]) and OpeningOfSolid(R[I], HealGrp) then
+    begin
+      FD.Doc.SetFaceGroup(FD.Doc.Live - 1, HealGrp);
+      { facing out, like every other side of the solid: away from the middle
+        of the thing it has just closed }
+      Mid := SolidMidOf(HealGrp);
+      if Dot3(FD.Doc.FaceNormal(FD.Doc.Live - 1),
+              P3(RMid[I].X - Mid.X, RMid[I].Y - Mid.Y, RMid[I].Z - Mid.Z)) < 0 then
+        FD.Doc.FlipFace(FD.Doc.Live - 1);
+    end;
     Inc(Made);
     Lap(5);
   end;

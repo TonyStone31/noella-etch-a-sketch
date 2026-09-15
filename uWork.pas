@@ -414,6 +414,12 @@ type
       const Nm: TP3; Dist: Double): Boolean;
     { Every corner of these entities, for moving or for stretching. }
     procedure VertsOf(const Idx: array of Integer; out Pts: TP3Array);
+    { Which faces these edges hold up: any face with a side, or the side of
+      an opening, running along one of them.  Erasing an edge has to take
+      them with it - a face is what a closed run of edges encloses, not a
+      thing that stands on its own. }
+    function FacesOnEdges(const Idx: array of Integer;
+      out Faces: TIntArrayW): Integer;
     { Shift every vertex in the drawing that sits on one of these points.
       Geometry joined to what moves comes along, which is what makes moving
       one edge of a shape stretch the rest of it. }
@@ -781,6 +787,11 @@ function Dist(const A, B: TP3): Double; inline;
 { the point T of the way from A to B }
 function Lerp3(const A, B: TP3; T: Double): TP3;
 function SamePt(const A, B: TP3; Tol: Double): Boolean; inline;
+{ Do these two segments lie on each other over a run, rather than merely
+  touch at a point or cross?  That is the question "is this edge part of that
+  edge", which is what decides whether a face is held up by an edge and
+  whether a line has been traced over one already there. }
+function SharesRun(const P1, Q1, P2, Q2: TP3): Boolean;
 
 { --- projection ---------------------------------------------------------- }
 function SameProjector(const A, B: TProjector): Boolean;
@@ -5209,6 +5220,164 @@ begin
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
+{ Which faces are held up by these edges.
+
+  SketchUp's rule, and the one somebody rubbing out lines is relying on:
+  "the Eraser tool doesn't allow you to erase faces.  Technically, faces are
+  erased when you erase their bounding edges, opening and reshaping your
+  geometry."  A face is not a thing that sits there; it is what a closed run
+  of edges encloses, and taking one of those edges away takes it with them.
+
+  Loose faces got this for free - they are thrown away and worked out again
+  from the edges every time anything changes - and a built solid's faces
+  never did, because a solid's faces are kept as they were made.  So rubbing
+  an edge off a box left the box's six sides standing with nothing holding
+  one of them up.
+
+  Tony, 15 September: "in SketchUp I don't think you can even have a filled
+  face unless it is enclosed by lines.  So when I am erasing lines on a cube
+  it will leave behind faces and I think that is wrong."
+
+  Asked of the edges being rubbed out rather than of every face in the
+  drawing, and that is deliberate.  A face that never had edges under it -
+  the lettering in the old example is a hundred of them - is not using the
+  edge you just rubbed out, so it is not in this.  Auditing the whole
+  drawing instead would take those with it the first time anybody erased
+  anything, which is a different program's answer to a different question. }
+function SharesRun(const P1, Q1, P2, Q2: TP3): Boolean;
+const
+  TOL = 1E-6;
+var
+  U, W, F: TP3;
+  L, TA, TB, Off, Lo, Hi: Double;
+begin
+  Result := False;
+  L := Dist(P1, Q1);
+  if L < TOL then Exit;
+  U := P3((Q1.X - P1.X) / L, (Q1.Y - P1.Y) / L, (Q1.Z - P1.Z) / L);
+
+  W := P3(P2.X - P1.X, P2.Y - P1.Y, P2.Z - P1.Z);
+  TA := Dot3(W, U);
+  F := P3(W.X - U.X * TA, W.Y - U.Y * TA, W.Z - U.Z * TA);
+  Off := Sqrt(F.X * F.X + F.Y * F.Y + F.Z * F.Z);
+  if Off > TOL then Exit;
+
+  W := P3(Q2.X - P1.X, Q2.Y - P1.Y, Q2.Z - P1.Z);
+  TB := Dot3(W, U);
+  F := P3(W.X - U.X * TB, W.Y - U.Y * TB, W.Z - U.Z * TB);
+  Off := Sqrt(F.X * F.X + F.Y * F.Y + F.Z * F.Z);
+  if Off > TOL then Exit;
+
+  Lo := Max(0, Min(TA, TB));
+  Hi := Min(L, Max(TA, TB));
+  Result := Hi - Lo > TOL;
+end;
+
+function TWorkDoc.FacesOnEdges(const Idx: array of Integer;
+  out Faces: TIntArrayW): Integer;
+const
+  TOL = 1E-6;
+type
+  TRun = record A, B: TP3; end;
+var
+  Runs: array of TRun;
+  NR, I, J, K, H, Steps: Integer;
+  Ang: Double;
+  P, Q: TP3;
+  Marked: array of Boolean;
+
+  procedure PutRun(const A, B: TP3);
+  begin
+    if Dist(A, B) < TOL then Exit;
+    if NR >= Length(Runs) then SetLength(Runs, Max(16, NR * 2));
+    Runs[NR].A := A; Runs[NR].B := B;
+    Inc(NR);
+  end;
+
+  function UsesARun(const A, B: TP3): Boolean;
+  var
+    M: Integer;
+  begin
+    Result := True;
+    for M := 0 to NR - 1 do
+      if SharesRun(A, B, Runs[M].A, Runs[M].B) then Exit;
+    Result := False;
+  end;
+
+begin
+  Faces := nil;
+  Result := 0;
+  NR := 0;
+
+  { every run that is about to go, arcs walked as they are drawn }
+  for I := 0 to High(Idx) do
+  begin
+    J := Idx[I];
+    if (J < 0) or (J >= FLive) then Continue;
+    case FEnts[J].Kind of
+      ekLine: if not FEnts[J].Dim then PutRun(FEnts[J].A, FEnts[J].B);
+      ekArc:
+        begin
+          Steps := ArcSteps(FEnts[J]);
+          for K := 0 to Steps - 1 do
+          begin
+            Ang := FEnts[J].A0 + FEnts[J].Sweep * K / Steps;
+            P := ArcPoint(FEnts[J].C, FEnts[J].R, Ang, FEnts[J].Plane, FEnts[J].Nm);
+            Ang := FEnts[J].A0 + FEnts[J].Sweep * (K + 1) / Steps;
+            Q := ArcPoint(FEnts[J].C, FEnts[J].R, Ang, FEnts[J].Plane, FEnts[J].Nm);
+            PutRun(P, Q);
+          end;
+        end;
+    end;
+  end;
+  if NR = 0 then Exit;
+
+  SetLength(Marked, FLive);
+  for I := 0 to FLive - 1 do Marked[I] := False;
+  for I := 0 to High(Idx) do
+    if (Idx[I] >= 0) and (Idx[I] < FLive) then Marked[Idx[I]] := True;
+
+  for I := 0 to FLive - 1 do
+  begin
+    if Marked[I] or (FEnts[I].Kind <> ekFace) then Continue;
+    if Length(FEnts[I].Poly) < 3 then Continue;
+    for K := 0 to High(FEnts[I].Poly) do
+    begin
+      P := FEnts[I].Poly[K];
+      Q := FEnts[I].Poly[(K + 1) mod Length(FEnts[I].Poly)];
+      if UsesARun(P, Q) then
+      begin
+        Marked[I] := True;
+        Break;
+      end;
+    end;
+    { the edge round an opening holds the face up just as much as the edge
+      round the outside: rub out one side of a window and the wall it is cut
+      in is no longer a closed shape either }
+    if not Marked[I] then
+      for H := 0 to High(FEnts[I].Holes) do
+      begin
+        for K := 0 to High(FEnts[I].Holes[H]) do
+        begin
+          P := FEnts[I].Holes[H][K];
+          Q := FEnts[I].Holes[H][(K + 1) mod Length(FEnts[I].Holes[H])];
+          if UsesARun(P, Q) then
+          begin
+            Marked[I] := True;
+            Break;
+          end;
+        end;
+        if Marked[I] then Break;
+      end;
+    if Marked[I] then
+    begin
+      SetLength(Faces, Result + 1);
+      Faces[Result] := I;
+      Inc(Result);
+    end;
+  end;
+end;
+
 procedure TWorkDoc.VertsOf(const Idx: array of Integer; out Pts: TP3Array);
 var
   I, J, K, N: Integer;
@@ -6539,11 +6708,11 @@ procedure TWorkDoc.RebuildSnapCache;
 const
   MAX_LINES = 500;
 var
-  I, J, N, LineCount: Integer;
+  I, J, N, LineCount, NGuide: Integer;
   P: TP3;
   TA, TB: Double;
   Cuts: array of array of Double;
-  Idx: array of Integer;
+  Idx, GIdx: array of Integer;
   Tmp: Double;
   K, M, H: Integer;
   MidKind: TSnapKind;
@@ -6707,6 +6876,47 @@ begin
           if PointOnSeg(FEnts[Idx[I]].B, FEnts[Idx[J]].A, FEnts[Idx[J]].B, TB) then
             AddCut(J, TB);
         end;
+
+  { Where a guide crosses something, which is the whole reason for laying one.
+
+    You set a guide an inch in from the end of a rectangle so you can put
+    something an inch in from the end of the rectangle - and the place you
+    are aiming at is where that guide meets the edge.  Nothing was offering
+    it: this pass only ever walked lines, and a guide was not one, so the
+    one point the guide existed to create was the one point the cursor could
+    not find.
+
+    Tony, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE
+    I SET AT THE OTHER END OF THE RECTANGLE AT 1"!!!"
+
+    The crossing only, and no cuts: a guide is construction, and it does not
+    divide the edge it lies across the way a drawn line does.  A guide's own
+    two ends are left out too - where a guide stops is an accident of how it
+    was laid, and SketchUp's have no ends at all.  A guide POINT, which is a
+    guide with no length, is already in above and is a real target. }
+  SetLength(GIdx, FLive);
+  NGuide := 0;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekGuide) and
+       (Dist(FEnts[I].A, FEnts[I].B) > 1E-9) then
+    begin
+      GIdx[NGuide] := I;
+      Inc(NGuide);
+    end;
+  if (NGuide > 0) and (LineCount + NGuide <= MAX_LINES) then
+  begin
+    for I := 0 to NGuide - 1 do
+    begin
+      for J := 0 to LineCount - 1 do
+        if SegCross(FEnts[GIdx[I]].A, FEnts[GIdx[I]].B,
+                    FEnts[Idx[J]].A, FEnts[Idx[J]].B, P, TA, TB) then
+          Put(P, snCross);
+      for J := I + 1 to NGuide - 1 do
+        if SegCross(FEnts[GIdx[I]].A, FEnts[GIdx[I]].B,
+                    FEnts[GIdx[J]].A, FEnts[GIdx[J]].B, P, TA, TB) then
+          Put(P, snCross);
+    end;
+  end;
 
   { a crossed line is really several sub-segments, so give each of them a
     midpoint of its own }

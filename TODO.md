@@ -1160,6 +1160,77 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### A face is not a thing, it is what edges enclose - 15 September 2026
+
+Tony: "in SketchUp I don't think you can even have a filled face unless it is
+enclosed by lines.  So when I am erasing lines on a cube it will leave behind
+faces and I think that is wrong... I think also when I delete a face in
+SketchUp let's say in a cube there is a way to put it back if I remember
+correctly but it was a pain in the ass... Verify my explanations here and
+make sure I am not wrong then fix our program."
+
+**He is right on both counts**, and `docs/sketchup/` - our own spec, fetched
+from SketchUp's help in September - says so in as many words:
+
+* 04-erasing-and-undoing: "Click an edge - erases that edge *and any faces it
+  bounds*."  And the quote: "The Eraser tool doesn't allow you to erase
+  faces.  Technically, faces are erased when you erase their bounding edges,
+  opening and reshaping your geometry."
+* 05-drawing-basics, under *Healing*: "Undo, or redraw the line that was
+  removed - the face comes back on its own."
+
+Both are fixed.  `FacesOnEdges` gathers the faces standing on the edges about
+to go, and the eraser and the Delete key take them together; `FHealOn` tells
+the region loop that the line just drawn was traced along an edge, which
+beats both the memory of a face somebody deleted and the rule that a built
+solid's opening is not a place for a face.  A side traced back into a box
+rejoins the box rather than sitting loose on it, so the next rebuild does not
+throw it away again and `/holes` agrees the box is closed.
+
+**Why it only bit solids.**  Loose faces are thrown away and worked out again
+from the edges on every edit, so they got the rule for free.  A solid's faces
+are kept as they were made - which is right, they carry their group and their
+winding - and nothing ever asked whether their edges were still there.
+
+**The audit that is worth keeping.**  Before touching anything, a throwaway
+program checked every face in every drawing in the repo against the edges
+under it.  `wine-glass.hsk`: 576 faces, none unbacked.  The drive-test
+drawings: none.  **`examples/etch-a-sketch.hsk`: 111 of its 133 faces have no
+edges under them at all** - not a missing side, no edges whatever.  They are
+the lettering and the robot, written straight in as faces.
+
+That is why the fix is asked of the edges being erased and not of every face
+in the drawing: an audit-everything rule would have deleted five sixths of
+the example the first time anybody rubbed anything out.  It is also why Tony
+is rebuilding the toy by hand and finding fault after fault in it - the model
+the help pages all use is not geometry that the program itself could have
+produced.  **Take his model when he offers it.**
+
+### Two reports, read the same afternoon
+
+**Truss notation had not stopped working.**  "wtf happened to being able to
+enter dimensions like the truss guys do!?  that should have worked for my
+rectangle!"  `6-8-15x4-0-0` makes a rectangle six foot eight and fifteen
+sixteenths by four foot, and every length field in the program goes through
+the one `ParseLen`, so it is accepted everywhere already.  What went wrong is
+worse than a refusal: `6-8-15` on its own **parses**, so nothing objected,
+and then RectTarget found no separator, gave up quietly, and took the corner
+from the cursor.  A rectangle of the wrong size and not a word said.  It now
+says what it wanted.  And the notation is in the manual, which was the other
+half of what he asked for.
+
+**Guides made no crossings.**  "THIS SHOULD BE SNAPPING TO THAT GUIDE I SET
+AT THE OTHER END OF THE RECTANGLE AT 1"!!!"  The snap cache's crossing pass
+walked `ekLine` and nothing else, so a guide laid an inch in from an edge
+produced no point where it met that edge - the one point the guide was laid
+to create.  Fixed, guide against line and guide against guide.  No cuts,
+though: a guide is construction and does not divide the edge it lies across
+the way a drawn line does.
+
+**That is the sixth of these this week** and the list in the picker audit
+below should have a line added to it: *what does this pass walk, and is a
+guide one of them?*
+
 ### The manual, and taking its pictures without taking them - 15 September 2026
 
 Tony: "our documentation really needs some help.  we probably need a document

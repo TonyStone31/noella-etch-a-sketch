@@ -10,6 +10,36 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A face needs the edges that enclose it.**  Rub out an edge of a box and
+  the sides that were standing on it go with it, the way SketchUp has always
+  done it - "faces are erased when you erase their bounding edges".  Loose
+  faces already worked this way; a built solid's did not, so a box could end
+  up with six sides and one of them held up by nothing.
+
+- **And you can put one back.**  Draw the line again, along where it was, and
+  the faces come back with it - SketchUp's healing.  A side traced back into
+  a box rejoins the box, so the shape is closed again and `/holes` agrees.
+
+- **A guide makes a point where it crosses an edge.**  That is what a guide
+  is for: set one an inch in from the end and the place you are aiming at is
+  where it meets the edge.  Nothing was offering it - the pass that works out
+  crossings only ever looked at drawn lines.  Two guides crossing each other
+  count too.
+
+- **A rectangle says when you have given it one side.**  Type a length with
+  no second side and it read it, ignored it, and took the corner from the
+  cursor without a word.  It now says so, and what to type instead.
+
+### New
+
+- **Truss notation is in the manual.**  `6-8-15` is six foot eight and
+  fifteen sixteenths, and it has always worked in every field that takes a
+  length - it was just never written down anywhere.
+
 ## v2026.09.15.5
 
 ### New

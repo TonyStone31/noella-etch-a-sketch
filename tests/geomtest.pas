@@ -1155,6 +1155,229 @@ begin
   end;
 end;
 
+{ A face is what a closed run of edges encloses, so rubbing out an edge has
+  to take the faces it was holding up.
+
+  Tony, 15 September: "in SketchUp I don't think you can even have a filled
+  face unless it is enclosed by lines.  So when I am erasing lines on a cube
+  it will leave behind faces and I think that is wrong."
+
+  He is right, and SketchUp says so in as many words - "faces are erased when
+  you erase their bounding edges, opening and reshaping your geometry"
+  (docs/sketchup/04-erasing-and-undoing.md).  A loose face got this for free,
+  because loose faces are thrown away and worked out again from the edges
+  every time; a built solid's faces are kept as they were made, and nothing
+  ever asked whether their edges were still there. }
+procedure TestErasingAnEdgeTakesItsFaces;
+var
+  D: TWorkDoc;
+  Held: TIntArrayW;
+  Loop: TP3Array;
+  Gone: array of Boolean;
+  I, NFace, Edge: Integer;
+
+  function FaceCountOf(Doc: TWorkDoc): Integer;
+  var
+    J: Integer;
+  begin
+    Result := 0;
+    for J := 0 to Doc.Live - 1 do
+      if Doc[J].Kind = ekFace then Inc(Result);
+  end;
+
+  { the index of a line entity running from P to Q, either way round }
+  function LineFrom(Doc: TWorkDoc; const P, Q: TP3): Integer;
+  var
+    J: Integer;
+  begin
+    Result := -1;
+    for J := 0 to Doc.Live - 1 do
+      if Doc[J].Kind = ekLine then
+        if ((Dist(Doc[J].A, P) < 1E-6) and (Dist(Doc[J].B, Q) < 1E-6)) or
+           ((Dist(Doc[J].A, Q) < 1E-6) and (Dist(Doc[J].B, P) < 1E-6)) then
+          Exit(J);
+  end;
+
+begin
+  WriteLn('-- rubbing out an edge takes the faces it was holding up');
+  D := TWorkDoc.Create;
+  try
+    { a box: a square on the floor, pulled up two }
+    SetLength(Loop, 4);
+    Loop[0] := P3(0, 0, 0); Loop[1] := P3(4, 0, 0);
+    Loop[2] := P3(4, 4, 0); Loop[3] := P3(0, 4, 0);
+    for I := 0 to 3 do
+      D.AddLine(Loop[I], Loop[(I + 1) mod 4], clBlack, 1, False);
+    D.AddFace(Loop, clBlack, False);
+    NFace := -1;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then NFace := I;
+    Ok(D.PushPull(NFace, 2), 'the square pulls up into a box');
+    EqI(FaceCountOf(D), 6, 'a box has six sides');
+
+    { one edge of the top, which two sides share }
+    Edge := LineFrom(D, P3(0, 0, 2), P3(4, 0, 2));
+    Ok(Edge >= 0, 'the top of the box has an edge along the front');
+    EqI(D.FacesOnEdges([Edge], Held), 2,
+      'two sides are standing on it - the top and the front wall');
+
+    { and an edge nothing uses is nobody''s business }
+    D.AddLine(P3(10, 10, 0), P3(12, 10, 0), clBlack, 1, False);
+    EqI(D.FacesOnEdges([D.Live - 1], Held), 0,
+      'a line off on its own holds nothing up');
+    D.Delete(D.Live - 1);
+
+    { The whole gesture: the edge and its faces go together, and in one pass.
+      Deleting them one at a time shifts every index above each one - which
+      is what the eraser itself was doing until the pass was made one. }
+    Edge := LineFrom(D, P3(0, 0, 2), P3(4, 0, 2));
+    D.FacesOnEdges([Edge], Held);
+    SetLength(Gone, D.Live);
+    for I := 0 to High(Gone) do Gone[I] := False;
+    Gone[Edge] := True;
+    for I := 0 to High(Held) do Gone[Held[I]] := True;
+    D.DeleteMarked(Gone);
+    EqI(FaceCountOf(D), 4, 'four sides left, and the box is open');
+    Ok(LineFrom(D, P3(0, 0, 2), P3(4, 0, 2)) < 0, 'the edge is gone');
+    Ok(LineFrom(D, P3(4, 0, 2), P3(4, 4, 2)) >= 0,
+      'and the edges beside it are not');
+  finally
+    D.Free;
+  end;
+end;
+
+{ Truss notation, which a shop writes as feet-inches-sixteenths.
+
+  Tony, 15 September: "wtf happened to being able to enter dimensions like
+  the truss guys do!?  that should have worked for my rectangle!  we need to
+  make sure the truss notation is documented as a valid input in our online
+  docs and it needs to be accepted everywhere and in every tool that takes a
+  number!"
+
+  It had not stopped working, and it is accepted everywhere - every field in
+  the program that takes a length goes through ParseLen.  What it did was
+  worse than failing: a rectangle given one of them took it, read it, and
+  then quietly ignored it because a rectangle wants two sides, so the shape
+  came out the size of whatever the cursor was on and nothing was said. }
+procedure TestTrussNotation;
+var
+  V: Double;
+  Was: Integer;
+
+  procedure Reads(const S: string; Want: Double; const What: string);
+  var
+    Got: Double;
+  begin
+    if not ParseLen(S, usImperial, Got) then
+    begin
+      Ok(False, Format('%s does not read at all (%s)', [S, What]));
+      Exit;
+    end;
+    Ok(Abs(Got - Want) < 1E-9,
+      Format('%s is %s', [S, What]));
+  end;
+
+  procedure Refused(const S: string; const Why: string);
+  var
+    Got: Double;
+  begin
+    Ok(not ParseLen(S, usImperial, Got), Format('%s is refused - %s', [S, Why]));
+  end;
+
+begin
+  WriteLn('-- feet, inches and sixteenths, the way a truss drawing writes it');
+  Was := LenDenom;
+  SetLenDenom(16);
+  try
+    Reads('6-8-15', 6 + 8/12 + 15/(16*12), 'six foot eight and fifteen sixteenths');
+    Reads('0-8-8', 8/12 + 8/(16*12), 'eight and a half inches');
+    Reads('3-0-0', 3, 'three foot exactly');
+    Reads('0-0-8', 8/(16*12), 'half an inch');
+    Reads('10-11-15', 10 + 11/12 + 15/(16*12), 'the biggest each field goes');
+    Reads('-3-0-0', -3, 'three foot the other way');
+    Reads('12-6', 12.5, 'the older one-dash form, twelve foot six');
+
+    { the fields have to fit, because being wrong by a hair on a cut length
+      is worse than being told }
+    Refused('6-8-16', 'sixteen sixteenths is an inch, and the drawing counts in 16ths');
+    Refused('6-12-0', 'twelve inches is a foot');
+
+    { a finer drawing counts finer }
+    SetLenDenom(32);
+    Reads('6-8-31', 6 + 8/12 + 31/(32*12), 'thirty-one thirty-seconds at 1/32');
+    Refused('6-8-32', 'and thirty-two of them is still an inch');
+    SetLenDenom(16);
+
+    { and it is the same reader every length field in the program uses, so
+      what works for a line works for a radius and for a duct }
+    Ok(ParseLen('6-8-15', usImperial, V) and (Abs(V - 6.744791666666667) < 1E-9),
+      'one reader, so one answer everywhere');
+  finally
+    SetLenDenom(Was);
+  end;
+end;
+
+{ Where a guide crosses an edge is the point the guide exists to make.
+
+  Tony, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE I
+  SET AT THE OTHER END OF THE RECTANGLE AT 1"!!!"
+
+  You lay a guide an inch in from the end so that you can put something an
+  inch in from the end, and the place you are aiming at is where the guide
+  meets the edge.  The pass that works out crossings only ever walked lines,
+  and a guide is not one - so the one point a guide is laid to create was
+  the one point the cursor could not find.  Same shape of fault as the
+  others this week: a rule taught to lines and never asked of its
+  neighbour. }
+procedure TestGuidesMakeCrossings;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Hit: TSnapHit;
+  S: TPointF;
+  Was: Integer;
+
+  function OffersAt(const P: TP3; Want: TSnapKind): Boolean;
+  var
+    Sc: TPointF;
+  begin
+    Sc := Project(V, P);
+    Result := D.BestSnap(V, Sc.X, Sc.Y, 12, Hit) and
+              (Hit.Kind = Want) and (Dist(Hit.P, P) < 1E-6);
+  end;
+
+begin
+  WriteLn('-- a guide makes a point where it crosses an edge');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 40;
+    { a rectangle, and a guide an inch in from its left-hand end }
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), clBlack, 1, False);
+    D.AddLine(P3(10, 0, 0), P3(10, 6, 0), clBlack, 1, False);
+    D.AddLine(P3(10, 6, 0), P3(0, 6, 0), clBlack, 1, False);
+    D.AddLine(P3(0, 6, 0), P3(0, 0, 0), clBlack, 1, False);
+    D.AddGuide(P3(1, -2, 0), P3(1, 8, 0));
+
+    Ok(OffersAt(P3(1, 0, 0), snCross),
+      'the guide crossing the bottom edge is a point to aim at');
+    Ok(OffersAt(P3(1, 6, 0), snCross),
+      'and so is where it crosses the top');
+
+    { a second guide across it, and the two of them make a point of their own }
+    D.AddGuide(P3(-2, 4, 0), P3(12, 4, 0));
+    Ok(OffersAt(P3(1, 4, 0), snCross),
+      'two guides crossing make a point without any edge at all');
+
+    { but a guide does not divide the edge it lies across.  A drawn line
+      would; a guide is construction and the edge stays one run. }
+    Was := D.SnapCacheCount;
+    Ok(Was > 0, 'the cache has something in it');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -5921,6 +6144,9 @@ begin
   TestSvgIsTrueSize;  WriteLn;
   TestCrossingsBreakEdges;  WriteLn;
   TestMoveStretchesWhatItJoins;  WriteLn;
+  TestErasingAnEdgeTakesItsFaces;  WriteLn;
+  TestTrussNotation;  WriteLn;
+  TestGuidesMakeCrossings;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;
