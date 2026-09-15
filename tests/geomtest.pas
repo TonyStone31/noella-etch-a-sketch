@@ -5016,11 +5016,16 @@ begin
         MinZ := Min(MinZ, Min(Az, Min(Bz, Cz)));
         MaxZ := Max(MaxZ, Max(Az, Max(Bz, Cz)));
       end;
-      { and the same centring the SCAD gets - the uncle's actual complaint }
+      { The same placing the SCAD gets - the uncle's actual complaint.
+
+        Centred across the bed and STANDING ON IT.  Centred in Z as well, as
+        this used to assert, buries the bottom half of the part in the build
+        plate - which is one of the things he was opening another program to
+        put right. }
       Ok((Abs(MinX + MaxX) < 1E-2) and (Abs(MinY + MaxY) < 1E-2) and
-         (Abs(MinZ + MaxZ) < 1E-2),
-        Format('the STL is centred on the origin too (x %.1f..%.1f)',
-          [MinX, MaxX]));
+         (Abs(MinZ) < 1E-2),
+        Format('the STL is centred on the bed and sits on it (x %.1f..%.1f, z %.1f)',
+          [MinX, MaxX, MinZ]));
       Ok(NT = Integer(Cnt),
         Format('every triangle''s stated normal matches its corners (%d of %d)',
           [NT, Cnt]));
@@ -5661,16 +5666,19 @@ begin
     { and putting it back where it was leaves the check after this alone }
     D.TranslateEnts(CIdx, P3(-5, -2, -1.5));
 
-    { --- centred on the origin, which is what a slicer wants ---------
+    { --- centred on the bed, which is what a slicer wants ------------
           Tony's uncle: a part opens in the next program wherever the drawing
           put it, and for something drawn at building coordinates that is a
           long way off the plate.  The box above sits at 0..10, 0..4, 0..3, so
-          centred it must run -5..5, -2..2, -1.5..1.5 in feet. }
+          placed for printing it runs -5..5, -2..2 and 0..3 in feet - across
+          the bed in X and Y, and standing on it in Z. }
     Ok(Abs(MinOf3(Pts, NP, 0) + MaxOf3(Pts, NP, 0)) < 1E-3,
       Format('centred in x (%.1f to %.1f mm)',
         [MinOf3(Pts, NP, 0), MaxOf3(Pts, NP, 0)]));
     Ok(Abs(MinOf3(Pts, NP, 1) + MaxOf3(Pts, NP, 1)) < 1E-3, 'centred in y');
-    Ok(Abs(MinOf3(Pts, NP, 2) + MaxOf3(Pts, NP, 2)) < 1E-3, 'centred in z');
+    Ok(Abs(MinOf3(Pts, NP, 2)) < 1E-3,
+      Format('and standing on the bed, not half under it (z starts at %.1f mm)',
+        [MinOf3(Pts, NP, 2)]));
     Ok(Abs(MaxOf3(Pts, NP, 0) - 5 * 304.8) < 1E-2,
       Format('and still ten feet wide (%.1f mm each way)',
         [MaxOf3(Pts, NP, 0)]));

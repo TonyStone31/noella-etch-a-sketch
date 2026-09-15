@@ -275,7 +275,7 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   * **OpenSCAD** - a `polyhedron` per solid, each in its own module, to cut
     and union against something you are describing in OpenSCAD.
 
-  STL and OpenSCAD arrive centred on the origin, so a slicer opens them where
+  STL and OpenSCAD arrive centred on the bed and standing on it, so a slicer opens them where
   it expects to.  `/center`, or **Centre on the Origin** on the right button,
   does the same to the drawing itself.
 
@@ -427,7 +427,7 @@ after it would be a question rather than an answer.
 | `/help` `/?` | about |
 | `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
 | `/print`, `/print all`, `/print full` | this sheet / every sheet / 1:1 across pages |
-| `/center` `/centre`, `/tozero` `/zero` | the selection's middle on the origin / its near bottom corner on it |
+| `/center` `/centre`, `/tozero` `/zero` | centre the selection on the floor at 0,0 / put its near bottom corner on the origin |
 | `/holes` `/openedges` | draw, in red, every edge where a solid is not closed - the answer a slicer will not give you |
 | `/quick` | quick frames while the camera moves, on or off |
 | `/regions`, `/rebuild`, `/rebuildfaces`, `/forget`, `/rendertime`, `/timings` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame, print the steps of each edit |

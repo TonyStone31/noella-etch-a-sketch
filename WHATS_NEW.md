@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A part for printing now arrives standing on the bed.**  "Centre it on
+  the origin" centred all three directions, which buries the bottom half of
+  the thing in the build plate; slicers quietly lift it back out, so nothing
+  ever looked wrong, but it is the sort of thing you open another program to
+  put right before printing.  It is centred across the bed and standing on it
+  now - the STL, the OpenSCAD, and `/center` itself.  `/tozero` is unchanged:
+  the near bottom corner on the origin rather than the middle.
+
 ## v2026.09.15.1
 
 ### New

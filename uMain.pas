@@ -1193,7 +1193,7 @@ const
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
-    (Name: 'center';     Hint: 'put the middle of it on 0,0,0';         Arg: False),
+    (Name: 'center';     Hint: 'centre it on the floor at 0,0';         Arg: False),
     (Name: 'circle';     Hint: 'the circle tool';                       Arg: False),
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
@@ -3333,21 +3333,33 @@ end;
   Worth having on the drawing and not only on the way out to an STL: a
   drawing that is centred is one where the exports, the dimensions taken from
   the origin and the three axis readings all agree with each other. }
+{ Centre it on the bed - across X and Y, and standing on Z.
+
+  It used to centre all three axes, which puts the bottom half of the thing
+  under the floor.  That is a reasonable reading of "centre" and the wrong
+  one here: this command exists because a 3D print has to arrive where the
+  slicer expects it, and every slicer expects the bed at Z nought.  A model
+  half underground is the sort of thing somebody opens another program to put
+  right, which is precisely the step this is meant to remove.
+
+  /tozero is still the other one: not the middle over the origin, but the
+  near bottom corner ON it. }
 procedure TMainForm.CentreSelection;
 var
-  Mid: TP3;
+  Mid, Lo, Hi: TP3;
   Idx: array of Integer;
   I: Integer;
 begin
-  if not FD.Doc.MiddleOf(FSel, Mid) then
+  if not FD.Doc.SpanOf(FSel, Lo, Hi) then
   begin
     FCmdMsg := 'Nothing to centre.';
     InvalidateStatus;
     Exit;
   end;
+  Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, Lo.Z);
   if (Abs(Mid.X) < 1E-9) and (Abs(Mid.Y) < 1E-9) and (Abs(Mid.Z) < 1E-9) then
   begin
-    FCmdMsg := 'Already on the origin.';
+    FCmdMsg := 'Already centred on the floor.';
     InvalidateStatus;
     Exit;
   end;
@@ -3367,9 +3379,9 @@ begin
   RecomposeAll;
   FScreenDirty := True;
   if Length(FSel) > 0 then
-    FCmdMsg := Format('Moved %d things onto the origin.', [Length(FSel)])
+    FCmdMsg := Format('Centred %d things on the floor.', [Length(FSel)])
   else
-    FCmdMsg := 'Moved the whole drawing onto the origin.';
+    FCmdMsg := 'Centred the whole drawing on the floor.';
   InvalidateStatus;
   Invalidate;
 end;

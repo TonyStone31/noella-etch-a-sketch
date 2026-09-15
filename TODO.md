@@ -1231,6 +1231,61 @@ Done 14 September.  Three things that all showed as "the GIF looks wrong".
 Also: how long the film runs is now a choice at export time rather than
 whatever the clip happened to take, which is the same thing as its speed.
 
+### Getting a part to a printer, and the step that was being done by hand
+
+Tony's uncle prints from this program on a three hundred dollar machine and
+the workflow works - but he opens every part in OpenSCAD on the way, to
+"modify some properties and centre it".  Tony wanted that step gone, which
+meant working out what it was for.
+
+At least part of it was ours.  **"Centre it on the origin" centred all three
+axes**, so the bottom half of every part sat under the build plate.  Slicers
+lift it back out without comment, which is why nothing ever looked wrong -
+but centring a thing for printing means centring it ON the bed, and a model
+half underground is exactly what somebody opens another program to put right.
+Fixed in the STL, the OpenSCAD and /center: across X and Y, standing on Z.
+Measured on the wine glass, 0.00 to 215.90 mm.
+
+Two tests asserted "centred in z" and had to change with it.  They were
+asserting the bug - written when the convention was assumed rather than
+checked.
+
+**Still unknown: what else he does in there.**  Worth asking him, because it
+decides whether anything more is wanted:
+
+* **laying a face on the bed** - rotating a part so the right face is down
+  for strength or to avoid supports.  We have nothing for this and it is the
+  most likely remaining answer.
+* **scale** - if a part ever arrives the wrong size that is a units fault and
+  worth knowing about; the STL is always written in millimetres.
+* **which file he opens** - if it is the .scad rather than the .stl he may be
+  editing the polyhedron or wrapping it in a transform, which is a different
+  workflow and would explain "properties" better than an STL can.
+
+### Sending it to the printer, if that is ever wanted
+
+Researched 15 September, nothing built.  A printer takes G-code, not a model,
+and slicing is a whole program with years in it - supports, infill,
+perimeters, temperatures, retraction.  We should never write one.  So:
+
+    Heckers Sketch -> STL -> a slicer -> .gcode -> the printer
+
+PrusaSlicer has a proper headless command line for the middle of that, the
+same shape as the FreeCAD note above.  The far end is solved on two stacks:
+**Klipper + Moonraker**, a documented HTTP/JSON-RPC API that Mainsail and
+Fluidd are themselves only front ends onto; and **PrusaLink**, a local REST
+API embedded in MK4S firmware, with Prusa Connect as an optional cloud layer
+nobody has to touch.
+
+Resin is the wrong branch for this: it slices to per-vendor proprietary
+binaries - .ctb, .pwmx, .goo - with no standard and essentially no documented
+network API.
+
+The line to hold, if it is ever built: **we never own a slicing setting.**
+Hand the file to the slicer they already configured.  The moment this program
+has an infill percentage in it, it has stopped being a simple drawing
+program.
+
 ### Importing manufacturers' equipment models
 
 Tony: the heating and cooling makers publish models of their equipment and it

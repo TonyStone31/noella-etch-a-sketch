@@ -7914,9 +7914,11 @@ begin
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';
   if U = usMetric then Scale := 1000 else Scale := 304.8;
+  { Centred across the bed and standing ON it - not centred in Z, which
+    buries the bottom half of the thing in the build plate.  See WriteSTL. }
   Mid := P3(0, 0, 0);
   if AtOrigin and Bounds(BLo, BHi) then
-    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, (BLo.Z + BHi.Z) / 2);
+    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, BLo.Z);
 
   Top := 0;
   for I := 0 to FLive - 1 do
@@ -7926,7 +7928,7 @@ begin
   try
     L.Add('// Heckers Sketch - ' + FormatDateTime('yyyy-mm-dd hh:nn', Now));
     if AtOrigin then
-      L.Add('// Millimetres, centred on the origin.  A surface, not a')
+      L.Add('// Millimetres, centred on the bed and standing on it.  A surface, not a')
     else
       L.Add('// Millimetres, where the drawing put it.  A surface, not a');
     L.Add('// construction - see the notes at');
@@ -8121,9 +8123,19 @@ begin
   Result := 0;
   Closed := True;
   if U = usMetric then Scale := 1000 else Scale := 304.8;
+  { Where a slicer expects to find it: centred across the bed, and STANDING
+    ON it.
+
+    This used to centre all three axes, which puts the bottom half of the
+    thing under the build plate.  Most slicers quietly lift it back out, so
+    nothing ever looked broken - but "centre it" means centre it on the bed,
+    and a model half underground is exactly the sort of thing somebody opens
+    another program to put right before printing.  Which is what was
+    happening: the step this option exists to remove was being done by hand
+    in OpenSCAD. }
   Mid := P3(0, 0, 0);
   if AtOrigin and Bounds(BLo, BHi) then
-    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, (BLo.Z + BHi.Z) / 2);
+    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, BLo.Z);
 
   { The header is 80 bytes of anything at all, except that it must not begin
     with the word "solid" - a reader that sees that decides the file is the
