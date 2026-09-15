@@ -13,9 +13,35 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.14.16' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A film comes back to where it started.**  A move that ends somewhere' + LineEnding +
+    '  else - a rise, a push in, or one you pointed by hand - used to jump every' + LineEnding +
+    '  time the GIF came round.  It can now walk back to the start instead, inside' + LineEnding +
+    '  the same running time, so it joins up.  The tick only appears when the move' + LineEnding +
+    '  needs it: a turntable already ends where it began and is left alone.' + LineEnding +
+    '' + LineEnding +
+    '- **How long the film runs is yours to choose.**  A clip pointed by hand over' + LineEnding +
+    '  eleven seconds plays perfectly well in five, and the length is the speed.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The axes no longer draw through the model in a picture or a film.**  They' + LineEnding +
+    '  went on top of the finished picture, so a red line ran across the middle of' + LineEnding +
+    '  a solid in every frame of a GIF - which happens nowhere on screen, because' + LineEnding +
+    '  the drawing area rules them onto the paper and puts the model over them.' + LineEnding +
+    '  Now they go underneath there too.' + LineEnding +
+    '' + LineEnding +
+    '- **A film that ends where it began no longer stutters once a loop.**  It was' + LineEnding +
+    '  rendering the first pose twice - last frame and first frame, the same' + LineEnding +
+    '  picture - so a turntable froze for a frame every time round.' + LineEnding +
+    '' + LineEnding +
+    '- **The recording room can be moved.**  It draws its own frame and nothing' + LineEnding +
+    '  had ever been wired to drag it, so it sat in the middle of the screen over' + LineEnding +
+    '  the thing you were about to film.  Nothing about a recording minds: what is' + LineEnding +
+    '  written down is where the camera is pointing, not what is on the screen.' + LineEnding +
     '' + LineEnding +
     '- **An exported SVG now says how big it is.**  It used to carry a bare' + LineEnding +
     '  number - screen pixels at whatever zoom the view happened to be at - so a' + LineEnding +
