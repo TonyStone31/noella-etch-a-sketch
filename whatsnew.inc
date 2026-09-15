@@ -13,6 +13,33 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Pick something, click the cube, and it comes to the middle sized to' + LineEnding +
+    '  fit** - turning, sliding and zooming in one movement rather than a turn' + LineEnding +
+    '  followed by a jump.  With nothing picked it goes to the view you asked for' + LineEnding +
+    '  and leaves your framing alone.  `/cube fitselection off` if you would' + LineEnding +
+    '  rather it never re-framed.' + LineEnding +
+    '' + LineEnding +
+    '- **The cube goes in whichever corner suits**: `/cube tl`, `tr`, `bl` or' + LineEnding +
+    '  `br`, and `/cube on` or `off` to say so outright.  It remembers.' + LineEnding +
+    '' + LineEnding +
+    '- **FIT travels too.**  The FIT button and `/fit` ease the drawing into' + LineEnding +
+    '  frame instead of snapping it there - as does the VIEW button and every' + LineEnding +
+    '  named view.  Loading a drawing or changing sheet still arrives instantly,' + LineEnding +
+    '  because there is no sense of place to keep hold of when the thing you were' + LineEnding +
+    '  looking at has been replaced.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **"Send the drawing too" stayed unticked.**  Taking another picture, or' + LineEnding +
+    '  discarding it, rebuilt the report dialog - and the tick came back on, so a' + LineEnding +
+    '  report sent after that carried the drawing anyway.  What you typed always' + LineEnding +
+    '  survived that rebuild; now your answer to this does too.  It is your work' + LineEnding +
+    '  and the box exists so you get to say.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.17' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

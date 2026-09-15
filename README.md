@@ -423,7 +423,7 @@ after it would be a question rather than an answer.
 | `/whatsnew` `/changes` | the release notes |
 | `/version` | which build this is |
 | `/toy` `/etch`, `/pro` | the etch-a-sketch this program began as, and back again |
-| `/cube` `/viewcube` | the view cube in the top right of a 3D view, on or off |
+| `/cube`, `/cube on` `/cube off`, `/cube tl` `tr` `bl` `br`, `/cube fitselection on` `off` | the view cube: toggle it, put it in a corner, or say whether clicking it also frames what you have picked |
 | `/help` `/?` | about |
 | `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
 | `/print`, `/print all`, `/print full` | this sheet / every sheet / 1:1 across pages |

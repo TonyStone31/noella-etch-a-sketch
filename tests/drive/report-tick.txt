@@ -1,0 +1,45 @@
+# Unticking "send the drawing" has to survive the picture being dropped.
+#
+# The dialog is rebuilt whenever the picture is retaken or discarded - those
+# buttons come back as mrRetry, mrAll and mrIgnore and the loop goes round
+# again.  The typed note survived that; the tick did not, so somebody who
+# said not to send their drawing and then dropped the picture sent it anyway.
+#
+# NOTHING IS EVER SENT BY THIS SCRIPT.  It unticks, discards the picture,
+# looks, and escapes.
+#
+# It is deliberately NOT in the default list in run-drive.sh.  The postbox is
+# a real public one, and a script that opens the send dialog every time the
+# suite runs is one coordinate drift away from posting rubbish to it.  Run it
+# by name when this dialog changes:
+#
+#     tests/run-drive.sh report-tick
+#
+# What to look for in the shots: hsk-rep-2 has the tick cleared, and
+# hsk-rep-3 - the dialog rebuilt after the picture was discarded - still has
+# it cleared.  It used to come back ticked, and the drawing went out.
+#
+geometry 0 0 1400 800
+activate
+wait 2500
+key escape
+wait 800
+key slash
+type report
+key return
+wait 2500
+shot /tmp/hsk-rep-1.png
+# untick "send the drawing too"
+at 425 428
+click l
+wait 600
+shot /tmp/hsk-rep-2.png
+# discard the picture: this is what rebuilds the dialog
+at 700 682
+click l
+wait 1800
+shot /tmp/hsk-rep-3.png
+# out, without sending
+key escape
+wait 1000
+shot /tmp/hsk-rep-4.png

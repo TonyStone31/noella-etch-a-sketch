@@ -652,6 +652,14 @@ type
       drawing is a rectangle in plan, and a cube over it is an instrument for
       a question nobody has yet. }
     FCubeOn: Boolean;
+    { which corner of the drawing it sits in: 0 top left, 1 top right,
+      2 bottom left, 3 bottom right }
+    FCubeCorner: Integer;
+    { whether a click brings what is picked into the middle and sizes it.
+      With nothing picked it never does, whatever this says - there is
+      nothing to centre on, and re-fitting the whole drawing every time
+      somebody looks at it from another side throws away the zoom they set. }
+    FCubeFitSel: Boolean;
     FCubeSkin: TArtSurface;
     FCubeHot: TCubeTarget;
     FCubeHasHot: Boolean;
@@ -675,7 +683,6 @@ type
       animation takes a second and a half.  The recorder learnt this the
       same way - see the note on FClock in uRecord. }
     FGlideAt: QWord;
-    FGlideFit: Boolean;
     { the two places the camera stands, which is what the move interpolates }
     FGlideD0, FGlideD1: TP3;
     { what the turn turns about, and where it was on the screen when it
@@ -683,6 +690,9 @@ type
     FTurnPivot: TP3;
     FTurnAnchor: TPointF;
     FTurnAnchored: Boolean;
+    { and the framing, when the move carries that too }
+    FGlideFrame: Boolean;
+    FGlideZ0, FGlideZ1, FGlideOX0, FGlideOX1, FGlideOY0, FGlideOY1: Double;
     FHotSlice: Integer;         // which zone of the cut strip is under the pointer
     FTools: array of TDeckItem; // the vertical tool strip down the left
     FToolSkin: TArtSurface;
@@ -1008,7 +1018,11 @@ type
     procedure ZoomAt(Factor: Double; AnchorSX, AnchorSY: Double);
     procedure SetScaleIdx(I: Integer);
     procedure PanBy(DX, DY: Double);
-    procedure FitView;
+    { Travel is False where there is nothing to keep your bearings with - a
+      drawing just loaded, a different sheet, a change of projection.  The
+      point of moving instead of jumping is to hold on to where things are,
+      and when the things themselves have changed there is nothing to hold. }
+    procedure FitView(Travel: Boolean = True);
     procedure NewDrawing(Seed: Boolean = True);
     procedure DropDraft;
     procedure CloseDrawing(I: Integer);
@@ -1067,6 +1081,9 @@ type
     procedure PaintViewCube(C: TCanvas);
     function CubeMouse(X, Y: Integer; Down, Up: Boolean): Boolean;
     function TurnPivot: TP3;
+    function FitTarget(OnSelection: Boolean; AzT, ElT: Double;
+      out NewZoom, NewOX, NewOY: Double): Boolean;
+    procedure GlideCamera(Az, El, Zoom, OX, OY: Double);
     procedure HoldTurn;
     procedure GlideTo(Az, El: Double);
     procedure StepGlide(Dt: Double);
@@ -1180,7 +1197,8 @@ const
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
     (Name: 'corner';     Hint: 'look from a corner';                    Arg: False),
-    (Name: 'cube';       Hint: 'the view cube, on or off';              Arg: False),
+    (Name: 'cube';       Hint: 'the view cube: on, off, tl/tr/bl/br';    Arg: False;
+                         Eg:   '/cube tr'),
     (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True;
                          Eg:   '/cut 0 9'''),
     (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False),
@@ -1287,6 +1305,10 @@ const
   UNDO_LEVELS     = 16;
   KNOB_PX_PER_RAD = 58.0;
   BASE_SPEED      = 210.0;
+  { where the cube can sit, in the words the command takes }
+  CORNER_NAME: array[0..3] of string =
+    ('top left', 'top right', 'bottom left', 'bottom right');
+
   TICK_MS         = 16;
   { how long a camera move takes.  Long enough to follow, short enough that
     nobody waits for it - the same third of a second a window manager gives
@@ -4179,12 +4201,34 @@ begin
 end;
 
 { Frame the whole drawing, or reset to a sensible empty sheet. }
-procedure TMainForm.FitView;
+{ Frame the drawing.
+
+  It moves there rather than arriving there, when there is a window up to
+  watch it happen and the change is worth watching.  Tony's rule, and it is
+  the right one for every view change and not only the cube's: a drawing that
+  jumps from one framing to another makes you work out what happened, and one
+  that travels lets you keep hold of where things are.
+
+  Not while loading, not before the window exists, and not in a paper mode -
+  and not for a nudge, because a move nobody can see is a third of a second
+  of nothing. }
+procedure TMainForm.FitView(Travel: Boolean = True);
 var
   Lo, Hi, Mid: TP3;
   P: TPointF;
   BaseP, W, H, Z, NewZoom: Double;
+  FitZ, FitX, FitY: Double;
 begin
+  if Travel and FBooted and (FMode = mdPro) and (FD <> nil) and
+     (FD.View = vkOrbit) and
+     (FGlideT = 0) and FitTarget(False, FD.Az, FD.El, FitZ, FitX, FitY) and
+     ((Abs(FitZ - FD.Zoom) > 0.02 * Max(1, FD.Zoom)) or
+      (Abs(FitX - FD.ViewX) > 4) or (Abs(FitY - FD.ViewY) > 4)) then
+  begin
+    GlideCamera(FD.Az, FD.El, FitZ, FitX, FitY);
+    if FGlideT > 0 then Exit;
+  end;
+
   if not FD.Doc.Bounds(Lo, Hi) then
   begin
     FD.Zoom := 1.0;
@@ -5420,6 +5464,7 @@ procedure TMainForm.ApplyViewPreset(I: Integer);
 var
   N: Integer;
   Turn: Boolean;
+  FitZ, FitX, FitY: Double;
 begin
   N := Length(VIEW_PRESETS);
   Turn := (FD <> nil) and (FD.View = vkOrbit) and
@@ -5431,7 +5476,17 @@ begin
     from one projection into a different one and pretending otherwise would
     be a lie about what happened. }
   if Turn then
-    GlideTo(VIEW_PRESETS[FViewPreset].Az, VIEW_PRESETS[FViewPreset].El)
+  begin
+    { A preset re-frames, so the move is aimed at the framing it ends in
+      rather than popping into it on arrival - which is what FitView on
+      landing used to do. }
+    if FitTarget(Length(FSel) > 0, VIEW_PRESETS[FViewPreset].Az,
+         VIEW_PRESETS[FViewPreset].El, FitZ, FitX, FitY) then
+      GlideCamera(VIEW_PRESETS[FViewPreset].Az, VIEW_PRESETS[FViewPreset].El,
+        FitZ, FitX, FitY)
+    else
+      GlideTo(VIEW_PRESETS[FViewPreset].Az, VIEW_PRESETS[FViewPreset].El);
+  end
   else
   begin
     FD.Az := VIEW_PRESETS[FViewPreset].Az;
@@ -5446,8 +5501,9 @@ begin
   if FD.View = vkPlan then
     FCmdMsg := FCmdMsg + '  CUT, top right, slices it - Ctrl+wheel travels ' +
       'up and down.';
-  { a turn re-frames when it lands, not before - see StepGlide }
-  if FGlideT > 0 then FGlideFit := True else FitView;
+  { the turn carries the framing with it now, so there is nothing to do on
+    arrival; a change of view kind still snaps into its fit }
+  if FGlideT = 0 then FitView(False);
   RebuildDeck;
   pbDeck.Invalidate;
   pbView.Invalidate;
@@ -5592,7 +5648,9 @@ begin
   { the cut strip comes and goes with the view, so the top row is laid out
     again rather than repainted }
   Relayout;
-  FitView;
+  { the projection changed, so there is no turning of one into the other to
+    watch }
+  FitView(False);
   RebuildDeck;
   pbDeck.Invalidate;
   pbView.Invalidate;
@@ -8117,8 +8175,20 @@ begin
     { On by default.  Tony's, and he is right: it is the single most useful
       thing in a report and it was going unticked simply because it was
       unticked.  It stays a tick box, and it stays easy to see, because it is
-      somebody's work and they get to say. }
-    WithDoc.Checked := NThings > 0;
+      somebody's work and they get to say.
+
+      DocOn, not True, and that is the whole of a bug worth remembering.
+      This dialog is rebuilt from scratch every time the picture is retaken
+      or dropped - the buttons for that come back as mrRetry, mrAll and
+      mrIgnore, and the loop goes round again.  The note survives that, two
+      dozen lines up, because Memo.Text is seeded from Note.  The tick did
+      not: it was set from the thing count alone, so it came back ticked.
+
+      So somebody who unticked "send the drawing" and then dropped the
+      picture sent their drawing anyway, having been told twice that they
+      get to say.  That is not a cosmetic fault - it is the program doing
+      the one thing this box exists to prevent. }
+    WithDoc.Checked := (NThings > 0) and DocOn;
     WithDoc.Enabled := NThings > 0;
 
     Fine := TLabel.Create(Dlg);
@@ -11812,21 +11882,60 @@ begin
     program to say it exists. }
   { The cube.  Off by default and on by asking, because a first drawing is a
     rectangle in plan and an instrument for reading your bearings in three
-    dimensions is an answer to a question nobody has yet.  It is remembered
-    between sessions once turned on. }
+    dimensions is an answer to a question nobody has yet.  Everything about
+    it is remembered between sessions.
+
+    Bare it toggles; "on" and "off" say so outright for anybody writing a
+    script or a shortcut; tl, tr, bl and br move it to a corner; and
+    "fitselection" decides whether a click brings what is picked into the
+    middle and sizes it on the way round. }
   else if (W = 'cube') or (W = 'viewcube') then
   begin
-    FCubeOn := not FCubeOn;
     FCubeHasHot := False;
-    if FCubeOn and (FD <> nil) and (FD.View <> vkOrbit) then
-      FCmdMsg := 'The cube is on - it shows in a 3D view, and this is not ' +
-                 'one.  /3d, or the VIEW button.'
-    else if FCubeOn then
-      FCmdMsg := 'The cube is on.  Click a face, an edge or a corner to ' +
-                 'look from there; drag it to turn.'
+    if (Rest = 'on') or (Rest = 'off') then
+      FCubeOn := Rest = 'on'
+    else if (Rest = 'tl') or (Rest = 'tr') or (Rest = 'bl') or (Rest = 'br') then
+    begin
+      if Rest = 'tl' then FCubeCorner := 0
+      else if Rest = 'tr' then FCubeCorner := 1
+      else if Rest = 'bl' then FCubeCorner := 2
+      else FCubeCorner := 3;
+      FCubeOn := True;
+      FCmdMsg := 'The cube is ' + CORNER_NAME[FCubeCorner] + '.';
+    end
+    else if Copy(Rest, 1, 12) = 'fitselection' then
+    begin
+      N := Pos(' ', Rest);
+      if N > 0 then Rest := Trim(Copy(Rest, N + 1, MaxInt)) else Rest := '';
+      if Rest = 'off' then FCubeFitSel := False
+      else if Rest = 'on' then FCubeFitSel := True
+      else FCubeFitSel := not FCubeFitSel;
+      if FCubeFitSel then
+        FCmdMsg := 'A cube click brings what is picked into the middle and ' +
+                   'sizes it.  With nothing picked it just goes to the view.'
+      else
+        FCmdMsg := 'A cube click goes to the view and leaves the framing alone.';
+    end
+    else if Rest <> '' then
+      FCmdMsg := 'The cube takes on, off, tl, tr, bl, br, or ' +
+                 'fitselection on/off.'
     else
-      FCmdMsg := 'The cube is off.';
+      FCubeOn := not FCubeOn;
+
+    if FCmdMsg = '' then
+    begin
+      if FCubeOn and (FD <> nil) and (FD.View <> vkOrbit) then
+        FCmdMsg := 'The cube is on - it shows in a 3D view, and this is not ' +
+                   'one.  /3d, or the VIEW button.'
+      else if FCubeOn then
+        FCmdMsg := 'The cube is on, ' + CORNER_NAME[FCubeCorner] +
+                   '.  Click a face, an edge or a corner to look from there; ' +
+                   'drag it to turn.'
+      else
+        FCmdMsg := 'The cube is off.';
+    end;
     FScreenDirty := True;
+    Relayout;
     pbScreen.Invalidate;
   end
   else if (W = 'toy') or (W = 'etch') or (W = 'etchasketch') then
@@ -16998,11 +17107,16 @@ end;
   look. }
 function TMainForm.CubeRect: TRect;
 var
-  Sz, M: Integer;
+  Sz, M, L, T: Integer;
 begin
   Sz := CubeSize(FUIScale);
   M := Round(14 * FUIScale);
-  Result := Rect(pbScreen.Width - M - Sz, M, pbScreen.Width - M, M + Sz);
+  { the bottom corners leave room for the scale bar and the chip that sits
+    along the foot of the drawing }
+  if FCubeCorner in [0, 2] then L := M else L := pbScreen.Width - M - Sz;
+  if FCubeCorner in [0, 1] then T := M
+  else T := pbScreen.Height - Round(46 * FUIScale) - Sz;
+  Result := Rect(L, T, L + Sz, T + Sz);
 end;
 
 { The cube's patch of the drawing: its square, and a margin round it.
@@ -17105,7 +17219,7 @@ end;
 function TMainForm.CubeMouse(X, Y: Integer; Down, Up: Boolean): Boolean;
 var
   R: TRect;
-  Half, Az, El, NewAz, NewEl: Double;
+  Half, Az, El, NewAz, NewEl, FitZ, FitX, FitY: Double;
   T: TCubeTarget;
   Was: Boolean;
 begin
@@ -17136,7 +17250,17 @@ begin
         Az := FD.Az;
         CubeAzEl(T.Dir, Az, El);
         FViewPreset := -1;
-        GlideTo(Az, El);
+        { With something picked, the move brings it to the middle and sizes
+          it on the way round - one movement, not a turn and then a jump.
+          With nothing picked there is nothing to centre on, so it turns
+          about what is already in front of you and leaves the framing
+          alone: re-fitting the whole drawing every time somebody looks at
+          it from another side would throw away the zoom they set. }
+        if FCubeFitSel and (Length(FSel) > 0) and
+           FitTarget(True, Az, El, FitZ, FitX, FitY) then
+          GlideCamera(Az, El, FitZ, FitX, FitY)
+        else
+          GlideTo(Az, El);
         FCmdMsg := T.Name + '.';
       end;
       Exit;
@@ -17243,6 +17367,99 @@ begin
   FD.ViewY := FD.ViewY + (FTurnAnchor.Y - OP.Y);
 end;
 
+{ What a fit would come out as, without doing it.
+
+  Pulled out of FitView so a move can be aimed at the framing it will end in
+  rather than snapping into it on arrival.  Worked out at the angles the move
+  is going TO, not the ones it is leaving - which for an orbit makes no
+  difference to the zoom, because the bound used there is the diagonal of the
+  box and a diagonal is the same from every direction, but it decides where
+  the middle lands on the screen and that is the half that matters. }
+function TMainForm.FitTarget(OnSelection: Boolean; AzT, ElT: Double;
+  out NewZoom, NewOX, NewOY: Double): Boolean;
+var
+  Lo, Hi, Mid: TP3;
+  V: TProjector;
+  P: TPointF;
+  BaseP, W, H, Z: Double;
+begin
+  NewZoom := FD.Zoom;
+  NewOX := FD.ViewX;
+  NewOY := FD.ViewY;
+  if OnSelection and (Length(FSel) > 0) then
+    Result := FD.Doc.SpanOf(FSel, Lo, Hi)
+  else
+    Result := FD.Doc.Bounds(Lo, Hi);
+  if not Result then Exit;
+
+  BaseP := PixelsPerUnit(FD.Units, CurScale, Screen.PixelsPerInch);
+  case FD.View of
+    vkIso:
+      begin
+        W := Max((Abs(Hi.X - Lo.X) + Abs(Hi.Y - Lo.Y)) * ISO_COS, 1E-6);
+        H := Max((Hi.X - Lo.X + Hi.Y - Lo.Y) * ISO_SIN + (Hi.Z - Lo.Z), 1E-6);
+      end;
+    vkOrbit:
+      begin
+        { the diagonal is a safe bound from any camera angle }
+        W := Max(Sqrt(Sqr(Hi.X - Lo.X) + Sqr(Hi.Y - Lo.Y) + Sqr(Hi.Z - Lo.Z)), 1E-6);
+        H := W;
+      end;
+  else
+    begin
+      W := Max(Hi.X - Lo.X, 1E-6);
+      H := Max(Hi.Y - Lo.Y, 1E-6);
+    end;
+  end;
+  Z := Min((FArt.Width * 0.80) / (W * BaseP), (FArt.Height * 0.80) / (H * BaseP));
+  if Z < 0.05 then Z := 0.05;
+  if Z > 40.0 then Z := 40.0;
+  NewZoom := Z;
+
+  { where the middle of it would land, at that zoom and those angles }
+  Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
+  V.Kind := FD.View;
+  V.Ppu := BaseP * Z;
+  V.OX := 0;
+  V.OY := 0;
+  V.Az := AzT;
+  V.El := ElT;
+  P := Project(V, Mid);
+  NewOX := FArt.Width / 2 - P.X;
+  NewOY := FArt.Height / 2 - P.Y;
+end;
+
+{ A move that carries the framing as well as the angles: it turns, and slides,
+  and zooms, all in the one go.
+
+  This is what "bring it into the middle and fit it, with the animation" asks
+  for.  A turn on its own holds a pivot still; this one drives the pan and the
+  zoom to a place worked out in advance, so the thing being looked at arrives
+  centred and sized without a jump at either end. }
+procedure TMainForm.GlideCamera(Az, El, Zoom, OX, OY: Double);
+begin
+  if FD = nil then Exit;
+  GlideTo(Az, El);
+  FGlideZ0 := FD.Zoom;
+  FGlideZ1 := Zoom;
+  FGlideOX0 := FD.ViewX;
+  FGlideOX1 := OX;
+  FGlideOY0 := FD.ViewY;
+  FGlideOY1 := OY;
+  { worth moving for the framing alone, even when the angles do not change -
+    which is what the FIT button asks for }
+  if (FGlideT = 0) and
+     ((Abs(FGlideZ1 - FGlideZ0) > 1E-4 * Max(1, FGlideZ0)) or
+      (Abs(FGlideOX1 - FGlideOX0) > 0.5) or (Abs(FGlideOY1 - FGlideOY0) > 0.5)) then
+  begin
+    FGlideD0 := FGlideD1;
+    FGlideT := 1E-6;
+    FGlideAt := GetTickCount64;
+    FCameraMoving := True;
+  end;
+  FGlideFrame := FGlideT > 0;
+end;
+
 { Start a camera move.  Instant when there is nowhere to go. }
 procedure TMainForm.GlideTo(Az, El: Double);
 var
@@ -17281,6 +17498,7 @@ begin
                    (Abs(FTurnAnchor.X) < 1E6) and (Abs(FTurnAnchor.Y) < 1E6);
   FGlideT := 1E-6;
   FGlideAt := GetTickCount64;
+  FGlideFrame := False;
   FCameraMoving := True;
 end;
 
@@ -17289,6 +17507,7 @@ end;
 procedure TMainForm.StepGlide(Dt: Double);
 var
   K, NewAz, NewEl, Dot, Ang, S0, S1, Flat: Double;
+  NewZ, NewOX, NewOY: Double;
   D: TP3;
 begin
   if FGlideT <= 0 then Exit;
@@ -17353,19 +17572,32 @@ begin
   end;
   FD.Az := NewAz;
   FD.El := NewEl;
-  HoldTurn;
+  if FGlideFrame then
+  begin
+    { The zoom goes round in proportion rather than in steps of its own size.
+      Half way between 1x and 4x is 2x, not 2.5x - anything else races at one
+      end and crawls at the other. }
+    NewZ := FGlideZ0 * Exp(Ln(Max(1E-9, FGlideZ1 / Max(1E-9, FGlideZ0))) * K);
+    NewOX := FGlideOX0 + (FGlideOX1 - FGlideOX0) * K;
+    NewOY := FGlideOY0 + (FGlideOY1 - FGlideOY0) * K;
+    if FGlideT >= 1 then
+    begin
+      NewZ := FGlideZ1;
+      NewOX := FGlideOX1;
+      NewOY := FGlideOY1;
+    end;
+    FD.Zoom := NewZ;
+    FD.ViewX := NewOX;
+    FD.ViewY := NewOY;
+  end
+  else
+    HoldTurn;
   if FGlideT >= 1 then
   begin
     FGlideT := 0;
     FCameraMoving := False;
-    { A preset re-frames the drawing, and the fit has to be worked out for
-      the angles it ends at rather than the ones it set off from - so it
-      waits here rather than happening at the start. }
-    if FGlideFit then
-    begin
-      FGlideFit := False;
-      FitView;
-    end;
+    { Nothing to do on arrival: a move that re-frames carries the framing
+      with it now, worked out before it sets off. }
     RepaintPaper;
   end
   else
@@ -18316,7 +18548,8 @@ begin
       Invalidate;
     end
     else
-      FitView;
+      { another sheet is another drawing - nothing to keep your place in }
+      FitView(False);
     LayoutTabs;
     RefreshChrome;
     if FLoadSkipped then
@@ -19376,7 +19609,7 @@ begin
     look like itself until somebody asked for a rebuild by hand. }
   SeedRegions;
   Result := True;
-  FitView;
+  FitView(False);
   Trail(Format('opened the example: %d things', [FD.Doc.Live]));
   FHint := 'An example to poke at.  Ctrl+N for an empty sheet.';
   FCmdMsg := 'This is the example drawing - orbit it, push a face, or ' +
@@ -19430,6 +19663,8 @@ begin
       FExportDirs.Clear;
       Ini.ReadSectionValues('exportpaths', FExportDirs);
       FCubeOn := Ini.ReadBool('look', 'cube', False);
+      FCubeCorner := EnsureRange(Ini.ReadInteger('look', 'cubecorner', 1), 0, 3);
+      FCubeFitSel := Ini.ReadBool('look', 'cubefit', True);
       FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
         0, THEME_COUNT - 1);
       FToyTheme := EnsureRange(Ini.ReadInteger('look', 'toytheme', 0),
@@ -19526,6 +19761,8 @@ begin
     Ini := TIniFile.Create(ConfigFile);
     try
       Ini.WriteBool('look', 'cube', FCubeOn);
+      Ini.WriteInteger('look', 'cubecorner', FCubeCorner);
+      Ini.WriteBool('look', 'cubefit', FCubeFitSel);
       Ini.WriteInteger('look', 'theme', FThemeIdx);
       Ini.WriteInteger('look', 'toytheme', FToyTheme);
       Ini.WriteInteger('look', 'protheme', FProTheme);

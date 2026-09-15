@@ -1,0 +1,35 @@
+# /cube takes a corner, and remembers which.
+#
+# What this proves: tl, tr, bl and br each move the cube, and "off" puts it
+# away.  The shots show it in each corner of the drawing area.
+#
+geometry 0 0 1400 800
+activate
+wait 2500
+key escape
+wait 800
+key slash
+type cube tl
+key return
+wait 1000
+shot /tmp/hsk-cc-tl.png
+key slash
+type cube br
+key return
+wait 900
+shot /tmp/hsk-cc-br.png
+key slash
+type cube bl
+key return
+wait 900
+shot /tmp/hsk-cc-bl.png
+key slash
+type cube tr
+key return
+wait 900
+shot /tmp/hsk-cc-tr.png
+key slash
+type cube off
+key return
+wait 900
+shot /tmp/hsk-cc-off.png

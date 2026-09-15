@@ -10,6 +10,33 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Pick something, click the cube, and it comes to the middle sized to
+  fit** - turning, sliding and zooming in one movement rather than a turn
+  followed by a jump.  With nothing picked it goes to the view you asked for
+  and leaves your framing alone.  `/cube fitselection off` if you would
+  rather it never re-framed.
+
+- **The cube goes in whichever corner suits**: `/cube tl`, `tr`, `bl` or
+  `br`, and `/cube on` or `off` to say so outright.  It remembers.
+
+- **FIT travels too.**  The FIT button and `/fit` ease the drawing into
+  frame instead of snapping it there - as does the VIEW button and every
+  named view.  Loading a drawing or changing sheet still arrives instantly,
+  because there is no sense of place to keep hold of when the thing you were
+  looking at has been replaced.
+
+### Fixed
+
+- **"Send the drawing too" stayed unticked.**  Taking another picture, or
+  discarding it, rebuilt the report dialog - and the tick came back on, so a
+  report sent after that carried the drawing anyway.  What you typed always
+  survived that rebuild; now your answer to this does too.  It is your work
+  and the box exists so you get to say.
+
 ## v2026.09.14.17
 
 ### New
