@@ -1,0 +1,29 @@
+# The view cube: on by command, hot under the pointer, and it keeps the
+# drawing's cursor graphics off itself.
+#
+# What this proves: /cube brings it up in the top right of the drawing; the
+# pointer over its left edge lights an edge target and does NOT bring the
+# tool chip with it; and clicking a target turns the model to look from
+# there.
+#
+geometry 0 0 1400 800
+activate
+wait 2500
+key escape
+wait 600
+key slash
+type cube
+key return
+wait 1200
+shot /tmp/hsk-vc-off.png
+# the left edge of the cube - the place the chip used to land on
+at 1272 145
+wait 600
+shot /tmp/hsk-vc-left.png
+# and a corner
+at 1290 175
+wait 500
+shot /tmp/hsk-vc-corner.png
+click l
+wait 1400
+shot /tmp/hsk-vc-moved.png

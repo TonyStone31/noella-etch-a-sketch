@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples;
 
 var
   Fails: Integer = 0;
@@ -1166,6 +1166,101 @@ begin
     L.Free;
     D.Free;
   end;
+end;
+
+{ The view cube's twenty-six targets.
+
+  The cube is a picture of the view, so the test of it is a round trip: aim
+  at the middle of a face, an edge or a corner, and the thing under the
+  pointer should be the direction you aimed at - and looking from there
+  should put the cube back where you found it.
+
+  Worth testing rather than eyeballing: the maths is a ray cast through an
+  orthographic camera into a box, and every sign in it is a chance to get a
+  cube that answers LEFT when you click RIGHT.  A picture would not tell you
+  which, because a cube looks the same either way round. }
+procedure TestViewCube;
+var
+  V: TProjector;
+  T: TCubeTarget;
+  Dirs: array of TP3;
+  I, Found: Integer;
+  P: TPointF;
+  Az, El: Double;
+
+  { every direction with components in -1, 0, 1, except standing still }
+  procedure AllDirs;
+  var
+    X, Y, Z: Integer;
+  begin
+    SetLength(Dirs, 0);
+    for X := -1 to 1 do
+      for Y := -1 to 1 do
+        for Z := -1 to 1 do
+          if (X <> 0) or (Y <> 0) or (Z <> 0) then
+          begin
+            SetLength(Dirs, Length(Dirs) + 1);
+            Dirs[High(Dirs)] := P3(X, Y, Z);
+          end;
+  end;
+
+  function Same(const A, B: TP3): Boolean;
+  begin
+    Result := (Abs(A.X - B.X) < 0.01) and (Abs(A.Y - B.Y) < 0.01) and
+              (Abs(A.Z - B.Z) < 0.01);
+  end;
+
+begin
+  WriteLn('-- the view cube');
+  AllDirs;
+  EqI(Length(Dirs), 26, 'there are twenty-six places to click');
+
+  { Looked at from a corner, every target that faces the camera should be
+    findable by aiming at where it is drawn. }
+  FillChar(V, SizeOf(V), 0);
+  V.Kind := vkOrbit;
+  V.Az := -Pi / 4;
+  V.El := 0.6155;                 { the true isometric tilt }
+  V.Ppu := 1;
+  Found := 0;
+  for I := 0 to High(Dirs) do
+  begin
+    { where the middle of that target sits on the cube, pushed out to the
+      surface so it is drawn rather than buried }
+    if not CubeTargetAt(V, Dirs[I], 200, 200, 48, P) then Continue;
+    if not CubeAt(V, 200, 200, 48, P.X, P.Y, T) then Continue;
+    if Same(T.Dir, Dirs[I]) then Inc(Found)
+    else
+      Ok(False, Format('  aiming at %.0f,%.0f,%.0f found %s instead',
+         [Dirs[I].X, Dirs[I].Y, Dirs[I].Z, T.Name]));
+  end;
+  { thirteen of the twenty-six face the camera from any one direction - three
+    faces, six edges, four corners - and those are the ones that can be hit }
+  Ok(Found >= 13, Format('  every target facing the camera is hittable (%d of 26)',
+     [Found]));
+
+  { the middle of the cube is a face, and the very corner is a corner }
+  Ok(CubeAt(V, 200, 200, 48, 200, 200, T), '  the middle of the cube is on it');
+  Ok(T.Name = 'FRONT LEFT TOP',
+     '  and seen from this corner it is FRONT LEFT TOP (got ' + T.Name + ')');
+
+  { well outside it is nothing }
+  Ok(not CubeAt(V, 200, 200, 48, 400, 400, T), '  a point off the cube is not on it');
+
+  { and the round trip: look from a target and the cube says you are there }
+  Az := V.Az;
+  CubeAzEl(P3(0, 1, 0), Az, El);
+  Ok(Abs(Az - Pi / 2) < 1E-6, '  looking from +Y is a quarter turn');
+  Ok(Abs(El) < 1E-6, '  and level');
+  Az := V.Az;
+  CubeAzEl(P3(1, 0, 0), Az, El);
+  Ok(Abs(Az) < 1E-6, '  looking from +X is the front, which is Az 0');
+
+  { straight down keeps the turn it had rather than snapping to none }
+  Az := 1.234;
+  CubeAzEl(P3(0, 0, 1), Az, El);
+  Ok(Abs(Az - 1.234) < 1E-9, '  straight down keeps the turn you had');
+  Ok(Abs(El - 1.45) < 1E-6, '  and stops short of dead overhead');
 end;
 
 { Flat panels only, so this is the toy's own check and not the glass's: a
@@ -5331,6 +5426,7 @@ begin
   TestExampleDrawings;  WriteLn;
   TestExampleRegions;  WriteLn;
   TestSvgIsTrueSize;  WriteLn;
+  TestViewCube;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;

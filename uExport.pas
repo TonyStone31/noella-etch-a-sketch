@@ -687,7 +687,10 @@ begin
   FAxes.Visible := Raster;
   FRec.Visible := Anim;
   FDxfWhat.Visible := FKind in [exDxfView, exDxfModel];
-  FMid.Visible := FKind in [exStl, exScad];
+  { the origin matters to anything importing the model - a slicer, a CAD, a
+    Revit family - so the tick is offered wherever a whole model goes out }
+  FMid.Visible := (FKind in [exStl, exScad]) or
+                  ((FKind = exDxfModel) and (FDxfWhat.ItemIndex = 1));
 
   if not Anim then
   begin
@@ -1177,7 +1180,7 @@ begin
         FStage := 'writing the DXF';
         L := TStringList.Create;
         try
-          FDoc.WriteDXF(L, FView, FUnits, FDxfWhat.ItemIndex = 1);
+          FDoc.WriteDXF(L, FView, FUnits, FDxfWhat.ItemIndex = 1, FMidOn);
           L.SaveToFile(Fn);
         finally
           L.Free;

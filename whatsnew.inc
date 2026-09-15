@@ -17,6 +17,25 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **A view cube.**  `/cube` puts one in the top right of a 3D view.  Click a' + LineEnding +
+    '  face to look square on, an edge for a half turn between two, a corner for' + LineEnding +
+    '  the three-quarter view most drawings are read from; drag it to turn the' + LineEnding +
+    '  model the way dragging the model does.  It also answers the question the' + LineEnding +
+    '  VIEW button never could - which way am I facing - without being touched.' + LineEnding +
+    '' + LineEnding +
+    '  Off until you ask for it, and remembered after that.' + LineEnding +
+    '' + LineEnding +
+    '- **A turn turns about what you are looking at**, not about the origin.  The' + LineEnding +
+    '  middle of what is selected, or the middle of the drawing when nothing is -' + LineEnding +
+    '  which is the rule Revit uses, and the reason a building drawn half a mile' + LineEnding +
+    '  from zero no longer swings out of the window when you change the view.' + LineEnding +
+    '' + LineEnding +
+    '- **The view rolls instead of jumping.**  Every change of view used to snap:' + LineEnding +
+    '  the model was one way round and then it was another, and you worked out' + LineEnding +
+    '  which way it had gone.  Now it rolls there, the short way round, in about a' + LineEnding +
+    '  third of a second - and that goes for the VIEW button and `/front` and the' + LineEnding +
+    '  rest as much as for the cube.' + LineEnding +
+    '' + LineEnding +
     '- **A film comes back to where it started.**  A move that ends somewhere' + LineEnding +
     '  else - a rise, a push in, or one you pointed by hand - used to jump every' + LineEnding +
     '  time the GIF came round.  It can now walk back to the start instead, inside' + LineEnding +

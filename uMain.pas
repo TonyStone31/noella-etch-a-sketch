@@ -50,7 +50,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
-  uSurface, uSkin, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
+  uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
 
 type
@@ -647,6 +647,42 @@ type
     { 0 when the pointer is on the button out of the toy, -1 when it is not }
     FHotMode: Integer;
     FHotView: Integer;
+
+    { The view cube, top left of the drawing.  Off unless asked for: a first
+      drawing is a rectangle in plan, and a cube over it is an instrument for
+      a question nobody has yet. }
+    FCubeOn: Boolean;
+    FCubeSkin: TArtSurface;
+    FCubeHot: TCubeTarget;
+    FCubeHasHot: Boolean;
+    FCubeDrag: Boolean;
+    FCubeDragX, FCubeDragY: Integer;
+    FCubePressX, FCubePressY: Integer;
+    FCubeMoved: Boolean;
+    FCubeCursor: Boolean;
+    FCursorWasCube: TCursor;
+    { Where a camera move is up to, 0 when it is not moving.  Every view
+      change in this program used to snap, which is fine for a button and
+      wrong for a cube: the tumble is how you keep track of which way the
+      model went, and without it a click on a corner teleports you somewhere
+      and leaves you to work out where. }
+    FGlideT: Double;
+    FGlideAz0, FGlideEl0, FGlideAz1, FGlideEl1: Double;
+    { When it started, by the clock.  Counting ticks instead assumes the
+      timer keeps up and it does not: every step of the move redraws the
+      model, so on a drawing of any size the ticks come slower than the
+      sixteen milliseconds they are asked for and a third of a second of
+      animation takes a second and a half.  The recorder learnt this the
+      same way - see the note on FClock in uRecord. }
+    FGlideAt: QWord;
+    FGlideFit: Boolean;
+    { the two places the camera stands, which is what the move interpolates }
+    FGlideD0, FGlideD1: TP3;
+    { what the turn turns about, and where it was on the screen when it
+      started - held there for every frame of the move }
+    FTurnPivot: TP3;
+    FTurnAnchor: TPointF;
+    FTurnAnchored: Boolean;
     FHotSlice: Integer;         // which zone of the cut strip is under the pointer
     FTools: array of TDeckItem; // the vertical tool strip down the left
     FToolSkin: TArtSurface;
@@ -1024,6 +1060,16 @@ type
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
+    { the cube: where it sits, what it draws, and the glide it starts }
+    function CubeRect: TRect;
+    function OverCube(X, Y: Integer): Boolean;
+    function CubeZone(X, Y: Integer): Boolean;
+    procedure PaintViewCube(C: TCanvas);
+    function CubeMouse(X, Y: Integer; Down, Up: Boolean): Boolean;
+    function TurnPivot: TP3;
+    procedure HoldTurn;
+    procedure GlideTo(Az, El: Double);
+    procedure StepGlide(Dt: Double);
     procedure PaintHeldPlane(C: TCanvas);
 
     procedure BuildSession(L: TStrings);
@@ -1125,7 +1171,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The aliases all
     still work; they are in the README. }
-  CMD_LIST: array[0..66] of TCmdItem = (
+  CMD_LIST: array[0..67] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1134,6 +1180,7 @@ const
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
     (Name: 'corner';     Hint: 'look from a corner';                    Arg: False),
+    (Name: 'cube';       Hint: 'the view cube, on or off';              Arg: False),
     (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True;
                          Eg:   '/cut 0 9'''),
     (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False),
@@ -1241,6 +1288,10 @@ const
   KNOB_PX_PER_RAD = 58.0;
   BASE_SPEED      = 210.0;
   TICK_MS         = 16;
+  { how long a camera move takes.  Long enough to follow, short enough that
+    nobody waits for it - the same third of a second a window manager gives
+    a maximise. }
+  GLIDE_SECONDS   = 0.34;
   MIN_PEN         = 1;
   MAX_PEN         = 40;
   SNAP_PX         = 16.0;   // pulling onto a point on the drawing
@@ -2413,6 +2464,7 @@ begin
   FGlyph.Free;
   FCmdSkin.Free;
   FModeSkin.Free;
+  FCubeSkin.Free;
   FDeckSkin.Free;
   FShell.Free;
   FInkPro.Free;
@@ -5367,12 +5419,24 @@ end;
 procedure TMainForm.ApplyViewPreset(I: Integer);
 var
   N: Integer;
+  Turn: Boolean;
 begin
   N := Length(VIEW_PRESETS);
+  Turn := (FD <> nil) and (FD.View = vkOrbit) and
+          (VIEW_PRESETS[((I mod N) + N) mod N].View = vkOrbit) and FBooted;
   FViewPreset := ((I mod N) + N) mod N;
   FD.View := VIEW_PRESETS[FViewPreset].View;
-  FD.Az := VIEW_PRESETS[FViewPreset].Az;
-  FD.El := VIEW_PRESETS[FViewPreset].El;
+  { One 3D view to another turns; anything that changes the kind of view -
+    into or out of the paper modes - does not, because there is no turning
+    from one projection into a different one and pretending otherwise would
+    be a lie about what happened. }
+  if Turn then
+    GlideTo(VIEW_PRESETS[FViewPreset].Az, VIEW_PRESETS[FViewPreset].El)
+  else
+  begin
+    FD.Az := VIEW_PRESETS[FViewPreset].Az;
+    FD.El := VIEW_PRESETS[FViewPreset].El;
+  end;
   if FD.View <> vkOrbit then FD.Plane := plXY;
   { this can reach PLAN now, so the cut has to come and go with it - and the
     top row has to be laid out again for the strip to appear }
@@ -5382,7 +5446,8 @@ begin
   if FD.View = vkPlan then
     FCmdMsg := FCmdMsg + '  CUT, top right, slices it - Ctrl+wheel travels ' +
       'up and down.';
-  FitView;
+  { a turn re-frames when it lands, not before - see StepGlide }
+  if FGlideT > 0 then FGlideFit := True else FitView;
   RebuildDeck;
   pbDeck.Invalidate;
   pbView.Invalidate;
@@ -9663,7 +9728,16 @@ begin
   end;
 
 
-  { --- the action chip beside the cursor -------------------------------- }
+  { --- the view cube ---------------------------------------------------- }
+  PaintViewCube(C);
+
+  { --- the action chip beside the cursor --------------------------------
+
+    Not while the pointer is on the cube's patch.  The chip is drawn AT the
+    cursor, so hovering the cube put a card of text over the thing being
+    aimed at - worst exactly on the left-hand edges, where the chip opens to
+    the right and lands squarely on the cube. }
+  if CubeZone(FMouseSX, FMouseSY) then Exit;
   if FErasing then Exit;
   S1 := SnapLabel;
   if FStage = 0 then
@@ -11736,6 +11810,25 @@ begin
     not a secret and not hidden - it is in the command list with everything
     else - it just no longer takes up room in the chrome of a drawing
     program to say it exists. }
+  { The cube.  Off by default and on by asking, because a first drawing is a
+    rectangle in plan and an instrument for reading your bearings in three
+    dimensions is an answer to a question nobody has yet.  It is remembered
+    between sessions once turned on. }
+  else if (W = 'cube') or (W = 'viewcube') then
+  begin
+    FCubeOn := not FCubeOn;
+    FCubeHasHot := False;
+    if FCubeOn and (FD <> nil) and (FD.View <> vkOrbit) then
+      FCmdMsg := 'The cube is on - it shows in a 3D view, and this is not ' +
+                 'one.  /3d, or the VIEW button.'
+    else if FCubeOn then
+      FCmdMsg := 'The cube is on.  Click a face, an edge or a corner to ' +
+                 'look from there; drag it to turn.'
+    else
+      FCmdMsg := 'The cube is off.';
+    FScreenDirty := True;
+    pbScreen.Invalidate;
+  end
   else if (W = 'toy') or (W = 'etch') or (W = 'etchasketch') then
   begin
     if FMode = mdToy then
@@ -12031,6 +12124,17 @@ begin
   FMoveY := Y;
   FMovePending := False;
   FMoveShift := Shift;
+
+  { The cube is drawn over the drawing, so a press on it arrives here as a
+    press on the drawing.  It takes it first, the same as an open list -
+    and it takes EVERY button, not only the one it acts on.  A right press
+    that falls through to the model is a context action aimed at a cube, and
+    a middle press is an orbit started by somebody reaching for a view. }
+  if CubeMouse(X, Y, Button = mbLeft, False) or CubeZone(X, Y) then
+  begin
+    pbScreen.Invalidate;
+    Exit;
+  end;
 
   { An open list has the canvas, and has it before anything else does.
 
@@ -12768,6 +12872,32 @@ begin
     underneath, which is what made a list opened over the drawing feel like
     two things fighting for the pointer.  A menu that will not say which row
     you are about to press is a menu you have to aim at twice. }
+  { The cube, before the drawing and before the popup - a list opened over it
+    would otherwise both light up.
+
+    The cursor changes too.  A drawing crosshair hovering over a control is
+    the program saying it is about to draw on it, which it is not: the same
+    reason an open list swaps the cursor for an arrow. }
+  if CubeMouse(X, Y, False, False) or CubeZone(X, Y) then
+  begin
+    FMouseSX := X;
+    FMouseSY := Y;
+    if not FCubeCursor then
+    begin
+      FCubeCursor := True;
+      FCursorWasCube := pbScreen.Cursor;
+    end;
+    { a hand on the shape, a plain arrow in the margin round it }
+    if FCubeHasHot then pbScreen.Cursor := crHandPoint
+    else pbScreen.Cursor := crDefault;
+    Exit;
+  end;
+  if FCubeCursor then
+  begin
+    FCubeCursor := False;
+    pbScreen.Cursor := FCursorWasCube;
+  end;
+
   if FPopup <> POP_NONE then
   begin
     FMouseSX := X;
@@ -15774,6 +15904,13 @@ var
   NoteI: Integer;
 begin
   if FBusy then Exit;
+  { the cube, if it had the press }
+  if FCubeDrag then
+  begin
+    CubeMouse(X, Y, False, True);
+    pbScreen.Invalidate;
+    Exit;
+  end;
   { let go of a note being carried }
   if FNoteDrag >= 0 then
   begin
@@ -15881,6 +16018,13 @@ begin
   { a list in front of the drawing gets the wheel before the drawing does }
   if ScrollPopup(IfThen(WheelDelta > 0, -WHEEL_ROWS, WHEEL_ROWS),
                  MousePos.X, MousePos.Y) then
+  begin
+    Handled := True;
+    Exit;
+  end;
+  { and so does the cube.  Zooming the model because the pointer happened to
+    be resting on the cube is the same surprise, in miniature. }
+  if OverCube(MousePos.X, MousePos.Y) or CubeZone(MousePos.X, MousePos.Y) then
   begin
     Handled := True;
     Exit;
@@ -16684,6 +16828,7 @@ begin
   end;
   ServiceMotion;
   ServiceHover;
+  StepGlide(Dt);
 
   { The guide buttons come and go with the guides.  Watched here rather than
     poked at from each place that adds or removes one - laying, clearing,
@@ -16838,6 +16983,414 @@ begin
       pbScreen.Invalidate;
     end;
   end;
+end;
+
+{ ======================================================================== }
+{ the view cube                                                             }
+{ ======================================================================== }
+
+{ Top right of the drawing, where Revit puts its own.
+
+  The reading and the VIEW button are up there too, but they are in the
+  chrome above this - the drawing area starts below them, and its own top
+  right corner is empty paper.  So the cube sits under the button that does
+  the same job in words, which is where somebody looking for either will
+  look. }
+function TMainForm.CubeRect: TRect;
+var
+  Sz, M: Integer;
+begin
+  Sz := CubeSize(FUIScale);
+  M := Round(14 * FUIScale);
+  Result := Rect(pbScreen.Width - M - Sz, M, pbScreen.Width - M, M + Sz);
+end;
+
+{ The cube's patch of the drawing: its square, and a margin round it.
+
+  Wider than the cube itself on purpose.  The cube is a hexagon inside a
+  square, so aiming at its left edge puts the pointer over the square but off
+  the shape - and everything the drawing draws at the cursor, the crosshair,
+  the snap mark, the chip that says what the tool will do, was appearing on
+  top of the cube exactly while somebody was trying to click it.  A widget
+  has to own the space around it, not only the pixels it covers. }
+function TMainForm.CubeZone(X, Y: Integer): Boolean;
+var
+  R: TRect;
+  M: Integer;
+begin
+  Result := False;
+  if (not FCubeOn) or (FMode <> mdPro) or (FD = nil) or (FD.View <> vkOrbit) then
+    Exit;
+  R := CubeRect;
+  M := Round(10 * FUIScale);
+  { the name of the hot target is written under it, so the zone reaches down
+    far enough to cover that too }
+  Result := (X >= R.Left - M) and (X <= R.Right + M) and
+            (Y >= R.Top - M) and (Y <= R.Bottom + M + Round(16 * FUIScale));
+end;
+
+{ Is the pointer on the cube at all?  Asked by the things that only need to
+  stand aside - the wheel, the cursor - rather than to act. }
+function TMainForm.OverCube(X, Y: Integer): Boolean;
+var
+  R: TRect;
+  T: TCubeTarget;
+begin
+  Result := False;
+  if (not FCubeOn) or (FMode <> mdPro) or (FD = nil) or (FD.View <> vkOrbit) then
+    Exit;
+  if FCubeDrag then Exit(True);
+  R := CubeRect;
+  Result := CubeAt(Proj, (R.Left + R.Right) / 2, (R.Top + R.Bottom) / 2,
+    (R.Right - R.Left) / 2 / 1.75, X, Y, T);
+end;
+
+procedure TMainForm.PaintViewCube(C: TCanvas);
+var
+  R: TRect;
+  Half: Double;
+  Labels: TCubeLabels;
+  I, TW: Integer;
+  Col: TPix;
+begin
+  if not FCubeOn then Exit;
+  if FMode <> mdPro then Exit;
+  { A cube is a picture of where you are standing in three dimensions.  The
+    paper modes are not three dimensions - PLAN looks down and ISO is a fixed
+    drawing convention - so there is nothing for it to say. }
+  if (FD = nil) or (FD.View <> vkOrbit) then Exit;
+
+  R := CubeRect;
+  if FCubeSkin = nil then FCubeSkin := TArtSurface.Create(16, 16);
+  FCubeSkin.SetSize(R.Right - R.Left, R.Bottom - R.Top);
+  FCubeSkin.ClearTransparent;
+  FCubeSkin.PreserveAlpha := True;
+
+  { room for the cube to turn in without its corners leaving the surface:
+    the long diagonal of a cube is root three }
+  Half := (R.Right - R.Left) / 2 / 1.75;
+  PaintCube(FCubeSkin, Proj, Half, Theme, FCubeHasHot, FCubeHot.Dir);
+  FCubeSkin.DrawTo(C, R.Left, R.Top);
+
+  { the names, on the canvas because they want a font }
+  Labels := CubeLabels(Proj, Half);
+  for I := 0 to High(Labels) do
+  begin
+    Col := OnPix(MixPix(Theme.Panel, Pix(255, 255, 255), 0.30));
+    UIFont(C, 8, True, Col);
+    TW := C.TextWidth(Labels[I].Name);
+    { a face seen nearly edge-on has no room for a word }
+    if Labels[I].Facing < 0.26 then Continue;
+    C.TextOut(R.Left + Round((R.Right - R.Left) / 2 + Labels[I].X - TW / 2),
+      R.Top + Round((R.Bottom - R.Top) / 2 + Labels[I].Y - C.TextHeight('X') / 2),
+      Labels[I].Name);
+  end;
+
+  { what is under the pointer, said in words under the cube }
+  if FCubeHasHot and (FCubeHot.Name <> '') then
+  begin
+    UIFont(C, 9, True, Theme.Accent);
+    TW := C.TextWidth(FCubeHot.Name);
+    C.TextOut(R.Left + ((R.Right - R.Left) - TW) div 2,
+      R.Bottom + Round(2 * FUIScale), FCubeHot.Name);
+  end;
+end;
+
+{ The pointer, over the cube.  True when the cube took it, so the drawing
+  underneath does not also act on it.
+
+  Down starts either a click or a drag and does not yet know which; Up
+  decides.  A press that travels is an orbit - the same as dragging the model
+  - and one that does not is a move to whatever was under it. }
+function TMainForm.CubeMouse(X, Y: Integer; Down, Up: Boolean): Boolean;
+var
+  R: TRect;
+  Half, Az, El, NewAz, NewEl: Double;
+  T: TCubeTarget;
+  Was: Boolean;
+begin
+  Result := False;
+  if (not FCubeOn) or (FMode <> mdPro) or (FD = nil) or (FD.View <> vkOrbit) then
+  begin
+    FCubeHasHot := False;
+    Exit;
+  end;
+
+  R := CubeRect;
+  Half := (R.Right - R.Left) / 2 / 1.75;
+
+  { a drag that started on the cube keeps it until the button comes up, even
+    once the pointer has left - letting go of it mid-turn is the one thing
+    that would make it feel broken }
+  if FCubeDrag and not Down then
+  begin
+    Result := True;
+    if Up then
+    begin
+      FCubeDrag := False;
+      { it never travelled, so it was a click after all }
+      if not FCubeMoved and
+         CubeAt(Proj, (R.Left + R.Right) / 2, (R.Top + R.Bottom) / 2,
+                Half, X, Y, T) then
+      begin
+        Az := FD.Az;
+        CubeAzEl(T.Dir, Az, El);
+        FViewPreset := -1;
+        GlideTo(Az, El);
+        FCmdMsg := T.Name + '.';
+      end;
+      Exit;
+    end;
+    { A press only becomes a drag once it has actually travelled.
+
+      It used to count a single pixel, and a hand never presses a button
+      without moving one - so a click on a face was read as a drag, nudged
+      the camera by a hair and flew nowhere.  That is why it flew sometimes
+      and not others: it depended on how steady you were.  Five pixels is
+      the same slop the double-click test here already uses. }
+    if (Abs(X - FCubePressX) > 4) or (Abs(Y - FCubePressY) > 4) then
+      FCubeMoved := True;
+    if FCubeMoved and ((X <> FCubeDragX) or (Y <> FCubeDragY)) then
+    begin
+      FGlideT := 0;                 { the hand wins over any glide }
+      { locals first - see the long note in pbScreenMouseMove about what -O3
+        does with "Field := Field + (X - Ref) * K" }
+      NewAz := FD.Az - (X - FCubeDragX) * 0.010;
+      NewEl := FD.El + (Y - FCubeDragY) * 0.010;
+      if NewEl < -1.45 then NewEl := -1.45;
+      if NewEl > 1.45 then NewEl := 1.45;
+      FD.Az := NewAz;
+      FD.El := NewEl;
+      FViewPreset := -1;
+      HoldTurn;
+      FCubeDragX := X;
+      FCubeDragY := Y;
+      FCameraMoving := True;
+      FLastWheel := GetTickCount64;
+      { The paper as well as the model.  The axes and the ground grid are
+        ruled onto the paper layer, not drawn with the model, so leaving it
+        out turned the drawing and left the red, green and blue lines lying
+        exactly where they were - which is what a middle-drag orbit has
+        always known to do and this did not. }
+      RepaintPaper;
+      RenderPro;
+      RecomposeAll;
+      Invalidate;
+    end;
+    Exit;
+  end;
+
+  Was := FCubeHasHot;
+  FCubeHasHot := CubeAt(Proj, (R.Left + R.Right) / 2,
+    (R.Top + R.Bottom) / 2, Half, X, Y, T);
+  if FCubeHasHot then FCubeHot := T;
+  if FCubeHasHot <> Was then FScreenDirty := True
+  else if FCubeHasHot then FScreenDirty := True;
+
+  if not FCubeHasHot then Exit;
+  Result := True;
+  if Down then
+  begin
+    FCubeDrag := True;
+    FCubeMoved := False;
+    FCubeDragX := X;
+    FCubeDragY := Y;
+    FCubePressX := X;
+    FCubePressY := Y;
+    { dragging the cube turns about the same point a click flies about, and
+      the same point the orbit tool would turn about if you grabbed the
+      middle of the thing you are looking at }
+    FTurnPivot := TurnPivot;
+    FTurnAnchor := ScreenOf(FTurnPivot);
+    FTurnAnchored := not (IsNan(FTurnAnchor.X) or IsNan(FTurnAnchor.Y) or
+                          IsInfinite(FTurnAnchor.X) or IsInfinite(FTurnAnchor.Y)) and
+                     (Abs(FTurnAnchor.X) < 1E6) and (Abs(FTurnAnchor.Y) < 1E6);
+  end;
+end;
+
+{ What a turn turns about.
+
+  Revit's rule, which is the one to match: the middle of what is selected,
+  and the middle of what you are looking at when nothing is.  Not the world
+  origin - a building drawn half a mile from zero would swing out of the
+  window, and even a drawing near zero pivots about a corner of itself rather
+  than about the thing being looked at.
+
+  MiddleOf already does exactly this: given nothing, it spans the whole
+  drawing.  The export turns about the same point for the same reason. }
+function TMainForm.TurnPivot: TP3;
+begin
+  if (FD = nil) or not FD.Doc.MiddleOf(FSel, Result) then Result := P3(0, 0, 0);
+end;
+
+{ Put the pivot back where it was on the screen, after the angles have moved.
+
+  A TProjector turns about the world origin - there is no pivot in it - so
+  this is how every turn in the program gets one: ask where the point is now
+  and slide the view by the difference.  The guard is the orbit drag's: a
+  point that was reasonable a moment ago can project anywhere once the camera
+  has moved, and adding a few million to where the drawing is held poisons
+  every rounding after it. }
+procedure TMainForm.HoldTurn;
+var
+  OP: TPointF;
+begin
+  if not FTurnAnchored then Exit;
+  OP := ScreenOf(FTurnPivot);
+  if IsNan(OP.X) or IsNan(OP.Y) or IsInfinite(OP.X) or IsInfinite(OP.Y) then Exit;
+  if (Abs(OP.X) > 1E6) or (Abs(OP.Y) > 1E6) then Exit;
+  FD.ViewX := FD.ViewX + (FTurnAnchor.X - OP.X);
+  FD.ViewY := FD.ViewY + (FTurnAnchor.Y - OP.Y);
+end;
+
+{ Start a camera move.  Instant when there is nowhere to go. }
+procedure TMainForm.GlideTo(Az, El: Double);
+var
+  D: Double;
+
+  { where the camera stands, as a direction, for a turn and a tilt }
+  function DirOf(A, E: Double): TP3;
+  begin
+    Result := P3(Cos(E) * Cos(A), Cos(E) * Sin(A), Sin(E));
+  end;
+
+begin
+  if FD = nil then Exit;
+  FGlideAz0 := FD.Az;
+  FGlideEl0 := FD.El;
+  { the short way round: a quarter turn left is not three quarters right }
+  D := Az - FD.Az;
+  while D > Pi do D := D - 2 * Pi;
+  while D < -Pi do D := D + 2 * Pi;
+  FGlideAz1 := FD.Az + D;
+  FGlideEl1 := El;
+  if (Abs(D) < 1E-4) and (Abs(El - FD.El) < 1E-4) then
+  begin
+    FGlideT := 0;
+    Exit;
+  end;
+  { The two places the camera stands, which is what actually gets
+    interpolated - see StepGlide. }
+  FGlideD0 := DirOf(FGlideAz0, FGlideEl0);
+  FGlideD1 := DirOf(FGlideAz1, FGlideEl1);
+  { what it turns about, and where that is on the screen right now }
+  FTurnPivot := TurnPivot;
+  FTurnAnchor := ScreenOf(FTurnPivot);
+  FTurnAnchored := not (IsNan(FTurnAnchor.X) or IsNan(FTurnAnchor.Y) or
+                        IsInfinite(FTurnAnchor.X) or IsInfinite(FTurnAnchor.Y)) and
+                   (Abs(FTurnAnchor.X) < 1E6) and (Abs(FTurnAnchor.Y) < 1E6);
+  FGlideT := 1E-6;
+  FGlideAt := GetTickCount64;
+  FCameraMoving := True;
+end;
+
+{ Dt is not used: this runs on the clock, not on how often the timer got
+  round to it. }
+procedure TMainForm.StepGlide(Dt: Double);
+var
+  K, NewAz, NewEl, Dot, Ang, S0, S1, Flat: Double;
+  D: TP3;
+begin
+  if FGlideT <= 0 then Exit;
+  if FD = nil then
+  begin
+    FGlideT := 0;
+    Exit;
+  end;
+  FGlideT := (GetTickCount64 - FGlideAt) / (GLIDE_SECONDS * 1000);
+  if FGlideT >= 1 then FGlideT := 1;
+  { ease in and out, which is what makes it read as the model turning rather
+    than the numbers changing }
+  K := FGlideT * FGlideT * (3 - 2 * FGlideT);
+
+  { The camera rolls round the model rather than having its two angles wound
+    separately.
+
+    Turn and tilt are convenient to store and a poor thing to interpolate:
+    winding them at the same time swings the camera out along a path neither
+    angle describes, and from a corner to the far corner it wallows sideways
+    before coming back.  What it should do is roll - travel the short way
+    round the sphere it sits on, at one rate, the way a cube tipped on a
+    table goes over its edge.
+
+    So the two ends are turned into the directions the camera stands in and
+    the path between them is the great circle joining the two: the arc, at a
+    constant rate, which is the shortest way from one to the other and the
+    only one that reads as the model turning under your hand. }
+  Dot := FGlideD0.X * FGlideD1.X + FGlideD0.Y * FGlideD1.Y +
+         FGlideD0.Z * FGlideD1.Z;
+  if Dot > 1 then Dot := 1;
+  if Dot < -1 then Dot := -1;
+  Ang := ArcCos(Dot);
+  if Ang < 1E-6 then
+    D := FGlideD1
+  else
+  begin
+    S0 := Sin((1 - K) * Ang) / Sin(Ang);
+    S1 := Sin(K * Ang) / Sin(Ang);
+    D := P3(FGlideD0.X * S0 + FGlideD1.X * S1,
+            FGlideD0.Y * S0 + FGlideD1.Y * S1,
+            FGlideD0.Z * S0 + FGlideD1.Z * S1);
+  end;
+
+  { and back into the turn and tilt the drawing keeps }
+  Flat := Sqrt(D.X * D.X + D.Y * D.Y);
+  if Flat > 1E-9 then NewAz := ArcTan2(D.Y, D.X) else NewAz := FD.Az;
+  NewEl := ArcTan2(D.Z, Flat);
+  if NewEl < -1.45 then NewEl := -1.45;
+  if NewEl > 1.45 then NewEl := 1.45;
+  { The arc is the short way round the sphere, but the turn it works out to
+    can be the long way round the circle - the same quarter turn read as
+    three quarters.  Keep it near where it was and the drawing never spins
+    the wrong way at the last moment. }
+  while NewAz - FD.Az > Pi do NewAz := NewAz - 2 * Pi;
+  while NewAz - FD.Az < -Pi do NewAz := NewAz + 2 * Pi;
+  { land exactly where it was aimed, whatever the arithmetic did on the way }
+  if FGlideT >= 1 then
+  begin
+    NewAz := FGlideAz1;
+    NewEl := FGlideEl1;
+  end;
+  FD.Az := NewAz;
+  FD.El := NewEl;
+  HoldTurn;
+  if FGlideT >= 1 then
+  begin
+    FGlideT := 0;
+    FCameraMoving := False;
+    { A preset re-frames the drawing, and the fit has to be worked out for
+      the angles it ends at rather than the ones it set off from - so it
+      waits here rather than happening at the start. }
+    if FGlideFit then
+    begin
+      FGlideFit := False;
+      FitView;
+    end;
+    RepaintPaper;
+  end
+  else
+    FCameraMoving := True;
+  { the axes and the grid live on the paper, and they have to turn with
+    everything else - see the note in CubeMouse }
+  RepaintPaper;
+  RenderPro;
+  RecomposeAll;
+
+  { And put it on the screen NOW, rather than asking for it to be put there.
+
+    This is the whole difference between a move that animates and one that
+    appears to teleport, and it cost an afternoon.  Invalidate only marks the
+    canvas dirty; the painting happens when the message loop next gets a turn.
+    The move runs off the sixteen millisecond tick and every step of it
+    repaints the paper and re-renders the model - so the loop never got a
+    turn between one tick and the next, no frame was ever drawn, and the
+    first paint anybody saw was the one after the move had finished.
+
+    The camera really was easing round the whole time.  Logging it said so,
+    which is why it took so long to find: the instrument was watching the
+    angles and the complaint was about the screen. }
+  pbScreen.Invalidate;
+  pbScreen.Update;
 end;
 
 { ======================================================================== }
@@ -18876,6 +19429,7 @@ begin
       FOpenDir := Ini.ReadString('paths', 'open', '');
       FExportDirs.Clear;
       Ini.ReadSectionValues('exportpaths', FExportDirs);
+      FCubeOn := Ini.ReadBool('look', 'cube', False);
       FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
         0, THEME_COUNT - 1);
       FToyTheme := EnsureRange(Ini.ReadInteger('look', 'toytheme', 0),
@@ -18971,6 +19525,7 @@ begin
     ForceDirectories(ExtractFilePath(ConfigFile));
     Ini := TIniFile.Create(ConfigFile);
     try
+      Ini.WriteBool('look', 'cube', FCubeOn);
       Ini.WriteInteger('look', 'theme', FThemeIdx);
       Ini.WriteInteger('look', 'toytheme', FToyTheme);
       Ini.WriteInteger('look', 'protheme', FProTheme);

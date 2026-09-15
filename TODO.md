@@ -973,6 +973,93 @@ any more:
   to the rows that set a tool would catch exactly this and is worth doing if
   another one slips.
 
+### The view cube
+
+Built 14 September, at Tony's friend's asking - he uses Revit and thinks a
+drop-down is a poor way to change a view.  The argument both of them were
+having was about space; the answer is that it is not the same instrument.
+The VIEW button can put you in a named view and cannot tell you where you are
+once you have orbited away from one, and nothing else on screen can either.
+That is what the cube is for, and it does it without being touched.
+
+`uCube.pas` is the whole of it: twenty-six targets - six faces, twelve edges,
+eight corners - hit by casting a ray through the orthographic camera into a
+box and classifying where it goes in.  The band is the middle 65% of a face.
+`CubeTargetAt` runs it the other way, giving the point on screen where a
+target is drawn, which is what the test aims at.
+
+Ours, not theirs.  The interaction is Revit's and that is ordinary; the look
+is the program's own, and "ViewCube" is Autodesk's name for Autodesk's
+widget.  Two attempts at dressing it up were thrown away - a rounded tray
+behind it and a cast shadow - because between them they gave the thing three
+outlines that were not the cube's, and it stopped reading as a cube at all.
+It is drawn with the shading and the rim light the rest of the chrome uses
+and nothing else.
+
+**The widget owns its corner, not just its pixels.**  The cube is a hexagon
+inside a square, so aiming at its left-hand edge puts the pointer over the
+square and off the shape - and the crosshair, the snap mark and the chip that
+says what the tool will do were all being drawn on top of it at exactly the
+moment somebody was trying to click it.  `CubeZone` is the square plus a
+margin, and inside it the drawing stands down: no chip, no crosshair, no
+wheel, and presses are swallowed rather than landing on the model behind.
+
+**What it turns about.**  The origin, at first, which is wrong for the same
+reason it is wrong everywhere else: a TProjector has no pivot in it, so a
+building drawn half a mile from zero swings clean out of the window.  Revit's
+rule is the middle of what is selected and the middle of what you are looking
+at when nothing is, and `TWorkDoc.MiddleOf` already does exactly that - the
+export turns about the same point for the same reason.  `HoldTurn` puts it
+back where it was on the screen after every step, the way the orbit drag has
+always held the point you grabbed.  Checked by logging the pivot's screen
+position through a roll: held to a tenth of a pixel.
+
+**Three bugs in the glide, and the last one is the lesson.**
+
+* It counted ticks instead of reading the clock, so a third of a second of
+  animation took a second and a half.  The recorder learnt this first.
+* It never repainted the paper, so the axes and the ground grid stayed
+  exactly where they were while the model turned under them.  A middle-drag
+  orbit has always called RepaintPaper every move; this did not.
+* **And nothing ever reached the screen.**  Invalidate marks the canvas
+  dirty and leaves the painting to the message loop - but the move runs off
+  the sixteen millisecond tick, and every step of it repaints the paper and
+  re-renders the model, so the loop never got a turn between one tick and the
+  next.  No frame was drawn at all; the first paint anybody saw was the one
+  after the move had finished, which looks exactly like a teleport.
+  pbScreen.Update paints it there and then.
+
+  Worth remembering how this was missed: logging said the camera was easing
+  round perfectly, and it was.  The instrument was watching the angles and
+  the complaint was about the screen, so the log agreed with the code and
+  disagreed with the person looking at it - and the person was right.  The
+  measurement that found it compares screenshots taken during the move
+  against the start and the finish: before the fix they were pixel-identical
+  to the start and then jumped, after it they are genuinely in between.
+
+**The glide was the real work.**  Every view change in this program snapped,
+which is fine for a button and wrong for a cube - the tumble is how you keep
+track of which way the model went.  `GlideTo` and `StepGlide` roll the camera
+from one place to another over a third of a second, and the VIEW button and
+the presets get it too.
+
+It rolls rather than winding the two angles.  Turn and tilt are convenient to
+store and a poor thing to interpolate: wound together they swing the camera
+along a path neither angle describes, and corner to far corner it wallows
+sideways before coming back.  So both ends are turned into the direction the
+camera stands in and the path is the great circle joining them - the shortest
+way round the sphere, at one rate.  Checked by logging the samples and
+confirming every one lies in the single plane through the origin that
+contains both ends, to five decimal places.  It runs on the clock and not on the tick
+count, for the reason the recorder found out the hard way: every step redraws
+the model, so the ticks come slower than the sixteen milliseconds they are
+asked for and a third of a second of animation takes a second and a half.
+Measured at about 34 frames a second on the wine glass.
+
+Not done, and worth it if it gets used: dragging the cube could snap to the
+nearest target when let go near one, and a keyboard walk through the
+twenty-six would make it reachable without a mouse.
+
 ### The little film, and how it joins back onto itself
 
 Done 14 September.  Three things that all showed as "the GIF looks wrong".

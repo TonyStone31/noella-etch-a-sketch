@@ -551,8 +551,13 @@ type
     { The drawing as DXF.  ThreeD writes the model in its own coordinates,
       faces and all; otherwise it is this view, flat, the way the SVG is -
       but as entities somebody can snap to and measure in their own CAD. }
+    { AtOrigin moves the model so its middle sits on 0,0,0 - the same option
+      the STL and the OpenSCAD have, and wanted here for the same reason:
+      geometry imported into a Revit family, or any other CAD, arrives
+      wherever it was drawn, and a thing drawn forty feet from the origin
+      turns up forty feet from where the family wants it. }
     procedure WriteDXF(L: TStrings; const V: TProjector; U: TUnitSystem;
-      ThreeD: Boolean);
+      ThreeD: Boolean; AtOrigin: Boolean = False);
     { The model as an STL, which is the file a 3D printer's slicer wants.
 
       An STL is nothing but triangles, so this is the same cut the renderer
@@ -8007,13 +8012,14 @@ begin
 end;
 
 procedure TWorkDoc.WriteDXF(L: TStrings; const V: TProjector; U: TUnitSystem;
-  ThreeD: Boolean);
+  ThreeD: Boolean; AtOrigin: Boolean = False);
 var
   W: TDxfWriter;
   I, K, Steps, N: Integer;
   Sc, TX, TY, TZ, AX1, AY1, BX1, BY1: Double;
   XS, YS, ZS: array of Double;
   G: TDimGeom;
+  Mid, BLo, BHi: TP3;
 
   { one point, in the file's units, flat or not }
   procedure At(const P: TP3; out X, Y, Z: Double);
@@ -8022,7 +8028,9 @@ var
   begin
     if ThreeD then
     begin
-      X := P.X * Sc; Y := P.Y * Sc; Z := P.Z * Sc;
+      X := (P.X - Mid.X) * Sc;
+      Y := (P.Y - Mid.Y) * Sc;
+      Z := (P.Z - Mid.Z) * Sc;
     end
     else
     begin
@@ -8054,6 +8062,11 @@ var
 
 begin
   if U = usImperial then Sc := 12 else Sc := 1000;
+  { only in three dimensions: a flat view is already framed on its own
+    middle by the projection it came through }
+  Mid := P3(0, 0, 0);
+  if ThreeD and AtOrigin and Bounds(BLo, BHi) then
+    Mid := P3((BLo.X + BHi.X) / 2, (BLo.Y + BHi.Y) / 2, (BLo.Z + BHi.Z) / 2);
   W := TDxfWriter.Create;
   try
     W.Layer('GEOMETRY', 7);
