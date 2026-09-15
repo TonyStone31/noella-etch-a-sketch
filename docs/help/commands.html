@@ -5,60 +5,201 @@
 <link rel="stylesheet" href="style.css"></head>
 <body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Commands</nav>
 <header><h1>Commands</h1><p class="lead">Type a slash and the program tells you what it can do.</p></header>
-<h2>How to use it</h2><ol>
+
+<p>SketchUp has no command line.  This does, and it is the fastest way to
+reach anything here: you do not have to remember where a thing lives in a
+menu, only roughly what it is called.  Everything below is on this one page
+so you can keep it open beside the program.</p>
+
+<h2>Using the list</h2>
+<ol>
 <li>Type <kbd>/</kbd> in the command bar along the bottom - or press the
 <kbd>/</kbd> button at the left of it - and the whole list comes up with a
 word about what each one does.</li>
 <li>Keep typing and it narrows.  <code>/re</code> leaves you /rebuild, /rect,
 /redo, /reface and the rest: the ones that start with what you typed come
 first, then the ones that merely contain it.</li>
-<li><kbd>&uarr;</kbd> and <kbd>&darr;</kbd> walk the list, the wheel scrolls it, <kbd>Enter</kbd>
-runs what is highlighted, <kbd>Tab</kbd> completes the name without running
-it, <kbd>Esc</kbd> puts the list away.  Clicking a row does the same as
-Enter on it.</li>
+<li><kbd>&uarr;</kbd> and <kbd>&darr;</kbd> walk the list, the wheel scrolls
+it, <kbd>Enter</kbd> runs what is highlighted, <kbd>Tab</kbd> completes the
+name without running it, <kbd>Esc</kbd> puts the list away.  Clicking a row
+does the same as Enter on it.</li>
 <li>The ones you have used lately sit at the top and the rest are
 alphabetical, so it works whether or not you already know the name.  It
 remembers them between sessions.</li>
 <li>Beside each name is a word about what it does - and on the row under the
 pointer, if that command takes something after it, what a real use of it
 looks like instead.  Highlight <code>/scale</code> and the line reads
-<code>/scale 1/4"</code>, which is the bit you would otherwise have come
-here to find out.</li>
+<code>/scale 1/4"</code>, which is the bit you would otherwise have come here
+to find out.</li>
 </ol>
+
+<div class="note"><b>Short names work too.</b>  Most commands have an alias or
+two - <code>/e</code> for the eraser, <code>/mv</code> for move,
+<code>/s</code> for select.  They are in the "Also" column below.  The list
+itself shows one row per action, because three rows of the same thing would
+be a worse list.</div>
+
+<h2>All of them</h2>
+<p>Sixty-nine commands, grouped by what you would be trying to do.  The
+in-program list is alphabetical; this is not, because when you do not know
+the name, the name is not what you have to go on.</p>
+
+<h2>Picking up a tool</h2>
+<p>Every one of these just puts a tool in your hand.  The "Also" column has
+the keyboard shortcut, which does the same thing and is quicker once you know
+it, and any shorter names the command answers to.  See
+<a href="keys.html">the keyboard and the mouse</a>.</p>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/select</code></td><td>the select tool</td><td class="alias">key <kbd>Space</kbd>, <code>/s</code></td></tr>
+<tr><td><code>/line</code></td><td>the line tool</td><td class="alias">key <kbd>L</kbd>, <code>/l</code></td></tr>
+<tr><td><code>/rect</code></td><td>the rectangle tool</td><td class="alias">key <kbd>R</kbd>, <code>/rectangle</code>, <code>/r</code></td></tr>
+<tr><td><code>/circle</code></td><td>the circle tool</td><td class="alias">key <kbd>C</kbd>, <code>/c</code></td></tr>
+<tr><td><code>/arc</code></td><td>the arc tool</td><td class="alias">key <kbd>A</kbd>, <code>/a</code></td></tr>
+<tr><td><code>/push</code></td><td>push or pull a face</td><td class="alias">key <kbd>P</kbd>, <code>/pull</code>, <code>/pushpull</code>, <code>/p</code></td></tr>
+<tr><td><code>/drill</code></td><td>push a shape right through</td><td class="alias">key <kbd>B</kbd>, <code>/bore</code>, <code>/punch</code></td></tr>
+<tr><td><code>/offset</code></td><td>a parallel copy of a face&#x27;s edge</td><td class="alias">key <kbd>F</kbd>, <code>/f</code></td></tr>
+<tr><td><code>/revolve</code></td><td>spin or sweep a face into a solid</td><td class="alias"><code>/followme</code>, <code>/follow</code>, <code>/lathe</code></td></tr>
+<tr><td><code>/move</code></td><td>the move tool</td><td class="alias">key <kbd>M</kbd>, <code>/mv</code></td></tr>
+<tr><td><code>/rotate</code></td><td>the rotate tool</td><td class="alias">key <kbd>Q</kbd>, <code>/q</code>, <code>/turn</code></td></tr>
+<tr><td><code>/erase</code></td><td>the eraser</td><td class="alias">key <kbd>E</kbd>, <code>/e</code>, <code>/del</code></td></tr>
+<tr><td><code>/measure</code></td><td>the tape measure</td><td class="alias">key <kbd>T</kbd>, <code>/m</code>, <code>/tape</code></td></tr>
+<tr><td><code>/dimension</code></td><td>the dimension tool</td><td class="alias">key <kbd>D</kbd>, <code>/dim</code></td></tr>
+<tr><td><code>/protractor</code></td><td>lay a guide at an angle</td><td class="alias"><code>/angle</code></td></tr>
+<tr><td><code>/text</code></td><td>a note on the drawing</td><td class="alias">key <kbd>N</kbd>, <code>/note</code>, <code>/n</code></td></tr>
+<tr><td><code>/orbit</code></td><td>the free camera</td><td class="alias">key <kbd>O</kbd>, <code>/spin</code></td></tr>
+</table>
+<h2>The view</h2>
+<p>Where you are looking from.  Every one of these flies the
+  camera there rather than jumping, which is what keeps you from losing your
+  place.</p>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/top</code></td><td>look from above</td><td class="alias"><code>/down</code></td></tr>
+<tr><td><code>/front</code></td><td>look from the front</td><td class="alias"></td></tr>
+<tr><td><code>/back</code></td><td>look from behind</td><td class="alias"></td></tr>
+<tr><td><code>/left</code></td><td>look from the left</td><td class="alias"></td></tr>
+<tr><td><code>/right</code></td><td>look from the right</td><td class="alias"></td></tr>
+<tr><td><code>/corner</code></td><td>look from a corner</td><td class="alias"></td></tr>
+<tr><td><code>/iso</code></td><td>the isometric view</td><td class="alias">key <kbd>I</kbd> toggles iso and plan</td></tr>
+<tr><td><code>/plan</code></td><td>look straight down</td><td class="alias">key <kbd>I</kbd>, <code>/2d</code>, <code>/flat</code></td></tr>
+<tr><td><code>/fit</code></td><td>zoom until it all shows</td><td class="alias">key <kbd>Shift+F</kbd>, <code>/zoom</code></td></tr>
+<tr><td><code>/origin</code></td><td>put the view back on 0,0,0</td><td class="alias"><code>/o</code></td></tr>
+<tr><td><code>/cube</code></td><td>the view cube: on, off, tl/tr/bl/br<br><span class="alias">for example <code>/cube tr</code></span></td><td class="alias"><code>/viewcube</code></td></tr>
+<tr><td><code>/cut</code></td><td>the plan slice: two heights, or &quot;all&quot;<br><span class="alias">for example <code>/cut 0 9&#x27;</code></span></td><td class="alias"><code>/slice</code></td></tr>
+<tr><td><code>/quick</code></td><td>quick frames while the camera moves</td><td class="alias"></td></tr>
+</table>
+<h2>Where a thing sits</h2>
+<p>Moving the whole drawing, or what you have picked,
+  to somewhere definite.  <code>/center</code> and <code>/tozero</code> are
+  the two a 3D printer cares about.</p>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/all</code></td><td>select everything on this sheet</td><td class="alias"><code>/selectall</code></td></tr>
+<tr><td><code>/center</code></td><td>center it on the floor at 0,0</td><td class="alias"><code>/center</code></td></tr>
+<tr><td><code>/tozero</code></td><td>put its near bottom corner on 0,0,0</td><td class="alias"><code>/zero</code>, <code>/tuck</code></td></tr>
+<tr><td><code>/resize</code></td><td>retype a picked dimension<br><span class="alias">for example <code>/resize 4&#x27;6&quot;</code></span></td><td class="alias"><code>/size</code></td></tr>
+<tr><td><code>/reverse</code></td><td>turn the picked faces over</td><td class="alias"><code>/rev</code>, <code>/flip</code></td></tr>
+<tr><td><code>/detach</code></td><td>move a line away on its own: on, off<br><span class="alias">for example <code>/detach on</code></span></td><td class="alias"><code>/loose</code></td></tr>
+<tr><td><code>/unfold</code></td><td>lay a piece out flat</td><td class="alias"><code>/layout</code></td></tr>
+</table>
+<h2>Settings for the drawing</h2>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/units</code></td><td>feet and inches, or millimeters</td><td class="alias">key <kbd>U</kbd></td></tr>
+<tr><td><code>/scale</code></td><td>the print scale: 1/4&quot;, 1&quot; and so on<br><span class="alias">for example <code>/scale 1/4&quot;</code></span></td><td class="alias"></td></tr>
+<tr><td><code>/plane</code></td><td>the working plane: xy, xz or yz<br><span class="alias">for example <code>/plane xz</code></span></td><td class="alias">key <kbd>K</kbd></td></tr>
+<tr><td><code>/grid</code></td><td>the ruled paper, on or off</td><td class="alias">key <kbd>G</kbd></td></tr>
+<tr><td><code>/guides</code></td><td>clear the guide lines</td><td class="alias"><code>/noguides</code></td></tr>
+</table>
+<h2>Faces and solids</h2>
+<p>A face is worked out from the edges that enclose it,
+  not drawn; these are the words for when that needs a nudge, or for finding
+  out why a shape will not print.  See
+  <a href="solids.html">solids and 3D printing</a>.</p>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/holes</code></td><td>draw where a solid is not closed</td><td class="alias"><code>/openedges</code>, <code>/notclosed</code></td></tr>
+<tr><td><code>/rebuild</code></td><td>work the faces out again</td><td class="alias"></td></tr>
+<tr><td><code>/reface</code></td><td>throw the flat faces away and rebuild</td><td class="alias"><code>/rebuildfaces</code></td></tr>
+<tr><td><code>/regions</code></td><td>report the flat areas found</td><td class="alias"></td></tr>
+<tr><td><code>/forget</code></td><td>forget the areas seen, and work them out again</td><td class="alias"></td></tr>
+</table>
+<h2>Sheets, saving, undoing</h2>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/new</code></td><td>a new sheet</td><td class="alias">key <kbd>Ctrl+T</kbd>, <code>/tab</code></td></tr>
+<tr><td><code>/close</code></td><td>close this sheet</td><td class="alias">key <kbd>Ctrl+W</kbd></td></tr>
+<tr><td><code>/clear</code></td><td>empty this sheet</td><td class="alias"></td></tr>
+<tr><td><code>/save</code></td><td>save the drawing</td><td class="alias">key <kbd>Ctrl+S</kbd></td></tr>
+<tr><td><code>/saveas</code></td><td>save it under a new name</td><td class="alias">key <kbd>Ctrl+Shift+S</kbd></td></tr>
+<tr><td><code>/undo</code></td><td>undo the last thing</td><td class="alias">key <kbd>Ctrl+Z</kbd>, <code>/u</code></td></tr>
+<tr><td><code>/redo</code></td><td>put back what was undone</td><td class="alias">key <kbd>Ctrl+Y</kbd></td></tr>
+<tr><td><code>/print</code></td><td>this sheet - or &quot;all&quot;, or &quot;full&quot;<br><span class="alias">for example <code>/print all</code></span></td><td class="alias">key <kbd>Ctrl+P</kbd></td></tr>
+</table>
+<h2>Building something</h2>
+<p>Two wizards that write geometry for you rather
+  than making you draw it.</p>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/transition</code></td><td>build a duct fitting</td><td class="alias"><code>/trans</code>, <code>/fitting</code>, <code>/elbow</code>, <code>/tee</code></td></tr>
+<tr><td><code>/spool</code></td><td>the pipe spool scratchpad</td><td class="alias"><code>/pipe</code>, <code>/scratchpad</code></td></tr>
+</table>
+<h2>The program itself</h2>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/help</code></td><td>about this program</td><td class="alias">key <kbd>F1</kbd></td></tr>
+<tr><td><code>/manual</code></td><td>open the manual</td><td class="alias"><code>/docs</code></td></tr>
+<tr><td><code>/whatsnew</code></td><td>the release notes</td><td class="alias"><code>/changes</code></td></tr>
+<tr><td><code>/update</code></td><td>look for a newer build<br><span class="alias">for example <code>/update never</code></span></td><td class="alias"><code>/upgrade</code></td></tr>
+<tr><td><code>/report</code></td><td>send a bug report, with a picture</td><td class="alias"><code>/bug</code></td></tr>
+<tr><td><code>/toy</code></td><td>the etch-a-sketch this program began as</td><td class="alias"><code>/etch</code>, <code>/etchasketch</code></td></tr>
+</table>
+<h2>Under the hood</h2>
+<p>Diagnostics.  Harmless, and mostly of interest when
+  something has gone wrong and we have asked you to look.</p>
+<table class="sheet">
+<tr><th>Command</th><th>What it does</th><th>Also</th></tr>
+<tr><td><code>/session</code></td><td>what has happened, most recent last<br><span class="alias">for example <code>/session session.txt</code></span></td><td class="alias"><code>/acts</code></td></tr>
+<tr><td><code>/sysinfo</code></td><td>what a report says about this machine</td><td class="alias"><code>/machine</code></td></tr>
+<tr><td><code>/replay</code></td><td>play back a session from a report<br><span class="alias">for example <code>/replay session.txt</code></span></td><td class="alias"></td></tr>
+<tr><td><code>/threads</code></td><td>background work, on or off</td><td class="alias"></td></tr>
+<tr><td><code>/timings</code></td><td>print the steps of each edit</td><td class="alias"></td></tr>
+<tr><td><code>/rendertime</code></td><td>time a whole frame</td><td class="alias"></td></tr>
+</table>
 <h2>A few worth knowing</h2>
 <ul>
 <li><code>/holes</code> draws, in red, every edge where a solid is not
 closed - the answer a slicer will not give you.  See
 <a href="solids.html">solids and 3D printing</a>.</li>
-<li><code>/center</code> centres what is selected on the floor - across X and
-Y, standing on Z nought, which is where a 3D printer's slicer expects to find
+<li><code>/center</code> centers what is selected on the floor - across X and
+Y, standing on Z zero, which is where a 3D printer's slicer expects to find
 it.  <code>/tozero</code> stands it on the floor too, with its near bottom
 corner on the origin rather than its middle.</li>
-<li><code>/units</code> swaps between feet-and-inches and millimetres,
-<code>/scale 1/4</code> sets the drawing scale for printing.</li>
 <li><code>/cube</code> puts a view cube in the top right of a 3D view.  Click
 a face to look at the model square on, an edge for a half turn between two,
 a corner for the three-quarter view most drawings are read from - and drag it
 to turn.  It also shows which way you are facing, which the VIEW button
-cannot.  Off until you ask for it, and remembered after that.  <code>/cube tl</code>,
-<code>tr</code>, <code>bl</code> or <code>br</code> puts it in whichever
-corner suits, and <code>/cube fitselection off</code> stops a click framing
-what you have picked.  With nothing picked it never re-frames: it just goes
-to the view you asked for.</li>
-<li><code>/manual</code> opens these pages.</li>
+cannot.  Off until you ask for it, and remembered after that.
+<code>/cube tl</code>, <code>tr</code>, <code>bl</code> or <code>br</code>
+puts it in whichever corner suits, and <code>/cube fitselection off</code>
+stops a click framing what you have picked.  With nothing picked it never
+re-frames: it just goes to the view you asked for.</li>
 <li><code>/toy</code> goes to the etch-a-sketch this program began as.  The
-one button in the corner there brings you back.</li>
+one button in the corner there brings you back - or <code>/pro</code>, which
+works but is deliberately not in the list.</li>
+<li><code>/manual</code> opens these pages.</li>
 </ul>
-<p>The list shows one row per action.  Most commands have shorter aliases -
-<code>/e</code> for the eraser, <code>/mv</code> for move - and those all
-still work; they are in the README rather than the list, because three rows
-of the same thing would be a worse list.</p>
+
 <h2>What it looks like</h2><figure>
-  <div class="shot-missing">shots/commands.png &mdash; not taken yet<br>The command list, open and narrowed.</div>
-  <figcaption>The command list, open and narrowed.</figcaption>
-</figure><h2>See also</h2><ul>
+  <img src="shots/commands.png" alt="The command list, open and narrowed.">
+  <figcaption>A slash and two letters.  The ones beginning &quot;re&quot; come first, then the ones that merely contain it, each with a word about what it does.</figcaption>
+</figure>
+
+<h2>See also</h2><ul>
+<li><a href="keys.html">The keyboard and the mouse</a></li>
 <li><a href="typing.html">Typing measurements</a></li>
 <li><a href="index.html">All the tools</a></li></ul>
-<footer>Heckers Sketch - help.  This page is a skeleton: the words are
-right, the pictures are not there yet.</footer>
+<footer>Heckers Sketch - help.  The picture on this page is taken by
+driving the program itself - see <code>tools/help-shots.txt</code>.</footer>
 </div></body></html>

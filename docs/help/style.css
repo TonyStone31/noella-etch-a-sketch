@@ -1,4 +1,4 @@
-/* The help pages wear the program's own PRO Dark colours, so opening the
+/* The help pages wear the program's own PRO Dark colors, so opening the
    help does not feel like leaving the program. */
 :root{--bg:#23262c;--panel:#1d2027;--hi:#33383f;--line:#3c424a;
       --text:#e8ecf2;--dim:#8a93a0;--accent:#4ac8f0;--paper:#ffffff}
@@ -35,3 +35,20 @@ figcaption{color:var(--dim);font-size:13px;margin-top:8px}
 footer{margin-top:50px;padding-top:14px;border-top:1px solid var(--line);
        color:var(--dim);font-size:13px}
 @media (max-width:520px){.wrap{padding:18px 14px 60px}h1{font-size:23px}}
+
+/* The two cheat sheets are tables, because that is what a cheat sheet is. */
+table.sheet{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+table.sheet th{text-align:left;color:var(--accent);font-size:13px;
+  text-transform:uppercase;letter-spacing:.04em;font-weight:600;
+  border-bottom:1px solid var(--line);padding:6px 10px 6px 0}
+table.sheet td{border-bottom:1px solid var(--line);padding:7px 10px 7px 0;
+  vertical-align:top}
+table.sheet tr:last-child td{border-bottom:none}
+table.sheet td:first-child{white-space:nowrap;width:1%}
+table.sheet td.alias{color:var(--dim);font-size:13px}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid
+  var(--accent);border-radius:6px;padding:10px 14px;margin:16px 0;font-size:14px}
+@media (max-width:600px){
+  table.sheet td:first-child{white-space:normal}
+  table.sheet{font-size:13px}
+}

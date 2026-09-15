@@ -8381,9 +8381,9 @@ begin
   try
     L.Add('// Heckers Sketch - ' + FormatDateTime('yyyy-mm-dd hh:nn', Now));
     if AtOrigin then
-      L.Add('// Millimetres, centred on the bed and standing on it.  A surface, not a')
+      L.Add('// Millimeters, centered on the bed and standing on it.  A surface, not a')
     else
-      L.Add('// Millimetres, where the drawing put it.  A surface, not a');
+      L.Add('// Millimeters, where the drawing put it.  A surface, not a');
     L.Add('// construction - see the notes at');
     L.Add('// the bottom.');
     L.Add('');
@@ -8594,7 +8594,7 @@ begin
     with the word "solid" - a reader that sees that decides the file is the
     ASCII kind and makes nothing of what follows. }
   FillChar(Head, SizeOf(Head), 0);
-  Lbl := 'Heckers Sketch - millimetres';
+  Lbl := 'Heckers Sketch - millimeters';
   if Length(Lbl) > 79 then SetLength(Lbl, 79);
   Move(Lbl[1], Head[0], Length(Lbl));
   St.WriteBuffer(Head, SizeOf(Head));

@@ -1160,6 +1160,45 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### The manual, and taking its pictures without taking them - 15 September 2026
+
+Tony: "our documentation really needs some help.  we probably need a document
+just for the slash commands and keyboard shortcut cheat sheet would be great.
+what's the key word shortcut for the select tool?  I tried s.  didn't work."
+
+Space, which is SketchUp's key for the arrow, and `/s` as a command.  That he
+had to ask is the whole argument: the program has sixty-nine commands and
+thirty-odd keys and neither was written down anywhere but in the source.
+`docs/help/commands.html` now lists every command grouped by what you are
+trying to do, with its aliases and its key, and `docs/help/keys.html` is the
+keyboard and the mouse on one sheet, both modes.
+
+**Both were generated from the source and then written around, not typed out
+from memory.**  The command table comes out of `CMD_LIST` and the alias
+column out of the `RunCommand` chain, so the page cannot quietly drift from
+the program.  Worth doing again the next time either grows - the script is
+five lines of regex and it is in the commit.
+
+**It found a real bug on the way.**  `/new` is offered in the list as "a new
+sheet" and opened the release notes: the `whatsnew` branch also answered
+`new` and sits above the branch that makes a sheet, so the second was
+unreachable.  `tests/run-cmds.sh` now
+catches it: a word compared twice in the chain is a word answered once, and
+the second comparison is dead code.  Same idea as the check it already had
+for a name offered that nothing answers.
+
+**And the screenshots take themselves.**  `tools/help-shots.txt` drives the
+program in the drive tests' nested X server and writes straight into
+`docs/help/shots`.  Five are done and they are the pattern: put the tool in
+hand, put the pointer where the picture wants it, `shot`.  `/update never`
+at the top keeps the update nag out of the corner of every picture, and the
+rig's own copy of the program means that setting never reaches anybody's.
+
+The one thing it cannot do yet is the GIF itself - writing it goes through
+the system's save dialog, which the rig has not been taught to drive.  That
+is the next thing worth teaching it, because it would also let the export
+path be tested end to end rather than up to the dialog.
+
 ### Two more of the same fault, both found in one hour - 15 September 2026
 
 The rule that a picker learns and its neighbour never does, twice more, and

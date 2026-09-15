@@ -14,6 +14,13 @@
 
 ### New
 
+- **A manual worth opening.**  Two new pages: every one of the sixty-nine
+  slash commands, grouped by what you are trying to do and with the short
+  names each answers to; and every key and every drag on one sheet, in both
+  the drawing program and the toy.  `/manual` opens them.  The first real
+  screenshots are in too - and they are taken by driving the program itself,
+  so the rest can follow without anybody posing for them.
+
 - **Edges break where they cross.**  Draw a line, a rectangle, an arc or a
   circle over something already there and both are cut at the crossing, so
   every piece is its own edge.  That is what makes a rounded corner: drop a
@@ -47,6 +54,11 @@
 - **The help pages say how to change the number of sides.**  With the circle
   or arc tool live, + and - step it, or type 24s.  It was in the program and
   nowhere in the manual.
+
+- **`/new` makes a new sheet.**  It opened the release notes instead: the
+  branch that answers `/whatsnew` also answered `/new`, and it came first.
+
+- **US spellings throughout.**  Color, center, millimeters.
 
 ## v2026.09.15.4
 

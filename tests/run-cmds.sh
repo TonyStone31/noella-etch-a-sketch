@@ -74,6 +74,23 @@ if missing:
     print('offered by the list, answered by nothing: ' + ', '.join(missing))
     bad = 1
 
+# A word compared twice is a word answered once.  The chain runs top to
+# bottom and the first branch that matches wins, so a later branch comparing
+# the same word is unreachable - and if that later branch is the one the list
+# is advertising, the command does something other than what it says.
+#
+# /new did exactly that: it was an alias on the /whatsnew branch and the
+# branch that makes a new sheet sat below it, so /new opened the release
+# notes and the list said "a new sheet".
+seen = {}
+for mm in re.finditer(r"W = '([a-z0-9]+)'", body):
+    w = mm.group(1)
+    if w in seen:
+        print("'%s' is compared twice in RunCommand - the second is dead code, "
+              "and the first is what /%s actually does" % (w, w))
+        bad = 1
+    seen[w] = 1
+
 print('%d commands offered, %d words the dispatcher knows' % (len(names), len(known)))
 print('command list ' + ('FAILED' if bad else 'ok'))
 sys.exit(bad)

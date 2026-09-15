@@ -220,10 +220,10 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   decides whether a shape will 3D print.  Every edge of a closed solid is
   shared by exactly two faces run opposite ways; a seam that has merely been
   divided unevenly - a top split in two against a wall still in one piece -
-  is recognised as the seam it is rather than reported as a hole.  The export
+  is recognized as the seam it is rather than reported as a hole.  The export
   says so on the way out: *closed and ready to slice*, or that a slicer will
   have to guess at the inside.
-* **Faces worked out from lines are wound against their neighbours.**  A face
+* **Faces worked out from lines are wound against their neighbors.**  A face
   on its own can only guess which way is out, and guessing one at a time puts
   half a roof inside out.  They are settled as a sheet instead, so a roof
   points out of the building.  `/rebuild` puts an old drawing right.
@@ -270,18 +270,18 @@ The same idea taken seriously.  The program starts here, in the 3D view.
   * **SVG** - real vector output of this view, with the dimensions as text.
   * **DXF** - this view flat for a cutting table, or the model in three
     dimensions, as entities somebody can measure in their own CAD.
-  * **STL** - triangles in millimetres, which is what a 3D printer wants,
+  * **STL** - triangles in millimeters, which is what a 3D printer wants,
     with a word about whether the shape is actually closed.
   * **OpenSCAD** - a `polyhedron` per solid, each in its own module, to cut
     and union against something you are describing in OpenSCAD.
 
-  STL and OpenSCAD arrive centred on the bed and standing on it, so a slicer opens them where
-  it expects to.  `/center`, or **Centre on the Origin** on the right button,
+  STL and OpenSCAD arrive centered on the bed and standing on it, so a slicer opens them where
+  it expects to.  `/center`, or **Center on the Origin** on the right button,
   does the same to the drawing itself.
 
   `/tozero`, or **Into the Corner at 0,0,0**, is the other half of that: the
   near bottom corner goes on the origin rather than the middle, so the thing
-  stands on the floor with its two near edges against zero.  Centred is what
+  stands on the floor with its two near edges against zero.  Centered is what
   a slicer wants; the corner is what you want when you are measuring, because
   every number read off it is then a distance from nothing rather than from
   half of itself.  It says how big the thing is from there.
@@ -427,7 +427,7 @@ after it would be a question rather than an answer.
 | `/help` `/?` | about |
 | `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
 | `/print`, `/print all`, `/print full` | this sheet / every sheet / 1:1 across pages |
-| `/center` `/centre`, `/tozero` `/zero` | centre the selection on the floor at 0,0 / put its near bottom corner on the origin |
+| `/center` `/center`, `/tozero` `/zero` | center the selection on the floor at 0,0 / put its near bottom corner on the origin |
 | `/holes` `/openedges` | draw, in red, every edge where a solid is not closed - the answer a slicer will not give you |
 | `/quick` | quick frames while the camera moves, on or off |
 | `/regions`, `/rebuild`, `/rebuildfaces`, `/forget`, `/rendertime`, `/timings` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame, print the steps of each edit |

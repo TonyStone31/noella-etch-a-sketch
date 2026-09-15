@@ -1207,7 +1207,7 @@ const
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
-    (Name: 'center';     Hint: 'centre it on the floor at 0,0';         Arg: False),
+    (Name: 'center';     Hint: 'center it on the floor at 0,0';         Arg: False),
     (Name: 'circle';     Hint: 'the circle tool';                       Arg: False),
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
@@ -1279,7 +1279,7 @@ const
     (Name: 'transition'; Hint: 'build a duct fitting';                  Arg: False),
     (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False),
     (Name: 'unfold';     Hint: 'lay a piece out flat';                  Arg: False),
-    (Name: 'units';      Hint: 'feet and inches, or millimetres';       Arg: False),
+    (Name: 'units';      Hint: 'feet and inches, or millimeters';       Arg: False),
     (Name: 'update';     Hint: 'look for a newer build';                Arg: False;
                          Eg:   '/update never'),
     (Name: 'whatsnew';   Hint: 'the release notes';                     Arg: False));
@@ -3407,7 +3407,7 @@ begin
   { Asked for by Tony: having centred a selection is what makes an export
     arrive where a slicer expects it, and the right button is where you
     already are when you have just selected the thing. }
-  Add('Centre on the Origin', 5);
+  Add('Center on the Origin', 5);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
 
   { and the other half of the same want: not the middle on zero but the
@@ -3490,14 +3490,14 @@ var
 begin
   if not FD.Doc.SpanOf(FSel, Lo, Hi) then
   begin
-    FCmdMsg := 'Nothing to centre.';
+    FCmdMsg := 'Nothing to center.';
     InvalidateStatus;
     Exit;
   end;
   Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, Lo.Z);
   if (Abs(Mid.X) < 1E-9) and (Abs(Mid.Y) < 1E-9) and (Abs(Mid.Z) < 1E-9) then
   begin
-    FCmdMsg := 'Already centred on the floor.';
+    FCmdMsg := 'Already centered on the floor.';
     InvalidateStatus;
     Exit;
   end;
@@ -3517,9 +3517,9 @@ begin
   RecomposeAll;
   FScreenDirty := True;
   if Length(FSel) > 0 then
-    FCmdMsg := Format('Centred %d things on the floor.', [Length(FSel)])
+    FCmdMsg := Format('Centered %d things on the floor.', [Length(FSel)])
   else
-    FCmdMsg := 'Centred the whole drawing on the floor.';
+    FCmdMsg := 'Centered the whole drawing on the floor.';
   InvalidateStatus;
   Invalidate;
 end;
@@ -5028,8 +5028,8 @@ begin
       'drawing.  It is also what the arrows on the cut fields step by.',
       ikDroplet);
     Add(dkSegment, Rect(X + 2 * SegW, RowY, X + 3 * SegW - RowGap, RowY + RowH),
-      GRP_POPUP, POP_COLOR, 'LINE COLOUR',
-      'The colour new lines are drawn in.', ikDroplet);
+      GRP_POPUP, POP_COLOR, 'LINE COLOR',
+      'The color new lines are drawn in.', ikDroplet);
     Add(dkSegment, Rect(X + 3 * SegW, RowY, X + 4 * SegW - RowGap, RowY + RowH),
       GRP_POPUP, POP_WIDTH, Format('LINE WIDTH  %d px', [FEdgeW]),
       'How thick every edge in this drawing is drawn.  It is one setting for ' +
@@ -10687,10 +10687,10 @@ begin
               here to measure from, and the cursor should say so while it is
               still a question }
             Result := 'nothing here to measure - find a corner, a midpoint, ' +
-                      'a centre, or an edge';
+                      'a center, or an edge';
         1:
           if DimAnchored then
-            Result := 'second point - on a corner, a midpoint, a centre or an edge'
+            Result := 'second point - on a corner, a midpoint, a center or an edge'
           else
             Result := 'the other end has to be on something too';
       else
@@ -11241,7 +11241,7 @@ begin
                 may start and end on: end points, midpoints, on-edge points,
                 intersections, and arc and circle centres. }
               FCmdMsg := 'A dimension has to measure something - a corner, ' +
-                         'a midpoint, a centre, or a point on an edge.';
+                         'a midpoint, a center, or a point on an edge.';
               InvalidateStatus;
             end
             else
@@ -11260,7 +11260,7 @@ begin
           else
           begin
             FCmdMsg := 'The other end has to be on something too - a corner, ' +
-                       'a midpoint, a centre, or a point on an edge.';
+                       'a midpoint, a center, or a point on an edge.';
             InvalidateStatus;
           end;
       else
@@ -12001,7 +12001,11 @@ begin
     somebody coming from there will type what they know. }
   else if (W = 'revolve') or (W = 'followme') or (W = 'follow') or
           (W = 'lathe') then SetTool(ptFollow)
-  else if (W = 'whatsnew') or (W = 'changes') or (W = 'new') then ShowWhatsNew
+  { not /new.  That is offered in the list as "a new sheet" and there is a
+    branch further down that makes one, which this was quietly eating: the
+    first comparison that matches wins, and this one is above it.  A command
+    the list advertises has to do what the list says. }
+  else if (W = 'whatsnew') or (W = 'changes') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard
   else if W = 'rendertime' then RenderTiming
@@ -12094,7 +12098,10 @@ begin
   else if W = 'left' then ApplyViewPreset(9)
   else if W = 'corner' then ApplyViewPreset(2)
   else if W = 'iso' then SetView(vkIso)
-  else if (W = '3d') or (W = 'orbit') then SetView(vkOrbit)
+  { /orbit is the orbit tool, higher up; this is only reached by /3d.  Left
+    written out because the two are the same idea from different ends and
+    somebody reading the chain should see that it was meant. }
+  else if W = '3d' then SetView(vkOrbit)
   else if (W = 'plan') or (W = '2d') or (W = 'flat') then SetView(vkPlan)
   { The slice, from the keyboard and for a script.  "/cut off", "/cut all",
     or "/cut 0 9'" for a bottom and a top. }
@@ -13788,7 +13795,7 @@ begin
       IfThen(FD.Units = usImperial, '  =  1''-0"', '');
     POP_SNAP: Result := IfThen(I = 0, 'No snapping', SnapName(FD.Units, I));
     POP_COLOR:
-      if I = Length(PALETTE) then Result := 'Another colour...' else Result := '';
+      if I = Length(PALETTE) then Result := 'Another color...' else Result := '';
     POP_WIDTH: Result := Format('%d px', [PEN_SIZES[I]]);
     POP_SHOP:
       case I of
@@ -19018,7 +19025,7 @@ begin
     D.Color := FInkColor;
     if not D.Execute then Exit;
     SetInk(D.Color, False);
-    FCmdMsg := 'Pen colour set.';
+    FCmdMsg := 'Pen color set.';
   finally
     D.Free;
   end;
