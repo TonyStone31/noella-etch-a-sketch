@@ -10,7 +10,7 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## v2026.09.15
+## Next release
 
 ### New
 
@@ -34,6 +34,12 @@
   no lines in it at all.  Its corners are somewhere to land now too.
   Anything that arrives as faces rather than drawn lines was in the same
   position: a revolve, an imported model, a generated example.
+
+## v2026.09.15
+
+### New
+
+### Fixed
 
 - **The tape and the dimension tool stop grabbing edges behind the model.**
   They took whichever line came nearest on screen and asked nothing else, so
