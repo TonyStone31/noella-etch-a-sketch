@@ -13,7 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.15.6' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The eraser takes edges, not faces.**  That is SketchUp''s rule - a face' + LineEnding +
+    '  goes when the edges holding it up go - and ours used to take a bare face as' + LineEnding +
+    '  well.  Click one now and nothing goes; the bar along the bottom says so and' + LineEnding +
+    '  names the two ways that do work: right-click it, or pick it and press' + LineEnding +
+    '  Delete.  Both leave every edge standing.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
