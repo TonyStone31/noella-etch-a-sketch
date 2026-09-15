@@ -12,6 +12,19 @@
 
 ## v2026.09.15
 
+### New
+
+- **The view winds in and out a great deal further.**  It was a twentieth to
+  forty times - which sounds generous until you try to work on a sixteenth of
+  an inch.  It is a million to one now, so a site plan and a weld bead are
+  both reachable, and the scale bar goes down to a sixteenth of an inch and
+  up to a thousand feet to keep up.
+
+- **The axes go on for ever**, the way they should.  They were drawn a
+  screenful out from the origin, so panning away from it left them stopping
+  in mid air.  In a program where the red line IS the X axis, an axis with an
+  end is a lie about the model.
+
 ### Fixed
 
 - **The tape and the dimension tool now take the edges of a face.**  They

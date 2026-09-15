@@ -17,6 +17,14 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **The tape and the dimension tool now take the edges of a face.**  They' + LineEnding +
+    '  only ever looked at lines, so on the etch-a-sketch you could measure the' + LineEnding +
+    '  robot and the lettering - which are drawn with lines - and could not' + LineEnding +
+    '  measure the case they sit on, which is one face of thirty-two corners with' + LineEnding +
+    '  no lines in it at all.  Its corners are somewhere to land now too.' + LineEnding +
+    '  Anything that arrives as faces rather than drawn lines was in the same' + LineEnding +
+    '  position: a revolve, an imported model, a generated example.' + LineEnding +
+    '' + LineEnding +
     '- **The tape and the dimension tool stop grabbing edges behind the model.**' + LineEnding +
     '  They took whichever line came nearest on screen and asked nothing else, so' + LineEnding +
     '  measuring along the front of a box jumped to the back edge wherever that' + LineEnding +

@@ -1068,6 +1068,7 @@ type
     function IndexOfSym(V: Integer): Integer;
     function InPalette(C: TColor): Boolean;
 
+    function ZoomReading: string;
     function StatusLine: string;
     procedure WashFace(C: TCanvas; Face: Integer; const Col: TPix);
     procedure TraceOutlineVisible(C: TCanvas; Idx: Integer; const Col: TPix; PenW: Integer);
@@ -1308,6 +1309,21 @@ const
   { where the cube can sit, in the words the command takes }
   CORNER_NAME: array[0..3] of string =
     ('top left', 'top right', 'bottom left', 'bottom right');
+
+  { How far the view may be wound in and out.
+
+    It was a twentieth to forty times - eight hundred to one, which sounds
+    generous and is not.  SketchUp goes from a site to a screw thread and
+    people expect that; at forty times, a sixteenth of an inch on a drawing
+    at an inch to the foot is a couple of dozen pixels, which is enough to
+    see and not enough to work on.
+
+    Bounded rather than free, because every point on the screen is
+    OX + dot * Ppu and the numbers have to stay in a range the rasteriser and
+    the depth mesh can work in.  A million to one is room enough for a site
+    plan at one end and a weld bead at the other. }
+  ZOOM_MIN        = 0.002;
+  ZOOM_MAX        = 2000.0;
 
   TICK_MS         = 16;
   { how long a camera move takes.  Long enough to follow, short enough that
@@ -3950,45 +3966,80 @@ begin
   FPaper.Touch;
 end;
 
+{ The three axes, drawn as what they are: infinite lines.
+
+  They used to be drawn a fixed number of world units out from the origin -
+  a screenful, more or less - which is fine while the origin is in view and
+  wrong the moment you pan away from it or zoom out past it.  They stopped in
+  mid air.  In a program where the red line IS the X axis, an axis with an
+  end in the middle of the paper is a lie about the model, and SketchUp's go
+  on for ever because that is the truth about them.
+
+  So: find where the origin lands and which way the axis runs on the glass,
+  then draw the stretch of that line which crosses the paper - the solid half
+  forwards from the origin, the dashed half back the other way - whether or
+  not the origin itself is anywhere near the window. }
 procedure TMainForm.PaintAxes;
 var
   K, N: Integer;
-  L, Len: Double;
+  Len, T0, T1, Step, A, B2: Double;
   B: TP3;
   PO, PB, D: TPointF;
   Col: TPix;
 begin
-  L := (FPaper.Width + FPaper.Height) / Max(1E-9, Ppu);
   PO := ScreenOf(P3(0, 0, 0));
   if IsNan(PO.X) or IsNan(PO.Y) or IsInfinite(PO.X) or IsInfinite(PO.Y) then
     Exit;
+  if (Abs(PO.X) > 1E7) or (Abs(PO.Y) > 1E7) then Exit;
+
   for K := 0 to 2 do
   begin
     Col := AxisPix(K);
 
+    { one world unit along this axis, to read its direction off the glass }
     B := P3(0, 0, 0);
     case K of
-      0: B.X := L;
-      1: B.Y := L;
-    else B.Z := L;
+      0: B.X := 1;
+      1: B.Y := 1;
+    else B.Z := 1;
     end;
     PB := ScreenOf(B);
     Len := Sqrt(Sqr(PB.X - PO.X) + Sqr(PB.Y - PO.Y));
     { An axis pointing straight at the camera has no length on the glass -
       PLAN looks down Z - and drawing it puts a dot of color on the origin
       that means nothing.  Left out instead. }
-    if Len < 1 then Continue;
-    FPaper.Line(PO.X, PO.Y, PB.X, PB.Y, 1.8, Col, 0.55);
+    if Len < 1E-9 then Continue;
+    D := PtF((PB.X - PO.X) / Len, (PB.Y - PO.Y) / Len);
 
-    { the negative half, dashed away from the origin }
-    D := PtF((PO.X - PB.X) / Len, (PO.Y - PB.Y) / Len);
-    N := 0;
-    while N * 11 < Len do
+    { the piece of the infinite line that is actually on the paper }
+    if not ClipToBox(PO.X, PO.Y, D.X, D.Y, FPaper.Width, FPaper.Height,
+                     T0, T1) then Continue;
+
+    { forwards from the origin, solid }
+    A := Max(T0, 0);
+    if T1 > A then
+      FPaper.Line(PO.X + D.X * A, PO.Y + D.Y * A,
+                  PO.X + D.X * T1, PO.Y + D.Y * T1, 1.8, Col, 0.55);
+
+    { backwards, dashed - drawn from the origin outwards so the dashes stay
+      put as you pan rather than crawling along the line }
+    B2 := Min(T1, 0);
+    if T0 < B2 then
     begin
-      FPaper.Line(PO.X + D.X * (N * 11), PO.Y + D.Y * (N * 11),
-                  PO.X + D.X * (N * 11 + 6), PO.Y + D.Y * (N * 11 + 6),
-                  1.4, Col, 0.42);
-      Inc(N);
+      Step := 11;
+      N := Max(0, Trunc(-B2 / Step));
+      while -N * Step > T0 do
+      begin
+        A := -N * Step;
+        if A <= B2 then
+          FPaper.Line(PO.X - D.X * (N * Step), PO.Y - D.Y * (N * Step),
+                      PO.X - D.X * (N * Step + 6), PO.Y - D.Y * (N * Step + 6),
+                      1.4, Col, 0.42);
+        Inc(N);
+        { a window a long way from the origin is a lot of dashes nobody
+          sees; stop before it becomes the slowest thing on the screen }
+        if N > 4000 then Break;
+      end;
     end;
   end;
   FPaper.Touch;
@@ -4130,7 +4181,7 @@ var
   P: TPointF;
   NewZoom: Double;
 begin
-  NewZoom := EnsureRange(FD.Zoom * Factor, 0.05, 40.0);
+  NewZoom := EnsureRange(FD.Zoom * Factor, ZOOM_MIN, ZOOM_MAX);
   if NewZoom = FD.Zoom then Exit;
   { keep whatever is under the anchor point exactly where it is }
   W := WorldAt(AnchorSX, AnchorSY);
@@ -4264,8 +4315,8 @@ begin
       miscompiled at -O3.  This one reads correctly in the build in front of
       me; it is written this way so that stays true. }
     NewZoom := Z;
-    if NewZoom < 0.05 then NewZoom := 0.05;
-    if NewZoom > 40.0 then NewZoom := 40.0;
+    if NewZoom < ZOOM_MIN then NewZoom := ZOOM_MIN;
+    if NewZoom > ZOOM_MAX then NewZoom := ZOOM_MAX;
     FD.Zoom := NewZoom;
     Mid := P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2);
     FD.ViewX := 0;
@@ -9654,7 +9705,7 @@ begin
   C.TextOut(AX, AY - Round(20 * FUIScale), FormatLen(BarLen, FD.Units));
   S1 := CurScale.Name + IfThen(FD.Units = usImperial, ' = 1''-0"', '');
   C.TextOut(AX + Round(BarPx) + Round(12 * FUIScale), AY - Round(20 * FUIScale),
-    Format('%s   (view %.0f%%)', [S1, FD.Zoom * 100]));
+    Format('%s   (view %s)', [S1, ZoomReading]));
 
   { --- where a solid is not closed ------------------------------------- }
   { Laid over everything, in the colour of a warning, because the question
@@ -16166,6 +16217,22 @@ end;
 { window painting                                                           }
 { ======================================================================== }
 
+{ The zoom, in words that survive the range it now has.
+
+  It was one number and no decimals, which read "view 0%" as soon as the view
+  could be wound out past a fiftieth - a readout that says nothing is worse
+  than no readout, because it looks like an answer. }
+function TMainForm.ZoomReading: string;
+var
+  Z: Double;
+begin
+  Z := FD.Zoom * 100;
+  if Z >= 100 then Result := Format('%.0f%%', [Z])
+  else if Z >= 10 then Result := Format('%.1f%%', [Z])
+  else if Z >= 1 then Result := Format('%.2f%%', [Z])
+  else Result := Format('%.3f%%', [Z]);
+end;
+
 function TMainForm.StatusLine: string;
 var
   L, A, RW, RH: Double;
@@ -17412,8 +17479,8 @@ begin
     end;
   end;
   Z := Min((FArt.Width * 0.80) / (W * BaseP), (FArt.Height * 0.80) / (H * BaseP));
-  if Z < 0.05 then Z := 0.05;
-  if Z > 40.0 then Z := 40.0;
+  if Z < ZOOM_MIN then Z := ZOOM_MIN;
+  if Z > ZOOM_MAX then Z := ZOOM_MAX;
   NewZoom := Z;
 
   { where the middle of it would land, at that zoom and those angles }
@@ -18457,8 +18524,8 @@ begin
                 if CamV < -1.45 then CamV := -1.45;
                 if CamV > 1.45 then CamV := 1.45;
                 CamZ := RdF(CamT[2]);
-                if CamZ < 0.05 then CamZ := 0.05;
-                if CamZ > 40.0 then CamZ := 40.0;
+                if CamZ < ZOOM_MIN then CamZ := ZOOM_MIN;
+                if CamZ > ZOOM_MAX then CamZ := ZOOM_MAX;
                 D.Az := RdF(CamT[0]);
                 D.El := CamV;
                 D.Zoom := CamZ;

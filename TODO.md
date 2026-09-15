@@ -1000,6 +1000,40 @@ z=0.1042 and 33 at z=0.0942, a tenth of an inch apart, so the case lip and
 the screen recess are on the same pixel at any working zoom.  A good example
 drawing turns out to be a good test drawing.
 
+### The view, and two things that were quietly bounded
+
+Tony, comparing against SketchUp: it zooms in and out a great deal further
+than us, and its axes go on for ever while ours end.
+
+**Zoom was a twentieth to forty times** - eight hundred to one, which sounds
+generous and is not: at forty times a sixteenth of an inch on an inch-to-the-
+foot drawing is a couple of dozen pixels, enough to see and not enough to
+work on.  `ZOOM_MIN` and `ZOOM_MAX` are 0.002 and 2000 now, a million to one.
+Bounded rather than free, because every point on the screen is OX + dot * Ppu
+and those numbers have to stay somewhere the rasteriser and the depth mesh
+can work.
+
+Widening it broke two readouts that had never had to cope, and both were
+worth finding: the percentage printed with no decimals, so anything under a
+fiftieth read "view 0%" - a readout that says nothing while looking like an
+answer - and the scale bar's table of round lengths began at half a foot, so
+past a few hundred percent there was nothing short enough and the bar ran the
+width of the window labelled 0'-6".  The table now runs from a sixteenth of
+an inch to a thousand feet, and the short end is exact inch fractions rather
+than round decimals, because a bar of 0.002 feet is a fine length that reads
+0'-0" on its own label.
+
+**The axes were drawn a fixed number of world units from the origin** - a
+screenful, more or less.  Fine while the origin is in view, wrong the moment
+you pan away from it: they stopped in mid air.  They are infinite lines, so
+`ClipToBox` now finds the stretch of each that crosses the paper and draws
+that, solid forwards and dashed back, whether or not the origin is anywhere
+near the window.
+
+The clipper got its own test, and earned it: the first version had each
+edge's entering and leaving ends swapped, which clips every line to nothing
+and reads on screen as the axes simply being switched off.
+
 ### Every picker needs the same audit, and it is bigger than "is it hidden"
 
 Tony, after the EdgeSnap fix: run these checks over all of the tools and

@@ -861,6 +861,19 @@ function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Arra
 { The two in-plane coordinates of a model point. }
 procedure PlaneCoords(Pl: TPlane; const P: TP3; out U, W: Double);
 
+{ The stretch of an infinite line that crosses a rectangle.
+
+  Given a point on the line and a direction along it, both in screen terms,
+  come back with the two parameters where it enters and leaves the box.
+  False when it misses the box altogether.
+
+  This is what lets a line that is infinite in the model be drawn as what it
+  is.  The axes were drawn a fixed number of world units out from the origin,
+  which is fine while the origin is on screen and wrong the moment you pan
+  away from it: they stopped in mid air, and in a program where the red line
+  IS the X axis, an axis with an end is a lie about the model. }
+function ClipToBox(PX, PY, DX, DY, W, H: Double; out T0, T1: Double): Boolean;
+
 const
   ISO_COS = 0.86602540378443865;   // cos 30
   ISO_SIN = 0.5;                   // sin 30
@@ -1265,24 +1278,41 @@ begin
   Result := N;
 end;
 
+{ A round length that comes out between MinPx and MaxPx on the glass.
+
+  The tables run further at both ends than they used to.  They began at half
+  a foot, so once the view could be wound in past a few hundred percent there
+  was no length short enough and the scale bar simply ran the width of the
+  window with "0'-6"" on it; and they stopped at two hundred feet, so far
+  enough out the bar stopped growing.  The zoom range is a million to one
+  now and the bar has to be able to say so.
+
+  Both keep the shape they had - the imperial one in the 1-2-5 steps that
+  land on sixteenths and inches and feet, the metric one in its own - and
+  simply carry on in both directions. }
 function NiceBarLength(Ppu: Double; MinPx, MaxPx: Double; U: TUnitSystem): Double;
 const
-  IMP: array[0..8] of Double = (0.5, 1, 2, 5, 10, 20, 50, 100, 200);
-  MET: array[0..8] of Double = (0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50);
+  N_STEP = 16;
+  { Feet, and at the short end exact inch fractions rather than round
+    decimals - a sixteenth, an eighth, a quarter, a half, an inch.  A bar of
+    0.002 feet is a perfectly good length and reads 0'-0" on the label,
+    which is a bar that cannot say what it is. }
+  IMP: array[0..N_STEP] of Double =
+    (1/192, 1/96, 1/48, 1/24, 1/12, 0.25, 0.5,
+     1, 2, 5, 10, 20, 50, 100, 200, 500, 1000);
+  MET: array[0..N_STEP] of Double =
+    (0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05,
+     0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100);
 var
   I: Integer;
   V: Double;
 begin
   Result := 1;
-  for I := 0 to 8 do
+  for I := 0 to N_STEP do
   begin
     if U = usImperial then V := IMP[I] else V := MET[I];
     Result := V;
-    if V * Ppu >= MinPx then
-    begin
-      if V * Ppu <= MaxPx then Exit;
-      Exit;
-    end;
+    if V * Ppu >= MinPx then Exit;
   end;
 end;
 
@@ -1332,6 +1362,47 @@ end;
 
 { A turntable camera: Az spins about the world Z axis, El tilts up from the
   horizon.  Z is up in the model, which is what push/pull assumes. }
+function ClipToBox(PX, PY, DX, DY, W, H: Double; out T0, T1: Double): Boolean;
+
+  { Liang-Barsky, one edge at a time: the line runs P + T*D, and each edge
+    says either "no T at all" or trims one end of the range. }
+  function Edge(Num, Den: Double): Boolean;
+  var
+    T: Double;
+  begin
+    Result := True;
+    if Abs(Den) < 1E-12 then
+    begin
+      { Parallel to this edge.  Num is how far inside it the line sits, so
+        it is on the paper when that is not negative. }
+      Result := Num >= 0;
+      Exit;
+    end;
+    T := Num / Den;
+    if Den < 0 then
+    begin
+      if T > T1 then Exit(False);
+      if T > T0 then T0 := T;
+    end
+    else
+    begin
+      if T < T0 then Exit(False);
+      if T < T1 then T1 := T;
+    end;
+  end;
+
+begin
+  T0 := -1E30;
+  T1 := 1E30;
+  { Num is the distance inside the edge, Den the rate the line crosses it:
+    negative Den is coming in, positive is going out.  Getting the pair the
+    wrong way round leaves T right and swaps entering for leaving, which
+    clips every line to nothing - and looks exactly like the axes being
+    switched off. }
+  Result := Edge(PX, -DX) and Edge(W - PX, DX) and
+            Edge(PY, -DY) and Edge(H - PY, DY) and (T0 <= T1);
+end;
+
 function ViewRight(const V: TProjector): TP3;
 begin
   case V.Kind of

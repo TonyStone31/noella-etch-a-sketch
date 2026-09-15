@@ -1503,6 +1503,50 @@ begin
   end;
 end;
 
+{ Clipping an infinite line to the window.
+
+  Pure arithmetic, and it earns a test because it is the kind that looks
+  right and is not: the first version had the entering and leaving ends of
+  each edge swapped, which clipped every line to nothing and read on screen
+  as the axes simply being gone. }
+procedure TestClipToBox;
+var
+  T0, T1: Double;
+begin
+  WriteLn('-- an infinite line, clipped to the paper');
+
+  { straight across the middle of a 100 x 50 box }
+  Ok(ClipToBox(50, 25, 1, 0, 100, 50, T0, T1), 'a level line crosses it');
+  EqF(T0, -50, '  it enters at the left edge');
+  EqF(T1, 50, '  and leaves at the right');
+
+  { the same line, with the point it is given far off the left }
+  Ok(ClipToBox(-1000, 25, 1, 0, 100, 50, T0, T1),
+     'and still crosses when the point given is off the paper');
+  EqF(T0, 1000, '  entering where the paper starts');
+  EqF(T1, 1100, '  and leaving at the far side');
+
+  { down the way }
+  Ok(ClipToBox(50, 25, 0, 1, 100, 50, T0, T1), 'an upright line crosses it');
+  EqF(T0, -25, '  in at the top');
+  EqF(T1, 25, '  out at the bottom');
+
+  { a diagonal }
+  Ok(ClipToBox(0, 0, 1, 1, 100, 50, T0, T1), 'a diagonal crosses it');
+  EqF(T0, 0, '  from the corner');
+  EqF(T1, 50, '  to where it runs off the bottom');
+
+  { parallel to an edge and outside it }
+  Ok(not ClipToBox(50, -10, 1, 0, 100, 50, T0, T1),
+     'a line above the paper misses it');
+  Ok(not ClipToBox(50, 80, 1, 0, 100, 50, T0, T1),
+     'and so does one below it');
+
+  { and one that misses on the diagonal }
+  Ok(not ClipToBox(-10, -10, 0, 1, 100, 50, T0, T1),
+     'an upright line off to the left misses it');
+end;
+
 { Flat panels only, so this is the toy's own check and not the glass's: a
   revolve makes rings of edges that enclose flat areas nobody meant as faces,
   and asking the same question of it would be asking the wrong one.
@@ -5669,6 +5713,7 @@ begin
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;
+  TestClipToBox;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;
