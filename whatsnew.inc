@@ -13,7 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## v2026.09.15' + LineEnding +
+    '## v2026.09.15.1' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The view winds in and out a great deal further.**  It was a twentieth to' + LineEnding +
+    '  forty times - which sounds generous until you try to work on a sixteenth of' + LineEnding +
+    '  an inch.  It is a million to one now, so a site plan and a weld bead are' + LineEnding +
+    '  both reachable, and the scale bar goes down to a sixteenth of an inch and' + LineEnding +
+    '  up to a thousand feet to keep up.' + LineEnding +
+    '' + LineEnding +
+    '- **The axes go on for ever**, the way they should.  They were drawn a' + LineEnding +
+    '  screenful out from the origin, so panning away from it left them stopping' + LineEnding +
+    '  in mid air.  In a program where the red line IS the X axis, an axis with an' + LineEnding +
+    '  end is a lie about the model.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
@@ -24,6 +37,12 @@ const
     '  no lines in it at all.  Its corners are somewhere to land now too.' + LineEnding +
     '  Anything that arrives as faces rather than drawn lines was in the same' + LineEnding +
     '  position: a revolve, an imported model, a generated example.' + LineEnding +
+    '' + LineEnding +
+    '## v2026.09.15' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
     '' + LineEnding +
     '- **The tape and the dimension tool stop grabbing edges behind the model.**' + LineEnding +
     '  They took whichever line came nearest on screen and asked nothing else, so' + LineEnding +
