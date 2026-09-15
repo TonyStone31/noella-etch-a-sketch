@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **What''s new scrolls under your finger.**  Drag the page and it follows -' + LineEnding +
+    '  on a touch screen, or with the mouse button held down.  It could only be' + LineEnding +
+    '  scrolled with the wheel or the keyboard before, which is no help on a' + LineEnding +
+    '  laptop you are poking at.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.14.18' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

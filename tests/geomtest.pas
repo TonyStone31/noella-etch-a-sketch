@@ -1263,6 +1263,107 @@ begin
   Ok(Abs(El - 1.45) < 1E-6, '  and stops short of dead overhead');
 end;
 
+{ The cursor does not snap to an edge it cannot see.
+
+  Running the tape or a dimension along the front edge of a box kept jumping
+  to the back edge.  EdgeSnap took whichever segment came nearest ON SCREEN
+  and asked nothing else - so any edge round the far side that happened to
+  project a pixel closer won, however much solid stood in front of it.  On
+  the etch-a-sketch, where the far side of a rounded corner is a handful of
+  nearly-parallel lines, it jumped constantly.
+
+  BestSnap has rejected hidden POINTS since somebody got pulled onto the
+  corner of a tunnel through the wall they were drawing on.  This is the same
+  rule for lines, and the test is the general form of it: over the whole
+  silhouette of a solid box, nothing the cursor lands on may be a point the
+  eye cannot see. }
+procedure TestEdgeSnapSeesOnlyWhatIsVisible;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  P, Lo, Hi: TP3;
+  SX, SY, Hidden, Found: Integer;
+  A, B: TPointF;
+  Ent: Integer;
+begin
+  WriteLn('-- the cursor only takes an edge it can see');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 4), 'a solid box to look at');
+
+    { a corner view, so the far edges sit near the near ones on screen }
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkOrbit;
+    V.Az := 0.6;
+    V.El := 0.45;
+    V.Ppu := 26;
+    D.Bounds(Lo, Hi);
+    A := Project(V, P3((Lo.X + Hi.X) / 2, (Lo.Y + Hi.Y) / 2, (Lo.Z + Hi.Z) / 2));
+    V.OX := 300 - A.X;
+    V.OY := 250 - A.Y;
+
+    { every screen point over the box, a few pixels apart }
+    Hidden := 0;
+    Found := 0;
+    SY := 120;
+    while SY <= 380 do
+    begin
+      SX := 170;
+      while SX <= 430 do
+      begin
+        if D.EdgeSnap(V, SX, SY, 8, P, Ent) then
+        begin
+          Inc(Found);
+          if D.HiddenAt(V, P) then Inc(Hidden);
+        end;
+        Inc(SX, 3);
+      end;
+      Inc(SY, 3);
+    end;
+    Ok(Found > 200, Format('  the cursor found an edge in %d places', [Found]));
+    EqI(Hidden, 0, '  and not one of them was behind the box');
+
+    { and the near edge is still found when it is the one being pointed at:
+      aim square at the top front corner post and something comes back }
+    B := Project(V, P3(0, 0, 4));
+    Ok(D.EdgeSnap(V, B.X, B.Y, 8, P, Ent), '  a visible edge is still taken');
+    Ok(not D.HiddenAt(V, P), '  and it is one you can see');
+  finally
+    D.Free;
+  end;
+
+  { Two edges on the same pixel: the nearer one is the answer.
+
+    The etch-a-sketch is built of exactly this - the lip of the case and the
+    screen recess run parallel an eighth of an inch apart, so along the top
+    of it two lines land on the same place and the cursor used to take
+    whichever was drawn first. }
+  D := TWorkDoc.Create;
+  try
+    { Two lines one above the other, a tenth of a unit apart in height - and
+      the LOWER one added first on purpose.  Without a rule for the tie the
+      answer is whichever came first, so a test that added the upper one
+      first would pass without the rule and prove nothing. }
+    D.AddLine(P3(0, 0, 0.9), P3(10, 0, 0.9), 0, 1, False);
+    D.AddLine(P3(0, 0, 1.0), P3(10, 0, 1.0), 0, 1, False);
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkOrbit;
+    V.Az := 0.0;
+    V.El := 1.2;                    { looking well down on them }
+    V.Ppu := 30;
+    V.OX := 300;
+    V.OY := 250;
+    B := Project(V, P3(5, 0, 1.0));
+    Ok(D.EdgeSnap(V, B.X, B.Y, 8, P, Ent),
+       '  with two lines on one pixel, one is taken');
+    Ok(Abs(P.Z - 1.0) < 1E-6,
+       Format('  and it is the upper one, nearer the eye (z %.3f)', [P.Z]));
+  finally
+    D.Free;
+  end;
+end;
+
 { Flat panels only, so this is the toy's own check and not the glass's: a
   revolve makes rings of edges that enclose flat areas nobody meant as faces,
   and asking the same question of it would be asking the wrong one.
@@ -5427,6 +5528,7 @@ begin
   TestExampleRegions;  WriteLn;
   TestSvgIsTrueSize;  WriteLn;
   TestViewCube;  WriteLn;
+  TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;

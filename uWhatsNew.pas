@@ -55,6 +55,9 @@ type
     FShut, FGo: TBCButton;
 
     FDrag: uDlgSkin.TFormDrag;
+    { a finger, or a mouse button, dragging the page up and down }
+    FPageGrab: Boolean;
+    FPageGrabY, FPageGrabAt: Integer;
 
     procedure Build;
     procedure PagePaint(Sender: TObject);
@@ -63,6 +66,18 @@ type
     function Run(C: TCanvas; Draw: Boolean): Integer;
     procedure PageWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    { Dragging the page, which is how a finger scrolls.
+
+      A paint box has no scrolling of its own - the wheel works because it
+      was wired up by hand, and a touch screen has no wheel to wire.  On
+      Windows a finger drag arrives as a press, some moves and a release, so
+      taking those and moving the page by how far the finger went is the
+      whole of it, and it costs a mouse the same gesture for free. }
+    procedure PageDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure PageMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure PageUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
     procedure KeyDownH(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HeadDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -280,6 +295,9 @@ begin
   FPage.SetBounds(10, 10, FBody.Width - 20, FBody.Height - 20);
   FPage.OnPaint := @PagePaint;
   FPage.OnMouseWheel := @PageWheel;
+  FPage.OnMouseDown := @PageDown;
+  FPage.OnMouseMove := @PageMove;
+  FPage.OnMouseUp := @PageUp;
 
   FFoot := TBCPanel.Create(Self);
   FFoot.Parent := Self;
@@ -345,6 +363,30 @@ begin
   if WheelDelta > 0 then ScrollTo(FScroll - 56)
   else ScrollTo(FScroll + 56);
   Handled := True;
+end;
+
+procedure TWhatsNewForm.PageDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if Button <> mbLeft then Exit;
+  FPageGrab := True;
+  FPageGrabY := Y;
+  FPageGrabAt := FScroll;
+end;
+
+procedure TWhatsNewForm.PageMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+begin
+  if not FPageGrab then Exit;
+  { the page follows the finger: drag down and the words come down with it,
+    which is the way every touch screen in the world behaves }
+  ScrollTo(FPageGrabAt - (Y - FPageGrabY));
+end;
+
+procedure TWhatsNewForm.PageUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  FPageGrab := False;
 end;
 
 procedure TWhatsNewForm.KeyDownH(Sender: TObject; var Key: Word;

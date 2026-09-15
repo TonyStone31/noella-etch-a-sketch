@@ -1,0 +1,32 @@
+# What's new scrolls by dragging the page - which is how a finger does it.
+#
+# A paint box has no scrolling of its own: the wheel works because it was
+# wired by hand, and a touch screen has no wheel.  On Windows a finger drag
+# arrives as press, move, release, so the page follows it.
+#
+geometry 0 0 1400 800
+activate
+wait 2500
+key escape
+wait 600
+key slash
+type whatsnew
+key return
+wait 2000
+shot /tmp/hsk-wn-0.png
+at 700 500
+wait 200
+# drag the page upwards, the way a finger flicks to read on
+press l
+at 700 480
+wait 120
+at 700 380
+wait 120
+at 700 300
+wait 200
+shot /tmp/hsk-wn-1.png
+release l
+wait 400
+shot /tmp/hsk-wn-2.png
+key escape
+wait 600

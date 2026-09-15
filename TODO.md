@@ -973,6 +973,58 @@ any more:
   to the rows that set a tool would catch exactly this and is worth doing if
   another one slips.
 
+### Snapping has to answer "can I see it?", and half of it did not
+
+Tony, measuring along the straight edges of the etch-a-sketch between the
+curves: it kept taking lines behind the toy, or on the wrong plane.  He asked
+whether it was the tool or the model.  It was the tool, twice, and the model
+made both worse without being wrong itself.
+
+**EdgeSnap never asked whether an edge was visible.**  BestSnap has rejected
+hidden points since somebody got pulled onto the corner of a tunnel through
+the wall they were drawing on; EdgeSnap took whichever segment came nearest
+on screen and nothing else.  Measured on a plain solid box from a corner
+view: 633 of 2266 cursor positions - better than a quarter - returned an edge
+behind the box.  Now none do.  `HiddenAt` is only asked of a candidate that
+would win, so it costs nothing when the view is clear, and a face the point
+lies in cannot hide it, so an edge on the face it bounds is safe.
+
+**And there was no rule for a tie.**  Two edges a hair apart in depth land on
+the same pixel, and the answer was whichever came first in the entity list -
+an answer about drawing order, not about what is under the cursor.  Within a
+pixel, the nearer to the eye now wins.
+
+The model is clean - 177 lines, no duplicates, none zero length - but it is
+built of exactly the geometry that makes both faults bite: 144 lines at
+z=0.1042 and 33 at z=0.0942, a tenth of an inch apart, so the case lip and
+the screen recess are on the same pixel at any working zoom.  A good example
+drawing turns out to be a good test drawing.
+
+Worth asking of the other pickers, none of which have been checked: DoomAt,
+the face picker, the note picker.
+
+### What's new is a paint box, and that has consequences
+
+Worth writing down because it explains a class of bug rather than one bug.
+
+The release notes window draws every line itself onto a `TPaintBox`: no rich
+text control, no HTML, no markdown renderer.  `ReleaseNotes` reads
+WHATS_NEW.md and sorts each line into one of three kinds - a version heading,
+a section heading, a bullet - and `Run` measures or draws them, including the
+one bold span a bullet may start with.  That is the whole of the markdown it
+understands, and it is why the thing themes perfectly.
+
+The consequence is that it has no behaviour it was not given.  The wheel
+works because a wheel handler was written.  The keyboard works because a key
+handler was written.  A finger did nothing at all, because nothing had been
+written for it - which on Tony's Windows touch laptop meant a window you
+could read and not move.  Dragging the page scrolls it now, which costs a
+mouse the same gesture for free.
+
+Anything else drawn this way - the command list, the popup menus - has the
+same shape, and the same question is worth asking of each: what happens when
+somebody touches it rather than clicks it.
+
 ### The view cube
 
 Built 14 September, at Tony's friend's asking - he uses Revit and thinks a

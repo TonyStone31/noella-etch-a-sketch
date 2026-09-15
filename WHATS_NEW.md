@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The tape and the dimension tool stop grabbing edges behind the model.**
+  They took whichever line came nearest on screen and asked nothing else, so
+  measuring along the front of a box jumped to the back edge wherever that
+  happened to project a pixel closer.  On a solid box, better than a quarter
+  of the places you could put the cursor gave you an edge you could not see.
+
+- **And when two lines land on the same pixel, the nearer one wins.**  The
+  etch-a-sketch is made of this: the lip of the case and the screen recess
+  run parallel an eighth of an inch apart, so measuring along the top of the
+  toy flipped between them depending on which had been drawn first.
+
+### New
+
+- **What's new scrolls under your finger.**  Drag the page and it follows -
+  on a touch screen, or with the mouse button held down.  It could only be
+  scrolled with the wheel or the keyboard before, which is no help on a
+  laptop you are poking at.
+
 ## v2026.09.14.18
 
 ### New

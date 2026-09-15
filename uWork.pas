@@ -6652,10 +6652,14 @@ end;
 
 function TWorkDoc.EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
   out P: TP3; out Ent: Integer): Boolean;
+const
+  { how close on screen counts as "the same place", for preferring the one
+    nearer the eye }
+  TIE_PX = 1.0;
 var
   I, K: Integer;
-  Best: Double;
-  QA, QB: TP3;
+  Best, BestZ: Double;
+  QA, QB, Look: TP3;
 
   { Project the segment, find the nearest point along it on screen, then read
     the same fraction back off the model segment.  The projection is affine,
@@ -6663,7 +6667,8 @@ var
   procedure Try_(const MA, MB: TP3);
   var
     PA, PB: TPointF;
-    DX, DY, L2, T, D: Double;
+    DX, DY, L2, T, D, QZ: Double;
+    Q: TP3;
   begin
     PA := Project(V, MA);
     PB := Project(V, MB);
@@ -6673,11 +6678,43 @@ var
     if L2 < 1E-12 then Exit;
     T := EnsureRange(((SX - PA.X) * DX + (SY - PA.Y) * DY) / L2, 0, 1);
     D := Sqrt(Sqr(SX - (PA.X + DX * T)) + Sqr(SY - (PA.Y + DY * T)));
-    if D < Best then
+    Q := P3(MA.X + (MB.X - MA.X) * T, MA.Y + (MB.Y - MA.Y) * T,
+            MA.Z + (MB.Z - MA.Z) * T);
+    QZ := Dot3(Q, Look);
+
+    { Nearer on screen wins; as near, and nearer the eye, wins too.
+
+      Two edges a hair apart in depth land on the same pixel, and with no
+      rule for that the answer was whichever came first in the entity list -
+      which is an answer about the order things were drawn in, not about
+      what is under the cursor.  The etch-a-sketch is made of exactly this:
+      the lip of the case and the screen recess sit an eighth of an inch
+      apart, so measuring along the top of it flipped between the two.
+
+      A tenth of a pixel would be too tight to help and ten would take edges
+      that are plainly further away.  One pixel is the width of the line you
+      are pointing at. }
+    if (D < Best - TIE_PX) or
+       ((D < Best + TIE_PX) and (Ent >= 0) and (QZ > BestZ + 1E-9)) then
     begin
-      Best := D;
-      P := P3(MA.X + (MB.X - MA.X) * T, MA.Y + (MB.Y - MA.Y) * T,
-              MA.Z + (MB.Z - MA.Z) * T);
+      { An edge behind a solid is not one anybody is aiming at.
+
+        BestSnap has asked this of its points since the day somebody got
+        pulled onto the corner of a tunnel through the wall they were
+        drawing on.  This did not ask it at all: it took whichever segment
+        came nearest ON SCREEN, so measuring along the front edge of a box
+        would jump to the back edge wherever that happened to project a
+        pixel closer - and on anything with a curve in it, where the far
+        side is a hand's breadth of nearly-parallel lines, it jumped
+        constantly.
+
+        A face the point lies in cannot hide it, so an edge lying on the
+        face it bounds is safe; see HiddenAt.  Only a candidate that would
+        win is asked, so this costs nothing when the view is clear. }
+      if HiddenAt(V, Q) then Exit;
+      if D < Best then Best := D;
+      BestZ := QZ;
+      P := Q;
       Ent := I;
     end;
   end;
@@ -6686,6 +6723,9 @@ begin
   P := P3(0, 0, 0);
   Ent := -1;
   Best := TolPx;
+  BestZ := -1E30;
+  { points from the drawing towards the camera, so a bigger dot is nearer }
+  Look := ViewDir(V);
   for I := 0 to FLive - 1 do
   begin
     if not InSlice(I) then Continue;
