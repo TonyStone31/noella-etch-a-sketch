@@ -2740,6 +2740,7 @@ end;
 
 { defined further down, beside OrientFace, and wanted up here }
 function EdgeKeyOf(const A, B: TP3; out Way: PtrInt): string; forward;
+function PointKeyOf(const P: TP3): string; forward;
 
 function TWorkDoc.OpenEdges(G: Integer): TP3Array;
 var
@@ -3244,6 +3245,15 @@ end;
   Rounded to a millionth of a unit, which is far finer than anything anybody
   draws and coarse enough that two points meant to be the same one always
   key alike. }
+{ One point, quantised, as a key.  A millionth of a unit, the same grid
+  EdgeKeyOf uses, so two corners that arrived at the same place by different
+  arithmetic name the same key. }
+function PointKeyOf(const P: TP3): string;
+begin
+  Result := Format('%d|%d|%d', [Round(P.X * 1E6), Round(P.Y * 1E6),
+                                Round(P.Z * 1E6)]);
+end;
+
 function EdgeKeyOf(const A, B: TP3; out Way: PtrInt): string;
 var
   P, Q: array[0..2] of Int64;
@@ -6089,8 +6099,10 @@ var
   Cuts: array of array of Double;
   Idx: array of Integer;
   Tmp: Double;
-  K, M: Integer;
+  K, M, H: Integer;
   MidKind: TSnapKind;
+  Seen: TFPHashList;
+  Key: string;
 
   procedure Put(const Q: TP3; Kind: TSnapKind);
   begin
@@ -6169,6 +6181,48 @@ begin
         line is only ever in the way. }
       ekDim, ekText: ;
     end;
+
+  { The corners of a face, where no line already put one there.
+
+    A face drawn the ordinary way is bounded by lines and its corners are
+    already in this list twice over.  A face that arrived some other way -
+    a revolve, an import, the example generator - has no lines at all, and
+    without this there was nothing whatever to land on along its boundary.
+    That is why the dimension tool could not take the corners of the
+    etch-a-sketch case while working perfectly on the robot inside it.
+
+    Deduplicated, because most faces DO have their lines and doubling every
+    corner of every face would multiply this list by the number of faces
+    that share each one - which BestSnap then walks on every mouse move. }
+  Seen := TFPHashList.Create;
+  try
+    for I := 0 to N - 1 do
+    begin
+      Key := PointKeyOf(FSnapCache[I].P);
+      if Seen.Find(Key) = nil then Seen.Add(Key, Pointer(1));
+    end;
+    for I := 0 to FLive - 1 do
+      if FEnts[I].Kind = ekFace then
+      begin
+        for K := 0 to High(FEnts[I].Poly) do
+        begin
+          Key := PointKeyOf(FEnts[I].Poly[K]);
+          if Seen.Find(Key) <> nil then Continue;
+          Seen.Add(Key, Pointer(1));
+          Put(FEnts[I].Poly[K], snEndpoint);
+        end;
+        for H := 0 to High(FEnts[I].Holes) do
+          for K := 0 to High(FEnts[I].Holes[H]) do
+          begin
+            Key := PointKeyOf(FEnts[I].Holes[H][K]);
+            if Seen.Find(Key) <> nil then Continue;
+            Seen.Add(Key, Pointer(1));
+            Put(FEnts[I].Holes[H][K], snEndpoint);
+          end;
+      end;
+  finally
+    Seen.Free;
+  end;
 
   { every line gets a list of the parameters where something crosses it }
   SetLength(Idx, FLive);
@@ -6657,7 +6711,7 @@ const
     nearer the eye }
   TIE_PX = 1.0;
 var
-  I, K: Integer;
+  I, K, H: Integer;
   Best, BestZ: Double;
   QA, QB, Look: TP3;
 
@@ -6740,6 +6794,32 @@ begin
                P3(FEnts[I].B.X + (FEnts[I].B.X - FEnts[I].A.X) * 2000,
                   FEnts[I].B.Y + (FEnts[I].B.Y - FEnts[I].A.Y) * 2000,
                   FEnts[I].B.Z + (FEnts[I].B.Z - FEnts[I].A.Z) * 2000));
+      { The outline of a face is geometry you can see, so it is geometry the
+        cursor can run along.
+
+        It was not, and that is why the dimension tool would not take the
+        long edges of the etch-a-sketch: the body of the toy is one face of
+        thirty-two corners whose longest edge is ten and a half inches, and
+        it has no line entities at all.  The robot and the lettering DO -
+        they are drawn with lines - which is exactly why those cooperated and
+        the case of the toy fought back.
+
+        Anything that arrives as faces rather than as drawn lines is in the
+        same position: a revolve, an imported model, this example.  A face
+        that also has lines along it simply gets found twice, at the same
+        place, for the same answer. }
+      ekFace:
+        begin
+          for K := 0 to High(FEnts[I].Poly) do
+            Try_(FEnts[I].Poly[K],
+                 FEnts[I].Poly[(K + 1) mod Length(FEnts[I].Poly)]);
+          { and what is cut out of it, which is just as much an edge }
+          for H := 0 to High(FEnts[I].Holes) do
+            if Length(FEnts[I].Holes[H]) >= 3 then
+              for K := 0 to High(FEnts[I].Holes[H]) do
+                Try_(FEnts[I].Holes[H][K],
+                     FEnts[I].Holes[H][(K + 1) mod Length(FEnts[I].Holes[H])]);
+        end;
       ekArc:
         begin
           QA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm);

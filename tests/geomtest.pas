@@ -1364,6 +1364,145 @@ begin
   end;
 end;
 
+
+{ The cursor runs along the edge of a face, not only along a drawn line.
+
+  Tony could dimension the robot and the lettering on the etch-a-sketch and
+  could not dimension the case they sit on.  The reason is that the case is
+  ONE FACE of thirty-two corners - its longest edge is ten and a half inches
+  - and it has no line entities at all, while the robot and the letters are
+  drawn with lines.  EdgeSnap walked lines, guides and arcs and never looked
+  at a face outline, and the snap cache recorded a face's middle but not its
+  corners.  So along the whole of that edge there was nothing to find.
+
+  Anything that arrives as faces rather than as drawn lines is in the same
+  position: a revolve, an import, a generated example. }
+procedure TestSnapToFaceOutline;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  P, A, B, Mid: TP3;
+  Src: TStringList;
+  I, Ent: Integer;
+  S: TPointF;
+  Hit: TSnapHit;
+  FacePts: TP3Array;
+
+  { the longest edge of any face in the document }
+  function LongestFaceEdge(Doc: TWorkDoc; out EA, EB: TP3): Boolean;
+  var
+    J, C, N: Integer;
+    L, BestL: Double;
+  begin
+    Result := False;
+    BestL := 0;
+    EA := P3(0, 0, 0);
+    EB := P3(0, 0, 0);
+    for J := 0 to Doc.Live - 1 do
+      if Doc[J].Kind = ekFace then
+      begin
+        N := Length(Doc[J].Poly);
+        for C := 0 to N - 1 do
+        begin
+          L := Dist(Doc[J].Poly[C], Doc[J].Poly[(C + 1) mod N]);
+          if L > BestL then
+          begin
+            BestL := L;
+            EA := Doc[J].Poly[C];
+            EB := Doc[J].Poly[(C + 1) mod N];
+            Result := True;
+          end;
+        end;
+      end;
+  end;
+
+begin
+  WriteLn('-- the cursor takes the edge of a face, not only a drawn line');
+
+  { a face and nothing else: four corners, no lines anywhere }
+  D := TWorkDoc.Create;
+  try
+    SetLength(FacePts, 4);
+    FacePts[0] := P3(0, 0, 0);
+    FacePts[1] := P3(10, 0, 0);
+    FacePts[2] := P3(10, 6, 0);
+    FacePts[3] := P3(0, 6, 0);
+    D.AddFace(FacePts, 0);
+    EqI(D.Live, 1, 'one face, and not a single line');
+
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan;
+    V.Ppu := 20;
+    V.OX := 100;
+    V.OY := 300;
+
+    { half way along the bottom edge }
+    Mid := P3(5, 0, 0);
+    S := Project(V, Mid);
+    Ok(D.EdgeSnap(V, S.X, S.Y, 8, P, Ent),
+       '  the middle of an edge of it is found');
+    Ok(Dist(P, Mid) < 0.05,
+       Format('  and it is on the edge (%.3f, %.3f)', [P.X, P.Y]));
+
+    { and its corners are somewhere to land }
+    S := Project(V, P3(10, 6, 0));
+    Ok(D.BestSnap(V, S.X, S.Y, 8, Hit), '  a corner of it is found');
+    Ok(Hit.Kind = snEndpoint, '  and it counts as a corner');
+  finally
+    D.Free;
+  end;
+
+  { and the real thing: the long straight run on the case of the toy }
+  D := TWorkDoc.Create;
+  Src := TStringList.Create;
+  try
+    Src.LoadFromFile('examples/etch-a-sketch.hsk');
+    I := 0;
+    while (I < Src.Count) and (Copy(Trim(Src[I]), 1, 6) <> 'SHEET ') do Inc(I);
+    Inc(I);
+    D.LoadFrom(Src, I);
+    Ok(D.Live > 100, Format('the toy loaded - %d things', [D.Live]));
+
+    { The longest edge of any face in it, which is the run Tony was after.
+
+      Called on its own line.  Written inside the Ok(...) call it was
+      evaluated AFTER the Format that reads what it sets - FPC pushes
+      arguments right to left - so the message printed whatever happened to
+      be on the stack, which was the rectangle from the first half of this
+      test and read a plausible and entirely false 139.94 inches. }
+    Ok(LongestFaceEdge(D, A, B), '  it has a longest face edge');
+    Ok(Dist(A, B) * 12 > 10,
+       Format('  and it is %.2f inches, so it is the case of the toy',
+              [Dist(A, B) * 12]));
+
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan;
+    V.Ppu := 220;
+    V.OX := 300;
+    V.OY := 400;
+    Mid := P3((A.X + B.X) / 2, (A.Y + B.Y) / 2, (A.Z + B.Z) / 2);
+    S := Project(V, Mid);
+    Ok(D.EdgeSnap(V, S.X, S.Y, 8, P, Ent),
+       '  and the cursor finds it half way along');
+    { Compared across the screen and not in three dimensions.  Looking
+      straight down, the case outline and the screen recess are a tenth of an
+      inch apart in Z and land on exactly the same pixel, so which of them
+      comes back is a fair question with two right answers - and both are on
+      the edge being aimed at. }
+    { Tight on purpose.  Without the face outlines this still finds SOMETHING
+      - the toy's own outline lines run parallel a fraction away - and lands
+      within two hundredths of a foot, which is the whole complaint: it takes
+      a line near the edge instead of the edge.  A fifth of that separates
+      the right answer from the near miss. }
+    Ok((Abs(P.X - Mid.X) < 0.002) and (Abs(P.Y - Mid.Y) < 0.002),
+       Format('  right on it (%.3f, %.3f away)',
+              [Abs(P.X - Mid.X), Abs(P.Y - Mid.Y)]));
+  finally
+    Src.Free;
+    D.Free;
+  end;
+end;
+
 { Flat panels only, so this is the toy's own check and not the glass's: a
   revolve makes rings of edges that enclose flat areas nobody meant as faces,
   and asking the same question of it would be asking the wrong one.
@@ -5529,6 +5668,7 @@ begin
   TestSvgIsTrueSize;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
+  TestSnapToFaceOutline;  WriteLn;
   TestRingLining;  WriteLn;
   TestMoveSolid;    WriteLn;
   TestMoveEdgeStretches; WriteLn;

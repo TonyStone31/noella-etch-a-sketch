@@ -14,6 +14,14 @@
 
 ### Fixed
 
+- **The tape and the dimension tool now take the edges of a face.**  They
+  only ever looked at lines, so on the etch-a-sketch you could measure the
+  robot and the lettering - which are drawn with lines - and could not
+  measure the case they sit on, which is one face of thirty-two corners with
+  no lines in it at all.  Its corners are somewhere to land now too.
+  Anything that arrives as faces rather than drawn lines was in the same
+  position: a revolve, an imported model, a generated example.
+
 - **The tape and the dimension tool stop grabbing edges behind the model.**
   They took whichever line came nearest on screen and asked nothing else, so
   measuring along the front of a box jumped to the back edge wherever that

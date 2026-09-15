@@ -1012,6 +1012,21 @@ had been written down and tested in BestSnap for weeks, twenty lines away,
 and nobody had asked whether the line version needed it too.  These grew one
 at a time as tools were built, and nothing has ever gone over them together.
 
+**A third fault, found the same day and the same way.**  Tony could dimension
+the robot and the lettering on the toy and not the case they sit on.  The
+case is ONE FACE of thirty-two corners, longest edge ten and a half inches,
+with no line entities at all; the robot and the letters are drawn with lines.
+EdgeSnap walked lines, guides and arcs and never a face outline, and the snap
+cache recorded a face's middle but not its corners - so along the whole of
+that edge there was nothing to find, and the cursor took whichever line ran
+nearest, a fifth of an inch away.  That is the "fighting me" feeling exactly:
+not nothing, just never the thing you are pointing at.
+
+Both are fixed, the corners deduplicated against the lines that already cover
+them so a face drawn the ordinary way does not double the snap list.  It is
+the third instance of the same shape of bug in one day: a rule that was
+written down and tested in one picker and never asked of its neighbour.
+
 **The pickers, none of them checked:**
 
 * `DoomAt` - what the eraser gathers.  Can it take an edge behind a solid?
