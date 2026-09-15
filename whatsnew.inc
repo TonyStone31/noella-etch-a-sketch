@@ -17,6 +17,13 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **A line drawn along an edge already there now divides the face.**  Close a' + LineEnding +
+    '  strip off along the bottom of a wall and the strip is its own area, which' + LineEnding +
+    '  you can push out as a floor.  It used to come out as one loop with the' + LineEnding +
+    '  divider traced up one side and down the other - no area cut off, and' + LineEnding +
+    '  nothing to push.  Two identical edges written the opposite way round were' + LineEnding +
+    '  not being welded into one.' + LineEnding +
+    '' + LineEnding +
     '- **A face needs the edges that enclose it.**  Rub out an edge of a box and' + LineEnding +
     '  the sides that were standing on it go with it, the way SketchUp has always' + LineEnding +
     '  done it - "faces are erased when you erase their bounding edges".  Loose' + LineEnding +

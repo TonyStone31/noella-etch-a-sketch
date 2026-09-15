@@ -1204,14 +1204,25 @@ Tony: "yes the eraser does allow you to erase faces in SketchUp and we do
 want that just to be clear... you need to always be verifying how SketchUp
 does something when we are uncertain."
 
-Fetched it rather than relying on the note.  SketchUp's help still says "The
-Eraser tool doesn't allow you to erase faces", and puts erasing one on the
-Erase context command.  So the first half is not what their help says - but
-the second half is what decides it, and we already differ on purpose: our
-eraser deletes a bare face when the cursor is over one and not over an edge,
-and that is staying.  The difference is written down in
-`docs/sketchup/04-erasing-and-undoing.md` with the date it was last checked,
-so neither side of it is half-remembered next time.
+Fetched it rather than relying on the note.  SketchUp's help says "The Eraser
+tool doesn't allow you to erase faces", and puts erasing one on the Erase
+context command.  Reported that back with the quote, and Tony went and looked
+himself: "Ok I just checked and you are right the eraser will not erase a
+face in SketchUp so let's follow SketchUp convention here."
+
+So the difference is gone.  The eraser takes edges only; a click on a bare
+face says what the eraser is for and names the two ways in that work -
+right-click > Erase, and pick-and-Delete - both of which are SketchUp's and
+both of which we have.  The hover wash went with it: a red wash over a face
+the click will not take is the same fault in the other direction, and it was
+still there for one build after the click stopped taking faces.
+
+**The lesson is the cheap one and worth writing down anyway.**  Two people
+half-remembering the same program disagreed, the disagreement went round once
+more than it needed to, and one fetch of the live page settled it in a
+minute.  `docs/sketchup/` exists for exactly this and is only as good as the
+last time somebody checked it - so entries now carry the date they were last
+checked against the real thing.
 
 ### A face is not a thing, it is what edges enclose - 15 September 2026
 

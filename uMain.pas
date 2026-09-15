@@ -1514,7 +1514,7 @@ const
     'Push/pull - click a face and type how far to lift it.  Close a loop of ' +
       'lines to make a face.',
     'Text - click where the note goes and type it.',
-    'Erase - click anything to delete it.',
+    'Erase - click an edge to delete it; a face goes when its edges do.',
     'Measure - click two points and read the distance between them.',
     'Dimension - click two points, then drag away to place the line.',
     'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)',
@@ -10057,7 +10057,7 @@ begin
       ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
       ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
       ptFollow: S2 := 'click the outline to spin - the half of the shape, seen edge on';
-      ptErase:  S2 := 'click anything to delete it - or hold and drag across ' +
+      ptErase:  S2 := 'click an edge to delete it - or hold and drag across ' +
                       'several.  Ctrl softens instead, Ctrl+Shift brings back';
       ptText:   S2 := 'space or click - the note points here';
       ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
@@ -10732,8 +10732,8 @@ begin
       else
         Result := 'where does it go?  a length, [x,y,z] or <x,y,z>';
     ptErase:
-      Result := 'click anything to delete it - Ctrl softens an edge instead, ' +
-        'Ctrl+Shift brings it back';
+      Result := 'click an edge to delete it - or hold and drag across ' +
+        'several.  Ctrl softens instead, Ctrl+Shift brings it back';
     ptRotate, ptProtractor:
       case FStage of
         0: if FTool = ptRotate then
@@ -13606,14 +13606,16 @@ begin
 
     if FTool = ptErase then
     begin
-      { The same order the click uses, so what lights up is what goes.  It
-        used to hover by HitTest alone, which cannot find the inside of a
-        face - so sweeping across a panel showed nothing and then deleted it
-        anyway, which is the wrong way round for a tool that destroys things. }
+      { The same order the click uses, so what lights up is what goes - and
+        no face, because the click will not take one.  It used to hover by
+        HitTest alone, which cannot find the inside of a face, so sweeping
+        across a panel showed nothing and then deleted it anyway; then it
+        looked for the face as well, which was right while the click took
+        faces and is a lie now that it does not.  A red wash over a face the
+        eraser is not going to take is the same fault the other way round. }
       FHoverEnt := FD.Doc.HitNote(X, Y);
       if FHoverEnt < 0 then
         FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
-      if FHoverEnt < 0 then FHoverEnt := FD.Doc.HitFace(Proj, X, Y);
       if FHoverEnt < 0 then
         FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale);
     end
@@ -15187,16 +15189,36 @@ begin
     FScreenDirty := True;
     Exit;
   end;
-  { An edge under the cursor is what you meant; away from any edge, the face
-    itself is - which is how a box is hollowed out, leaving its wireframe. }
+  { The eraser takes edges, and takes faces only by taking the edges that
+    hold them up.  That is SketchUp's arrangement, checked against their help
+    on 15 September 2026: "The Eraser tool doesn't allow you to erase faces.
+    Technically, faces are erased when you erase their bounding edges."
+
+    Ours used to take a bare face when the cursor was over one and not over
+    an edge, and the difference was written down as deliberate.  Tony looked
+    it up: "Ok I just checked and you are right the eraser will not erase a
+    face in SketchUp so let's follow SketchUp convention here."  Erasing a
+    face on its own is the right button's Erase, or picking it and pressing
+    Delete - both of which we have.
+
+    Saying so matters as much as doing it.  A tool that quietly does nothing
+    where it used to do something reads as broken, so a click on a face says
+    what the eraser is for and where the other way in is. }
   { The note first, for the same reason the selection takes it first: it is
     drawn over the top, so it is what the cursor is on.  Rubbing out a note
     used to take the panel behind it instead, which is a poor trade. }
   I := FD.Doc.HitNote(SX, SY);
   if I < 0 then I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
-  if I < 0 then I := FD.Doc.HitFace(Proj, SX, SY);
   if I < 0 then I := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
-  if (I < 0) or IsDoomed(I) then Exit;
+  if I < 0 then
+  begin
+    if FD.Doc.HitFace(Proj, SX, SY) >= 0 then
+      FCmdMsg := 'The eraser takes edges - rub out the edges round a face ' +
+        'and the face goes with them.  For the face on its own: right-click ' +
+        'it, or pick it and press Delete.';
+    Exit;
+  end;
+  if IsDoomed(I) then Exit;
   SetLength(FDoomed, Length(FDoomed) + 1);
   FDoomed[High(FDoomed)] := I;
   FScreenDirty := True;

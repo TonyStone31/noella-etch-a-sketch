@@ -25,18 +25,18 @@ all.
 ## Where we differ, deliberately
 * Our eraser highlights the sweep in **red**, not blue, because blue is what we
   use for the selection and the two would read the same.
-* Our eraser will delete a bare face if the cursor is over one and not over an
-  edge.  In SketchUp that is the right-click Erase command.  We now have that
-  too — right-click with the select tool and Erase is on the menu — so the
-  eraser's own behaviour here is a convenience rather than the only way in.
+* ~~Our eraser will delete a bare face if the cursor is over one and not over
+  an edge.~~  **No longer — 15 September 2026.**  It used to, and the
+  difference was written down here as deliberate.  Checked against the live
+  page when it came up: "The Eraser tool doesn't allow you to erase faces",
+  and the way to erase one there is the Erase context command.  Tony looked
+  it up himself and settled it: "Ok I just checked and you are right the
+  eraser will not erase a face in SketchUp so let's follow SketchUp
+  convention here."
 
-  **Checked again 15 September 2026**, against the live page, because it came
-  up: "The Eraser tool doesn't allow you to erase faces", and the way to
-  erase one there is the Erase context command.  We differ on purpose and are
-  keeping it — Tony: "yes the eraser does allow you to erase faces in
-  SketchUp and we do want that just to be clear."  The second half of that is
-  the part that decides it; the first half is not what their help says, and
-  it is worth having the difference written down rather than half-remembered
-  on both sides.
+  So the eraser takes edges only, and a face goes when the edges holding it
+  up go.  A click on a bare face says so and names the two ways in that do
+  work: right-click > Erase, and picking it and pressing Delete.  Both are
+  SketchUp's, and we have both.
 * Delete on a selection does the same thing from the keyboard, and it does
   delete faces.

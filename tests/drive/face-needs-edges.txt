@@ -80,14 +80,16 @@ key escape
 wait 800
 shot /tmp/hsk-fne-healed.png
 
-# And the other way round, which is where we differ from SketchUp on purpose:
-# clicking a face away from any edge rubs out that face and leaves its edges
-# standing.  SketchUp's own help says "The Eraser tool doesn't allow you to
-# erase faces" and puts it on right-click > Erase instead; Tony wants it on
-# the eraser, so it stays.
+# And the eraser will not take a face on its own, which is SketchUp's
+# arrangement: "The Eraser tool doesn't allow you to erase faces.  Technically,
+# faces are erased when you erase their bounding edges."  Tony checked it:
+# "Ok I just checked and you are right the eraser will not erase a face in
+# SketchUp so let's follow SketchUp convention here."
 #
-# What to look for: hsk-fne-facegone still has every edge of the box, with
-# the top open - a wireframe lid rather than a missing one.
+# What to look for: hsk-fne-facestays is the box still whole, with the bar
+# along the bottom saying what the eraser is for and where the other way in
+# is - right-click, or pick it and press Delete.  A tool that quietly does
+# nothing reads as broken.
 key escape
 key e
 wait 400
@@ -95,6 +97,4 @@ at 800 300
 wait 900
 click l
 wait 1200
-key escape
-wait 600
-shot /tmp/hsk-fne-facegone.png
+shot /tmp/hsk-fne-facestays.png

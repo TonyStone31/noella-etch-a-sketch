@@ -12,6 +12,14 @@
 
 ## Next release
 
+### Changed
+
+- **The eraser takes edges, not faces.**  That is SketchUp's rule - a face
+  goes when the edges holding it up go - and ours used to take a bare face as
+  well.  Click one now and nothing goes; the bar along the bottom says so and
+  names the two ways that do work: right-click it, or pick it and press
+  Delete.  Both leave every edge standing.
+
 ### Fixed
 
 - **A line drawn along an edge already there now divides the face.**  Close a
