@@ -973,6 +973,38 @@ any more:
   to the rows that set a tool would catch exactly this and is worth doing if
   another one slips.
 
+### The little film, and how it joins back onto itself
+
+Done 14 September.  Three things that all showed as "the GIF looks wrong".
+
+* **The axes were painted over the finished picture.**  `PaintAxesOn` ran
+  after `Doc.Render`, so every axis was drawn through whatever solid stood in
+  front of it.  The drawing area never did this - it rules them onto the
+  paper layer and composites the model over the top - so a film did not look
+  like the screen.  `ShootInto` takes an `Axes` flag now and paints them
+  before the model.  Measured on the wine glass at 520 px/ft: 1102 solid
+  model pixels intruded on, worst 168, down to 124 and worst 49.  The 124
+  that remain are the background showing through translucent faces, which the
+  screen does too.
+
+* **A film that closed stuttered; one that did not, jumped.**  The sampler
+  ran `I / (Count - 1)` - both ends inclusive - so a turntable rendered its
+  first pose twice and froze for a frame every loop, and a rise teleported
+  home.  `CamPathCloses` asks the *clip* whether it ends where it began
+  (azimuth compared the whole way round, since a turntable ends at Az + 2*Pi),
+  and `TFilmLoop` picks: seamless (drop the last frame) when it closes,
+  bounce (out and back inside the same budget) when it does not and the tick
+  is on, as-is otherwise.  Measured by writing real GIFs and comparing the
+  wrap-around step against an ordinary one: turntable 56 against 58,
+  rise as-is 104 against 66, rise bounced 67 against 76.
+
+* **The recording room could not be moved at all.**  Borderless, and nothing
+  ever wired to drag it.  It uses the same `uDlgSkin.DragBegin/DragTo` as the
+  other windows now, and not while it is rolling.
+
+Also: how long the film runs is now a choice at export time rather than
+whatever the clip happened to take, which is the same thing as its speed.
+
 ### Cutting machines, and the Cricut in particular
 
 Tony has a **Cricut Explore 3**.  The question was whether we can cut to it

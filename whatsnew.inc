@@ -17,6 +17,14 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **An exported SVG now says how big it is.**  It used to carry a bare' + LineEnding +
+    '  number - screen pixels at whatever zoom the view happened to be at - so a' + LineEnding +
+    '  part three and a half inches across arrived in Inkscape, or a print shop,' + LineEnding +
+    '  or a cutting machine, at some other size entirely, and at a different size' + LineEnding +
+    '  again if you had zoomed in first.  The file now says `3.430in` (or' + LineEnding +
+    '  millimetres, in a metric drawing) and opens at the size of the thing.' + LineEnding +
+    '  Export from a plan and what comes out is the real thing, full size.' + LineEnding +
+    '' + LineEnding +
     '- **Dragging a dialog no longer skips about.**  The windows that draw their' + LineEnding +
     '  own title bar - Export, What''s new - were moved by measuring the pointer' + LineEnding +
     '  against the window being moved, which on Linux feeds back on itself and' + LineEnding +

@@ -112,8 +112,11 @@ type
     FHeadDrag: uDlgSkin.TFormDrag;
     FSize: TComboBox;
     FWEdit, FHEdit: TEdit;
-    FTransp, FLoop, FAxes, FMid: TBCButton;
-    FTranspOn, FLoopOn, FAxesOn, FMidOn: Boolean;
+    FTransp, FLoop, FAxes, FMid, FBounce: TBCButton;
+    FTranspOn, FLoopOn, FAxesOn, FMidOn, FBounceOn: Boolean;
+    { how long the film runs, which is the speed of it - a clip pointed by
+      hand over eleven seconds plays perfectly well in five }
+    FSecs: TComboBox;
     FQual: TTrackBar;
     FPlay, FRec, FSay: TBCButton;
     FTellBad: TLabel;
@@ -131,6 +134,7 @@ type
       ARect: TRect; State: TOwnerDrawState);
     procedure BuildChrome;
     procedure PickKind(Sender: TObject);
+    function FilmSeconds: Double;
     procedure ShowOptions;
     procedure PrevPaint(Sender: TObject);
     procedure PrevDown(Sender: TObject; Button: TMouseButton;
@@ -407,15 +411,42 @@ begin
     be without making one.  The recording room says it better, so the two
     ends and the boxes are gone: record a move, then this plays it back. }
   FLoopOn := True;
-  FLoop := MkBtn(Opt, '', 14, 212, 232, 26, bkPlain);
+  FLoop := MkBtn(Opt, '', 14, 208, 232, 26, bkPlain);
   FLoop.Tag := 2;
   FLoop.OnClick := @Ticked;
   ShowTick(FLoop, True, 'Go round for ever');
 
-  FRec := MkBtn(Opt, 'Record a move...', 14, 248, 232, 32, bkGo);
+  { A move that does not end where it began jumps every time the film comes
+    round.  This walks it back to the start instead, inside the same running
+    time, so it arrives home and joins up.  A move that already closes - a
+    turntable, a nod - needs none of this and the tick is not offered. }
+  FBounceOn := True;
+  FBounce := MkBtn(Opt, '', 14, 236, 232, 26, bkPlain);
+  FBounce.Tag := 5;
+  FBounce.OnClick := @Ticked;
+  ShowTick(FBounce, True, 'Come back to the start');
+
+  FSecs := TComboBox.Create(Self);
+  FSecs.Parent := Opt;
+  FSecs.SetBounds(14, 268, 232, 26);
+  FSecs.Items.Add('As it was recorded');
+  FSecs.Items.Add('3 seconds');
+  FSecs.Items.Add('5 seconds');
+  FSecs.Items.Add('8 seconds');
+  FSecs.Items.Add('12 seconds');
+  FSecs.ItemIndex := 0;
+  FSecs.Style := csOwnerDrawFixed;
+  FSecs.ItemHeight := 22;
+  FSecs.OnDrawItem := @ComboDraw;
+  FSecs.OnChange := @Ticked;
+  FSecs.Tag := 6;
+  FSecs.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Shell2);
+  FSecs.Font.Color := uSurface.PixToColor(uDlgSkin.DlgTheme.Text);
+
+  FRec := MkBtn(Opt, 'Record a move...', 14, 302, 232, 32, bkGo);
   FRec.OnClick := @DoRecord;
 
-  FPlay := MkBtn(Opt, 'Play it', 14, 314, 232, 30, bkPlain);
+  FPlay := MkBtn(Opt, 'Play it', 14, 378, 232, 30, bkPlain);
   FPlay.OnClick := @DoPlay;
 
   FMidOn := True;
@@ -430,8 +461,10 @@ begin
   FAxes.OnClick := @Ticked;
   ShowTick(FAxes, True, 'Show the axes');
 
-  FClipLbl := MkPara(Opt, '', 14, 286, 232, 24);
-  FShotLbl := MkPara(Opt, '', 14, 398, 232, 46);
+  { two lines, because what it says about a clip that closes does not fit on
+    one and a sentence with its tail cut off is worse than no sentence }
+  FClipLbl := MkPara(Opt, '', 14, 338, 232, 36);
+  FShotLbl := MkPara(Opt, '', 14, 412, 232, 40);
 
   FDxfWhat := TComboBox.Create(Self);
   FDxfWhat.Parent := Opt;
@@ -593,6 +626,20 @@ begin
   ShowOptions;
 end;
 
+{ How long the film should run: what was recorded, or what has been asked
+  for instead.  Zero when there is no clip. }
+function TExportDlg.FilmSeconds: Double;
+begin
+  Result := CamPathLength(FCam);
+  case FSecs.ItemIndex of
+    1: Result := 3;
+    2: Result := 5;
+    3: Result := 8;
+    4: Result := 12;
+  end;
+  if Length(FCam) < 2 then Result := 0;
+end;
+
 procedure TExportDlg.ShowOptions;
 var
   K: TExportKind;
@@ -620,15 +667,21 @@ begin
   FQual.Visible := FKind = exJpeg;
 
   FLoop.Visible := Anim;
+  FSecs.Visible := Anim and (Length(FCam) >= 2);
+  { the bounce is only a question for a clip that does not already close }
+  FBounce.Visible := Anim and (Length(FCam) >= 2) and not CamPathCloses(FCam);
   FPlay.Visible := Anim and (Length(FCam) >= 2);
   FShotLbl.Visible := Raster;
   if Anim then
   begin
-    if Length(FCam) >= 2 then
-      FClipLbl.Caption := Format('%.1f seconds recorded.',
+    if Length(FCam) < 2 then
+      FClipLbl.Caption := 'Nothing recorded yet.'
+    else if CamPathCloses(FCam) then
+      FClipLbl.Caption := Format('%.1f seconds, ending where it began.',
         [CamPathLength(FCam)])
     else
-      FClipLbl.Caption := 'Nothing recorded yet.';
+      FClipLbl.Caption := Format('%.1f seconds recorded.',
+        [CamPathLength(FCam)]);
   end;
   FClipLbl.Visible := Anim;
   FAxes.Visible := Raster;
@@ -650,7 +703,7 @@ begin
     if Anim then
     begin
       if Length(FCam) >= 2 then
-        Secs := Max(0.2, Min(GIF_MAX_SECONDS, CamPathLength(FCam)))
+        Secs := Max(0.2, Min(GIF_MAX_SECONDS, FilmSeconds))
       else
         Secs := 0;
       FilmPlan(Secs, GIF_FPS, W, H, NF, Rate);
@@ -695,9 +748,11 @@ begin
   end;
 end;
 
+{ Shared by the ticks and by the length combo, so the cast is to the thing
+  they have in common rather than to a button the combo is not. }
 procedure TExportDlg.Ticked(Sender: TObject);
 begin
-  case (Sender as TBCButton).Tag of
+  case (Sender as TComponent).Tag of
     1: begin
          FTranspOn := not FTranspOn;
          ShowTick(FTransp, FTranspOn, 'Nothing behind it');
@@ -713,6 +768,10 @@ begin
     4: begin
          FMidOn := not FMidOn;
          ShowTick(FMid, FMidOn, 'Centre it on the origin');
+       end;
+    5: begin
+         FBounceOn := not FBounceOn;
+         ShowTick(FBounce, FBounceOn, 'Come back to the start');
        end;
   end;
   FPrev.Invalidate;
@@ -1185,7 +1244,8 @@ begin
         if not OutSize(W, H) then raise Exception.Create('that size will not do');
         FStage := Format('drawing the frames at %dx%d', [W, H]);
         N := SavePathGif(FDoc, FCam, FSrcW, FSrcH, W, H, FUnits, FFont,
-          FLabelCol, FEdgeW, GIF_FPS, FLoopOn, FAxesOn, Fn);
+          FLabelCol, FEdgeW, GIF_FPS, FLoopOn, FAxesOn, Fn,
+          FBounceOn, FilmSeconds);
         FMsg := Format('Wrote %s - %d frames, %d x %d.',
           [ExtractFileName(Fn), N, W, H]);
       end;

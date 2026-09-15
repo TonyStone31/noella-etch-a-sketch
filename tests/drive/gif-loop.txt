@@ -1,0 +1,40 @@
+# The GIF options after a clip exists, and the recording room's new title bar.
+#
+# What this proves: the recording room can be dragged by its top bar (it
+# could not be moved at all before); recording a canned walk works; and once
+# there is a clip the export offers how long it should run and, only when the
+# clip does not already end where it started, whether to come back to the
+# start.
+#
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+wait 800
+hold ctrl
+key e
+let ctrl
+wait 2000
+at 388 264
+click
+wait 900
+# into the recording room
+at 1046 479
+click
+wait 2000
+shot /tmp/hsk-rec-open.png
+# drag it by the title bar - it never had one that worked
+drag 362 75 432 125
+wait 800
+shot /tmp/hsk-rec-moved.png
+# record the canned walk it opens with - the window has moved +70,+50
+at 1082 164
+click
+wait 9000
+shot /tmp/hsk-rec-done.png
+# take the clip and come back to the export
+wait 1200
+at 1108 788
+click
+wait 3000
+shot /tmp/hsk-gif-withclip.png

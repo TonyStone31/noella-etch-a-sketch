@@ -79,6 +79,19 @@ function SampleCamPath(const P: TCamPath; T: Double): TProjector;
 { How long the recording runs. }
 function CamPathLength(const P: TCamPath): Double;
 
+{ Does the clip end where it began?
+
+  This is asked of the clip rather than of the walk that made it, because the
+  clip is the thing being filmed.  A turntable comes back round to its start
+  and a rise does not; so does or does not a move somebody pointed by hand,
+  and nothing about how it was made needs to be remembered to find out.
+
+  It matters because a film that loops has to join back onto itself.  A clip
+  that closes must not render its first pose twice - one frozen frame every
+  time round - and a clip that does not close will jump unless something is
+  done about it.  See TFilmLoop. }
+function CamPathCloses(const P: TCamPath): Boolean;
+
 { The three axes over a shot, the way the drawing area draws them: solid one
   way from the origin, dashed the other.  They are the one piece of screen
   furniture worth keeping in an exported film - they say which way up the
@@ -89,15 +102,21 @@ procedure PaintAxesOn(S: TArtSurface; const V: TProjector);
   rather than ShootFrame: making and destroying a bitmap for every frame of
   an eighty-frame GIF is eighty allocations and, on Windows, eighty device
   contexts, which is a lot of rope for no reason. }
+{ Axes draws the three axes UNDER the model, which is where they belong and
+  where the drawing area has always put them: it rules them onto the paper
+  and composites the model over the top.  Out here they used to go on
+  afterwards, so every axis was drawn straight through whatever solid stood
+  in front of it - a red line across the middle of a box, in a film of the
+  box, which happens nowhere on screen. }
 procedure ShootInto(S: TArtSurface; Doc: TWorkDoc; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-  const Bg: TPix; Quick: Boolean);
+  const Bg: TPix; Quick: Boolean; Axes: Boolean = False);
 
 { One frame of the model at whatever size is wanted, with the same view the
   screen has.  Public because the printer and the report shot want it too. }
 function ShootFrame(Doc: TWorkDoc; const V: TProjector; W, H: Integer;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-  const Bg: TPix; Quick: Boolean): TArtSurface;
+  const Bg: TPix; Quick: Boolean; Axes: Boolean = False): TArtSurface;
 
 { --- moving the camera ------------------------------------------------
 
@@ -201,10 +220,31 @@ procedure FilmPlan(Seconds: Double; Fps, W, H: Integer;
 
 { The same, but following a camera move somebody actually made rather than
   easing between two ends. }
+{ How a film joins back onto itself.
+
+  flAsIs      play it through once, first frame to last.  What a clip that
+              does not close wants when nobody minds the jump.
+  flSeamless  the same, minus the last frame, because on a clip that closes
+              the last pose IS the first pose and rendering both freezes the
+              picture for one frame every time round.
+  flBounce    forward and then backward, so whatever the clip did it ends
+              where it began.  The way to loop a move that does not close -
+              a rise, a push in, or anything pointed by hand.
+
+  Bounce is the only one that changes what you see rather than only where the
+  film is cut, so it is the one offered as a choice; the other two are
+  decided by asking the clip whether it closes. }
+type
+  TFilmLoop = (flAsIs, flSeamless, flBounce);
+
+{ Bounce turns a clip that does not close into one that does.  WantSeconds
+  overrides how long the film runs - which is the speed of it, and need not
+  be the speed it was recorded at; 0 keeps the recorded length. }
 function SavePathGif(Doc: TWorkDoc; const Cam: TCamPath;
   SrcW, SrcH, W, H: Integer; U: TUnitSystem; AFont: TFont;
   const LabelCol: TPix; EdgeW: Single; Fps: Integer;
-  Loop, Axes: Boolean; const Path: string): Integer;
+  Loop, Axes: Boolean; const Path: string;
+  Bounce: Boolean = False; WantSeconds: Double = 0): Integer;
 
 implementation
 
@@ -243,6 +283,32 @@ end;
 function CamPathLength(const P: TCamPath): Double;
 begin
   if Length(P) = 0 then Result := 0 else Result := P[High(P)].T;
+end;
+
+function CamPathCloses(const P: TCamPath): Boolean;
+var
+  A, B: TProjector;
+
+  { an angle brought back into -Pi..Pi, so 2*Pi reads as nothing }
+  function WrapPi(X: Double): Double;
+  begin
+    Result := X - 2 * Pi * Round(X / (2 * Pi));
+  end;
+
+begin
+  Result := False;
+  if Length(P) < 2 then Exit;
+  A := P[0].V;
+  B := P[High(P)].V;
+  { The azimuth is compared the whole way round, because a turntable ends at
+    Az + 2*Pi - a different number and the same direction, and the one walk
+    most obviously meant to loop would otherwise be told it does not.
+
+    A hundredth of a radian is a third of a degree, which at any size of
+    picture is under a pixel of movement; the zoom within a thousandth. }
+  Result := (Abs(WrapPi(A.Az - B.Az)) < 0.01) and (Abs(A.El - B.El) < 0.01) and
+            (Abs(A.Ppu - B.Ppu) < 0.001 * Max(1E-9, Abs(A.Ppu))) and
+            (Abs(A.OX - B.OX) < 1.0) and (Abs(A.OY - B.OY) < 1.0);
 end;
 
 { Straight between two views, with no easing at all: what a recording wants,
@@ -505,7 +571,7 @@ end;
 
 procedure ShootInto(S: TArtSurface; Doc: TWorkDoc; const V: TProjector;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-  const Bg: TPix; Quick: Boolean);
+  const Bg: TPix; Quick: Boolean; Axes: Boolean = False);
 var
   WasQuick: Boolean;
 begin
@@ -520,6 +586,8 @@ begin
     S.PreserveAlpha := False;
     S.Clear(Bg);
   end;
+  { on the background, before the model goes over it }
+  if Axes then PaintAxesOn(S, V);
   if Doc = nil then Exit;
   WasQuick := Doc.Quick;
   Doc.Quick := Quick;
@@ -534,7 +602,7 @@ end;
 
 function ShootFrame(Doc: TWorkDoc; const V: TProjector; W, H: Integer;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
-  const Bg: TPix; Quick: Boolean): TArtSurface;
+  const Bg: TPix; Quick: Boolean; Axes: Boolean = False): TArtSurface;
 begin
   Result := TArtSurface.Create(Max(1, W), Max(1, H));
   { a surface that did not come back the size it was asked for is a surface
@@ -544,7 +612,7 @@ begin
     Result.Free;
     raise Exception.CreateFmt('could not make a picture %d by %d', [W, H]);
   end;
-  ShootInto(Result, Doc, V, U, AFont, LabelCol, EdgeW, Bg, Quick);
+  ShootInto(Result, Doc, V, U, AFont, LabelCol, EdgeW, Bg, Quick, Axes);
 end;
 
 { Straight across: TPix and TBGRAPixel are both blue, green, red, alpha in
@@ -589,9 +657,8 @@ begin
   if Transparent and not Jpeg then Bg := Pix(255, 255, 255, 0)
   else Bg := Pix(255, 255, 255);
   S := ShootFrame(Doc, Fitted(V, SrcW, SrcH, W, H), W, H, U, AFont, LabelCol,
-    EdgeW, Bg, False);
+    EdgeW, Bg, False, Axes);
   try
-    if Axes then PaintAxesOn(S, Fitted(V, SrcW, SrcH, W, H));
     Bmp := ToBGRA(S);
     try
       if not Jpeg then
@@ -648,11 +715,8 @@ begin
       Say(Format('drawing frame %d of %d at %dx%d', [I + 1, Frames, W, H]));
       Step(I, Frames, Format('Drawing frame %d of %d', [I + 1, Frames]));
       V := Fitted(ViewAt(I, Frames), SrcW, SrcH, W, H);
-      ShootInto(S, Doc, V, U, AFont, LabelCol, EdgeW, Pix(255, 255, 255), False);
-      { the axes go on after the drawing rather than under it - at this
-        weight it reads the same and saves compositing a second surface for
-        every frame }
-      if Axes then PaintAxesOn(S, V);
+      ShootInto(S, Doc, V, U, AFont, LabelCol, EdgeW, Pix(255, 255, 255),
+        False, Axes);
       { the gif takes ownership of each frame it is handed }
       Gif.AddFullFrame(ToBGRA(S), Delay, False, dmSetExceptTransparent, True);
     end;
@@ -680,23 +744,48 @@ end;
 function SavePathGif(Doc: TWorkDoc; const Cam: TCamPath;
   SrcW, SrcH, W, H: Integer; U: TUnitSystem; AFont: TFont;
   const LabelCol: TPix; EdgeW: Single; Fps: Integer;
-  Loop, Axes: Boolean; const Path: string): Integer;
+  Loop, Axes: Boolean; const Path: string;
+  Bounce: Boolean = False; WantSeconds: Double = 0): Integer;
 var
-  Secs: Double;
+  Secs, Clip: Double;
   N, Rate: Integer;
   Rec: TCamPath;
+  How: TFilmLoop;
 
   function At(I, Count: Integer): TProjector;
+  var
+    U01: Double;
   begin
-    { a recording plays to its end, so the last frame IS the last moment -
-      unlike a loop, which would otherwise show its first frame twice }
-    if Count < 2 then Result := SampleCamPath(Rec, 0)
-    else Result := SampleCamPath(Rec, Secs * I / (Count - 1));
+    if Count < 2 then Exit(SampleCamPath(Rec, 0));
+    case How of
+      flBounce:
+        begin
+          { Out and back inside the one budget: the first half of the frames
+            walk the clip forward and the second half walk it home.  The far
+            end lands on one frame rather than two, and the film ends one
+            step short of the start, so it joins up. }
+          U01 := 2 * I / Count;
+          if U01 > 1 then U01 := 2 - U01;
+        end;
+      flSeamless:
+        { one step short of the end, because the end is the beginning }
+        U01 := I / Count;
+    else
+      U01 := I / (Count - 1);
+    end;
+    Result := SampleCamPath(Rec, Clip * U01);
   end;
 
 begin
   Rec := Cam;
-  Secs := Max(0.2, Min(GIF_MAX_SECONDS, CamPathLength(Cam)));
+  Clip := Max(0.2, CamPathLength(Cam));
+  if WantSeconds > 0 then Secs := WantSeconds else Secs := Clip;
+  Secs := Max(0.2, Min(GIF_MAX_SECONDS, Secs));
+
+  if CamPathCloses(Cam) then How := flSeamless
+  else if Bounce then How := flBounce
+  else How := flAsIs;
+
   FilmPlan(Secs, Fps, W, H, N, Rate);
   Result := WriteFilm(Doc, SrcW, SrcH, W, H, U, AFont, LabelCol, EdgeW,
     N, Secs, Loop, Axes, Path, @At);

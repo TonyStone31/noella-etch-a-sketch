@@ -120,6 +120,8 @@ type
 
     FDrag, FPan: Boolean;
     FDX, FDY: Integer;
+    { the title bar drag - the window had none and could not be moved at all }
+    FWinDrag: uDlgSkin.TFormDrag;
 
     FTick: TTimer;
     FBox, FFilm: TPaintBox;
@@ -140,6 +142,11 @@ type
     procedure Wheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer;
       MousePos: TPoint; var Handled: Boolean);
     procedure KeyDownH(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure BarDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure BarMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure BarUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
     procedure StartPicked(Sender: TObject);
     procedure DoGo(Sender: TObject);
     procedure DoStop(Sender: TObject);
@@ -250,7 +257,20 @@ begin
   Bar.SetBounds(12, 12, 976, 96);
   uDlgSkin.SkinPanel(Bar, True, 12);
 
+  { The window can be moved by its top bar.  It could not be moved at all
+    before - it draws its own frame, and nothing here had ever been wired to
+    drag it - which on a small screen meant a window you could not get out of
+    the way of the thing you were about to film.  Nothing about the recording
+    minds: what is written down is where the camera is pointing, with
+    timestamps, and not one pixel of the screen. }
+  Bar.OnMouseDown := @BarDown;
+  Bar.OnMouseMove := @BarMove;
+  Bar.OnMouseUp := @BarUp;
+
   FTitle := MkLbl(Bar, 'Record a move', 16, 8, 300, False, True, -19);
+  FTitle.OnMouseDown := @BarDown;
+  FTitle.OnMouseMove := @BarMove;
+  FTitle.OnMouseUp := @BarUp;
 
   MkLbl(Bar, 'Start from', 16, 38, 120, True, False, -12);
   FStart := MkCombo(Bar, 16, 58, 200);
@@ -603,8 +623,7 @@ begin
     FCanvasS := TArtSurface.Create(Max(1, FBox.Width), Max(1, FBox.Height));
   S := FCanvasS;
   ShootInto(S, FDoc, V, FUnits, FFont, FLabelCol, FEdgeW,
-    Pix(255, 255, 255), FDrag or FPan or FRolling or FPlaying);
-  if FAxes then PaintAxesOn(S, V);
+    Pix(255, 255, 255), FDrag or FPan or FRolling or FPlaying, FAxes);
   FBox.Canvas.Draw(0, 0, S.AsBitmap);
 
   C := FBox.Canvas;
@@ -718,6 +737,26 @@ begin
   FHome.OY := FView.OY;
   FBox.Invalidate;
   Handled := True;
+end;
+
+procedure TRecordWin.BarDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  { not while it is rolling: the clip would be fine either way, but a hand on
+    the title bar during a free-hand take is a hand not on the model }
+  if (Button = mbLeft) and not FRolling then
+    uDlgSkin.DragBegin(FWinDrag, Self);
+end;
+
+procedure TRecordWin.BarMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+begin
+  uDlgSkin.DragTo(FWinDrag, Self);
+end;
+
+procedure TRecordWin.BarUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  uDlgSkin.DragEnd(FWinDrag);
 end;
 
 procedure TRecordWin.KeyDownH(Sender: TObject; var Key: Word;
