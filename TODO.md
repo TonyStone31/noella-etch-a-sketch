@@ -1238,6 +1238,35 @@ format, find the free converter that already reads them all, keep it OUT of
 our build, and either hand its output to our importer or simply tell the
 person where to get it and what to do.  Nothing bundled - they install it.
 
+**Nobody has to install Python.**  Tony's objection when this was first
+written up, and it was a fair reading of how it was put: "runs a Python
+script" sounds exactly like a dependency.  It is not one.  FreeCAD embeds its
+own interpreter - the Linux AppImage carries the Python binary inside it, the
+Windows installer bundles it with its libraries - so `freecadcmd` IS the
+interpreter, the script runs inside FreeCAD, and no system Python is touched
+or wanted.  One application, installed the way applications are.
+
+The ODA converter has no Python at all: a plain executable and seven
+positional arguments,
+
+    ODAFileConverter.exe "C:\in" "C:\out" ACAD2018 DXF 0 1
+
+in-folder, out-folder, version, format, recurse, audit.  One thing to know:
+it is a Qt program driven by a command line, so on a HEADLESS Linux box it
+still wants an X display.  On a desktop, which is the case here, that never
+comes up.
+
+**And for the job actually in front of us, neither is needed.**  The
+manufacturers ship DXF and DWG - Greenheck offers 2D AutoCAD drawings and 3D
+AutoCAD models outright.  So the common path is:
+
+    DXF  ->  us                                   nothing installed at all
+    DWG  ->  ODA (one exe)  ->  DXF  ->  us       nothing scripted
+
+FreeCAD earns its place for STEP and IGES, which is the mechanical-CAD corner
+rather than the heating-and-cooling one.  It is the third door, not the
+front one, and it should be described that way to anybody.
+
 **FreeCAD is the answer to "is there an amazing free one".**  LGPL, genuinely
 open source, on all three platforms, and built on Open CASCADE - so it reads
 STEP and IGES properly, as B-rep, which is the hard part nobody else gives
@@ -1297,6 +1326,11 @@ fine as long as we ship neither.
 Nothing decided.  The smallest first step, if this is wanted, is an STL
 reader and option 1 above - a sentence in a dialog - and neither needs the
 other.
+
+And the order to offer them in, which follows from the Python point: DXF
+first because it needs nothing installed, DWG second because it needs one
+executable and no scripting, STEP last because it needs a whole application -
+a good one, freely given, and still a whole application.
 
 ### Cutting machines, and the Cricut in particular
 
