@@ -13,7 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.15' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The tape and the dimension tool stop grabbing edges behind the model.**' + LineEnding +
+    '  They took whichever line came nearest on screen and asked nothing else, so' + LineEnding +
+    '  measuring along the front of a box jumped to the back edge wherever that' + LineEnding +
+    '  happened to project a pixel closer.  On a solid box, better than a quarter' + LineEnding +
+    '  of the places you could put the cursor gave you an edge you could not see.' + LineEnding +
+    '' + LineEnding +
+    '- **And when two lines land on the same pixel, the nearer one wins.**  The' + LineEnding +
+    '  etch-a-sketch is made of this: the lip of the case and the screen recess' + LineEnding +
+    '  run parallel an eighth of an inch apart, so measuring along the top of the' + LineEnding +
+    '  toy flipped between them depending on which had been drawn first.' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
