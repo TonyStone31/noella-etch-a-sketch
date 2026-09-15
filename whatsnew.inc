@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.15.4' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A dimension has to measure something.**  You could lay one across blank' + LineEnding +
+    '  paper and drag it around - a number measuring nothing, which the drawing' + LineEnding +
+    '  can never drive and which will never update when the drawing changes.  It' + LineEnding +
+    '  now wants a corner, a midpoint, a centre, or a point on an edge, and the' + LineEnding +
+    '  cursor says so before you click rather than after.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
