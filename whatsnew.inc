@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.15.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The dimension tool takes the edges of the toy''s case.**  Hovering one' + LineEnding +
+    '  said ON EDGE and lit nothing, and the click fell through to a' + LineEnding +
+    '  point-to-point: the hover and the click looked at lines, arcs, dimensions' + LineEnding +
+    '  and guides, never at the outline of a face, and then asked the edge for its' + LineEnding +
+    '  two ends - which a face has not got.  They use the same search the snap' + LineEnding +
+    '  does now, so the one edge under the cursor lights up and a click takes all' + LineEnding +
+    '  of it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
