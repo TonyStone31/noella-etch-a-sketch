@@ -515,6 +515,21 @@ type
       give you a point on that edge, not the nearest corner of it. }
     function EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
       out P: TP3; out Ent: Integer): Boolean;
+    { The same search, handing back the whole segment under the cursor rather
+      than only the point on it - A and B are its two ends.
+
+      The dimension tool needs this and could not have it.  Picking "the body
+      of an edge for all of it" went through HitEdge, which looks at lines,
+      arcs, dimensions and guides and never at the outline of a face, and
+      then read the entity's own A and B - which a face has not got.  So on
+      anything built of faces the cursor said ON EDGE, because the snap could
+      see it, while the pick could not.
+
+      For a line or an arc the ends are the entity's own, which is what makes
+      "all of it" mean the whole line and not the piece under the cursor.  For
+      a face it is the one side of the outline being pointed at. }
+    function EdgeUnder(const V: TProjector; SX, SY, TolPx: Double;
+      out P, A, B: TP3; out Ent: Integer): Boolean;
 
     { A new drawing has a snap cache to build like any other.
 
@@ -6777,6 +6792,14 @@ end;
 
 function TWorkDoc.EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
   out P: TP3; out Ent: Integer): Boolean;
+var
+  A, B: TP3;
+begin
+  Result := EdgeUnder(V, SX, SY, TolPx, P, A, B, Ent);
+end;
+
+function TWorkDoc.EdgeUnder(const V: TProjector; SX, SY, TolPx: Double;
+  out P, A, B: TP3; out Ent: Integer): Boolean;
 const
   { how close on screen counts as "the same place", for preferring the one
     nearer the eye }
@@ -6840,12 +6863,16 @@ var
       if D < Best then Best := D;
       BestZ := QZ;
       P := Q;
+      A := MA;
+      B := MB;
       Ent := I;
     end;
   end;
 
 begin
   P := P3(0, 0, 0);
+  A := P3(0, 0, 0);
+  B := P3(0, 0, 0);
   Ent := -1;
   Best := TolPx;
   BestZ := -1E30;
@@ -6903,6 +6930,16 @@ begin
           end;
         end;
     end;
+  end;
+  { A line or an arc reports its OWN two ends, so that "the whole of it"
+    means the whole line and not the piece the cursor happened to be over -
+    an arc is walked as a fan of chords and a line may be crossed by others.
+    A face reports the side of its outline being pointed at, which is the
+    whole of that edge already. }
+  if (Ent >= 0) and (FEnts[Ent].Kind in [ekLine, ekArc]) then
+  begin
+    A := FEnts[Ent].A;
+    B := FEnts[Ent].B;
   end;
   Result := Ent >= 0;
 end;

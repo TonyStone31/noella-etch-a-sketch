@@ -1,0 +1,30 @@
+# The dimension tool takes the long edge of the toy's case.
+#
+# Tony's report: the cursor says ON EDGE but nothing lights up and the click
+# falls through to a point-to-point.  The case is one face with no lines in
+# it, and the hover went through HitEdge, which never looks at a face.
+#
+# What to look for: hsk-dfe-hover has the edge lit in blue and the status bar
+# reading "click the lit edge to dimension all of it"; hsk-dfe-done has a
+# dimension on it reading about 10 1/2 inches.
+#
+geometry 0 0 1400 800
+activate
+wait 2500
+key escape
+wait 800
+key slash
+type dimension
+key return
+wait 600
+# along the near bottom edge of the case
+at 700 500
+wait 700
+shot /tmp/hsk-dfe-hover.png
+click l
+wait 700
+at 700 540
+wait 400
+click l
+wait 900
+shot /tmp/hsk-dfe-done.png

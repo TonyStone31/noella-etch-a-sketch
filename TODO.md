@@ -1034,6 +1034,31 @@ The clipper got its own test, and earned it: the first version had each
 edge's entering and leaving ends swapped, which clips every line to nothing
 and reads on screen as the axes simply being switched off.
 
+### The surface guard fired again, with a number worth keeping
+
+From Tony's report of 15 September, alongside the dimension fault:
+
+    surface guard hit: 4616275354042910992 (as a double 4.07615),
+    stride untouched
+    ... repairs=1
+
+That is the canary in TArtSurface catching something that wrote over it.  The
+note beside `Verify` in uSurface says a guard or stride carrying a plausible
+double "names the culprit", and this one reads as **4.07615** - a number that
+looks like a zoom or a coordinate rather than noise.  The drawing's zoom at
+the time of the report was 28.625, so it is not the current one; an earlier
+one, or something else entirely.
+
+Two details worth having: only the GUARD was hit, the stride was untouched,
+so whatever it was landed on one field rather than running through the
+record; and it happened at 13:50:25, in the same moment as "opened the
+example", which is where a surface is being resized.
+
+Not chased.  It is a known open hunt with its own notes in uSurface, it did
+not crash, and the repair put it back.  Recorded because the previous
+sighting is the only other data point there is, and two numbers are worth
+more than one.
+
 ### Every picker needs the same audit, and it is bigger than "is it hidden"
 
 Tony, after the EdgeSnap fix: run these checks over all of the tools and

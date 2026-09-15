@@ -1381,7 +1381,7 @@ procedure TestSnapToFaceOutline;
 var
   D: TWorkDoc;
   V: TProjector;
-  P, A, B, Mid: TP3;
+  P, A, B, Mid, EA, EB: TP3;
   Src: TStringList;
   I, Ent: Integer;
   S: TPointF;
@@ -1489,6 +1489,31 @@ begin
       inch apart in Z and land on exactly the same pixel, so which of them
       comes back is a fair question with two right answers - and both are on
       the edge being aimed at. }
+    { And the whole edge, which is what the dimension tool takes when you
+      click the body of one.
+
+      Tony's second report on this: the cursor said ON EDGE and nothing lit
+      up, because the hover and the click went through HitEdge - which looks
+      at lines, arcs, dimensions and guides and never at the outline of a
+      face - and then read the entity's own A and B, which a face has not
+      got.  So the snap could see the edge and the pick could not. }
+    Ok(D.EdgeUnder(V, S.X, S.Y, 8, P, EA, EB, Ent),
+       '  and the whole edge under the cursor comes back');
+    { Compared across the screen, not in three dimensions.  The toy stacks
+      several identical outlines a tenth of an inch apart - the face, the
+      case lip, the screen recess - and looking straight down they land on
+      the same pixel, so which one comes back is a fair question with more
+      than one right answer.  What matters is that it is the WHOLE edge and
+      the right edge, not a fragment of it. }
+    Ok(Abs(Dist(EA, EB) - Dist(A, B)) < 1E-6,
+       Format('  and it is a whole edge of that length (%.2f in)',
+              [Dist(EA, EB) * 12]));
+    Ok((((Abs(EA.X - A.X) < 1E-6) and (Abs(EA.Y - A.Y) < 1E-6)) and
+        ((Abs(EB.X - B.X) < 1E-6) and (Abs(EB.Y - B.Y) < 1E-6))) or
+       (((Abs(EA.X - B.X) < 1E-6) and (Abs(EA.Y - B.Y) < 1E-6)) and
+        ((Abs(EB.X - A.X) < 1E-6) and (Abs(EB.Y - A.Y) < 1E-6))),
+       '  running end to end along the same line');
+
     { Tight on purpose.  Without the face outlines this still finds SOMETHING
       - the toy's own outline lines run parallel a fraction away - and lands
       within two hundredths of a foot, which is the whole complaint: it takes

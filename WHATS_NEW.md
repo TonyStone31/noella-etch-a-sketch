@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The dimension tool takes the edges of the toy's case.**  Hovering one
+  said ON EDGE and lit nothing, and the click fell through to a
+  point-to-point: the hover and the click looked at lines, arcs, dimensions
+  and guides, never at the outline of a face, and then asked the edge for its
+  two ends - which a face has not got.  They use the same search the snap
+  does now, so the one edge under the cursor lights up and a click takes all
+  of it.
+
 ## v2026.09.15.2
 
 ### Fixed

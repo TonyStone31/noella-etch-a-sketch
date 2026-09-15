@@ -716,6 +716,11 @@ type
     FViewSkin: TArtSurface;
     FGlyph: TArtSurface;    // the tool badge beside the cursor
     FHoverEnt: Integer;          // what the eraser is about to delete
+    { The one edge the dimension tool would take, as its two ends.  An entity
+      index is not enough any more: the edge may be one side of a face's
+      outline, and a face has no A and B of its own. }
+    FHoverEdgeOK: Boolean;
+    FHoverEdgeA, FHoverEdgeB: TP3;
     FDocPath: string;            // where this set of sheets came from
     FGuide: Boolean;             // an alignment guide is active
     FGuideFrom: TP3;
@@ -9755,11 +9760,26 @@ begin
       TraceOutlineVisible(C, FSel[AY], Pix(70, 130, 240), Max(3, Round(3 * FUIScale)));
 
   { the edge the dimension tool would take }
+  { The one edge a click would take.
+
+    An arc is lit by its outline, because the thing being taken is a curve
+    and a straight line across it would be a lie about what you are about to
+    measure.  Everything else is lit as the segment itself - which for a line
+    is the same thing its outline would give, and for one side of a face's
+    outline is the only right answer: lighting the entity there would light
+    the whole face. }
   if (FTool = ptDim) and (FStage = 0) and (FHoverEnt >= 0) then
   begin
-    Hi := FD.Doc.Outline(Proj, FHoverEnt);
-    if Length(Hi) >= 2 then
+    if FD.Doc[FHoverEnt].Kind = ekArc then
     begin
+      Hi := FD.Doc.Outline(Proj, FHoverEnt);
+      if Length(Hi) >= 2 then TraceOutline(C, Hi, HINT_BLUE);
+    end
+    else if FHoverEdgeOK then
+    begin
+      SetLength(Hi, 2);
+      Hi[0] := ScreenOf(FHoverEdgeA);
+      Hi[1] := ScreenOf(FHoverEdgeB);
       TraceOutline(C, Hi, HINT_BLUE);
     end;
   end;
@@ -11050,14 +11070,13 @@ begin
               snapped to - a corner, a midpoint, a centre - is the point
               meant; only a free cursor on the body of an edge takes the
               edge. }
-            I := -1;
-            if not (FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross,
-                                  snSubMid, snOrigin]) then
-              I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
-            if (I >= 0) and (FD.Doc[I].Kind in [ekLine, ekArc]) then
+            { What the hover lit up is what the click takes - worked out
+              once, there, rather than a second time here with a different
+              picker.  They used to disagree on anything built of faces. }
+            if FHoverEdgeOK and (Dist(FHoverEdgeA, FHoverEdgeB) > 1E-9) then
             begin
-              FP1 := FD.Doc[I].A;
-              FP2 := FD.Doc[I].B;
+              FP1 := FHoverEdgeA;
+              FP2 := FHoverEdgeB;
               FStage := 2;
               FCmdMsg := 'The whole edge, ' +
                 FormatLen(Dist(FP1, FP2), FD.Units) +
@@ -13015,7 +13034,7 @@ var
   SpeedNow: QWord;
   SpeedInst: Double;
   X, Y, HF: Integer;
-  HP, HN: TP3;
+  HP, HN, HoverP: TP3;
   OP: TPointF;
   NewAz, NewEl: Double;
 begin
@@ -13331,14 +13350,26 @@ begin
         the click is going to take the edge or start a point-to-point. }
       { and it does not light up when the cursor is on a point of it: that
         click takes the point, not the edge }
+      FHoverEdgeOK := False;
       if FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross, snSubMid, snOrigin] then
         FHoverEnt := -1
       else
       begin
-        FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
-        if (FHoverEnt >= 0) and
-           not (FD.Doc[FHoverEnt].Kind in [ekLine, ekArc]) then
+        { EdgeUnder rather than HitEdge, so the outline of a face counts.
+          HitEdge looks at lines, arcs, dimensions and guides and nothing
+          else - which is why the cursor would say ON EDGE on the case of
+          the etch-a-sketch while this lit nothing up and the click fell
+          through to a point-to-point. }
+        FHoverEdgeOK := FD.Doc.EdgeUnder(Proj, X, Y, 9 * FUIScale,
+          HoverP, FHoverEdgeA, FHoverEdgeB, FHoverEnt);
+        if FHoverEdgeOK and (FD.Doc[FHoverEnt].Kind = ekGuide) then
+        begin
+          { a guide is a construction line; measuring "all of it" means
+            measuring something infinite }
+          FHoverEdgeOK := False;
           FHoverEnt := -1;
+        end;
+        if not FHoverEdgeOK then FHoverEnt := -1;
       end;
     end
     else
