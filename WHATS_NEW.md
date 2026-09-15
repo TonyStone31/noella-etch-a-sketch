@@ -10,7 +10,7 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## v2026.09.14.16
+## Next release
 
 ### New
 
@@ -32,6 +32,10 @@
   which way it had gone.  Now it rolls there, the short way round, in about a
   third of a second - and that goes for the VIEW button and `/front` and the
   rest as much as for the cube.
+
+## v2026.09.14.16
+
+### New
 
 - **A film comes back to where it started.**  A move that ends somewhere
   else - a rise, a push in, or one you pointed by hand - used to jump every
