@@ -1115,6 +1115,69 @@ is written: walk a grid of cursor positions over a solid and assert the
 invariant, rather than testing one aimed click.  That is what found 633 bad
 positions out of 2266 - no aimed test would have.
 
+### Edges that cross have to end there - 15 September 2026
+
+Tony: "this is how i make rounded corners in a rectangle.  i use the circle
+tool and temporary lines.  in sketchup i would be able to remove all of those
+lines individually because the circle would have broke the lines making the
+point."
+
+He is describing the standard way a fillet gets drawn and the standard reason
+it works: in SketchUp a new edge and everything it crosses cut each other as
+it lands.  We had half of it - `AddLineSplit` cut a line drawn *along* one
+already there - and none of the other half, a line drawn *across* one.  So
+the rectangle's side stayed one line corner to corner, the circle stayed one
+closed loop, and there was nothing to rub out but all of each.
+
+`SplitCrossings(FirstNew)` does it, called by the line, rectangle, arc and
+circle tools with the entity count taken before the tool added anything.
+Only loose drawing takes part - nothing in a solid, no guides, no dimensions
+- and a pair is only looked at when one of the two is newer than FirstNew, so
+nothing already drawn is quietly rewritten around somebody.
+
+**Two things learnt doing it, both worth keeping:**
+
+*Arcs are walked as they are drawn, not as circles.*  A crossing is worked
+out against the segments the renderer actually walks, so what counts as
+crossing is what the eye sees crossing.  A piece keeps its share of the
+sides, which puts the pieces' corners back on the whole one's whenever the
+cut landed on a corner - and a tangent always does.
+
+*A tolerance in parameter is not a tolerance.*  The first version threw away
+cuts within 1e-7 *of the parameter* of an end.  On a hundred foot line that
+is ten microns and on a one inch line it is a nanometre, so near-tangents
+left slivers, and the slivers were themselves crossed by the next pass: three
+passes over the same drawing broke 7, then 2, then 1 edge.  Measured along
+the edge instead, and the hit pulled onto the segment corner it is really at,
+it is 7, then 0, then 0.  **Idempotence is the test that found this** - run
+the pass twice and the second one must do nothing - and it is worth having
+for any geometry that rewrites itself.
+
+**Still open, from the same message.**  "i should be able to use the arc tool
+but when i did it kept the arc out side the rectangle."  `ArcPicks` takes the
+bulge as the third pick's offset from the chord, signed, so it should follow
+the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
+the chord is the one branch that picks a side on its own.  Not reproduced -
+needs the two points he picked and where he moved.
+
+### The frame, measured rather than guessed - 15 September 2026
+
+Tony: "the display and moving has gotten really poor performing... in the
+past dozen revisions we introduced something that is hurting the
+performance."
+
+Measured v2026.09.14.10 against HEAD, same drawing, same view: 25.7 ms a
+frame both, quick frames 23.7, overlay 8.9, blit 0.6.  No regression in the
+frame path.  The snap path measured 0.033 ms - the 22x regression the first
+run of that benchmark reported was the benchmark's fault, not the program's:
+it had no rendered depth buffer, so `HiddenAt` walked every face.
+
+What is true: the cost climbs with zoom, 3.4 ms at 100% to 16.5 ms at 4000%,
+and saturates there.  His report had him at 2863%.  And of a 25.7 ms frame
+only about 6 ms is the model - the rest is the full-screen paper repaint and
+the composite, which a quick frame does not skip.  **That is where the work
+is if this is picked up**, not in the snapping.
+
 ### What's new is a paint box, and that has consequences
 
 Worth writing down because it explains a class of bug rather than one bug.

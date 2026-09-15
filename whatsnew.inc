@@ -13,6 +13,29 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Edges break where they cross.**  Draw a line, a rectangle, an arc or a' + LineEnding +
+    '  circle over something already there and both are cut at the crossing, so' + LineEnding +
+    '  every piece is its own edge.  That is what makes a rounded corner: drop a' + LineEnding +
+    '  circle on the corner of a rectangle so it just touches both sides, then rub' + LineEnding +
+    '  out three quarters of the circle and the short piece of each side, and the' + LineEnding +
+    '  corner is rounded.  Before this the side was still one line from corner to' + LineEnding +
+    '  corner and there was nothing to rub out but the whole of it.  Solids,' + LineEnding +
+    '  guides and dimensions take no part - only loose drawing is cut.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The tape measure takes the middle of an edge it is on.**  Hovering the' + LineEnding +
+    '  middle of a side of a face offers the midpoint, the way it does on a drawn' + LineEnding +
+    '  line.' + LineEnding +
+    '' + LineEnding +
+    '- **The help pages say how to change the number of sides.**  With the circle' + LineEnding +
+    '  or arc tool live, + and - step it, or type 24s.  It was in the program and' + LineEnding +
+    '  nowhere in the manual.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.4' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

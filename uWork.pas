@@ -236,6 +236,11 @@ type
       different and much worse idea.  Returns how many pieces the run came
       out as, or 0 when nothing overlapped and it was simply added. }
     function AddLineSplit(const A, B: TP3; Ink: TColor; Weight: Single): Integer;
+    { Cut every loose edge that something drawn since FirstNew crosses, and
+      cut that new edge where they cross it, so each piece is its own line
+      or arc and can be rubbed out on its own.  Returns how many edges were
+      broken up. }
+    function SplitCrossings(FirstNew: Integer): Integer;
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure SetArcSides(Index, N: Integer);
@@ -513,6 +518,8 @@ type
     { The nearest point lying *on* a line or an arc, within TolPx of the
       pointer.  This is SketchUp's On Edge inference: hovering an edge should
       give you a point on that edge, not the nearest corner of it. }
+    { how many points the cursor is choosing between - for measuring with }
+    function SnapCacheCount: Integer;
     function EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
       out P: TP3; out Ent: Integer): Boolean;
     { The same search, handing back the whole segment under the cursor rather
@@ -771,6 +778,27 @@ function SamePt(const A, B: TP3; Tol: Double): Boolean; inline;
 { --- projection ---------------------------------------------------------- }
 function SameProjector(const A, B: TProjector): Boolean;
 function Project(const V: TProjector; const P: TP3): TPointF;
+
+{ The same projection with the camera worked out once.
+
+  Project recomputes ViewRight and ViewUp on every call, and in an orbit view
+  each of those is a pair of sines and cosines - so projecting one point
+  costs four transcendental calls, and anything that projects a few thousand
+  points pays for the camera a few thousand times over.  That is most of what
+  a snap search spends its time on.
+
+  BeginProject does the trigonometry once; ProjectAt is then two dot products
+  and a pair of multiplies.  The answer is identical - it is the same
+  arithmetic with the constants lifted out of the loop. }
+type
+  TProjCache = record
+    Kind: TViewKind;
+    Ppu, OX, OY: Double;
+    R, U: TP3;
+  end;
+
+procedure BeginProject(const V: TProjector; out C: TProjCache);
+function ProjectAt(const C: TProjCache; const P: TP3): TPointF; inline;
 
 { Screen point back to the model, on the working plane through Base.  In PLAN
   that is simply the XY plane; in ISO the plane is picked by Pl. }
@@ -1467,6 +1495,36 @@ function SameProjector(const A, B: TProjector): Boolean;
 begin
   Result := (A.Kind = B.Kind) and (A.Ppu = B.Ppu) and (A.OX = B.OX) and
             (A.OY = B.OY) and (A.Az = B.Az) and (A.El = B.El);
+end;
+
+procedure BeginProject(const V: TProjector; out C: TProjCache);
+begin
+  C.Kind := V.Kind;
+  C.Ppu := V.Ppu;
+  C.OX := V.OX;
+  C.OY := V.OY;
+  C.R := ViewRight(V);
+  C.U := ViewUp(V);
+end;
+
+function ProjectAt(const C: TProjCache; const P: TP3): TPointF;
+begin
+  if C.Kind = vkOrbit then
+  begin
+    Result.X := C.OX + (P.X * C.R.X + P.Y * C.R.Y + P.Z * C.R.Z) * C.Ppu;
+    Result.Y := C.OY - (P.X * C.U.X + P.Y * C.U.Y + P.Z * C.U.Z) * C.Ppu;
+    Exit;
+  end;
+  if C.Kind = vkIso then
+  begin
+    Result.X := C.OX + (P.X + P.Y) * ISO_COS * C.Ppu;
+    Result.Y := C.OY - ((P.Y - P.X) * ISO_SIN + P.Z) * C.Ppu;
+  end
+  else
+  begin
+    Result.X := C.OX + P.X * C.Ppu;
+    Result.Y := C.OY - P.Y * C.Ppu;
+  end;
 end;
 
 function Project(const V: TProjector; const P: TP3): TPointF;
@@ -4528,6 +4586,236 @@ end;
 { Lift the face along its normal and wall in the sides.  The original outline
   stays behind as the base, so what you get is a closed box - which is all
   push/pull needs to be for roughing something out. }
+{ Where two edges cross, both should end there.
+
+  Somebody rounding off a corner draws a circle over it, rubs out three
+  quarters of the circle and the square corner behind it, and is left with
+  the fillet.  That only works if the crossings are real ends: if the
+  rectangle's side is still one long line from corner to corner there is
+  nothing to rub out but the whole of it, and if the circle is still one
+  closed loop the three quarters cannot go without the quarter he wants.
+  SketchUp cuts both at every crossing as the new edge lands, and this is
+  that.
+
+  Only loose drawing takes part - nothing belonging to a solid, no guides,
+  no dimensions - and a pair is only looked at when one of the two was drawn
+  since FirstNew, so the rest of the drawing is never quietly rewritten
+  underneath somebody.
+
+  An arc is walked as the segments it is really drawn with, so what counts
+  as a crossing is what the eye sees crossing.  A piece of one keeps its
+  share of the sides, which lands the pieces' corners back on the whole
+  one's whenever the cut fell on a corner - as a tangent always does. }
+function TWorkDoc.SplitCrossings(FirstNew: Integer): Integer;
+const
+  TOL = 1E-6;      { how close two edges pass before they count as meeting }
+type
+  TWalk = record
+    Ent: Integer;
+    Fresh: Boolean;
+    Len: Double;
+    Pts: TP3Array;
+    Cut: array of Double;
+  end;
+var
+  W: array of TWalk;
+  Made: array of TWorkEnt;
+  Doom: array of Boolean;
+  NW, NMade: Integer;
+  I, J, K, A, B, Steps: Integer;
+  S, T, D, Tmp, LA, LB: Double;
+
+  { the nearest approach of two segments, and where along each it happens.
+    Near-parallel is left alone: two runs lying on each other are
+    AddLineSplit's business, and a crossing worked out from a vanishing
+    denominator is noise. }
+  procedure Nearest(const P1, P2, Q1, Q2: TP3; out SS, TT, DD: Double);
+  var
+    D1, D2, R, C1, C2: TP3;
+    Aa, Bb, Cc, Ee, Ff, Den: Double;
+  begin
+    SS := 0; TT := 0; DD := 1E30;
+    D1 := P3(P2.X - P1.X, P2.Y - P1.Y, P2.Z - P1.Z);
+    D2 := P3(Q2.X - Q1.X, Q2.Y - Q1.Y, Q2.Z - Q1.Z);
+    R := P3(P1.X - Q1.X, P1.Y - Q1.Y, P1.Z - Q1.Z);
+    Aa := Dot3(D1, D1);
+    Ee := Dot3(D2, D2);
+    if (Aa < 1E-24) or (Ee < 1E-24) then Exit;
+    Bb := Dot3(D1, D2);
+    Cc := Dot3(D1, R);
+    Ff := Dot3(D2, R);
+    Den := Aa * Ee - Bb * Bb;
+    if Den <= 1E-12 * Aa * Ee then Exit;
+    SS := (Bb * Ff - Cc * Ee) / Den;
+    if SS < 0 then SS := 0 else if SS > 1 then SS := 1;
+    TT := (Bb * SS + Ff) / Ee;
+    if TT < 0 then
+    begin
+      TT := 0;
+      SS := -Cc / Aa;
+    end
+    else if TT > 1 then
+    begin
+      TT := 1;
+      SS := (Bb - Cc) / Aa;
+    end;
+    if SS < 0 then SS := 0 else if SS > 1 then SS := 1;
+    C1 := P3(P1.X + D1.X * SS, P1.Y + D1.Y * SS, P1.Z + D1.Z * SS);
+    C2 := P3(Q1.X + D2.X * TT, Q1.Y + D2.Y * TT, Q1.Z + D2.Z * TT);
+    DD := Dist(C1, C2);
+  end;
+
+  { A cut at either end is no cut at all - the edge already ends there.
+    Measured along the edge and not in its parameter: an inch either side of
+    the end is an inch whether the edge is a foot long or a hundred, and a
+    cut let through a hair from the end leaves a hair of an edge behind,
+    which is worse than the crossing it came from. }
+  procedure Note(Which: Integer; U: Double);
+  var
+    Q, N: Integer;
+    L: Double;
+  begin
+    L := W[Which].Len;
+    if L < TOL then Exit;
+    if (U * L < TOL) or ((1 - U) * L < TOL) then Exit;
+    for Q := 0 to High(W[Which].Cut) do
+      if Abs(W[Which].Cut[Q] - U) * L < TOL then Exit;
+    N := Length(W[Which].Cut);
+    SetLength(W[Which].Cut, N + 1);
+    W[Which].Cut[N] := U;
+  end;
+
+  procedure Piece(const E: TWorkEnt; U0, U1: Double);
+  var
+    N: TWorkEnt;
+    Sd: Integer;
+  begin
+    if U1 <= U0 then Exit;
+    N := E;
+    if E.Kind = ekLine then
+    begin
+      N.A := P3(E.A.X + (E.B.X - E.A.X) * U0,
+                E.A.Y + (E.B.Y - E.A.Y) * U0,
+                E.A.Z + (E.B.Z - E.A.Z) * U0);
+      N.B := P3(E.A.X + (E.B.X - E.A.X) * U1,
+                E.A.Y + (E.B.Y - E.A.Y) * U1,
+                E.A.Z + (E.B.Z - E.A.Z) * U1);
+      if Dist(N.A, N.B) < TOL then Exit;
+    end
+    else
+    begin
+      N.A0 := E.A0 + E.Sweep * U0;
+      N.Sweep := E.Sweep * (U1 - U0);
+      if Abs(N.Sweep) < 1E-9 then Exit;
+      Sd := Round(ArcSteps(E) * (U1 - U0));
+      if Sd < 3 then Sd := 3;
+      N.Sides := Sd;
+      N.A := ArcPoint(N.C, N.R, N.A0, N.Plane, N.Nm);
+      N.B := ArcPoint(N.C, N.R, N.A0 + N.Sweep, N.Plane, N.Nm);
+    end;
+    if NMade >= Length(Made) then SetLength(Made, Max(8, NMade * 2));
+    Made[NMade] := N;
+    Inc(NMade);
+  end;
+
+begin
+  Result := 0;
+  NMade := 0;
+  NW := 0;
+  SetLength(W, FLive);
+  for I := 0 to FLive - 1 do
+  begin
+    if not (FEnts[I].Kind in [ekLine, ekArc]) then Continue;
+    if FEnts[I].Dim or (FEnts[I].Grp <> 0) then Continue;
+    W[NW].Ent := I;
+    W[NW].Fresh := I >= FirstNew;
+    W[NW].Cut := nil;
+    if FEnts[I].Kind = ekArc then
+    begin
+      Steps := ArcSteps(FEnts[I]);
+      SetLength(W[NW].Pts, Steps + 1);
+      for K := 0 to Steps do
+        W[NW].Pts[K] := ArcPoint(FEnts[I].C, FEnts[I].R,
+          FEnts[I].A0 + FEnts[I].Sweep * K / Steps,
+          FEnts[I].Plane, FEnts[I].Nm);
+    end
+    else
+    begin
+      SetLength(W[NW].Pts, 2);
+      W[NW].Pts[0] := FEnts[I].A;
+      W[NW].Pts[1] := FEnts[I].B;
+    end;
+    W[NW].Len := 0;
+    for K := 0 to High(W[NW].Pts) - 1 do
+      W[NW].Len := W[NW].Len + Dist(W[NW].Pts[K], W[NW].Pts[K + 1]);
+    Inc(NW);
+  end;
+
+  for I := 0 to NW - 1 do
+    for J := I + 1 to NW - 1 do
+    begin
+      if not (W[I].Fresh or W[J].Fresh) then Continue;
+      for A := 0 to High(W[I].Pts) - 1 do
+        for B := 0 to High(W[J].Pts) - 1 do
+        begin
+          Nearest(W[I].Pts[A], W[I].Pts[A + 1],
+                  W[J].Pts[B], W[J].Pts[B + 1], S, T, D);
+          if D > TOL then Continue;
+          { A tangent touches at a corner of the arc as it is drawn, and the
+            hit comes back a whisker either side of it.  Pulled onto the
+            corner it lands the cut exactly where the arc already has a
+            point, so the pieces sit on the whole one and a second look at
+            the same drawing finds nothing left to do. }
+          LA := Dist(W[I].Pts[A], W[I].Pts[A + 1]);
+          LB := Dist(W[J].Pts[B], W[J].Pts[B + 1]);
+          if S * LA < TOL then S := 0
+          else if (1 - S) * LA < TOL then S := 1;
+          if T * LB < TOL then T := 0
+          else if (1 - T) * LB < TOL then T := 1;
+          Note(I, (A + S) / High(W[I].Pts));
+          Note(J, (B + T) / High(W[J].Pts));
+        end;
+    end;
+
+  SetLength(Doom, FLive);
+  for I := 0 to FLive - 1 do Doom[I] := False;
+
+  for I := 0 to NW - 1 do
+  begin
+    if Length(W[I].Cut) = 0 then Continue;
+    for J := 1 to High(W[I].Cut) do
+    begin
+      Tmp := W[I].Cut[J];
+      K := J - 1;
+      while (K >= 0) and (W[I].Cut[K] > Tmp) do
+      begin
+        W[I].Cut[K + 1] := W[I].Cut[K];
+        Dec(K);
+      end;
+      W[I].Cut[K + 1] := Tmp;
+    end;
+    Piece(FEnts[W[I].Ent], 0, W[I].Cut[0]);
+    for J := 0 to High(W[I].Cut) - 1 do
+      Piece(FEnts[W[I].Ent], W[I].Cut[J], W[I].Cut[J + 1]);
+    Piece(FEnts[W[I].Ent], W[I].Cut[High(W[I].Cut)], 1);
+    Doom[W[I].Ent] := True;
+    Inc(Result);
+  end;
+
+  if Result = 0 then Exit;
+
+  DeleteMarked(Doom);
+  for I := 0 to NMade - 1 do
+  begin
+    Room;
+    Finalize(FEnts[FLive]);
+    FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+    FEnts[FLive] := CopyEnt(Made[I]);
+    Inc(FLive);
+  end;
+  FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+end;
+
 { Cut one face along a segment that crosses it.
 
   The face is flattened into its own plane, the segment is intersected with
@@ -6790,6 +7078,12 @@ begin
   end;
 end;
 
+function TWorkDoc.SnapCacheCount: Integer;
+begin
+  if FSnapDirty then RebuildSnapCache;
+  Result := Length(FSnapCache);
+end;
+
 function TWorkDoc.EdgeSnap(const V: TProjector; SX, SY, TolPx: Double;
   out P: TP3; out Ent: Integer): Boolean;
 var
@@ -6808,6 +7102,7 @@ var
   I, K, H: Integer;
   Best, BestZ: Double;
   QA, QB, Look: TP3;
+  PC: TProjCache;
 
   { Project the segment, find the nearest point along it on screen, then read
     the same fraction back off the model segment.  The projection is affine,
@@ -6818,8 +7113,8 @@ var
     DX, DY, L2, T, D, QZ: Double;
     Q: TP3;
   begin
-    PA := Project(V, MA);
-    PB := Project(V, MB);
+    PA := ProjectAt(PC, MA);
+    PB := ProjectAt(PC, MB);
     DX := PB.X - PA.X;
     DY := PB.Y - PA.Y;
     L2 := DX * DX + DY * DY;
@@ -6869,6 +7164,47 @@ var
     end;
   end;
 
+  { Is this loop nowhere near the cursor?
+
+    Walking a face means two projections for every side of it, and the case
+    of the etch-a-sketch has thirty-two.  Its eight box corners cost eight -
+    and an affine projection maps the box onto a shape that contains the
+    projected outline, so a cursor outside the projected box cannot be on the
+    outline either.  Worth it only for loops with enough sides to pay for the
+    eight; below that, projecting the sides directly is cheaper. }
+  function LoopFar(const Pts: TP3Array): Boolean;
+  var
+    J: Integer;
+    Lo, Hi: TP3;
+    Q: TPointF;
+    MnX, MnY, MxX, MxY: Double;
+    CX, CY, CZ: Integer;
+  begin
+    Result := False;
+    if Length(Pts) < 7 then Exit;
+    Lo := Pts[0];
+    Hi := Pts[0];
+    for J := 1 to High(Pts) do
+    begin
+      Lo.X := Min(Lo.X, Pts[J].X); Hi.X := Max(Hi.X, Pts[J].X);
+      Lo.Y := Min(Lo.Y, Pts[J].Y); Hi.Y := Max(Hi.Y, Pts[J].Y);
+      Lo.Z := Min(Lo.Z, Pts[J].Z); Hi.Z := Max(Hi.Z, Pts[J].Z);
+    end;
+    MnX := 1E30; MnY := 1E30; MxX := -1E30; MxY := -1E30;
+    for CX := 0 to 1 do
+      for CY := 0 to 1 do
+        for CZ := 0 to 1 do
+        begin
+          Q := ProjectAt(PC, P3(specialize IfThen<Double>(CX = 0, Lo.X, Hi.X),
+                                specialize IfThen<Double>(CY = 0, Lo.Y, Hi.Y),
+                                specialize IfThen<Double>(CZ = 0, Lo.Z, Hi.Z)));
+          MnX := Min(MnX, Q.X); MxX := Max(MxX, Q.X);
+          MnY := Min(MnY, Q.Y); MxY := Max(MxY, Q.Y);
+        end;
+    Result := (SX < MnX - TolPx) or (SX > MxX + TolPx) or
+              (SY < MnY - TolPx) or (SY > MxY + TolPx);
+  end;
+
 begin
   P := P3(0, 0, 0);
   A := P3(0, 0, 0);
@@ -6876,6 +7212,8 @@ begin
   Ent := -1;
   Best := TolPx;
   BestZ := -1E30;
+  { the camera, once, instead of once per projected point - see BeginProject }
+  BeginProject(V, PC);
   { points from the drawing towards the camera, so a bigger dot is nearer }
   Look := ViewDir(V);
   for I := 0 to FLive - 1 do
@@ -6908,12 +7246,14 @@ begin
         place, for the same answer. }
       ekFace:
         begin
-          for K := 0 to High(FEnts[I].Poly) do
-            Try_(FEnts[I].Poly[K],
-                 FEnts[I].Poly[(K + 1) mod Length(FEnts[I].Poly)]);
+          if not LoopFar(FEnts[I].Poly) then
+            for K := 0 to High(FEnts[I].Poly) do
+              Try_(FEnts[I].Poly[K],
+                   FEnts[I].Poly[(K + 1) mod Length(FEnts[I].Poly)]);
           { and what is cut out of it, which is just as much an edge }
           for H := 0 to High(FEnts[I].Holes) do
-            if Length(FEnts[I].Holes[H]) >= 3 then
+            if (Length(FEnts[I].Holes[H]) >= 3) and
+               not LoopFar(FEnts[I].Holes[H]) then
               for K := 0 to High(FEnts[I].Holes[H]) do
                 Try_(FEnts[I].Holes[H][K],
                      FEnts[I].Holes[H][(K + 1) mod Length(FEnts[I].Holes[H])]);
@@ -7488,6 +7828,7 @@ var
   I: Integer;
   P: TPointF;
   D, Best: Double;
+  PC: TProjCache;
 begin
   if FSnapDirty then RebuildSnapCache;
 
@@ -7495,7 +7836,10 @@ begin
      (not SameProjector(V, FSnapScreenV)) then
   begin
     SetLength(FSnapScreen, Length(FSnapCache));
-    for I := 0 to High(FSnapCache) do FSnapScreen[I] := Project(V, FSnapCache[I].P);
+    { thousands of points, and the camera worked out once for the lot }
+    BeginProject(V, PC);
+    for I := 0 to High(FSnapCache) do
+      FSnapScreen[I] := ProjectAt(PC, FSnapCache[I].P);
     FSnapScreenV := V;
     FSnapScreenOK := True;
   end;

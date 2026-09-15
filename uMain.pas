@@ -1697,7 +1697,7 @@ var
   Tol, Best, KeepTol: Double;
   PrevGuide: Boolean;
   PrevFrom: TP3;
-  W, Wf, AxRef, AxPt, EdgeP, AxSnapP: TP3;
+  W, Wf, AxRef, AxPt, EdgeP, EdgeA, EdgeB, MidP, AxSnapP: TP3;
   SP: TPointF;
   PtOK: Boolean;
   PtPx, AxPx: Double;
@@ -1977,8 +1977,33 @@ begin
     and a half pixels where a midpoint is taken outright, On Edge grabbed the
     cursor and put it a fraction to one side. }
   if (not PtOK) and
-     FD.Doc.EdgeSnap(Proj, SX, SY, EDGE_PX * FUIScale, EdgeP, EdgeI) then
+     FD.Doc.EdgeUnder(Proj, SX, SY, EDGE_PX * FUIScale, EdgeP,
+                      EdgeA, EdgeB, EdgeI) then
   begin
+    { The middle of that edge, worked out here rather than kept in the snap
+      cache.
+
+      A drawn line has its midpoint in the cache like any other named point.
+      One side of a face's outline has not, and could not cheaply: a drawing
+      of a few hundred faces has thousands of sides, and every one of them in
+      the cache is another point to project every time the camera moves.  But
+      the edge under the cursor is already known by the time we get here, so
+      its middle is two additions and a comparison - no cache, no cost when
+      the cursor is not near one.
+
+      This is why the tape measure would not find the centre of a line on
+      anything built of faces. }
+    MidP := P3((EdgeA.X + EdgeB.X) / 2, (EdgeA.Y + EdgeB.Y) / 2,
+               (EdgeA.Z + EdgeB.Z) / 2);
+    SP := ScreenOf(MidP);
+    if Sqr(SX - SP.X) + Sqr(SY - SP.Y) <= Sqr(LOCK_PX * FUIScale) then
+    begin
+      FSnapKind := snMidpoint;
+      FStickOn := True;
+      FStickPt := MidP;
+      FStickKind := snMidpoint;
+      Exit(MidP);
+    end;
     FSnapKind := snOnEdge;
     Exit(EdgeP);
   end;
@@ -11242,7 +11267,7 @@ end;
 
 procedure TMainForm.ProCommit;
 var
-  I, NPieces: Integer;
+  I, NPieces, NWas, NBroke: Integer;
   T, C: TP3;
   Loop: TP3Array;
   L, R, A0, Sweep, Bulge, U1, V1, U2, V2, UC, VC, NU, NV, Ln: Double;
@@ -11347,6 +11372,16 @@ begin
                 Format('   (split along an edge - %d pieces)', [NPieces])
             else
               FCmdMsg := FormatLen(Dist(FP1, T), FD.Units);
+            { And where it crossed something, both are cut at the crossing.
+              Not from the count taken before: laying the run down along
+              something already there deletes what it overlapped and lays the
+              pieces at the end, which moves every index above it.  The
+              pieces are the last of them, however many there are. }
+            NWas := FD.Doc.Live - Max(1, NPieces);
+            NBroke := FD.Doc.SplitCrossings(NWas);
+            if NBroke > 0 then
+              FCmdMsg := FCmdMsg + Format('   (broke %d edge%s at the crossings)',
+                [NBroke, IfThen(NBroke = 1, '', 's')]);
           end;
           { Whatever this line did to the flat areas - closed a loop, cut a
             face in two, cut one of the halves again - is worked out by asking
@@ -11372,6 +11407,7 @@ begin
         if (U1 > 1E-9) and (V1 > 1E-9) then
         begin
           PushUndo;
+          NWas := FD.Doc.Live;
           Loop := RectCorners(FP1, T, FD.Plane);
           { An edge that lands exactly on one already there is the same edge.
             Adding it again left two lines in the same place and two
@@ -11380,6 +11416,7 @@ begin
             if not FD.Doc.HasLine(Loop[I], Loop[(I + 1) mod 4]) then
               FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
                 FInkColor, FPenSize, False);
+          FD.Doc.SplitCrossings(NWas);
           RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
@@ -11425,9 +11462,14 @@ begin
         if Ok then
         begin
           PushUndo;
+          NWas := FD.Doc.Live;
           FD.Doc.AddArc(C, R, A0, Sweep, ArcPl, FInkColor, FEdgeW);
           FD.Doc.SetArcSides(FD.Doc.Live - 1, FSidesArc);
           FCmdMsg := 'Arc radius ' + FormatLen(R, FD.Units);
+          NBroke := FD.Doc.SplitCrossings(NWas);
+          if NBroke > 0 then
+            FCmdMsg := FCmdMsg + Format('   (broke %d edge%s at the crossings)',
+              [NBroke, IfThen(NBroke = 1, '', 's')]);
           I := FaceCount;
           if RebuildFlatFaces > I then
             FCmdMsg := FCmdMsg + '   closed a face';
@@ -11446,13 +11488,18 @@ begin
         if R > 1E-9 then
         begin
           PushUndo;
+          NWas := FD.Doc.Live;
           FD.Doc.AddArc(FP1, R, 0, 2 * Pi, FD.Plane, FInkColor, FEdgeW);
           FD.Doc.SetArcSides(FD.Doc.Live - 1, FSidesCircle);
+          NBroke := FD.Doc.SplitCrossings(NWas);
           RebuildFlatFaces;
           RenderPro;
           RecomposeAll;
           FCmdMsg := Format('Circle radius %s   area %s',
             [FormatLen(R, FD.Units), FormatArea(Pi * R * R, FD.Units)]);
+          if NBroke > 0 then
+            FCmdMsg := FCmdMsg + Format('   (broke %d edge%s at the crossings)',
+              [NBroke, IfThen(NBroke = 1, '', 's')]);
         end;
         ResetTool;
       end;

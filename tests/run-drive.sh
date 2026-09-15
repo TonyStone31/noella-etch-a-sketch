@@ -34,7 +34,7 @@ else
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
          glass-revolve plan-slice plan-hidden command-list toy-command
          cmd-example cmd-wheel gif-loop view-cube cube-corners
-         whatsnew-drag dim-face-edge dim-needs-something"
+         whatsnew-drag dim-face-edge dim-needs-something round-corner"
 fi
 
 BAD=0

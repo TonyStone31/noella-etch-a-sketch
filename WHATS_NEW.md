@@ -10,6 +10,29 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Edges break where they cross.**  Draw a line, a rectangle, an arc or a
+  circle over something already there and both are cut at the crossing, so
+  every piece is its own edge.  That is what makes a rounded corner: drop a
+  circle on the corner of a rectangle so it just touches both sides, then rub
+  out three quarters of the circle and the short piece of each side, and the
+  corner is rounded.  Before this the side was still one line from corner to
+  corner and there was nothing to rub out but the whole of it.  Solids,
+  guides and dimensions take no part - only loose drawing is cut.
+
+### Fixed
+
+- **The tape measure takes the middle of an edge it is on.**  Hovering the
+  middle of a side of a face offers the midpoint, the way it does on a drawn
+  line.
+
+- **The help pages say how to change the number of sides.**  With the circle
+  or arc tool live, + and - step it, or type 24s.  It was in the program and
+  nowhere in the manual.
+
 ## v2026.09.15.4
 
 ### Fixed

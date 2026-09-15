@@ -1,0 +1,68 @@
+# Rounding a corner off: the whole reason edges have to break where they
+# cross.
+#
+# Tony, 15 September: "this is how i make rounded corners in a rectangle.  i
+# use the circle tool and temporary lines.  in sketchup i would be able to
+# remove all of those lines individually because the circle would have broke
+# the lines making the point in sketchup... then i would have been able to
+# delete them individually and delete the inner left over piece of circle."
+#
+# Before this the rectangle's side was still one line corner to corner and
+# the circle was still one closed loop, so there was nothing to rub out but
+# the whole of each.
+#
+# What to look for: hsk-round-drawn has a rectangle with a circle sitting on
+# its bottom right corner; hsk-round-hover shows the eraser lighting only the
+# short piece of the side between the touch point and the corner, not the
+# whole side; hsk-round-done has that piece and three quarters of the circle
+# gone, leaving the corner rounded off.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+wait 600
+
+# flat on the floor, so what is drawn is what is clicked
+key slash
+type plan
+key return
+wait 1200
+
+key r
+wait 300
+at 500 300
+click l
+wait 300
+at 1000 620
+click l
+wait 900
+shot /tmp/hsk-round-rect.png
+
+# a circle tucked into the bottom right corner, touching both sides
+key escape
+key c
+wait 300
+at 920 540
+click l
+wait 300
+at 1000 540
+click l
+wait 1200
+shot /tmp/hsk-round-drawn.png
+
+key escape
+key e
+wait 400
+# the short piece of the bottom side, between the touch point and the corner
+at 960 620
+wait 900
+shot /tmp/hsk-round-hover.png
+click l
+wait 600
+# the short piece of the right side
+at 1000 580
+wait 500
+click l
+wait 900
+shot /tmp/hsk-round-done.png

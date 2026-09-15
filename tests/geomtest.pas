@@ -1059,6 +1059,95 @@ end;
   is the one that matters: does the file say so, and does it still say so at
   a different zoom.  A picture with real dimensions on it is the whole of
   what a cutter needs from us. }
+{ Rounding a corner off is done by drawing over it and rubbing out what is
+  left, and that needs the crossings to be ends.
+
+  A rectangle with a circle dropped on one corner, tangent to both sides:
+  the two sides have to come apart at the points the circle touches them,
+  and the circle has to come apart there too, so that three quarters of it
+  can go and the quarter across the corner can stay.  Before this the sides
+  were still whole lines corner to corner and the circle was still one closed
+  loop, and there was nothing to rub out but all of it. }
+procedure TestCrossingsBreakEdges;
+var
+  D: TWorkDoc;
+  I, N0, Broke, NLine, NArc, Quarter: Integer;
+  A, B: TP3;
+  Sw: Double;
+
+  function HasLine(const P, Q: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    Result := False;
+    for J := 0 to D.Live - 1 do
+      if D[J].Kind = ekLine then
+        if ((Dist(D[J].A, P) < 1E-6) and (Dist(D[J].B, Q) < 1E-6)) or
+           ((Dist(D[J].A, Q) < 1E-6) and (Dist(D[J].B, P) < 1E-6)) then
+          Exit(True);
+  end;
+
+begin
+  WriteLn('-- a circle over a corner breaks the edges it touches');
+  D := TWorkDoc.Create;
+  try
+    { the rectangle, drawn all at once, must not cut itself at its corners }
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), clBlack, 1, False);
+    D.AddLine(P3(10, 0, 0), P3(10, 8, 0), clBlack, 1, False);
+    D.AddLine(P3(10, 8, 0), P3(0, 8, 0), clBlack, 1, False);
+    D.AddLine(P3(0, 8, 0), P3(0, 0, 0), clBlack, 1, False);
+    EqI(D.SplitCrossings(0), 0, 'four sides meeting at corners break nothing');
+    EqI(D.Live, 4, 'still four lines');
+
+    { the circle: radius one at (9,1), so it just touches the bottom side at
+      (9,0) and the right side at (10,1) }
+    N0 := D.Live;
+    D.AddArc(P3(9, 1, 0), 1, 0, 2 * Pi, plXY, clBlack, 1);
+    D.SetArcSides(D.Live - 1, 24);
+    Broke := D.SplitCrossings(N0);
+    EqI(Broke, 3, 'two sides and the circle came apart');
+
+    NLine := 0;
+    NArc := 0;
+    for I := 0 to D.Live - 1 do
+    begin
+      if D[I].Kind = ekLine then Inc(NLine);
+      if D[I].Kind = ekArc then Inc(NArc);
+    end;
+    EqI(NLine, 6, 'six lines where there were four');
+    EqI(NArc, 2, 'the circle is two arcs');
+
+    Ok(HasLine(P3(0, 0, 0), P3(9, 0, 0)), 'the bottom runs 0 to 9');
+    Ok(HasLine(P3(9, 0, 0), P3(10, 0, 0)), 'and 9 to the corner');
+    Ok(HasLine(P3(10, 0, 0), P3(10, 1, 0)), 'the right side runs corner to 1');
+    Ok(HasLine(P3(10, 1, 0), P3(10, 8, 0)), 'and 1 to the top');
+    Ok(not HasLine(P3(0, 0, 0), P3(10, 0, 0)), 'the whole bottom is gone');
+
+    { the piece that gets kept is the quarter across the corner: it runs
+      from one touch point to the other and bulges towards (10,0) }
+    Quarter := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekArc) and (Abs(Abs(D[I].Sweep) - Pi / 2) < 1E-9) then
+        Quarter := I;
+    Ok(Quarter >= 0, 'one of the two arcs is a quarter');
+    if Quarter >= 0 then
+    begin
+      A := D[Quarter].A;
+      B := D[Quarter].B;
+      Ok(((Dist(A, P3(9, 0, 0)) < 1E-6) and (Dist(B, P3(10, 1, 0)) < 1E-6)) or
+         ((Dist(A, P3(10, 1, 0)) < 1E-6) and (Dist(B, P3(9, 0, 0)) < 1E-6)),
+        'the quarter joins the two touch points');
+      EqI(D[Quarter].Sides, 6, 'and keeps its quarter share of the sides');
+      Sw := D[Quarter].A0 + D[Quarter].Sweep / 2;
+      A := ArcPoint(D[Quarter].C, D[Quarter].R, Sw, plXY);
+      Ok(Dist(A, P3(10, 0, 0)) < Dist(P3(9, 1, 0), P3(10, 0, 0)),
+        'and bulges towards the corner it rounds off');
+    end;
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestSvgIsTrueSize;
 var
   D: TWorkDoc;
@@ -5743,6 +5832,7 @@ begin
   TestExampleDrawings;  WriteLn;
   TestExampleRegions;  WriteLn;
   TestSvgIsTrueSize;  WriteLn;
+  TestCrossingsBreakEdges;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;
