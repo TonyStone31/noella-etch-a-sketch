@@ -1,0 +1,30 @@
+# A dimension has to measure something.
+#
+# You could put one across blank paper and drag it about: a number that
+# measures nothing, cannot be driven by the drawing, and never updates.
+# SketchUp's own rule is that a dimension starts and ends on end points,
+# midpoints, on-edge points, intersections and arc or circle centres.
+#
+# What to look for: hsk-dns-air has the status bar saying there is nothing
+# here to measure, and hsk-dns-after shows no dimension was made.
+#
+geometry 0 0 1400 800
+activate
+wait 2500
+key escape
+wait 800
+key slash
+type dimension
+key return
+wait 600
+# out on the empty paper, well away from the drawing
+at 320 250
+wait 700
+shot /tmp/hsk-dns-air.png
+click l
+wait 500
+at 360 300
+wait 300
+click l
+wait 700
+shot /tmp/hsk-dns-after.png

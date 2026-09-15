@@ -1073,6 +1073,8 @@ type
     function IndexOfSym(V: Integer): Integer;
     function InPalette(C: TColor): Boolean;
 
+    { Is the cursor on something a dimension may be anchored to? }
+    function DimAnchored: Boolean;
     function ZoomReading: string;
     function StatusLine: string;
     procedure WashFace(C: TCanvas; Face: Integer; const Col: TPix);
@@ -9919,7 +9921,7 @@ begin
       ptOffset: S2 := 'click a face - then type the offset, negative goes inward';
       ptMeasure:
         S2 := 'measure from here - type a distance to lay a guide';
-      ptDim:    S2 := 'click a corner, then another - anywhere - or the body of an edge for all of it';
+      ptDim:    S2 := 'click a corner, then another - or the body of an edge for all of it';
       ptRotate: S2 := 'click the center - nothing picked turns all that is joined; arrows pick the plane';
       ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
       ptOrbit:  S2 := 'drag to spin - Shift drags to pan';
@@ -10547,9 +10549,19 @@ begin
         0:
           if FHoverEnt >= 0 then
             Result := 'click the lit edge to dimension all of it'
+          else if DimAnchored then
+            Result := 'click an edge, or a first point to measure from'
           else
-            Result := 'click an edge, or a first point to measure from';
-        1: Result := 'second point - anywhere, on anything, or in the air';
+            { said before the click rather than after it: there is nothing
+              here to measure from, and the cursor should say so while it is
+              still a question }
+            Result := 'nothing here to measure - find a corner, a midpoint, ' +
+                      'a centre, or an edge';
+        1:
+          if DimAnchored then
+            Result := 'second point - on a corner, a midpoint, a centre or an edge'
+          else
+            Result := 'the other end has to be on something too';
       else
         Result := 'move away to place the line, then click';
       end;
@@ -11082,13 +11094,41 @@ begin
                 FormatLen(Dist(FP1, FP2), FD.Units) +
                 ' - move away to place the line.';
             end
+            else if not DimAnchored then
+            begin
+              { Nothing under the cursor to measure from.
+
+                SketchUp's own rule, and their reason is the right one: a
+                dimension "automatically updates as you modify your model",
+                so one anchored to nothing can never update.  It is not a
+                dimension, it is a decoration with a number in it - and a
+                stale number that looks authoritative is worse than no
+                number.  Their documentation lists exactly what a dimension
+                may start and end on: end points, midpoints, on-edge points,
+                intersections, and arc and circle centres. }
+              FCmdMsg := 'A dimension has to measure something - a corner, ' +
+                         'a midpoint, a centre, or a point on an edge.';
+              InvalidateStatus;
+            end
             else
             begin
               FP1 := FCur;
               FStage := 1;
             end;
           end;
-        1: begin FP2 := FCur; FStage := 2; end;
+        1:
+          { the far end has to be on something too, for the same reason }
+          if DimAnchored then
+          begin
+            FP2 := FCur;
+            FStage := 2;
+          end
+          else
+          begin
+            FCmdMsg := 'The other end has to be on something too - a corner, ' +
+                       'a midpoint, a centre, or a point on an edge.';
+            InvalidateStatus;
+          end;
       else
         ProCommit;
       end;
@@ -16259,6 +16299,23 @@ end;
 { ======================================================================== }
 { window painting                                                           }
 { ======================================================================== }
+
+{ Is the cursor on something a dimension may be anchored to?
+
+  SketchUp's list, from their own documentation: end points, midpoints,
+  on-edge points, intersections, and arc and circle centres.  Ours adds the
+  origin, which is a landmark of the model rather than a place the cursor
+  happened to be, and a point on an axis for the same reason.
+
+  What is left out is the grid and open air, and that is the whole point of
+  the test: a dimension that measures from nothing to nothing cannot be
+  driven by the drawing and will never update when the drawing changes. }
+function TMainForm.DimAnchored: Boolean;
+begin
+  Result := FSnapKind in [snEndpoint, snMidpoint, snCenter, snCross,
+                          snSubMid, snQuadrant, snOnEdge, snOnFace,
+                          snOnAxis, snOrigin];
+end;
 
 { The zoom, in words that survive the range it now has.
 
