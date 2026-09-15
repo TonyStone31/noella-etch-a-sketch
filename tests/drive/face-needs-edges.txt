@@ -79,3 +79,22 @@ wait 1500
 key escape
 wait 800
 shot /tmp/hsk-fne-healed.png
+
+# And the other way round, which is where we differ from SketchUp on purpose:
+# clicking a face away from any edge rubs out that face and leaves its edges
+# standing.  SketchUp's own help says "The Eraser tool doesn't allow you to
+# erase faces" and puts it on right-click > Erase instead; Tony wants it on
+# the eraser, so it stays.
+#
+# What to look for: hsk-fne-facegone still has every edge of the box, with
+# the top open - a wireframe lid rather than a missing one.
+key escape
+key e
+wait 400
+at 800 300
+wait 900
+click l
+wait 1200
+key escape
+wait 600
+shot /tmp/hsk-fne-facegone.png

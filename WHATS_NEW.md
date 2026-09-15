@@ -14,6 +14,13 @@
 
 ### Fixed
 
+- **A line drawn along an edge already there now divides the face.**  Close a
+  strip off along the bottom of a wall and the strip is its own area, which
+  you can push out as a floor.  It used to come out as one loop with the
+  divider traced up one side and down the other - no area cut off, and
+  nothing to push.  Two identical edges written the opposite way round were
+  not being welded into one.
+
 - **A face needs the edges that enclose it.**  Rub out an edge of a box and
   the sides that were standing on it go with it, the way SketchUp has always
   done it - "faces are erased when you erase their bounding edges".  Loose

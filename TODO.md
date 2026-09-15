@@ -1160,6 +1160,59 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### One edge written backwards, and a wall that would not divide - 15 September 2026
+
+Tony: "so once again we closed in the a rectangle... i am unable to pull it
+out as a floor because it didnt cut it into its own face in that long narrow
+rectangle!"
+
+A one-line logic fault in `uRegion`, and the best kind: found by reducing his
+drawing to nine segments and running them headlessly.
+
+The strip he closed off was bounded by four edges - two of the wall's own,
+one line drawn across, and one drawn **along** the wall's existing edge,
+because that is where the strip's bottom is.  Split at the crossings, that
+last one becomes a piece identical to a piece of the edge it was drawn along,
+and identical edges have to be welded into one.
+
+`EdgeSeen` found its hash bucket from the pair **in order** - so both ways
+round landed in the same bucket, which is right - and then compared against
+`EA`/`EB` as **stored**, which keep the direction the edge arrived in.  An
+edge put in as 5-2 was never recognised when it came back as 2-5.  The
+duplicate went in.
+
+Two parallel edges between one pair of corners are two more darts than the
+face walk expects, so it goes out along one and back along the other: a slit.
+His wall came out as a single eleven-point loop of 797 sq ft with the divider
+traced up one side and down the other, instead of a band of 750 and a strip
+of 47.5.  Nothing to push, and no way to see why.
+
+**Worth remembering as a shape of bug**: a hash whose *bucket* is computed
+from a normalised key and whose *comparison* is against the raw one.  The
+bucket makes it look right - the two do collide, so the code path is
+exercised - and the answer is wrong only for the half of the cases where the
+raw form differs.  Grep for others: anywhere a key is sorted or canonicalised
+on the way into a hash, check what the equality test uses.
+
+Reduced into `tests/regiontest.pas` as TestDividerAlongAnEdge, which also
+asserts that no loop doubles back on itself - the slit's signature, and a
+cheaper thing to check than the areas.
+
+### The eraser and faces, checked against the live page
+
+Tony: "yes the eraser does allow you to erase faces in SketchUp and we do
+want that just to be clear... you need to always be verifying how SketchUp
+does something when we are uncertain."
+
+Fetched it rather than relying on the note.  SketchUp's help still says "The
+Eraser tool doesn't allow you to erase faces", and puts erasing one on the
+Erase context command.  So the first half is not what their help says - but
+the second half is what decides it, and we already differ on purpose: our
+eraser deletes a bare face when the cursor is over one and not over an edge,
+and that is staying.  The difference is written down in
+`docs/sketchup/04-erasing-and-undoing.md` with the date it was last checked,
+so neither side of it is half-remembered next time.
+
 ### A face is not a thing, it is what edges enclose - 15 September 2026
 
 Tony: "in SketchUp I don't think you can even have a filled face unless it is

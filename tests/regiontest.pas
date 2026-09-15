@@ -396,6 +396,66 @@ begin
   EqF(AreaOfLargest(R), 60, 'and the shape is the right size');
 end;
 
+{ A divider drawn along an edge the shape already has.
+
+  Tony, 15 September, on a wall he had closed a strip off on: "so once again
+  we closed in the a rectangle... i am unable to pull it out as a floor
+  because it didnt cut it into its own face in that long narrow rectangle!"
+
+  The strip was closed by four edges - two of the wall's own, one line he
+  drew across, and one he drew along the wall's existing edge because that
+  is where the strip's bottom is.  That last one is the whole of it: split at
+  the crossings it becomes a piece identical to a piece of the edge it was
+  drawn along, and identical edges have to be welded into one.  They were
+  not, if the two arrived written the opposite way round - the hash bucket
+  was found from the pair in order but the comparison was against the pair as
+  stored, so 5-2 was never recognised as 2-5.
+
+  Two parallel edges between one pair of corners are two darts more than the
+  walk expects, and it goes out along one and back along the other: a slit.
+  The strip and the band below it came out as a single loop with the divider
+  traced up one side and down the other, no area cut off, and nothing to
+  push. }
+procedure TestDividerAlongAnEdge;
+var
+  R: TRegionArray;
+  I, NStrip, NBand, NTop: Integer;
+  A: Double;
+begin
+  Say('a strip closed off with a line drawn along an edge already there');
+  Clear;
+  { the wall: 75 wide, 25 high, with a step in it at 10 }
+  Seg(P3(0, 0, 0), P3(75, 0, 0));
+  Seg(P3(0, 0, 0), P3(0, 10, 0));
+  Seg(P3(75, 0, 0), P3(75, 10, 0));
+  Seg(P3(75, 10, 0), P3(0, 10, 0));
+  Seg(P3(0, 10, 0), P3(0, 25, 0));
+  Seg(P3(37.5, 10, 0), P3(37.5, 25, 0));
+  Seg(P3(37.5, 25, 0), P3(0, 25, 0));
+  { and the strip closed in: one line along the edge at 10, one across at 12 }
+  Seg(P3(0, 10, 0), P3(37.5, 10, 0));
+  Seg(P3(0, 12, 0), P3(37.5, 12, 0));
+  R := Built;
+  EqI(Length(R), 3, 'the band, the strip and the top are three areas');
+
+  NBand := 0; NStrip := 0; NTop := 0;
+  for I := 0 to High(R) do
+  begin
+    A := Abs(LoopArea(R[I].Outer, R[I].Normal));
+    if Abs(A - 750) < 1E-6 then Inc(NBand);
+    if Abs(A - 75) < 1E-6 then Inc(NStrip);
+    if Abs(A - 487.5) < 1E-6 then Inc(NTop);
+  end;
+  EqI(NBand, 1, 'the band below is 75 by 10');
+  EqI(NStrip, 1, 'the strip is its own area, 37.5 by 2 - which is the point');
+  EqI(NTop, 1, 'and the top is what is left');
+
+  for I := 0 to High(R) do
+    Ok(Length(R[I].Outer) <= 5,
+      Format('no loop doubles back on itself (%d points)',
+        [Length(R[I].Outer)]));
+end;
+
 procedure TestSplitCounts;
 var
   Cut: TSegArray;
@@ -752,6 +812,7 @@ begin
   TestCutMadeOfTwoLines; WriteLn;
   TestDuplicateEdge;    WriteLn;
   TestOverlappingEdge;  WriteLn;
+  TestDividerAlongAnEdge; WriteLn;
   TestRing;             WriteLn;
   TestToleranceWeld;    WriteLn;
   TestLShape;           WriteLn;

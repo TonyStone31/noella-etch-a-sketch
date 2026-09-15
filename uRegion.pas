@@ -846,15 +846,38 @@ var
   end;
 
   { Has this pair of vertices already been joined?  Records it if not. }
+  { Has this edge been taken already, whichever way round it is written?
+
+    The bucket is found from the pair in order, so both ways round land in
+    the same one - but what is stored in EA and EB is the edge as it arrived,
+    and the comparison used to be against the ordered pair only.  So an edge
+    put in as 5-2 was never recognised when it came back as 2-5, and the
+    duplicate went in.
+
+    Two parallel edges between the same pair of corners are two more darts
+    than the walk expects, and the walk then goes out along one and back
+    along the other: a slit.  That is what a face divided by a line drawn
+    along an edge it already has came out as - one loop with the divider
+    traced up one side and down the other, no area cut off, and nothing to
+    push.  Tony, 15 September: "so once again we closed in the a rectangle...
+    i am unable to pull it out as a floor because it didnt cut it into its
+    own face in that long narrow rectangle!"
+
+    Both ways round, then.  The direction EA and EB keep is the direction the
+    edge was drawn in, and the dart builder wants that, so it stays. }
   function EdgeSeen(A, B: Integer): Boolean;
   var
-    H, K, T: Integer;
+    H, K, T, W: Integer;
   begin
     if A > B then begin T := A; A := B; B := T; end;
     H := ((A * 92837111) xor (B * 689287499)) and HashMask;
     if H < 0 then H := -H and HashMask;
     for K := 0 to High(EBucket[H]) do
-      if (EA[EBucket[H][K]] = A) and (EB[EBucket[H][K]] = B) then Exit(True);
+    begin
+      W := EBucket[H][K];
+      if ((EA[W] = A) and (EB[W] = B)) or
+         ((EA[W] = B) and (EB[W] = A)) then Exit(True);
+    end;
     SetLength(EBucket[H], Length(EBucket[H]) + 1);
     EBucket[H][High(EBucket[H])] := NE;
     Result := False;
