@@ -1,0 +1,55 @@
+# Push/pull's stipple has to stop at the window in the face.
+#
+# Tony, 15 September, building the toy's case: "using the push/pull tool and
+# when i am hovering over the outer ring face it highlights the face
+# including the smaller rectangle face inside!  it should only be
+# highlighting as much of the face as it can see!"
+#
+# A rectangle drawn inside another leaves a ring - an outline with a window
+# in it.  The push itself has always known that, and so has the area readout
+# and the eraser's wash; only push/pull's hover said otherwise, because it
+# was clipping the dots to the outline and never asking about the holes.
+#
+# What to look for: hsk-ring-hover has the stipple on the border only, with
+# the inner rectangle clean and a bold edge round both loops, and the face
+# reading in the top right saying the area of the ring rather than the whole
+# rectangle.  hsk-ring-inner is the same tool over the middle, where the
+# inner face gets the stipple and the border stays clean.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+wait 600
+
+key r
+wait 300
+at 450 350
+click l
+wait 300
+at 1150 700
+click l
+wait 900
+
+key escape
+key r
+wait 300
+at 560 420
+click l
+wait 300
+at 1040 630
+click l
+wait 900
+shot /tmp/hsk-ring-drawn.png
+
+key escape
+key p
+wait 400
+# out on the border, between the two outlines
+at 1120 566
+wait 900
+shot /tmp/hsk-ring-hover.png
+# and in the middle, which is the other face
+at 820 490
+wait 900
+shot /tmp/hsk-ring-inner.png

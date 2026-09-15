@@ -401,6 +401,13 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { /detach: a move takes what is selected away on its own instead of
+      stretching what it is joined to.  Tony asked for both ways; the
+      stretching one is what SketchUp does and stays what you get by
+      default.  It is a command rather than a held key because a move has
+      no key left - Ctrl leaves a copy, Shift holds the axis, Alt holds the
+      working plane, and every letter is a tool. }
+    FDetachMove: Boolean;
     FLastPush: Double;         // what a double-click repeats
     { The tape measure lays down a guide by default, the way SketchUp's does;
       Ctrl turns that off and it only measures. }
@@ -1196,7 +1203,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The aliases all
     still work; they are in the README. }
-  CMD_LIST: array[0..67] of TCmdItem = (
+  CMD_LIST: array[0..68] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1209,6 +1216,8 @@ const
                          Eg:   '/cube tr'),
     (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True;
                          Eg:   '/cut 0 9'''),
+    (Name: 'detach';     Hint: 'move a line away on its own: on, off';  Arg: False;
+                         Eg:   '/detach on'),
     (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False),
     (Name: 'drill';      Hint: 'push a shape right through';            Arg: False),
     (Name: 'erase';      Hint: 'the eraser';                            Arg: False),
@@ -2947,17 +2956,72 @@ end;
   same colors the rubber band picks up when you lock onto one. }
 { SketchUp stipples the face under the cursor so you can see there is
   something to grab before committing to it.  Same idea: a field of dots
-  clipped to the polygon, and a bold outline. }
+  clipped to the polygon, and a bold outline.
+
+  Clipped to the face, which is not the same thing as clipped to its outline,
+  and this got that wrong for as long as it existed.
+
+  Tony, 15 September, building the toy's case: "using the push/pull tool and
+  when i am hovering over the outer ring face it highlights the face
+  including the smaller rectangle face inside!  it should only be
+  highlighting as much of the face as it can see!"  A rectangle drawn inside
+  another leaves a ring - an outline with a window in it - and the window
+  belongs to the face inside, not to this one.  The push itself has always
+  known that; only the picture said otherwise.
+
+  The second half of what he said is the other rule: a dot goes down only
+  where the face is really in front, asked of the depth buffer the render
+  left behind.  Otherwise the wash spills over whatever stands between the
+  eye and the face, and the picture says that is coming up too.
+
+  Both rules were already written down and tested twenty lines away in
+  WashFace, where the eraser uses them.  Neither had ever been asked of this
+  one.  That is the third or fourth time the same shape of fault has turned
+  up: a rule learnt in one picker and never carried to its neighbour. }
 procedure TMainForm.PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
 var
   Pts: TPointFArray;
-  I, J, N, X, Y, X0, Y0, X1, Y1, Step: Integer;
+  HPts: array of TPointFArray;
+  Ink: TArtSurface;
+  Look, Nm, AU, AV, O, W: TP3;
+  SO, SU, SV: TPointF;
+  Det, DU, DV, D0, PU, PV, Dp, Zb: Double;
+  Deep: Boolean;
+  I, H, N, X, Y, X0, Y0, X1, Y1, Step: Integer;
   Inside: Boolean;
+
+  { the crossing count, for the outline or for one of its windows }
+  function In2(const P: TPointFArray; PX, PY: Integer): Boolean;
+  var
+    K, L, M: Integer;
+  begin
+    Result := False;
+    M := Length(P);
+    if M < 3 then Exit;
+    L := M - 1;
+    for K := 0 to M - 1 do
+    begin
+      if ((P[K].Y > PY) <> (P[L].Y > PY)) and
+         (PX < (P[L].X - P[K].X) * (PY - P[K].Y) /
+               (P[L].Y - P[K].Y) + P[K].X) then
+        Result := not Result;
+      L := K;
+    end;
+  end;
+
 begin
   if Face < 0 then Exit;
   Pts := FD.Doc.Outline(Proj, Face);
   N := Length(Pts);
   if N < 3 then Exit;
+
+  SetLength(HPts, Length(FD.Doc[Face].Holes));
+  for H := 0 to High(HPts) do
+  begin
+    SetLength(HPts[H], Length(FD.Doc[Face].Holes[H]));
+    for I := 0 to High(HPts[H]) do
+      HPts[H][I] := ScreenOf(FD.Doc[Face].Holes[H][I]);
+  end;
 
   X0 := MaxInt; Y0 := MaxInt; X1 := -MaxInt; Y1 := -MaxInt;
   for I := 0 to N - 1 do
@@ -2968,6 +3032,33 @@ begin
   X0 := Max(X0, 0); Y0 := Max(Y0, 0);
   X1 := Min(X1, pbScreen.Width - 1); Y1 := Min(Y1, pbScreen.Height - 1);
   if (X1 <= X0) or (Y1 <= Y0) then Exit;
+
+  { How deep the face is under any pixel of it.  The view is orthographic and
+    the face is flat, so depth across it is affine in screen coordinates: two
+    of the plane's own directions, projected, give the mapping, and one 2x2
+    inverse turns a pixel back into a point on the face.  That is two
+    multiplies a dot rather than a ray cast. }
+  Ink := ActiveInk;
+  Deep := (Ink <> nil) and Ink.DepthOn and (Length(FD.Doc[Face].Poly) >= 3);
+  Det := 0; D0 := 0; DU := 0; DV := 0;
+  SO := PtF(0, 0); SU := PtF(0, 0); SV := PtF(0, 0);
+  if Deep then
+  begin
+    Look := ViewDir(Proj);
+    Nm := Norm3(FD.Doc.FaceNormal(Face));
+    AxesFromNormal(Nm, AU, AV);
+    O := FD.Doc[Face].Poly[0];
+    SO := ScreenOf(O);
+    W := P3(O.X + AU.X, O.Y + AU.Y, O.Z + AU.Z);
+    SU := ScreenOf(W); SU := PtF(SU.X - SO.X, SU.Y - SO.Y);
+    W := P3(O.X + AV.X, O.Y + AV.Y, O.Z + AV.Z);
+    SV := ScreenOf(W); SV := PtF(SV.X - SO.X, SV.Y - SO.Y);
+    Det := SU.X * SV.Y - SU.Y * SV.X;
+    Deep := Abs(Det) > 1E-6;
+    D0 := Dot3(O, Look);
+    DU := Dot3(AU, Look);
+    DV := Dot3(AV, Look);
+  end;
 
   { A dither, because the canvas has no alpha channel and a tint has to be
     made out of gaps.  Every other pixel reads as a solid wash at a glance,
@@ -2980,17 +3071,24 @@ begin
     X := X0 - (X0 mod Step);
     while X <= X1 do
     begin
-      Inside := False;
-      J := N - 1;
-      for I := 0 to N - 1 do
+      Inside := (X >= X0) and (Y >= Y0) and In2(Pts, X, Y);
+      if Inside then
+        for H := 0 to High(HPts) do
+          if In2(HPts[H], X, Y) then
+          begin
+            Inside := False;
+            Break;
+          end;
+      if Inside and Deep then
       begin
-        if ((Pts[I].Y > Y) <> (Pts[J].Y > Y)) and
-           (X < (Pts[J].X - Pts[I].X) * (Y - Pts[I].Y) /
-                (Pts[J].Y - Pts[I].Y) + Pts[I].X) then
-          Inside := not Inside;
-        J := I;
+        PU := ((X - SO.X) * SV.Y - (Y - SO.Y) * SV.X) / Det;
+        PV := (SU.X * (Y - SO.Y) - SU.Y * (X - SO.X)) / Det;
+        Dp := D0 + PU * DU + PV * DV;
+        Zb := Ink.DepthAt(X, Y);
+        if (Zb > -1E29) and (Zb > Dp + 1E-3 * (1 + Abs(Dp))) then
+          Inside := False;
       end;
-      if Inside and (X >= X0) and (Y >= Y0) then
+      if Inside then
         C.Pixels[X, Y] := PixToColor(Col);
       Inc(X, Step);
     end;
@@ -3003,6 +3101,14 @@ begin
   C.MoveTo(Round(Pts[N - 1].X), Round(Pts[N - 1].Y));
   for I := 0 to N - 1 do
     C.LineTo(Round(Pts[I].X), Round(Pts[I].Y));
+  { the windows get the same bold edge, so a ring reads as a ring }
+  for H := 0 to High(HPts) do
+    if Length(HPts[H]) >= 3 then
+    begin
+      C.MoveTo(Round(HPts[H][High(HPts[H])].X), Round(HPts[H][High(HPts[H])].Y));
+      for I := 0 to High(HPts[H]) do
+        C.LineTo(Round(HPts[H][I].X), Round(HPts[H][I].Y));
+    end;
   C.Pen.Width := 1;
 end;
 
@@ -10608,6 +10714,9 @@ begin
         Result := 'grab a point on what you are moving'
       else if FMoveCopy then
         Result := 'where does the copy go?  a length, [x,y,z] or <x,y,z>'
+      else if FDetachMove then
+        Result := 'where does it go, on its own?  a length, [x,y,z] or ' +
+          '<x,y,z> - /detach off to join it back on'
       else
         Result := 'where does it go?  a length, [x,y,z] or <x,y,z>';
     ptErase:
@@ -11323,7 +11432,7 @@ begin
         RecomposeAll;
         SetLength(FMoveVerts, 0);
         FMoveCopy := False;
-        ResetTool;
+              ResetTool;
         FInput := '';
       end;
 
@@ -11540,6 +11649,18 @@ begin
             FD.Doc.TranslateEnts(FSel, T);
             FCmdMsg := 'Placed.';
           end
+          else if FDetachMove then
+          begin
+            { Alt: take it away on its own and leave what it was joined to
+              where it is.  SketchUp has no such thing - it always stretches -
+              but Tony asked for both and there is a reason to want it: a
+              line drawn as a guide to something else should not drag the
+              something else along when it goes. }
+            FD.Doc.TranslateEnts(FSel, T);
+            FCmdMsg := 'Moved ' + FormatLen(
+              Sqrt(Sqr(T.X) + Sqr(T.Y) + Sqr(T.Z)), FD.Units) +
+              '   (on its own - nothing stretched to follow)';
+          end
           else
           begin
             { every corner that sits where a moving one sat travels too, so
@@ -11568,7 +11689,7 @@ begin
         end;
         SetLength(FMoveVerts, 0);
         FMoveCopy := False;
-        WasRigid := FMoveRigid;
+              WasRigid := FMoveRigid;
         ResetTool;
         FInput := '';
         { A built part placed is done with: it is let go of and the select
@@ -12058,6 +12179,26 @@ begin
     script or a shortcut; tl, tr, bl and br move it to a corner; and
     "fitselection" decides whether a click brings what is picked into the
     middle and sizes it on the way round. }
+  { Moving one side of a rectangle stretches the two it joins, which is what
+    SketchUp does and what anybody drawing expects.  Tony wanted the other
+    way as well - take the line away and leave the rest where it is - and a
+    move has no key left to hold for it: Ctrl leaves a copy, Shift holds the
+    axis, Alt holds the working plane, and every letter is a tool.  So it is
+    a setting, and it says so loudly while it is on: the ghost goes amber,
+    the hint line says "on its own", and so does the message after. }
+  else if (W = 'detach') or (W = 'loose') then
+  begin
+    if Rest = 'on' then FDetachMove := True
+    else if Rest = 'off' then FDetachMove := False
+    else FDetachMove := not FDetachMove;
+    if FDetachMove then
+      FCmdMsg := 'A move takes what is picked away on its own now.  ' +
+        'Nothing it is joined to will stretch to follow.  /detach off puts ' +
+        'that back.'
+    else
+      FCmdMsg := 'A move stretches what it is joined to again, which is how ' +
+        'SketchUp does it.';
+  end
   else if (W = 'cube') or (W = 'viewcube') then
   begin
     FCubeHasHot := False;
@@ -14682,14 +14823,43 @@ var
   Lo, Hi3: TP3;
   Crate: array[0..7] of TP3;
   CS: array[0..7] of TPointF;
-  PA, PB: TPointF;
+  PA, PB, SA, SB: TPointF;
+  Lean: TP3Array;
 begin
   if (FTool <> ptMove) or (FStage <> 1) then Exit;
   D := MoveDelta;
 
+  { What comes with it.  A corner sitting where a moving corner sits moves
+    too, so the edges joined on stretch to follow - which is what the click
+    has always done and what the picture never said.
+
+    Tony, 15 September, moving one side of a rectangle drawn inside another:
+    "the issue is that line of the smaller inner rectangle is not staying
+    snapped".  It was; the ghost showed the side flying off alone and said
+    nothing about the two sides leaning over after it, so the tool read as
+    tearing the rectangle open.  Drawn first and thin, so the thing actually
+    being moved still reads as the thing being moved. }
+  if not (FMoveRigid or FMoveCopy or FDetachMove) and (Length(FMoveVerts) > 0) then
+  begin
+    FD.Doc.StretchPreview(FMoveVerts, D, FSel, Lean);
+    C.Pen.Style := psSolid;
+    C.Pen.Width := 1;
+    C.Pen.Color := PixToColor(Pix(150, 185, 245));
+    I := 0;
+    while I + 1 <= High(Lean) do
+    begin
+      SA := ScreenOf(Lean[I]);
+      SB := ScreenOf(Lean[I + 1]);
+      C.MoveTo(Round(SA.X), Round(SA.Y));
+      C.LineTo(Round(SB.X), Round(SB.Y));
+      Inc(I, 2);
+    end;
+  end;
+
   C.Pen.Style := psSolid;
   C.Pen.Width := Max(2, Round(2 * FUIScale));
   if FMoveCopy then C.Pen.Color := PixToColor(Pix(60, 180, 110))
+  else if FDetachMove then C.Pen.Color := PixToColor(Pix(235, 150, 40))
   else C.Pen.Color := PixToColor(Pix(70, 130, 240));
   { the projection is affine, so one world offset is one screen offset for
     every point in the drawing - worked out once, then applied }
@@ -14869,6 +15039,7 @@ begin
   begin
     C.Pen.Style := psSolid;
     if FMoveCopy then C.Pen.Color := PixToColor(Pix(60, 180, 110))
+    else if FDetachMove then C.Pen.Color := PixToColor(Pix(235, 150, 40))
     else C.Pen.Color := PixToColor(Pix(70, 130, 240));
     for I := 0 to High(FSel) do
     begin

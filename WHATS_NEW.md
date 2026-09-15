@@ -23,7 +23,22 @@
   corner and there was nothing to rub out but the whole of it.  Solids,
   guides and dimensions take no part - only loose drawing is cut.
 
+- **A move shows what is coming with it.**  Move one side of a rectangle and
+  the two sides it joins stretch to follow - which has always happened, and
+  which the ghost never showed, so it looked like the side was tearing away
+  on its own.  Those edges are now drawn leaning over to where they are
+  going while the mouse is still down.
+
+- **`/detach on` moves a line away on its own.**  The other way round:
+  nothing stretches to follow and everything else stays where it is.  The
+  ghost turns amber to say so.  `/detach off` puts it back.
+
 ### Fixed
+
+- **Push/pull stipples only the part of the face that is there.**  A
+  rectangle drawn inside another leaves a ring, and pointing at the ring lit
+  up the whole rectangle, window and all.  It now stops at the window, and at
+  anything standing in front of the face.
 
 - **The tape measure takes the middle of an edge it is on.**  Hovering the
   middle of a side of a face offers the midpoint, the way it does on a drawn

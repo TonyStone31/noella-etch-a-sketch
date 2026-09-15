@@ -1,0 +1,88 @@
+# Moving one side of a rectangle that sits inside another.
+#
+# Tony, 15 September: "trying to move this line up the face more so it can
+# make room for the toys knobs and the issue is that line of the smaller
+# inner rectangle is not staying snapped... sketchup doesnt seem to detach it
+# and move it and look how when we detach it the length of it looks like it
+# makes it to the outer edges of its bigger parent rectangle"
+#
+# What to look for: hsk-move-grab has the one side lit and nothing else;
+# hsk-move-drag is the halfway picture, where the two sides it joins should
+# be leaning over to follow rather than the side floating free; hsk-move-done
+# is after the click - the inner rectangle should be a rectangle still, one
+# side shorter, and that side the same length it started.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+wait 600
+
+key r
+wait 300
+at 450 350
+click l
+wait 300
+at 1150 700
+click l
+wait 900
+
+key escape
+key r
+wait 300
+at 560 420
+click l
+wait 300
+at 1040 630
+click l
+wait 900
+
+# into the corner view, where he was
+key escape
+key slash
+type iso
+key return
+wait 1500
+
+key escape
+key m
+wait 400
+# the middle of one side of the inner rectangle
+at 724 464
+wait 700
+shot /tmp/hsk-move-grab.png
+click l
+wait 500
+at 768 420
+wait 700
+shot /tmp/hsk-move-drag.png
+click l
+wait 900
+shot /tmp/hsk-move-done.png
+
+# and the other way: /detach on, after which a move takes the side away on
+# its own and leaves the two it was joined to where they are.  SketchUp has
+# no such thing; Tony asked for both.  hsk-move-loose is the ghost, which
+# should be amber with no leaning edges behind it, and hsk-move-alone is
+# after the click - the inner rectangle left open and the side loose in it.
+key escape
+hold ctrl
+key z
+let ctrl
+wait 700
+key slash
+type detach on
+key return
+wait 700
+key m
+wait 400
+at 724 464
+wait 500
+click l
+wait 400
+at 768 420
+wait 800
+shot /tmp/hsk-move-loose.png
+click l
+wait 900
+shot /tmp/hsk-move-alone.png

@@ -1160,6 +1160,51 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### Two more of the same fault, both found in one hour - 15 September 2026
+
+The rule that a picker learns and its neighbour never does, twice more, and
+this time neither was in a picker: both were in what the picture said.
+
+**Push/pull's stipple did not know about holes, or about what is in front.**
+Tony: "using the push/pull tool and when i am hovering over the outer ring
+face it highlights the face including the smaller rectangle face inside!  it
+should only be highlighting as much of the face as it can see!"
+
+He is right twice over.  A rectangle drawn inside another leaves a ring - an
+outline with a window in it - and the window belongs to the face inside.
+Everything else already knew: `PushPull` lines the opening, `FaceArea`
+subtracts it, and `WashFace`, the eraser's wash, clips its hatch to the
+outline *and* the holes *and* the depth buffer.  `PaintFaceHint`, twenty
+lines away, did none of the three.  It now does all of them, the depth taken
+affinely across the face - the view is orthographic and the face is flat, so
+two multiplies a dot instead of a ray cast.
+
+**The move ghost lied about what was coming with it.**  Tony, straight
+after: "trying to move this line up the face more... the issue is that line
+of the smaller inner rectangle is not staying snapped".
+
+It *was* staying snapped.  `MoveVerts` moves every corner that sits where a
+moving corner sits, so the two sides shrink to follow, and the committed
+geometry was right the whole time - a headless check of the exact case
+proves it.  What was wrong was the ghost: it drew the selection translated
+and nothing else, so the side appeared to sail off alone and the rectangle
+appeared to be tearing open.  `StretchPreview` works the leaning edges out
+the same way the move does, and they are drawn thin behind the ghost.
+
+**Worth noticing**: both reports were of a fault in the *picture*, and in
+both cases the geometry underneath was already correct.  A drawing program
+is what it shows.  The audit below asks five questions of each picker; there
+is a sixth for anything that paints a hint, and it is the same list -
+can it see it, what does it stop at, what does it say it will do - asked of
+the paint rather than the pick.
+
+**The move now has two ways, which Tony asked for.**  The stretching one is
+SketchUp's and is what happens by default; `/detach on` takes what is picked
+away on its own.  It is a command and not a held key because a move has no
+key left: Ctrl leaves a copy, Shift holds the axis, Alt holds the working
+plane, and every letter is a tool shortcut.  Worth revisiting if a modifier
+ever frees up - a held key is the better shape for it.
+
 ### The frame, measured rather than guessed - 15 September 2026
 
 Tony: "the display and moving has gotten really poor performing... in the

@@ -418,6 +418,13 @@ type
       Geometry joined to what moves comes along, which is what makes moving
       one edge of a shape stretch the rest of it. }
     procedure MoveVerts(const Pts: TP3Array; const D: TP3);
+    { What else will stretch when those corners move D: for every edge that
+      is not itself moving but has an end where one of them is, the pair of
+      points it will run between afterwards.  The move has always dragged
+      these along; this is so the picture can say so while the mouse is
+      still down. }
+    procedure StretchPreview(const Pts: TP3Array; const D: TP3;
+      const Skip: array of Integer; out Segs: TP3Array);
     { Every stored point at or past the plane through Base facing Dir.  What
       a dimension pushes when it is given a new length. }
     procedure VertsBeyond(const Base, Dir: TP3; out Pts: TP3Array);
@@ -5228,6 +5235,71 @@ begin
       Put(FEnts[I].Poly[K]);
   end;
   SetLength(Pts, N);
+end;
+
+{ The edges that lean over to follow a move, worked out the same way the
+  move itself works them out: a corner that sits where a moving corner sits
+  is a moving corner.
+
+  Tony, 15 September, moving one side of a rectangle drawn inside another:
+  "the issue is that line of the smaller inner rectangle is not staying
+  snapped".  It was staying snapped - the two sides it joins shrank to
+  follow, which is what SketchUp does and what MoveVerts has always done.
+  What did not stay snapped was the picture: the ghost showed the one side
+  flying off on its own and said nothing about the two that were coming with
+  it, so the tool looked like it was tearing the rectangle open. }
+procedure TWorkDoc.StretchPreview(const Pts: TP3Array; const D: TP3;
+  const Skip: array of Integer; out Segs: TP3Array);
+const
+  TOL = 1E-7;
+var
+  Moving: TPointSet;
+  I, J, N: Integer;
+  Held, MA, MB: Boolean;
+  A, B: TP3;
+
+  function Shifted(const P: TP3; out Moved: Boolean): TP3;
+  begin
+    Moved := Moving.Has(P, TOL);
+    if Moved then
+      Result := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z)
+    else
+      Result := P;
+  end;
+
+begin
+  Segs := nil;
+  N := 0;
+  if Length(Pts) = 0 then Exit;
+  Moving := TPointSet.Create(Pts);
+  try
+    for I := 0 to FLive - 1 do
+    begin
+      if not (FEnts[I].Kind in [ekLine, ekGuide]) then Continue;
+      if FEnts[I].Dim then Continue;
+      Held := False;
+      for J := 0 to High(Skip) do
+        if Skip[J] = I then
+        begin
+          Held := True;
+          Break;
+        end;
+      if Held then Continue;
+      A := Shifted(FEnts[I].A, MA);
+      B := Shifted(FEnts[I].B, MB);
+      { one end moving and one staying is a stretch, and that is the whole
+        of what wants showing.  Both ends moving means the edge travels
+        whole - the ghost of the selection already draws that - and neither
+        means it is not in this at all. }
+      if MA = MB then Continue;
+      if N + 2 > Length(Segs) then SetLength(Segs, Max(16, (N + 2) * 2));
+      Segs[N] := A; Segs[N + 1] := B;
+      Inc(N, 2);
+    end;
+  finally
+    Moving.Free;
+  end;
+  SetLength(Segs, N);
 end;
 
 procedure TWorkDoc.MoveVerts(const Pts: TP3Array; const D: TP3);

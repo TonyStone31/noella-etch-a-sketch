@@ -1068,6 +1068,93 @@ end;
   can go and the quarter across the corner can stay.  Before this the sides
   were still whole lines corner to corner and the circle was still one closed
   loop, and there was nothing to rub out but all of it. }
+{ Moving one side of a rectangle keeps the rectangle, and the picture has to
+  say so while the mouse is still down.
+
+  Tony, 15 September, on a rectangle drawn inside another: "the issue is that
+  line of the smaller inner rectangle is not staying snapped... sketchup
+  doesnt seem to detach it and move it".  It was staying snapped - the two
+  sides it joins shrink to follow.  What was missing was any sign of that in
+  the ghost, which drew the one side sailing off alone. }
+procedure TestMoveStretchesWhatItJoins;
+var
+  D: TWorkDoc;
+  Segs: TP3Array;
+  Pts: TP3Array;
+  I, NLine: Integer;
+
+  procedure Rect4(X0, Y0, X1, Y1: Double);
+  begin
+    D.AddLine(P3(X0, Y0, 0), P3(X1, Y0, 0), clBlack, 1, False);
+    D.AddLine(P3(X1, Y0, 0), P3(X1, Y1, 0), clBlack, 1, False);
+    D.AddLine(P3(X1, Y1, 0), P3(X0, Y1, 0), clBlack, 1, False);
+    D.AddLine(P3(X0, Y1, 0), P3(X0, Y0, 0), clBlack, 1, False);
+  end;
+
+  function HasSeg(const P, Q: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    Result := False;
+    J := 0;
+    while J + 1 <= High(Segs) do
+    begin
+      if ((Dist(Segs[J], P) < 1E-6) and (Dist(Segs[J + 1], Q) < 1E-6)) or
+         ((Dist(Segs[J], Q) < 1E-6) and (Dist(Segs[J + 1], P) < 1E-6)) then
+        Exit(True);
+      Inc(J, 2);
+    end;
+  end;
+
+  function HasLine(const P, Q: TP3): Boolean;
+  var
+    J: Integer;
+  begin
+    Result := False;
+    for J := 0 to D.Live - 1 do
+      if D[J].Kind = ekLine then
+        if ((Dist(D[J].A, P) < 1E-6) and (Dist(D[J].B, Q) < 1E-6)) or
+           ((Dist(D[J].A, Q) < 1E-6) and (Dist(D[J].B, P) < 1E-6)) then
+          Exit(True);
+  end;
+
+begin
+  WriteLn('-- moving one side of a rectangle takes the two it joins with it');
+  D := TWorkDoc.Create;
+  try
+    Rect4(0, 0, 20, 12);      { the outer one, nothing to do with this }
+    Rect4(4, 3, 16, 9);       { entity 4 is its bottom side, (4,3)-(16,3) }
+    D.VertsOf([4], Pts);
+    EqI(Length(Pts), 2, 'a side has two corners');
+
+    D.StretchPreview(Pts, P3(0, 2, 0), [4], Segs);
+    EqI(Length(Segs) div 2, 2, 'two edges lean over to follow it');
+    Ok(HasSeg(P3(16, 5, 0), P3(16, 9, 0)), 'the right side shrinks to 4');
+    Ok(HasSeg(P3(4, 9, 0), P3(4, 5, 0)), 'and so does the left');
+    Ok(not HasSeg(P3(0, 0, 0), P3(20, 0, 0)),
+      'the outer rectangle is not in this');
+
+    { and the move itself does what the preview promised }
+    D.MoveVerts(Pts, P3(0, 2, 0));
+    NLine := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then Inc(NLine);
+    EqI(NLine, 8, 'still eight lines - nothing came apart');
+    Ok(HasLine(P3(4, 5, 0), P3(16, 5, 0)), 'the side moved up two');
+    Ok(HasLine(P3(16, 5, 0), P3(16, 9, 0)), 'the right side is 4 long now');
+    Ok(HasLine(P3(4, 9, 0), P3(4, 5, 0)), 'and the left the same');
+    Ok(HasLine(P3(0, 0, 0), P3(20, 0, 0)), 'the outer one never moved');
+
+    { a corner of the outer rectangle is not shared with the inner one, so
+      moving a side of the outer stretches only its own neighbours }
+    D.VertsOf([0], Pts);
+    D.StretchPreview(Pts, P3(0, -3, 0), [0], Segs);
+    EqI(Length(Segs) div 2, 2, 'and the outer side takes two of its own');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -5833,6 +5920,7 @@ begin
   TestExampleRegions;  WriteLn;
   TestSvgIsTrueSize;  WriteLn;
   TestCrossingsBreakEdges;  WriteLn;
+  TestMoveStretchesWhatItJoins;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;
