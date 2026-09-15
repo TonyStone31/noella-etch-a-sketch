@@ -13,9 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.15.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A manual worth opening.**  Two new pages: every one of the sixty-nine' + LineEnding +
+    '  slash commands, grouped by what you are trying to do and with the short' + LineEnding +
+    '  names each answers to; and every key and every drag on one sheet, in both' + LineEnding +
+    '  the drawing program and the toy.  `/manual` opens them.  The first real' + LineEnding +
+    '  screenshots are in too - and they are taken by driving the program itself,' + LineEnding +
+    '  so the rest can follow without anybody posing for them.' + LineEnding +
     '' + LineEnding +
     '- **Edges break where they cross.**  Draw a line, a rectangle, an arc or a' + LineEnding +
     '  circle over something already there and both are cut at the crossing, so' + LineEnding +
@@ -50,6 +57,11 @@ const
     '- **The help pages say how to change the number of sides.**  With the circle' + LineEnding +
     '  or arc tool live, + and - step it, or type 24s.  It was in the program and' + LineEnding +
     '  nowhere in the manual.' + LineEnding +
+    '' + LineEnding +
+    '- **`/new` makes a new sheet.**  It opened the release notes instead: the' + LineEnding +
+    '  branch that answers `/whatsnew` also answered `/new`, and it came first.' + LineEnding +
+    '' + LineEnding +
+    '- **US spellings throughout.**  Color, center, millimeters.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.15.4' + LineEnding +
     '' + LineEnding +
