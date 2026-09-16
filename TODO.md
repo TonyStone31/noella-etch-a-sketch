@@ -1326,6 +1326,50 @@ it was.  It did not show up in this report because he was drawing a
 rectangle, not hovering a face.  Draw it into a surface like the selection
 and the question goes away.
 
+### The borrowed depth buffer, and the crash after an export - 16 September 2026
+
+The freeze fix went out and the very next report came back with the numbers
+proving it worked and an `EAccessViolation` sitting on top of them:
+
+    frames: 119 over 40ms, worst 360ms, last was
+    125ms (paper 30, ink 63, over 0, screen 32)
+
+**Screen 1890 down to 32.**  That part is settled.  The exception was
+something else, and Tony gave the steps: "the exception happened after i
+exported the gif then click in the canvas".
+
+`TWorkDoc.LastSurf` is the last surface the document rendered into.  It is
+kept **borrowed, not owned**, because that surface's depth buffer answers "is
+this point hidden" in one lookup instead of a walk over every face - the
+difference between a hover being free and being the cube of the drawing.
+Borrowing is the right call here.  A borrowed pointer outliving the thing it
+points at is not.
+
+The GIF export makes its **own** surface, at the size it is saving rather
+than the size of the window, renders every frame into it, and frees it.
+`LastSurf` was left pointing into freed memory, and the next question the
+canvas asked - a hover, a snap, the selection outline - read it.
+
+**The fix is not in the export.**  The export could clear `LastSurf` on its
+way out, and that would hold until somebody writes the next exporter and does
+not.  There are already **six** places that make a surface, render into it
+and free it: the animation, the single shot, the print preview, the recorder
+and two contact-sheet paths.  So the surface announces its own death -
+`WatchSurfaceGone` in `uSurface.pas` - and `uWork` registers a watcher that
+nils `LastSurf` on any document that was borrowing it.  Six sites fixed by
+one, and the seventh is fixed before it is written.
+
+The document falls back to walking the faces until the next render, which is
+slow and correct, and the next render borrows again.  A flag, `LastSurfDied`,
+rides along in the report's surfaces line, so if this ever shapes up
+differently the report says it happened.
+
+**The shape of it, which is the one that keeps coming back** (this is the
+seventh): *a rule learnt in one place and never asked of its neighbour*.
+Here the neighbour had not been written yet.  The answer each time has been
+to move the rule to where it cannot be forgotten rather than to remember it
+harder.
+
 ### Four done on 16 September, in the order agreed
 
 **Closing a modified sheet did not ask to save - DONE.**  The guard was

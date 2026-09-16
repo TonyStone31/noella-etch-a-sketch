@@ -14122,12 +14122,18 @@ begin
       each other and with the window.  Cheap to carry, and it turns the next
       report of this into an answer instead of another round of guessing. }
     Format('art=%dx%d/%d paper=%dx%d/%d inkpro=%dx%d/%d inktoy=%dx%d/%d ' +
-      'repairs=%d',
+      'repairs=%d%s',
       [FArt.Width, FArt.Height, FArt.Stride,
        FPaper.Width, FPaper.Height, FPaper.Stride,
        FInkPro.Width, FInkPro.Height, FInkPro.Stride,
        FInkToy.Width, FInkToy.Height, FInkToy.Stride,
-       TArtSurface.Repairs]) + LineEnding +
+       TArtSurface.Repairs,
+       { the depth buffer this document was borrowing has been freed at some
+         point - an export made its own surface and threw it away.  Harmless
+         now, but it was an access violation until 16 September, so a report
+         that mentions it is worth a second look. }
+       specialize IfThen<string>(FD.Doc.LastSurfDied,
+         ' borrowed-depth-was-freed', '')]) + LineEnding +
     { How the frames have been going.  A count of the ones that took longer
       than a fortieth of a second since the program started, the worst of
       them, and the breakdown of the last one - so a report that says it felt

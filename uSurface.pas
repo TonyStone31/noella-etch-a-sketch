@@ -251,7 +251,19 @@ function PtF(X, Y: Single): TPointF; inline;
 var
   OnSurfaceRepair: procedure(const What: string) = nil;
 
+type
+  { Told when a surface is about to be freed, so anybody holding a borrowed
+    pointer to it can let go.  See WatchSurfaceGone. }
+  TSurfaceGoneEvent = procedure(S: TArtSurface);
+
+procedure WatchSurfaceGone(P: TSurfaceGoneEvent);
+
 implementation
+
+var
+  { the watchers registered by WatchSurfaceGone, told when any surface is
+    freed so a borrowed pointer to it can be let go }
+  GGoneWatchers: array of TSurfaceGoneEvent;
 
 const
   { An unlikely thing to be written by accident, and unmistakable in a report. }
@@ -428,11 +440,41 @@ begin
   Allocate(Max(1, AWidth), Max(1, AHeight));
 end;
 
+{ Anybody who kept a pointer to this surface without owning it is told
+  before the memory goes.  See WatchSurfaceGone. }
 destructor TArtSurface.Destroy;
+var
+  I: Integer;
 begin
+  for I := 0 to High(GGoneWatchers) do
+    if Assigned(GGoneWatchers[I]) then GGoneWatchers[I](Self);
   FBitmap.Free;
   FImage.Free;
   inherited Destroy;
+end;
+
+{ A surface is sometimes borrowed rather than owned: TWorkDoc keeps the last
+  one it rendered into, because its depth buffer answers "is this point
+  hidden" in one lookup instead of a walk over every face.  Borrowing is
+  right - copying a depth buffer every frame would cost more than it saves -
+  but a borrowed pointer outlives the thing it points at unless something
+  says otherwise, and on 16 September something did not:
+
+    Tony: "everything seemed to be going great until the exception happened
+    after i exported the gif then click in the canvas i got the exception."
+
+  The GIF export makes its own surface, renders every frame into it, and
+  frees it.  The last of those renders left TWorkDoc.LastSurf pointing into
+  freed memory, and the next question the canvas asked - a hover, a snap, the
+  selection outline - read it.  EAccessViolation.
+
+  So the surface tells its watchers on the way out rather than each of them
+  remembering to clean up after every export, which is the arrangement that
+  breaks the next time somebody adds a third exporter. }
+procedure WatchSurfaceGone(P: TSurfaceGoneEvent);
+begin
+  SetLength(GGoneWatchers, Length(GGoneWatchers) + 1);
+  GGoneWatchers[High(GGoneWatchers)] := P;
 end;
 
 var

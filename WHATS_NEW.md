@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Exporting an animation and then clicking back in the drawing no longer
+  throws an exception.**  An export makes a picture the size it is saving,
+  which is not the size of the window, and the drawing kept using that one to
+  work out what was in front of what long after the export had put it away.
+  The first click afterwards landed on nothing.  Exports of every kind -
+  animations, pictures, print previews, contact sheets - now hand the drawing
+  back to the window as they finish.
+
 ## v2026.09.16.3
 
 ### Fixed

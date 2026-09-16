@@ -1681,6 +1681,73 @@ begin
   end;
 end;
 
+{ A borrowed depth buffer must not outlive the surface it belongs to.
+
+  Tony, 16 September: "everything seemed to be going great until the
+  exception happened after i exported the gif then click in the canvas i got
+  the exception."
+
+  TWorkDoc keeps the last surface it rendered into, because that surface's
+  depth buffer answers "is this point hidden" in one lookup instead of a walk
+  over every face in the drawing.  Borrowing is the right call - copying a
+  depth buffer every frame would cost more than it saves - but the GIF export
+  makes its OWN surface, renders every frame into it, and frees it.  The
+  pointer was left dangling, and the next question the canvas asked read
+  freed memory.
+
+  This is the whole shape of it in nine lines. }
+procedure TestBorrowedSurfaceIsLetGo;
+var
+  D: TWorkDoc;
+  Screen_, Offscreen: TArtSurface;
+  V: TProjector;
+  Loop: TP3Array;
+begin
+  WriteLn('-- a freed surface is not still being asked about');
+  D := TWorkDoc.Create;
+  Screen_ := TArtSurface.Create(200, 200);
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 100; V.OY := 100; V.Ppu := 10;
+    SetLength(Loop, 4);
+    Loop[0] := P3(0, 0, 0); Loop[1] := P3(4, 0, 0);
+    Loop[2] := P3(4, 4, 0); Loop[3] := P3(0, 4, 0);
+    D.AddFace(Loop, clBlack, False);
+
+    D.Render(Screen_, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Ok(D.LastSurf = Screen_, 'the document borrowed the surface it drew into');
+
+    { the export: its own surface, rendered into, then thrown away }
+    Offscreen := TArtSurface.Create(120, 120);
+    D.Render(Offscreen, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Ok(D.LastSurf = Offscreen, 'and then the one the export drew into');
+    Offscreen.Free;
+
+    Ok(D.LastSurf = nil, 'freeing it let the document go of it');
+    Ok(D.LastSurfDied, 'and the document knows why it has nothing');
+
+    { the question the canvas asks straight afterwards.  Before this it read
+      freed memory; now it falls back to walking the faces, which is slow and
+      correct, and the next render puts the fast path back. }
+    Ok(not D.HiddenAt(V, P3(2, 2, 9)),
+      'asking what is hidden does not touch the freed surface');
+
+    D.Render(Screen_, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Ok(D.LastSurf = Screen_, 'and the next render borrows again');
+
+    { and the other way round: the document going first must not leave the
+      surface calling into a freed document }
+    D.Free;
+    D := nil;
+    Screen_.Free;
+    Screen_ := nil;
+    Ok(True, 'a document freed before its surface takes itself off the list');
+  finally
+    Screen_.Free;
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6455,6 +6522,7 @@ begin
   TestGuidePointIsEasyToPick;  WriteLn;
   TestCopyAndPaste;  WriteLn;
   TestFaceUnderRemembersSafely;  WriteLn;
+  TestBorrowedSurfaceIsLetGo;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

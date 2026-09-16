@@ -680,6 +680,9 @@ type
       walking every face was the cube of the drawing on a big part. }
     LastSurf: TArtSurface;
     LastV: TProjector;
+    { True once a borrowed surface has been freed out from under us.  Only
+      there so a report can say it happened; the pointer is nil either way. }
+    LastSurfDied: Boolean;
     { Which faces each line, arc, dimension or note lies in the plane of,
       over the face's own extent.  The render asks this for every such
       thing against every face, every frame; it depends on the geometry
@@ -7461,15 +7464,61 @@ begin
   end;
 end;
 
+{ Every live document, so that a surface being freed can find the ones that
+  borrowed it.  There are never more than a handful - one per sheet. }
+var
+  GDocs: array of TWorkDoc;
+
+procedure NoteDoc(D: TWorkDoc);
+begin
+  SetLength(GDocs, Length(GDocs) + 1);
+  GDocs[High(GDocs)] := D;
+end;
+
+procedure ForgetDoc(D: TWorkDoc);
+var
+  I, J: Integer;
+begin
+  for I := 0 to High(GDocs) do
+    if GDocs[I] = D then
+    begin
+      for J := I to High(GDocs) - 1 do GDocs[J] := GDocs[J + 1];
+      SetLength(GDocs, Length(GDocs) - 1);
+      Exit;
+    end;
+end;
+
+{ A surface is going: any document still pointing at it as the last one it
+  rendered into must let go, or the next "is this hidden" reads freed memory.
+
+  Tony, 16 September: "the exception happened after i exported the gif then
+  click in the canvas".  The GIF export makes its own surface, renders every
+  frame into it and frees it; LastSurf was left pointing into that.  The
+  export could clear it on the way out instead, and that would work until
+  somebody writes a third exporter and does not. }
+procedure SurfaceGone(S: TArtSurface);
+var
+  I: Integer;
+begin
+  for I := 0 to High(GDocs) do
+    if GDocs[I].LastSurf = S then
+    begin
+      GDocs[I].LastSurf := nil;
+      GDocs[I].LastSurfDied := True;
+    end;
+end;
+
 constructor TWorkDoc.Create;
 begin
   inherited Create;
   Threads := DefaultThreads;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+  NoteDoc(Self);
 end;
 
 destructor TWorkDoc.Destroy;
 begin
+  ForgetDoc(Self);
   { a worker still running would queue a call into a freed object }
   if FOnFaceWorker <> nil then
   begin
@@ -10818,5 +10867,11 @@ begin
   LastSurf := S;
   LastV := V;
 end;
+
+
+initialization
+  { see SurfaceGone: a borrowed depth buffer must not outlive the surface it
+    belongs to }
+  WatchSurfaceGone(@SurfaceGone);
 
 end.
