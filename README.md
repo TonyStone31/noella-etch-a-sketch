@@ -82,19 +82,10 @@ The manual covers all of this properly.  The short version:
 
 ### The shop tools
 
-The part a general program doesn't have.  All under **SHOP**:
-
-* **Build a fitting** - transitions, elbows (including from field
-  measurements) and tees, with an end type on each end: raw, notched, flange
-  in or out, TDF, slip and drive.  It builds the 3D part and a ticket you can
-  email to the office.
-  [Fittings](https://tonystone31.github.io/noella-etch-a-sketch/fittings.html)
-* **Fitter's scratchpad** - a pipe spool drawn on iso paper, with cut lengths
-  worked out and elbow take-outs already subtracted.
-  [Spool](https://tonystone31.github.io/noella-etch-a-sketch/spool.html)
-* **Lay a piece out flat** - unfold sheet metal into a cut pattern with fold
-  lines and a DXF for the table.
-  [Unfold](https://tonystone31.github.io/noella-etch-a-sketch/unfold.html)
+The **SHOP** menu holds a few tools built for my own work in HVAC - duct
+fittings, pipe spools and sheet metal flat patterns.  They're specific to my
+trade, so they're kept out of the way; the rest of the program doesn't need
+them.  The manual covers them if you're curious.
 
 ## Installing
 
