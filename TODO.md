@@ -1160,6 +1160,50 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### The tape's third stage, which was two bugs wearing one coat - 15 September 2026
+
+Tony: "yeah look at all the weird shit that keeps happening.... the tape
+measure leaving phantom lines after a while... switching to the select tool
+and selecting something seems to clear it.  the stupid dimension appearing
+with using a tape measure tool  very buggy bull shit.  hopefully you can
+track the last 30 things i did in this bug report and find some issues."
+
+The session log did it, and the two complaints were one cause.
+
+The tape had three stages.  The second click laid the guide and moved it to
+stage 2, where it **stayed**.  Two things followed:
+
+* The painter drew `Rubber(FP1, FP2)` at stage 2 as well as the live band at
+  stage 1, so the run it had just measured stayed on the screen, attached to
+  nothing, until something took the tool away.  **That is the phantom line,
+  and it is why switching to Select cleared it.**
+* `ProCommit` at stage 2 called `AddDim`.  `ProCommit` is reached from Enter
+  *and from Space* - and Space everywhere else in this program means "done".
+  So finishing a measurement and pressing the key that means finish dropped a
+  dimension.  The log's last line is exactly that: `commit MEASURE stage=2`.
+
+The hint line did say "Enter keeps this as a dimension", so it was not
+undocumented - it was a waiting stage with a destructive key on it, which is
+the same shape as the right-click menu note about a destructive row arriving
+under a hand aiming at a harmless one.  A tool that has finished should be
+finished.
+
+Now the second point ends the tape, and keeping a run is `/keep`.  A command
+cannot arrive by accident, and the list shows it to anybody looking.
+
+**The general lesson, and the test that goes with it:** a tool stage that
+nothing forces you to leave will eventually receive a keypress meant for
+something else.  The question to ask of a stage is *does it track the
+cursor?*  One that does is live - what Enter commits is what you can see, and
+that is every drawing tool.  One that does not is waiting, and a waiting
+stage with a destructive key on it is a trap.
+
+**Checked the other stage-2s while this was fresh**, and the tape was the
+only one: `PaintDimPreview` reads the live mouse through `DimOffset3`,
+`PaintRevolvePreview` reads `FCur`, and rotate and the protractor both swing
+with the cursor.  All live, all fine.  Nothing else to fix - worth writing
+down so the next person does not have to look again.
+
 ### The guides, read against their help rather than remembered - 15 September 2026
 
 Tony: "yeah read the docs so we can behave almost identical to sketchup

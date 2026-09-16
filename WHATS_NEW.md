@@ -14,6 +14,13 @@
 
 ### Fixed
 
+- **The tape measure finishes when it has measured.**  It used to sit waiting
+  afterwards, drawing the run it had just taken until something else took the
+  tool away - and a press of Enter, or of Space which everywhere else means
+  "done", would land on that waiting tool and turn the run into a dimension
+  minutes later.  Both were the same thing.  To keep a run, `/keep` writes
+  the last one on the drawing as a dimension.
+
 - **Undo puts a face's openings back.**  Move something with windows in it -
   the block letters of the title, say - and undo put the outlines back and
   left the windows where they had been dragged to.  The undo snapshot was

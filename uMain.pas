@@ -401,6 +401,12 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { The last run the tape measured, kept after the tool has let go of it so
+      that /keep can turn it into a dimension.  See the note on ptMeasure in
+      ProCommit for why that is a command now and not a second press of
+      Enter. }
+    FRunOK: Boolean;
+    FRunA, FRunB: TP3;
     { The edge just drawn over one already there.  SketchUp calls this
       healing: "Undo, or redraw the line that was removed - the face comes
       back on its own."  A face rubbed out leaves its edges behind and the
@@ -1215,7 +1221,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The aliases all
     still work; they are in the README. }
-  CMD_LIST: array[0..68] of TCmdItem = (
+  CMD_LIST: array[0..69] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1241,6 +1247,7 @@ const
     (Name: 'help';       Hint: 'about this program';                    Arg: False),
     (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False),
     (Name: 'iso';        Hint: 'the isometric view';                    Arg: False),
+    (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False),
     (Name: 'left';       Hint: 'look from the left';                    Arg: False),
     (Name: 'line';       Hint: 'the line tool';                         Arg: False),
     (Name: 'manual';     Hint: 'open the manual';                       Arg: False),
@@ -9818,17 +9825,16 @@ begin
       end;
       end;
     ptMeasure:
-      if FStage >= 1 then
+      if FStage = 1 then
       begin
-        if FStage = 1 then Rubber(FP1, FCur) else Rubber(FP1, FP2);
+        Rubber(FP1, FCur);
         { the whole reading follows the cursor, angles and all, so a run can
           be checked for level without letting go of it }
-        if FStage = 1 then FCmdMsg := RunReading(FP1, FCur);
+        FCmdMsg := RunReading(FP1, FCur);
         { the running length beside the cursor, far enough off it to read
           while you are dragging - a tape you have to look away from to read
           is no use for a quick check }
-        if FStage = 1 then S1 := FormatLen(Dist(FP1, FCur), FD.Units)
-        else S1 := FormatLen(Dist(FP1, FP2), FD.Units);
+        S1 := FormatLen(Dist(FP1, FCur), FD.Units);
         UIFont(C, 11, True, AnnotColor);
         C.Brush.Style := bsSolid;
         C.Brush.Color := PixToColor(Theme.Screen1);
@@ -10119,8 +10125,7 @@ begin
       ptText:   S2 := 'type it, move away, then Enter - Shift+Enter for a new line';
       ptDim:    S2 := 'move away to place it - shake up and down to stand it up';
       ptMeasure:
-        if FStage >= 2 then S2 := 'Enter keeps this as a dimension - any two points, connected or not'
-        else S2 := 'click the second point, or type a distance - 3, 2''6, 0-8-8';
+        S2 := 'click the second point, or type a distance - 3, 2''6, 0-8-8';
       ptRect:   S2 := 'drag it, or type 8x10, 8/10 or 2''6x4 - a minus flips a side';
       ptMove:   S2 := 'type a length, [x,y,z] or <x,y,z> - Ctrl copies, then 3x or /3 for an array';
       ptOffset: S2 := 'type the offset - 6", 1-6 - negative goes inward';
@@ -11327,9 +11332,12 @@ begin
       else if FStage = 1 then
       begin
         FP2 := FCur;
-        FStage := 2;
         LayGuide;
-        FCmdMsg := RunReading(FP1, FP2);
+        FRunOK := True;
+        FRunA := FP1;
+        FRunB := FP2;
+        FCmdMsg := RunReading(FP1, FP2) + '   /keep makes it a dimension';
+        ResetTool;
       end
       else
       begin
@@ -11897,25 +11905,34 @@ begin
             FCmdMsg := 'Type how far, or click the second point.';
             Exit;
           end;
-          FStage := 2;
           FInput := '';
           LayGuide;
-          FCmdMsg := RunReading(FP1, FP2);
+          FRunOK := True;
+          FRunA := FP1;
+          FRunB := FP2;
+          FCmdMsg := RunReading(FP1, FP2) + '   /keep makes it a dimension';
           RenderPro;
           RecomposeAll;
-          pbScreen.Invalidate;
-          pbCmd.Invalidate;
-          InvalidateStatus;
-          Exit;
         end;
-        if FStage = 2 then
-        begin
-          PushUndo;
-          FD.Doc.AddDim(FP1, FP2, FInkColor, DimOffset3);
-          RenderPro;
-          RecomposeAll;
-          FCmdMsg := 'Kept as a dimension.';
-        end;
+        { And that is the whole of the tape.  There used to be a third stage
+          it sat in afterwards, where another Enter turned the run into a
+          dimension - and sitting in it is what made both of the faults Tony
+          reported in one go.
+
+          "the tape measure leaving phantom lines after a while... switching
+          to the select tool and selecting something seems to clear it.  the
+          stupid dimension appearing with using a tape measure tool."
+
+          The phantom line was the tape's own rubber band: at that third
+          stage it drew the run it had just measured, and went on drawing it
+          until something else took the tool away.  And the dimension was
+          Enter - or Space, which everywhere else in the program means "done"
+          - landing on a stage that was still waiting, minutes after the
+          measurement it belonged to.
+
+          Keeping a run as a dimension is worth having and is now /keep,
+          which cannot arrive by accident and which the command list will
+          show anybody looking for it. }
         ResetTool;
       end;
     ptSelect, ptErase, ptOrbit: ;   // these act on the drag; nothing to commit
@@ -12267,6 +12284,29 @@ begin
     axis, Alt holds the working plane, and every letter is a tool.  So it is
     a setting, and it says so loudly while it is on: the ghost goes amber,
     the hint line says "on its own", and so does the message after. }
+  { The last run the tape measured, kept.
+
+    This used to be a second press of Enter while the tape sat in a stage it
+    had no other reason to be in, and that stage is what left a line on the
+    screen and dropped dimensions on people minutes later.  As a command it
+    cannot arrive by accident, and the list will show it to anybody looking
+    for a way to keep a measurement. }
+  else if (W = 'keep') or (W = 'keepdim') then
+  begin
+    if not FRunOK then
+      FCmdMsg := 'Nothing measured yet.  Take the tape across something ' +
+        'first, then /keep writes that run on the drawing.'
+    else if Dist(FRunA, FRunB) < 1E-9 then
+      FCmdMsg := 'That run was no length at all.'
+    else
+    begin
+      PushUndo;
+      FD.Doc.AddDim(FRunA, FRunB, FInkColor, DimOffset3);
+      RenderPro;
+      RecomposeAll;
+      FCmdMsg := 'Kept as a dimension: ' + FormatLen(Dist(FRunA, FRunB), FD.Units) + '.';
+    end;
+  end
   else if (W = 'detach') or (W = 'loose') then
   begin
     if Rest = 'on' then FDetachMove := True

@@ -13,6 +13,27 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Undo puts a face''s openings back.**  Move something with windows in it -' + LineEnding +
+    '  the block letters of the title, say - and undo put the outlines back and' + LineEnding +
+    '  left the windows where they had been dragged to.  The undo snapshot was' + LineEnding +
+    '  sharing those loops with the drawing, so a move wrote through it into the' + LineEnding +
+    '  past.' + LineEnding +
+    '' + LineEnding +
+    '- **A guide line takes its point with it.**  The tape lays both in one' + LineEnding +
+    '  gesture; rubbing out the dashed line left the amber point behind, marking a' + LineEnding +
+    '  spot nothing could explain.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Hide Guides and Clear Guides are on the right button now.**  They were' + LineEnding +
+    '  two more buttons along the bottom that appeared the moment a drawing had a' + LineEnding +
+    '  guide in it, and making room for them squeezed the settings until their' + LineEnding +
+    '  words ran into each other.  Right-click anywhere on the drawing.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.6' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

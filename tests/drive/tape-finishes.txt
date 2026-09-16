@@ -1,0 +1,60 @@
+# The tape measure finishes when it has measured.
+#
+# Tony, 15 September: "the tape measure leaving phantom lines after a while...
+# switching to the select tool and selecting something seems to clear it.  the
+# stupid dimension appearing with using a tape measure tool  very buggy bull
+# shit."
+#
+# Both were the same thing.  The tape used to sit in a third stage after the
+# second click: that stage drew the run it had just measured and went on
+# drawing it until something took the tool away - the phantom line - and a
+# press of Enter, or of Space which everywhere else means "done", landed on
+# that waiting stage and turned the run into a dimension, minutes after the
+# measurement it belonged to.
+#
+# Now the second point finishes it.  Keeping a run is /keep.
+#
+# What to look for: hsk-tape-after is a clean drawing with the guide and its
+# amber point and no line left hanging off the cursor, and nothing said about
+# dimensions; hsk-tape-space is the same after pressing Space twice, which
+# used to be enough to drop one; hsk-tape-kept has the dimension that /keep
+# asks for, on purpose.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+key slash
+type plan
+key return
+wait 1200
+
+key t
+wait 400
+at 500 400
+click l
+wait 500
+at 800 400
+click l
+wait 900
+# the cursor moves well away; nothing should follow it
+at 1100 250
+wait 900
+shot /tmp/hsk-tape-after.png
+
+# what used to drop a dimension
+key space
+wait 500
+key space
+wait 800
+at 1150 300
+wait 700
+shot /tmp/hsk-tape-space.png
+
+# and the way to keep one, on purpose
+key escape
+key slash
+type keep
+key return
+wait 1200
+shot /tmp/hsk-tape-kept.png

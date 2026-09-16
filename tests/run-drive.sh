@@ -35,7 +35,7 @@ else
          glass-revolve plan-slice plan-hidden command-list toy-command
          cmd-example cmd-wheel gif-loop view-cube cube-corners
          whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
-         face-needs-edges"
+         face-needs-edges tape-finishes"
 fi
 
 BAD=0
