@@ -13,10 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.16.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **Hold Ctrl while orbiting and let go, and the view clicks into the' + LineEnding +
+    '  nearest standard direction** - one of the twenty-six the view cube offers:' + LineEnding +
+    '  six faces square on, twelve edges, eight corners.  It glides there the way' + LineEnding +
+    '  clicking the cube does, so you keep track of what you are looking at.' + LineEnding +
+    '  While Ctrl is held the status line names where you will land, and the cube' + LineEnding +
+    '  lights the face it is about to go to.  Let go of Ctrl first and nothing' + LineEnding +
+    '  happens.' + LineEnding +
     '- **`--no-splash`** starts the program without the start-up screen, for' + LineEnding +
     '  anything driving it from a script.  `--help` lists it with the rest.' + LineEnding +
     '' + LineEnding +
