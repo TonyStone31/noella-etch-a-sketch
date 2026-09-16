@@ -11,7 +11,8 @@ every tool, command and key.
 
 > **It is a desktop program.**  It needs a Windows or Linux computer with a
 > mouse and a keyboard.  There is no phone or tablet version, and it will not
-> run in a web browser.
+> run in a web browser.  There's no Mac version yet either -
+> [help wanted](#mac-builders-wanted).
 
 ---
 
@@ -126,7 +127,17 @@ lazbuild etchasketch.lpi      # or ./build.sh
 
 `./build.sh ship` builds all four binaries into one zip, and
 `./build.sh github` runs the tests and cuts a release.  Developed on Linux;
-the Windows build is cross-compiled.  A macOS build has never been tried.
+the Windows build is cross-compiled.
+
+### Mac builders wanted
+
+A macOS build has never been tried.  I don't have a Mac, and I don't have
+much desire to get one, so if you do and you'd like to have a go, I'd love
+the help.  It's plain Lazarus/LCL with no third-party packages, and all the
+drawing is done in the program's own pixel buffers rather than through the
+platform, so there's a fair chance it builds without much trouble.  Open an
+issue or a pull request with how it went - even a list of what broke is
+useful.
 
 ## Tests
 
