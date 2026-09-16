@@ -15,7 +15,22 @@ const
     '' + LineEnding +
     '## Next release' + LineEnding +
     '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Ctrl says what the tape leaves behind.**  Both the dashed guide and the' + LineEnding +
+    '  amber point, the point on its own, the guide on its own, or nothing.  Both' + LineEnding +
+    '  is still what you get unless you say otherwise, and the bar says which mode' + LineEnding +
+    '  you are in each time you press it.  A 1" mark in from the end of a line' + LineEnding +
+    '  rarely wants a dashed line across the whole drawing with it.' + LineEnding +
+    '' + LineEnding +
     '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The tape measure finishes when it has measured.**  It used to sit waiting' + LineEnding +
+    '  afterwards, drawing the run it had just taken until something else took the' + LineEnding +
+    '  tool away - and a press of Enter, or of Space which everywhere else means' + LineEnding +
+    '  "done", would land on that waiting tool and turn the run into a dimension' + LineEnding +
+    '  minutes later.  Both were the same thing.  To keep a run, `/keep` writes' + LineEnding +
+    '  the last one on the drawing as a dimension.' + LineEnding +
     '' + LineEnding +
     '- **Undo puts a face''s openings back.**  Move something with windows in it -' + LineEnding +
     '  the block letters of the title, say - and undo put the outlines back and' + LineEnding +

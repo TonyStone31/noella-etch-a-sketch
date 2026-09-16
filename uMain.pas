@@ -401,6 +401,17 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { What the tape leaves behind: 0 both, 1 the point only, 2 the dashed
+      line only, 3 neither.  Ctrl cycles it while the tape is in hand, which
+      is SketchUp's key for the same choice - theirs toggles between guide
+      line and guide point and the cursor icon says which.
+
+      Both is the default and stays the default.  Tony: "I would like to be
+      able to select our points with the select tool and right click to
+      delete them and for our dashed lines as well... So I guess we want the
+      control key back with both the dot and dash being dropped as default
+      for ours.  I kind of like it." }
+    FTapeDrop: Integer;
     { The last run the tape measured, kept after the tool has let go of it so
       that /keep can turn it into a dimension.  See the note on ptMeasure in
       ProCommit for why that is a command now and not a second press of
@@ -923,6 +934,7 @@ type
     function OutsideOf(const A, B, Off: TP3): TP3;
     function DimOffset3: TP3;
     procedure LayGuide;
+    function TapeDropSays: string;
     { Every drawn edge as a plain segment, which is what the region engine
       eats.  Guides, dimensions and notes are not geometry and stay out; a
       solid's own faces are its boundary and are not derived either. }
@@ -10101,7 +10113,10 @@ begin
       ptMove:   S2 := 'grab a point on what you are moving - Ctrl leaves a copy';
       ptOffset: S2 := 'click a face - then type the offset, negative goes inward';
       ptMeasure:
-        S2 := 'measure from here - type a distance to lay a guide';
+        { short, because the line above it is narrow - the mode is said in
+          full on every Ctrl and after every measurement, which is where
+          somebody is actually looking }
+        S2 := 'measure from here - Ctrl says what it leaves behind';
       ptDim:    S2 := 'click a corner, then another - or the body of an edge for all of it';
       ptRotate: S2 := 'click the center - nothing picked turns all that is joined; arrows pick the plane';
       ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
@@ -15235,6 +15250,13 @@ begin
     because the panel underneath answered first. }
   Result := FD.Doc.HitNote(SX, SY);
   if Result >= 0 then Exit;
+  { Then a guide point, for the reason written over HitGuidePoint: it is
+    nearly always sitting on the line it measured along, and that line is the
+    same distance from the cursor.  The reach matches what is drawn - the
+    disc is 4.5 across with an eight-long cross through it - so the target is
+    the size it looks. }
+  Result := FD.Doc.HitGuidePoint(Proj, SX, SY, 10 * FUIScale);
+  if Result >= 0 then Exit;
   E := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
   F := FD.Doc.HitFace(Proj, SX, SY);
   T := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
@@ -15415,6 +15437,19 @@ end;
   It used to be a signed screen distance, and the sign disagreed with the one
   the renderer worked out, which is why pulling the line down put it above the
   edge - inside the shape it was measuring. }
+{ What the tape is set to leave behind, in words - said after a measurement
+  and in the hint line, so the mode is never a thing you have to remember. }
+function TMainForm.TapeDropSays: string;
+begin
+  case FTapeDrop of
+    1: Result := 'a point where it landed - Ctrl for the dashed line too';
+    2: Result := 'a guide across the run - Ctrl for the point too';
+    3: Result := 'nothing left behind - Ctrl to leave a guide again';
+  else
+    Result := 'guide across the run, and a point where it landed - Ctrl changes it';
+  end;
+end;
+
 { What the tape measure leaves behind.
 
   Which of the three it is comes from the mode rather than from what happened
@@ -15442,8 +15477,15 @@ begin
     measured to as the one place you cannot see, and a point with no line
     marks a spot you cannot line anything else up with.
 
-    There was a Ctrl that cycled between them.  Choosing is not the useful
-    part - having both is - so it is gone until there is a reason for it. }
+    Ctrl cycles between them and came back on 15 September, because there is
+    a reason for it now: a 1" mark in from the end of a line does not want a
+    dashed line running the width of the drawing with it.  SketchUp puts the
+    same choice on the same key.  Both stays the default. }
+  if FTapeDrop = 3 then
+  begin
+    FCmdMsg := RunReading(FP1, FP2) + '   (nothing left behind)';
+    Exit;
+  end;
 
   { The line runs across the measurement, not along it.  The point of a guide
     is to mark a distance: measure three feet off a wall and the useful line
@@ -15469,13 +15511,12 @@ begin
     L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
   end;
 
-  if L > 1E-9 then
+  if (L > 1E-9) and (FTapeDrop <> 1) then
     FD.Doc.AddGuide(FP2,
       P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
-  FD.Doc.AddGuide(FP2, FP2);
+  if FTapeDrop <> 2 then FD.Doc.AddGuide(FP2, FP2);
 
-  FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
-    '   guide across the run, and a point where it landed';
+  FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   ' + TapeDropSays;
   RenderPro;
   RecomposeAll;
 end;
@@ -18541,6 +18582,20 @@ begin
 
   if FMode = mdPro then
   begin
+    { Ctrl, while the tape is in hand, cycles what it leaves behind.  Same key
+      SketchUp uses for the same choice.  Only while the tape is the tool, so
+      Ctrl+Z and the rest are untouched everywhere else - and the mode is said
+      out loud each time, because a mode you cannot see is a mode that will
+      surprise you later. }
+    if (Key = VK_CONTROL) and (FTool = ptMeasure) then
+    begin
+      FTapeDrop := (FTapeDrop + 1) mod 4;
+      FCmdMsg := 'The tape leaves ' + TapeDropSays + '.';
+      pbCmd.Invalidate;
+      Key := 0;
+      Exit;
+    end;
+
     if Key = VK_MENU then
     begin
       { Alt steps through the flat planes and latches, so you can draw in mid

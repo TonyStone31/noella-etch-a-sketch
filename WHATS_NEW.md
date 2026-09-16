@@ -12,6 +12,21 @@
 
 ## Next release
 
+### New
+
+- **A guide point is easy to pick.**  It marks a distance along a line, so it
+  sits on that line - and the line used to win the click from a pixel away.
+  It is asked for before anything else now, with a reach the size it is
+  drawn, so one attempt gets it.  Select it and press Delete, or right-click
+  and Erase.  A guide that has been put away cannot be picked or erased at
+  all, which it could before.
+
+- **Ctrl says what the tape leaves behind.**  Both the dashed guide and the
+  amber point, the point on its own, the guide on its own, or nothing.  Both
+  is still what you get unless you say otherwise, and the bar says which mode
+  you are in each time you press it.  A 1" mark in from the end of a line
+  rarely wants a dashed line across the whole drawing with it.
+
 ### Fixed
 
 - **The tape measure finishes when it has measured.**  It used to sit waiting

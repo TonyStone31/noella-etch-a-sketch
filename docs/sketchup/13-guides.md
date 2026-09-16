@@ -70,7 +70,33 @@ A guide can be **selected and erased** individually like anything else, and
 
 *Differ, on purpose or not yet decided:*
 
-* **The tape lays both, every time** - a dashed line and a point.  SketchUp
+* **The tape lays both by default**, a dashed line and a point, and **Ctrl
+  cycles** through both, the point alone, the line alone, and neither.  Same
+  key as theirs for the same choice; ours has the both-at-once mode theirs
+  does not, and that is the default because it is the one Tony wants most of
+  the time.  Re-added 15 September after being taken out - the reason it was
+  taken out was that choosing did not seem the useful part, and the reason it
+  came back is a 1" mark in from the end of a line, which does not want a
+  dashed line across the whole drawing with it.
+
+* **Guides can be picked**, by the select tool, and erased from the right
+  button or with Delete.  A guide point is asked for **before** anything else
+  under the cursor, because it is nearly always sitting on the line it
+  measured along and that line would otherwise win on distance from a pixel
+  away.  The reach matches what is drawn, so the target is the size it looks.
+
+  Tony checked theirs: a guide point can be selected and deleted in SketchUp
+  after all - "you absolutely can't click the plus point... it turns blue and
+  you can delete it with the delete key" - but "trying to click it and select
+  it to delete was very difficult and it took me 20 times to get it so that
+  is a SketchUp problem... Don't let it be our problem."  Hence asking for it
+  first rather than merely widening a tolerance.
+
+* **A guide that has been put away cannot be picked or erased.**  It is not on
+  the screen, so it is not under the cursor - the same rule the snapping
+  already followed, and one the pickers did not.
+
+* ~~**The tape lays both, every time**~~ - a dashed line and a point.  SketchUp
   lays one or the other from a mode that **Ctrl** toggles, and the cursor icon
   says which; there is no inference in it.  **Checked against the live page
   15 September 2026**, because it came up: "I am not sure how and when

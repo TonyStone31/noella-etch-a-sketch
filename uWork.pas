@@ -529,6 +529,11 @@ type
     { The same search but only over edges - lines, arcs and dimensions.
       Erasing means erasing an edge; a face is what is left behind. }
     function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
+    { The guide point nearest the cursor, or -1.  Asked before anything else
+      the select tool asks, because a guide point is usually sitting on the
+      very line it was measured along - and a line passing through a point
+      wins on distance from two pixels away. }
+    function HitGuidePoint(const V: TProjector; SX, SY, TolPx: Double): Integer;
     { The pen weight of the line running between these two points, or 0 when
       there is not one.  A solid's new edges copy it, so everything drawn
       from the same pen looks like it. }
@@ -7700,6 +7705,48 @@ begin
   Result := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
 end;
 
+{ A guide point is put down to be come back to, so it has to be easy to get
+  hold of again.
+
+  Tony, 15 September, after trying it in SketchUp: "I have to admit trying to
+  click it and select it to delete was very difficult and it took me 20 times
+  to get it so that is a SketchUp problem... Don't let it be our problem.
+  Ours should make sure the select tool is what manages and deletes guide
+  lines and guide points and our guide points are easy to see so should be
+  easy to select!"
+
+  Two things make it hard, and neither is the tolerance.  The first is that a
+  guide point is nearly always sitting **on** a line - it marks a distance
+  along one - so the line under it is at the same distance from the cursor
+  and wins the moment the aim is a pixel off.  The second is that the point
+  is drawn bigger than the reach it was picked at, so it looks like a target
+  larger than it is.  Asked first, and with a reach that matches what is
+  drawn, both go away. }
+function TWorkDoc.HitGuidePoint(const V: TProjector; SX, SY,
+  TolPx: Double): Integer;
+var
+  I: Integer;
+  D, Best: Double;
+  PA: TPointF;
+begin
+  Result := -1;
+  if FGuidesHidden then Exit;
+  Best := TolPx;
+  for I := FLive - 1 downto 0 do
+  begin
+    if FEnts[I].Kind <> ekGuide then Continue;
+    if Dist(FEnts[I].A, FEnts[I].B) > 1E-9 then Continue;
+    if not InSlice(I) then Continue;
+    PA := Project(V, FEnts[I].A);
+    D := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
+    if D <= Best then
+    begin
+      Best := D;
+      Result := I;
+    end;
+  end;
+end;
+
 function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
 var
   I: Integer;
@@ -7713,6 +7760,10 @@ begin
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekGuide]) then Continue;
     if not InSlice(I) then Continue;
+    { a guide that has been put away is not on the screen, so it is not
+      under the cursor either - picking or erasing one you cannot see is the
+      same surprise as snapping to one }
+    if (FEnts[I].Kind = ekGuide) and FGuidesHidden then Continue;
     if FEnts[I].Kind = ekGuide then
       D := GuideScreenDist(V, FEnts[I], SX, SY)
     else if FEnts[I].Kind = ekArc then

@@ -1477,6 +1477,70 @@ begin
   end;
 end;
 
+{ A guide point has to be easy to get hold of.
+
+  Tony, 15 September, after trying the same thing in SketchUp: "I have to
+  admit trying to click it and select it to delete was very difficult and it
+  took me 20 times to get it so that is a SketchUp problem... Don't let it be
+  our problem.  Ours should make sure the select tool is what manages and
+  deletes guide lines and guide points and our guide points are easy to see
+  so should be easy to select!"
+
+  What makes it hard is not the tolerance.  A guide point marks a distance
+  along a line, so it is sitting on that line - and the line is the same
+  distance from the cursor as the point is, and wins the moment the aim is a
+  pixel off.  Asked first, it cannot lose. }
+procedure TestGuidePointIsEasyToPick;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  S: TPointF;
+  Off, Hits, Misses: Integer;
+begin
+  WriteLn('-- a guide point on a line is still the thing you clicked');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 20;
+
+    { a line, and a point five feet along it - which is where a tape leaves
+      one, and exactly on top of the line }
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), clBlack, 1, False);
+    D.AddGuide(P3(5, 0, 0), P3(5, 0, 0));
+
+    S := Project(V, P3(5, 0, 0));
+    Ok(D.HitGuidePoint(V, S.X, S.Y, 10) >= 0, 'dead on it, it is found');
+
+    { and from anywhere within the reach, in any direction, which is the
+      difference between a target and a pixel }
+    Hits := 0;
+    Misses := 0;
+    for Off := -6 to 6 do
+    begin
+      if D.HitGuidePoint(V, S.X + Off, S.Y, 10) >= 0 then Inc(Hits) else Inc(Misses);
+      if D.HitGuidePoint(V, S.X, S.Y + Off, 10) >= 0 then Inc(Hits) else Inc(Misses);
+    end;
+    EqI(Misses, 0, 'and from six pixels off in any direction');
+
+    { well away from it, it is not found and the line still is }
+    S := Project(V, P3(1, 0, 0));
+    Ok(D.HitGuidePoint(V, S.X, S.Y, 10) < 0, 'four feet away it is not found');
+    Ok(D.HitEdge(V, S.X, S.Y, 9) >= 0, 'and the line under it still is');
+
+    { put the guides away and neither the point nor the line is pickable }
+    D.GuidesHidden := True;
+    S := Project(V, P3(5, 0, 0));
+    Ok(D.HitGuidePoint(V, S.X, S.Y, 10) < 0, 'a guide put away cannot be picked');
+    D.AddGuide(P3(0, 3, 0), P3(10, 3, 0));
+    S := Project(V, P3(5, 3, 0));
+    Ok(D.HitEdge(V, S.X, S.Y, 9) < 0, 'nor can a guide line that is put away');
+    D.GuidesHidden := False;
+    Ok(D.HitEdge(V, S.X, S.Y, 9) >= 0, 'and both come back when they do');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6248,6 +6312,7 @@ begin
   TestGuidesMakeCrossings;  WriteLn;
   TestUndoPutsTheHolesBack;  WriteLn;
   TestGuidePointGoesWithItsLine;  WriteLn;
+  TestGuidePointIsEasyToPick;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

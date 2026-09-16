@@ -1,0 +1,66 @@
+# Guides are things you can pick, and Ctrl says what the tape leaves.
+#
+# Tony, 15 September: "SketchUp is definitely leaving a tiny little black plus
+# sign or a cross on the line when you use the tape measure on a line and
+# follow the line in and type 1 inch... the eraser tool does not get rid of it.
+# The select tool cannot select it either.  For ours I would like to be able
+# to select our points with the select tool and right click to delete them and
+# for our dashed lines as well... So I guess we want the control key back with
+# both the dot and dash being dropped as default for ours."
+#
+# What to look for: hsk-gp-both is a measurement with the dashed line and the
+# amber point, and the bar saying Ctrl changes it; hsk-gp-mode is after one
+# Ctrl, saying the point only; hsk-gp-point is a measurement in that mode -
+# an amber point on the line and no dashes across the drawing; hsk-gp-picked
+# has that point selected with the select tool; hsk-gp-menu is the right
+# button over it, with Erase live.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+key slash
+type plan
+key return
+wait 1200
+
+key t
+wait 400
+at 500 400
+click l
+wait 500
+at 800 400
+click l
+wait 1000
+shot /tmp/hsk-gp-both.png
+
+# Ctrl cycles what it leaves behind
+key escape
+key t
+wait 400
+hold ctrl
+let ctrl
+wait 800
+shot /tmp/hsk-gp-mode.png
+at 500 600
+click l
+wait 500
+at 800 600
+click l
+wait 1000
+shot /tmp/hsk-gp-point.png
+
+# and the point is a thing the select tool can pick
+key escape
+key space
+wait 500
+at 800 600
+wait 700
+click l
+wait 800
+shot /tmp/hsk-gp-picked.png
+click r
+wait 900
+shot /tmp/hsk-gp-menu.png
+key escape
+wait 600
