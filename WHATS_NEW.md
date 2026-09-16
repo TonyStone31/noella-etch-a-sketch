@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A bug report says how the frames have been going.**  Every frame is
+  timed - the paper, the ink, the composite and the screen - and one that
+  takes longer than a fortieth of a second writes a line into the log a
+  report carries, saying which part of it was slow and what you were doing.
+  The report also carries how many went over and what the worst one was.
+  "It felt glitchy" now arrives with the numbers.
+
+### Fixed
+
+- **A picked guide is drawn where the guide is.**  A guide is kept as a point
+  and one foot of direction, and drawn to the edges of the paper - and
+  picking one highlighted the foot, so two blue lines appeared to stick out
+  of a drawing with nothing at either end of them.
+
 ## v2026.09.15.7
 
 ### New

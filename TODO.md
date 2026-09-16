@@ -1160,6 +1160,36 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### The frame watchdog is in - 15 September 2026
+
+Tony: "yeah we need the frame watchdogs for bug reports for sure."  Step one
+of the order agreed above, and done.
+
+Every frame is timed in four parts, each accumulated where the work actually
+happens rather than at the call sites: `RepaintPaper` the paper, `RenderPro`
+the ink, `RecomposeAll` one over the other, and `pbScreenPaint` the screen.
+Accumulated **since the last paint**, so a frame that rendered three times
+before it was shown counts all three - which is the frame the person waited
+for, not the one the code thinks it drew.
+
+`NoteFrame` is the whole of it.  Over forty milliseconds - twenty-five a
+second, where a drag stops feeling attached to the hand - and it writes one
+line into the session log with the breakdown and the context: which tool, what
+stage, how much is picked, how many things, what zoom, and whether the camera
+was moving.  At most one line every two seconds, because a slow drag is slow
+for every frame of it and thirty identical lines would push everything else
+out of a log thirty entries long.  The count and the worst are kept whole and
+go in the report's state block, so a report that says nothing about speed
+still carries the number.
+
+**What to do with it.**  The next few reports should say whether the
+suspicion above is right.  If the slow lines come with `PUSH/PULL` or `DRILL`
+and a big `things=`, it is `PaintFaceHint` and the scanline fix is the
+answer.  If they come with `moving` and a high zoom, it is the paper and the
+composite and dirty rectangles are the answer.  If they come with neither,
+the guess was wrong and the log will say what to look at instead - which is
+the point of building it before the fixes rather than after.
+
 ### The tape's third stage, which was two bugs wearing one coat - 15 September 2026
 
 Tony: "yeah look at all the weird shit that keeps happening.... the tape

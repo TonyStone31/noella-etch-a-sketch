@@ -401,6 +401,22 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { The frame watchdog.  Four running totals, cleared at the start of each
+      paint and added to by the three things a frame is made of: working the
+      ink out again, compositing it over the paper, and putting the result on
+      the screen.  A frame that takes longer than a fortieth of a second
+      writes one line into the session log, which is what every bug report
+      carries - so "it felt glitchy" arrives with its own diagnosis.
+
+      Tony: "we some times have clumsy things when moving around with tools
+      selected at times where it seems the program is struggling or stuck in
+      some loop for some reason and then you try to orbit and it glitches....
+      Hard to pinpoint when and why." }
+    FMsPaper, FMsRender, FMsComp: QWord;
+    FSlowN: Integer;
+    FSlowWorst: QWord;
+    FSlowSaid: QWord;
+    FSlowLast: string;
     { What the tape leaves behind: 0 both, 1 the point only, 2 the dashed
       line only, 3 neither.  Ctrl cycles it while the tape is in hand, which
       is SketchUp's key for the same choice - theirs toggles between guide
@@ -856,6 +872,7 @@ type
     procedure RebuildDeck;
     procedure RebuildKnobs;
     procedure RefreshChrome;
+    procedure NoteFrame(PaintMs: QWord);
     procedure ResizeSurfaces(AW, AH: Integer);
     procedure RepaintPaper;
     procedure PaintGroundGrid(Pitch: Double);
@@ -4262,7 +4279,10 @@ end;
 procedure TMainForm.RepaintPaper;
 var
   GridPitch: Double;
+  T0: QWord;
 begin
+  T0 := GetTickCount64;
+  try
   if FMode = mdPro then
   begin
     PaintScreenPaper(FPaper, Theme, False);
@@ -4293,6 +4313,9 @@ begin
   end
   else
     PaintScreenPaper(FPaper, Theme, FShowGrid);
+  finally
+    FMsPaper := FMsPaper + (GetTickCount64 - T0);
+  end;
 end;
 
 procedure TMainForm.Recompose;
@@ -4307,10 +4330,14 @@ begin
 end;
 
 procedure TMainForm.RecomposeAll;
+var
+  T0: QWord;
 begin
+  T0 := GetTickCount64;
   FArt.CompositeOver(FPaper, ActiveInk, Rect(0, 0, FArt.Width, FArt.Height));
   ActiveInk.ResetDirty;
   FScreenDirty := True;
+  FMsComp := FMsComp + (GetTickCount64 - T0);
 end;
 
 procedure TMainForm.FreshScreen;
@@ -4323,7 +4350,11 @@ end;
   geometry, zooming, panning, changing scale or switching units all come down
   to calling this again - nothing is ever resampled. }
 procedure TMainForm.RenderPro;
+var
+  T0: QWord;
 begin
+  T0 := GetTickCount64;
+  try
   FD.Doc.Quick := FCameraMoving and FQuickFrames;
   FInkPro.QuickFill := FD.Doc.Quick;
   FInkPro.ClearTransparent;
@@ -4347,6 +4378,9 @@ begin
     end;
   end;
   FInkPro.MarkAllDirty;
+  finally
+    FMsRender := FMsRender + (GetTickCount64 - T0);
+  end;
 end;
 
 procedure TMainForm.RefreshChrome;
@@ -9573,6 +9607,45 @@ var
   end;
 
 begin
+  { A guide is drawn to the edges of the paper and stored as a stub.
+
+    The renderer walks dashes out from the point in both directions until it
+    has crossed the screen, so what you see is a line without ends.  What is
+    kept in the drawing is the point and one unit of direction - and this
+    traced that, so picking a guide drew a blue line one foot long, starting
+    nowhere anybody could see and stopping nowhere either.
+
+    Tony, 15 September, on a picture of two of them: "those lines are not
+    actually there in this drawing... the 2 blue lines sticking out of the
+    rectangle.. wtf."  They were there - they were the guides he had picked,
+    highlighted at the length they are stored at rather than the length they
+    are drawn at.  Four ways of extending a guide already existed in this
+    program, at 2000x, 5000x, a screen and a half, and not at all; this is
+    the fourth one agreeing with the first three.
+
+    No hidden test on the way: the renderer draws guides with the annotation,
+    before the faces, so a guide is never hidden by geometry and asking would
+    only sample a ten-thousand-foot line twenty-four times for no answer. }
+  if (FD.Doc[Idx].Kind = ekGuide) and
+     (Dist(FD.Doc[Idx].A, FD.Doc[Idx].B) > 1E-9) then
+  begin
+    PA := ScreenOf(FD.Doc[Idx].A);
+    PB := ScreenOf(FD.Doc[Idx].B);
+    if ClipToBox(PA.X, PA.Y, PB.X - PA.X, PB.Y - PA.Y,
+                 pbScreen.Width, pbScreen.Height, T0, T1) then
+    begin
+      C.Pen.Color := PixToColor(Col);
+      C.Pen.Width := PenW;
+      C.Pen.Style := psSolid;
+      C.MoveTo(Round(PA.X + (PB.X - PA.X) * T0),
+               Round(PA.Y + (PB.Y - PA.Y) * T0));
+      C.LineTo(Round(PA.X + (PB.X - PA.X) * T1),
+               Round(PA.Y + (PB.Y - PA.Y) * T1));
+      C.Pen.Width := 1;
+    end;
+    Exit;
+  end;
+
   W := FD.Doc.OutlineWorld(Idx);
   if Length(W) < 2 then Exit;
   C.Pen.Color := PixToColor(Col);
@@ -10229,8 +10302,11 @@ var
   Contrast, Halo, CPix: TPix;
   CW, CA: Double;
   CP: TPointF;
+  TPaint, TAll: QWord;
 begin
   if not FBooted then Exit;
+  TPaint := GetTickCount64;
+  try
   if FErasing then
   begin
     pbScreen.Canvas.Brush.Style := bsSolid;
@@ -10358,6 +10434,55 @@ begin
     readable whatever is behind it }
   PaintChromeTip(pbScreen.Canvas);
   PaintShotOverlay(pbScreen.Canvas);
+  finally
+    NoteFrame(GetTickCount64 - TPaint);
+  end;
+end;
+
+{ The frame watchdog: one line in the session log for a frame that took too
+  long, and a running count for the report to carry.
+
+  What a frame is made of, and what each part is timed by: the paper
+  (RepaintPaper), the ink (RenderPro), the composite of one over the other
+  (RecomposeAll), and putting the result on the screen, which is the caller.
+  The four are accumulated since the last paint, so a frame that rendered
+  three times before it was shown counts all three - which is the frame the
+  person actually waited for.
+
+  Forty milliseconds is the line.  Twenty-five a second is where a drag stops
+  feeling attached to the hand, and anything under it is not worth a line in
+  a log thirty entries long.
+
+  At most one line every two seconds, because a drag that is slow is slow for
+  every frame of it and thirty identical lines would push everything else out
+  of the log.  The count and the worst are kept whole and go into the report,
+  so "it glitched for a while" arrives as a number. }
+procedure TMainForm.NoteFrame(PaintMs: QWord);
+const
+  SLOW_MS = 40;
+var
+  Total, Now64: QWord;
+begin
+  Total := FMsPaper + FMsRender + FMsComp + PaintMs;
+  if Total >= SLOW_MS then
+  begin
+    Inc(FSlowN);
+    if Total > FSlowWorst then FSlowWorst := Total;
+    FSlowLast := Format('%dms (paper %d, ink %d, over %d, screen %d) ' +
+      '%s stage=%d sel=%d things=%d zoom=%.0f%%%s',
+      [Total, FMsPaper, FMsRender, FMsComp, PaintMs,
+       TOOL_NAMES[FTool], FStage, Length(FSel), FD.Doc.Live, FD.Zoom * 100,
+       IfThen(FCameraMoving, ' moving', '')]);
+    Now64 := GetTickCount64;
+    if Now64 - FSlowSaid >= 2000 then
+    begin
+      FSlowSaid := Now64;
+      Trail('slow frame: ' + FSlowLast);
+    end;
+  end;
+  FMsPaper := 0;
+  FMsRender := 0;
+  FMsComp := 0;
 end;
 
 { ======================================================================== }
@@ -13233,6 +13358,15 @@ begin
        FInkPro.Width, FInkPro.Height, FInkPro.Stride,
        FInkToy.Width, FInkToy.Height, FInkToy.Stride,
        TArtSurface.Repairs]) + LineEnding +
+    { How the frames have been going.  A count of the ones that took longer
+      than a fortieth of a second since the program started, the worst of
+      them, and the breakdown of the last one - so a report that says it felt
+      glitchy arrives with the numbers rather than needing them asked for.
+      The individual lines are in the log below, at most one every two
+      seconds. }
+    IfThen(FSlowN = 0, 'frames: none over 40ms',
+      Format('frames: %d over 40ms, worst %dms, last was %s',
+        [FSlowN, FSlowWorst, FSlowLast])) + LineEnding +
     'what was happening, most recent last:' + LineEnding + TrailText +
     { The same session again, in world coordinates, so it can be played back
       rather than read.  With the drawing below it a report is self-contained:

@@ -1,0 +1,65 @@
+# The frame watchdog, and a picked guide drawn where the guide is.
+#
+# Tony: "we need the frame watchdogs for bug reports for sure."  And, on a
+# picture of two blue lines running off a rectangle: "those lines are not
+# actually there in this drawing... the 2 blue lines sticking out of the
+# rectangle.. wtf."
+#
+# They were there.  They were the two guides he had picked, highlighted at
+# the length a guide is STORED at - a point and one foot of direction - when
+# a guide is DRAWN to the edges of the paper.  At 323% that stub is three
+# hundred pixels of blue starting nowhere and stopping nowhere.
+#
+# What to look for: hsk-fw-sel has everything picked with a box, and the
+# guides among them highlighted along their whole length rather than as
+# stubs; hsk-fw-report is the report window, whose text now carries a frames
+# line saying how many went over forty milliseconds and what the worst one
+# was made of.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+key slash
+type plan
+key return
+wait 1200
+
+# a couple of measurements, which leave guides
+key t
+wait 400
+at 400 300
+click l
+wait 400
+at 700 300
+click l
+wait 900
+key escape
+key t
+wait 300
+at 400 500
+click l
+wait 400
+at 700 500
+click l
+wait 900
+
+# box-select the lot, guides included
+key escape
+key space
+wait 400
+drag 200 150 1300 700
+wait 1200
+shot /tmp/hsk-fw-sel.png
+
+# and what the report will carry
+key escape
+key slash
+type report
+key return
+wait 3000
+shot /tmp/hsk-fw-report.png
+key escape
+wait 800
+key escape
+wait 600
