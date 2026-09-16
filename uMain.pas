@@ -84,6 +84,20 @@ type
     panning and pinching; a gesture over, the finger still down ignored }
   TTouchMode = (tmNone, tmPending, tmMouse, tmGesture, tmSpent);
 
+  { One line of the entity panel: what it is called, what it says, and - when
+    it is something that can be changed - the two little steppers that change
+    it.  The painter is dumb and reads this; the mouse looks in the same
+    place for what it hit. }
+  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse);
+  TInfoRow = record
+    Caption: string;
+    Value: string;
+    Act: TInfoAct;
+    Ent: Integer;
+    Head: Boolean;          { a section heading rather than a value }
+    Minus, Plus: TRect;     { empty unless Act says otherwise }
+  end;
+
   TRegionSig = record
     Nm: TP3;
     D: Double;
@@ -167,6 +181,7 @@ type
     pbView: TPaintBox;
     pbSlice: TPaintBox;
     pbTools: TPaintBox;
+    pbInfo: TPaintBox;
     pbQuick: TPaintBox;
     pmView: TPopupMenu;
     pmCanvas: TPopupMenu;
@@ -225,6 +240,17 @@ type
     function QuickHit(X, Y: Integer): Integer;
     function QuickWidth: Integer;
     procedure pbToolsPaint(Sender: TObject);
+    function InfoPanelWidth: Integer;
+    procedure InfoChanged;
+    procedure RebuildInfo;
+    procedure PaintInfoStep(C: TCanvas; const R: TRect; const S: string;
+      Hot: Boolean);
+    function InfoHit(X, Y: Integer): Integer;
+    procedure pbInfoPaint(Sender: TObject);
+    procedure pbInfoMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure pbInfoMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure pbInfoMouseLeave(Sender: TObject);
     procedure pbToolsMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure pbToolsMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -418,6 +444,24 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { The entity panel down the right-hand side: what is picked, and the few
+      things about it that can be changed from there.
+
+      Tony: "SketchUp has entities... And I think like for an arch you can
+      get into it and edit the number of segments.  I think we were trying to
+      avoid having all these various properties but I think it's a direction
+      we may need to head... I also think the entity window should be docked
+      to the right."
+
+      Docked rather than a dialog because the point of it is watching the
+      figures change as you pick different things, which a dialog you have to
+      open cannot do.  The properties were all there already - Sides, Soft,
+      Ink, Weight, Size, Plane, Grp - and so were the setters; what was
+      missing was only the way in. }
+    FInfoOn: Boolean;
+    FInfoRows: array of TInfoRow;
+    FInfoHot: Integer;
+    FInfoSig: Int64;
     { What was copied, deep and detached from the document it came from, so
       it survives a switch to another sheet and can be pasted into a
       different one.  One clipboard for the window, which is what anybody
@@ -770,6 +814,7 @@ type
     FHotSlice: Integer;         // which zone of the cut strip is under the pointer
     FTools: array of TDeckItem; // the vertical tool strip down the left
     FToolSkin: TArtSurface;
+    FInfoSkin: TArtSurface;
     FHotTool: Integer;
     { What is under the pointer on a strip, and where it is, so the note can
       be drawn beside the thing it is about.  FChromeTip is the title line,
@@ -1274,7 +1319,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The aliases all
     still work; they are in the README. }
-  CMD_LIST: array[0..69] of TCmdItem = (
+  CMD_LIST: array[0..70] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1299,6 +1344,8 @@ const
     (Name: 'guides';     Hint: 'clear the guide lines';                 Arg: False),
     (Name: 'help';       Hint: 'about this program';                    Arg: False),
     (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False),
+    (Name: 'info';       Hint: 'the entity panel: on, off';            Arg: False;
+                         Eg:   '/info on'),
     (Name: 'iso';        Hint: 'the isometric view';                    Arg: False),
     (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False),
     (Name: 'left';       Hint: 'look from the left';                    Arg: False),
@@ -2484,6 +2531,7 @@ begin
   FViewSkin := TArtSurface.Create(16, 16);
   FSliceSkin := TArtSurface.Create(16, 16);
   FToolSkin := TArtSurface.Create(16, 16);
+  FInfoSkin := TArtSurface.Create(16, 16);
   FQuickSkin := TArtSurface.Create(16, 16);
   FHotQuick := -1;
   FHotTool := -1;
@@ -2662,6 +2710,7 @@ begin
   FViewSkin.Free;
   FSliceSkin.Free;
   FToolSkin.Free;
+  FInfoSkin.Free;
   FQuickSkin.Free;
   FGlyph.Free;
   FCmdSkin.Free;
@@ -2850,7 +2899,7 @@ var
   M, TitleH, DeckH, Bezel, KnobSz, Gap, ModeW, ModeH, CmdH, TabsH: Integer;
   ToolW: Integer;
   BezelR, DeckR: TRect;
-  DeckL, DeckRt: Integer;
+  DeckL, DeckRt, InfoW: Integer;
   I: Integer;
 begin
   if not FBooted then Exit;
@@ -2928,6 +2977,18 @@ begin
     pbTools.SetBounds(BezelR.Left, BezelR.Top, ToolW,
       Max(60, BezelR.Bottom - BezelR.Top));
     BezelR.Left := BezelR.Left + ToolW + Round(6 * FUIScale);
+  end;
+
+  { And the entity panel takes the right, out of the same space and for the
+    same reason: a panel that floats over the drawing covers the thing you
+    are looking at, which is the whole argument against a palette. }
+  InfoW := InfoPanelWidth;
+  pbInfo.Visible := InfoW > 0;
+  if pbInfo.Visible then
+  begin
+    BezelR.Right := BezelR.Right - InfoW - Round(6 * FUIScale);
+    pbInfo.SetBounds(BezelR.Right + Round(6 * FUIScale), BezelR.Top, InfoW,
+      Max(60, BezelR.Bottom - BezelR.Top));
   end;
 
   KnobSz := Min(Round(136 * FUIScale), DeckH - Round(18 * FUIScale));
@@ -6425,6 +6486,421 @@ begin
   { the bottom strip is the collapse arrow }
   if Y > pbTools.Height - Round(26 * FUIScale) then Exit(-2);
   Result := -1;
+end;
+
+function TMainForm.InfoPanelWidth: Integer;
+begin
+  if (FMode <> mdPro) or not FInfoOn then Exit(0);
+  Result := Round(212 * FUIScale);
+end;
+
+{ What the panel says about what is picked.
+
+  Built fresh whenever the selection or the drawing changes, into a list the
+  painter reads and the mouse searches.  Keeping the two apart is what stops
+  a stepper drifting away from the row it belongs to. }
+procedure TMainForm.RebuildInfo;
+var
+  I, K, NL, NA, NF, NT, ND, NG: Integer;
+  E: TWorkEnt;
+  TotL, TotA: Double;
+
+  procedure Head(const S: string);
+  begin
+    SetLength(FInfoRows, Length(FInfoRows) + 1);
+    with FInfoRows[High(FInfoRows)] do
+    begin
+      Caption := S; Value := ''; Act := iaNone; Ent := -1; Head := True;
+      Minus := Rect(0, 0, 0, 0); Plus := Minus;
+    end;
+  end;
+
+  procedure Row(const C, V: string; A: TInfoAct = iaNone; AEnt: Integer = -1);
+  begin
+    SetLength(FInfoRows, Length(FInfoRows) + 1);
+    with FInfoRows[High(FInfoRows)] do
+    begin
+      Caption := C; Value := V; Act := A; Ent := AEnt; Head := False;
+      Minus := Rect(0, 0, 0, 0); Plus := Minus;
+    end;
+  end;
+
+  function PlaneWord(P: TPlane): string;
+  begin
+    case P of
+      plXZ: Result := 'upright, XZ';
+      plYZ: Result := 'on the side, YZ';
+      plFree: Result := 'on a face';
+    else
+      Result := 'flat, XY';
+    end;
+  end;
+
+  function Place(const P: TP3): string;
+  begin
+    Result := FormatLen(P.X, FD.Units) + ', ' + FormatLen(P.Y, FD.Units) +
+      ', ' + FormatLen(P.Z, FD.Units);
+  end;
+
+begin
+  SetLength(FInfoRows, 0);
+  if (FMode <> mdPro) or (FD = nil) then Exit;
+
+  { Nothing picked is not an empty panel.  It is the one moment there is room
+    to say what the sheet adds up to, which is a question somebody asks of a
+    drawing often enough. }
+  if Length(FSel) = 0 then
+  begin
+    Head('THIS SHEET');
+    Row('Things', IntToStr(FD.Doc.Live));
+    NL := 0; NA := 0; NF := 0; NT := 0; ND := 0; NG := 0;
+    TotL := 0;
+    TotA := 0;
+    for I := 0 to FD.Doc.Live - 1 do
+      case FD.Doc[I].Kind of
+        ekLine: if FD.Doc[I].Dim then Inc(ND) else
+                begin Inc(NL); TotL := TotL + Dist(FD.Doc[I].A, FD.Doc[I].B); end;
+        ekArc: Inc(NA);
+        ekFace: begin Inc(NF); TotA := TotA + FD.Doc.FaceArea(I); end;
+        ekText: Inc(NT);
+        ekDim: Inc(ND);
+        ekGuide: Inc(NG);
+      end;
+    if NL > 0 then Row('Lines', IntToStr(NL) + '   ' + FormatLen(TotL, FD.Units));
+    if NA > 0 then Row('Arcs', IntToStr(NA));
+    if NF > 0 then Row('Faces', IntToStr(NF) + '   ' + FormatArea(TotA, FD.Units));
+    if ND > 0 then Row('Dimensions', IntToStr(ND));
+    if NT > 0 then Row('Notes', IntToStr(NT));
+    if NG > 0 then Row('Guides', IntToStr(NG));
+    Head('');
+    Row('Pick something', 'to see and change it');
+    Exit;
+  end;
+
+  { More than one: what they are between them, and nothing to edit - a
+    stepper that acted on nine things at once is a way to lose nine things. }
+  if Length(FSel) > 1 then
+  begin
+    Head(Format('%d THINGS PICKED', [Length(FSel)]));
+    NL := 0; NA := 0; NF := 0; NT := 0; ND := 0; NG := 0;
+    TotL := 0;
+    TotA := 0;
+    for K := 0 to High(FSel) do
+    begin
+      I := FSel[K];
+      if (I < 0) or (I >= FD.Doc.Live) then Continue;
+      case FD.Doc[I].Kind of
+        ekLine: begin Inc(NL); TotL := TotL + Dist(FD.Doc[I].A, FD.Doc[I].B); end;
+        ekArc: Inc(NA);
+        ekFace: begin Inc(NF); TotA := TotA + FD.Doc.FaceArea(I); end;
+        ekText: Inc(NT);
+        ekDim: Inc(ND);
+        ekGuide: Inc(NG);
+      end;
+    end;
+    if NL > 0 then Row('Lines', IntToStr(NL));
+    if NA > 0 then Row('Arcs', IntToStr(NA));
+    if NF > 0 then Row('Faces', IntToStr(NF));
+    if ND > 0 then Row('Dimensions', IntToStr(ND));
+    if NT > 0 then Row('Notes', IntToStr(NT));
+    if NG > 0 then Row('Guides', IntToStr(NG));
+    if TotL > 0 then Row('Total length', FormatLen(TotL, FD.Units));
+    if TotA > 0 then Row('Total area', FormatArea(TotA, FD.Units));
+    if NF > 0 then
+    begin
+      Head('');
+      Row('Turn them over', 'Reverse', iaReverse, -1);
+    end;
+    Exit;
+  end;
+
+  I := FSel[0];
+  if (I < 0) or (I >= FD.Doc.Live) then Exit;
+  E := FD.Doc[I];
+
+  case E.Kind of
+    ekLine:
+      begin
+        Head(IfThen(E.Dim, 'DIMENSION', 'LINE'));
+        Row('Length', FormatLen(Dist(E.A, E.B), FD.Units));
+        Row('From', Place(E.A));
+        Row('To', Place(E.B));
+        Row('Width', Format('%d px', [Round(E.Weight)]));
+        Row('Crease', IfThen(E.Soft, 'Bring back', 'Soften'), iaSoft, I);
+        if E.Grp <> 0 then Row('Part of', Format('solid %d', [E.Grp]))
+        else Row('Part of', 'nothing - a loose edge');
+      end;
+    ekArc:
+      begin
+        if Abs(Abs(E.Sweep) - 2 * Pi) < 1E-9 then Head('CIRCLE') else Head('ARC');
+        Row('Radius', FormatLen(E.R, FD.Units));
+        Row('Center', Place(E.C));
+        if Abs(Abs(E.Sweep) - 2 * Pi) > 1E-9 then
+          Row('Sweep', FormatAngle(RadToDeg(Abs(E.Sweep))));
+        { The one Tony asked for outright: get into a circle and change how
+          many sides it is drawn with, after it has been drawn. }
+        Row('Sides', IntToStr(ArcSteps(E)), iaSides, I);
+        Row('Plane', PlaneWord(E.Plane));
+        Row('Crease', IfThen(E.Soft, 'Bring back', 'Soften'), iaSoft, I);
+      end;
+    ekFace:
+      begin
+        Head('FACE');
+        Row('Area', FormatArea(FD.Doc.FaceArea(I), FD.Units));
+        Row('Corners', IntToStr(Length(E.Poly)));
+        if Length(E.Holes) > 0 then
+          Row('Windows', IntToStr(Length(E.Holes)));
+        if E.Solid then Row('Part of', Format('solid %d', [E.Grp]))
+        else Row('Part of', 'nothing - a loose face');
+        Head('');
+        Row('Turn it over', 'Reverse', iaReverse, I);
+      end;
+    ekText:
+      begin
+        Head('NOTE');
+        Row('Says', E.Txt);
+        Row('At', Place(E.A));
+        Row('Size', Format('%d%%', [Round(FD.Doc.NoteSize(I) * 100)]),
+          iaNoteSize, I);
+      end;
+    ekDim:
+      begin
+        Head('DIMENSION');
+        Row('Measures', FormatLen(Dist(E.A, E.B), FD.Units));
+        if E.Txt <> '' then Row('Written', E.Txt);
+        Row('From', Place(E.A));
+        Row('To', Place(E.B));
+      end;
+    ekGuide:
+      begin
+        if Dist(E.A, E.B) < 1E-9 then
+        begin
+          Head('GUIDE POINT');
+          Row('At', Place(E.A));
+        end
+        else
+        begin
+          Head('GUIDE LINE');
+          Row('Through', Place(E.A));
+        end;
+        Head('');
+        Row('Delete takes it', 'or /guides for all');
+      end;
+  else
+    Head('SOMETHING');
+  end;
+end;
+
+procedure TMainForm.pbInfoPaint(Sender: TObject);
+var
+  I, W, H, Y, RowH, Pad, StepW, VX: Integer;
+  C: TCanvas;
+  R: TRect;
+  S: string;
+begin
+  W := pbInfo.Width;
+  H := pbInfo.Height;
+  if (W < 8) or (H < 8) then Exit;
+  FInfoSkin.SetSize(W, H);
+  PaintPanel(FInfoSkin, Rect(0, 0, W, H), Theme, FUIScale);
+  FInfoSkin.DrawTo(pbInfo.Canvas, 0, 0);
+
+  C := pbInfo.Canvas;
+  Pad := Round(10 * FUIScale);
+  RowH := Round(19 * FUIScale);
+  StepW := Round(18 * FUIScale);
+  Y := Pad;
+
+  for I := 0 to High(FInfoRows) do
+  begin
+    if Y > H - RowH then Break;
+    if FInfoRows[I].Head then
+    begin
+      { a rule and a small heading, the way the settings row separates }
+      if Y > Pad then Inc(Y, Round(6 * FUIScale));
+      if FInfoRows[I].Caption <> '' then
+      begin
+        UIFont(C, 8, True, Theme.Accent);
+        C.TextOut(Pad, Y, FInfoRows[I].Caption);
+        Inc(Y, RowH);
+      end;
+      C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.14));
+      C.Pen.Width := 1;
+      C.MoveTo(Pad, Y - Round(3 * FUIScale));
+      C.LineTo(W - Pad, Y - Round(3 * FUIScale));
+      Inc(Y, Round(4 * FUIScale));
+      Continue;
+    end;
+
+    R := Rect(Pad, Y, W - Pad, Y + RowH);
+    UIFont(C, 9, False, Theme.TextDim);
+    C.TextOut(R.Left, Y + (RowH - C.TextHeight('X')) div 2,
+      FInfoRows[I].Caption);
+
+    VX := R.Left + Round(84 * FUIScale);
+    if FInfoRows[I].Act in [iaSides, iaNoteSize] then
+    begin
+      { a number: two steppers hard against the right edge, and the figure to
+        their left so it does not move as it changes width }
+      FInfoRows[I].Plus := Rect(W - Pad - StepW, Y + Round(2 * FUIScale),
+        W - Pad, Y + RowH - Round(2 * FUIScale));
+      FInfoRows[I].Minus := Rect(FInfoRows[I].Plus.Left - StepW - Round(3 * FUIScale),
+        FInfoRows[I].Plus.Top, FInfoRows[I].Plus.Left - Round(3 * FUIScale),
+        FInfoRows[I].Plus.Bottom);
+      PaintInfoStep(C, FInfoRows[I].Minus, '-', FInfoHot = I * 2);
+      PaintInfoStep(C, FInfoRows[I].Plus, '+', FInfoHot = I * 2 + 1);
+      UIFont(C, 9, True, Theme.Text);
+      S := FInfoRows[I].Value;
+      C.TextOut(FInfoRows[I].Minus.Left - Round(8 * FUIScale) - C.TextWidth(S),
+        Y + (RowH - C.TextHeight('X')) div 2, S);
+    end
+    else if FInfoRows[I].Act <> iaNone then
+    begin
+      { a yes-or-no, or a do-it: one button with the word for what pressing
+        it does.  Two steppers for "Softened: no" reads as a number you can
+        turn down, which is not what it is. }
+      S := FInfoRows[I].Value;
+      UIFont(C, 9, True, Theme.Text);
+      FInfoRows[I].Plus := Rect(W - Pad - C.TextWidth(S) - Round(14 * FUIScale),
+        Y + Round(2 * FUIScale), W - Pad, Y + RowH - Round(2 * FUIScale));
+      FInfoRows[I].Minus := Rect(0, 0, 0, 0);
+      PaintInfoStep(C, FInfoRows[I].Plus, S, FInfoHot = I * 2 + 1);
+    end
+    else
+    begin
+      UIFont(C, 9, False, Theme.Text);
+      S := FInfoRows[I].Value;
+      { a long note is cut rather than allowed to run off the panel }
+      while (S <> '') and (VX + C.TextWidth(S) > W - Pad) do
+        S := Copy(S, 1, Length(S) - 1);
+      if S <> FInfoRows[I].Value then S := Copy(S, 1, Max(0, Length(S) - 1)) + '...';
+      C.TextOut(VX, Y + (RowH - C.TextHeight('X')) div 2, S);
+    end;
+    Inc(Y, RowH);
+  end;
+end;
+
+{ One of the little square buttons beside a figure that can be changed. }
+procedure TMainForm.PaintInfoStep(C: TCanvas; const R: TRect;
+  const S: string; Hot: Boolean);
+var
+  Bg: TPix;
+begin
+  if Hot then Bg := MixPix(Theme.PanelHi, Theme.Accent, 0.45)
+  else Bg := MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.10);
+  C.Brush.Style := bsSolid;
+  C.Brush.Color := PixToColor(Bg);
+  C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.25));
+  C.Pen.Width := 1;
+  C.Rectangle(R);
+  C.Brush.Style := bsClear;
+  UIFont(C, 10, True, Theme.Text);
+  C.TextOut((R.Left + R.Right - C.TextWidth(S)) div 2,
+            (R.Top + R.Bottom - C.TextHeight(S)) div 2, S);
+end;
+
+{ Which stepper is under the cursor, as row*2 for minus and row*2+1 for plus,
+  or -1.  The rectangles were worked out by the painter, which is why this
+  only has to look them up. }
+function TMainForm.InfoHit(X, Y: Integer): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to High(FInfoRows) do
+    if FInfoRows[I].Act <> iaNone then
+    begin
+      if PtInRect(FInfoRows[I].Minus, Point(X, Y)) then Exit(I * 2);
+      if PtInRect(FInfoRows[I].Plus, Point(X, Y)) then Exit(I * 2 + 1);
+    end;
+end;
+
+procedure TMainForm.pbInfoMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+var
+  H: Integer;
+begin
+  H := InfoHit(X, Y);
+  if H <> FInfoHot then
+  begin
+    FInfoHot := H;
+    pbInfo.Invalidate;
+  end;
+end;
+
+procedure TMainForm.pbInfoMouseLeave(Sender: TObject);
+begin
+  if FInfoHot >= 0 then
+  begin
+    FInfoHot := -1;
+    pbInfo.Invalidate;
+  end;
+end;
+
+procedure TMainForm.pbInfoMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  H, Row, N, K: Integer;
+  Up: Boolean;
+begin
+  if Button <> mbLeft then Exit;
+  H := InfoHit(X, Y);
+  if H < 0 then Exit;
+  Row := H div 2;
+  Up := Odd(H);
+
+  case FInfoRows[Row].Act of
+    iaSides:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        N := ArcSteps(FD.Doc[FInfoRows[Row].Ent]);
+        { the same steps the + and - keys take while the tool is in hand, and
+          the same limits }
+        if Up then N := Min(360, N + 1) else N := Max(3, N - 1);
+        PushUndo;
+        FD.Doc.SetArcSides(FInfoRows[Row].Ent, N);
+        RebuildFlatFaces;
+        FCmdMsg := Format('%d sides.', [N]);
+      end;
+    iaSoft:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        PushUndo;
+        N := Ord(not FD.Doc[FInfoRows[Row].Ent].Soft);
+        FD.Doc.SetSoft(FInfoRows[Row].Ent, N <> 0);
+        FCmdMsg := specialize IfThen<string>(N <> 0, 'Edge softened.',
+          'Edge brought back.');
+      end;
+    iaNoteSize:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        PushUndo;
+        if Up then
+          FD.Doc.SetNoteSize(FInfoRows[Row].Ent,
+            FD.Doc.NoteSize(FInfoRows[Row].Ent) * 1.25)
+        else
+          FD.Doc.SetNoteSize(FInfoRows[Row].Ent,
+            FD.Doc.NoteSize(FInfoRows[Row].Ent) / 1.25);
+        FCmdMsg := Format('Text at %d%% of normal.',
+          [Round(FD.Doc.NoteSize(FInfoRows[Row].Ent) * 100)]);
+      end;
+    iaReverse:
+      begin
+        PushUndo;
+        K := ReverseSelectedFaces;
+        FCmdMsg := Format('%d face%s turned over.',
+          [K, specialize IfThen<string>(K = 1, '', 's')]);
+      end;
+  else
+    Exit;
+  end;
+
+  RenderPro;
+  RecomposeAll;
+  RebuildInfo;
+  pbInfo.Invalidate;
+  pbScreen.Invalidate;
+  pbCmd.Invalidate;
 end;
 
 procedure TMainForm.pbToolsPaint(Sender: TObject);
@@ -12636,6 +13112,28 @@ begin
       FCmdMsg := 'Kept as a dimension: ' + FormatLen(Dist(FRunA, FRunB), FD.Units) + '.';
     end;
   end
+  { The entity panel down the right.  A command rather than a button because
+    the row along the bottom is full and a row that changes width with what is
+    in the drawing was already a mistake once - see the note in RebuildDeck
+    about the guide buttons. }
+  else if (W = 'info') or (W = 'entity') or (W = 'properties') then
+  begin
+    if Rest = 'on' then FInfoOn := True
+    else if Rest = 'off' then FInfoOn := False
+    else FInfoOn := not FInfoOn;
+    FInfoSig := -1;
+    Relayout;
+    if FInfoOn then
+    begin
+      RebuildInfo;
+      pbInfo.Invalidate;
+      FCmdMsg := 'The entity panel is on the right.  Pick something to see ' +
+        'what it is; a few of the figures can be changed from there.';
+    end
+    else
+      FCmdMsg := 'Entity panel off.  /info brings it back.';
+    Invalidate;
+  end
   else if (W = 'detach') or (W = 'loose') then
   begin
     if Rest = 'on' then FDetachMove := True
@@ -14909,6 +15407,17 @@ procedure TMainForm.SelectOnly(I: Integer);
 begin
   SetLength(FSel, 0);
   SelectAdd(I);
+end;
+
+{ The panel is a reading of the selection, so it is rebuilt wherever the
+  selection or the drawing changes.  One call in one place would be neater
+  and would also be wrong: the selection is changed from a dozen places and
+  a panel that is a frame behind is worse than no panel. }
+procedure TMainForm.InfoChanged;
+begin
+  if not FInfoOn then Exit;
+  RebuildInfo;
+  pbInfo.Invalidate;
 end;
 
 procedure TMainForm.SelectNone;
@@ -17846,6 +18355,7 @@ end;
 procedure TMainForm.tmrTickTimer(Sender: TObject);
 var
   Dt, Speed, DX, DY: Single;
+  InfoSig: Int64;
   WhatsNewForm: TWhatsNewForm;
   BreakPts: TPointFArray;
   BreakI: Integer;
@@ -17884,6 +18394,26 @@ begin
     first tick after the dialog goes; none of them is an animation anybody
     can see through a window that is covering them. }
   if Application.ModalLevel > 0 then Exit;
+
+  { The entity panel, worked out again when what it is a reading of has
+    changed.  On the tick rather than at every place the selection is
+    touched: the selection is changed from a dozen places, two of them bulk
+    loops over fifty thousand things, and a rebuild inside those would cost
+    more than the panel is worth.  A sixteenth of a second behind is not
+    behind. }
+  if FInfoOn then
+  begin
+    InfoSig := FEditSeq * 131 + Length(FSel);
+    if Length(FSel) > 0 then
+      InfoSig := InfoSig * 131 + FSel[0] * 17 + FSel[High(FSel)];
+    if InfoSig <> FInfoSig then
+    begin
+      FInfoSig := InfoSig;
+      RebuildInfo;
+      pbInfo.Invalidate;
+    end;
+  end;
+
   { a named drawing with changes since it was written says so in the
     header, so a closed window is never a surprise }
   if (FDocPath <> '') and (FEditSeq <> FSavedSeq) and (Pos('unsaved', FHint) = 0) and
@@ -20665,6 +21195,7 @@ begin
       FExportDirs.Clear;
       Ini.ReadSectionValues('exportpaths', FExportDirs);
       FCubeOn := Ini.ReadBool('look', 'cube', False);
+      FInfoOn := Ini.ReadBool('look', 'info', False);
       FCubeCorner := EnsureRange(Ini.ReadInteger('look', 'cubecorner', 1), 0, 3);
       FCubeFitSel := Ini.ReadBool('look', 'cubefit', True);
       FThemeIdx := EnsureRange(Ini.ReadInteger('look', 'theme', THEME_PRO_DARK),
@@ -20763,6 +21294,7 @@ begin
     Ini := TIniFile.Create(ConfigFile);
     try
       Ini.WriteBool('look', 'cube', FCubeOn);
+      Ini.WriteBool('look', 'info', FInfoOn);
       Ini.WriteInteger('look', 'cubecorner', FCubeCorner);
       Ini.WriteBool('look', 'cubefit', FCubeFitSel);
       Ini.WriteInteger('look', 'theme', FThemeIdx);

@@ -1460,7 +1460,40 @@ anti-aliased line quality and the paper-and-ink aesthetic would have to be
 redone in shaders and "close enough" there will be a fight.  The toy's
 surface is its own problem again.
 
-### The entity window - cheaper than it sounds
+### The entity window - DONE 16 September 2026
+
+Built, docked right, `/info`.  It was as cheap as the note below said: the
+properties were all there and so were the setters, and what took the time was
+the panel itself - a paint box down the right, a list of rows the painter
+reads and the mouse searches, and a rebuild on the tick rather than at every
+place the selection is touched (two of those are bulk loops over fifty
+thousand things, and a rebuild inside them would cost more than the panel is
+worth; a sixteenth of a second behind is not behind).
+
+Editable in this first cut: **sides** on a circle or an arc, which is the one
+Tony asked for outright and which was previously a before-you-draw-only
+setting; **soften** on a line or an arc; **size** on a note; **reverse** on a
+face or on several.  Deliberately not editable with more than one thing
+picked - a stepper that acted on nine things at once is a way to lose nine
+things.
+
+**Worth adding next, in about this order.**  Each is a row and a setter, and
+the setters mostly exist:
+
+* **Length on a line.**  Type it and the far end moves along the line's own
+  direction.  This is the one that makes the panel a modelling tool rather
+  than a readout, and it is also the one that needs thinking about: which end
+  moves, and does anything joined to it come along (it should - see
+  MoveVerts).
+* **Colour and pen width** on whatever is picked.  `SetInk` does not exist
+  yet; it is two lines.
+* **Radius on a circle**, same shape of problem as length.
+* **The plane an arc was drawn in**, which would let a circle be stood up
+  after the fact.
+* **A name on a solid.**  There is no field for it and it wants one in the
+  file; that is a feature, not a row.
+
+### The entity window - what it was going to take
 
 Tony: "SketchUp has entities... And I think like for an arch you can get into
 it and edit the number of segments.  I think we were trying to avoid having

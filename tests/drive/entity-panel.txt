@@ -1,0 +1,85 @@
+# The entity panel, docked down the right.
+#
+# Tony: "SketchUp has entities... And I think like for an arch you can get
+# into it and edit the number of segments.  I think we were trying to avoid
+# having all these various properties but I think it's a direction we may
+# need to head... I also think the entity window should be docked to the
+# right."
+#
+# Docked rather than a dialog because the point of it is watching the figures
+# change as you pick different things, which a dialog you have to open cannot
+# do.  The properties were all there already - Sides, Soft, Ink, Weight,
+# Size, Plane, Grp - and so were the setters; what was missing was the way
+# in.
+#
+# What to look for: hsk-ep-circle has a circle picked and the panel reading
+# CIRCLE with its radius, centre, sides, plane and a Soften button;
+# hsk-ep-more is after pressing + on Sides eight times, which the panel and
+# the drawing should agree about; hsk-ep-face is a face
+# picked, reading its area and corners with a Reverse button; hsk-ep-none is
+# nothing picked, which is when the panel says what the sheet adds up to.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+key slash
+type info on
+key return
+wait 1200
+key slash
+type plan
+key return
+wait 1200
+
+# a circle on an empty sheet
+key c
+wait 400
+at 560 400
+click l
+wait 400
+at 700 400
+click l
+wait 1000
+
+key escape
+key space
+wait 400
+at 700 400
+wait 600
+click l
+wait 1200
+shot /tmp/hsk-ep-circle.png
+
+# and up the sides from the panel - the + beside Sides
+at 1473 140
+wait 400
+click l
+wait 400
+click l
+wait 400
+click l
+wait 400
+click l
+wait 400
+click l
+wait 400
+click l
+wait 400
+click l
+wait 400
+click l
+wait 1200
+shot /tmp/hsk-ep-more.png
+
+# the face inside it
+at 630 400
+wait 500
+click l
+wait 1200
+shot /tmp/hsk-ep-face.png
+
+# and nothing
+key escape
+wait 1200
+shot /tmp/hsk-ep-none.png

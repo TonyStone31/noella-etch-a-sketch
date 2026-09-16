@@ -36,7 +36,7 @@ else
          cmd-example cmd-wheel gif-loop view-cube cube-corners
          whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
          face-needs-edges tape-finishes guide-picking frame-watchdog
-         close-asks copy-paste"
+         close-asks copy-paste entity-panel"
 fi
 
 BAD=0

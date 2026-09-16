@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The entity panel.**  `/info` puts it down the right-hand side: what is
+  picked, and the few things you can change about it.  A line's length and
+  both ends; a circle's radius, center and **how many sides** - with a minus
+  and a plus beside the figure, so a circle drawn at 24 can be turned into 48
+  after the fact, which was never possible before.  A face's area and corner
+  count with a Reverse button.  A note's size.  With nothing picked it says
+  what the sheet adds up to.
+
 ## v2026.09.16.1
 
 ### New
