@@ -1,0 +1,46 @@
+# The ground lattice, orbited down to a flat camera.
+#
+# The floor is ruled over the box round the four corners of the window cast
+# back onto Z = 0.  Tip the camera towards the ground and that box grows
+# without limit, which is why there has always been a cap - and the cap used
+# to mean a low view got no floor at all.
+#
+# The pitch is now coarsened per direction until the lines are far enough
+# apart to read, so a flat view rules a coarse floor instead of none, and an
+# ordinary view rules about ninety lines where it used to rule two hundred
+# and sixty.  This drives it from overhead down to nearly flat, which is the
+# range where both the cap and the coarsening have to behave.
+#
+# What to look for: hsk-og-high has an even lattice under the model;
+# hsk-og-low still has a floor, coarser, with nothing crawling or banding.
+activate
+wait 1200
+key slash
+type timings
+key return
+wait 500
+key slash
+type 3d
+key return
+wait 1200
+shot /tmp/hsk-og-high.png
+
+key o
+wait 400
+at 700 300
+press
+at 700 420 400
+at 700 540 400
+at 700 660 400
+release
+wait 900
+shot /tmp/hsk-og-low.png
+
+# and back up again, so the coarsening has to come back down too
+at 700 500
+press
+at 700 380 400
+at 700 280 400
+release
+wait 900
+shot /tmp/hsk-og-back.png

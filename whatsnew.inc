@@ -20,6 +20,25 @@ const
     '- **`--no-splash`** starts the program without the start-up screen, for' + LineEnding +
     '  anything driving it from a script.  `--help` lists it with the rest.' + LineEnding +
     '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Hiding the guides now hides them from the cursor too.**  Put away, they' + LineEnding +
+    '  were still snapped to, still ran under the cursor, and could still be' + LineEnding +
+    '  picked and rubbed out - all of it invisible, so the cursor jumped to' + LineEnding +
+    '  places with nothing on the screen to explain why.' + LineEnding +
+    '- **What you click is the nearest thing, not the last thing you drew.**' + LineEnding +
+    '  With two things in reach the pick used to go to whichever was drawn more' + LineEnding +
+    '  recently, even when the other was dead under the cursor.' + LineEnding +
+    '- **A crossing selection box takes what it actually crosses.**  Dragged' + LineEnding +
+    '  right to left in a clear patch of paper it used to take any line, arc or' + LineEnding +
+    '  face whose *corner-to-corner extent* happened to cover the area - a long' + LineEnding +
+    '  diagonal running past would come along with the selection.' + LineEnding +
+    '- **Guide lines can be caught by a selection box** from either direction.' + LineEnding +
+    '- **An edge just inside the snapping distance is found.**  The reach was' + LineEnding +
+    '  quietly a pixel shorter than the one being asked for.' + LineEnding +
+    '- **Picking is much faster on a big drawing** - about thirty times - so' + LineEnding +
+    '  hovering over a crowded sheet no longer lags behind the mouse.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.4' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

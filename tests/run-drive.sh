@@ -114,7 +114,7 @@ else
   # the ones that run on their own, then the chains
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
          glass-revolve ring-hint move-edge face-needs-edges entity-panel
-         gif-loop frame-watchdog close-asks
+         gif-loop frame-watchdog close-asks orbit-grid
          $CHAINS"
   # SOLO=1 takes the chains apart again, for when a chain has failed and the
   # question is whether any of it was ever broken
@@ -124,7 +124,7 @@ else
            cmd-example cmd-wheel gif-loop view-cube cube-corners
            whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
            face-needs-edges tape-finishes guide-picking frame-watchdog
-           close-asks copy-paste entity-panel"
+           close-asks copy-paste entity-panel orbit-grid"
   fi
 fi
 

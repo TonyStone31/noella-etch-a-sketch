@@ -105,6 +105,16 @@ type
     Mid: TP3;
   end;
 
+  { Everything the paper is a picture of.  If none of it has moved, neither
+    has the paper - see TMainForm.RepaintPaper. }
+  TPaperSig = packed record
+    Mode, ThemeIdx, W, H: Integer;
+    View: TViewKind;
+    Units: TUnitSystem;
+    Grid, Axes: Boolean;
+    Ppu, ViewX, ViewY, Az, El, Zoom, Snap, UIScale: Double;
+  end;
+
   TDrawing = class
     Doc: TWorkDoc;
     Name: string;
@@ -317,6 +327,10 @@ type
   private
     { --- surfaces ------------------------------------------------------- }
     FPaper: TArtSurface;         // paper, grain, grid
+    { what the paper was last drawn for, and whether that is still true }
+    FPaperSig: TPaperSig;
+    FPaperOK: Boolean;
+    FPaperPaints, FPaperSkips: Integer;
     FInkToy: TArtSurface;        // toy ink, keeps its own alpha
     FInkPro: TArtSurface;        // pro ink, rendered from the document
     FArt: TArtSurface;           // paper + active ink; what you see and save
@@ -941,6 +955,7 @@ type
     procedure RefreshChrome;
     procedure NoteFrame(PaintMs: QWord);
     procedure ResizeSurfaces(AW, AH: Integer);
+    function PaperSig: TPaperSig;
     procedure RepaintPaper;
     procedure PaintGroundGrid(Pitch: Double);
     procedure PaintAxes;
@@ -4315,14 +4330,42 @@ end;
 procedure TMainForm.PaintGroundGrid(Pitch: Double);
 const
   MAX_LINES = 160;
+  { how far apart two lines of the lattice have to be before ruling both of
+    them tells you anything }
+  MIN_PX = 12;
 var
-  I, N: Integer;
+  I, N, Drawn, Missed: Integer;
   Lo, Hi: TP3;
   C: array[0..3] of TP3;
   Fade: Double;
-  X0, X1, Y0, Y1, V: Double;
-  PA, PB: TPointF;
+  X0, X1, Y0, Y1, V, PitchX, PitchY, Area, LX, LY: Double;
+  PA, PB, UX, UY, Org: TPointF;
   Col: TPix;
+
+  { the next step up that keeps the crossings on round numbers: two, five,
+    ten, twenty, fifty times the pitch the paper grid picked }
+  function Coarser(Cur, Base: Double): Double;
+  var
+    K: Double;
+  begin
+    K := Cur / Base;
+    if K < 1.5 then Result := Base * 2
+    else if K < 3.5 then Result := Base * 5
+    else Result := Cur * 2;
+  end;
+
+  { Both ends off the same edge of the window, so no part of it can be on
+    the window.  The lattice is ruled over the box round the four corners of
+    the window cast onto the ground, and that box is bigger than the window
+    itself whenever the camera is turned - so a fair number of these lines
+    run past the corners without ever crossing the glass. }
+  function Offscreen(const A, B: TPointF): Boolean;
+  begin
+    Result := ((A.X < 0) and (B.X < 0)) or
+              ((A.Y < 0) and (B.Y < 0)) or
+              ((A.X > FPaper.Width) and (B.X > FPaper.Width)) or
+              ((A.Y > FPaper.Height) and (B.Y > FPaper.Height));
+  end;
 
   { the ground point under a screen point, or False when the camera is too
     flat for there to be one worth having }
@@ -4351,16 +4394,56 @@ begin
 
   { a camera near the ground makes that box enormous; rule what is worth
     ruling and leave the rest }
-  if ((Hi.X - Lo.X) / Pitch > MAX_LINES * 4) or
-     ((Hi.Y - Lo.Y) / Pitch > MAX_LINES * 4) then Exit;
+  if ((Hi.X - Lo.X) / Pitch > MAX_LINES * 40) or
+     ((Hi.Y - Lo.Y) / Pitch > MAX_LINES * 40) then Exit;
 
-  X0 := Floor(Lo.X / Pitch) * Pitch;
-  X1 := Ceil(Hi.X / Pitch) * Pitch;
-  Y0 := Floor(Lo.Y / Pitch) * Pitch;
-  Y1 := Ceil(Hi.Y / Pitch) * Pitch;
+  { Rule it at a pitch you can actually see.
+
+    The camera is orthographic, so parallel ground lines stay parallel and
+    evenly spaced on the glass - but a tilted view squashes one family of
+    them by the cosine of the tilt, and a low camera squashes it to nothing.
+    The pitch is chosen in world units for the paper grid, which is square to
+    the screen, so nobody had asked what it came to on the ground: at a
+    working angle it came to about six pixels, and two hundred and sixty
+    faint lines six pixels apart are not a lattice, they are a grey wash that
+    costs twenty-seven milliseconds a frame to lay down.
+
+    So each family is coarsened on its own until its lines are far enough
+    apart to read, by two and five and ten - never by three or seven - so
+    that every crossing left is still a round number the cursor can land on.
+
+    This is a change to how it looks as much as to what it costs, and it
+    looks better: the floor reads as a floor instead of a haze, and it is the
+    near ground that gets the detail. }
+  UX := ScreenOf(P3(1, 0, 0));
+  UY := ScreenOf(P3(0, 1, 0));
+  Org := ScreenOf(P3(0, 0, 0));
+  UX := PtF(UX.X - Org.X, UX.Y - Org.Y);
+  UY := PtF(UY.X - Org.X, UY.Y - Org.Y);
+  { the area one square of the lattice covers on screen, per world unit }
+  Area := Abs(UX.X * UY.Y - UX.Y * UY.X);
+  LX := Sqrt(UX.X * UX.X + UX.Y * UX.Y);
+  LY := Sqrt(UY.X * UY.X + UY.Y * UY.Y);
+
+  { lines of constant X run along Y, so what separates them is the width of
+    the square across the Y direction - and the other way about }
+  PitchX := Pitch;
+  if LY > 1E-9 then
+    while (Area / LY) * PitchX < MIN_PX do PitchX := Coarser(PitchX, Pitch);
+  PitchY := Pitch;
+  if LX > 1E-9 then
+    while (Area / LX) * PitchY < MIN_PX do PitchY := Coarser(PitchY, Pitch);
+
+  X0 := Floor(Lo.X / PitchX) * PitchX;
+  X1 := Ceil(Hi.X / PitchX) * PitchX;
+  Y0 := Floor(Lo.Y / PitchY) * PitchY;
+  Y1 := Ceil(Hi.Y / PitchY) * PitchY;
 
   Col := MixPix(Theme.Screen1, Theme.Grid, 0.85);
   Fade := 0.30;
+
+  Drawn := 0;
+  Missed := 0;
 
   V := X0;
   N := 0;
@@ -4368,8 +4451,9 @@ begin
   begin
     PA := ScreenOf(P3(V, Y0, 0));
     PB := ScreenOf(P3(V, Y1, 0));
-    FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade);
-    V := V + Pitch;
+    if Offscreen(PA, PB) then Inc(Missed)
+    else begin FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade); Inc(Drawn); end;
+    V := V + PitchX;
     Inc(N);
   end;
 
@@ -4379,9 +4463,15 @@ begin
   begin
     PA := ScreenOf(P3(X0, V, 0));
     PB := ScreenOf(P3(X1, V, 0));
-    FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade);
-    V := V + Pitch;
+    if Offscreen(PA, PB) then Inc(Missed)
+    else begin FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade); Inc(Drawn); end;
+    V := V + PitchY;
     Inc(N);
+  end;
+  if FTimings then
+  begin
+    WriteLn(Format('ground grid: %d ruled, %d missed the window', [Drawn, Missed]));
+    Flush(Output);
   end;
   FPaper.Touch;
 end;
@@ -4465,16 +4555,76 @@ begin
   FPaper.Touch;
 end;
 
+{ Everything the paper is a picture of, gathered so it can be compared with
+  what it was drawn for last time. }
+function TMainForm.PaperSig: TPaperSig;
+begin
+  { zeroed whole, because it is compared whole - a packed record with a gap
+    in it would compare unequal on whatever happened to be in the gap }
+  FillChar(Result, SizeOf(Result), 0);
+  Result.Mode := Ord(FMode);
+  Result.ThemeIdx := FThemeIdx;
+  Result.W := FPaper.Width;
+  Result.H := FPaper.Height;
+  Result.View := FD.View;
+  Result.Units := FD.Units;
+  Result.Grid := FShowGrid;
+  Result.Axes := FMode = mdPro;
+  Result.Ppu := Ppu;
+  Result.ViewX := FD.ViewX;
+  Result.ViewY := FD.ViewY;
+  Result.Az := FD.Az;
+  Result.El := FD.El;
+  Result.Zoom := FD.Zoom;
+  Result.Snap := SnapStep;
+  Result.UIScale := FUIScale;
+end;
+
+{ The paper, the grid on it and the axes over it.
+
+  Drawn again only when something it is a picture of has moved.  It used to
+  be drawn every time anybody asked, and thirty-three places ask - so a mouse
+  move that changed nothing but the rubber band still ruled the whole grid,
+  cast the four corners of the window back onto the ground, and re-scattered
+  the grain.
+
+  The grain is the part worth naming: it is random noise over sixteen per
+  cent of the pixels, which on a full window is two hundred thousand random
+  numbers and two hundred thousand pixel writes, thrown away and done again
+  the next frame.  It was also being re-rolled every frame, so the paper
+  quietly crawled.  Now it is laid down once and stays put, which is both
+  faster and what paper does.
+
+  Three quarters of a frame was measured as paper and composite, neither of
+  which depends on the model at all; this is the paper half of that.
+
+  The signature has to name everything the picture depends on or the paper
+  goes stale - so it carries the camera, the zoom, the pan, the theme, the
+  units, the snap step (the grid is never ruled finer than you can land on),
+  the interface scale and the size of the surface.  Nothing outside this
+  procedure and the two it calls ever draws on FPaper, which is what makes
+  one guard here enough. }
 procedure TMainForm.RepaintPaper;
 var
   GridPitch: Double;
-  T0: QWord;
+  T0, TBase, TGrid: QWord;
+  Sig: TPaperSig;
 begin
+  Sig := PaperSig;
+  if FPaperOK and CompareMem(@Sig, @FPaperSig, SizeOf(Sig)) then
+  begin
+    Inc(FPaperSkips);
+    Exit;
+  end;
+  FPaperSig := Sig;
+  FPaperOK := True;
+  Inc(FPaperPaints);
   T0 := GetTickCount64;
   try
   if FMode = mdPro then
   begin
     PaintScreenPaper(FPaper, Theme, False);
+    TBase := GetTickCount64;
     if FShowGrid then
     begin
       { The lattice only reads as paper if the spacing stays in a comfortable
@@ -4498,7 +4648,18 @@ begin
         vkOrbit: PaintGroundGrid(GridPitch / Ppu);
       end;
     end;
+    TGrid := GetTickCount64;
     PaintAxes;
+    { where the paper's time really goes.  It was assumed to be the fill and
+      the grain; it is not, on any theme with a dark screen - see the numbers
+      in TODO.md. }
+    if FTimings then
+    begin
+      WriteLn(Format('paper: painted %d, skipped %d - base %d, grid %d, axes %d',
+        [FPaperPaints, FPaperSkips, TBase - T0, TGrid - TBase,
+         GetTickCount64 - TGrid]));
+      Flush(Output);
+    end;
   end
   else
     PaintScreenPaper(FPaper, Theme, FShowGrid);

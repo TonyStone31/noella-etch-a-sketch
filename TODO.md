@@ -1326,6 +1326,77 @@ it was.  It did not show up in this report because he was drawing a
 rectangle, not hovering a face.  Draw it into a surface like the selection
 and the question goes away.
 
+### The dirty rectangle, which turned out to be the ground grid - 16 September 2026
+
+Item 4 of the agreed order, and the measurement moved the target before any
+of it was written.  Worth recording in that order, because the old number
+was not wrong - it was just not split up.
+
+**What the old measurement said.**  "25.7 ms a frame, of which about 6 ms is
+the model.  The other 19 is the full-screen paper repaint and the composite."
+Three quarters of a frame, neither half depending on the model.  The
+conclusion drawn from it was: cache the paper, composite only what changed.
+
+**What splitting it up says.**  `RepaintPaper` now reports its own parts
+under `/timings`.  Orbiting the example model, every frame:
+
+    paper: painted 48, skipped 0 - base 2, grid 22, axes 1
+    slow frame: 40ms (paper 27, ink 7, over 0, screen 6) ORBIT ... moving
+
+* **The composite is 0-1 ms.**  Not 19.  Dirty-rectangle compositing would
+  have bought nothing, and the item as written should not be done.
+* **The paper base is 2 ms**, and the grain inside it - two hundred thousand
+  random pixels - is 2.9 ms but only on a light theme; the dark themes skip
+  it entirely.  Caching the base would buy nothing on the theme anybody is
+  using.
+* **The ground grid is 22-27 ms of the 30.**  All of it.
+
+**And the paper cache, built first, was not the win either.**  Thirty-three
+places call `RepaintPaper`, so the obvious guess was that it was being called
+for nothing all the time.  Measured: in a session of drawing and orbiting it
+painted 7 times and skipped 3.  It was never being called redundantly.  The
+guard is kept - it is cheap, it is correct, and it stops the paper being
+re-ruled by a future call that does not need it - but it is not why anything
+got faster, and saying otherwise would be inventing a result.
+
+**The actual fault: the floor was ruled finer than anyone can see it.**  The
+camera is orthographic, so parallel ground lines stay parallel and evenly
+spaced on the glass - but a tilted view squashes one family by the cosine of
+the tilt.  The pitch is picked in world units for the *paper* grid, which is
+square to the screen, and nobody had ever asked what it came to on the
+ground.  At a working angle it came to about six pixels: **260 faint lines,
+six pixels apart** - not a lattice, a grey wash, and 27 ms a frame to lay it
+down.
+
+Each family is now coarsened on its own - by two, five, ten, never by three
+or seven, so every crossing left is still a round number the cursor can land
+on - until its lines are at least twelve pixels apart.
+
+| orbiting the example model | before | after |
+|---|---|---|
+| lines ruled | ~260 | **~88** |
+| grid | 22-27 ms | **6 ms** |
+| paper, all of it | 30 ms | **8 ms** |
+| frames over 40 ms in the orbit | 4 | **1** |
+
+**It looks better, which is the part that matters more.**  Screenshots both
+ways: the old floor is a crosshatch texture, the new one reads as a floor,
+and it is the near ground that keeps the detail.
+
+**A low camera gets a floor now.**  The lattice is ruled over the box round
+the four window corners cast onto Z = 0, and tipping towards the ground grows
+that box without limit - so there has always been a cap, and the cap meant a
+flat view got *no* floor at all.  With the pitch coarsening doing the density
+work the cap could be loosened: measured at a nearly flat camera, at most 172
+lines and 13 ms, no slow frames.  `orbit-grid` in the drive suite walks that
+whole range, because it is where both guards have to behave.
+
+**What is left in the frame**, orbiting: paper 8, ink 5-12, composite 1,
+canvas blit 4.  The blit is a full-window `DrawTo` and is the only thing left
+that a dirty rectangle could touch - and during an orbit every pixel really
+has changed, so it would not help there either.  The next honest performance
+question is the ink, not the paper.
+
 ### Orbit that clicks into a squared-up view - to experiment with, 16 September 2026
 
 Tony, brainstorming and explicitly not committing: "I think I want to have a

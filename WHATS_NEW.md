@@ -35,6 +35,12 @@
   quietly a pixel shorter than the one being asked for.
 - **Picking is much faster on a big drawing** - about thirty times - so
   hovering over a crowded sheet no longer lags behind the mouse.
+- **Orbiting is smoother, and the ground reads as a floor.**  The lattice on
+  the ground was being ruled far finer than it could be seen - about two
+  hundred and sixty lines a few pixels apart, which came out as a grey
+  crosshatch and cost most of every frame to draw.  It is now spaced so you
+  can read it, and tipping the view down near the ground gives you a coarse
+  floor instead of none at all.
 
 ## v2026.09.16.4
 
