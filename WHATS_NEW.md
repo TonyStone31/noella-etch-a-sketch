@@ -14,6 +14,10 @@
 
 ### New
 
+- **The push/pull page has a moving picture.**  Nine seconds: pick the tool,
+  click the circle, pull it up.  Recorded by driving the program rather than
+  by anybody filming it, so the next one is a script away.
+
 - **Ten more pages in the manual, and a way in from the command list.**
   Snapping, the working plane, units against scale against precision, faces
   front and back, sheets and files, the view cube, the fitting wizard, the
