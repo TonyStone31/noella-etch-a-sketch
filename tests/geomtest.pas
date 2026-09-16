@@ -1976,6 +1976,77 @@ begin
   end;
 end;
 
+{ The nearest of the cube's twenty-six, which is what an orbit clicks into.
+
+  Tony: "let it do the animation like the cube does because it looks nice and
+  you don't lose track of what you're looking at when it animates."
+
+  The animation is the form's business; this is the arithmetic under it -
+  which of the six faces, twelve edges and eight corners a camera is closest
+  to standing in. }
+procedure TestOrbitSnapFindsTheNearestView;
+var
+  T: TCubeTarget;
+  D, Worst: Double;
+  IX, IY, IZ, N, A, E: Integer;
+  L: TP3;
+  Len, WorstDeg: Double;
+begin
+  WriteLn('-- an orbit clicks into the nearest of the cube''s twenty-six');
+
+  { standing exactly on one of them comes back as that one }
+  N := 0;
+  for IX := -1 to 1 do
+    for IY := -1 to 1 do
+      for IZ := -1 to 1 do
+      begin
+        if (IX = 0) and (IY = 0) and (IZ = 0) then Continue;
+        Inc(N);
+        T := CubeNearest(P3(IX, IY, IZ), D);
+        Ok(SamePt(T.Dir, P3(IX, IY, IZ), 1E-9),
+          Format('  %d,%d,%d comes back as itself (%s)', [IX, IY, IZ, T.Name]));
+      end;
+  EqI(N, 26, '  and there are twenty-six of them');
+
+  { the names are the ones on the cube }
+  T := CubeNearest(P3(1, 0, 0), D);
+  Ok(T.Name = 'FRONT', '  looking from +X is FRONT (' + T.Name + ')');
+  T := CubeNearest(P3(0, 0, 1), D);
+  Ok(T.Name = 'TOP', '  from above is TOP (' + T.Name + ')');
+  T := CubeNearest(P3(1, 1, 1), D);
+  Ok(T.Name = 'FRONT RIGHT TOP',
+    '  the near top corner is FRONT RIGHT TOP (' + T.Name + ')');
+
+  { a camera a little off a corner still lands on that corner }
+  T := CubeNearest(P3(1.0, 0.92, 1.08), D);
+  Ok(T.Name = 'FRONT RIGHT TOP', '  and a little off it, still that corner');
+
+  { The claim written into OrbitSnapTarget, checked rather than asserted: no
+    camera anywhere is far from all twenty-six, so no "too far to snap" limit
+    is needed.  A limit would mean the key sometimes silently did nothing. }
+  Worst := 1;
+  for A := 0 to 359 do
+    for E := -89 to 89 do
+    begin
+      L := P3(Cos(E * Pi / 180) * Cos(A * Pi / 180),
+              Cos(E * Pi / 180) * Sin(A * Pi / 180),
+              Sin(E * Pi / 180));
+      Len := Sqrt(L.X * L.X + L.Y * L.Y + L.Z * L.Z);
+      L := P3(L.X / Len, L.Y / Len, L.Z / Len);
+      CubeNearest(L, D);
+      if D < Worst then Worst := D;
+    end;
+  WorstDeg := ArcCos(EnsureRange(Worst, -1, 1)) * 180 / Pi;
+  { 27.4 degrees, measured.  The number matters because it is the size of the
+    biggest jump the snap can ever make, and it is written into the comment
+    over OrbitSnapTarget as the reason no "too far to snap" limit is needed.
+    If somebody changes the set of targets, this is what tells them what it
+    did to the feel. }
+  Ok(WorstDeg < 30,
+    Format('  the furthest any camera can be from all of them is %.1f degrees',
+      [WorstDeg]));
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6755,6 +6826,7 @@ begin
   TestHitTestTakesTheNearest;  WriteLn;
   TestTheReachIsTheWholeReach;  WriteLn;
   TestCrossingBoxTouchesTheGeometry;  WriteLn;
+  TestOrbitSnapFindsTheNearestView;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

@@ -14,6 +14,13 @@
 
 ### New
 
+- **Hold Ctrl while orbiting and let go, and the view clicks into the
+  nearest standard direction** - one of the twenty-six the view cube offers:
+  six faces square on, twelve edges, eight corners.  It glides there the way
+  clicking the cube does, so you keep track of what you are looking at.
+  While Ctrl is held the status line names where you will land, and the cube
+  lights the face it is about to go to.  Let go of Ctrl first and nothing
+  happens.
 - **`--no-splash`** starts the program without the start-up screen, for
   anything driving it from a script.  `--help` lists it with the rest.
 

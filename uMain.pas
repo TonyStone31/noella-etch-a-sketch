@@ -795,6 +795,10 @@ type
     FCubeSkin: TArtSurface;
     FCubeHot: TCubeTarget;
     FCubeHasHot: Boolean;
+    { the view an orbit would click into if the button went up now - see
+      OrbitSnapTarget }
+    FSnapHot: TCubeTarget;
+    FSnapHasHot: Boolean;
     FCubeDrag: Boolean;
     FCubeDragX, FCubeDragY: Integer;
     FCubePressX, FCubePressY: Integer;
@@ -1234,6 +1238,8 @@ type
     procedure GlideCamera(Az, El, Zoom, OX, OY: Double);
     procedure HoldTurn;
     procedure GlideTo(Az, El: Double);
+    function OrbitSnapTarget(out T: TCubeTarget): Boolean;
+    procedure SnapOrbitToNearest;
     procedure StepGlide(Dt: Double);
     procedure PaintHeldPlane(C: TCanvas);
 
@@ -1648,7 +1654,7 @@ const
     'Erase - click an edge to delete it; a face goes when its edges do.',
     'Measure - click two points and read the distance between them.',
     'Dimension - click two points, then drag away to place the line.',
-    'Orbit - drag to spin the view.  Hold Shift to pan instead.  (O)',
+    'Orbit - drag to spin.  Shift pans, Ctrl clicks into the nearest view.  (O)',
     'Offset - click a face, then move in or out and click, or type a wall ' +
       'thickness.  (F)',
     'Rotate - click the center, a point to measure from, then swing to the ' +
@@ -11093,7 +11099,7 @@ begin
       ptDim:    S2 := 'click a corner, then another - or the body of an edge for all of it';
       ptRotate: S2 := 'click the center - nothing picked turns all that is joined; arrows pick the plane';
       ptProtractor: S2 := 'click the vertex - arrows pick the plane by color';
-      ptOrbit:  S2 := 'drag to spin - Shift drags to pan';
+      ptOrbit:  S2 := 'drag to spin - Shift pans, Ctrl snaps to a view';
     else
       S2 := 'space or click - start here';
     end;
@@ -11504,7 +11510,7 @@ begin
   if (T = ptOrbit) and (FD.View <> vkOrbit) then
   begin
     EnterFreeCamera;
-    FCmdMsg := 'Orbit - drag to spin.  Shift drags to pan.';
+    FCmdMsg := 'Orbit - drag to spin.  Shift pans; hold Ctrl and let go to click into the nearest view.';
   end;
   if T = ptOrbit then pbScreen.Cursor := crSizeAll
   else pbScreen.Cursor := crCross;
@@ -11795,7 +11801,15 @@ begin
         Result := 'move away to place the line, then click';
       end;
     ptOrbit:
-      Result := 'drag to spin the view - Shift drags to pan';
+      { With Ctrl down mid-orbit, say where letting go would take it.  The
+        cube shows the same thing by lighting the face, but the cube is off
+        until somebody turns it on, and a modifier whose effect you cannot
+        see until after you have committed to it is a modifier nobody uses
+        twice. }
+      if FSnapHasHot and (FSnapHot.Name <> '') then
+        Result := 'let go to click into ' + FSnapHot.Name
+      else
+        Result := 'drag to spin the view - Shift pans, Ctrl snaps to a view';
     ptSelect:
       if Length(FSel) = 0 then
         Result := 'click to pick, or drag a box   (Ctrl adds, Shift toggles)'
@@ -14558,6 +14572,12 @@ begin
     way through an orbit the way you would in SketchUp. }
   if FOrbiting or FPanning then
   begin
+    { Where letting go would take it, worked out every move so the cube can
+      light the target and the status line can name it.  Showing it is what
+      makes this feel considered rather than magic: you can see where it is
+      going before you commit, and let Ctrl go if you would rather not. }
+    FSnapHasHot := FOrbiting and (ssCtrl in FMoveShift) and
+                   OrbitSnapTarget(FSnapHot);
     if FOrbiting and not (ssShift in FMoveShift) then
     begin
       { Drag right and the model follows the cursor round, the way it does
@@ -17815,6 +17835,19 @@ begin
 
   if FPanning or FOrbiting then
   begin
+    { Ctrl held as the button comes up: click into the nearest of the view
+      cube's twenty-six, with the cube's own animation.
+
+      Ctrl rather than Alt, and that is a practical choice rather than a
+      taste one - every window manager worth the name takes Alt and a drag
+      for itself to move the window, so an Alt-orbit is somebody else's
+      gesture half the time.  Shift is already the pan.  Ctrl does nothing
+      at all during an orbit, and is read here rather than at mouse-down so
+      it can be grabbed part way through the turn - which is how the whole
+      thing was described: orbit round to something you like, then hold it
+      and let go. }
+    if FOrbiting and (ssCtrl in Shift) then SnapOrbitToNearest;
+    FSnapHasHot := False;
     FPanning := False;
     FOrbiting := False;
     if FTool = ptOrbit then pbScreen.Cursor := crSizeAll
@@ -18967,7 +19000,12 @@ begin
   { room for the cube to turn in without its corners leaving the surface:
     the long diagonal of a cube is root three }
   Half := (R.Right - R.Left) / 2 / 1.75;
-  PaintCube(FCubeSkin, Proj, Half, Theme, FCubeHasHot, FCubeHot.Dir);
+  { the pointer's target on the cube, or - while an orbit is being snapped -
+    the one it is about to click into }
+  if FSnapHasHot then
+    PaintCube(FCubeSkin, Proj, Half, Theme, True, FSnapHot.Dir)
+  else
+    PaintCube(FCubeSkin, Proj, Half, Theme, FCubeHasHot, FCubeHot.Dir);
   FCubeSkin.DrawTo(C, R.Left, R.Top);
 
   { the names, on the canvas because they want a font }
@@ -18985,7 +19023,14 @@ begin
   end;
 
   { what is under the pointer, said in words under the cube }
-  if FCubeHasHot and (FCubeHot.Name <> '') then
+  if FSnapHasHot and (FSnapHot.Name <> '') then
+  begin
+    C.Font.Color := PixToColor(Theme.Accent);
+    TW := C.TextWidth(FSnapHot.Name);
+    C.TextOut(R.Left + (R.Right - R.Left - TW) div 2,
+      R.Bottom + Round(2 * FUIScale), FSnapHot.Name);
+  end
+  else if FCubeHasHot and (FCubeHot.Name <> '') then
   begin
     UIFont(C, 9, True, Theme.Accent);
     TW := C.TextWidth(FCubeHot.Name);
@@ -19245,6 +19290,57 @@ begin
 end;
 
 { Start a camera move.  Instant when there is nowhere to go. }
+{ The view the camera would click into, if it let go now.
+
+  Tony, having watched the cube do it: "I think I want to have a modifier key
+  for the orbit tool that makes it snap to... the closest preprogrammed views
+  we have.... I think it will be nice to do an orbit around and get it to
+  snap itself at least so one of its planes are squared to the view."
+
+  The twenty-six the cube already offers are the set - six faces square on,
+  twelve edges half way between two, eight corners.  Nothing new had to be
+  invented for it: the cube has known those directions all along, CubeAzEl
+  turns one into a camera, and GlideTo animates the way there, which is
+  exactly what a click on the cube does.
+
+  Only in the free 3D view: PLAN and ISO are fixed cameras already, and
+  there is nothing for an orbit to snap in them. }
+function TMainForm.OrbitSnapTarget(out T: TCubeTarget): Boolean;
+var
+  Near_: Double;
+begin
+  Result := False;
+  if (FD = nil) or (FD.View <> vkOrbit) then Exit;
+  T := CubeNearest(ViewDir(Proj), Near_);
+  { Every direction has a nearest of the twenty-six, and no camera anywhere
+    is far from all of them: swept over the whole sphere, the worst case is
+    27.4 degrees - see TestOrbitSnapFindsTheNearestView, which measures it
+    rather than taking my word for it.  So there is no such thing as being
+    too far away to snap and no limit is imposed.  A limit would mean the key
+    sometimes silently did nothing, which is worse than going somewhere you
+    can watch it go. }
+  Result := Near_ > -1;
+end;
+
+{ Let go, and click into it.  The animation is the point as much as the
+  destination: Tony asked for the cube's glide by name - "let it do the
+  animation like the cube does because it looks nice and you don't lose track
+  of what you're looking at when it animates." }
+procedure TMainForm.SnapOrbitToNearest;
+var
+  T: TCubeTarget;
+  Az, El: Double;
+begin
+  if not OrbitSnapTarget(T) then Exit;
+  Az := FD.Az;
+  { straight up or straight down says nothing about which way round to be,
+    so CubeAzEl keeps the turn already in force - which is why Az goes in }
+  CubeAzEl(T.Dir, Az, El);
+  GlideTo(Az, El);
+  FCmdMsg := 'Snapped to ' + T.Name + '.';
+  Trail('orbit snapped to ' + T.Name);
+end;
+
 procedure TMainForm.GlideTo(Az, El: Double);
 var
   D: Double;

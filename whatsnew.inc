@@ -38,6 +38,12 @@ const
     '  quietly a pixel shorter than the one being asked for.' + LineEnding +
     '- **Picking is much faster on a big drawing** - about thirty times - so' + LineEnding +
     '  hovering over a crowded sheet no longer lags behind the mouse.' + LineEnding +
+    '- **Orbiting is smoother, and the ground reads as a floor.**  The lattice on' + LineEnding +
+    '  the ground was being ruled far finer than it could be seen - about two' + LineEnding +
+    '  hundred and sixty lines a few pixels apart, which came out as a grey' + LineEnding +
+    '  crosshatch and cost most of every frame to draw.  It is now spaced so you' + LineEnding +
+    '  can read it, and tipping the view down near the ground gives you a coarse' + LineEnding +
+    '  floor instead of none at all.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.16.4' + LineEnding +
     '' + LineEnding +

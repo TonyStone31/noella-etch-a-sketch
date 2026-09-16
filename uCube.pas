@@ -59,6 +59,18 @@ function CubeAt(const V: TProjector; CX, CY, Half, SX, SY: Double;
   be, so the turn you already had is kept rather than snapped to zero. }
 procedure CubeAzEl(const Dir: TP3; var Az: Double; out El: Double);
 
+{ Which of the twenty-six a camera is closest to already.
+
+  Look is the direction the camera stands in - the same sense as Dir, which
+  is which way you are looking FROM.  Every one of the twenty-six is tried
+  and the one pointing most nearly the same way wins, which is the largest
+  dot product once both are unit length.
+
+  Closeness comes back as well, as that dot: 1 is dead on the target, 0 is a
+  right angle away.  A caller that only wants to snap when it is already
+  nearly there has to be able to ask. }
+function CubeNearest(const Look: TP3; out Near_: Double): TCubeTarget;
+
 { Draw the cube into a surface of its own.  The surface should be square and
   at least 2 * Half + a few pixels across; the cube is centred in it.  Hot is
   the target under the pointer, if there is one.
@@ -128,6 +140,40 @@ begin
   else if D.Y < -0.5 then Result := Trim(Result + ' LEFT');
   if D.Z > 0.5 then Result := Trim(Result + ' TOP')
   else if D.Z < -0.5 then Result := Trim(Result + ' BOTTOM');
+end;
+
+{ Which of the twenty-six a camera is closest to already - see the interface. }
+function CubeNearest(const Look: TP3; out Near_: Double): TCubeTarget;
+var
+  IX, IY, IZ: Integer;
+  D, L: TP3;
+  Len, Dot, Best: Double;
+begin
+  Result.Dir := P3(0, 0, 1);
+  Result.Name := DirName(Result.Dir);
+  Near_ := -1;
+  Best := -2;
+  Len := Sqrt(Look.X * Look.X + Look.Y * Look.Y + Look.Z * Look.Z);
+  if Len < 1E-12 then Exit;
+  L := P3(Look.X / Len, Look.Y / Len, Look.Z / Len);
+  for IX := -1 to 1 do
+    for IY := -1 to 1 do
+      for IZ := -1 to 1 do
+      begin
+        { the middle of the cube is not a direction }
+        if (IX = 0) and (IY = 0) and (IZ = 0) then Continue;
+        D := P3(IX, IY, IZ);
+        Len := Sqrt(D.X * D.X + D.Y * D.Y + D.Z * D.Z);
+        D := P3(D.X / Len, D.Y / Len, D.Z / Len);
+        Dot := D.X * L.X + D.Y * L.Y + D.Z * L.Z;
+        if Dot > Best then
+        begin
+          Best := Dot;
+          Result.Dir := P3(IX, IY, IZ);
+          Result.Name := DirName(Result.Dir);
+        end;
+      end;
+  Near_ := Best;
 end;
 
 { A point of the cube, in the surface's pixels.  The cube is one unit from

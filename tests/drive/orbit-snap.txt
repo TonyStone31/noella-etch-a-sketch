@@ -1,0 +1,50 @@
+# Ctrl held through an orbit: let go and it clicks into the nearest view.
+#
+# Tony: "a modifier key for the orbit tool that makes it snap to... the
+# closest preprogrammed views we have.... let it do the animation like the
+# cube does because it looks nice and you don't lose track of what you're
+# looking at when it animates."
+#
+# The twenty-six the view cube already offers are the set, and the glide is
+# the cube's own.  Ctrl rather than Alt because every window manager takes
+# Alt and a drag for itself.
+#
+# What to look for: hsk-os-holding shows the cube lighting the face it is
+# about to go to, with its name under the cube, while the button is still
+# down; hsk-os-landed is square on to that view; hsk-os-plain shows an
+# ordinary orbit without Ctrl finishing wherever it was left.
+activate
+wait 1200
+key slash
+type 3d
+key return
+wait 1200
+# the cube is off until somebody turns it on, and the preview lights it
+key slash
+type cube on
+key return
+wait 900
+key o
+wait 400
+
+# an ordinary orbit first - no modifier, no snapping
+at 700 430
+press
+at 780 470 500
+release
+wait 900
+shot /tmp/hsk-os-plain.png
+
+# now the same drag with Ctrl held, and stop before letting go so the
+# cube's preview is on the screen
+hold ctrl
+at 700 430
+press
+at 790 390 600
+wait 700
+shot /tmp/hsk-os-holding.png
+release
+let ctrl
+# the glide takes a moment, and watching it arrive is the point
+wait 1600
+shot /tmp/hsk-os-landed.png

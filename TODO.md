@@ -1397,7 +1397,52 @@ that a dirty rectangle could touch - and during an orbit every pixel really
 has changed, so it would not help there either.  The next honest performance
 question is the ink, not the paper.
 
-### Orbit that clicks into a squared-up view - to experiment with, 16 September 2026
+### Orbit that clicks into a squared-up view - DONE 16 September 2026
+
+Tony, the same day he raised it: "since half of the work is there and it
+already sort of does the orbit snapping with the cube give me your best shot
+at something that uses a modifier key with the orbit tool so when you release
+it snaps the closest prefixed destinations that we have already... let it do
+the animation like the cube does because it looks nice and you don't lose
+track of what you're looking at when it animates."
+
+Built as described, and the guesses below turned out mostly right - what they
+got wrong is worth keeping.
+
+* **The set is the cube's twenty-six.**  `CubeNearest` in uCube walks them
+  and takes the largest dot product.  The naming came free: `DirName` was
+  already there, so the status line says FRONT RIGHT TOP rather than an
+  angle.
+* **Ctrl, not Alt.**  The note guessed Alt was free.  It is free in this
+  program and not free on the desktop: every window manager worth the name
+  takes Alt and a drag to move the window, so an Alt-orbit is somebody
+  else's gesture half the time.  Ctrl does nothing during an orbit.
+* **On release, not while dragging.**  As described, and read at the release
+  rather than at the press so it can be grabbed part way through the turn.
+* **All twenty-six, no limit on how far it will throw the camera.**  The
+  note worried a limit would be needed.  Measured instead: swept over the
+  whole sphere, the furthest any camera can be from all twenty-six is **27.4
+  degrees**.  That is a modest throw, and it glides, so you watch it happen.
+  A limit would only mean the key sometimes silently did nothing.  The sweep
+  is a test, so the number stays honest if the set ever changes.
+* **It shows.**  The note called this the part that would make it feel
+  considered rather than magic, and it was right for a reason it did not
+  give: the cube is **off until somebody turns it on**, so lighting the cube
+  alone would have left most people with a modifier whose effect they could
+  not see until after committing to it.  The status line carries it instead -
+  "let go to click into BACK LEFT TOP" - and the cube lights up as well when
+  it is showing.
+
+Nothing new was invented: `CubeAzEl` already turned a direction into a
+camera and `GlideTo` already animated the way there, which is what a click on
+the cube has always done.  `orbit-snap` in the drive suite drives an ordinary
+orbit, a held one with the preview up, and the landing.
+
+**Still worth trying some day**: the pull-while-dragging version, which is
+the one that would be "better than SketchUp" if it works and worse if it
+does not.  Now that the arithmetic and the preview exist it is a small
+experiment rather than a project.
+
 
 Tony, brainstorming and explicitly not committing: "I think I want to have a
 modifier key for the orbit tool that makes it snap to one 16 (or whatever
