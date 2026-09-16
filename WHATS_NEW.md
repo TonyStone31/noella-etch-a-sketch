@@ -10,13 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## v2026.09.15.8
+## Next release
 
 ### New
 
 - **The push/pull page has a moving picture.**  Nine seconds: pick the tool,
   click the circle, pull it up.  Recorded by driving the program rather than
   by anybody filming it, so the next one is a script away.
+
+## v2026.09.15.8
+
+### New
 
 - **Ten more pages in the manual, and a way in from the command list.**
   Snapping, the working plane, units against scale against precision, faces
