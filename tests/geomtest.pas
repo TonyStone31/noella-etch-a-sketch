@@ -1541,6 +1541,146 @@ begin
   end;
 end;
 
+{ Copy and paste, including from one sheet to another.
+
+  Tony: "we need to be able to copy and paste a selection and copy and paste
+  from one sheet to another etc."
+
+  The sheet-to-sheet half is the whole design constraint: what comes out of
+  the document must not point back at it, because by the time it is pasted
+  the sheet it came from may not be in front and may not still exist. }
+procedure TestCopyAndPaste;
+var
+  A, B: TWorkDoc;
+  Clip: TWorkEntArray;
+  Outer: TP3Array;
+  Hole: array[0..0] of TP3Array;
+  First, Last, N, I, F: Integer;
+begin
+  WriteLn('-- a copy carries nothing back to the document it came from');
+  A := TWorkDoc.Create;
+  B := TWorkDoc.Create;
+  try
+    { a square with a window in it, and a line beside it }
+    SetLength(Outer, 4);
+    Outer[0] := P3(0, 0, 0); Outer[1] := P3(10, 0, 0);
+    Outer[2] := P3(10, 10, 0); Outer[3] := P3(0, 10, 0);
+    A.AddFace(Outer, clBlack, False);
+    F := A.Live - 1;
+    SetLength(Hole[0], 4);
+    Hole[0][0] := P3(3, 3, 0); Hole[0][1] := P3(3, 7, 0);
+    Hole[0][2] := P3(7, 7, 0); Hole[0][3] := P3(7, 3, 0);
+    A.SetFaceHoles(F, Hole);
+    A.AddLine(P3(0, 0, 0), P3(10, 0, 0), clBlack, 1, False);
+    A.SetFaceGroup(F, 7);
+
+    Clip := A.CopyOut([F, A.Live - 1]);
+    EqI(Length(Clip), 2, 'two things copied out');
+
+    { into a different document altogether, which is the sheet-to-sheet case }
+    N := B.PasteIn(Clip, P3(100, 0, 0), First, Last);
+    EqI(N, 2, 'and both pasted into another document');
+    EqI(B.Live, 2, 'which had nothing in it before');
+    Ok(Abs(B[First].Poly[0].X - 100) < 1E-9, 'the outline landed 100 along');
+    Ok(Abs(B[First].Holes[0][0].X - 103) < 1E-9,
+      'and the window came with it, moved the same amount');
+
+    { the paste must not have reached back into the clipboard }
+    Ok(Abs(Clip[0].Poly[0].X) < 1E-9, 'the clipboard still has the original');
+    Ok(Abs(Clip[0].Holes[0][0].X - 3) < 1E-9, 'window included');
+
+    { nor into the document it came from }
+    Ok(Abs(A[F].Poly[0].X) < 1E-9, 'and the first document never moved');
+    Ok(Abs(A[F].Holes[0][0].X - 3) < 1E-9, 'window included');
+
+    { pasted twice, the two copies are not the same solid - or push/pull
+      would deform one by pulling the other }
+    N := B.PasteIn(Clip, P3(200, 0, 0), First, Last);
+    EqI(N, 2, 'pasted a second time');
+    Ok(B[0].Grp <> B[First].Grp, 'the two pasted solids have their own groups');
+    Ok(B[0].Grp <> 0, 'and neither is loose');
+
+    { and pasting back into the first document does not collide with the
+      group that is already in there }
+    A.PasteIn(Clip, P3(0, 50, 0), First, Last);
+    Ok(A[First].Grp <> A[F].Grp, 'a paste beside the original is its own solid');
+
+    { changing the paste must not change the clipboard, so the next paste is
+      the same as the first }
+    B.TranslateEnts([First], P3(0, 0, 9));
+    Ok(Abs(Clip[0].Poly[0].Z) < 1E-9, 'moving a pasted thing leaves the clipboard alone');
+  finally
+    A.Free;
+    B.Free;
+  end;
+end;
+
+{ FaceUnder remembers its last answer, so it has to forget it at the right
+  moments.
+
+  One mouse move asks it two or three times for the same pixel - the stipple,
+  then the snap, then the commit on some tools - and it walks every face in
+  the drawing casting a ray, so answering three times is three times the work
+  for one answer.  Remembering is easy; the part worth a test is that the
+  memo is thrown away by anything that could change the answer. }
+procedure TestFaceUnderRemembersSafely;
+var
+  D: TWorkDoc;
+  V, V2: TProjector;
+  S: TPointF;
+  F: Integer;
+  P: TP3;
+  Loop: TP3Array;
+begin
+  WriteLn('-- the face under the cursor is remembered, and forgotten in time');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 20;
+
+    SetLength(Loop, 4);
+    Loop[0] := P3(0, 0, 0); Loop[1] := P3(10, 0, 0);
+    Loop[2] := P3(10, 10, 0); Loop[3] := P3(0, 10, 0);
+    D.AddFace(Loop, clBlack, False);
+
+    S := Project(V, P3(5, 5, 0));
+    Ok(D.FaceUnder(V, S.X, S.Y, F, P), 'the face is found');
+    EqI(F, 0, 'and it is the one we drew');
+    Ok(D.FaceUnder(V, S.X, S.Y, F, P), 'asked again, still found');
+    EqI(F, 0, 'and still the same one');
+
+    { a different pixel is a different question }
+    S := Project(V, P3(50, 50, 0));
+    Ok(not D.FaceUnder(V, S.X, S.Y, F, P), 'well off it, nothing is found');
+
+    { an edit has to throw the answer away }
+    S := Project(V, P3(5, 5, 0));
+    Ok(D.FaceUnder(V, S.X, S.Y, F, P), 'back over it');
+    D.Delete(0);
+    Ok(not D.FaceUnder(V, S.X, S.Y, F, P),
+      'the face is deleted, so nothing is under the cursor now');
+
+    { and so does moving the camera }
+    D.AddFace(Loop, clBlack, False);
+    S := Project(V, P3(5, 5, 0));
+    Ok(D.FaceUnder(V, S.X, S.Y, F, P), 'a new face, found');
+    V2 := V;
+    V2.OX := V.OX + 400;
+    Ok(not D.FaceUnder(V2, S.X, S.Y, F, P),
+      'the same pixel with the camera moved is not the same place');
+    Ok(D.FaceUnder(V, S.X, S.Y, F, P), 'and back again with the old camera');
+
+    { the slice hides it without touching the drawing at all }
+    D.SetSlice(True, 20, 30);
+    Ok(not D.FaceUnder(V, S.X, S.Y, F, P),
+      'cut out of the slice, it is not under the cursor');
+    D.SetSlice(False, 0, 0);
+    Ok(D.FaceUnder(V, S.X, S.Y, F, P), 'and it comes back with the slice off');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6313,6 +6453,8 @@ begin
   TestUndoPutsTheHolesBack;  WriteLn;
   TestGuidePointGoesWithItsLine;  WriteLn;
   TestGuidePointIsEasyToPick;  WriteLn;
+  TestCopyAndPaste;  WriteLn;
+  TestFaceUnderRemembersSafely;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

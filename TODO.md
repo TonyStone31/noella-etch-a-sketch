@@ -1274,7 +1274,68 @@ Nothing in the session log shows the dimension tool being picked at all
 between the erases, and there is no path from the eraser to it.  Needs the
 gesture, or a session that catches it.
 
-### Two asked for on 15 September, neither started
+### Four done on 16 September, in the order agreed
+
+**Closing a modified sheet did not ask to save - DONE.**  The guard was
+there; it asked the wrong question.  `FEditSeq` against `FSavedSeq` is one
+pair for the whole window, and `LoadExample` - which is what a new sheet
+calls - ends by setting them equal so the example's three hundred things do
+not count as your work.  So a new sheet marked every OTHER sheet saved, and
+closing a sheet you had drawn on went without a word.
+
+Now `TDrawing.Dirty`, set where every edit already funnels through, cleared
+by a save (all sheets - a save writes the whole file), by a load, and by
+`LoadExample` on the sheet it filled and no other.  The window gained an
+`OnCloseQuery`, which it never had: closing the program with work on a sheet
+asked nothing at all, survivable only because the draft brings it back, and a
+safety net nobody can see is not the same as being asked.  `close-asks` in
+the drive suite covers both halves - a sheet with work asks, a sheet nobody
+touched does not.
+
+**Copy and paste - DONE.**  Ctrl+C, Ctrl+X, Ctrl+V.  `CopyOut` takes a deep
+copy detached from the document, which is the whole design constraint: by the
+time it is pasted, the sheet it came from may not be in front and may not
+still exist.  `PasteIn` puts it back with the group ids remapped, so a pasted
+solid is its own solid - otherwise push/pull could not tell the two apart and
+pulling a face on one would deform the other.  Bores are dropped; an ekBore
+is the record of a tunnel through a particular solid and means nothing beside
+a copy of it.  A paste hands straight to the move tool the way a built
+fitting does, so it arrives on the cursor and a click puts it down.
+
+Found on the way: `Duplicate` - the Ctrl-copy in the move tool - shared each
+face's openings with the original and never offset them, so a copy of a face
+with a window had the window in the wrong place and in the original's array.
+The same crack `CopyEnt` had yesterday, twenty lines away.
+
+**PaintFaceHint, a row at a time - DONE.**  The suspicion below was right
+about the shape of the work if not yet proven to be the cause: it asked "is
+this dot inside" for every other pixel of the face's bounding box, with a
+divide per outline edge.  A face covering most of the screen with the toy's
+thirty-two-corner case outline is four million divides **per mouse move**,
+and only while a tool that hovers faces is in hand.
+
+A scanline asks once per row instead - where does this row cross the
+outline - sorts the crossings and fills between them in pairs.  Two hundred
+and fifty rows times thirty-eight edges: about five hundred times less.  The
+windows come free, because their edges go in the same crossing list and the
+even-odd rule leaves a hole wherever a window brackets the row.
+
+**One walk instead of three - DONE.**  Item (d) of the performance list.
+`PickAt` worked out the edge, the face and the general hit test and then
+chose between them, so every mouse move over a drawing cast a ray at every
+face whether or not the cursor was on an edge; it stops at the first answer
+now.  And `FaceUnder` remembers its last answer, keyed on the pixel, the
+camera, the slice and the edit sequence - because one mouse move asks it for
+the stipple, then again for the snap, then a third time on the click.  The
+memo has its own test: the part worth proving is that it is forgotten by an
+edit, by the camera moving, and by the slice changing.
+
+**Still to measure.**  Whether any of this shows up in the frame watchdog.
+The next report with slow lines in it is the answer - and if they still come
+with PUSH/PULL and a big things= count, the stipple was not the cause after
+all and the log will say what is.
+
+### Two asked for on 15 September, both now done
 
 **Closing a modified sheet did not ask to save.**  Tony: "I recently had
 another modified drawing and I closed its tab sheet and was not asked to save

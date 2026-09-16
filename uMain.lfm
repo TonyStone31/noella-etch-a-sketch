@@ -16,6 +16,7 @@ object MainForm: TMainForm
   LCLVersion = '4.99.0.0'
   Scaled = False
   OnClose = FormClose
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown

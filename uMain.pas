@@ -107,6 +107,21 @@ type
       sheet starts.  A drawing that remembers where it was looked at from
       must not then be framed over the top of it. }
     CamKnown: Boolean;
+    { Has anybody done anything to THIS sheet since it was loaded or saved.
+
+      It used to be asked of the window instead - FEditSeq against FSavedSeq,
+      one pair for all the sheets - and that is wrong twice over.  Closing
+      sheet two asked about whether sheet one had been touched; and worse,
+      making a new sheet calls LoadExample, which ends by setting
+      FSavedSeq := FEditSeq so the example's three hundred things do not
+      count as your work - and that marked every OTHER sheet saved as well.
+
+      So: draw something, make a second sheet, close the first, and it went
+      without a word.  Tony, 15 September: "I recently had another modified
+      drawing and I closed its tab sheet and was not asked to save it."
+
+      One flag per sheet, set where every edit already funnels through. }
+    Dirty: Boolean;
     { The slice a plan view is cut out of - a floor plan is a horizontal
       section, not a photograph from above.  Lives on the sheet because it is
       a property of how this sheet is being looked at, and it only ever bites
@@ -180,6 +195,8 @@ type
     procedure PickAnyColour;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    function AnyDirty: Integer;
     procedure FormDestroy(Sender: TObject);
     procedure RememberWindow;
     function OnAScreen(L, T, W, H: Integer): Boolean;
@@ -401,6 +418,11 @@ type
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
     FMoveCopy: Boolean;
+    { What was copied, deep and detached from the document it came from, so
+      it survives a switch to another sheet and can be pasted into a
+      different one.  One clipboard for the window, which is what anybody
+      means by a clipboard. }
+    FClip: TWorkEntArray;
     { The frame watchdog.  Four running totals, cleared at the start of each
       paint and added to by the three things a frame is made of: working the
       ink out again, compositing it over the paper, and putting the result on
@@ -900,6 +922,8 @@ type
     procedure ApplyArray(N: Integer; Divide: Boolean);
     function ArrayCommand(const S: string; out N: Integer; out Divide: Boolean): Boolean;
     { hand something just built to the move tool, so the next click places it }
+    procedure CopySelection(Cut: Boolean);
+    procedure PasteClip;
     procedure PlaceBuilt(First: Integer; const Ref: TP3);
     procedure StartUnfold;
     procedure UnfoldAt(SX, SY: Integer);
@@ -2564,6 +2588,57 @@ begin
   FWinSaved := (FWinW > 200) and (FWinH > 200);
 end;
 
+{ Closing the window with work on a sheet asks, the way closing a sheet does.
+
+  It never asked at all, which was survivable only because the draft written
+  beside the program brings the work back on the next launch - and a safety
+  net nobody can see is not the same as being asked.  Same three answers as
+  closing a sheet, and the same rule about what counts as work: a sheet
+  nobody has touched is not something to lose, and the example the program
+  starts with arrives with three hundred things on it. }
+function TMainForm.AnyDirty: Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to High(FDrawings) do
+    if (FDrawings[I].Doc.Live > 0) and FDrawings[I].Dirty then Inc(Result);
+end;
+
+procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+var
+  N, Ans: Integer;
+begin
+  CanClose := True;
+  if FMode <> mdPro then Exit;
+  N := AnyDirty;
+  if N = 0 then Exit;
+
+  Ans := QuestionDlg('Close Heckers Sketch',
+    Format('%d sheet%s %s work on %s that is not saved.  ' +
+           'Save the drawing before closing?',
+      [N, specialize IfThen<string>(N = 1, '', 's'),
+       specialize IfThen<string>(N = 1, 'has', 'have'),
+       specialize IfThen<string>(N = 1, 'it', 'them')]),
+    mtConfirmation,
+    [mrYes, 'Save the drawing', 'IsDefault',
+     mrNo, 'Close without saving',
+     mrCancel, 'Keep it open', 'IsCancel'], 0);
+
+  if Ans = mrCancel then
+  begin
+    CanClose := False;
+    Exit;
+  end;
+  if Ans = mrYes then
+  begin
+    DoSave;
+    { save-as declined, or the write failed - either way there is still work
+      to lose, so the window stays }
+    if AnyDirty > 0 then CanClose := False;
+  end;
+end;
+
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   RememberWindow;
@@ -3035,24 +3110,32 @@ var
   SO, SU, SV: TPointF;
   Det, DU, DV, D0, PU, PV, Dp, Zb: Double;
   Deep: Boolean;
-  I, H, N, X, Y, X0, Y0, X1, Y1, Step: Integer;
+  I, H, K, N, X, Y, X0, Y0, X1, Y1, Step, NX, XEnd: Integer;
   Inside: Boolean;
+  { one row never crosses more loops than this; a face with more windows than
+    sixty-four is not a thing anybody points at }
+  XS: array[0..255] of Double;
+  Xt: Double;
 
-  { the crossing count, for the outline or for one of its windows }
-  function In2(const P: TPointFArray; PX, PY: Integer): Boolean;
+  { Where this row crosses that loop, added to the list.  The same test the
+    per-dot crossing count used to do, asked once for the row rather than
+    once for every dot along it. }
+  procedure Cross(const P: TPointFArray; PY: Integer;
+    var Xs: array of Double; var NX: Integer);
   var
     K, L, M: Integer;
   begin
-    Result := False;
     M := Length(P);
     if M < 3 then Exit;
     L := M - 1;
     for K := 0 to M - 1 do
     begin
-      if ((P[K].Y > PY) <> (P[L].Y > PY)) and
-         (PX < (P[L].X - P[K].X) * (PY - P[K].Y) /
-               (P[L].Y - P[K].Y) + P[K].X) then
-        Result := not Result;
+      if ((P[K].Y > PY) <> (P[L].Y > PY)) and (NX <= High(Xs)) then
+      begin
+        Xs[NX] := (P[L].X - P[K].X) * (PY - P[K].Y) /
+                  (P[L].Y - P[K].Y) + P[K].X;
+        Inc(NX);
+      end;
       L := K;
     end;
   end;
@@ -3111,34 +3194,70 @@ begin
   { A dither, because the canvas has no alpha channel and a tint has to be
     made out of gaps.  Every other pixel reads as a solid wash at a glance,
     which is what SketchUp does: the face you are pointing at should be
-    unmistakable rather than a hint. }
+    unmistakable rather than a hint.
+
+    Filled a row at a time rather than a dot at a time, and that is not a
+    micro-optimisation.  Asking "is this dot inside" runs the crossing count
+    over the whole outline, with a divide per edge - and the outline of the
+    toy's case has thirty-two corners.  On a face covering most of a screen
+    that is a hundred and twenty thousand dots times thirty-eight edges, four
+    million divides, for EVERY MOUSE MOVE while push/pull or the drill is in
+    hand.  Which is exactly the shape of Tony's "it seems the program is
+    struggling or stuck in some loop for some reason".
+
+    A scanline asks the same question once per row instead: where does this
+    row cross the outline?  Sort the crossings, fill between them in pairs.
+    Two hundred and fifty rows times thirty-eight edges is nine thousand
+    divides - about five hundred times less work for exactly the same picture.
+
+    The windows come along for free.  Their edges go into the same list of
+    crossings, and the even-odd rule that fills between pairs then leaves a
+    hole wherever a window's two sides bracket the row.  No second test. }
   Step := 2;
   Y := Y0 - (Y0 mod Step);
   while Y <= Y1 do
   begin
-    X := X0 - (X0 mod Step);
-    while X <= X1 do
+    NX := 0;
+    Cross(Pts, Y, XS, NX);
+    for H := 0 to High(HPts) do Cross(HPts[H], Y, XS, NX);
+    { insertion sort - a row crosses a face's outline twice as a rule, four
+      times through a window, and never enough times for anything cleverer }
+    for I := 1 to NX - 1 do
     begin
-      Inside := (X >= X0) and (Y >= Y0) and In2(Pts, X, Y);
-      if Inside then
-        for H := 0 to High(HPts) do
-          if In2(HPts[H], X, Y) then
-          begin
-            Inside := False;
-            Break;
-          end;
-      if Inside and Deep then
+      Xt := XS[I];
+      K := I - 1;
+      while (K >= 0) and (XS[K] > Xt) do
       begin
-        PU := ((X - SO.X) * SV.Y - (Y - SO.Y) * SV.X) / Det;
-        PV := (SU.X * (Y - SO.Y) - SU.Y * (X - SO.X)) / Det;
-        Dp := D0 + PU * DU + PV * DV;
-        Zb := Ink.DepthAt(X, Y);
-        if (Zb > -1E29) and (Zb > Dp + 1E-3 * (1 + Abs(Dp))) then
-          Inside := False;
+        XS[K + 1] := XS[K];
+        Dec(K);
       end;
-      if Inside then
-        C.Pixels[X, Y] := PixToColor(Col);
-      Inc(X, Step);
+      XS[K + 1] := Xt;
+    end;
+
+    I := 0;
+    while I + 1 < NX do
+    begin
+      { on the dither's own grid, so the pattern does not crawl as the
+        outline moves under it }
+      X := Max(X0, Ceil(XS[I]));
+      X := X + ((Step - (X mod Step)) mod Step);
+      XEnd := Min(X1, Floor(XS[I + 1]));
+      while X <= XEnd do
+      begin
+        Inside := True;
+        if Deep then
+        begin
+          PU := ((X - SO.X) * SV.Y - (Y - SO.Y) * SV.X) / Det;
+          PV := (SU.X * (Y - SO.Y) - SU.Y * (X - SO.X)) / Det;
+          Dp := D0 + PU * DU + PV * DV;
+          Zb := Ink.DepthAt(X, Y);
+          if (Zb > -1E29) and (Zb > Dp + 1E-3 * (1 + Abs(Dp))) then
+            Inside := False;
+        end;
+        if Inside then C.Pixels[X, Y] := PixToColor(Col);
+        Inc(X, Step);
+      end;
+      Inc(I, 2);
     end;
     Inc(Y, Step);
   end;
@@ -4706,7 +4825,7 @@ begin
     starts with arrives with three hundred things on it - so putting it down
     brought up "save the drawing first?", which is a question about somebody
     else's drawing. }
-  if (FDrawings[I].Doc.Live > 0) and (FEditSeq <> FSavedSeq) then
+  if (FDrawings[I].Doc.Live > 0) and FDrawings[I].Dirty then
   begin
     Ans := QuestionDlg('Close this sheet',
       Format('"%s" has %d things on it.  Save the drawing before closing it?',
@@ -4719,7 +4838,7 @@ begin
     if Ans = mrYes then
     begin
       DoSave;
-      if (FDocPath = '') or (FEditSeq <> FSavedSeq) then Exit;   { save as was declined, or failed }
+      if (FDocPath = '') or FDrawings[I].Dirty then Exit;   { save as was declined, or failed }
     end;
   end;
 
@@ -7942,6 +8061,76 @@ begin
   RenderPro;
   RecomposeAll;
   PlaceBuilt(First, P3(0, 0, 0));
+end;
+
+{ Copy, cut and paste.
+
+  Tony: "we need to be able to copy and paste a selection and copy and paste
+  from one sheet to another etc."
+
+  The sheet-to-sheet half is why the clipboard holds a deep copy rather than
+  a list of indices: the sheet it came from may not be the one in front by
+  the time it is pasted, and it may not even still exist.
+
+  Pasting hands straight over to the move tool, the way a built fitting is
+  handed over - it arrives on the cursor and a click puts it down.  SketchUp
+  does the same thing, and it saves inventing a rule for where a paste lands
+  that would be wrong half the time. }
+procedure TMainForm.CopySelection(Cut: Boolean);
+begin
+  if FMode <> mdPro then Exit;
+  if Length(FSel) = 0 then
+  begin
+    FCmdMsg := 'Nothing picked.  Click something first, or drag a box round it.';
+    Exit;
+  end;
+  FClip := FD.Doc.CopyOut(FSel);
+  if Cut then
+  begin
+    FCmdMsg := Format('Cut %d thing%s.  Ctrl+V puts %s down - on this sheet ' +
+      'or any other.', [Length(FClip), IfThen(Length(FClip) = 1, '', 's'),
+      IfThen(Length(FClip) = 1, 'it', 'them')]);
+    DeleteSelection;
+  end
+  else
+    FCmdMsg := Format('Copied %d thing%s.  Ctrl+V puts %s down - on this ' +
+      'sheet or any other.', [Length(FClip), IfThen(Length(FClip) = 1, '', 's'),
+      IfThen(Length(FClip) = 1, 'it', 'them')]);
+  pbCmd.Invalidate;
+end;
+
+procedure TMainForm.PasteClip;
+var
+  N, First, Last, I: Integer;
+  Idx: array of Integer;
+  Mid: TP3;
+begin
+  if FMode <> mdPro then Exit;
+  if Length(FClip) = 0 then
+  begin
+    FCmdMsg := 'Nothing copied yet.  Pick something and press Ctrl+C.';
+    Exit;
+  end;
+  PushUndo;
+  N := FD.Doc.PasteIn(FClip, P3(0, 0, 0), First, Last);
+  if N = 0 then
+  begin
+    FCmdMsg := 'Nothing in that worth pasting.';
+    Exit;
+  end;
+  SetLength(Idx, Last - First + 1);
+  for I := First to Last do Idx[I - First] := I;
+  if not FD.Doc.MiddleOf(Idx, Mid) then Mid := P3(0, 0, 0);
+  SeedRegions;
+  RenderPro;
+  RecomposeAll;
+  { and into the move tool, holding it by its middle }
+  PlaceBuilt(First, Mid);
+  FCmdMsg := Format('%d thing%s on the cursor - click to put %s down, or ' +
+    'Esc to leave %s where they came from.',
+    [N, IfThen(N = 1, '', 's'), IfThen(N = 1, 'it', 'them'),
+     IfThen(N = 1, 'it', 'them')]);
+  pbCmd.Invalidate;
 end;
 
 procedure TMainForm.PlaceBuilt(First: Integer; const Ref: TP3);
@@ -15376,8 +15565,6 @@ begin
 end;
 
 function TMainForm.PickAt(SX, SY: Integer): Integer;
-var
-  E, F, T: Integer;
 begin
   { A note is drawn over the top of everything, so it is picked before
     everything - otherwise a note sitting on a panel could not be got at,
@@ -15391,12 +15578,17 @@ begin
     the size it looks. }
   Result := FD.Doc.HitGuidePoint(Proj, SX, SY, 10 * FUIScale);
   if Result >= 0 then Exit;
-  E := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
-  F := FD.Doc.HitFace(Proj, SX, SY);
-  T := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
-  Result := E;
-  if Result < 0 then Result := F;
-  if Result < 0 then Result := T;
+  { An edge, then the face behind it, then anything else.  Asked in that
+    order and stopped at the first answer - it used to work all three out and
+    then pick between them, which meant every mouse move over a drawing cast
+    a ray at every face in it whether or not the cursor was sitting on an
+    edge.  HitFace is the expensive one of the three and it is the one that
+    was never needed when the answer was an edge. }
+  Result := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+  if Result >= 0 then Exit;
+  Result := FD.Doc.HitFace(Proj, SX, SY);
+  if Result >= 0 then Exit;
+  Result := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
 end;
 
 { Add whatever is under the cursor to the list the eraser is holding. }
@@ -17441,6 +17633,7 @@ begin
   { Everything that changes the drawing comes through here, which makes it
     the one honest place to notice that there is something worth keeping. }
   Inc(FEditSeq);
+  if FD <> nil then FD.Dirty := True;
   FDraftAge := 0;
   if FMode = mdPro then
   begin
@@ -18660,6 +18853,9 @@ begin
     case Key of
       VK_Z: DoUndo;
       VK_Y: DoRedo;
+      VK_C: CopySelection(False);
+      VK_X: CopySelection(True);
+      VK_V: PasteClip;
       VK_S: if ssShift in Shift then DoSaveAs else DoSave;
       VK_O: DoOpen;
       VK_E: DoExport;
@@ -19355,6 +19551,7 @@ begin
         Format(' - %d sheet(s)', [Length(FDrawings)]);
     FHint := FDocPath;
     FSavedSeq := FEditSeq;
+    for I := 0 to High(FDrawings) do FDrawings[I].Dirty := False;
     Result := True;
   finally
     L.Free;
@@ -19380,6 +19577,7 @@ end;
 procedure TMainForm.DoSave;
 var
   L: TStringList;
+  I: Integer;
 begin
   if FMode <> mdPro then
   begin
@@ -19400,6 +19598,9 @@ begin
     try
       L.SaveToFile(FDocPath);
       FSavedSeq := FEditSeq;
+      { a save writes the whole file, so every sheet in it is clean now -
+        not only the one that happens to be in front }
+      for I := 0 to High(FDrawings) do FDrawings[I].Dirty := False;
       FCmdMsg := 'Saved ' + ExtractFileName(FDocPath);
       FHint := 'Saved to ' + FDocPath;
     except
@@ -20394,8 +20595,14 @@ begin
     how work gets saved over the top of something else. }
   if Length(FDrawings) <= 1 then FDocPath := '';
   { It is not somebody's work until they have changed it, so it does not
-    count as unsaved and closing it asks nothing. }
+    count as unsaved and closing it asks nothing.
+
+    THIS sheet, and no other.  Setting the window-wide FSavedSeq here is what
+    made a new sheet mark every other sheet saved as well - see TDrawing.Dirty
+    - so that stays for the title bar and the draft, and the question about
+    closing is asked of the flag. }
   FSavedSeq := FEditSeq;
+  FD.Dirty := False;
   { The same as opening a file, and for the same reason: a drawing that
     carries its faces is telling us which areas are filled, including the
     ones somebody emptied on purpose.  Without this the example arrived with

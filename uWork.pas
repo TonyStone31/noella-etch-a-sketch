@@ -201,6 +201,18 @@ type
     FSnapScreenV: TProjector;
     FSnapScreenOK: Boolean;
     FSnapDirty: Boolean;
+    { The last answer FaceUnder gave, and everything that could make it a
+      different answer.  See the note over FaceUnder: one mouse move asks it
+      two or three times for the same pixel, and it walks every face in the
+      drawing casting a ray. }
+    FFaceMemoOK: Boolean;
+    FFaceMemoSeq: Int64;
+    FFaceMemoX, FFaceMemoY: Double;
+    FFaceMemoV: TProjector;
+    FFaceMemoFace: Integer;
+    FFaceMemoPt: TP3;
+    FFaceMemoSlice: Boolean;
+    FFaceMemoLo, FFaceMemoHi: Double;
     FGuidesHidden: Boolean;
     FNextGrp: Integer;
     { The slice a plan view is cut out of - see SetSlice. }
@@ -477,6 +489,13 @@ type
     function OutlineWorld(I: Integer): TP3Array;
     { Copy these entities, offset.  A copy stretches nothing. }
     procedure Duplicate(const Idx: array of Integer; const D: TP3);
+    { Copy a selection out of the document, deep and with nothing pointing
+      back at it, so it survives a switch to another sheet.  PasteIn puts a
+      copy back - into this document or a different one - offset by D, with
+      the group ids remapped so a pasted solid is its own solid. }
+    function CopyOut(const Idx: array of Integer): TWorkEntArray;
+    function PasteIn(const Ents: TWorkEntArray; const D: TP3;
+      out First, Last: Integer): Integer;
     { Where an entity lands on screen, for a selection box to test against. }
     procedure ScreenBounds(const V: TProjector; I: Integer;
       out X0, Y0, X1, Y1: Double);
@@ -4512,6 +4531,18 @@ end;
   The point is found through Project itself rather than by inverting it:
   the projection is affine, so three points on the face plane fix the mapping
   and a 2x2 solve gives the rest. }
+{ Which face is under that pixel, and where on it.
+
+  The answer is remembered for the pixel it was asked about, because it is
+  asked more than once for the same one.  A single mouse move over a drawing
+  with push/pull in hand asks it for the stipple, and the snap asks it again
+  for an on-face point, and on some tools the commit asks a third time - all
+  with the same X and Y, the same camera and nothing edited in between.  This
+  walks every face in the drawing casting a ray, so it is not a cheap thing
+  to do three times for one answer.
+
+  Thrown away the moment anything could change it: an edit, a different
+  camera, a different slice.  Nothing else can. }
 function TWorkDoc.FaceUnder(const V: TProjector; SX, SY: Double;
   out Face: Integer; out Pt: TP3): Boolean;
 var
@@ -4522,6 +4553,17 @@ var
   P0, P1, P2: TPointF;
   AX, AY, BX, BY, Det, SS, TT, D, Best, Eps: Double;
 begin
+  if FFaceMemoOK and (FFaceMemoSeq = FEditSeq) and
+     (FFaceMemoX = SX) and (FFaceMemoY = SY) and
+     SameProjector(V, FFaceMemoV) and
+     (FFaceMemoSlice = FSliceOn) and (FFaceMemoLo = FSliceLo) and
+     (FFaceMemoHi = FSliceHi) then
+  begin
+    Face := FFaceMemoFace;
+    Pt := FFaceMemoPt;
+    Exit(Face >= 0);
+  end;
+
   Result := False;
   Face := -1;
   Pt := P3(0, 0, 0);
@@ -4624,6 +4666,16 @@ begin
       Result := True;
     end;
   end;
+  FFaceMemoOK := True;
+  FFaceMemoSeq := FEditSeq;
+  FFaceMemoX := SX;
+  FFaceMemoY := SY;
+  FFaceMemoV := V;
+  FFaceMemoFace := Face;
+  FFaceMemoPt := Pt;
+  FFaceMemoSlice := FSliceOn;
+  FFaceMemoLo := FSliceLo;
+  FFaceMemoHi := FSliceHi;
 end;
 
 function TWorkDoc.HitFace(const V: TProjector; SX, SY: Double): Integer;
@@ -6081,7 +6133,7 @@ end;
 
 procedure TWorkDoc.Duplicate(const Idx: array of Integer; const D: TP3);
 var
-  J, I, K, Base, G: Integer;
+  J, I, K, H, Base, G: Integer;
   Src, Dst: array of Integer;    { old group id -> the new one it becomes }
 
   { Solids are told apart by their group id.  Carrying the original's id over
@@ -6118,6 +6170,19 @@ begin
     for K := 0 to High(FEnts[I].Poly) do
       FEnts[FLive].Poly[K] := P3(FEnts[I].Poly[K].X + D.X,
         FEnts[I].Poly[K].Y + D.Y, FEnts[I].Poly[K].Z + D.Z);
+    { And the openings, which this shared with the original and left where
+      they were: a copy of a face with a window in it had the window at the
+      first one's position, in the first one's array, so moving either moved
+      both.  The same crack as the one CopyEnt had - see the note there. }
+    FEnts[FLive].Holes := nil;
+    SetLength(FEnts[FLive].Holes, Length(FEnts[I].Holes));
+    for H := 0 to High(FEnts[I].Holes) do
+    begin
+      SetLength(FEnts[FLive].Holes[H], Length(FEnts[I].Holes[H]));
+      for K := 0 to High(FEnts[I].Holes[H]) do
+        FEnts[FLive].Holes[H][K] := P3(FEnts[I].Holes[H][K].X + D.X,
+          FEnts[I].Holes[H][K].Y + D.Y, FEnts[I].Holes[H][K].Z + D.Z);
+    end;
     FEnts[FLive].A := P3(FEnts[I].A.X + D.X, FEnts[I].A.Y + D.Y, FEnts[I].A.Z + D.Z);
     FEnts[FLive].B := P3(FEnts[I].B.X + D.X, FEnts[I].B.Y + D.Y, FEnts[I].B.Z + D.Z);
     FEnts[FLive].C := P3(FEnts[I].C.X + D.X, FEnts[I].C.Y + D.Y, FEnts[I].C.Z + D.Z);
@@ -6126,6 +6191,97 @@ begin
     Inc(FLive);
   end;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+end;
+
+{ Take a copy of these entities out of the document.
+
+  Deep, and with nothing pointing back at the document it came from - which
+  is the whole requirement, because the copy has to outlive a switch to
+  another sheet and be pasted into a different TWorkDoc entirely.  CopyEnt is
+  already the deep one; this is a list of them. }
+function TWorkDoc.CopyOut(const Idx: array of Integer): TWorkEntArray;
+var
+  J, I, N: Integer;
+begin
+  Result := nil;
+  SetLength(Result, Length(Idx));
+  N := 0;
+  for J := 0 to High(Idx) do
+  begin
+    I := Idx[J];
+    if (I < 0) or (I >= FLive) then Continue;
+    Result[N] := CopyEnt(FEnts[I]);
+    Inc(N);
+  end;
+  SetLength(Result, N);
+end;
+
+{ Put a copy back in, offset by D, and say which ones went in.
+
+  The group ids are remapped for the reason Duplicate remaps them: solids are
+  told apart by their group, and a pasted box carrying the original's id
+  would be the same solid as far as push/pull is concerned - pull a face on
+  one and the other deforms.  Pasting into a different sheet needs it just as
+  much, because the two sheets number their groups from one each.
+
+  Bores are dropped.  An ekBore is the record of a tunnel through a
+  particular solid, kept so the next tunnel knows where the last one went; it
+  means nothing beside a copy of that solid and nothing at all on another
+  sheet. }
+function TWorkDoc.PasteIn(const Ents: TWorkEntArray; const D: TP3;
+  out First, Last: Integer): Integer;
+var
+  J, K, H: Integer;
+  Src, Dst: array of Integer;
+
+  function Remap(Old: Integer): Integer;
+  var
+    N: Integer;
+  begin
+    if Old = 0 then Exit(0);
+    for N := 0 to High(Src) do
+      if Src[N] = Old then Exit(Dst[N]);
+    Inc(FNextGrp);
+    SetLength(Src, Length(Src) + 1);
+    SetLength(Dst, Length(Dst) + 1);
+    Src[High(Src)] := Old;
+    Dst[High(Dst)] := FNextGrp;
+    Result := FNextGrp;
+  end;
+
+  procedure Shift(var P: TP3);
+  begin
+    P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
+  end;
+
+begin
+  Result := 0;
+  First := FLive;
+  Last := FLive - 1;
+  Src := nil;
+  Dst := nil;
+  for J := 0 to High(Ents) do
+  begin
+    if Ents[J].Kind = ekBore then Continue;
+    Room;
+    Finalize(FEnts[FLive]);
+    FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+    FEnts[FLive] := CopyEnt(Ents[J]);
+    Shift(FEnts[FLive].A);
+    Shift(FEnts[FLive].B);
+    Shift(FEnts[FLive].C);
+    for K := 0 to High(FEnts[FLive].Poly) do Shift(FEnts[FLive].Poly[K]);
+    for H := 0 to High(FEnts[FLive].Holes) do
+      for K := 0 to High(FEnts[FLive].Holes[H]) do Shift(FEnts[FLive].Holes[H][K]);
+    FEnts[FLive].Grp := Remap(Ents[J].Grp);
+    Last := FLive;
+    Inc(FLive);
+    Inc(Result);
+  end;
+  if Result > 0 then
+  begin
+    FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+  end;
 end;
 
 procedure TWorkDoc.ScreenBounds(const V: TProjector; I: Integer;

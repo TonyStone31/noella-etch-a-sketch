@@ -1,0 +1,70 @@
+# Closing a sheet with work on it asks about it.
+#
+# Tony, 15 September: "I recently had another modified drawing and I closed
+# its tab sheet and was not asked to save it."
+#
+# It did ask - of the wrong thing.  The test was FEditSeq against FSavedSeq,
+# one pair for the whole window, and LoadExample ends by setting them equal
+# so the example's three hundred things do not count as your work.  A new
+# sheet calls LoadExample.  So: draw on a sheet, make a second one, close the
+# first, and it went without a word.
+#
+# What to look for: hsk-close-asks has the question up, naming the sheet;
+# hsk-close-kept is after Keep it open, with the sheet and the line still
+# there.  And hsk-close-quiet is the other half of it - a sheet nobody has
+# touched closes with no question, because the example arriving is not your
+# work to lose.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+key slash
+type plan
+key return
+wait 1200
+
+# something of our own on this sheet
+key l
+wait 400
+at 500 400
+click l
+wait 400
+at 800 400
+click l
+wait 400
+key escape
+wait 800
+
+# a second sheet, which is what used to wipe the first one's flag
+key slash
+type new
+key return
+wait 1800
+shot /tmp/hsk-close-two.png
+
+# back to the first, and close it
+hold ctrl
+key tab
+let ctrl
+wait 1200
+hold ctrl
+key w
+let ctrl
+wait 1500
+shot /tmp/hsk-close-asks.png
+key escape
+wait 1200
+shot /tmp/hsk-close-kept.png
+
+# and the other half: the second sheet is the example as it arrived and
+# nobody has touched it, so closing it asks nothing
+hold ctrl
+key tab
+let ctrl
+wait 1200
+hold ctrl
+key w
+let ctrl
+wait 1500
+shot /tmp/hsk-close-quiet.png

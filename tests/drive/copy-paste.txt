@@ -1,0 +1,87 @@
+# Copy and paste, and from one sheet to another.
+#
+# Tony: "we need to be able to copy and paste a selection and copy and paste
+# from one sheet to another etc."
+#
+# Ctrl+C, Ctrl+X, Ctrl+V.  A paste arrives on the cursor and a click puts it
+# down, which is how a built fitting already arrives and is what SketchUp
+# does - it saves inventing a rule for where a paste lands that would be
+# wrong half the time.
+#
+# What to look for: hsk-cp-copied says two things copied; hsk-cp-onhand has
+# them on the cursor away from the original; hsk-cp-down has two rectangles
+# on the sheet; hsk-cp-other is the second sheet with a copy of the first
+# sheet's work on it, which is the half that needed the clipboard to hold a
+# deep copy rather than a list of indices.
+
+geometry 0 0 1500 850
+activate
+wait 2500
+key escape
+key slash
+type plan
+key return
+wait 1200
+# on a clean sheet - the example behind it only makes the picture harder to
+# read, and a rectangle under the toy's face is drawn dashed because it is
+# hidden, which reads as something having gone wrong
+key slash
+type clear
+key return
+wait 1200
+
+key r
+wait 400
+at 420 380
+click l
+wait 400
+at 620 500
+click l
+wait 900
+
+# pick it up - a box round the lot
+key escape
+key space
+wait 400
+drag 380 340 680 540
+wait 900
+
+hold ctrl
+key c
+let ctrl
+wait 900
+shot /tmp/hsk-cp-copied.png
+
+hold ctrl
+key v
+let ctrl
+wait 1000
+at 950 400
+wait 800
+shot /tmp/hsk-cp-onhand.png
+click l
+wait 1000
+key escape
+wait 700
+shot /tmp/hsk-cp-down.png
+
+# and onto another sheet
+key slash
+type new
+key return
+wait 1800
+key slash
+type clear
+key return
+wait 1200
+hold ctrl
+key v
+let ctrl
+wait 1000
+at 700 450
+wait 700
+click l
+wait 1000
+key escape
+wait 800
+shot /tmp/hsk-cp-other.png

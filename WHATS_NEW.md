@@ -10,6 +10,38 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Copy and paste, including from one sheet to another.**
+  <kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>,
+  <kbd>Ctrl</kbd>+<kbd>V</kbd>.  A paste arrives on the cursor and a click
+  puts it down, the way a built fitting does.  A pasted solid is its own
+  solid, so pushing a face on one does not deform the other.
+
+### Fixed
+
+- **Closing a sheet with work on it asks about it.**  It asked about the
+  window rather than the sheet - and making a new sheet marked every other
+  sheet saved, so drawing something, opening a second sheet and closing the
+  first went without a word.  Closing the whole window now asks too, which it
+  never did.
+
+- **The face under the cursor is worked out once.**  Push/pull, the drill and
+  the offset asked for it, then the snapping asked for it again, and on some
+  tools the click asked a third time - each one a ray cast at every face in
+  the drawing, on every mouse move.
+
+- **The stipple under push/pull is drawn a row at a time.**  It used to ask
+  "is this dot inside the face" for every other pixel of the face's box -
+  four million divides a mouse move on the toy's case.  Same picture, about
+  five hundred times less work.
+
+- **A copy of a face with a window in it gets its own window.**  Ctrl-copy
+  with the move tool shared the opening with the original and left it at the
+  original's position, so moving either moved both.
+
 ## v2026.09.16
 
 ### New

@@ -13,6 +13,38 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Copy and paste, including from one sheet to another.**' + LineEnding +
+    '  <kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>,' + LineEnding +
+    '  <kbd>Ctrl</kbd>+<kbd>V</kbd>.  A paste arrives on the cursor and a click' + LineEnding +
+    '  puts it down, the way a built fitting does.  A pasted solid is its own' + LineEnding +
+    '  solid, so pushing a face on one does not deform the other.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Closing a sheet with work on it asks about it.**  It asked about the' + LineEnding +
+    '  window rather than the sheet - and making a new sheet marked every other' + LineEnding +
+    '  sheet saved, so drawing something, opening a second sheet and closing the' + LineEnding +
+    '  first went without a word.  Closing the whole window now asks too, which it' + LineEnding +
+    '  never did.' + LineEnding +
+    '' + LineEnding +
+    '- **The face under the cursor is worked out once.**  Push/pull, the drill and' + LineEnding +
+    '  the offset asked for it, then the snapping asked for it again, and on some' + LineEnding +
+    '  tools the click asked a third time - each one a ray cast at every face in' + LineEnding +
+    '  the drawing, on every mouse move.' + LineEnding +
+    '' + LineEnding +
+    '- **The stipple under push/pull is drawn a row at a time.**  It used to ask' + LineEnding +
+    '  "is this dot inside the face" for every other pixel of the face''s box -' + LineEnding +
+    '  four million divides a mouse move on the toy''s case.  Same picture, about' + LineEnding +
+    '  five hundred times less work.' + LineEnding +
+    '' + LineEnding +
+    '- **A copy of a face with a window in it gets its own window.**  Ctrl-copy' + LineEnding +
+    '  with the move tool shared the opening with the original and left it at the' + LineEnding +
+    '  original''s position, so moving either moved both.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
