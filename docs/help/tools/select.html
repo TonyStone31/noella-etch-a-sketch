@@ -5,7 +5,43 @@
 <link rel="stylesheet" href="../style.css"></head>
 <body><div class="wrap"><nav class="crumbs"><a href="../index.html">Help</a> &rsaquo; Select</nav>
 <header><h1>Select</h1><p class="lead">Pick what you want to work on.</p></header>
-<p>Keyboard: <kbd>Space</kbd></p><h2>How to use it</h2><ol><li>Click a thing to pick it.</li><li>Drag a box to pick several.</li><li>Ctrl adds to what is picked, Shift toggles, Ctrl+Shift takes away.</li><li>Right-click for what can be done to it - turn a face over, center it on the origin, plan from here, erase.</li></ol><h2>What it looks like</h2><figure>
+<p>Keyboard: <kbd>Space</kbd> - SketchUp's key for the arrow, and worth the
+surprise.  <kbd>Esc</kbd> gets you here too, once it has finished backing out
+of whatever else was going on.</p>
+
+<h2>Picking</h2>
+<ol>
+<li>Click a thing to pick it.  An edge, a face, a note, a dimension, a guide -
+anything in the drawing is a thing.</li>
+<li>Drag a box to pick several.  Everything the box touches comes with it.</li>
+<li><kbd>Ctrl</kbd> adds to what is picked, <kbd>Shift</kbd> toggles each
+thing, <kbd>Ctrl</kbd>+<kbd>Shift</kbd> takes away.</li>
+<li>Click empty paper, or press <kbd>Esc</kbd>, to let go of the lot.</li>
+</ol>
+
+<h2>What picking is for</h2>
+<p>Most of the program acts on what is picked rather than on what is under
+the cursor, and that is the difference between moving one edge and moving the
+wall it belongs to.  With something picked: <kbd>M</kbd> moves it,
+<kbd>Q</kbd> turns it, <kbd>Delete</kbd> removes it,
+<code>/center</code> puts it on the middle of the floor, <code>/tozero</code>
+stands it in the corner at 0,0,0.  With nothing picked those same tools work
+on whatever you point at instead.</p>
+
+<h2>The right button</h2>
+<p>Right-click anywhere for what can be done now: turn a face over, center the
+selection on the origin, stand it in the corner, cut a plan from the face you
+clicked, put the guides away or throw them away, and Erase at the bottom under
+a line.</p>
+<p>The rows are always the same rows in the same order, and the ones that
+would do nothing are greyed rather than missing.  That is deliberate: a menu
+that changes shape can put <b>Erase</b> under a hand that was aiming at
+something harmless.</p>
+
+<h2>What a picked thing looks like</h2>
+<p>Blue, and along its whole length - a guide picked at one end lights up
+right across the paper, because that is where the guide is.  The count is in
+the bar along the bottom.</p><h2>What it looks like</h2><figure>
   <div class="shot-missing">shots/tool-select.png &mdash; not taken yet<br>The select tool in use.</div>
   <figcaption>The select tool in use.</figcaption>
 </figure><h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>

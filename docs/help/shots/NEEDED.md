@@ -5,7 +5,9 @@ exactly these names and the pages pick them up - nothing else needs
 changing.
 
 Take them at a sensible window size with the PRO Dark theme, and keep the
-drawing simple: the point of each one is the tool, not the model.
+drawing simple: the point of each one is the tool, not the model.  Draw the
+smallest thing that shows what the tool does - a square and a circle is
+usually the whole cast.
 
 ## How they get taken
 
@@ -13,7 +15,15 @@ Not by hand.  `tools/help-shots.txt` is a script for the same rig the drive
 tests use - a nested X server, the program driven by hidctl - and it writes
 straight into this folder under the names below:
 
-    tools/xephyr.sh tools/help-shots.txt
+    tools/xephyr.sh tools/help-shots.txt tools/blank.hsk
+
+**On a clean sheet.**  These used to open the example toy and draw over it,
+which put a robot and a pair of knobs behind a picture whose subject was a
+circle.  Tony: "the screen shots you did in some previous help files are
+stupid because you did in fact use the toy model and drew a circle over it.
+The help files don't need the toy model."  `tools/blank.hsk` is an empty
+sheet and every picture starts from it.  A page about one tool wants the
+smallest thing that shows the tool and nothing else in the frame.
 
 It needs Xephyr and LazHIDControl, the same as `tests/run-drive.sh`.  It runs
 a copy of the program in a folder of its own, so nothing it does - including
@@ -27,19 +37,20 @@ come from looking at a shot you have already taken; the example drawing opens
 in the same place every time, which is what makes that work.  Then swap the
 `shot-missing` div on the page for an `<img>`.
 
-Five are done - `tool-circle`, `tool-push`, `commands`, `typing` and
-`recording` - and they are the worked examples to copy.
+Eight are done - `tool-rect`, `tool-line`, `tool-circle`, `tool-push`,
+`tool-offset`, `typing`, `commands` and `recording` - and they are the worked
+examples to copy.
 
 - `tool-select.png` - The Select tool in use.
-- `tool-line.png` - The Line tool in use.
-- `tool-rect.png` - The Rectangle tool in use.
+- `tool-line.png` - The Line tool in use.  DONE
+- `tool-rect.png` - The Rectangle tool in use.  DONE
 - `tool-circle.png` - The Circle tool in use.  DONE
 - `tool-arc.png` - The Arc tool in use.
 - `tool-push.png` - The Push/Pull tool in use.  DONE
 - `tool-revolve.png` - The Revolve tool in use.
 - `tool-move.png` - The Move tool in use.
 - `tool-rotate.png` - The Rotate tool in use.
-- `tool-offset.png` - The Offset tool in use.
+- `tool-offset.png` - The Offset tool in use.  DONE
 - `tool-drill.png` - The Drill tool in use.
 - `tool-erase.png` - The Erase tool in use.
 - `tool-measure.png` - The Measure tool in use.
