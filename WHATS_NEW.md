@@ -16,7 +16,8 @@
 
 - **The push/pull page has a moving picture.**  Nine seconds: pick the tool,
   click the circle, pull it up.  Recorded by driving the program rather than
-  by anybody filming it, so the next one is a script away.
+  by anybody filming it, so the next one is a script away - and the pointer
+  really travels now rather than being faked.
 
 ## v2026.09.15.8
 
