@@ -130,6 +130,28 @@ var
     Inc(N);
   end;
 
+  { This panel paints words, not HTML, and the notes file sits next door to a
+    folder full of help pages - so sooner or later somebody writes <kbd>Ctrl
+    </kbd> in it out of habit and a user reads the tags.  Somebody did, in
+    the release of 16 September.
+
+    Only the handful of inline tags that could plausibly turn up, by name.
+    Not "anything between angle brackets": the notes already contain
+    "/tiles <folder>", where the brackets are how a placeholder is written
+    and eating them would be the worse bug of the two. }
+  function Plain(const S: string): string;
+  const
+    TAGS: array[0..11] of string =
+      ('<kbd>', '</kbd>', '<code>', '</code>', '<b>', '</b>',
+       '<i>', '</i>', '<em>', '</em>', '<strong>', '</strong>');
+  var
+    K: Integer;
+  begin
+    Result := S;
+    for K := 0 to High(TAGS) do
+      Result := StringReplace(Result, TAGS[K], '', [rfReplaceAll, rfIgnoreCase]);
+  end;
+
   { A bullet arrives as "**The lead in.**  And then the rest of it." - the
     lead is what the eye lands on, so it is kept apart from the rest rather
     than shown with its asterisks still on. }
@@ -150,7 +172,7 @@ var
         Rest := Trim(Copy(Held, P + 4, MaxInt));
       end;
     end;
-    Put(nkBullet, Lead, Rest);
+    Put(nkBullet, Plain(Lead), Plain(Rest));
     Held := '';
   end;
 

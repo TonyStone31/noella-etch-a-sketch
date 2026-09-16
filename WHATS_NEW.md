@@ -27,8 +27,7 @@
 ### New
 
 - **Copy and paste, including from one sheet to another.**
-  <kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>,
-  <kbd>Ctrl</kbd>+<kbd>V</kbd>.  A paste arrives on the cursor and a click
+  Ctrl+C, Ctrl+X, Ctrl+V.  A paste arrives on the cursor and a click
   puts it down, the way a built fitting does.  A pasted solid is its own
   solid, so pushing a face on one does not deform the other.
 

@@ -13,13 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The entity panel.**  `/info` puts it down the right-hand side: what is' + LineEnding +
+    '  picked, and the few things you can change about it.  A line''s length and' + LineEnding +
+    '  both ends; a circle''s radius, center and **how many sides** - with a minus' + LineEnding +
+    '  and a plus beside the figure, so a circle drawn at 24 can be turned into 48' + LineEnding +
+    '  after the fact, which was never possible before.  A face''s area and corner' + LineEnding +
+    '  count with a Reverse button.  A note''s size.  With nothing picked it says' + LineEnding +
+    '  what the sheet adds up to.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
     '- **Copy and paste, including from one sheet to another.**' + LineEnding +
-    '  <kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>X</kbd>,' + LineEnding +
-    '  <kbd>Ctrl</kbd>+<kbd>V</kbd>.  A paste arrives on the cursor and a click' + LineEnding +
+    '  Ctrl+C, Ctrl+X, Ctrl+V.  A paste arrives on the cursor and a click' + LineEnding +
     '  puts it down, the way a built fitting does.  A pasted solid is its own' + LineEnding +
     '  solid, so pushing a face on one does not deform the other.' + LineEnding +
     '' + LineEnding +

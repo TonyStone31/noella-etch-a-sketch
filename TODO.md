@@ -1477,16 +1477,51 @@ face or on several.  Deliberately not editable with more than one thing
 picked - a stepper that acted on nine things at once is a way to lose nine
 things.
 
-**Worth adding next, in about this order.**  Each is a row and a setter, and
-the setters mostly exist:
+**What SketchUp's own Entity Info does, checked 16 September**, because Tony
+asked and because guessing at this has cost us twice this week:
 
-* **Length on a line.**  Type it and the far end moves along the line's own
-  direction.  This is the one that makes the panel a modelling tool rather
-  than a readout, and it is also the one that needs thinking about: which end
-  moves, and does anything joined to it come along (it should - see
-  MoveVerts).
+* **Length on an edge: yes, editable.**  "You can adjust the length of a line
+  in the Entity Info dialog box by context-clicking the line and choosing
+  Entity Info from the menu, then typing a new line length in the Length
+  box."
+* **Which end moves: not documented anywhere I can find**, on their help or
+  in the panel description.  So there is no convention to copy and we get to
+  choose - and having chosen, we have to say so in the panel, because a
+  length box that moves an end without telling you which is worse than no
+  length box.
+* **Colour: yes**, as a *material* - the panel shows and sets the material on
+  an edge or a face.
+* **Per-edge thickness: no.**  SketchUp has no such thing.  Line weight there
+  is a **style** applied to the whole model (and a LayOut setting for
+  drawings).  Our `Weight` is per entity, so on this one we are already doing
+  more than they are, not less.
+* It also carries the tag/layer, hidden, locked, and cast/receive shadows -
+  none of which we have, and only "hidden" is one we have talked about
+  wanting (see the eraser's Shift, in Smaller things).
+
+**On the LINE COLOR button along the bottom.**  Tony: "that may be one more
+button we could get rid of... But maybe not.  Those are sort of the default
+settings and I like it for the most part."
+
+Keep it.  The two controls do different jobs: the bottom row sets **what the
+next thing you draw will be**, and the entity panel changes **what is already
+there**.  That is the same split as SNAP TO and ROUNDED TO, which nobody
+would want to reach into an entity to set.  Losing the button would mean
+drawing something in the wrong colour and then editing it, every time.
+
+**Worth adding to the panel next, in about this order.**  Each is a row and a
+setter, and the setters mostly exist:
+
+* **Length on a line.**  The one that turns the panel from a readout into a
+  modelling tool, and the one that needs a decision rather than typing: which
+  end moves, and does what is joined to it come along?  It should - MoveVerts
+  already does exactly that for a drag, and a length typed into a box ought
+  to behave like a drag that landed exactly. Suggest: the end furthest from
+  the last point you clicked moves, and the panel says which as you hover the
+  box.
 * **Colour and pen width** on whatever is picked.  `SetInk` does not exist
-  yet; it is two lines.
+  yet; it is two lines.  Colour brings us level with their material field;
+  width is ours alone.
 * **Radius on a circle**, same shape of problem as length.
 * **The plane an arc was drawn in**, which would let a circle be stood up
   after the fact.
@@ -1767,6 +1802,56 @@ mouse the same gesture for free.
 Anything else drawn this way - the command list, the popup menus - has the
 same shape, and the same question is worth asking of each: what happens when
 somebody touches it rather than clicks it.
+
+**And a second consequence, found the hard way on 16 September.**  It paints
+words, not markup - so `<kbd>Ctrl</kbd>` written into WHATS_NEW.md out of
+habit from editing the help pages reached a user with the tags showing.
+Tony saw it in the release.  The notes now go through a `Plain` that strips
+the handful of inline tags that could plausibly turn up, **by name** - not
+"anything in angle brackets", because the notes already contain
+`/tiles <folder>` where the brackets are how a placeholder is written and
+eating those would be the worse bug.
+
+### LazInk, and what it could take over - 16 September 2026
+
+Tony: "is this what's new decorated text panel a ton of work because I think
+we actually have already built an html component... I'm not saying to use our
+html render as it needs a lot of work yet but we should consider using it in
+the future as it could also be used for the help documentation!  And it would
+be a native Lazarus package and not require external dependencies."
+
+**It is further along than he remembered.**  The prototype on the desktop has
+a note in it saying it moved: `/media/tony/storpart/synced/GIT/LazInk`, six
+thousand lines, package `lazink.lpk` - TInkLabel, TInkEdit, TInkMemo,
+TInkListBox, TInkRichEdit.  All canvas-drawn, so identical on every
+widgetset, gtk3 included, and no external dependency.  `TInkMemo` describes
+itself as "a scrollable multi-line viewer - a log, a transcript, **formatted
+help**", which is this job exactly.
+
+*What it would take over, easily.*  The release notes window is 599 lines of
+hand-rolled parse-and-paint for three kinds of line and one bold span.
+TInkMemo does all of that and more - `<b> <i> <u>`, colours, `<hr>`, `<p>`,
+links with `OnLinkClick`, images - and the tags bug above could not have
+happened, because the tags would have rendered.  That swap is a small job and
+it deletes more than it adds.
+
+*What it would NOT take over, yet, and this is the part worth knowing before
+anybody starts.*  The help pages use `<table class="sheet">` on six pages,
+the `.grid`/`.card` layout on the index, and a stylesheet for the whole look.
+LazInk's markup is an HTML **subset**: inline styling, alignment, indent,
+links, images - no tables, no CSS, no nested block layout.  So "render
+docs/help in the program" is not a swap, it is either
+
+  * a simpler in-program variant of the pages written in LazInk's markup -
+    which then has to be kept in step with the web ones, and two copies of a
+    manual is how one of them goes stale; or
+  * table support in LazInk, which is the real answer and a real piece of
+    work in its own right.
+
+*The order that makes sense:* the release notes first, because it is a small
+swap with an immediate payoff and it puts LazInk in the build where it can be
+lived with.  Then decide about the help, with the table question settled one
+way or the other.  Nothing here is urgent.
 
 ### The view cube
 
@@ -2171,18 +2256,21 @@ megabytes of frames - and the packing pass is already skipped past a size for
 that reason.  If a crash file turns up, the stage it died in is in the report
 now, frame by frame.
 
-### Closing without saving: half done
+### Closing without saving - DONE 16 September 2026
 
 Tony, 14 September: closed the drawings, chose not to save, opened the program
-again and the drawing he had declined to save came back.
+again and the drawing he had declined to save came back.  And 15 September:
+"I closed its tab sheet and was not asked to save it."
 
-Closing the last sheet now drops the draft, which covers the case he hit -
-putting a drawing down and having it follow you to the next launch is not
-putting it down.  What is still not covered is quitting the program outright
-with unsaved work: that writes a draft on the way out by design, and it should,
-because pulling the plug must lose nothing.  The open question is whether
-answering "close without saving" to the quit prompt - if there ever is one -
-ought to mean the same thing.  Nobody has asked for that yet.
+Both are done.  Closing the last sheet drops the draft; closing a sheet with
+work on it asks about **that sheet** (TDrawing.Dirty - see 16 September
+above); and the window has an OnCloseQuery now, so quitting with work on a
+sheet asks the same three ways as closing one.  `close-asks` in the drive
+suite covers a sheet with work and a sheet nobody touched.
+
+Still true and still right: the draft is written on the way out by design,
+because pulling the plug must lose nothing.  Answering "close without saving"
+to the quit prompt does not drop it, and nobody has asked for that.
 
 ### Our own fork of BGRABitmap, for later
 
