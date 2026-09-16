@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Picking a lot of things no longer brings the program to a halt.**  With
+  everything in a drawing selected, every frame was spending nearly two
+  seconds drawing the blue outlines - one call to the system's canvas per
+  visible piece of every edge, and about a millisecond each.  The same
+  outlines are drawn into a picture of our own instead and kept until
+  something changes them: twenty milliseconds the first time, nothing after
+  that.  Nothing about how it looks has changed.
+
 ## v2026.09.16.2
 
 ### New

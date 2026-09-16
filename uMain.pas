@@ -1202,6 +1202,8 @@ type
     function StatusLine: string;
     procedure WashFace(C: TCanvas; Face: Integer; const Col: TPix);
     procedure TraceOutlineVisible(C: TCanvas; Idx: Integer; const Col: TPix; PenW: Integer);
+    procedure TraceOutlineInto(S: TArtSurface; Idx: Integer;
+      const Col: TPix; PenW: Single);
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
@@ -1435,6 +1437,13 @@ const
   { Buttons that come and go with the drawing rather than sitting there
     always.  They live on the settings row so that nothing is ever painted
     over the drawing itself. }
+  { Past this many picked, the selection overlay stops asking the depth
+    buffer whether each run is visible and just outlines the edges.  An orbit
+    with thirty thousand things picked rebuilds the layer every frame, and at
+    that size the tracing is the cost again - in the rasteriser rather than
+    in the canvas, but still the cost. }
+  SEL_TRACE_MAX = 3000;
+
   ACT_GUIDES  = 17;
   ACT_NOGUIDE = 18;
 
@@ -10246,6 +10255,80 @@ end;
   these now: each piece of the outline is sampled against the faces in front
   of it and drawn where nothing covers it.  The whole line used to be traced
   through everything, which lit up the far half of an edge behind a wall. }
+{ The same trace as TraceOutlineVisible, into one of our own surfaces rather
+  than onto an LCL canvas.  See the note in EnsureSelLayer for why that is
+  the difference between a frame and two seconds. }
+procedure TMainForm.TraceOutlineInto(S: TArtSurface; Idx: Integer;
+  const Col: TPix; PenW: Single);
+const
+  N = 24;
+var
+  W: TP3Array;
+  I, K, Run0: Integer;
+  A, B: TP3;
+  PA, PB: TPointF;
+  Vis: Boolean;
+  T0, T1: Double;
+
+  function Edge(TVis, TCov: Double): Double;
+  var
+    J: Integer;
+    TM: Double;
+  begin
+    for J := 1 to 5 do
+    begin
+      TM := (TVis + TCov) / 2;
+      if FD.Doc.HiddenAt(Proj, Lerp3(A, B, TM)) then TCov := TM else TVis := TM;
+    end;
+    Result := (TVis + TCov) / 2;
+  end;
+
+begin
+  if (Idx < 0) or (Idx >= FD.Doc.Live) then Exit;
+  { a guide runs to the edges of the paper, so it is drawn the way it is
+    drawn rather than as the stub it is stored as - and never hidden }
+  if (FD.Doc[Idx].Kind = ekGuide) and
+     (Dist(FD.Doc[Idx].A, FD.Doc[Idx].B) > 1E-9) then
+  begin
+    PA := ScreenOf(FD.Doc[Idx].A);
+    PB := ScreenOf(FD.Doc[Idx].B);
+    if ClipToBox(PA.X, PA.Y, PB.X - PA.X, PB.Y - PA.Y,
+                 S.Width, S.Height, T0, T1) then
+      S.Line(PA.X + (PB.X - PA.X) * T0, PA.Y + (PB.Y - PA.Y) * T0,
+             PA.X + (PB.X - PA.X) * T1, PA.Y + (PB.Y - PA.Y) * T1,
+             PenW, Col, 1.0);
+    Exit;
+  end;
+
+  W := FD.Doc.OutlineWorld(Idx);
+  if Length(W) < 2 then Exit;
+  T0 := 0;
+  for I := 0 to High(W) - 1 do
+  begin
+    A := W[I];
+    B := W[I + 1];
+    Run0 := -1;
+    for K := 0 to N do
+    begin
+      if K < N then Vis := not FD.Doc.HiddenAt(Proj, Lerp3(A, B, (K + 0.5) / N))
+      else Vis := False;
+      if Vis and (Run0 < 0) then
+      begin
+        Run0 := K;
+        if K = 0 then T0 := 0 else T0 := Edge((K + 0.5) / N, (K - 0.5) / N);
+      end;
+      if (not Vis) and (Run0 >= 0) then
+      begin
+        if K = N then T1 := 1 else T1 := Edge((K - 0.5) / N, (K + 0.5) / N);
+        PA := ScreenOf(Lerp3(A, B, T0));
+        PB := ScreenOf(Lerp3(A, B, T1));
+        S.Line(PA.X, PA.Y, PB.X, PB.Y, PenW, Col, 1.0);
+        Run0 := -1;
+      end;
+    end;
+  end;
+end;
+
 procedure TMainForm.TraceOutlineVisible(C: TCanvas; Idx: Integer; const Col: TPix;
   PenW: Integer);
 const
@@ -10680,17 +10763,8 @@ begin
   end;
 
   { --- what is selected ------------------------------------------------ }
-  { A selection of thousands is not traced against the depth buffer piece
-    by piece - that was half a second a repaint on thirty thousand things.
-    Past a few thousand, the edges are outlined plainly and the faces left
-    to their edges, which reads the same from any distance. }
-  if Length(FSel) > 3000 then
-  begin
-    { already on screen, from the layer pbScreenPaint composited in }
-  end
-  else
-    for AY := 0 to High(FSel) do
-      TraceOutlineVisible(C, FSel[AY], Pix(70, 130, 240), Max(3, Round(3 * FUIScale)));
+  { Already on screen: pbScreenPaint composited the layer EnsureSelLayer
+    drew it into.  Nothing to do here at all, which is the point. }
 
   { the edge the dimension tool would take }
   { The one edge a click would take.
@@ -10979,10 +11053,12 @@ begin
     pbScreen.Canvas.FillRect(0, 0, pbScreen.Width, pbScreen.Height);
   end;
 
-  if (FMode = mdPro) and (Length(FSel) > 3000) and not FErasing then
+  if (FMode = mdPro) and (Length(FSel) > 0) and not FErasing then
   begin
-    { a big selection comes from its cached layer, composited over the
-      picture - see EnsureSelLayer }
+    { The selection comes from its cached layer, composited over the picture
+      - see EnsureSelLayer.  Every selection, not only a huge one: drawing it
+      on the canvas instead cost Tony nearly two seconds a frame at twelve
+      hundred things picked. }
     EnsureSelLayer;
     if FSelShot = nil then FSelShot := TArtSurface.Create(FArt.Width, FArt.Height)
     else FSelShot.SetSize(FArt.Width, FArt.Height);
@@ -11138,6 +11214,13 @@ begin
       [Total, FMsPaper, FMsRender, FMsComp, PaintMs,
        TOOL_NAMES[FTool], FStage, Length(FSel), FD.Doc.Live, FD.Zoom * 100,
        IfThen(FCameraMoving, ' moving', '')]);
+    { and out loud with /timings on, so a slow frame can be chased at a
+      terminal without sending a report to read it back }
+    if FTimings then
+    begin
+      WriteLn('slow frame: ', FSlowLast);
+      Flush(Output);
+    end;
     Now64 := GetTickCount64;
     if Now64 - FSlowSaid >= 2000 then
     begin
@@ -15145,13 +15228,50 @@ begin
   FSelLayer.ClearTransparent;
   W := Max(3, Round(3 * FUIScale));
   P := Proj;
+
+  { Traced against the depth buffer, so a selected edge round the back of a
+    solid is not drawn over the front of it - and traced INTO THE LAYER,
+    which is the whole of the fix.
+
+    This used to be drawn straight onto the LCL canvas, one MoveTo and LineTo
+    per visible run, one pen change per entity.  The arithmetic was never the
+    problem: thirty-two thousand HiddenAt calls against a standing depth
+    buffer measure ten milliseconds.  It was the canvas calls - thousands of
+    them, each one a trip through gtk3 and cairo.
+
+    Tony, 16 September, with everything in a revolved dome selected: "there
+    is a glitching and freezing issue happening and i hope our logs capture
+    it".  They did, and this is the first time they have:
+
+      frames: 189 over 40ms, worst 1984ms, last was
+      1890ms (paper 0, ink 0, over 0, screen 1890)
+      RECT stage=1 sel=1291 things=1291 zoom=115%
+
+    Paper nought, ink nought, composite nought.  All of it in the canvas
+    paint, every frame, for minutes.  Drawn into the layer instead it is our
+    own rasteriser, and the layer is cached on everything that could change
+    it - so a still selection costs nothing at all after the first build. }
   for AY := 0 to High(FSel) do
-    if FD.Doc[FSel[AY]].Kind in [ekLine, ekArc, ekDim] then
+  begin
+    if (FSel[AY] < 0) or (FSel[AY] >= FD.Doc.Live) then Continue;
+    if Length(FSel) > SEL_TRACE_MAX then
     begin
-      Hi := FD.Doc.Outline(P, FSel[AY]);
-      for K := 1 to High(Hi) do
-        FSelLayer.Line(Hi[K - 1].X, Hi[K - 1].Y, Hi[K].X, Hi[K].Y, W, Pix(70, 130, 240), 1.0);
-    end;
+      { Past a few thousand the depth test is dropped and the edges are
+        outlined plainly, which reads the same from any distance.  Kept
+        because an orbit with thirty thousand things picked rebuilds this
+        layer every frame, and at that size the tracing is the cost again -
+        only in the rasteriser rather than in the canvas. }
+      if FD.Doc[FSel[AY]].Kind in [ekLine, ekArc, ekDim] then
+      begin
+        Hi := FD.Doc.Outline(P, FSel[AY]);
+        for K := 1 to High(Hi) do
+          FSelLayer.Line(Hi[K - 1].X, Hi[K - 1].Y, Hi[K].X, Hi[K].Y, W,
+            Pix(70, 130, 240), 1.0);
+      end;
+    end
+    else
+      TraceOutlineInto(FSelLayer, FSel[AY], Pix(70, 130, 240), W);
+  end;
   FSelLayerKey := Key;
 end;
 

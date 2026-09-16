@@ -1274,6 +1274,58 @@ Nothing in the session log shows the dimension tool being picked at all
 between the erases, and there is no path from the eraser to it.  Needs the
 gesture, or a session that catches it.
 
+### The watchdog earned itself back on its first day - 16 September 2026
+
+Tony: "oh there is a glitching and freezing issue happening and i hope our
+logs capture it.  look this over please."
+
+They did, and the report answered it without a single question back:
+
+    frames: 189 over 40ms, worst 1984ms, last was
+    1890ms (paper 0, ink 0, over 0, screen 1890)
+    RECT stage=1 sel=1291 things=1291 zoom=115%
+
+Paper nought, ink nought, composite nought.  **All 1890 ms in the canvas
+paint**, on a drawing of 1291 things with all 1291 of them picked, every
+frame, for six minutes of log.
+
+**It was not the arithmetic.**  The first guess was `HiddenAt` falling back
+to its slow path - it walks every face when there is no depth buffer to ask -
+and that guess was wrong: loading his drawing headlessly, rendering it, and
+making the same 32,275 `HiddenAt` calls takes **10 ms**.
+
+It was the **LCL canvas calls**.  The selection overlay traced each picked
+entity against the depth buffer and drew each visible run with `C.MoveTo` and
+`C.LineTo`, plus a pen change per entity.  1845 runs.  **1890 ms / 1845 runs
+is a millisecond each** - that is what a short line costs through gtk3 and
+cairo.
+
+The same overlay drawn into one of our own `TArtSurface`s: **20 ms**.  About
+ninety-five times, and then cached on the selection, the camera, the edit and
+the size - so a still selection costs nothing at all after the first build.
+`EnsureSelLayer` already existed and did exactly this for selections over
+three thousand; it now does it for every selection, with the depth tracing
+moved into it so nothing is given up.  The 3000 threshold stays, but only to
+decide whether to *trace*: past it the edges are outlined plainly, because an
+orbit with thirty thousand picked rebuilds the layer every frame.
+
+**The lesson, and it is a general one.**  A millisecond per canvas line is
+the number to remember.  Anything that draws hundreds of short strokes or
+single pixels straight onto a `TCanvas`, every frame, is a freeze waiting for
+a big enough drawing.  Ours are all in the overlay: it is the one place that
+paints on the canvas rather than into a surface, and it was written that way
+because a canvas is the easy thing to reach for.
+
+**The one to look at next, unmeasured but the same shape.**
+`PaintFaceHint` - the stipple under push/pull, the drill and the offset -
+writes `C.Pixels[X, Y]` per dot, every other pixel of the face's bounding
+box.  On a face covering a big window that is a hundred thousand or more
+single-pixel canvas writes a frame.  The scanline change earlier today cut
+the *deciding* by five hundred times but left every one of those writes where
+it was.  It did not show up in this report because he was drawing a
+rectangle, not hovering a face.  Draw it into a surface like the selection
+and the question goes away.
+
 ### Four done on 16 September, in the order agreed
 
 **Closing a modified sheet did not ask to save - DONE.**  The guard was
