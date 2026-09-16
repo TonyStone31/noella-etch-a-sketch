@@ -1326,6 +1326,103 @@ it was.  It did not show up in this report because he was drawing a
 rectangle, not hovering a face.  Draw it into a surface like the selection
 and the question goes away.
 
+### The drive suite, which had got too slow to run - 16 September 2026
+
+Tony: "These tests take forever.  Anyway we can run like 10 of these tests at
+once or merge some of them so we aren't restarting the entire thing all the
+time?"
+
+He is right, and it matters more than it sounds: a suite that takes ten
+minutes stops being run, and the drive suite is the only thing that catches a
+crash on the way through a real tool.
+
+**Where the time actually was.**  Worth measuring before changing anything -
+the headless suites were never the problem:
+
+| | before |
+|---|---|
+| `run.sh`, 927 checks | 1.6 s |
+| `run-region.sh`, 91 checks | 0.8 s |
+| `run-drive.sh`, 28 scripts | nine and a half minutes |
+
+So all of it is the drive suite, and it is two separate costs.
+
+**One: every launch paid for the start-up screen.**  `SPLASH_MIN_MS` is four
+seconds, and it is four seconds *on purpose* - a window that flashes and is
+gone looks like something went wrong.  That is right for a person and wrong
+for a script, and we were paying it twenty-eight times a run.  There is now a
+`--no-splash` switch, documented under `--help` like the rest.
+
+The six-second sleep that followed it went too.  It was a guess covering the
+splash plus slack; now the runner watches for the window title, which does
+not appear until the drawing named on the line has been read.  **20.4 s to
+16.2 s on a single script**, and no guess left in it.
+
+**Two: they ran one at a time.**  Nothing is shared between two scripts -
+each already gets a copy of the program and a folder of its own, because of
+the draft and the lock - so the only thing stopping them was the display
+number.  Each run now claims a free one with a `mkdir`, which either succeeds
+or does not, so two starting together cannot both take `:9`.  Sockets and
+lock files are checked first, so a lane can never land on the display the
+person at the machine is sitting in front of.
+
+**Measured, all 28 scripts, all green both ways:**
+
+| | |
+|---|---|
+| one at a time, as it was | about 9 m 30 s |
+| one at a time, with the start-up fix | **7 m 28 s** |
+| four lanes, with the start-up fix | **1 m 57 s** |
+
+The first of those three is the only one not measured directly: the old
+`tools/xephyr.sh` is not in git - `tools/` is ignored - so it is the
+measured 7 m 28 s plus the 4.2 s a script demonstrably stopped paying,
+twenty-eight times.  The other two are stopwatch numbers.  **Call it five
+times faster.**
+
+**The first version of the claim burned every display on the machine**, and
+it is worth writing down because it looks so reasonable.  It treated
+`/tmp/.X<n>-lock` and the socket in `/tmp/.X11-unix/` as proof that a display
+was in use.  They are not.  Any X server that goes down hard leaves both
+behind, nothing ever tidies them up, and `kill -9` - which this script used
+on Xephyr - guarantees it.  One interrupted run left `:9` through `:49`
+littered, and after that nothing could start a nested display at all, this
+suite included.
+
+Two changes, and both were needed.  **In use now means a server answers**
+`xdpyinfo`; a stale lock is reclaimed by the next Xephyr that wants it, which
+is behaviour X has had all along and I had not checked.  And the server is
+now asked to go with a TERM and only shot if it will not - a server that
+exits properly takes its own lock and socket with it.  Checked both ways: a
+stale lock *is* reclaimable, and TERM *does* clean up.
+
+The mkdir claim stays.  Answering and then taking is still two steps.
+
+**What it cost.**  The scripts wait in wall-clock milliseconds, so a lane
+starved of processor can miss a wait that would otherwise have been long
+enough.  Rather than pretend that away, a failure is now retried once on its
+own - which is exactly what a person does with this suite by hand, and what
+the note in CLAUDE.md told them to do.  The retry says `second try` rather
+than hiding it, and a script that fails twice prints what the program itself
+said.
+
+**Not merged, and why.**  Merging several scripts into one launch would save
+the start-up cost, which is now about five seconds each.  It would also mean
+one crash taking its neighbours down with it, and settings, tool state and
+the current drawing leaking from one script into the next - which turns a
+clear failure into "something earlier did this".  Spread over four lanes the
+whole of that start-up cost is about 35 s of the 117 s.  Not worth the
+isolation.
+
+**Where the floor is now.**  The scripts contain **295 s of deliberate
+`wait`** between them - a third of it in six scripts, `gif-loop` alone
+holding 22 s because it really is recording for that long.  Four lanes puts
+that at about 74 s, and the measured run is 117 s, so the suite is close to
+what its own waits allow.  The next lever is the waits themselves: a good
+number of them are round and generous rather than measured.  That is a
+careful job, one script at a time, since each one is there because something
+needed settling - and it is the only lever left that is worth much.
+
 ### The borrowed depth buffer, and the crash after an export - 16 September 2026
 
 The freeze fix went out and the very next report came back with the numbers

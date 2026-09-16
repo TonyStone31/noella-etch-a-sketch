@@ -10,6 +10,13 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **`--no-splash`** starts the program without the start-up screen, for
+  anything driving it from a script.  `--help` lists it with the rest.
+
 ## v2026.09.16.4
 
 ### Fixed

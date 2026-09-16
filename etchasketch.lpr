@@ -38,6 +38,16 @@ begin
   {$ENDIF}
 end;
 
+{ --no-splash: for anything driving the program from a script }
+function AskedForNoSplash: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if LowerCase(ParamStr(I)) = '--no-splash' then Result := True;
+end;
+
 function AskedForHelp: Boolean;
 var
   I: Integer;
@@ -60,6 +70,7 @@ begin
     WriteLn('  --fullscreen       open with no window frame at all');
     WriteLn('  --size=1600x1000   open at a particular size, centerd');
     WriteLn('  --multi            open a second copy anyway');
+    WriteLn('  --no-splash        skip the start-up screen');
     WriteLn('  --updated          wait for the copy being replaced to go');
     WriteLn('  --help             this');
     WriteLn;
@@ -120,8 +131,13 @@ begin
   Application.Scaled := True;
   Application.Title := 'Heckers Sketch';
   Application.Initialize;
-  { up before the window, so a slow drawing is visibly being read }
-  SplashShow;
+  { up before the window, so a slow drawing is visibly being read.
+
+    It stays up for a few seconds even when there was nothing to wait for,
+    on purpose - see SPLASH_MIN_MS.  That is right for a person and wrong
+    for a script, which pays those seconds every launch and has nobody to
+    reassure; the drive tests were paying them twenty-eight times a run. }
+  if not AskedForNoSplash then SplashShow;
   Application.CreateForm(TMainForm, MainForm);
   Application.Run;
 end.
