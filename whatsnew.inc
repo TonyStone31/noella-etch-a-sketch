@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.16.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Picking a lot of things no longer brings the program to a halt.**  With' + LineEnding +
+    '  everything in a drawing selected, every frame was spending nearly two' + LineEnding +
+    '  seconds drawing the blue outlines - one call to the system''s canvas per' + LineEnding +
+    '  visible piece of every edge, and about a millisecond each.  The same' + LineEnding +
+    '  outlines are drawn into a picture of our own instead and kept until' + LineEnding +
+    '  something changes them: twenty milliseconds the first time, nothing after' + LineEnding +
+    '  that.  Nothing about how it looks has changed.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
