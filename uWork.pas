@@ -420,6 +420,11 @@ type
       thing that stands on its own. }
     function FacesOnEdges(const Idx: array of Integer;
       out Faces: TIntArrayW): Integer;
+    { The guide points sitting on these guide lines.  The tape lays the two
+      together - a dashed line saying where, and a point saying where along
+      it - so rubbing out the line has to take the point with it. }
+    function PointsOnGuides(const Idx: array of Integer;
+      out Pts: TIntArrayW): Integer;
     { Shift every vertex in the drawing that sits on one of these points.
       Geometry joined to what moves comes along, which is what makes moving
       one edge of a shape stretch the rest of it. }
@@ -2629,13 +2634,35 @@ end;
   Every copy has to be a deep one. }
 function CopyEnt(const Src: TWorkEnt): TWorkEnt;
 var
-  I: Integer;
+  I, H: Integer;
 begin
   Result := Src;
   Result.Poly := nil;
   SetLength(Result.Poly, Length(Src.Poly));
   for I := 0 to High(Src.Poly) do
     Result.Poly[I] := Src.Poly[I];
+  { And the openings, which this did not copy for as long as it existed.
+
+    The note above says every copy has to be a deep one and then only made
+    the outline deep.  Holes is an array of arrays, so both the outer one and
+    every loop in it were shared with the entity being copied - and a move
+    writes those loops in place.  So moving a face with a window in it wrote
+    through the undo snapshot into the past: the outline went back where it
+    came from and the window stayed where it had been dragged to.
+
+    Tony, 15 September: "notice i moved the heckers sketch block words and
+    then hit undo and it left behind something where i had moved it to before
+    undoing.  it is like it brought faces with it and left them behind."  The
+    block words are exactly the faces with windows in them - the counters
+    inside the E, the A, the S. }
+  Result.Holes := nil;
+  SetLength(Result.Holes, Length(Src.Holes));
+  for H := 0 to High(Src.Holes) do
+  begin
+    SetLength(Result.Holes[H], Length(Src.Holes[H]));
+    for I := 0 to High(Src.Holes[H]) do
+      Result.Holes[H][I] := Src.Holes[H][I];
+  end;
 end;
 
 { Undo copies the whole document.  There are only ever a few hundred
@@ -5271,6 +5298,88 @@ begin
   Lo := Max(0, Min(TA, TB));
   Hi := Min(L, Max(TA, TB));
   Result := Hi - Lo > TOL;
+end;
+
+{ A guide point belongs to the guide line it was laid with.
+
+  The tape leaves both in one gesture, and they answer two halves of one
+  question: the dashed line says where the offset is, the point says where
+  along it the measurement actually landed.  Rubbing out the line and leaving
+  the point behind leaves a mark nobody can read.
+
+  Tony, 15 September: "i was erasing the dashed guidlines and it would leave
+  behind the yellow guide points... those yellow guide points should have
+  erased with their related guidelines anyway."
+
+  Worked out from where they are rather than from a note made when they were
+  laid, so it is right for drawings made before this and for a point that has
+  found its way onto a line some other way.  A point on two lines goes with
+  whichever is rubbed out first, which is the answer somebody would expect
+  and not worth a field in the file to improve on. }
+function TWorkDoc.PointsOnGuides(const Idx: array of Integer;
+  out Pts: TIntArrayW): Integer;
+const
+  TOL = 1E-6;
+var
+  I, J, K, N: Integer;
+  Marked: array of Boolean;
+  Lines: array of Integer;
+
+  function OnOne(const P: TP3): Boolean;
+  var
+    M: Integer;
+    A, B, W, U, F: TP3;
+    L, T, Off: Double;
+  begin
+    Result := True;
+    for M := 0 to N - 1 do
+    begin
+      A := FEnts[Lines[M]].A;
+      B := FEnts[Lines[M]].B;
+      L := Dist(A, B);
+      if L < TOL then Continue;
+      U := P3((B.X - A.X) / L, (B.Y - A.Y) / L, (B.Z - A.Z) / L);
+      W := P3(P.X - A.X, P.Y - A.Y, P.Z - A.Z);
+      T := Dot3(W, U);
+      if (T < -TOL) or (T > L + TOL) then Continue;
+      F := P3(W.X - U.X * T, W.Y - U.Y * T, W.Z - U.Z * T);
+      Off := Sqrt(F.X * F.X + F.Y * F.Y + F.Z * F.Z);
+      if Off <= TOL then Exit;
+    end;
+    Result := False;
+  end;
+
+begin
+  Pts := nil;
+  Result := 0;
+  N := 0;
+  SetLength(Lines, Length(Idx));
+  for I := 0 to High(Idx) do
+  begin
+    J := Idx[I];
+    if (J < 0) or (J >= FLive) then Continue;
+    if (FEnts[J].Kind = ekGuide) and (Dist(FEnts[J].A, FEnts[J].B) > TOL) then
+    begin
+      Lines[N] := J;
+      Inc(N);
+    end;
+  end;
+  if N = 0 then Exit;
+
+  SetLength(Marked, FLive);
+  for I := 0 to FLive - 1 do Marked[I] := False;
+  for I := 0 to High(Idx) do
+    if (Idx[I] >= 0) and (Idx[I] < FLive) then Marked[Idx[I]] := True;
+
+  for K := 0 to FLive - 1 do
+  begin
+    if Marked[K] or (FEnts[K].Kind <> ekGuide) then Continue;
+    if Dist(FEnts[K].A, FEnts[K].B) > TOL then Continue;
+    if not OnOne(FEnts[K].A) then Continue;
+    SetLength(Pts, Result + 1);
+    Pts[Result] := K;
+    Inc(Result);
+  end;
 end;
 
 function TWorkDoc.FacesOnEdges(const Idx: array of Integer;

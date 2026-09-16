@@ -1160,6 +1160,151 @@ the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
 the chord is the one branch that picks a side on its own.  Not reproduced -
 needs the two points he picked and where he moved.
 
+### The guides, read against their help rather than remembered - 15 September 2026
+
+Tony: "yeah read the docs so we can behave almost identical to sketchup
+guides... what we have now is pretty darn good just not perfect and i like
+where we are better such as having the yellowish guide point.  in many ways
+we are better than sketchup but in the critical ways sketchup kicks our ass."
+
+Fetched https://help.sketchup.com/en/using-guides again, and it answers the
+two things he could not make sense of:
+
+* **"i am not sure how and when sketchup decides to have their points make
+  the long dashed lines or when it just drops a point."**  It does not
+  decide - you do.  Ctrl toggles the tape between Create Guide Line mode and
+  Create Guide Point mode, and the cursor icon says which.  A guide point is
+  a click anywhere; a guide line needs a distance off an entity.  There is no
+  inference in it, which is why watching for one made no sense.
+* **"sketchup eraser will not erase its guide points."**  Their help says it
+  does: "Click a guide line with the Eraser tool", plus select-and-Delete,
+  context-click Erase, and Edit > Delete Guides for the lot.
+
+And a third thing it settles: SketchUp does **not** leave a point behind when
+you measure.  Ours does, both every time, and that is ours alone - the thing
+he says he likes better.
+
+**Fixed now:** a guide line takes the point laid with it when it is rubbed
+out, which is what he asked for and what the two being one gesture implies.
+
+**Still open, and the real question underneath his confusion:** ours lays
+both every time, theirs lays one or the other from a mode.  The Ctrl cycle
+was in ours once and was taken out - `LayGuide` still has the note saying so.
+Worth putting back now that there is a reason: he wants a 1" mark on a line
+without a dashed line running the width of the drawing, and that is exactly
+what guide-point mode is for.  Default stays both, because he likes both.
+
+**Not explained:** "a couple times while trying to erase the yellow guide
+points with the eraser tool it actually ended up drawing a dimension off it."
+Nothing in the session log shows the dimension tool being picked at all
+between the erases, and there is no path from the eraser to it.  Needs the
+gesture, or a session that catches it.
+
+## Where this is going, agreed 15 September 2026
+
+Tony, after an evening of comparing: "SketchUp is way smoother and crisper
+moving than us when orbiting and the snapping behavior is so much more
+refined than us.... We are sort of close but not good enough.  I'm thinking
+we spend the next week or so working out the details and bugs in tools and
+then we will end up doing some performance evaluations."
+
+And, worth keeping because it is the actual brief: "I open SketchUp to
+compare and honestly I mess with theirs after using heckers sketch and I get
+the feeling of wow ours is a piece of shit!  I actually love what we are
+building.  We just need to keep after making little improvements."
+
+### The order, and why
+
+1. **A frame watchdog, first.**  `Took()` and `/timings` already exist; log
+   any frame over about 40 ms with its phase breakdown into the session log.
+   Then every bug report for the next week carries its own diagnosis instead
+   of "it felt glitchy".  Tony on the symptom: "we some times have clumsy
+   things when moving around with tools selected at times where it seems the
+   program is struggling or stuck in some loop for some reason and then you
+   try to orbit and it glitches.... Hard to pinpoint when and why."
+2. **The tools: details and bugs.**  The week's work.  The picker audit
+   below is most of it.
+3. **`PaintFaceHint`, scanline instead of per-dot.**  See the suspicion
+   below.
+4. **Dirty-rectangle compositing.**  The measured 19 ms.
+5. **The entity window.**
+6. **Re-measure, and only then ask about OpenGL.**
+
+### What the frame actually costs, measured
+
+Same drawing, same view, v2026.09.14.10 against HEAD:
+
+* **25.7 ms a frame, both.** No regression, whatever it felt like.
+* Of that, **about 6 ms is the model**.  The other 19 is the full-screen
+  paper repaint and the composite.
+* Quick frames (23.7 ms) only accelerate the model part, which is why they
+  barely help.
+* Cost climbs about 5x with zoom - 3.4 ms at 100% to 16.5 ms at 4000%,
+  saturating there.  His report had him at 2863%.
+* The snap path, measured properly with a depth buffer: **0.033 ms**.  Not
+  the problem, and the 22x regression an early run of that benchmark reported
+  was the benchmark's fault.
+
+Three quarters of a frame is paper and composite and neither depends on the
+model at all.  That is a CPU fix - do not repaint paper that has not changed
+- and it is worth more than a renderer swap, which would move that work
+rather than remove it.
+
+### The suspicion about "clumsy with a tool selected"
+
+`PaintFaceHint` - the stipple under push/pull and drill - tests every other
+pixel of the face's bounding box with a point-in-polygon loop over the whole
+outline.  On a 1137x606 screen with a face covering most of it that is about
+125,000 dots times the number of points in the outline, each with a divide.
+Four points: half a million divides.  The toy's case face has thirty-two:
+four million, **per mouse move**, and only when a tool that hovers faces is
+in hand.
+
+Not proven to be the cause and worth measuring rather than assuming - but it
+fits the symptom exactly, and the fix is standard and bounded: scanline the
+polygon once per row rather than asking per dot, which is roughly five
+hundred times less work.  Note that the holes and depth checks added on 15
+September made it slightly heavier, not lighter.
+
+### OpenGL: the path is intact, and it is not next
+
+Tony: "I really wanted to avoid opengl... I hope we aren't too far off and
+still have a path to using opengl some day.  It seems like it would be a big
+rewrite but also it seems a lot of our code will be reused... But still I
+don't think that is truly our issue anyway."
+
+Right on both halves.
+
+*Reused unchanged:* `TWorkDoc`, `uRegion`, the whole snap and pick system,
+`TProjector`, every tool state machine, every exporter.  All view-independent
+CPU geometry that does not care how pixels are made.
+
+*Replaced:* `TArtSurface` - the BGRA rasteriser, the SDF anti-aliasing, the
+per-pixel z-buffer - and the composite.  One unit behind a narrow interface,
+which is what makes an incremental backend genuinely possible rather than
+wishful.
+
+*The catch nobody should discover late:* the look is hand-built.  The
+anti-aliased line quality and the paper-and-ink aesthetic would have to be
+redone in shaders and "close enough" there will be a fight.  The toy's
+surface is its own problem again.
+
+### The entity window - cheaper than it sounds
+
+Tony: "SketchUp has entities... And I think like for an arch you can get into
+it and edit the number of segments.  I think we were trying to avoid having
+all these various properties but I think it's a direction we may need to
+head... I also think the entity window should be docked to the right."
+
+The properties are already there.  `TWorkEnt` carries `Sides`, `Soft`, `Ink`,
+`Weight`, `Size`, `Plane`, `Grp`, `Solid`, and the file round-trips all of
+them.  `SetArcSides`, `SetSoft`, `SetNoteSize`, `SetGroup` all exist and are
+already called when a shape is drawn.  What is missing is only the way in.
+
+So this is a docked panel on the right plus a rebuild call, not an
+architectural turn.  Docked rather than a dialog because the point of it is
+watching the properties change as you pick different things.
+
 ### One edge written backwards, and a wall that would not divide - 15 September 2026
 
 Tony: "so once again we closed in the a rectangle... i am unable to pull it

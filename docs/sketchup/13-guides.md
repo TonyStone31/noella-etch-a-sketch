@@ -70,6 +70,20 @@ A guide can be **selected and erased** individually like anything else, and
 
 *Differ, on purpose or not yet decided:*
 
+* **The tape lays both, every time** - a dashed line and a point.  SketchUp
+  lays one or the other from a mode that **Ctrl** toggles, and the cursor icon
+  says which; there is no inference in it.  **Checked against the live page
+  15 September 2026**, because it came up: "I am not sure how and when
+  sketchup decides to have their points make the long dashed lines or when it
+  just drops a point."  It does not decide - the person does.  Ours had that
+  Ctrl cycle once and it was taken out; worth putting back, with both as the
+  default, since a 1" mark on a line does not want a dashed line running the
+  width of the drawing.
+
+* **Their eraser does delete guides**, lines and points both - "Click a guide
+  line with the Eraser tool".  Also checked 15 September, because it came up
+  the other way round.
+
 * **A guide line is taken across the measurement** - perpendicular to the
   drag, in the working plane.  For SketchUp's own gesture, clicking an edge
   and dragging away from it, that is the same answer as their rule of
@@ -79,9 +93,17 @@ A guide can be **selected and erased** individually like anything else, and
 * **A guide point is drawn to be found** - amber, filled, and on top of the
   geometry rather than under it.  SketchUp's are nearly invisible, which is
   not a thing to copy.
-* **Hide and show is a button in the corner of the drawing**, with the count
-  on it, beside one that clears them.  Neither is there when the drawing has
-  no guides in it.  SketchUp uses Edit > Hide and Edit > Delete Guides.
+* **Hide and clear are on the right button**, with the count on the hide row,
+  greyed when there are no guides rather than missing - a menu whose shape
+  changes puts a destructive row under a hand aiming at a harmless one.  They
+  were two more buttons along the bottom of the window until 15 September,
+  and making room for them squeezed the settings until their words ran into
+  each other.  SketchUp uses Edit > Hide and Edit > Delete Guides, and a
+  docked tray; the right button is nearer to hand than any of those.
+
+* **A guide line takes the point laid with it** when it is rubbed out.  The
+  two are one gesture here, so they are one thing to erase.  SketchUp has no
+  equivalent because it never lays both at once.
 * **The protractor** lays an angled guide: the vertex, a point to measure
   from, then swing to the angle or type it - `45`, or `8:12` for a slope.
   The arrows pick the plane; there is no Shift lock or Alt, because the

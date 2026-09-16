@@ -10,6 +10,27 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Undo puts a face's openings back.**  Move something with windows in it -
+  the block letters of the title, say - and undo put the outlines back and
+  left the windows where they had been dragged to.  The undo snapshot was
+  sharing those loops with the drawing, so a move wrote through it into the
+  past.
+
+- **A guide line takes its point with it.**  The tape lays both in one
+  gesture; rubbing out the dashed line left the amber point behind, marking a
+  spot nothing could explain.
+
+### Changed
+
+- **Hide Guides and Clear Guides are on the right button now.**  They were
+  two more buttons along the bottom that appeared the moment a drawing had a
+  guide in it, and making room for them squeezed the settings until their
+  words ran into each other.  Right-click anywhere on the drawing.
+
 ## v2026.09.15.6
 
 ### Changed

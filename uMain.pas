@@ -3428,6 +3428,23 @@ begin
   Add('Into the Corner at 0,0,0', 6);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
 
+  { The guides.  Always both rows, greyed when the drawing has none, for the
+    reason written at the top of this routine: a menu whose shape depends on
+    what is in the drawing puts a destructive row under a hand aiming at a
+    harmless one. }
+  M := TMenuItem.Create(pmCanvas);
+  M.Caption := '-';
+  pmCanvas.Items.Add(M);
+
+  if FD.Doc.GuidesHidden then
+    Add(Format('Show %d Guides', [FD.Doc.GuideCount]), 7)
+  else
+    Add(Format('Hide %d Guides', [FD.Doc.GuideCount]), 7);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := FD.Doc.GuideCount > 0;
+
+  Add('Clear Guides', 8);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := FD.Doc.GuideCount > 0;
+
   M := TMenuItem.Create(pmCanvas);
   M.Caption := '-';
   pmCanvas.Items.Add(M);
@@ -3458,6 +3475,22 @@ begin
         InvalidateStatus;
       end;
     2: DeleteSelection;
+    7:
+      begin
+        FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
+        FCmdMsg := IfThen(FD.Doc.GuidesHidden,
+          'Guides put away.  They are still in the drawing.',
+          'Guides back.');
+        RenderPro;
+        RecomposeAll;
+      end;
+    8:
+      begin
+        PushUndo;
+        FCmdMsg := Format('Cleared %d guides.', [FD.Doc.ClearGuides]);
+        RenderPro;
+        RecomposeAll;
+      end;
     4:
       for N := 0 to High(FSel) do
         if FD.Doc[FSel[N]].Kind = ekFace then
@@ -5005,23 +5038,22 @@ begin
       label that costs more than the space it saved.  The shop button has
       gone from here altogether - it is a door into the wizards, not a
       setting, and it opened the very same list the strip on the left does. }
-    if (FMode = mdPro) and (FD.Doc.GuideCount > 0) then NSet := 7 else NSet := 5;
+    { Five, always.
+
+      There used to be two more here the moment a drawing had a guide in it -
+      hide them, and clear them - and making room for them squeezed the five
+      settings until their words ran off the ends and over each other.  Tony:
+      "those buttons scrunch the buttons up and make their text run off all
+      the other buttons.  Looks like shit."
+
+      A row that changes width depending on what is in the drawing was the
+      mistake.  Both are on the right button now, where SketchUp keeps them
+      too - it puts them in Edit and in a docked tray, and the right button is
+      nearer to hand than either. }
+    NSet := 5;
     Avail := W - 2 * Pad - LabW - (6 * Round(88 * FUIScale) + 5 * RowGap)
              - Round(18 * FUIScale);
     SegW := (Avail - (NSet - 1) * RowGap) div NSet;
-    if NSet = 7 then
-    begin
-      Add(dkSegment, Rect(X + 5 * SegW, RowY, X + 6 * SegW - RowGap,
-        RowY + RowH), GRP_ICON, ACT_GUIDES,
-        IfThen(FD.Doc.GuidesHidden,
-          Format('SHOW %d GUIDES', [FD.Doc.GuideCount]),
-          Format('HIDE %d GUIDES', [FD.Doc.GuideCount])),
-        'Put the guides away, or bring them back.  They stay in the drawing '
-        + 'either way.', ikDroplet);
-      Add(dkSegment, Rect(X + 6 * SegW, RowY, X + 7 * SegW - RowGap,
-        RowY + RowH), GRP_ICON, ACT_NOGUIDE, 'CLEAR GUIDES',
-        'Throw all the guides away.  Undo brings them back.', ikDroplet);
-    end;
     Add(dkSegment, Rect(X + 4 * SegW, RowY, X + 5 * SegW - RowGap,
       RowY + RowH), GRP_POPUP, POP_PREC,
       IfThen(FLenDenom = 100,
@@ -14736,6 +14768,8 @@ begin
   { and the faces those edges were holding up - see FacesOnEdges }
   FD.Doc.FacesOnEdges(FSel, Held);
   for I := 0 to High(Held) do Doomed[Held[I]] := True;
+  FD.Doc.PointsOnGuides(FSel, Held);
+  for I := 0 to High(Held) do Doomed[Held[I]] := True;
   FD.Doc.DeleteMarked(Doomed);
   Took('delete selection', Tk);
   SetLength(FSel, 0);
@@ -15307,6 +15341,9 @@ begin
   SetLength(Gone, FD.Doc.Live);
   for I := 0 to High(Gone) do Gone[I] := False;
   for I := 0 to N - 1 do Gone[FDoomed[I]] := True;
+  for I := 0 to High(Held) do Gone[Held[I]] := True;
+  { and a guide line takes the point laid with it }
+  FD.Doc.PointsOnGuides(FDoomed, Held);
   for I := 0 to High(Held) do Gone[Held[I]] := True;
   FD.Doc.DeleteMarked(Gone);
   { Faces joining up where a line went, and faces disappearing because their

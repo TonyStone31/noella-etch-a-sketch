@@ -1378,6 +1378,105 @@ begin
   end;
 end;
 
+{ Undo has to put back the openings as well as the outlines.
+
+  Tony, 15 September: "notice i moved the heckers sketch block words and then
+  hit undo and it left behind something where i had moved it to before
+  undoing.  it is like it brought faces with it and left them behind."
+
+  The block words are the faces with windows in them - the counter inside the
+  E, the A, the S.  CopyEnt said in its own comment that every copy has to be
+  a deep one, and then made only the outline deep: Holes is an array of
+  arrays and both the outer one and every loop in it were shared with the
+  entity being copied.  A move writes those loops in place, so it wrote
+  through the snapshot into the past.  Undo put the outline back and left the
+  window where it had been dragged to. }
+procedure TestUndoPutsTheHolesBack;
+var
+  D: TWorkDoc;
+  Snap: TWorkEntArray;
+  Outer: TP3Array;
+  Hole: array[0..0] of TP3Array;
+  I, F: Integer;
+begin
+  WriteLn('-- undo puts a face''s openings back, not just its outline');
+  D := TWorkDoc.Create;
+  try
+    { a square with a square window in it }
+    SetLength(Outer, 4);
+    Outer[0] := P3(0, 0, 0); Outer[1] := P3(10, 0, 0);
+    Outer[2] := P3(10, 10, 0); Outer[3] := P3(0, 10, 0);
+    D.AddFace(Outer, clBlack, False);
+    F := D.Live - 1;
+    SetLength(Hole[0], 4);
+    Hole[0][0] := P3(3, 3, 0); Hole[0][1] := P3(3, 7, 0);
+    Hole[0][2] := P3(7, 7, 0); Hole[0][3] := P3(7, 3, 0);
+    D.SetFaceHoles(F, Hole);
+    EqI(Length(D[F].Holes), 1, 'the face has one window');
+
+    { what undo keeps }
+    Snap := D.Snapshot;
+
+    { and the move, which writes the loops in place }
+    D.TranslateEnts([F], P3(100, 0, 0));
+    Ok(Abs(D[F].Poly[0].X - 100) < 1E-9, 'the outline moved');
+    Ok(Abs(D[F].Holes[0][0].X - 103) < 1E-9, 'and the window moved with it');
+
+    { the snapshot must not have moved with them }
+    Ok(Abs(Snap[F].Poly[0].X) < 1E-9, 'the snapshot keeps the old outline');
+    Ok(Abs(Snap[F].Holes[0][0].X - 3) < 1E-9,
+      'and the old window - this is the one that was shared');
+
+    D.RestoreSnap(Snap);
+    Ok(Abs(D[F].Poly[0].X) < 1E-9, 'undo puts the outline back');
+    Ok(Abs(D[F].Holes[0][0].X - 3) < 1E-9,
+      'and the window with it, rather than leaving it where it was dragged');
+
+    { and after the undo the two must be independent again, or the next move
+      writes through the same crack }
+    D.TranslateEnts([F], P3(5, 0, 0));
+    Ok(Abs(Snap[F].Holes[0][0].X - 3) < 1E-9,
+      'a second move does not reach back into the snapshot either');
+  finally
+    D.Free;
+  end;
+end;
+
+{ The tape lays a guide line and a guide point together, so they go together.
+
+  Tony, 15 September: "i was erasing the dashed guidlines and it would leave
+  behind the yellow guide points... those yellow guide points should have
+  erased with their related guidelines anyway." }
+procedure TestGuidePointGoesWithItsLine;
+var
+  D: TWorkDoc;
+  Pts: TIntArrayW;
+begin
+  WriteLn('-- rubbing out a guide line takes the point laid with it');
+  D := TWorkDoc.Create;
+  try
+    D.AddGuide(P3(0, 0, 0), P3(10, 0, 0));       { 0: the dashed line }
+    D.AddGuide(P3(4, 0, 0), P3(4, 0, 0));        { 1: the point on it }
+    D.AddGuide(P3(4, 5, 0), P3(4, 5, 0));        { 2: a point off it }
+    D.AddGuide(P3(0, 9, 0), P3(10, 9, 0));       { 3: another line }
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), clBlack, 1, False);
+
+    EqI(D.PointsOnGuides([0], Pts), 1, 'the line has one point on it');
+    Ok((Length(Pts) = 1) and (Pts[0] = 1), 'and it is the right one');
+
+    EqI(D.PointsOnGuides([3], Pts), 0, 'the other line has none');
+
+    { a drawn line is not a guide line, and takes no guide points with it -
+      a point marking a spot on an edge outlives the edge being redrawn }
+    EqI(D.PointsOnGuides([4], Pts), 0, 'a drawn line takes no guide points');
+
+    { and a point already going does not count itself }
+    EqI(D.PointsOnGuides([0, 1], Pts), 0, 'a point already doomed is not added twice');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6147,6 +6246,8 @@ begin
   TestErasingAnEdgeTakesItsFaces;  WriteLn;
   TestTrussNotation;  WriteLn;
   TestGuidesMakeCrossings;  WriteLn;
+  TestUndoPutsTheHolesBack;  WriteLn;
+  TestGuidePointGoesWithItsLine;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;
