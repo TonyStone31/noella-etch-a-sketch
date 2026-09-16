@@ -1326,6 +1326,56 @@ it was.  It did not show up in this report because he was drawing a
 rectangle, not hovering a face.  Draw it into a surface like the selection
 and the question goes away.
 
+### Orbit that clicks into a squared-up view - to experiment with, 16 September 2026
+
+Tony, brainstorming and explicitly not committing: "I think I want to have a
+modifier key for the orbit tool that makes it snap to one 16 (or whatever
+number of views the view cube has) when it is closest while orbiting.  So if
+I'm orbiting around to a view I like I could release the mouse with a
+modifier key and it clicks to the closest preprogrammed views we have....
+It would be better than SketchUp maybe.  I'm not certain I want it but I
+think it will be nice to do an orbit around and get it to snap itself at
+least so one of its planes are squared to the view."
+
+**Twenty-six, not sixteen.**  The view cube offers six faces, twelve edges
+and eight corners - a straight-on view, a half turn between two, and the
+three-quarter view from a corner.  That is the set to snap to, and it is
+already the set somebody learns by clicking the cube.
+
+**Most of it is already built**, which is the reason to write this down now
+rather than treat it as a project.  `CubeAzEl(Dir, Az, El)` in uCube turns
+one of those twenty-six directions into a camera, and `GlideTo(Az, El)` in
+uMain already animates the camera to one - that is what a click on the cube
+does today.  The experiment is: on mouse-up with the modifier held, walk the
+twenty-six, take the one whose direction is closest to the current view
+direction (a dot product against `ViewDir`), and `GlideTo` it.  A first cut
+is a couple of dozen lines.
+
+**What to decide by trying it, not by arguing about it:**
+
+* **Which modifier.**  Shift is taken in orbit by the axis constraint, Ctrl
+  is taken by the eraser and the move tool's copy.  Alt is probably free
+  here.  Whatever it is, it has to be one that can be pressed *during* the
+  drag and released at the end, because that is how Tony described it.
+* **All twenty-six, or only the six faces?**  His second sentence is the
+  more modest and possibly the better idea - "at least so one of its planes
+  is squared to the view" - which is the six faces, or the six faces plus
+  the twelve edges.  Corners may just make it feel sticky.
+* **Snap on release, or pull while dragging?**  Release is what he
+  described and is the safer one: a view that tugs towards a preset while
+  you are still turning it is the kind of help that fights you.  Worth
+  trying both once it exists, because the pull version is what would make
+  it "better than SketchUp" if it works, and worse if it does not.
+* **How close is close enough?**  Snapping from anywhere means you can
+  never hold an in-between view with the key down; a limit means the key
+  sometimes does nothing, which needs saying in the status line.
+* **Does it show?**  The cube could light the face it would go to while
+  the key is held - which answers the previous question for free and is
+  the part that would make it feel considered rather than magic.
+
+Worth a session, on its own, with the drive suite recording before and after
+so the feel can be compared rather than remembered.
+
 ### The picker audit, done - 16 September 2026
 
 Tony: "improve the picker substantially please and try not to hurt
