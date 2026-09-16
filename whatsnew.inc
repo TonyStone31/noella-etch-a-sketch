@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.16.4' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Exporting an animation and then clicking back in the drawing no longer' + LineEnding +
+    '  throws an exception.**  An export makes a picture the size it is saving,' + LineEnding +
+    '  which is not the size of the window, and the drawing kept using that one to' + LineEnding +
+    '  work out what was in front of what long after the export had put it away.' + LineEnding +
+    '  The first click afterwards landed on nothing.  Exports of every kind -' + LineEnding +
+    '  animations, pictures, print previews, contact sheets - now hand the drawing' + LineEnding +
+    '  back to the window as they finish.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
