@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.16' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The push/pull page has a moving picture.**  Nine seconds: pick the tool,' + LineEnding +
+    '  click the circle, pull it up.  Recorded by driving the program rather than' + LineEnding +
+    '  by anybody filming it, so the next one is a script away.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
