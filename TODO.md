@@ -1373,6 +1373,7 @@ person at the machine is sitting in front of.
 | one at a time, as it was | about 9 m 30 s |
 | one at a time, with the start-up fix | **7 m 28 s** |
 | four lanes, with the start-up fix | **1 m 57 s** |
+| six lanes, with the chains | **2 m 02 s** |
 
 The first of those three is the only one not measured directly: the old
 `tools/xephyr.sh` is not in git - `tools/` is ignored - so it is the
@@ -1406,13 +1407,42 @@ the note in CLAUDE.md told them to do.  The retry says `second try` rather
 than hiding it, and a script that fails twice prints what the program itself
 said.
 
-**Not merged, and why.**  Merging several scripts into one launch would save
-the start-up cost, which is now about five seconds each.  It would also mean
-one crash taking its neighbours down with it, and settings, tool state and
-the current drawing leaking from one script into the next - which turns a
-clear failure into "something earlier did this".  Spread over four lanes the
-whole of that start-up cost is about 35 s of the 117 s.  Not worth the
-isolation.
+**Chained after all, for a better reason than speed.**  I argued against
+merging scripts into one launch on the grounds that state would leak from
+one into the next and turn a clear failure into "something earlier did
+this".  Tony: "some of the tests we could conduct together in a single test
+instance rather than always starting a new instance as that will also
+sometimes reveal additional bugs."
+
+He is right and the objection was backwards.  **The leak is the test.**
+Every script in this suite has only ever run against a program that just
+started: no tool used before it, nothing on the clipboard, no other sheet
+open, no undo behind it, every setting as it came.  Nothing in the suite has
+ever asked whether the *fourth* thing you do still works - which is the only
+way the program is ever actually used.
+
+Three chains, grouped so that a failure says something: `commands`, `views`,
+`tools`, five scripts each.  Between members: escape twice to drop whatever
+tool or dialog the last one left, then `/new`.  A new sheet, not a new
+program - settings, clipboard, the other sheets and their undo all stay.  By
+the fifth member there are five sheets open, which no single script reaches.
+
+**When a chain fails its members are run again one at a time**, and a member
+that passes alone is reported as a finding rather than a flake: something
+before it left state it could not cope with.  That is the sentence the whole
+arrangement exists to be able to print.  `SOLO=1` takes the chains apart.
+
+**All three passed first time**, which is worth saying plainly: the chains
+have not caught anything yet.  Verified they are not quietly doing nothing -
+every member's screenshots were freshly written, 34 of them in the `tools`
+chain alone.
+
+**They cost wall clock.**  Sixteen units balance worse across the lanes than
+twenty-eight did, and a chain is a long pole that cannot be split: 1 m 57 s
+without chains, 2 m 23 s with them at four lanes.  Six lanes gets it back to
+2 m 02 s, and six is safe here - the whole suite uses about a minute of
+processor across two minutes of clock on a thirty-two core machine, so the
+lanes are asleep nearly the whole time.  Six is the default now.
 
 **Where the floor is now.**  The scripts contain **295 s of deliberate
 `wait`** between them - a third of it in six scripts, `gif-loop` alone
