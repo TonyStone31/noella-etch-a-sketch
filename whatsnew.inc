@@ -13,6 +13,13 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`--no-splash`** starts the program without the start-up screen, for' + LineEnding +
+    '  anything driving it from a script.  `--help` lists it with the rest.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.4' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

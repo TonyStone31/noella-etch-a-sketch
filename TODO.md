@@ -1326,6 +1326,95 @@ it was.  It did not show up in this report because he was drawing a
 rectangle, not hovering a face.  Draw it into a surface like the selection
 and the question goes away.
 
+### The picker audit, done - 16 September 2026
+
+Tony: "improve the picker substantially please and try not to hurt
+performance or break existing functionality."
+
+The five questions were asked of every picker.  What they turned up:
+
+**1. Putting the guides away told two pickers out of six.**  `FGuidesHidden`
+appeared in four places in the whole program and two of those were the
+renderer.  So with the guides hidden the snap still jumped to a guide point,
+still found guide *crossings*, the cursor still ran along a guide line, and
+the select tool and the eraser both still took guides that were not on the
+screen.  The seventh instance of the same shape: a rule written down in one
+picker and never asked of its neighbour.
+
+A sweep - a grid of cursor positions, every picker asked at each - found
+guides answering at **477 positions**.  Hidden, it must be none, and it is.
+
+The snap cache is why `GuidesHidden` is now a setter rather than a bare
+field: it is built once and kept until an edit, so a guide point put into it
+stays there however the switch moves afterwards.
+
+**2. `HitTest` had no idea of "nearest".**  It walked the list newest first
+and took the first thing within reach, so with two things in range it
+answered "whichever I drew last" - a fact about the order somebody worked in
+and not about where they are pointing.  It now takes the nearest and settles
+a tie within a pixel by depth, the way `EdgeUnder` does.  It costs a full
+walk where it could stop early; that is affordable because `PickAt` only asks
+it after `HitEdge` and `HitFace` have both come back empty, and `HitEdge`
+already walked the whole list.
+
+**3. The reach was a pixel short, for the first candidate only.**  `Best`
+started at the tolerance and the first candidate had to beat it by a whole
+pixel, so a lone edge at eight and a half pixels with nine asked for was not
+found at all.  Present in `EdgeUnder`, which had already been through an
+audit, and in the new `HitTest` until the test caught it.  The gate ("is it
+within reach") is now separate from the contest ("is it the best so far"),
+which is the arrangement that cannot have this bug.
+
+**4. The selection box tested the box around a thing, not the thing.**  The
+extent of a line from one corner of the screen to the other is the whole
+screen, so a small crossing box dragged in a clear patch took the diagonal
+running past it, and every arc and face whose outline went *round* the area
+rather than through it.  `BoxTakes` now asks the geometry: the segments a
+thing is really drawn with, a face's inside as well as its outline, a
+dimension's drawn lines rather than the chord through what it measures.  A
+containing box still uses the bounds, because for "wholly inside" the bounds
+are the same question.
+
+Two more found there: a **bore** - the record of a tunnel, never drawn - was
+selectable by a box, and a **guide line** was nearly never selectable by one,
+because an infinite line has no extent to be inside anything.  Tony asked for
+the opposite in so many words, so a guide answers the crossing question
+whichever way the box was dragged.
+
+**5. Two questions answered out loud rather than changed.**  `AxisSnap` never
+asks whether an axis is hidden - the axes are inference lines, not geometry,
+and they are not occluded.  And a selection box deliberately does not ask
+whether it can see what it takes: a box is a sweep over an area, not an aim
+at a point, and dragging one round a model and getting only the front faces
+would be the surprise.  Both were open questions in the audit; both are
+choices, and they are now written where the code is.
+
+**Performance: thirty times faster, not slower.**  `Project` rebuilds the
+view basis on every call - `ViewRight` and `ViewUp`, four trig calls in the
+orbit view - and `HitEdge`, `HitTest` and `FaceUnder` were all calling it
+once per point, several thousand times a mouse move.  `BeginProject` and
+`ProjectAt` have existed for exactly this since the snap cache was written,
+and `EdgeUnder` already used them.  Measured on 6400 things:
+
+| | before | after |
+|---|---|---|
+| `HitTest` x1000 | 1996 ms | **58 ms** |
+| `HitEdge` x1000 | 2016 ms | **57 ms** |
+
+Arcs got the other half: `ArcScreenDist` walks twenty-five chords for one
+circle, and a sheet of circles is an ordinary drawing.  It now takes the
+camera ready-made and rejects on the bounding circle first - an orthographic
+projection never moves a point further from the centre than its own distance
+times Ppu - so adding **625 circles cost 3 ms per thousand picks** instead of
+fifteen thousand extra projections.
+
+`BoxTakes` over a whole 7000-thing drawing: 4 ms crossing, 2 ms containing.
+
+**What is still not audited.**  The note picker (`HitNote`) is a plain box
+test with "last drawn wins", which is right for text drawn over the top, and
+`DoomAt` is the eraser reading `HitNote`, `HitEdge` and `HitTest` in turn -
+so it inherited all of the above and needed nothing of its own.
+
 ### The drive suite, which had got too slow to run - 16 September 2026
 
 Tony: "These tests take forever.  Anyway we can run like 10 of these tests at

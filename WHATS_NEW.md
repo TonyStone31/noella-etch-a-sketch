@@ -17,6 +17,25 @@
 - **`--no-splash`** starts the program without the start-up screen, for
   anything driving it from a script.  `--help` lists it with the rest.
 
+### Fixed
+
+- **Hiding the guides now hides them from the cursor too.**  Put away, they
+  were still snapped to, still ran under the cursor, and could still be
+  picked and rubbed out - all of it invisible, so the cursor jumped to
+  places with nothing on the screen to explain why.
+- **What you click is the nearest thing, not the last thing you drew.**
+  With two things in reach the pick used to go to whichever was drawn more
+  recently, even when the other was dead under the cursor.
+- **A crossing selection box takes what it actually crosses.**  Dragged
+  right to left in a clear patch of paper it used to take any line, arc or
+  face whose *corner-to-corner extent* happened to cover the area - a long
+  diagonal running past would come along with the selection.
+- **Guide lines can be caught by a selection box** from either direction.
+- **An edge just inside the snapping distance is found.**  The reach was
+  quietly a pixel shorter than the one being asked for.
+- **Picking is much faster on a big drawing** - about thirty times - so
+  hovering over a crowded sheet no longer lags behind the mouse.
+
 ## v2026.09.16.4
 
 ### Fixed

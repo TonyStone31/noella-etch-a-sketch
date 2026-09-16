@@ -1748,6 +1748,234 @@ begin
   end;
 end;
 
+{ Put the guides away and every picker has to have heard.
+
+  Hiding them changed what was drawn and nothing else.  The snap still jumped
+  to a guide point and to guide crossings, the cursor still ran along a guide
+  line, and the select tool and the eraser both still took guides that were
+  not on the screen.  Two pickers had the check; four had never been asked.
+
+  Swept rather than aimed: a grid of cursor positions over the whole area,
+  asserting the invariant at every one of them.  An aimed click would have
+  found the guide point and missed the three other ways in. }
+procedure TestHiddenGuidesArePickedByNobody;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  P: TP3;
+  SX, SY, Ent, Seen, SeenHidden: Integer;
+  Hit: TSnapHit;
+  A, B: TP3;
+
+  { every way the program can be asked "what is at this pixel" }
+  function AnyPickerFindsAGuide(X, Y: Double): Boolean;
+  var
+    I: Integer;
+    Q, QA, QB: TP3;
+  begin
+    Result := False;
+    if D.EdgeUnder(V, X, Y, 9, Q, QA, QB, I) and (D[I].Kind = ekGuide) then
+      Exit(True);
+    I := D.HitEdge(V, X, Y, 9);
+    if (I >= 0) and (D[I].Kind = ekGuide) then Exit(True);
+    I := D.HitTest(V, X, Y, 9);
+    if (I >= 0) and (D[I].Kind = ekGuide) then Exit(True);
+    I := D.HitGuidePoint(V, X, Y, 10);
+    if I >= 0 then Exit(True);
+    if D.BestSnap(V, X, Y, 9, Hit) and SamePt(Hit.P, P3(4, 4, 0), 1E-6) then
+      Exit(True);
+    { and the selection box, dragged tight around the pixel }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekGuide) and
+         D.BoxTakes(V, I, X - 3, Y - 3, X + 3, Y + 3, True) then
+        Exit(True);
+  end;
+
+begin
+  WriteLn('-- guides put away are put away from every picker, not just the paint');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 300; V.OY := 300; V.Ppu := 20;
+
+    { a guide line across the middle, a second crossing it - their crossing
+      is a snap point too - and a guide point where they meet }
+    D.AddGuide(P3(0, 4, 0), P3(1, 4, 0));
+    D.AddGuide(P3(4, 0, 0), P3(4, 1, 0));
+    D.AddGuide(P3(4, 4, 0), P3(4, 4, 0));
+    A := P3(0, 0, 0); B := P3(8, 0, 0);
+    D.AddLine(A, B, 0, 2, False);
+
+    { with them showing, all of that is there to be found }
+    Seen := 0;
+    SY := 200; while SY <= 400 do
+    begin
+      SX := 200; while SX <= 400 do
+      begin
+        if AnyPickerFindsAGuide(SX, SY) then Inc(Seen);
+        Inc(SX, 4);
+      end;
+      Inc(SY, 4);
+    end;
+    Ok(Seen > 20, Format('  showing, the pickers find guides in %d places', [Seen]));
+
+    { put away, and not one of those places may answer }
+    D.GuidesHidden := True;
+    SeenHidden := 0;
+    SY := 200; while SY <= 400 do
+    begin
+      SX := 200; while SX <= 400 do
+      begin
+        if AnyPickerFindsAGuide(SX, SY) then Inc(SeenHidden);
+        Inc(SX, 4);
+      end;
+      Inc(SY, 4);
+    end;
+    EqI(SeenHidden, 0, '  put away, not one picker finds one anywhere');
+
+    { the drawing itself is untouched - this is about guides, and a picker
+      that answered "nothing" everywhere would pass the check above }
+    Ok(D.EdgeUnder(V, 300, 300, 9, P, A, B, Ent) and (D[Ent].Kind = ekLine),
+      '  and the line through the same place is still found');
+
+    { and back again, because a switch that only goes one way is worse }
+    D.GuidesHidden := False;
+    Ok(D.HitGuidePoint(V, 300 + 4 * 20, 300 - 4 * 20, 10) >= 0,
+      '  shown again, the guide point is back');
+  finally
+    D.Free;
+  end;
+end;
+
+{ The nearest thing, not the newest.
+
+  HitTest took the first thing it met within reach, walking newest first.
+  With two things in reach that answers "whichever I drew last", which is a
+  fact about the order somebody worked in and not about where they are
+  pointing. }
+procedure TestHitTestTakesTheNearest;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Old, New_, I: Integer;
+begin
+  WriteLn('-- what is under the cursor is the nearest, not the last drawn');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 20;
+
+    { a foot apart on screen is twenty pixels }
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 2, False);
+    Old := D.Live - 1;
+    D.AddLine(P3(0, -0.35, 0), P3(10, -0.35, 0), 0, 2, False);
+    New_ := D.Live - 1;
+
+    { the cursor sits on the older line; the newer is seven pixels off }
+    I := D.HitTest(V, 100, 0, 9);
+    EqI(I, Old, '  the line under the cursor wins over the one drawn later');
+
+    { and the other way about, so this is not just "the older one always" }
+    I := D.HitTest(V, 100, 7, 9);
+    EqI(I, New_, '  and when the newer one is the nearer, it wins');
+  finally
+    D.Free;
+  end;
+end;
+
+{ The reach is the reach that was asked for.
+
+  Best started at the tolerance and the first candidate had to beat it by a
+  whole pixel, so a lone edge at a half under the tolerance was not found at
+  all - the reach was quietly a pixel shorter, and only for the first thing
+  considered, which is the kind of thing nobody ever reports. }
+procedure TestTheReachIsTheWholeReach;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  P, A, B: TP3;
+  Ent: Integer;
+begin
+  WriteLn('-- an edge just inside the tolerance is inside the tolerance');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 20;
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 2, False);
+
+    Ok(D.EdgeUnder(V, 100, 8.5, 9, P, A, B, Ent),
+      '  eight and a half pixels off, asked for nine');
+    Ok(not D.EdgeUnder(V, 100, 9.5, 9, P, A, B, Ent),
+      '  and nine and a half is still outside it');
+  finally
+    D.Free;
+  end;
+end;
+
+{ A crossing box takes what it touches, not what it is near.
+
+  The bounds of a line from one corner to the other are the whole screen, so
+  a small box dragged in a clear patch of paper took the diagonal running
+  past it - and every arc and every face whose outline went round the area
+  rather than through it. }
+procedure TestCrossingBoxTouchesTheGeometry;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Ln, Fc, Gd, I: Integer;
+  FX0, FY0, FX1, FY1, CX, CY: Double;
+begin
+  WriteLn('-- a box takes what it crosses, not what it is in the bounds of');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 20;
+
+    { a diagonal from (0,0) to (10,10): on screen (0,0) to (200,-200) }
+    D.AddLine(P3(0, 0, 0), P3(10, 10, 0), 0, 2, False);
+    Ln := D.Live - 1;
+
+    { a small box well inside its bounds and nowhere near the line itself }
+    Ok(not D.BoxTakes(V, Ln, 150, -30, 170, -10, True),
+      '  a box in a clear patch does not take the diagonal past it');
+    { and one sitting on the line }
+    Ok(D.BoxTakes(V, Ln, 95, -105, 105, -95, True),
+      '  a box on the line takes it');
+    { a containing box still means wholly inside }
+    Ok(D.BoxTakes(V, Ln, -10, -210, 210, 10, False),
+      '  a containing box round the whole of it takes it');
+    Ok(not D.BoxTakes(V, Ln, -10, -210, 100, 10, False),
+      '  and one round half of it does not');
+
+    { a face is taken by its inside as well as by its outline }
+    MakeRect(D, 20, 0, 10, 10);
+    Fc := -1;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then Fc := I;
+    Ok(Fc >= 0, '  a face to try');
+    { where the face actually landed on screen, rather than where I assumed
+      it would - the middle of it, and a long way off it }
+    D.ScreenBounds(V, Fc, FX0, FY0, FX1, FY1);
+    CX := (FX0 + FX1) / 2;
+    CY := (FY0 + FY1) / 2;
+    Ok(D.BoxTakes(V, Fc, CX - 5, CY - 5, CX + 5, CY + 5, True),
+      '  a small box inside a face takes the face');
+    Ok(not D.BoxTakes(V, Fc, FX1 + 200, CY - 5, FX1 + 210, CY + 5, True),
+      '  and outside it does not');
+
+    { a guide is infinite: it has no ends to be inside anything, so a box
+      either way round takes it when it crosses }
+    D.AddGuide(P3(0, 30, 0), P3(1, 30, 0));
+    Gd := D.Live - 1;
+    Ok(D.BoxTakes(V, Gd, 100, -610, 120, -590, False),
+      '  a guide is taken by a box on it, dragged either way');
+    Ok(not D.BoxTakes(V, Gd, 100, -110, 120, -90, True),
+      '  and not by one nowhere near it');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6523,6 +6751,10 @@ begin
   TestCopyAndPaste;  WriteLn;
   TestFaceUnderRemembersSafely;  WriteLn;
   TestBorrowedSurfaceIsLetGo;  WriteLn;
+  TestHiddenGuidesArePickedByNobody;  WriteLn;
+  TestHitTestTakesTheNearest;  WriteLn;
+  TestTheReachIsTheWholeReach;  WriteLn;
+  TestCrossingBoxTouchesTheGeometry;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

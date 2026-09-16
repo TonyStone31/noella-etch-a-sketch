@@ -15743,18 +15743,11 @@ begin
   if not Add then SetLength(FSel, 0);
   Tk := GetTickCount64;
   BeginBulkSelect;
+  { What the box takes is BoxTakes' question, not one asked here - see it for
+    why a crossing box now has to touch the geometry rather than the box
+    around it, and for what it does with a guide. }
   for I := 0 to FD.Doc.Live - 1 do
-  begin
-    FD.Doc.ScreenBounds(Proj, I, BX0, BY0, BX1, BY1);
-    if BX1 < BX0 then Continue;
-    if Crossing then
-    begin
-      if (BX1 >= X0) and (BX0 <= X1) and (BY1 >= Y0) and (BY0 <= Y1) then
-        SelectAdd(I);
-    end
-    else if (BX0 >= X0) and (BX1 <= X1) and (BY0 >= Y0) and (BY1 <= Y1) then
-      SelectAdd(I);
-  end;
+    if FD.Doc.BoxTakes(Proj, I, X0, Y0, X1, Y1, Crossing) then SelectAdd(I);
   EndBulkSelect;
   Took('box select', Tk);
   FScreenDirty := True;

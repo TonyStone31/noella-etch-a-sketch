@@ -289,11 +289,15 @@ type
       the same point - a construction point at A. }
     procedure AddGuide(const A, B: TP3);
     function GuideCount: Integer;
+    { Putting the guides away has to reach the snap cache, which is built
+      once and kept: a guide point left in it is a place the cursor jumps to
+      with nothing on the screen to explain why. }
+    procedure SetGuidesHidden(On_: Boolean);
     { Guides can be put away without being thrown away - they are aids, and a
       drawing being looked at rather than laid out does not want them.  Held
       the negative way round so that a document with nothing said about it
       shows them, which is what a field left alone gives. }
-    property GuidesHidden: Boolean read FGuidesHidden write FGuidesHidden;
+    property GuidesHidden: Boolean read FGuidesHidden write SetGuidesHidden;
     { A plan drawing is a horizontal section, not a photograph taken from
       above, and this is the section.  Everything between Lo and Hi is in the
       drawing and everything else is not - not drawn, not snapped to, not
@@ -497,6 +501,10 @@ type
     function PasteIn(const Ents: TWorkEntArray; const D: TP3;
       out First, Last: Integer): Integer;
     { Where an entity lands on screen, for a selection box to test against. }
+    { Does a box dragged over the screen take this?  See the body - it is
+      the geometry that is asked, not the box around it. }
+    function BoxTakes(const V: TProjector; I: Integer;
+      X0, Y0, X1, Y1: Double; Crossing: Boolean): Boolean;
     procedure ScreenBounds(const V: TProjector; I: Integer;
       out X0, Y0, X1, Y1: Double);
     { Cut every flat face this segment crosses in two.  Returns how many were
@@ -2559,6 +2567,25 @@ begin
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
+{ Guides away, and the pickers told.
+
+  Hiding them used to change only what was drawn.  Everything that answers
+  "what is under the cursor" carried on finding them: the snap jumped to a
+  guide point and to guide crossings, the cursor ran along a guide line, and
+  the select tool and the eraser both took guides you could not see.  Two of
+  the six pickers had the check and the rest had never been asked.
+
+  The snap cache is the reason this is a setter rather than a field.  It is
+  built once and kept until an edit, so a guide point put into it stays there
+  however the switch moves afterwards. }
+procedure TWorkDoc.SetGuidesHidden(On_: Boolean);
+begin
+  if On_ = FGuidesHidden then Exit;
+  FGuidesHidden := On_;
+  FSnapDirty := True;
+  FSnapScreenOK := False;
+end;
+
 function TWorkDoc.GuideCount: Integer;
 var
   I: Integer;
@@ -4555,6 +4582,7 @@ var
   Look, Org, U, W, Hit: TP3;
   P0, P1, P2: TPointF;
   AX, AY, BX, BY, Det, SS, TT, D, Best, Eps: Double;
+  PC: TProjCache;
 begin
   if FFaceMemoOK and (FFaceMemoSeq = FEditSeq) and
      (FFaceMemoX = SX) and (FFaceMemoY = SY) and
@@ -4572,6 +4600,9 @@ begin
   Pt := P3(0, 0, 0);
   Best := -1E300;
   Look := ViewDir(V);
+  { the camera once for the whole walk - this projects every corner of every
+    face in the drawing, and Project rebuilds the view basis each time }
+  BeginProject(V, PC);
 
   for I := 0 to FLive - 1 do
   begin
@@ -4597,7 +4628,7 @@ begin
 
     SetLength(P, N);
     for K := 0 to N - 1 do
-      P[K] := Project(V, FEnts[I].Poly[K]);
+      P[K] := ProjectAt(PC, FEnts[I].Poly[K]);
 
     Inside := False;
     J := N - 1;
@@ -4618,7 +4649,7 @@ begin
         M := Length(FEnts[I].Holes[HK]);
         if M < 3 then Continue;
         SetLength(HP, M);
-        for K := 0 to M - 1 do HP[K] := Project(V, FEnts[I].Holes[HK][K]);
+        for K := 0 to M - 1 do HP[K] := ProjectAt(PC, FEnts[I].Holes[HK][K]);
         J := M - 1;
         for K := 0 to M - 1 do
         begin
@@ -4639,9 +4670,9 @@ begin
     U := Norm3(P3(FEnts[I].Poly[1].X - Org.X, FEnts[I].Poly[1].Y - Org.Y,
                   FEnts[I].Poly[1].Z - Org.Z));
     W := Norm3(Cross3(FaceNormal(I), U));
-    P0 := Project(V, Org);
-    P1 := Project(V, P3(Org.X + U.X, Org.Y + U.Y, Org.Z + U.Z));
-    P2 := Project(V, P3(Org.X + W.X, Org.Y + W.Y, Org.Z + W.Z));
+    P0 := ProjectAt(PC, Org);
+    P1 := ProjectAt(PC, P3(Org.X + U.X, Org.Y + U.Y, Org.Z + U.Z));
+    P2 := ProjectAt(PC, P3(Org.X + W.X, Org.Y + W.Y, Org.Z + W.Z));
     AX := P1.X - P0.X; AY := P1.Y - P0.Y;
     BX := P2.X - P0.X; BY := P2.Y - P0.Y;
     Det := AX * BY - AY * BX;
@@ -6287,6 +6318,196 @@ begin
   end;
 end;
 
+{ Two screen segments, do they cross?  Used by the selection box. }
+function SegsCross(AX, AY, BX, BY, CX, CY, DX_, DY_: Double): Boolean;
+var
+  R1, R2, R3, R4: Double;
+
+  function Side(PX, PY, QX, QY, RX, RY: Double): Double;
+  begin
+    Result := (QX - PX) * (RY - PY) - (QY - PY) * (RX - PX);
+  end;
+
+begin
+  R1 := Side(AX, AY, BX, BY, CX, CY);
+  R2 := Side(AX, AY, BX, BY, DX_, DY_);
+  R3 := Side(CX, CY, DX_, DY_, AX, AY);
+  R4 := Side(CX, CY, DX_, DY_, BX, BY);
+  Result := (((R1 > 0) <> (R2 > 0)) and ((R3 > 0) <> (R4 > 0)));
+end;
+
+{ Does this screen segment meet the box at all? }
+function SegHitsRect(AX, AY, BX, BY, X0, Y0, X1, Y1: Double): Boolean;
+begin
+  { an end inside is the common case and answers without any arithmetic }
+  if ((AX >= X0) and (AX <= X1) and (AY >= Y0) and (AY <= Y1)) or
+     ((BX >= X0) and (BX <= X1) and (BY >= Y0) and (BY <= Y1)) then
+    Exit(True);
+  { wholly off one side }
+  if (Max(AX, BX) < X0) or (Min(AX, BX) > X1) or
+     (Max(AY, BY) < Y0) or (Min(AY, BY) > Y1) then
+    Exit(False);
+  Result := SegsCross(AX, AY, BX, BY, X0, Y0, X1, Y0) or
+            SegsCross(AX, AY, BX, BY, X1, Y0, X1, Y1) or
+            SegsCross(AX, AY, BX, BY, X1, Y1, X0, Y1) or
+            SegsCross(AX, AY, BX, BY, X0, Y1, X0, Y0);
+end;
+
+{ Is this screen point inside the projected loop?  Even-odd, the same rule
+  the face fill uses. }
+function LoopHasPt(const Pts: array of TPointF; SX, SY: Double): Boolean;
+var
+  I, J: Integer;
+begin
+  Result := False;
+  J := High(Pts);
+  for I := 0 to High(Pts) do
+  begin
+    if ((Pts[I].Y > SY) <> (Pts[J].Y > SY)) and
+       (SX < (Pts[J].X - Pts[I].X) * (SY - Pts[I].Y) /
+             (Pts[J].Y - Pts[I].Y) + Pts[I].X) then
+      Result := not Result;
+    J := I;
+  end;
+end;
+
+{ Does a box dragged over the screen take this thing?
+
+  A containing box - dragged left to right - takes what lies wholly inside
+  it, and for that the box around a thing is the same question as the thing
+  itself, so the bounds are the right test and they stay.
+
+  A crossing box - dragged right to left - takes whatever it touches, and
+  there the bounds were wrong.  The bounds of a line from one corner of the
+  screen to the other are the whole screen, so a small crossing box dragged
+  in a clear patch of paper took the diagonal running past it, and the same
+  for every arc and every face whose outline went round the area rather than
+  through it.  What it touches means what it touches: the segments the thing
+  is actually drawn with, and for a face, its inside as well.
+
+  Guides are infinite, so "wholly inside" can never be true of one and a
+  containing box would never take a guide at all.  Tony asked for the
+  opposite - "our guide points are easy to see so should be easy to select"
+  - so a guide line answers the crossing question either way round.
+
+  A bore is the record of a tunnel through a solid, not a thing on the
+  screen; it has never been drawable and it should not be selectable.
+
+  What this deliberately does NOT do is ask whether you can see it.  A box is
+  a sweep over an area rather than an aim at a point: dragging one round a
+  model to take all of it and getting only the front faces would be the
+  surprise, not the other way about.  Said out loud here because it was the
+  open question in the audit and the answer is a choice, not an oversight. }
+function TWorkDoc.BoxTakes(const V: TProjector; I: Integer;
+  X0, Y0, X1, Y1: Double; Crossing: Boolean): Boolean;
+var
+  K, H, N: Integer;
+  T: Double;
+  BX0, BY0, BX1, BY1: Double;
+  PA, PB: TPointF;
+  QA, QB: TP3;
+  Scr: array of TPointF;
+  DG: TDimGeom;
+
+  function Hits(const MA, MB: TP3): Boolean;
+  var
+    SA, SB: TPointF;
+  begin
+    SA := Project(V, MA);
+    SB := Project(V, MB);
+    Result := SegHitsRect(SA.X, SA.Y, SB.X, SB.Y, X0, Y0, X1, Y1);
+  end;
+
+begin
+  Result := False;
+  if (I < 0) or (I >= FLive) then Exit;
+  if X1 < X0 then begin T := X0; X0 := X1; X1 := T; end;
+  if Y1 < Y0 then begin T := Y0; Y0 := Y1; Y1 := T; end;
+  if FEnts[I].Kind = ekBore then Exit;
+  if not InSlice(I) then Exit;
+  if (FEnts[I].Kind = ekGuide) and FGuidesHidden then Exit;
+
+  { a guide line has no ends to be inside anything, so it answers the
+    crossing question whichever way the box was dragged }
+  if (FEnts[I].Kind = ekGuide) and (Dist(FEnts[I].A, FEnts[I].B) > 1E-9) then
+  begin
+    PA := Project(V, FEnts[I].A);
+    PB := Project(V, FEnts[I].B);
+    { out along its own direction, far enough to cross any view of it }
+    QA := P3(FEnts[I].A.X + (FEnts[I].A.X - FEnts[I].B.X) * 5000,
+             FEnts[I].A.Y + (FEnts[I].A.Y - FEnts[I].B.Y) * 5000,
+             FEnts[I].A.Z + (FEnts[I].A.Z - FEnts[I].B.Z) * 5000);
+    QB := P3(FEnts[I].B.X + (FEnts[I].B.X - FEnts[I].A.X) * 5000,
+             FEnts[I].B.Y + (FEnts[I].B.Y - FEnts[I].A.Y) * 5000,
+             FEnts[I].B.Z + (FEnts[I].B.Z - FEnts[I].A.Z) * 5000);
+    Exit(Hits(QA, QB));
+  end;
+
+  ScreenBounds(V, I, BX0, BY0, BX1, BY1);
+  if BX1 < BX0 then Exit;
+
+  if not Crossing then
+    Exit((BX0 >= X0) and (BX1 <= X1) and (BY0 >= Y0) and (BY1 <= Y1));
+
+  { nowhere near, and none of the rest is worth doing }
+  if (BX1 < X0) or (BX0 > X1) or (BY1 < Y0) or (BY0 > Y1) then Exit;
+
+  case FEnts[I].Kind of
+    ekArc:
+      begin
+        QA := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0,
+                       FEnts[I].Plane, FEnts[I].Nm);
+        for K := 1 to 24 do
+        begin
+          QB := ArcPoint(FEnts[I].C, FEnts[I].R,
+                  FEnts[I].A0 + FEnts[I].Sweep * K / 24,
+                  FEnts[I].Plane, FEnts[I].Nm);
+          if Hits(QA, QB) then Exit(True);
+          QA := QB;
+        end;
+      end;
+    ekFace:
+      begin
+        N := Length(FEnts[I].Poly);
+        if N < 3 then Exit;
+        for K := 0 to N - 1 do
+          if Hits(FEnts[I].Poly[K], FEnts[I].Poly[(K + 1) mod N]) then Exit(True);
+        for H := 0 to High(FEnts[I].Holes) do
+          if Length(FEnts[I].Holes[H]) >= 3 then
+            for K := 0 to High(FEnts[I].Holes[H]) do
+              if Hits(FEnts[I].Holes[H][K],
+                      FEnts[I].Holes[H][(K + 1) mod Length(FEnts[I].Holes[H])]) then
+                Exit(True);
+        { a box wholly inside the face is on the face, which is as much a
+          touch as crossing its edge }
+        SetLength(Scr, N);
+        for K := 0 to N - 1 do Scr[K] := Project(V, FEnts[I].Poly[K]);
+        Result := LoopHasPt(Scr, (X0 + X1) / 2, (Y0 + Y1) / 2);
+      end;
+    ekText:
+      { the words are the note - the same box the cursor is tested against }
+      if FEnts[I].BoxR > FEnts[I].BoxL then
+        Result := (FEnts[I].BoxR >= X0) and (FEnts[I].BoxL <= X1) and
+                  (FEnts[I].BoxB >= Y0) and (FEnts[I].BoxT <= Y1)
+      else
+      begin
+        PA := Project(V, FEnts[I].A);
+        Result := (PA.X >= X0) and (PA.X <= X1) and (PA.Y >= Y0) and (PA.Y <= Y1);
+      end;
+    ekDim:
+      { the drawn line and its witness lines, which is what a dimension looks
+        like - not the chord through the geometry it measures }
+      if DimGeometry(V, FEnts[I].A, FEnts[I].B, FEnts[I].C, usImperial, DG,
+           FEnts[I].Txt) then
+        Result := SegHitsRect(DG.LA.X, DG.LA.Y, DG.LB.X, DG.LB.Y, X0, Y0, X1, Y1) or
+                  SegHitsRect(DG.A.X, DG.A.Y, DG.W1.X, DG.W1.Y, X0, Y0, X1, Y1) or
+                  SegHitsRect(DG.B.X, DG.B.Y, DG.W2.X, DG.W2.Y, X0, Y0, X1, Y1);
+  else
+    { a line, and a guide point, which is a guide with no length }
+    Result := Hits(FEnts[I].A, FEnts[I].B);
+  end;
+end;
+
 procedure TWorkDoc.ScreenBounds(const V: TProjector; I: Integer;
   out X0, Y0, X1, Y1: Double);
 var
@@ -7060,9 +7281,12 @@ begin
           Put(P3(P.X / K, P.Y / K, P.Z / K), snCenter);
         end;
 
-      { a guide point is exactly the kind of thing you put down to aim at }
+      { a guide point is exactly the kind of thing you put down to aim at -
+        unless the guides have been put away, in which case it is a place the
+        cursor jumps to with nothing on the screen to explain why }
       ekGuide:
-        if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then Put(FEnts[I].A, snEndpoint);
+        if (not FGuidesHidden) and (Dist(FEnts[I].A, FEnts[I].B) < 1E-9) then
+          Put(FEnts[I].A, snEndpoint);
 
       { Nothing snaps to a dimension or a note.  They are annotation sitting
         beside the drawing, and having the cursor jump to one while drawing a
@@ -7169,13 +7393,14 @@ begin
     guide with no length, is already in above and is a real target. }
   SetLength(GIdx, FLive);
   NGuide := 0;
-  for I := 0 to FLive - 1 do
-    if (FEnts[I].Kind = ekGuide) and
-       (Dist(FEnts[I].A, FEnts[I].B) > 1E-9) then
-    begin
-      GIdx[NGuide] := I;
-      Inc(NGuide);
-    end;
+  if not FGuidesHidden then
+    for I := 0 to FLive - 1 do
+      if (FEnts[I].Kind = ekGuide) and
+         (Dist(FEnts[I].A, FEnts[I].B) > 1E-9) then
+      begin
+        GIdx[NGuide] := I;
+        Inc(NGuide);
+      end;
   if (NGuide > 0) and (LineCount + NGuide <= MAX_LINES) then
   begin
     for I := 0 to NGuide - 1 do
@@ -7615,24 +7840,46 @@ end;
   only falls back to anything else. }
 { How far the pointer is from an arc as it is actually drawn: walk the same
   segments the renderer walks, over the real sweep. }
-function ArcScreenDist(const V: TProjector; const E: TWorkEnt;
-  SX, SY: Double): Double;
+{ How far the cursor is from an arc, measured against the chords it is really
+  drawn with - see HitEdge for why that rather than the circle.
+
+  Taking the camera ready-made matters more here than anywhere: this walks
+  twenty-five points for one arc, and a sheet of circles is a common enough
+  drawing.  The bounding circle is asked first - an orthographic projection
+  never moves a point further from the centre than its own distance times
+  Ppu, so a cursor outside that cannot be near the arc - which drops every
+  circle but the one being pointed at before any of the chords are walked. }
+function ArcScreenDistAt(const PC: TProjCache; const E: TWorkEnt;
+  SX, SY: Double; TolPx: Double = 1E30): Double;
 var
   STEPS: Integer;
   K: Integer;
-  Ang: Double;
-  PA, PB: TPointF;
+  Ang, RPx: Double;
+  PA, PB, PCen: TPointF;
 begin
-  STEPS := ArcSteps(E);
   Result := 1E30;
-  PA := Project(V, ArcPoint(E.C, E.R, E.A0, E.Plane, E.Nm));
+  PCen := ProjectAt(PC, E.C);
+  RPx := E.R * PC.Ppu;
+  if (Abs(SX - PCen.X) > RPx + TolPx) or (Abs(SY - PCen.Y) > RPx + TolPx) then
+    Exit;
+  STEPS := ArcSteps(E);
+  PA := ProjectAt(PC, ArcPoint(E.C, E.R, E.A0, E.Plane, E.Nm));
   for K := 1 to STEPS do
   begin
     Ang := E.A0 + E.Sweep * K / STEPS;
-    PB := Project(V, ArcPoint(E.C, E.R, Ang, E.Plane, E.Nm));
+    PB := ProjectAt(PC, ArcPoint(E.C, E.R, Ang, E.Plane, E.Nm));
     Result := Min(Result, DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
     PA := PB;
   end;
+end;
+
+function ArcScreenDist(const V: TProjector; const E: TWorkEnt;
+  SX, SY: Double): Double;
+var
+  PC: TProjCache;
+begin
+  BeginProject(V, PC);
+  Result := ArcScreenDistAt(PC, E, SX, SY);
 end;
 
 function AxisSnap(const V: TProjector; SX, SY, TolPx: Double;
@@ -7738,8 +7985,17 @@ var
       A tenth of a pixel would be too tight to help and ten would take edges
       that are plainly further away.  One pixel is the width of the line you
       are pointing at. }
-    if (D < Best - TIE_PX) or
-       ((D < Best + TIE_PX) and (Ent >= 0) and (QZ > BestZ + 1E-9)) then
+    { Within reach at all, then: nearer wins, and a tie inside a pixel goes
+      to whatever is nearer the eye.
+
+      The gate is separate from the contest for a reason.  With Best starting
+      at the tolerance and the first candidate having to beat it by a whole
+      pixel, an edge alone in an empty view at TolPx minus a half was not
+      found at all - the reach was quietly a pixel shorter than the one asked
+      for, and only for the first thing considered. }
+    if D > TolPx then Exit;
+    if (Ent < 0) or (D < Best - TIE_PX) or
+       ((D < Best + TIE_PX) and (QZ > BestZ + 1E-9)) then
     begin
       { An edge behind a solid is not one anybody is aiming at.
 
@@ -7811,7 +8067,7 @@ begin
   A := P3(0, 0, 0);
   B := P3(0, 0, 0);
   Ent := -1;
-  Best := TolPx;
+  Best := 1E30;
   BestZ := -1E30;
   { the camera, once, instead of once per projected point - see BeginProject }
   BeginProject(V, PC);
@@ -7822,9 +8078,10 @@ begin
     if not InSlice(I) then Continue;
     case FEnts[I].Kind of
       ekLine: Try_(FEnts[I].A, FEnts[I].B);
-      { a point on a guide line counts - that is what guides are for }
+      { a point on a guide line counts - that is what guides are for, until
+        they are put away, and then it does not }
       ekGuide:
-        if Dist(FEnts[I].A, FEnts[I].B) > 1E-9 then
+        if (not FGuidesHidden) and (Dist(FEnts[I].A, FEnts[I].B) > 1E-9) then
           Try_(P3(FEnts[I].A.X + (FEnts[I].A.X - FEnts[I].B.X) * 2000,
                   FEnts[I].A.Y + (FEnts[I].A.Y - FEnts[I].B.Y) * 2000,
                   FEnts[I].A.Z + (FEnts[I].A.Z - FEnts[I].B.Z) * 2000),
@@ -7958,9 +8215,14 @@ var
   D, Best: Double;
   PA, PB: TPointF;
   DG: TDimGeom;
+  PC: TProjCache;
 begin
   Result := -1;
   Best := TolPx;
+  { the camera worked out once for the whole walk rather than once per point.
+    Project rebuilds the view basis every call - four trig calls in the orbit
+    view - and this walks every line in the drawing twice, every mouse move. }
+  BeginProject(V, PC);
   for I := FLive - 1 downto 0 do
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc, ekDim, ekGuide]) then Continue;
@@ -7976,7 +8238,7 @@ begin
         away from the camera, and a part arc is not a whole circle either.
         Measuring against the drawn segments is the only test that holds up in
         ISO and orbit. }
-      D := ArcScreenDist(V, FEnts[I], SX, SY)
+      D := ArcScreenDistAt(PC, FEnts[I], SX, SY, TolPx)
     else if FEnts[I].Kind = ekDim then
     begin
       { A dimension is drawn off to one side of what it measures.  Testing
@@ -7990,8 +8252,8 @@ begin
     end
     else
     begin
-      PA := Project(V, FEnts[I].A);
-      PB := Project(V, FEnts[I].B);
+      PA := ProjectAt(PC, FEnts[I].A);
+      PB := ProjectAt(PC, FEnts[I].B);
       D := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
     end;
     if D < Best then
@@ -8384,19 +8646,46 @@ begin
   Result := -1;
 end;
 
+{ What is under the cursor, when it was not an edge and not a face.
+
+  This used to take the first thing it met within reach, walking the list
+  newest first - so with two things in reach it answered "the one drawn most
+  recently", which is a fact about the order you happened to work in and not
+  about where you are pointing.  A note put down last could be taken from
+  eight pixels away while the dimension dead under the cursor was passed
+  over.  It now takes the nearest, and settles a tie the way EdgeUnder does:
+  within a pixel of each other, the one nearer the eye.
+
+  It costs a full walk where it used to stop early.  That is affordable
+  because of where it sits: PickAt asks it only after HitEdge and HitFace
+  have both come back with nothing, and HitEdge already walks the whole list
+  without stopping. }
 function TWorkDoc.HitTest(const V: TProjector; SX, SY, TolPx: Double): Integer;
+const
+  TIE_PX = 1.0;
 var
   I: Integer;
-  D: Double;
+  D, Best, Z, BestZ: Double;
   PA, PB: TPointF;
   DG: TDimGeom;
+  Look, Mid: TP3;
+  PC: TProjCache;
 begin
+  Result := -1;
+  Best := 1E30;
+  BestZ := -1E30;
+  Look := ViewDir(V);
+  { see HitEdge: the camera once for the walk, not once for every point }
+  BeginProject(V, PC);
   for I := FLive - 1 downto 0 do
   begin
     if not InSlice(I) then Continue;
+    { a guide that has been put away is not on the screen, so it is not under
+      the cursor either - the same answer HitEdge gives }
+    if (FEnts[I].Kind = ekGuide) and FGuidesHidden then Continue;
     case FEnts[I].Kind of
       ekArc:
-        D := ArcScreenDist(V, FEnts[I], SX, SY);
+        D := ArcScreenDistAt(PC, FEnts[I], SX, SY, TolPx);
       ekText:
         begin
           { The words are the note.  It was measured to its anchor point,
@@ -8411,7 +8700,7 @@ begin
             D := 0
           else
           begin
-            PA := Project(V, FEnts[I].A);
+            PA := ProjectAt(PC, FEnts[I].A);
             D := Sqrt(Sqr(SX - PA.X) + Sqr(SY - PA.Y));
           end;
         end;
@@ -8431,30 +8720,40 @@ begin
           D := 1E30;
     else
       begin
-        PA := Project(V, FEnts[I].A);
-        PB := Project(V, FEnts[I].B);
+        PA := ProjectAt(PC, FEnts[I].A);
+        PB := ProjectAt(PC, FEnts[I].B);
         D := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
       end;
     end;
-    if D <= TolPx then
+    { Within reach at all, then the nearest wins; a tie inside a pixel goes
+      to whatever is nearer the eye, because at that range the two are the
+      same place on the glass and the order they were drawn in is not an
+      answer.  Faces and bores set D above every tolerance and drop out here. }
+    if D > TolPx then Continue;
+    Mid := Lerp3(FEnts[I].A, FEnts[I].B, 0.5);
+    Z := Dot3(Mid, Look);
+    if (Result < 0) or (D < Best - TIE_PX) or
+       ((D < Best + TIE_PX) and (Z > BestZ + 1E-9)) then
     begin
       { An edge behind a panel is out of sight, so it is not what was meant.
         Notes and dimensions are drawn over the top of everything and stay
-        pickable wherever they are. }
+        pickable wherever they are.  Asked only of a candidate that would
+        win, so a clear view costs nothing. }
       if FEnts[I].Kind in [ekLine, ekArc] then
       begin
         { the distance was worked out above; it was being worked out again
           here into a variable nothing read, on every entity of every hit
           test - which is every time the mouse moves }
-        if HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.5)) and
+        if HiddenAt(V, Mid) and
            HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.25)) and
            HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.75)) then
           Continue;
       end;
-      Exit(I);
+      if D < Best then Best := D;
+      BestZ := Z;
+      Result := I;
     end;
   end;
-  Result := -1;
 end;
 
 { One list feeds both snapping and inference, so a crossing and the
