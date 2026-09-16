@@ -14,6 +14,12 @@
 
 ### New
 
+- **Ten more pages in the manual, and a way in from the command list.**
+  Snapping, the working plane, units against scale against precision, faces
+  front and back, sheets and files, the view cube, the fitting wizard, the
+  pipe spool, laying a piece out flat, and the toy.  In the command list, a
+  command with a page of its own is now a link to it.
+
 - **A bug report says how the frames have been going.**  Every frame is
   timed - the paper, the ink, the composite and the screen - and one that
   takes longer than a fortieth of a second writes a line into the log a

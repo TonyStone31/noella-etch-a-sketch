@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The view cube - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; The view cube</nav>
+<header><h1>The view cube</h1><p class="lead">A cube in the corner that says which way you are facing, and takes you anywhere.</p></header>
+
+<p>Off until you ask for it.  <code>/cube on</code> puts it in the top right
+of a 3D view; <code>/cube off</code> takes it away.  It is remembered after
+that.</p>
+
+<h2>Using it</h2>
+<ul>
+<li><b>Click a face</b> - look at the model square on from that side.</li>
+<li><b>Click an edge</b> - the half turn between two sides.</li>
+<li><b>Click a corner</b> - the three-quarter view most drawings are read
+from.</li>
+<li><b>Drag it</b> - turn the model, the same as middle-dragging.</li>
+</ul>
+<p>Every click flies the camera there rather than jumping, and it pivots on
+what you are looking at.  Watching it turn is what stops you losing your
+place.</p>
+
+<h2>Where it sits</h2>
+<p><code>/cube tl</code>, <code>tr</code>, <code>bl</code> or <code>br</code>
+puts it in whichever corner suits you.  Top right unless you say
+otherwise.</p>
+
+<h2>Framing what you picked</h2>
+<p><code>/cube fitselection on</code> makes a click bring what you have
+selected into the middle and size it on the way round.  With nothing
+selected it never re-frames - it just goes to the view you asked for.
+<code>/cube fitselection off</code> turns it back off.</p>
+
+<h2>Why it is there</h2>
+<p>The VIEW button along the top tells you the name of a view.  The cube
+tells you which way round you are, which is the thing you actually want to
+know when you have been spinning a model for ten minutes.  This one is
+Revit&#x27;s idea; SketchUp has no such thing.</p>
+
+<h2>See also</h2>
+<ul>
+<li><a href="tools/orbit.html">Getting about the model</a></li>
+<li><a href="commands.html">Commands</a></li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
+</div></body></html>

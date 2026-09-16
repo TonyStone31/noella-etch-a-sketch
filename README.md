@@ -5,6 +5,8 @@ job sites.  Free Pascal / Lazarus, no third-party dependencies, free forever.
 
 **[Download the latest release](../../releases/latest)** - Windows and Linux,
 no installer, single file.
+**[Read the manual](https://tonystone31.github.io/noella-etch-a-sketch/)** -
+every tool, every command, every key.
 
 ---
 
@@ -380,130 +382,44 @@ is the thinking behind the flat pattern and the DXF.
 
 ## Commands
 
-Type `/` in PRO and then one of these.  Most tools also have a key.
+Type `/` in PRO and the list comes up, with a word about what each one does.
+Keep typing and it narrows.  Up and down walk it, Enter takes what is
+highlighted, Tab completes without running, Escape puts it away, and clicking
+a row does the same as Enter.  The ones you have used lately sit at the top.
 
-**You do not have to remember them.**  Typing `/` opens the list, with a word
-about what each one does; keep typing and it narrows, the way an editor's
-autocomplete does.  Up and down walk it, Enter takes what is highlighted, Tab
-completes without running, Escape puts it away - and clicking a row does the
-same as Enter on it.  The ones you have used lately are at the top and the
-rest are alphabetical, so it works whether or not you know what the thing is
-called.  There is a `/` button at the left of the command bar that does the
-same as typing one.
+**You do not have to remember any of them.**  That is the point of the list.
 
-A command that wants something after it - `/scale`, `/plane`, `/cut` - is
-completed into the box and left waiting, because running it with nothing
-after it would be a question rather than an answer.
+There are seventy.  All of them, grouped by what you are trying to do and
+with the short names each answers to, are in the manual:
 
-| Command | Does |
-| --- | --- |
-| `/line` `/l`, `/rect` `/r`, `/arc` `/a`, `/circle` `/c` | the drawing tools |
-| `/push` `/pull` `/p`, `/drill` `/bore` `/punch`, `/revolve` `/followme` `/follow` `/lathe`, `/offset` `/f` | the solid tools |
-| `/select` `/s`, `/all`, `/move` `/mv`, `/rotate` `/q` `/turn`, `/erase` `/e` `/del` | select, select everything, move, turn, erase |
-| `/measure` `/m` `/tape`, `/protractor` `/angle`, `/dimension` `/dim` | measuring |
-| `/text` `/note` `/n` | a note |
-| `/orbit` `/spin` | the orbit tool |
-| `/transition` `/trans` `/fitting` `/elbow` `/tee` | the fitting wizard |
-| `/spool` `/pipe` | the pipe spool wizard |
-| `/unfold` `/layout` | lay a piece out flat |
-| `/view` | the next view preset (the VIEW button) |
-| `/corner` `/front` `/right` `/back` `/left` `/top` `/down` | go straight to that view |
-| `/3d` `/orbit`, `/iso`, `/plan` `/2d` `/flat` | the 3D camera; the old isometric and plan paper modes, kept for old drawings and not on the VIEW menu any more |
-| `/fit` `/zoom` | zoom to fit the drawing |
-| `/plane xy` `/plane xz` `/plane yz` | the working plane; `/plane` alone cycles |
-| `/origin` `/o` | move the origin to the cursor |
-| `/grid` | grid on / off |
-| `/guides` `/noguides` | clear the guide lines |
-| `/units` | feet-and-inches / metric |
-| `/scale 1/4` | the drawing scale (`1/16` `1/8` `1/4` `1/2` `1`) |
-| `/new` `/tab`, `/close`, `/clear` | sheets: a new one, close this one, clear this one |
-| `/save`, `/print` | the same as Ctrl+S and Ctrl+P |
-| `/undo` `/u`, `/redo` | history |
-| `/update`, `/update never`, `/update always` | fetch a newer build; stop looking daily; look again |
-| `/whatsnew` `/changes` | the release notes |
-| `/version` | which build this is |
-| `/toy` `/etch`, `/pro` | the etch-a-sketch this program began as, and back again |
-| `/cube`, `/cube on` `/cube off`, `/cube tl` `tr` `bl` `br`, `/cube fitselection on` `off` | the view cube: toggle it, put it in a corner, or say whether clicking it also frames what you have picked |
-| `/help` `/?` | about |
-| `/manual` `/docs` | the manual: the copy beside the program if this build has one, the website if not |
-| `/print`, `/print all`, `/print full` | this sheet / every sheet / 1:1 across pages |
-| `/center` `/center`, `/tozero` `/zero` | center the selection on the floor at 0,0 / put its near bottom corner on the origin |
-| `/holes` `/openedges` | draw, in red, every edge where a solid is not closed - the answer a slicer will not give you |
-| `/quick` | quick frames while the camera moves, on or off |
-| `/regions`, `/rebuild`, `/rebuildfaces`, `/forget`, `/rendertime`, `/timings` | for debugging: report the flat areas, work them out again, forget what was seen and rebuild, time a frame, print the steps of each edit |
-| `/touch` | whether the touchscreen hook is in, and how many finger events have come |
-| `/report` | open the report form: what happened, with a picture of the window |
-| `/sysinfo` | what a report would say about this machine: OS, processor, RAM, graphics, memory in use |
+> **[Commands](https://tonystone31.github.io/noella-etch-a-sketch/commands.html)**
 
 While a tool is in hand the command bar also takes the tool's own input: a
-length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.
+length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.  Feet-inches-
+sixteenths works anywhere a length does - `6-8-15` is six foot eight and
+fifteen sixteenths, the way a truss drawing writes it.
 
 ## Keyboard
 
-**Both modes**
+Tool keys are SketchUp's wherever SketchUp has one.  The handful worth
+knowing on day one:
 
 | Key | Action |
 | --- | --- |
-| Ctrl+Z / Ctrl+Y | undo / redo |
-| Ctrl+O | open a drawing |
-| Ctrl+S / Ctrl+Shift+S | save / save as |
-| Ctrl+E | export a picture (PNG or SVG) |
-| Ctrl+P | print |
-| Delete | shake to erase / clear the sheet |
-| G | grid on/off |
-| F1 | about |
-| `[` `]` | thinner / thicker line |
+| Space | select - SketchUp's key for the arrow, not S |
+| L R C A | line, rectangle, circle, arc |
+| P | push/pull |
+| M | move |
+| E | erase |
+| T | tape measure |
+| Middle-drag | spin the model, from any tool, mid-line |
+| Right-drag / wheel | pan / zoom |
+| Shift+F | zoom to fit - the one to remember when you are lost |
+| Esc | back out, one step at a time |
 
-**TOY**
+Every key, every drag, and the toy's own controls are on one page:
 
-| Key | Action |
-| --- | --- |
-| Arrow keys | draw |
-| Shift / Ctrl | fast / slow |
-| Space or Alt | lift the pen |
-| 1 ... 5 | pen style |
-| S | cycle the kaleidoscope |
-| M | mirror |
-| A | auto-draw |
-| T | next theme |
-| W | back to PRO |
-
-**PRO**
-
-| Key | Action |
-| --- | --- |
-| L R A C | line, rectangle, arc, circle |
-| P B F | push/pull, drill (bore), offset (Revolve is on the tool strip) |
-| M Q E | move, rotate, erase |
-| T D N | tape measure, dimension, note |
-| O | orbit |
-| Tab | next tool |
-| Enter | place a point, or commit what you typed |
-| Space | the select tool when nothing is in hand; otherwise the same as Enter |
-| Double-click | finish a run of lines |
-| Hold the left button | throw away what you are drawing |
-| Shift+Enter | another line in a note |
-| Arrow keys | set the direction while drawing; otherwise nudge the cursor |
-| Shift+arrow | hop to the next point on the drawing |
-| digits, `'` `"` `-` `x` `/` `s` | type into the command bar |
-| `/` | start a command |
-| `+` `-` | more or fewer sides on a circle or arc |
-| Esc | back out: clear what you typed, then the operation, then the tool |
-| Alt (held) | suspend snapping |
-| Ctrl (held) while moving or turning | leave a copy behind |
-| V / Shift+V | next / previous view preset |
-| I | isometric paper / plan paper (the old flat modes) |
-| K | cycle the working plane (XY / XZ / YZ) |
-| Shift+F | zoom to fit |
-| U | feet-and-inches / metric |
-| H | next theme |
-| Ctrl+T / Ctrl+N | new sheet, with the example on it / a blank one |
-| Ctrl+W / Ctrl+Tab | close sheet / next sheet |
-| Right-click a dimension | write over its figure |
-| Right-drag | pan;  wheel = zoom |
-| Middle-drag | orbit - from any view, with any tool in hand, mid-line |
-
----
+> **[The keyboard and the mouse](https://tonystone31.github.io/noella-etch-a-sketch/keys.html)**
 
 ## Keeping it up to date, and telling me when it breaks
 
@@ -682,14 +598,20 @@ to keep what you have done, save it under a name of your own.
 
 ## Help
 
-[`docs/help/`](docs/help/) is a small set of web pages - one for every tool,
-and one for each of the things you do with a drawing.  Open
-`docs/help/index.html` in a browser.
+A set of web pages - one for every tool, and one for each of the things you
+do with a drawing.  Read them here:
 
-It is a skeleton at the moment: the words are there and the pictures are not.
-[`docs/help/shots/NEEDED.md`](docs/help/shots/NEEDED.md) lists every screenshot
-the pages are waiting for and what should be in each one; drop them in that
-folder under those names and they appear.
+> **[The manual](https://tonystone31.github.io/noella-etch-a-sketch/)**
+
+They are also in [`docs/help/`](docs/help/) and ship in the release zip, so
+they work with no internet.  `/manual` in the program opens them.
+
+The words are all there.  The pictures are arriving: a handful are taken, and
+the rest are listed in
+[`docs/help/shots/NEEDED.md`](docs/help/shots/NEEDED.md) with what should be
+in each one.  They are taken by driving the program itself -
+[`tools/help-shots.txt`](tools/help-shots.txt) is the script - rather than by
+anybody posing for them.
 
 ## Not there yet
 

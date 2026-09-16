@@ -1274,6 +1274,42 @@ Nothing in the session log shows the dimension tool being picked at all
 between the erases, and there is no path from the eraser to it.  Needs the
 gesture, or a session that catches it.
 
+### Two asked for on 15 September, neither started
+
+**Closing a modified sheet did not ask to save.**  Tony: "I recently had
+another modified drawing and I closed its tab sheet and was not asked to save
+it.  This was several versions ago so we will want to test that all again in
+the next future."
+
+Losing work without being asked is the worst class of bug this program can
+have, and the drive suite has nothing that covers it.  Wanted:
+
+* a check that closing a sheet with unsaved changes asks;
+* the same for closing the window with several sheets open, one of them
+  dirty;
+* and the same for /clear, which throws a sheet away.
+
+Worth writing the drive script first and seeing whether it still reproduces -
+it may already be fixed, and a test that proves it is worth having either
+way.  Note that the draft written beside the program means the work is
+usually recoverable, which is exactly why this could go unnoticed for
+versions.
+
+**Copy and paste.**  Tony: "we need to be able to copy and paste a selection
+and copy and paste from one sheet to another etc."
+
+Ctrl+C and Ctrl+V are not bound to anything.  What exists already and does
+most of the work: `Duplicate(Idx, D)` copies entities with their groups
+remapped, and the move tool's Ctrl-copy uses it.  What is missing is a
+clipboard the copy can sit in between the two gestures, and the
+sheet-to-sheet case needs it to survive a `TDrawing` change.
+
+Shape it as: Ctrl+C takes a deep copy of the selection into a form that does
+not reference the document it came from; Ctrl+V drops it, picked, with the
+move tool live so it can be placed - which is SketchUp's Paste In Place
+behaviour and saves inventing a rule for where it lands.  Across sheets it is
+the same code, because the copy does not point at the old sheet.
+
 ## Where this is going, agreed 15 September 2026
 
 Tony, after an evening of comparing: "SketchUp is way smoother and crisper
