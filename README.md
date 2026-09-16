@@ -1,644 +1,178 @@
 # Heckers Sketch
 
-A kid's Etch A Sketch that turned into a measuring and sketching tool I use on
-job sites.  Free Pascal / Lazarus, no third-party dependencies, free forever.
+A simple 3D sketching program for Windows and Linux PCs, modeled on SketchUp,
+with a few extra tools for HVAC sheet metal and pipe work.  It started out as
+my daughter's Etch A Sketch program.  Free Pascal / Lazarus, free to use,
+MIT licensed.
 
-**[Download the latest release](../../releases/latest)** - Windows and Linux,
-no installer, single file.
+**[Download the latest release](../../releases/latest)** - one file, no
+installer.
 **[Read the manual](https://tonystone31.github.io/noella-etch-a-sketch/)** -
-every tool, every command, every key.
+every tool, command and key.
+
+> **It is a desktop program.**  It needs a Windows or Linux computer with a
+> mouse and a keyboard.  There is no phone or tablet version, and it will not
+> run in a web browser.
 
 ---
 
 ## The story
 
-**19 October 2021.** Noella Stone was seven years old and decided she
-wanted to write a program.  She drew the screen, the two dials and the shake
-button on paper, picked the colors, and told her dad what each part was
-supposed to do.  He typed while she directed.
+In October 2021 Noella Stone, seven years old, decided she wanted to write a
+program.  She drew the screen, the two dials and the shake button on paper,
+picked the colors, and told her dad what each part should do.  He typed while
+she directed.  That toy is still in here, unchanged, one command away
+(`/toy`).
 
-That program is still here.  The layout is hers, unchanged, and it is one key
-press away from everything else in the app.
+Five years later I came back to it to see how far an AI could take it if I
+asked for the tools I actually wanted.  It grew a second mode: a 3D drawing
+board with real scales, snapping, push/pull, a tape measure that reads feet
+and inches to the sixteenth, and wizards that build duct fittings and pipe
+spools from the numbers on a ticket.  I'm an HVAC technician and I do use it
+at work for quick sketches and fitting tickets.
 
-**Five years later** I came back to it, mostly for the fun of seeing how far an
-AI could take a seven-year-old's toy if I asked it to build the tools I
-actually wanted.  The answer turned out to be further than I expected.  The
-dials and the shake button are still there; next to them now is a second mode
-with a drawing board, real drawing scales, snapping and inference, push/pull,
-a tape measure that reads out feet and inches down to the sixteenth, and a
-wizard that builds a duct fitting from the numbers on a ticket.
+## What it is, and what it isn't
 
-Somewhere in there her toy stopped being a toy.  I use it at work.
+It is a **sketching tool that gets the measurements right** - quick one-off
+models, fittings and layouts where an honest dimension matters more than a
+pretty drawing.
 
-## What it is for
+It is **not a CAD program** and isn't trying to compete with one, or with
+SketchUp.  You would not produce a real set of drawings in it.  The plan is to
+keep it accurate and useful without letting it get complicated.
 
-I am an HVAC technician, and I also do the construction side of that world -
-the duct, the curbs, the sheet metal, the pipe.  A good part of what I need to
-draw in a day is a transition, an elbow, a tee, a pipe run, a curb - quick
-one-off things where what matters is getting an honest measurement out the
-other end, fast, standing in the field, and being able to send the office a
-ticket the shop can make it from.
-
-SketchUp does that job well.  I happen to like SketchUp and I know how to use
-it, so Heckers Sketch is modeled on it deliberately: close a loop and it
-becomes a face, click a face and push it, snap to endpoints and midpoints,
+SketchUp is the model for how the tools behave, on purpose: close a loop and
+it becomes a face, push a face into a solid, snap to endpoints and midpoints,
 type a length instead of dragging for it.  [`docs/sketchup/`](docs/sketchup/)
-holds fifteen of their help pages, read properly and written up, each with a
-note on what we have, what we don't, and where we differ on purpose.  When
-there is an argument about how something ought to behave, that is what we
-argue against.
+has our notes on their help pages, including where we differ and why.
 
-Be clear about what this is not.  It is **not trying to compete** with real
-CAD programs, or with SketchUp directly, and it probably never will.  You
-would not produce a real set of drawings in it.  What it is trying to be is a
-sketching tool that is dimensionally honest and useful for what I do, that
-stays simple enough to use with one hand on a ladder, and that knows a few
-things about my trade a general program never will - what a TDF flange is,
-which way a slip-and-drive goes on, what a fitter can actually measure from
-the end of an open duct.  We will keep it as accurate and as useful as we can
-without letting it become massively complicated.  It is given away free.
+## What's in it
 
-[`docs/direction.md`](docs/direction.md) is the longer version of that
-decision, written down so it can be argued against.
+The manual covers all of this properly.  The short version:
 
-## Developed with Claude
+* **Drawing** - lines, rectangles, circles, arcs, offset, move, rotate,
+  erase, text notes with leaders.  [Tools](https://tonystone31.github.io/noella-etch-a-sketch/)
+* **Typed lengths** - `12'6"`, `6-8-15`, `3.5m`, `8x10`, and exact points
+  like `[4,0,8]`.  [Typing measurements](https://tonystone31.github.io/noella-etch-a-sketch/typing.html)
+* **Faces and solids** - faces come from the edges that close them;
+  push/pull, drill and revolve turn them into solids.
+  [Faces](https://tonystone31.github.io/noella-etch-a-sketch/faces.html) ·
+  [Solids](https://tonystone31.github.io/noella-etch-a-sketch/solids.html)
+* **Snapping and inference** - endpoints, midpoints, centers, crossings,
+  axis locks.  [Snapping](https://tonystone31.github.io/noella-etch-a-sketch/snapping.html)
+* **Measuring** - tape measure, guides, protractor, dimensions you can type
+  over to resize what they measure.
+  [Tape measure](https://tonystone31.github.io/noella-etch-a-sketch/tools/measure.html) ·
+  [Dimensions](https://tonystone31.github.io/noella-etch-a-sketch/tools/dim.html)
+* **Views** - free 3D with a view cube, plan with a height slice, and true
+  isometric paper.  [Plan](https://tonystone31.github.io/noella-etch-a-sketch/plan.html) ·
+  [View cube](https://tonystone31.github.io/noella-etch-a-sketch/cube.html) ·
+  [Orbit](https://tonystone31.github.io/noella-etch-a-sketch/tools/orbit.html)
+* **Printing to scale**, and exporting PNG, JPEG, animated GIF, SVG, DXF,
+  STL and OpenSCAD.
+  [Printing](https://tonystone31.github.io/noella-etch-a-sketch/printing.html) ·
+  [Export](https://tonystone31.github.io/noella-etch-a-sketch/export.html)
+* **Sheets** - several drawings in tabs, saved together in one `.hsk` file.
+  Your work is also saved to a draft every few seconds.
+  [Sheets](https://tonystone31.github.io/noella-etch-a-sketch/sheets.html)
+* **A command bar** - type `/` and a searchable list of every command comes
+  up, so there is nothing to memorize.
+  [Commands](https://tonystone31.github.io/noella-etch-a-sketch/commands.html) ·
+  [Keys](https://tonystone31.github.io/noella-etch-a-sketch/keys.html)
 
-This is an AI-built project and there is no reason to be coy about it.
-Nearly all of the PRO code was written by Anthropic's **Claude**, working
-from my descriptions of what the work actually needs, and checked against the
-SketchUp notes in `docs/sketchup/`.  I direct it, I use the result on real
-jobs, and I tell it what is wrong with it; it writes the Pascal, builds it,
-and runs the tests.
+### The shop tools
 
-That shows in how the repository is laid out.  The SketchUp reference notes,
-the headless test suites, and a `TODO.md` written as a running log all exist
-so the work can be picked back up cold.  If you are curious what building
-something genuinely useful this way looks like, the commit history is an
-honest record of it.
+The part a general program doesn't have.  All under **SHOP**:
 
----
-
-## TOY
-
-The program Noella designed.  Type **`/toy`** in the command bar to go there;
-the one button in the corner - or **W** - brings you back.
-
-* **Two dials you actually grab and turn** - left moves across, right moves up
-  and down, exactly like the toy.  Arrow keys work too, with **Shift** to
-  sprint and **Ctrl** to creep a pixel at a time.
-* **Five pen styles** - Classic, Neon (a glowing tube of light), Rainbow,
-  Sparkle, Chalk.
-* **Kaleidoscope** - repeat every stroke 1, 2, 4, 6 or 8 times around the
-  center, with an optional mirror.  Scribbling turns into a mandala.
-* **Auto-draw** - the machine doodles a spirograph, rose curve or lissajous
-  figure.  Try it with rainbow ink and 8-fold symmetry.
-* **Shake to erase** dissolves the drawing into aluminum powder.
-
-## PRO
-
-The same idea taken seriously.  The program starts here, in the 3D view.
-
-**Drawing**
-
-* **Draw by typing.**  Click a start point, then type `12'6"` and press an
-  arrow - or press an arrow to set the direction first, then type.  It takes
-  `12'6"`, `12-6`, `12 6`, `6 1/2"`, `150"`, `3.5m`, `350cm`, and the truss
-  shop's `6-8-15` (feet, inches, sixteenths).  A rectangle takes both sides
-  at once: `8x10`, `8,10`, `8/10`.  The move and line tools take a place too:
-  `[4,0,8]` is a point in the drawing, `<4,0,8>` is that far from where you
-  are.  [`docs/typing-measurements.md`](docs/typing-measurements.md) has the
-  whole list and the reasons.
-* **A command bar that says what it wants next**, so there is nothing to
-  memorize.  Type a number and it is a length; start with `/` and it is a
-  command - the full list is below.  Every tool's tip shows an example of
-  what it will take typed.
-* **Tools** - select, line (chained), rectangle, arc, circle, push/pull,
-  revolve, drill, offset, move, rotate, tape measure, protractor,
-  dimension, text note, eraser, orbit.  Clicking the lit tool puts it away; **Esc** backs out
-  one step at a time.
-* **Circles and arcs take a side count.**  `24s` or `s24` while the tool is
-  in hand, `+` and `-` to step it; a chip at the cursor shows the count.
-  That matters when a round hole has to be drilled through a block.
-* **Offset** for a wall thickness.  Click a face, move in or out, and click -
-  or type `2"`.  Every edge shifts sideways and the shifted edges extend to
-  meet again, so the spacing is exact at the corners too.
-* **Rotate** turns a selection about a point, on the plane the arrows pick by
-  color, by a dragged or typed angle.  With nothing selected it takes
-  everything joined to what you click, so a box turns as a box.  The
-  **protractor** measures an angle the same way.
-* **Copy arrays.**  Hold **Ctrl** while moving or rotating to leave a copy,
-  then type `3x` for three that far apart or `/3` to divide the run - the
-  same after a turn, round the turn.
-* **Notes with leader lines.**  Click what the note is about, type it -
-  **Shift+Enter** for another line - move away and press Enter.  Leave the
-  cursor where you clicked and it is a plain label instead.  The text size is
-  typed too.
-* **Lean on the button to throw away what you are drawing.**  Hold the mouse
-  button down on a shape you have just made a mess of; it bows, goes red,
-  and comes apart.  About a second and a half, so there is time to change
-  your mind.
-* **Double-click finishes a run of lines.**  A line carries on from the point
-  you just put down; a double-click lets go of it without placing anything.
-  Esc does the same.
-* **Arcs join two loose ends.**  Pick the two points, pull the middle out.
-* **Select and move.**  Click picks; double-click takes a face and its
-  edges; triple-click takes everything joined.  **Ctrl** adds, **Shift**
-  toggles.  Drag a box - right-to-left takes anything it touches,
-  left-to-right only what fits wholly inside, SketchUp's rule.  Moving a
-  corner **stretches** what is attached to it rather than tearing it off.
-
-**Measuring**
-
-* **The shape you are about to draw is drawn solid and heavy**, in the color
-  of the axis it is locked to, the way SketchUp does it.
-* **True scale.**  1/16", 1/8", 1/4", 1/2" and 1" = 1'-0", or 1:200 through
-  1:10 in metric.  Printing re-renders the page from the geometry at the
-  printer's own resolution, so a quarter inch on the paper really is a foot.
-* **The tape measure** reads out distance plus dX/dY/dZ as you pull it.
-  Enter keeps what it measured as a dimension, or drops a **guide line** you
-  then snap to.
-* **Dimensions between any two points** - corner to corner, corner to the
-  middle of an edge, across thin air - with the extension lines snapped
-  square to an axis.  The move tool taken to a dimension's line repositions
-  the line; the eraser takes it away.
-* **The eraser softens as well as deletes.**  Ctrl and the eraser hides an
-  edge instead of rubbing it out, Ctrl+Shift brings it back - the creases
-  down the side of a pulled circle are not edges anybody drew, and hiding
-  them is what makes a cylinder look like a pipe rather than a barrel of
-  staves.
-* **A line drawn along one already there splits both** where they share, so
-  the overlap is one edge and the two tails are their own, rather than two
-  lines lying on each other.
-* **A note follows the edge it points at.**  Move the edge and the leader
-  goes with it instead of aiming at where the edge used to be.
-* **A ground grid under the free camera** so a model has a floor to stand on
-  and you can read how far across it something sits.  The GRID button turns
-  it off with the rest.
-* **Right-click a dimension to write over its figure** - a nominal size, a
-  cut length, `FIELD VERIFY`.  The measurement underneath never changes, and
-  the written figure goes out in the SVG export too.
-* **Type over a dimension and the drawing changes.**  Select one, type a new
-  length, and what it measures is resized to suit - the far end moves, the
-  near end stays put, and everything beyond the far end goes with it.  It is
-  a one-off edit and not a constraint: nothing is remembered, so nothing can
-  fight you later.
-* **PREC** sets the fraction the drawing reads and writes in, 1/2 through
-  1/64 or hundredths.
-
-**Geometry**
-
-* **Faces are derived, not stored.**  Every edge is split at its crossings,
-  the coplanar ones are grouped, and the smallest closed loops are walked out
-  of the resulting graph.  Draw a line across a square and you get two faces
-  you can push independently; erase it and you get the square back.  Islands
-  inside a face become holes.
-* **Push/pull.**  Pick a face, type how far, and it lifts into a shaded solid
-  with its sides walled in - including circles.  Anything drawn on the face
-  rides along with it.  Pushing a face into a solid makes a pocket; pushed
-  right through, it makes a tunnel, and it stops at the first tunnel it
-  meets and says so.
-* **Drill.**  Where push/pull stops, the drill goes on: a second tunnel cuts
-  clean through the first, square or round, from any side, so a block can be
-  bored in several directions like a manifold.
-* **Revolve.**  SketchUp calls it Follow Me; this is the tool for round
-  work.  Click the face, then
-  click a line or arc to push it along every edge joined to that one,
-  mitred at the corners: a circle along a run with a 90 arc in it is a
-  round elbow with legs, a whole spool from a centerline.  Or click two
-  points for an axis, or a circle, to spin the face round: a half circle on
-  its diameter is a ball, a profile on its edge is a cone or a round
-  reducer.  Type an angle first for a part turn.  Selecting the path
-  before clicking the face works too.
-* **Shake the mouse to say which way you meant it.**  Drawing in mid air and
-  the shape keeps standing up when you wanted it flat?  Jerk the mouse side
-  to side and it lies down; jerk it up and down and it stands up.
-* **Snapping and inference** - endpoints, midpoints, arc centers and
-  crossings beat the grid, each with its own marker.  A point on a face says
-  ON FACE.  Nothing hidden behind a face is snapped to.  When the cursor
-  lines up with a point elsewhere it is pulled onto that line and a dotted
-  guide is drawn back to it.  **SNAP OFF** kills all of it; holding **Alt**
-  suspends it.
-* **It knows whether a solid is closed**, which is the only thing that
-  decides whether a shape will 3D print.  Every edge of a closed solid is
-  shared by exactly two faces run opposite ways; a seam that has merely been
-  divided unevenly - a top split in two against a wall still in one piece -
-  is recognized as the seam it is rather than reported as a hole.  The export
-  says so on the way out: *closed and ready to slice*, or that a slicer will
-  have to guess at the inside.
-* **Faces worked out from lines are wound against their neighbors.**  A face
-  on its own can only guess which way is out, and guessing one at a time puts
-  half a roof inside out.  They are settled as a sheet instead, so a roof
-  points out of the building.  `/rebuild` puts an old drawing right.
-* **Faces that are not flat are cut into triangles before they are drawn.**
-  Spinning or pushing a sloped edge makes a face whose corners lie in no one
-  plane, and there is no right flat sheet for one of those.  A triangle has
-  exactly one plane and always lies in it, so the depth is exact by
-  construction.  Flat faces - most of them - keep the faster path.
-* **Profiles and back faces.**  The silhouette of a shape is drawn heavier
-  than the edges inside it, the facets of a curved surface are softened away,
-  and the back of a face is painted pale blue, SketchUp's way of showing a
-  solid built inside out - and of showing the inside of a hollow duct
-  through its open end.  Hidden lines stay hidden with crisp corners.
-
-**Views and files**
-
-* **One drawing, one camera, one VIEW button.**  Click it to step through
-  the views - the four corners, front, right, back, left, top - or open its
-  arrow for the list.  Middle-drag orbits from any view with any tool in
-  hand.  **PLAN** and **ISO** are paper modes: plan is a flat sheet, ISO is
-  real 30° isometric paper, +X down-right, +Y down-left, +Z straight up, the
-  way a pipe spool is drawn.  Work done on paper is kept when you go back to
-  3D.
-* **PLAN cuts through.**  Set a height and a depth and only what lies inside
-  that slice is drawn - a floor at a time through a building, the way a plan
-  is meant to be read.  Ctrl and the wheel over the drawing moves the slice up
-  and down, so your eyes stay on the plan.  Right-click a floor and take
-  *Plan From Here*.  What is cut away is not snapped to either, so you cannot
-  catch a point on a storey you cannot see.
-* **Tabs** - as many sheets as you like, each with its own scale, units and
-  view.  All of them save into one file.
-* **Its own file format.**  Drawings save as `.hsk` - plain text, one line
-  per entity, so it stays readable and diffable and old files keep opening.
-  `heckers-sketch drawing.hsk` opens one straight from the shell.
-* **An export room, not a file box.**  The formats down one side, a live view
-  of the model in the middle that you turn and zoom to frame the shot, and
-  that format's own settings on the right.  What is in the middle is what
-  comes out.
-
-  * **PNG** and **JPEG** at any size - twice or four times the screen, one of
-    the ready-made shapes for wherever you are posting it, or a size you
-    type.  A PNG can have nothing behind it.
-  * **GIF** - a little film that swings round the model.  See below.
-  * **SVG** - real vector output of this view, with the dimensions as text.
-  * **DXF** - this view flat for a cutting table, or the model in three
-    dimensions, as entities somebody can measure in their own CAD.
-  * **STL** - triangles in millimeters, which is what a 3D printer wants,
-    with a word about whether the shape is actually closed.
-  * **OpenSCAD** - a `polyhedron` per solid, each in its own module, to cut
-    and union against something you are describing in OpenSCAD.
-
-  STL and OpenSCAD arrive centered on the bed and standing on it, so a slicer opens them where
-  it expects to.  `/center`, or **Center on the Origin** on the right button,
-  does the same to the drawing itself.
-
-  `/tozero`, or **Into the Corner at 0,0,0**, is the other half of that: the
-  near bottom corner goes on the origin rather than the middle, so the thing
-  stands on the floor with its two near edges against zero.  Centered is what
-  a slicer wants; the corner is what you want when you are measuring, because
-  every number read off it is then a distance from nothing rather than from
-  half of itself.  It says how big the thing is from there.
-* **Record a little film of it.**  In the export room, pick GIF and *Record a
-  move*.  Choose where to start - front, back, left, right, top or a corner -
-  then either fly it yourself or take one of eight canned walks: a turntable,
-  a rise, underneath to over the top, a nod with no turn at all, half a turn
-  and back, corner to corner, the full look, or a slow push in.  Say how long
-  it should run and that decides the frame rate.
-
-  It counts you in from three and a strip along the bottom fills with
-  snapshots as it goes, so you can see it working.  Play it, clear it and go
-  again, or keep it.  Everything turns about the middle of whatever you had
-  selected, and what is recorded is where the camera was - not the screen -
-  so the cursor, the snapping lines and the hover marks are nowhere in it and
-  it can be saved at any size afterwards.
-* **Nothing is ever lost.**  A couple of seconds after you stop drawing the
-  whole session is written to a draft beside the settings, and the next
-  launch picks it straight back up.  Pull the plug and it is still there.
-  `Ctrl+S` gives it a real name when you want one.
-* **Delete asks** before clearing a sheet.  It deletes the selection if there
-  is one, and otherwise wants a yes.
-* **Zoom and pan are independent of the drawing scale**, so zooming in to
-  place something does not change what prints.
-
-A start-up card shows what is being read and how far along it is, and a
-drawing that is taking too long can be skipped from it; long work on a big
-drawing shows its progress on the command bar the same way.
-
-## The shop tools
-
-This is the part no general program has, and the reason the project kept
-going.  Everything here is under **SHOP** on the deck.
-
-**Build a fitting** (also `/transition`, `/elbow`, `/tee`) is a wizard - a
-real form, not a drawing exercise - that reads like the ticket a fitter
-hands the shop.  Radio buttons at the top pick the kind:
-
-* **Transition.**  Entry opening, exit opening, the length, which side comes
-  in and by how much, and what the height does: flat bottom, flat top,
-  centered, or the top or bottom moved up or down by an amount - whichever
-  edge you could actually get a tape on.
-* **Elbow.**  The opening, the angle - 22.5, 45, 90 or any other - which way
-  it turns seen from the entry, the throat radius (0 is a square throat), a
-  square or rolled heel, and a straight leg at each end.  Give it a
-  different exit size and it is a reducing elbow: the size across the turn
-  changes through the turn, the other size in the exit leg.  **From field
-  measurements** works the angle and both legs out from what you can measure
-  standing at the open end - ahead and across to the duct it has to meet,
-  and that duct's direction - so the elbow lands where it has to.
-* **Tee.**  The run, the branch opening, which wall it comes off, where it
-  starts, and how long the branch is.  Blanks center it.
-
-Every fitting takes an **end type for each end**: raw, notched all round for
-a field slip, flange out, flange in, TDF flange, slip and drive, or drive
-and slip, each with its size, and the fitting is built with them - notches
-cut, flanges and drive edges bent, the TDF fold-back - so the 3D part shows
-the connection.  A **tag** names it on the ticket and on the part.  The
-sizes go on as dimensions.  A plan sketch and a corner view draw themselves
-as you type, and the corner view is built by the same code that builds the
-real thing.
-
-Then: **Build it** drops the part into the drawing, hollow, on the cursor.
-**Email it** writes the plan, the corner view and every input as words,
-and opens them as a new message in your own mail program, ready to send to
-the office.  **Show the files** puts the same files in front of you in the
-file manager.  Nothing is sent by the program itself.
-
-**Lay a piece out flat** (`/unfold`) takes a folded piece of sheet metal -
-a duct you pushed up, say - and unfolds it into a pattern: solid where it
-gets cut, dashed where it gets folded, brake notches marked, the sheet size
-written on it, and a DXF for the table.
-
-**Fitter's scratchpad** (`/spool`, `/pipe`, `/scratchpad`) is the pipe
-fitter's iso as a form: ruled iso paper you click the run onto one leg at
-a time, snapped to the three axes or with Shift to a 45, with each leg's
-length typed on and what it was measured between - center to center, end
-to center, end to end - so a tape that could only reach the weld or the
-flange face still gives the shop the right cut.  Reducers and flanged joints
-go on the legs; the pipe size changes after a reducer.
-Pick the pipe size, long or short radius elbows, and the ends - bevel,
-weld-neck flange, cap, threaded.  The ticket writes itself with every leg's
-cut length, the elbows' take-outs already off, which is the number the
-welder wants; the 3D tab shows the spool built from the same numbers by
-Revolve; Email it sends the iso, the picture and the ticket to the shop;
-Build it drops the spool into the drawing.
-[`docs/pipe-spool.md`](docs/pipe-spool.md) has the details.
-
-[`docs/transition-ticket.md`](docs/transition-ticket.md) is the fitting
-wizard's own notebook - the notation, the end types with their assumed
-sizes, the elbow geometry, the field-measurement solve.
-[`docs/interchange-and-flat-patterns.md`](docs/interchange-and-flat-patterns.md)
-is the thinking behind the flat pattern and the DXF.
-
----
-
-## Commands
-
-Type `/` in PRO and the list comes up, with a word about what each one does.
-Keep typing and it narrows.  Up and down walk it, Enter takes what is
-highlighted, Tab completes without running, Escape puts it away, and clicking
-a row does the same as Enter.  The ones you have used lately sit at the top.
-
-**You do not have to remember any of them.**  That is the point of the list.
-
-There are seventy.  All of them, grouped by what you are trying to do and
-with the short names each answers to, are in the manual:
-
-> **[Commands](https://tonystone31.github.io/noella-etch-a-sketch/commands.html)**
-
-While a tool is in hand the command bar also takes the tool's own input: a
-length, `8x10`, `[x,y,z]`, `<x,y,z>`, `24s`, `3x`, `/3`.  Feet-inches-
-sixteenths works anywhere a length does - `6-8-15` is six foot eight and
-fifteen sixteenths, the way a truss drawing writes it.
-
-## Keyboard
-
-Tool keys are SketchUp's wherever SketchUp has one.  The handful worth
-knowing on day one:
-
-| Key | Action |
-| --- | --- |
-| Space | select - SketchUp's key for the arrow, not S |
-| L R C A | line, rectangle, circle, arc |
-| P | push/pull |
-| M | move |
-| E | erase |
-| T | tape measure |
-| Middle-drag | spin the model, from any tool, mid-line |
-| Right-drag / wheel | pan / zoom |
-| Shift+F | zoom to fit - the one to remember when you are lost |
-| Esc | back out, one step at a time |
-
-Every key, every drag, and the toy's own controls are on one page:
-
-> **[The keyboard and the mouse](https://tonystone31.github.io/noella-etch-a-sketch/keys.html)**
-
-## Keeping it up to date, and telling me when it breaks
-
-The **help button** on the deck - bottom right, the `?` - has About, Check
-for updates, What's new, Downloads, the manual, Report a problem, and the
-project page.  The version is shown next to the name in the header.
-
-**Updates.**  It looks at the GitHub releases page **once a day** and says in
-the status bar if there is a newer build.  `/update` fetches it, checks it
-against the checksums published with the release, puts it in place and
-starts again - your drawing is kept and comes straight back.  After an
-update it shows you what changed.  `/update never` stops the daily look;
-`/update` still works whenever you ask; `/update always` turns it back on.
-It will not touch a copy running from its own source folder.
-
-What the update check sends: nothing.  It asks GitHub one question - what is
-the newest release - over the same public URL your browser would use.
-
-**Reporting a problem.**  Pick it from the help menu, or from the button
-inside the fitting wizard when the wizard is the problem.  It takes a
-picture first - now, or after ten seconds so you can set the screen up the
-way it went wrong - then a line or two from you, and adds what the program
-was doing: the version, the tool, the view, and the last few dozen things
-that happened.  The drawing file goes with it only if you tick the box,
-because it is your work.  Reports go to a free file-drop service, so nobody
-needs an account, a key or a token to send one - and there is no token of
-any kind in the program.  A progress window shows it going.
-[`docs/reporting-a-problem.md`](docs/reporting-a-problem.md) has the
-details.
-
-**Crashes.**  If the program falls over and survives, it offers to send the
-report right away.  If it goes down for good, it writes the report next to
-itself and offers to send it the next time it starts - only if you say so,
-and you can read it first.  A drawing that took the program down as it
-opened is not opened again on the next launch: it is set aside beside the
-settings as `-would-not-open.hsk` and you start clean.  Nothing is thrown
-away; it just stops being the thing that runs on startup.
+* **Build a fitting** - transitions, elbows (including from field
+  measurements) and tees, with an end type on each end: raw, notched, flange
+  in or out, TDF, slip and drive.  It builds the 3D part and a ticket you can
+  email to the office.
+  [Fittings](https://tonystone31.github.io/noella-etch-a-sketch/fittings.html)
+* **Fitter's scratchpad** - a pipe spool drawn on iso paper, with cut lengths
+  worked out and elbow take-outs already subtracted.
+  [Spool](https://tonystone31.github.io/noella-etch-a-sketch/spool.html)
+* **Lay a piece out flat** - unfold sheet metal into a cut pattern with fold
+  lines and a DXF for the table.
+  [Unfold](https://tonystone31.github.io/noella-etch-a-sketch/unfold.html)
 
 ## Installing
 
-Grab the build for your machine from
-**[Releases](../../releases/latest)** and run it.  There is no installer and
-nothing to set up.
+Download the file for your computer from
+**[Releases](../../releases/latest)** and run it.
 
 | File | For |
 | --- | --- |
 | `heckers-sketch.exe` | Windows |
 | `heckers-sketch-linux` | Linux (`chmod +x` it first) |
-| `checked/...` | the same two with range, overflow and heap checking on - slower, but they say what went wrong |
+| `*-checked` | the same, with extra error checking - slower, but better crash reports |
 
-**It is portable.**  Settings, the draft and any scratch file live in the
-same folder as the program, not in your home directory - put it on a stick
-and it carries its work with it.  Only when the program's own folder cannot
-be written to (installed under `/usr/bin`, say) does it fall back to the
-usual per-user place.  The pictures and tickets the fitting wizard writes
-go under `Heckers Sketch/fittings` in your home folder, where a mail program
-and a file manager can find them.  The fitting and
-spool tickets go in a `fittings` folder there, and a copy of every bug
-report sent in `reports-sent`.
+It's portable: settings and the draft live next to the program, so it can
+run from a USB stick.  It checks GitHub once a day for a newer version and
+`/update` installs it.  `--help` lists the command-line switches.
 
-**One copy at a time.**  Two would share the same draft and take turns
-overwriting each other's work.  A second launch says so and stops.
-`--multi` opens another anyway if you really want two.
+## Problems and feedback
 
-Command line: `heckers-sketch [file.hsk] [--maximized] [--fullscreen]
-[--size=WxH] [--multi]`, and `--help`.
+**Help → Report a problem** sends a screenshot, your note, and what the
+program was doing.  Your drawing is only included if you tick the box.  No
+account needed.  If it crashes, it offers to send the crash report.
+[Reporting a problem](https://tonystone31.github.io/noella-etch-a-sketch/reporting.html)
+
+## Developed with Claude
+
+Nearly all of the 3D side was written by Anthropic's Claude, from my
+descriptions of what the work needs.  I direct it, test it, and tell it what's
+wrong; it writes the Pascal, builds it and runs the tests.  `TODO.md` is the
+running log and the commit history is an honest record of how it was built.
+
+---
 
 ## Building
 
 Needs Lazarus with the `Printer4Lazarus` package (it ships with Lazarus).
-Open `etchasketch.lpi` and build, or:
 
 ```sh
-lazbuild etchasketch.lpi
+lazbuild etchasketch.lpi      # or ./build.sh
 ```
 
-`build.sh` does the plumbing: `./build.sh` is a development build,
-`./build.sh ship` produces all four binaries above and packs them into one
-zip, and `./build.sh github` runs both test suites, refuses to tag if
-either is red, names the release notes, cuts the release and keeps the
-debug symbols for it.
-
-Developed on Linux; Windows builds are cross-compiled from the same tree.
-Plain LCL throughout, so a macOS build should work too.
+`./build.sh ship` builds all four binaries into one zip, and
+`./build.sh github` runs the tests and cuts a release.  Developed on Linux;
+the Windows build is cross-compiled.  A macOS build has never been tried.
 
 ## Tests
 
 ```sh
-./tests/run.sh          # 758 headless geometry, document and fitting checks
-./tests/run-region.sh   #  84 planar-region checks
-./tests/run-cmds.sh     # every command the list offers is one that exists
-./tests/run-drive.sh    # drives the window itself, in a nested X server
+./tests/run.sh          # headless geometry, document and fitting checks
+./tests/run-region.sh   # the planar region engine
+./tests/run-cmds.sh     # every command the list offers actually exists
+./tests/run-drive.sh    # drives the real window in a nested X server
 ```
 
-The third needs Xephyr and LazHIDControl beside this folder.  It is a smoke
-test and says so: it opens the program on a display of its own, plays a
-script of clicks and keys at it, and reports whether it got through without
-falling over.  The screenshots it leaves behind are for a person to look at.
-It is flaky at the edges - a script that fails once and passes on its own is
-the nested X server, not the program.
+The last one needs Xephyr and
+[LazHIDControl](https://github.com/TonyStone31/LazHIDControl) next to this
+folder.  It's a smoke test that runs several scripts at once, and a few of
+them run back to back in one program to catch problems that only show up
+later in a session.
 
-The region suite is worth a look on its own: squares cut in half, cuts that
-stop partway and divide nothing, tic-tac-toe grids, holes, concave shapes,
-vertices a nanometre apart, and timings at scale.  The main suite covers
-length parsing, snapping, push/pull, tunnels that cross, arcs on free
-planes, arrays, and every fitting the wizard builds.
+## Source layout
 
-## How it is put together
-
-| Unit | Responsibility |
+| Unit | What it does |
 | --- | --- |
-| `etchasketch.lpr` | program entry point, command line |
-| `uSurface.pas` | a 32-bit BGRA raster surface - anti-aliased primitives from signed distance fields, blend modes, real alpha, damage tracking, text, PNG export |
-| `uSkin.pas` | color themes and the chassis: panels, bezel, dials, line icons, measured and isometric grids |
-| `uRegion.pas` | the planar region engine - segments in, faces and holes out.  Knows nothing about the document, the screen or the tools |
-| `uWork.pas` | the PRO document - 3D geometry, length parsing and formatting, drawing scales, snapping, hit testing, rendering, the file format |
-| `uBore.pas` | tunnels that cross: cutting one bore through another |
-| `uFittings.pas` | the fitting builders - transition, elbow, tee, the end types, the field-measurement solve, the ticket text |
-| `uTransition.pas` | the fitting wizard form; `uFieldElbow.pas` the field-measurement form |
-| `uUnfold.pas`, `uFlatView.pas`, `uDxf.pas` | flat patterns: unfolding, showing, writing DXF |
-| `uMailOut.pas` | handing files to the mail program - xdg-email on Linux, Simple MAPI on Windows |
-| `uNet.pas`, `uUpdate.pas`, `uUpdateForm.pas` | fetching over HTTPS, the update check and install, its progress window |
-| `uReport.pas`, `uSendForm.pas` | sending a report to the postbox, and its progress window |
-| `uWhatsNew.pas` | the release notes dialog |
-| `uSingle.pas`, `uPaths.pas` | one copy at a time; where the settings and the draft live |
-| `uMain.pas` | the window - layout, both modes, tools, history, tabs |
+| `uWork.pas` | the 3D document: geometry, snapping, hit testing, rendering, file format |
+| `uRegion.pas` | turns edges into faces and holes |
+| `uSurface.pas` | the software rasterizer everything is drawn with |
+| `uMain.pas` | the window, the tools, both modes |
+| `uFittings.pas`, `uTransition.pas` | fitting builders and the fitting wizard |
+| `uPipe.pas`, `uSpool.pas` | the pipe spool scratchpad |
+| `uUnfold.pas`, `uDxf.pas` | flat patterns and DXF |
+| `uCube.pas` | the view cube |
+| `uUpdate.pas`, `uReport.pas` | updates and bug reports |
 
-Four things are worth knowing if you come back to this later.
-
-**Everything is drawn into pixel buffers and blitted during paint events**
-rather than poked onto a canvas from event handlers.  That is what makes the
-anti-aliasing, the neon glow and the erase dissolve possible - and it is
-also why it keeps working on GTK3, where drawing to `TImage.Canvas` outside
-a paint handler silently does nothing.
-
-**The screen is three layers** - paper, ink, and the composite you see.  The
-ink carries its own alpha, so changing the theme re-papers underneath the
-drawing and leaves the drawing alone.  Only the damaged rectangle is
-recomposited.
-
-**PRO geometry is stored in 3D from the start**, with the view as a
-projection - the paper modes and the camera all read the same document.
-Changing scale, zooming or switching views re-renders from the geometry,
-so nothing is ever resampled.
-
-**Faces come from the edges, every time.**  `uRegion.pas` welds coincident
-vertices with a spatial hash, splits every segment at its crossings, groups
-by plane, and walks the minimal cycles of the resulting half-edge graph.
-Only the planes an edit actually touched are rebuilt, and results are cached
-by signature.  A built fitting is the exception: its faces are solids, and
-its open ends are taken as seen so they are never capped.
-
-**Mouse motion is deliberately cheap**, which matters over VNC or on a
-virtual display: the handler records the pointer position and returns, and
-all snapping, hit-testing and repainting happens once per tick.
-
-## The examples
-
-The program makes an `examples` folder beside itself and writes its drawings
-into it every time it starts, so a copy carried on a stick arrives with
-something to open.  There are two:
-
-* **`etch-a-sketch.hsk`** - a toy etch-a-sketch to scale, with a robot on the
-  screen.  Every face of it is something to push, and it is the drawing in
-  every help picture.
-* **`wine-glass.hsk`** - an outline spun about the blue axis: hollow bowl,
-  solid stem, and closed enough to print.
-
-Both are built by the programs in [`examples/`](examples/) rather than drawn
-and traced, so when a tool changes they can be made again rather than
-redrawn.  [`examples/README.md`](examples/README.md) has the sizes, the
-reasoning, and what a new one has to satisfy.
-
-They are rewritten over the top on every run, so draw on them all you like -
-to keep what you have done, save it under a name of your own.
-
-## Help
-
-A set of web pages - one for every tool, and one for each of the things you
-do with a drawing.  Read them here:
-
-> **[The manual](https://tonystone31.github.io/noella-etch-a-sketch/)**
-
-They are also in [`docs/help/`](docs/help/) and ship in the release zip, so
-they work with no internet.  `/manual` in the program opens them.
-
-The words are all there.  The pictures are arriving: a handful are taken, and
-the rest are listed in
-[`docs/help/shots/NEEDED.md`](docs/help/shots/NEEDED.md) with what should be
-in each one.  They are taken by driving the program itself -
-[`tools/help-shots.txt`](tools/help-shots.txt) is the script - rather than by
-anybody posing for them.
-
-## Not there yet
-
-There is a fuller list, with notes on what each one would take, in
-[TODO.md](TODO.md).
-
-* The field-sketch wizard: an isometric paper sketch with a few dimensions
-  on it, turned into a built run.
-* The flat pattern of a fitting with its ends on, and TDF corner pieces.
-* The dimension tool has no radius or diameter mode yet.
-* Orbiting a drawing full of fittings gets sluggish; there is a performance
-  pass to do before anything is threaded.
-* The depth is settled per pixel, so two solids that run through each other
-  come out right; what is still imperfect is the last pixel or two along a
-  silhouette, where the rule that decides which face owns a part-covered
-  pixel and the rule that decides its depth do not quite agree.
-* Nothing imports.  Tracing a PDF or an SVG would be a lovely thing to have
-  and is not here.
-* The help pages have no pictures in them yet, and no way to open them from
-  inside the program.
-* When a shape will not print, it says so but not *where*.  The analysis that
-  finds the open edges is written and tested; nothing draws them yet.
+Longer design notes are in [`docs/`](docs/), and what's still to do is in
+[`TODO.md`](TODO.md).
 
 ## License
 
-**MIT** - see [LICENSE](LICENSE).  Do whatever you want with it: use it,
-change it, ship it, sell it.  Keep the copyright line and that is the whole
-of it.
+**MIT** - see [LICENSE](LICENSE).
 
 Copyright (c) 2021-2026 Noella Stone and Tony Stone.
