@@ -1,8 +1,7 @@
 # Heckers Sketch
 
-A simple 3D sketching program for Windows and Linux PCs, modeled on SketchUp,
-with a few extra tools for HVAC sheet metal and pipe work.  It started out as
-my daughter's Etch A Sketch program.  Free Pascal / Lazarus, free to use,
+A simple 3D sketching program for Windows and Linux PCs, modeled on SketchUp.
+It started out as my daughter's Etch A Sketch program.  Free Pascal / Lazarus, free to use,
 MIT licensed.
 
 **[Download the latest release](../../releases/latest)** - one file, no
@@ -26,16 +25,15 @@ she directed.  That toy is still in here, unchanged, one command away
 
 Five years later I came back to it to see how far an AI could take it if I
 asked for the tools I actually wanted.  It grew a second mode: a 3D drawing
-board with real scales, snapping, push/pull, a tape measure that reads feet
-and inches to the sixteenth, and wizards that build duct fittings and pipe
-spools from the numbers on a ticket.  I'm an HVAC technician and I do use it
-at work for quick sketches and fitting tickets.
+board with real scales, snapping, push/pull and a tape measure that reads
+feet and inches to the sixteenth.  I'm an HVAC technician and I do use it at
+work for quick sketches.
 
 ## What it is, and what it isn't
 
 It is a **sketching tool that gets the measurements right** - quick one-off
-models, fittings and layouts where an honest dimension matters more than a
-pretty drawing.
+models and layouts where an honest dimension matters more than a pretty
+drawing.
 
 It is **not a CAD program** and isn't trying to compete with one, or with
 SketchUp.  You would not produce a real set of drawings in it.  The plan is to
