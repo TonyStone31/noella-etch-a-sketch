@@ -13,9 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.15.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A guide point is easy to pick.**  It marks a distance along a line, so it' + LineEnding +
+    '  sits on that line - and the line used to win the click from a pixel away.' + LineEnding +
+    '  It is asked for before anything else now, with a reach the size it is' + LineEnding +
+    '  drawn, so one attempt gets it.  Select it and press Delete, or right-click' + LineEnding +
+    '  and Erase.  A guide that has been put away cannot be picked or erased at' + LineEnding +
+    '  all, which it could before.' + LineEnding +
     '' + LineEnding +
     '- **Ctrl says what the tape leaves behind.**  Both the dashed guide and the' + LineEnding +
     '  amber point, the point on its own, the guide on its own, or nothing.  Both' + LineEnding +
