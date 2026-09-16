@@ -2331,6 +2331,17 @@ swap with an immediate payoff and it puts LazInk in the build where it can be
 lived with.  Then decide about the help, with the table question settled one
 way or the other.  Nothing here is urgent.
 
+**The full list now lives in LazInk itself** (16 September): 
+`/media/tony/storpart/synced/GIT/LazInk/ROADMAP.md`.  Tony wants LazInk kept
+as its own project, built over there, with this program as one of its users -
+so what it needs to grow belongs in its tree, not here.  In short: headings,
+lists, `<code>` and `<kbd>` are all the What's New window needs, and once
+they exist `uWhatsNew.pas` loses its hand-written painter.  The manual would
+need tables, images by file name and a page viewer as well, and until then it
+stays in the browser - a second, simpler copy of the manual is not the
+answer.  LazInk has no GitHub repository yet and has a large piece of
+uncommitted work staged in it.
+
 ### The view cube
 
 Built 14 September, at Tony's friend's asking - he uses Revit and thinks a
