@@ -13,6 +13,30 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.15.8' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Ten more pages in the manual, and a way in from the command list.**' + LineEnding +
+    '  Snapping, the working plane, units against scale against precision, faces' + LineEnding +
+    '  front and back, sheets and files, the view cube, the fitting wizard, the' + LineEnding +
+    '  pipe spool, laying a piece out flat, and the toy.  In the command list, a' + LineEnding +
+    '  command with a page of its own is now a link to it.' + LineEnding +
+    '' + LineEnding +
+    '- **A bug report says how the frames have been going.**  Every frame is' + LineEnding +
+    '  timed - the paper, the ink, the composite and the screen - and one that' + LineEnding +
+    '  takes longer than a fortieth of a second writes a line into the log a' + LineEnding +
+    '  report carries, saying which part of it was slow and what you were doing.' + LineEnding +
+    '  The report also carries how many went over and what the worst one was.' + LineEnding +
+    '  "It felt glitchy" now arrives with the numbers.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A picked guide is drawn where the guide is.**  A guide is kept as a point' + LineEnding +
+    '  and one foot of direction, and drawn to the edges of the paper - and' + LineEnding +
+    '  picking one highlighted the foot, so two blue lines appeared to stick out' + LineEnding +
+    '  of a drawing with nothing at either end of them.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.15.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
