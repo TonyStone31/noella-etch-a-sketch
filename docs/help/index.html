@@ -5,24 +5,57 @@
 <link rel="stylesheet" href="style.css"></head>
 <body><div class="wrap">
 <header><h1>Heckers Sketch help</h1><p class="lead">Scaled drawing in three dimensions, without the week of learning.</p></header>
-<h2>The tools</h2><div class="grid"><div class="card"><a href="tools/select.html">Select</a><p>Pick what you want to work on.</p></div><div class="card"><a href="tools/line.html">Line</a><p>Draw a line, or a chain of them.</p></div><div class="card"><a href="tools/rect.html">Rectangle</a><p>Two corners, and it makes a face.</p></div><div class="card"><a href="tools/circle.html">Circle</a><p>A circle from the middle out.</p></div><div class="card"><a href="tools/arc.html">Arc</a><p>An arc between two points.</p></div><div class="card"><a href="tools/push.html">Push/Pull</a><p>Lift a face into a solid.</p></div><div class="card"><a href="tools/revolve.html">Revolve</a><p>Spin a face round an axis into a solid.</p></div><div class="card"><a href="tools/move.html">Move</a><p>Move things, or copy them.</p></div><div class="card"><a href="tools/rotate.html">Rotate</a><p>Turn things about a point.</p></div><div class="card"><a href="tools/offset.html">Offset</a><p>A parallel copy of a face&#x27;s edge, in or out.</p></div><div class="card"><a href="tools/drill.html">Drill</a><p>Push a shape right through everything.</p></div><div class="card"><a href="tools/erase.html">Erase</a><p>Delete things.</p></div><div class="card"><a href="tools/measure.html">Measure</a><p>Read a distance.</p></div><div class="card"><a href="tools/dim.html">Dimension</a><p>Put a measurement on the drawing.</p></div><div class="card"><a href="tools/protractor.html">Protractor</a><p>Lay a guide line at an angle.</p></div><div class="card"><a href="tools/text.html">Text</a><p>A note on the drawing.</p></div><div class="card"><a href="tools/orbit.html">Orbit</a><p>Get about the model.</p></div></div>
-<h2>Doing things with a drawing</h2><div class="grid"><div class="card"><a href="export.html">Exporting</a><p>Getting the drawing out - pictures, film, and shapes.</p></div><div class="card"><a href="recording.html">Recording a move</a><p>Making the little film that shows off a drawing.</p></div><div class="card"><a href="printing.html">Printing</a><p>On paper, at a real scale.</p></div><div class="card"><a href="plan.html">The plan view</a><p>Looking straight down, and cutting through.</p></div><div class="card"><a href="typing.html">Typing measurements</a><p>You can type instead of dragging, nearly everywhere.</p></div><div class="card"><a href="commands.html">Commands</a><p>All sixty-nine slash commands, grouped by what you are trying to do.</p></div><div class="card"><a href="keys.html">The keyboard and the mouse</a><p>Every key and every drag, on one page.</p></div><div class="card"><a href="solids.html">Solids and 3D printing</a><p>Why a shape does or does not print.</p></div><div class="card"><a href="reporting.html">When it breaks</a><p>Telling us about it.</p></div></div>
-<h2>Getting it right</h2><div class="grid"><div class="card"><a href="snapping.html">Snapping</a><p>How the cursor finds the point you meant.</p></div><div class="card"><a href="planes.html">The working plane</a><p>Which surface a click lands on in 3D.</p></div><div class="card"><a href="units.html">Units, scale and precision</a><p>Three settings people mix up.</p></div><div class="card"><a href="faces.html">Faces, front and back</a><p>Which side is out, and why it matters.</p></div><div class="card"><a href="sheets.html">Sheets and files</a><p>Several drawings in one window.</p></div><div class="card"><a href="cube.html">The view cube</a><p>Which way you are facing, and how to get anywhere.</p></div><div class="card"><a href="entity.html">The entity panel</a><p>What is picked, and what you can change about it.</p></div></div>
-<h2>Building things</h2><div class="grid"><div class="card"><a href="fittings.html">The fitting wizard</a><p>Duct fittings from the measurements you took.</p></div><div class="card"><a href="spool.html">The pipe spool</a><p>A run of pipe, leg by leg.</p></div><div class="card"><a href="unfold.html">Laying a piece out flat</a><p>A pattern to cut from sheet.</p></div><div class="card"><a href="toy.html">The etch-a-sketch</a><p>The toy this program grew out of.</p></div></div>
+<!-- The index is laid out as tables of three rather than a CSS grid, so it
+     reads as a grid both in a web browser and in the program's own help
+     window, whose renderer draws tables but not CSS grid.  The CSS below in
+     style.css (table.cards) is what makes the cells look like cards in a
+     browser. -->
+<h2>Start here</h2>
+<table class="cards">
+<tr><td><a href="keys.html"><b>The keyboard and the mouse</b></a><br><small>Every key and every drag, on one page.</small></td><td><a href="typing.html"><b>Typing measurements</b></a><br><small>Type a size instead of dragging for it.</small></td><td><a href="commands.html"><b>Commands</b></a><br><small>Every slash command, grouped by job.</small></td></tr>
+</table>
+<h2>Drawing</h2>
+<table class="cards">
+<tr><td><a href="tools/line.html"><b>Line</b></a><br><small>A line, or a chain of them.</small></td><td><a href="tools/rect.html"><b>Rectangle</b></a><br><small>Two corners, and it makes a face.</small></td><td><a href="tools/circle.html"><b>Circle</b></a><br><small>A circle from the middle out.</small></td></tr>
+<tr><td><a href="tools/arc.html"><b>Arc</b></a><br><small>An arc between two points - and rounded corners.</small></td><td><a href="tools/text.html"><b>Text</b></a><br><small>A note on the drawing.</small></td><td><a href="snapping.html"><b>Snapping</b></a><br><small>How the cursor finds the point you meant.</small></td></tr>
+</table>
+<h2>Shaping</h2>
+<table class="cards">
+<tr><td><a href="tools/push.html"><b>Push/Pull</b></a><br><small>Lift a face into a solid.</small></td><td><a href="tools/revolve.html"><b>Revolve</b></a><br><small>Spin a face round an axis.</small></td><td><a href="tools/offset.html"><b>Offset</b></a><br><small>A parallel copy of a face&#x27;s edge.</small></td></tr>
+<tr><td><a href="tools/drill.html"><b>Drill</b></a><br><small>Push a shape right through.</small></td><td><a href="faces.html"><b>Faces, front and back</b></a><br><small>Which side is out, and why it matters.</small></td><td><a href="solids.html"><b>Solids and 3D printing</b></a><br><small>Why a shape does or does not print.</small></td></tr>
+</table>
+<h2>Picking and moving</h2>
+<table class="cards">
+<tr><td><a href="tools/select.html"><b>Select</b></a><br><small>Pick what you want to work on.</small></td><td><a href="tools/move.html"><b>Move</b></a><br><small>Move things, or copy them.</small></td><td><a href="tools/rotate.html"><b>Rotate</b></a><br><small>Turn things about a point.</small></td></tr>
+<tr><td><a href="tools/erase.html"><b>Erase</b></a><br><small>Rub out edges - and the faces they hold.</small></td><td><a href="entity.html"><b>The entity panel</b></a><br><small>What is picked, and what you can change.</small></td><td class="empty"></td></tr>
+</table>
+<h2>Measuring</h2>
+<table class="cards">
+<tr><td><a href="tools/measure.html"><b>Tape measure</b></a><br><small>Read a distance, lay a guide.</small></td><td><a href="tools/dim.html"><b>Dimension</b></a><br><small>Put a measurement on the drawing.</small></td><td><a href="tools/protractor.html"><b>Protractor</b></a><br><small>Lay a guide at an angle.</small></td></tr>
+<tr><td><a href="units.html"><b>Units, scale and precision</b></a><br><small>Three settings people mix up.</small></td><td class="empty"></td><td class="empty"></td></tr>
+</table>
+<h2>Looking around</h2>
+<table class="cards">
+<tr><td><a href="tools/orbit.html"><b>Orbit</b></a><br><small>Spin, pan and zoom - and snap to a view.</small></td><td><a href="cube.html"><b>The view cube</b></a><br><small>Which way you are facing.</small></td><td><a href="plan.html"><b>The plan view</b></a><br><small>Looking straight down, and cutting through.</small></td></tr>
+<tr><td><a href="planes.html"><b>The working plane</b></a><br><small>Which surface a click lands on.</small></td><td class="empty"></td><td class="empty"></td></tr>
+</table>
+<h2>Your drawing</h2>
+<table class="cards">
+<tr><td><a href="sheets.html"><b>Sheets and files</b></a><br><small>Several drawings in one window.</small></td><td><a href="export.html"><b>Exporting</b></a><br><small>Pictures, film and shapes.</small></td><td><a href="recording.html"><b>Recording a move</b></a><br><small>The little film that shows off a drawing.</small></td></tr>
+<tr><td><a href="printing.html"><b>Printing</b></a><br><small>On paper, at a real scale.</small></td><td><a href="reporting.html"><b>When it breaks</b></a><br><small>Telling us about it.</small></td><td class="empty"></td></tr>
+</table>
+<h2>The shop</h2>
+<table class="cards">
+<tr><td><a href="fittings.html"><b>The fitting wizard</b></a><br><small>Duct fittings from your measurements.</small></td><td><a href="spool.html"><b>The pipe spool</b></a><br><small>A run of pipe, leg by leg.</small></td><td><a href="unfold.html"><b>Laying a piece out flat</b></a><br><small>A pattern to cut from sheet.</small></td></tr>
+<tr><td><a href="toy.html"><b>The etch-a-sketch</b></a><br><small>The toy this program grew out of.</small></td><td class="empty"></td><td class="empty"></td></tr>
+</table>
 <h2>About this help</h2>
-<p>Every picture is taken on an empty sheet, with the smallest thing that
-shows the tool and nothing else in the frame.  A page about the circle tool
-wants a circle, not a circle drawn across somebody else's robot.</p>
-<p>They are taken by driving the program itself rather than by anybody posing
-for them - <code>tools/help-shots.txt</code> is the script, and adding one is
-three lines.</p>
-<p>The words are right everywhere.  The pictures are arriving: a handful are
-taken, the rest are still marked "not taken yet" on the page that wants them.
-<code>shots/NEEDED.md</code> lists every one and what should be in it - and
-how they are taken, which is by driving the program itself rather than by
-anybody posing for them.</p>
-<p>In a hurry?  <a href="keys.html">The keyboard and the mouse</a> is one
-page with every key on it, and <a href="commands.html">Commands</a> is every
-slash command, grouped by what you are trying to do.</p>
+<p>These pages are the same in the program and on the web.  In the program,
+<code>/manual</code> opens them from a copy kept beside Heckers Sketch, so
+they are there without the internet once it has fetched them.</p>
+<p>Every picture is taken on an empty sheet by driving the program itself,
+with the smallest thing that shows the tool.  A few pages still say
+"not taken yet" where a picture will go; <code>shots/NEEDED.md</code> lists
+them.</p>
 <footer>Heckers Sketch - help.</footer>
 </div></body></html>

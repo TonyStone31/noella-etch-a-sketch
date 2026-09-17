@@ -52,20 +52,3 @@ table.sheet td.alias{color:var(--dim);font-size:13px}
   table.sheet td:first-child{white-space:normal}
   table.sheet{font-size:13px}
 }
-
-/* The index: tables of three, so the program's help window - which draws
-   tables but not CSS grid - shows a grid too.  In a browser the cells are
-   spaced apart and rounded, so they read as cards. */
-table.cards{width:100%;border-collapse:separate;border-spacing:10px;
-  margin:4px -10px 10px;table-layout:fixed}
-table.cards td{background:var(--panel);border:1px solid var(--line);
-  border-radius:10px;padding:10px 12px;vertical-align:top;width:33%}
-table.cards td.empty{background:none;border:none}
-table.cards a{text-decoration:none}
-table.cards small{color:var(--dim);font-size:13px;line-height:1.4}
-@media (max-width:600px){
-  table.cards,table.cards tbody,table.cards tr,table.cards td{display:block;width:auto}
-  table.cards{margin:4px 0 10px}
-  table.cards td{margin:0 0 8px}
-  table.cards td.empty{display:none}
-}

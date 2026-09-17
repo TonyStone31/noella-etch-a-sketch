@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The manual's contents page is laid out in rows of three**, grouped by
+  what you are doing - drawing, shaping, picking and moving, measuring,
+  looking around, your drawing, and the shop - with a "Start here" row at
+  the top.  It reads as a grid in the program's help window as well as on
+  the website.
+
 ## v2026.09.17
 
 ### New

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Measure - Heckers Sketch</title>
+<link rel="stylesheet" href="../style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="../index.html">Help</a> &rsaquo; Measure</nav>
+<header><h1>Measure</h1><p class="lead">Read a distance.</p></header>
+<p>Keyboard: <kbd>T</kbd></p><h2>How to use it</h2><ol><li>Click two points and read the distance between them.</li><li>It leaves a guide line behind, which you can snap to.</li></ol><h2>Guides</h2>
+<p>The tape leaves a guide behind: a dashed line at the distance you measured
+and a point where the measurement landed.  Where that guide crosses an edge
+is a place the cursor will snap to - which is the whole reason for laying
+one.  Two guides crossing each other make a point as well.</p>
+<p>Rub out the dashed line with the eraser and the point goes with it - they
+were laid together.  To put all the guides away or throw them all away,
+right-click anywhere on the drawing.</p>
+<h2>What it leaves behind</h2>
+<p><kbd>Ctrl</kbd>, with the tape in hand, cycles what a measurement drops:
+both the dashed line and the point, the point on its own, the dashed line on
+its own, or nothing at all.  Both is what you get unless you change it, and
+the bar along the bottom says which mode you are in every time you press it.
+A 1" mark in from the end of a line rarely wants a dashed line running the
+width of the drawing with it - that is what the point-only mode is for.</p>
+<p>Guides are things you can pick.  The select tool takes a dashed line or a
+point like anything else; right-click it and choose <b>Erase</b>, or press
+<kbd>Delete</kbd>.  A guide point is looked for before anything else, so the
+line it is sitting on cannot steal the click - it is the size it looks, and
+one attempt gets it.  Rubbing out a dashed line with the eraser takes its
+point along too, since the two were laid together.</p>
+<h2>Keeping a measurement</h2>
+<p>The tape is finished the moment it has measured - the second point ends
+it.  If the run was worth writing on the drawing, <code>/keep</code> turns the
+last one into a dimension.  It is a command rather than another keypress
+because a keypress on a tool that has already finished is how a dimension
+turns up an hour later that nobody asked for.</p>
+<h2>What it looks like</h2><figure>
+  <div class="shot-missing">shots/tool-measure.png &mdash; not taken yet<br>The measure tool in use.</div>
+  <figcaption>The measure tool in use.</figcaption>
+</figure><h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
+<footer>Heckers Sketch - help.  This page is a skeleton: the words are
+right, the pictures are not there yet.</footer>
+</div></body></html>

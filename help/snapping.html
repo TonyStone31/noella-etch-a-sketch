@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snapping - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Snapping</nav>
+<header><h1>Snapping</h1><p class="lead">How the cursor finds the point you meant.</p></header>
+
+<p>Move the cursor near something and a small diamond appears, with a word
+for it in the bar along the bottom.  That diamond is where the next click
+will land - not where the pointer is.</p>
+
+<h2>What it finds, and the color it uses</h2>
+<table class="sheet">
+<tr><th>Color</th><th>What</th><th></th></tr>
+<tr><td>Green</td><td>ENDPOINT</td><td class="alias">a corner, or the end of a line</td></tr>
+<tr><td>Green</td><td>CENTER</td><td class="alias">the middle of a circle or an arc</td></tr>
+<tr><td>Cyan</td><td>MIDPOINT</td><td class="alias">the middle of a whole edge</td></tr>
+<tr><td>Cyan, hollow</td><td>ON SEGMENT</td><td class="alias">the middle of one piece of an edge that something crosses</td></tr>
+<tr><td>Red</td><td>ON EDGE</td><td class="alias">anywhere along an edge</td></tr>
+<tr><td>Violet</td><td>CROSSING</td><td class="alias">where two edges - or two guides - cross</td></tr>
+<tr><td>Blue</td><td>ON FACE</td><td class="alias">on the surface, when nothing better is near</td></tr>
+<tr><td>Yellow</td><td>ORIGIN</td><td class="alias">0,0,0</td></tr>
+<tr><td>Axis color</td><td>ON RED / GREEN / BLUE AXIS</td><td class="alias">on one of the three lines through the origin</td></tr>
+<tr><td>Accent</td><td>GRID</td><td class="alias">the SNAP TO step, when there is nothing else - a dot, not a diamond</td></tr>
+</table>
+<p>A corner beats a midpoint, a midpoint beats a point on an edge, and
+anything beats the grid.  That order is why you can aim roughly at a corner
+and still get the corner.</p>
+
+<h2>Reading it before you click</h2>
+<p>The word in the bar is worth trusting more than your aim.  If it says ON
+EDGE when you wanted ENDPOINT, move a few pixels rather than clicking and
+undoing.</p>
+
+<h2>Holding a direction</h2>
+<ul>
+<li>The <b>arrow keys</b> lock an axis: right locks red, left locks green, up
+locks blue.  Down lets go.  The rubber band turns that color to say so.</li>
+<li><b>Shift</b>, during a move or a drag, keeps whichever axis it has
+already drifted onto.</li>
+<li>Type a length and press <kbd>Enter</kbd> and the direction is whatever is
+locked or inferred, at exactly that distance.</li>
+</ul>
+
+<h2>The grid step</h2>
+<p><b>SNAP TO</b> along the bottom is how far apart the grid points are -
+1/16", an inch, a foot.  It is the fallback when nothing else is near, so it
+never gets in the way of a corner.  Set it to what you are working to and
+rough clicks land on round numbers.</p>
+
+<h2>When nothing is near enough</h2>
+<p>Zoom in.  The reach is in pixels, so zooming makes it choosier without
+changing any setting.  This is also the fix when two things are close
+together and it keeps taking the wrong one.</p>
+
+<h2>See also</h2>
+<ul>
+<li><a href="planes.html">The working plane</a> - which surface a click lands on in 3D</li>
+<li><a href="tools/measure.html">The tape measure</a> - guides, which are things to snap to that you put there on purpose</li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
+</div></body></html>

@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The manual''s contents page is laid out in rows of three**, grouped by' + LineEnding +
+    '  what you are doing - drawing, shaping, picking and moving, measuring,' + LineEnding +
+    '  looking around, your drawing, and the shop - with a "Start here" row at' + LineEnding +
+    '  the top.  It reads as a grid in the program''s help window as well as on' + LineEnding +
+    '  the website.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

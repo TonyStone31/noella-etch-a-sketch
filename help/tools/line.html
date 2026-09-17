@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Line - Heckers Sketch</title>
+<link rel="stylesheet" href="../style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="../index.html">Help</a> &rsaquo; Line</nav>
+<header><h1>Line</h1><p class="lead">Draw a line, or a chain of them.</p></header>
+<p>Keyboard: <kbd>L</kbd></p><h2>How to use it</h2><ol><li>Click where it starts, then click the end - or just type a length and press Enter.</li><li>In a 3D view the arrow keys lock the plane first: left or right stands it up, up or down lays it flat, Esc lets go.</li><li>A locked plane holds every point of the shape to it, which is how you draw a shape on one face without it wandering.</li><li>Close a loop and the middle becomes a face.</li></ol><h2>Putting a face back</h2>
+<p>Draw a line along one that is already there and nothing new is added - but
+it says the areas that edge bounds are wanted, and any face that was rubbed
+out there comes back.  That is SketchUp's healing, and it is the way back to
+a face you deleted on purpose and then wanted after all.</p>
+<h2>Crossings</h2>
+<p>A line drawn across edges already there cuts them where it crosses, and
+they cut it, so every piece is a separate edge that can be selected or rubbed
+out on its own.  A line drawn along one already there is cut where the two
+share, rather than left lying on top of it.</p>
+<h2>What it looks like</h2><figure>
+  <img src="../shots/tool-line.png" alt="The line tool part way along a chain.">
+  <figcaption>Part way along a chain, with the second leg locked to the green axis - the line goes green to say so, and the hint says what you can type instead of dragging.</figcaption>
+</figure><h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
+<footer>Heckers Sketch - help.  The picture on this page is taken by
+driving the program itself - see <code>tools/help-shots.txt</code>.</footer>
+</div></body></html>

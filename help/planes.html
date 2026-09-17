@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The working plane - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; The working plane</nav>
+<header><h1>The working plane</h1><p class="lead">Which surface a click lands on when you are in 3D.</p></header>
+
+<p>A click on the screen is two numbers, and a point in the model is three.
+The working plane is what makes up the difference: it is the flat surface
+your clicks land on.</p>
+<p>In PLAN there is nothing to think about - everything lands on the floor.
+In a 3D view it matters, and this is the thing that catches people out.</p>
+
+<h2>By default it follows the face under the cursor</h2>
+<p>Point at the top of a box and draw, and the shape lands on the top of the
+box.  Point at the side, and it lands on the side.  Most of the time that is
+right and you never notice it.</p>
+
+<h2>Locking it</h2>
+<ul>
+<li><b>The arrow keys</b>, before you start a shape: left or right stands the
+plane upright, up or down lays it flat.  The reading in the corner says
+PLANE XY, XZ or YZ.</li>
+<li><b>Alt</b> steps through the three and latches, so you can draw in mid
+air where there is no face to follow.</li>
+<li><b>Esc</b> lets go, and it follows faces again.</li>
+<li><kbd>K</kbd>, or <code>/plane xz</code>, does the same from the
+keyboard.</li>
+</ul>
+
+<h2>The one that bites</h2>
+<p>A shape drawn across a face has to stay on that face, or the loop never
+closes and no face is made.  If a shape you drew in 3D refuses to fill in,
+that is almost always why: one point wandered off the plane.  Lock the plane
+first and every point of the shape is held to it.</p>
+<p>Once a line is under way the arrows stop picking the plane and start
+locking a direction instead, which is what they are for at that point.</p>
+
+<h2>Or just work flat</h2>
+<p>Draw it in PLAN, where there is no question, then push it up.  That is the
+short way round most of the time, and it is why PLAN and push/pull between
+them cover so much.</p>
+
+<h2>See also</h2>
+<ul>
+<li><a href="snapping.html">Snapping</a></li>
+<li><a href="plan.html">The plan view</a></li>
+<li><a href="tools/push.html">Push/Pull</a></li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
+</div></body></html>

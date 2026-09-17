@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The plan view - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; The plan view</nav>
+<header><h1>The plan view</h1><p class="lead">Looking straight down, and cutting through.</p></header>
+<p><code>/plan</code>, or <kbd>I</kbd> to
+toggle between plan and isometric.</p>
+
+<h2>Looking straight down</h2>
+<p>PLAN is the view that prints like a drawing: no perspective, no
+foreshortening, and a scale that means something.  Drawing is easier here too
+- what you click is where it lands, with no plane to think about.</p>
+
+<h2>Cutting through</h2>
+<p>A plan is a slice, not a view from above.  Set a cut height and only what
+lies inside it is drawn - so a wall shows as two lines and the roof over it
+does not.</p>
+<ul>
+<li><code>/cut 0 9'</code> - sets the bottom and the top of the slice.</li>
+<li><code>/cut all</code> - opens it right up to the whole model.</li>
+<li><code>/cut off</code> - turns the slice off.</li>
+<li><b><kbd>Ctrl</kbd>+wheel over the drawing</b> travels up and down through
+the model, carrying the slice with it.  Easier than typing heights, because
+you can watch it.</li>
+<li>Right-click a floor and choose <b>Plan From Here</b> - one click instead
+of two numbers.</li>
+</ul>
+
+<h2>What you get</h2>
+<p>Anything below the slice is drawn faintly and dashed, the way a drawing
+shows a beam over a door or a footing under a wall.  Anything above it is not
+drawn at all.</p>
+
+<h2>Printing it</h2>
+<p>PLAN is the view to print from, and to export SVG from - see
+<a href="printing.html">printing</a>.</p>
+
+<h2>What it looks like</h2><figure>
+  <div class="shot-missing">shots/plan.png &mdash; not taken yet<br>The plan view.</div>
+  <figcaption>The plan view.</figcaption>
+</figure>
+<footer>Heckers Sketch - help.  This page is a skeleton: the words are
+right, the pictures are not there yet.</footer>
+</div></body></html>

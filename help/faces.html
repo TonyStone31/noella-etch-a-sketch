@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Faces, front and back - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Faces, front and back</nav>
+<header><h1>Faces, front and back</h1><p class="lead">Which side is out, and why it matters.</p></header>
+
+<p>Every face has a front and a back.  The front is the side you are meant to
+see; the back is drawn in a different color so you can tell at a glance.</p>
+
+<h2>When it matters</h2>
+<ul>
+<li><b>3D printing.</b>  A slicer works out what is inside from which way the
+faces point.  One turned the wrong way and it has to guess.</li>
+<li><b>Looking at it.</b>  A box with one face inside out reads as a hole
+that is not there.</li>
+</ul>
+<p>For a drawing you are only going to print on paper, it does not matter at
+all.</p>
+
+<h2>Turning one over</h2>
+<ol>
+<li>Pick the face with the select tool.</li>
+<li>Right-click and choose <b>Reverse Face</b>.</li>
+</ol>
+<p>Pick several and it turns all of them.  The row says how many.</p>
+
+<h2>When they come out wrong</h2>
+<p>Push/pull, revolve and the wizards all get this right on their own - they
+know which way is out because they built the shape.  Faces worked out from
+loose edges are the ones that can go either way, because a flat loop of lines
+has no outside until something decides.</p>
+<p><code>/rebuild</code> works the flat areas out again and settles them
+against their neighbors, which fixes most of it in one go.</p>
+
+<h2>Checking a whole model</h2>
+<p><code>/holes</code> is the real test: it draws every edge that nothing
+meets in red.  A shape with no red is closed, and a closed shape has a
+definite inside.  See <a href="solids.html">solids and 3D printing</a>.</p>
+
+<footer>Heckers Sketch - help.</footer>
+</div></body></html>
