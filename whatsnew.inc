@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.17.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Guides are no longer picked up with your drawing.**  A double or triple' + LineEnding +
+    '  click, or a box dragged round a shape, takes the shape and leaves the' + LineEnding +
+    '  guides alone.  A box round nothing but guides still takes them, and a' + LineEnding +
+    '  click on a guide still picks it.' + LineEnding +
+    '- **A guide gives a point to snap to wherever it crosses something**, all' + LineEnding +
+    '  the way along it - not only near where the tape laid it.  That includes' + LineEnding +
+    '  where it crosses an arc or a rounded corner.' + LineEnding +
+    '- **Smoother zooming, panning and orbiting on Windows.**  The drawing is' + LineEnding +
+    '  redrawn once per frame however many wheel steps or mouse moves arrive,' + LineEnding +
+    '  and the blue wash over the face under the pointer no longer slows every' + LineEnding +
+    '  frame when you are zoomed in close.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
