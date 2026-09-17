@@ -116,7 +116,7 @@ else
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
          glass-revolve ring-hint face-needs-edges entity-panel
          gif-loop frame-watchdog close-asks orbit-grid orbit-snap
-         narrow-window blank-start
+         narrow-window blank-start help-window
          $CHAINS"
   # SOLO=1 takes the chains apart again, for when a chain has failed and the
   # question is whether any of it was ever broken
@@ -127,7 +127,7 @@ else
            whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
            face-needs-edges tape-finishes guide-picking frame-watchdog
            close-asks copy-paste entity-panel orbit-grid orbit-snap
-           round-corners line-length narrow-window blank-start"
+           round-corners line-length narrow-window blank-start help-window"
   fi
 fi
 
@@ -169,6 +169,19 @@ blank_for() {
   esac
 }
 
+# Scripts that want files beside the program before it starts: a folder of
+# their own, filled, and removed afterwards.  Echoes the folder, or nothing.
+rundir_for() {
+  local d
+  case "$1" in
+    help-window)
+      d="$(mktemp -d /tmp/hsk-rundir-XXXXXX)"
+      mkdir -p "$d/help" && cp -r docs/help/. "$d/help/"
+      echo "$d" ;;
+    *) echo "" ;;
+  esac
+}
+
 # One script or one chain, start to finish.  Says how it went as it finishes
 # rather than waiting for the rest, so a run in progress is readable.
 run_one() {
@@ -181,9 +194,12 @@ run_one() {
     script="tests/drive/$n.txt"
     d="$(drawing_for "$n")"
   fi
-  BLANK="$(blank_for "$n")" LOG="$OUT/$n.applog" timeout 300 \
+  local rd
+  rd="$(rundir_for "$n")"
+  BLANK="$(blank_for "$n")" RUNDIR="$rd" LOG="$OUT/$n.applog" timeout 300 \
     tools/xephyr.sh "$script" $d >"$OUT/$n.said" 2>&1
   rc=$?
+  [ -n "$rd" ] && rm -rf "$rd"
   echo "$rc" > "$OUT/$n.rc"
   if [ "$rc" = 0 ]; then
     echo "$n ok"
@@ -224,10 +240,12 @@ done
 solo() {
   local n="$1" d
   d="$(drawing_for "$n")"
-  if BLANK="$(blank_for "$n")" LOG="$OUT/$n.applog" timeout 180 \
-       tools/xephyr.sh "tests/drive/$n.txt" $d >"$OUT/$n.solo" 2>&1; then
-    return 0
-  fi
+  local rd ok=1
+  rd="$(rundir_for "$n")"
+  BLANK="$(blank_for "$n")" RUNDIR="$rd" LOG="$OUT/$n.applog" timeout 180 \
+    tools/xephyr.sh "tests/drive/$n.txt" $d >"$OUT/$n.solo" 2>&1 && ok=0
+  [ -n "$rd" ] && rm -rf "$rd"
+  [ "$ok" = 0 ] && return 0
   sed -n '$p' "$OUT/$n.solo" 2>/dev/null | sed 's/^/    said: /'
   tail -6 "$OUT/$n.applog" 2>/dev/null | sed 's/^/    log: /'
   return 1

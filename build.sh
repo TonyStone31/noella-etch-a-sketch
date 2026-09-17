@@ -75,6 +75,8 @@ pack_all() {
   if [ -d "$ROOT/docs/help" ]; then
     mkdir -p "$tmp/help"
     cp -r "$ROOT/docs/help/." "$tmp/help/"
+    # a release says which one the pages came from; see uHelpDocs
+    [ -n "${tag:-}" ] && echo "$tag" > "$tmp/help/VERSION"
   fi
 
   cat > "$tmp/README.txt" <<TXT
@@ -453,6 +455,21 @@ program, not the words of the diff.  Or NONOTES=1 to release without."
   cp "$DIST/dbg/$APP"         "$stage/heckers-sketch-linux-checked"
   cp "$zipfile"               "$stage/heckers-sketch-all-builds.zip"
 
+  # The manual on its own, for the program to fetch and keep beside itself -
+  # see uHelpDocs.  VERSION inside says which release the pages belong to,
+  # which is how a copy knows its pages are out of date after an update.  It
+  # goes in SHA256SUMS with everything else, and the program will not use it
+  # unless it matches.
+  [ -d "$ROOT/docs/help" ] || die "no docs/help to pack"
+  local helptmp
+  helptmp="$(mktemp -d)"
+  cp -r "$ROOT/docs/help/." "$helptmp/"
+  echo "$tag" > "$helptmp/VERSION"
+  ( cd "$helptmp" && zip -qr -X "$stage/heckers-sketch-help.zip" . ) || \
+    die "could not pack the help pages"
+  rm -rf "$helptmp"
+  [ -f "$stage/heckers-sketch-help.zip" ] || die "no help zip was made"
+
   ( cd "$stage" && sha256sum * > SHA256SUMS ) 2>/dev/null || \
     ( cd "$stage" && shasum -a 256 * > SHA256SUMS )
 
@@ -487,7 +504,8 @@ program, not the words of the diff.  Or NONOTES=1 to release without."
     echo "| \`heckers-sketch.exe\` | Windows |"
     echo "| \`heckers-sketch-linux\` | Linux (\`chmod +x\` it first) |"
     echo "| \`*-checked\` | the same builds with range, overflow and heap checking on - slower, but they name the line when something goes wrong |"
-    echo "| \`heckers-sketch-all-builds.zip\` | all four together |"
+    echo "| \`heckers-sketch-all-builds.zip\` | all four together, with the manual |"
+    echo "| \`heckers-sketch-help.zip\` | the manual on its own - the program fetches this itself |"
     echo
     echo "Windows will warn that the publisher is unknown; the binary is not"
     echo "code signed.  More info -> Run anyway."

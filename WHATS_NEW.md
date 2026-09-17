@@ -10,6 +10,30 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The manual opens inside Heckers Sketch.**  Help > The manual, or
+  `/manual`, now shows the help pages in their own window - with Back and
+  Forward, a Contents button, Find (Ctrl+F), and text you can select and
+  copy.  Drag the page with a finger to scroll it.  Links to other websites
+  still open in your browser, and "Open on the web" shows the same page
+  online.
+- **The manual is kept beside the program.**  The first time it's needed,
+  Heckers Sketch downloads the help pages for its own version from GitHub
+  and keeps them in a `help` folder next to itself - so a copy on a USB
+  stick still has its manual somewhere with no internet.  After an update,
+  the matching pages are fetched on their own in the background.  `/update
+  never` turns that off along with the update check, and `--offline` stops
+  it entirely.
+
+### Changed
+
+- **The release notes window reads the notes file directly** now, so what
+  you see is exactly what was written.  It still shows only what's new
+  since the version you had.
+
 ## v2026.09.16.9
 
 ### Fixed

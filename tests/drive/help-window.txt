@@ -1,0 +1,36 @@
+# The manual in its own window, drawn by LazInk.
+#
+# run-drive.sh puts a copy of docs/help beside the program first, as a
+# release's help zip would.  --offline means nothing is fetched.
+#
+# What to look for: hsk-help-b1 is the contents page with Back and Forward
+# dimmed; hsk-help-b2 is the Arc page after its link was clicked; hsk-help-b3
+# is back on the contents with Forward available; hsk-help-b4 has the find
+# bar open with "push" found and highlighted.
+activate
+wait 1200
+key slash
+type manual
+key return
+wait 2500
+shot /tmp/hsk-help-b1.png
+# follow the Arc link
+at 188 624 500
+wait 300
+click
+wait 1500
+shot /tmp/hsk-help-b2.png
+# Back
+at 128 53 500
+wait 300
+click
+wait 1200
+shot /tmp/hsk-help-b3.png
+# Find
+hold ctrl
+key f
+let ctrl
+wait 500
+type push
+wait 1200
+shot /tmp/hsk-help-b4.png

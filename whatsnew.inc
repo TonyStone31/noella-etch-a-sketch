@@ -13,6 +13,30 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The manual opens inside Heckers Sketch.**  Help > The manual, or' + LineEnding +
+    '  `/manual`, now shows the help pages in their own window - with Back and' + LineEnding +
+    '  Forward, a Contents button, Find (Ctrl+F), and text you can select and' + LineEnding +
+    '  copy.  Drag the page with a finger to scroll it.  Links to other websites' + LineEnding +
+    '  still open in your browser, and "Open on the web" shows the same page' + LineEnding +
+    '  online.' + LineEnding +
+    '- **The manual is kept beside the program.**  The first time it''s needed,' + LineEnding +
+    '  Heckers Sketch downloads the help pages for its own version from GitHub' + LineEnding +
+    '  and keeps them in a `help` folder next to itself - so a copy on a USB' + LineEnding +
+    '  stick still has its manual somewhere with no internet.  After an update,' + LineEnding +
+    '  the matching pages are fetched on their own in the background.  `/update' + LineEnding +
+    '  never` turns that off along with the update check, and `--offline` stops' + LineEnding +
+    '  it entirely.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The release notes window reads the notes file directly** now, so what' + LineEnding +
+    '  you see is exactly what was written.  It still shows only what''s new' + LineEnding +
+    '  since the version you had.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.9' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

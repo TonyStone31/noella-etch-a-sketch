@@ -34,24 +34,14 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Graphics, Forms, Controls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, BCPanel, BCLabel, BCButton, InkPage,
+  ExtCtrls, LCLType, LCLIntf, BCPanel, BCLabel, BCButton, InkPage, InkMarkdown,
   uUpdate, uSkin, uDlgSkin, uSurface;
 
 type
-  { What a line of the notes is.  Nothing else is read out of the file. }
-  TNoteKind = (nkVersion, nkSection, nkBullet);
-
-  TNote = record
-    Kind: TNoteKind;
-    { for a bullet: the bold part, and then the rest of it }
-    Lead: string;
-    Text: string;
-  end;
-  TNoteArray = array of TNote;
-
   TWhatsNewForm = class(TForm)
   private
-    FNotes: TNoteArray;
+    { the notes to show, as Markdown }
+    FNotes: string;
 
     FHead, FBody, FFoot: TBCPanel;
     { Plain labels, transparent, rather than the drawn ones.  A drawn label
@@ -83,14 +73,12 @@ type
     procedure ShowAll;
   end;
 
-{ The notes, broken up: every section newer than Since, or all of them when
-  Since is empty.  A section headed "Next release" is the build being run and
-  is listed under its own version. }
-function ReleaseNotes(const Since: string): TNoteArray;
-{ The same as flat text, for anything that only wants the words. }
-function ReleaseNotesText(const Since: string): string;
-{ The same as a page of HTML in the given colours - what the window shows. }
-function ReleaseNotesHTML(const Notes: TNoteArray; const T: TTheme): string;
+{ The notes as Markdown: every release section newer than Since, or all of
+  them when Since is empty.  A section headed "Next release" is the build
+  being run and is listed under its own version.  '' when nothing is newer. }
+function ReleaseNotesMarkdown(const Since: string): string;
+{ The style sheet the window gives the page, in the dialog theme's colours. }
+function ReleaseNotesStyle(const T: TTheme): string;
 
 implementation
 
@@ -105,242 +93,98 @@ const
 
 { --- reading the file -------------------------------------------------- }
 
-function ReleaseNotes(const Since: string): TNoteArray;
+{ The part of WHATS_NEW.md an update should show.
+
+  Everything after the version the program was updated from, and nothing
+  before it - the trick that makes the window after an update say what is
+  new rather than repeat the whole history.  The file's own title and its
+  comment for whoever edits it are left out; the window has a title.
+
+  The rest goes to LazInk as it is written.  It used to be read line by
+  line into headings and bullets and set by hand here, then turned into
+  HTML for LazInk; LazInk reads Markdown itself now, including bullets that
+  wrap onto indented lines.
+
+  Two things are still done first.  Raw HTML in Markdown is shown as text,
+  which is right - but the notes file sits beside a folder of HTML help
+  pages, and a <kbd> written into it out of habit reached users as the tags
+  on 16 September.  So the handful of inline tags that could plausibly turn
+  up are removed by name.  Not "anything in angle brackets": the notes
+  contain "/tiles <folder>", where the brackets are how a placeholder is
+  written. }
+function ReleaseNotesMarkdown(const Since: string): string;
+const
+  TAGS: array[0..11] of string =
+    ('<kbd>', '</kbd>', '<code>', '</code>', '<b>', '</b>',
+     '<i>', '</i>', '<em>', '</em>', '<strong>', '</strong>');
 var
-  Lines: TStringList;
-  I, N: Integer;
-  L, Held: string;
+  Lines, Out_: TStringList;
+  I, K: Integer;
+  L, Title: string;
   Keep: Boolean;
-
-  procedure Put(K: TNoteKind; const Lead, Text: string);
-  begin
-    if N >= Length(Result) then SetLength(Result, Max(16, N * 2));
-    Result[N].Kind := K;
-    Result[N].Lead := Lead;
-    Result[N].Text := Text;
-    Inc(N);
-  end;
-
-  { This panel paints words, not HTML, and the notes file sits next door to a
-    folder full of help pages - so sooner or later somebody writes <kbd>Ctrl
-    </kbd> in it out of habit and a user reads the tags.  Somebody did, in
-    the release of 16 September.
-
-    Only the handful of inline tags that could plausibly turn up, by name.
-    Not "anything between angle brackets": the notes already contain
-    "/tiles <folder>", where the brackets are how a placeholder is written
-    and eating them would be the worse bug of the two. }
-  function Plain(const S: string): string;
-  const
-    TAGS: array[0..11] of string =
-      ('<kbd>', '</kbd>', '<code>', '</code>', '<b>', '</b>',
-       '<i>', '</i>', '<em>', '</em>', '<strong>', '</strong>');
-  var
-    K: Integer;
-  begin
-    Result := S;
-    for K := 0 to High(TAGS) do
-      Result := StringReplace(Result, TAGS[K], '', [rfReplaceAll, rfIgnoreCase]);
-  end;
-
-  { A bullet arrives as "**The lead in.**  And then the rest of it." - the
-    lead is what the eye lands on, so it is kept apart from the rest rather
-    than shown with its asterisks still on. }
-  procedure Flush;
-  var
-    P: Integer;
-    Lead, Rest: string;
-  begin
-    if Held = '' then Exit;
-    Lead := '';
-    Rest := Held;
-    if Copy(Held, 1, 2) = '**' then
-    begin
-      P := Pos('**', Copy(Held, 3, MaxInt));
-      if P > 0 then
-      begin
-        Lead := Copy(Held, 3, P - 1);
-        Rest := Trim(Copy(Held, P + 4, MaxInt));
-      end;
-    end;
-    Put(nkBullet, Plain(Lead), Plain(Rest));
-    Held := '';
-  end;
-
 begin
-  Result := nil;
-  N := 0;
   Lines := TStringList.Create;
+  Out_ := TStringList.Create;
   try
     Lines.Text := WHATS_NEW_MD;
     Keep := False;
-    Held := '';
     for I := 0 to Lines.Count - 1 do
     begin
       L := Lines[I];
       if Copy(L, 1, 3) = '## ' then
       begin
-        Flush;
-        L := Trim(Copy(L, 4, MaxInt));
-        if SameText(L, 'Next release') then
+        Title := Trim(Copy(L, 4, MaxInt));
+        if SameText(Title, 'Next release') then
         begin
           Keep := True;
-          L := CurrentVersion;
+          Title := CurrentVersion;
         end
         else
-          Keep := (Since = '') or NewerThan(L, Since);
-        if Keep then Put(nkVersion, '', L);
+          Keep := (Since = '') or NewerThan(Title, Since);
+        if Keep then
+        begin
+          if Out_.Count > 0 then Out_.Add('');
+          Out_.Add('## ' + Title);
+          Out_.Add('');
+          Out_.Add('---');
+        end;
         Continue;
       end;
       if not Keep then Continue;
-      if Copy(L, 1, 4) = '### ' then
-      begin
-        Flush;
-        Put(nkSection, '', Trim(Copy(L, 5, MaxInt)));
-      end
-      else if Copy(L, 1, 2) = '- ' then
-      begin
-        Flush;
-        Held := Trim(Copy(L, 3, MaxInt));
-      end
-      else if (Held <> '') and (Trim(L) <> '') then
-        { a bullet may wrap onto indented lines in the file; on screen it is
-          one paragraph and the wrapping is worked out again }
-        Held := Held + ' ' + Trim(L)
-      else if Trim(L) = '' then
-        Flush;
+      for K := 0 to High(TAGS) do
+        L := StringReplace(L, TAGS[K], '', [rfReplaceAll, rfIgnoreCase]);
+      Out_.Add(L);
     end;
-    Flush;
-    SetLength(Result, N);
+    if Out_.Count = 0 then Result := ''
+    else Result := Out_.Text;
   finally
+    Out_.Free;
     Lines.Free;
   end;
 end;
 
-function ReleaseNotesText(const Since: string): string;
-var
-  Notes: TNoteArray;
-  I: Integer;
-  Out_: TStringList;
-begin
-  Notes := ReleaseNotes(Since);
-  Out_ := TStringList.Create;
-  try
-    for I := 0 to High(Notes) do
-      case Notes[I].Kind of
-        nkVersion: begin
-                     if Out_.Count > 0 then Out_.Add('');
-                     Out_.Add(Notes[I].Text);
-                   end;
-        nkSection: begin
-                     Out_.Add('');
-                     Out_.Add(UpperCase(Notes[I].Text));
-                   end;
-        nkBullet:  Out_.Add('  ' + #$E2#$80#$A2 + ' ' +
-                     Trim(Notes[I].Lead + ' ' + Notes[I].Text));
-      end;
-    Result := Out_.Text;
-  finally
-    Out_.Free;
-  end;
-end;
-
-{ The notes as a page.  Everything the file says is text, so it is escaped
-  first; then the two bits of markdown the notes use inside a bullet - a
-  `backticked` command and a **bold** lead-in - are given their tags.  The
-  colours come from the dialog's theme, through a style sheet at the top,
-  so the page is the window's and not a white web page inside it. }
-function ReleaseNotesHTML(const Notes: TNoteArray; const T: TTheme): string;
-var
-  I: Integer;
-  B: TStringBuilder;
-  InList: Boolean;
+{ The window's look, as the page's style sheet: the dialog theme's colours,
+  headings in the accent, and the scrollbar in the theme too. }
+function ReleaseNotesStyle(const T: TTheme): string;
 
   function Hex(const P: TPix): string;
   begin
     Result := Format('#%.2x%.2x%.2x', [P.R, P.G, P.B]);
   end;
 
-  function Esc(const S: string): string;
-  begin
-    Result := StringReplace(S, '&', '&amp;', [rfReplaceAll]);
-    Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
-    Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
-  end;
-
-  { `code` spans, in pairs; an odd one out is left as it was typed }
-  function Inline(const S: string): string;
-  var
-    P, Q: Integer;
-    Rest: string;
-  begin
-    Result := '';
-    Rest := Esc(S);
-    repeat
-      P := Pos('`', Rest);
-      if P = 0 then Break;
-      Q := Pos('`', Copy(Rest, P + 1, MaxInt));
-      if Q = 0 then Break;
-      Result := Result + Copy(Rest, 1, P - 1) + '<code>' +
-        Copy(Rest, P + 1, Q - 1) + '</code>';
-      Rest := Copy(Rest, P + Q + 1, MaxInt);
-    until False;
-    Result := Result + Rest;
-    Result := StringReplace(Result, '**', '', [rfReplaceAll]);
-  end;
-
-  procedure EndList;
-  begin
-    if InList then B.Append('</ul>');
-    InList := False;
-  end;
-
 begin
-  B := TStringBuilder.Create;
-  try
-    B.Append('<html><head><title>What''s new</title><style>');
-    { the scrollbar in the theme's colours - thumb, then track - the way a
-      browser reads it, which is how LazInk reads it too }
-    B.Append('html { scrollbar-color: ' + Hex(T.Accent) + ' ' +
-      Hex(MixPix(T.Panel, Pix(0, 0, 0), 0.25)) + '; scrollbar-width: thin }');
-    B.Append('body { background: ' + Hex(T.Panel) + '; color: ' + Hex(T.TextDim) +
-      '; font-size: 14px; padding: 6px }');
-    B.Append('h2 { color: ' + Hex(T.Accent) + '; font-size: 20px; margin-top: 20px }');
-    B.Append('h3 { color: ' + Hex(T.TextDim) + '; font-size: 12px; margin-top: 8px }');
-    B.Append('li { color: ' + Hex(T.TextDim) + '; margin-bottom: 8px }');
-    B.Append('code { background: ' + Hex(MixPix(T.Panel, T.Text, 0.12)) + ' }');
-    B.Append('hr { color: ' + Hex(T.TextDim) + ' }');
-    B.Append('</style></head><body>');
-    InList := False;
-    for I := 0 to High(Notes) do
-      case Notes[I].Kind of
-        nkVersion:
-          begin
-            EndList;
-            B.Append('<h2>' + Esc(Notes[I].Text) + '</h2><hr>');
-          end;
-        nkSection:
-          begin
-            EndList;
-            B.Append('<h3>' + Esc(UpperCase(Notes[I].Text)) + '</h3>');
-          end;
-        nkBullet:
-          begin
-            if not InList then B.Append('<ul>');
-            InList := True;
-            B.Append('<li>');
-            if Notes[I].Lead <> '' then
-              B.Append('<b><font color="' + Hex(T.Text) + '">' +
-                Inline(Notes[I].Lead) + '</font></b> ');
-            B.Append(Inline(Notes[I].Text) + '</li>');
-          end;
-      end;
-    EndList;
-    B.Append('</body></html>');
-    Result := B.ToString;
-  finally
-    B.Free;
-  end;
+  Result :=
+    'html { scrollbar-color: ' + Hex(T.Accent) + ' ' +
+      Hex(MixPix(T.Panel, Pix(0, 0, 0), 0.25)) + '; scrollbar-width: thin }' +
+    ' body { background: ' + Hex(T.Panel) + '; color: ' + Hex(T.TextDim) +
+      '; font-size: 14px; padding: 6px }' +
+    ' h2 { color: ' + Hex(T.Accent) + '; font-size: 20px; margin-top: 20px }' +
+    ' h3 { color: ' + Hex(T.TextDim) + '; font-size: 13px; margin-top: 8px }' +
+    ' strong, b { color: ' + Hex(T.Text) + ' }' +
+    ' li { margin-bottom: 6px }' +
+    ' code { background: ' + Hex(MixPix(T.Panel, T.Text, 0.12)) + ' }' +
+    ' hr { color: ' + Hex(T.TextDim) + ' }' +
+    ' a { color: ' + Hex(T.Accent) + ' }';
 end;
 
 { --- the window -------------------------------------------------------- }
@@ -470,6 +314,9 @@ procedure TWhatsNewForm.KeyDownH(Sender: TObject; var Key: Word;
 begin
   { Esc and Enter put it away; everything else - the arrows, Page Up and
     Down, Home and End - is left for the page, which scrolls itself }
+  { LazInk's note: with KeyPreview the form sees Esc and Enter before the
+    page's find bar does, so while that bar is open they are the bar's }
+  if FPage.FindBarVisible then Exit;
   case Key of
     VK_ESCAPE, VK_RETURN:
       begin
@@ -481,7 +328,9 @@ end;
 
 procedure TWhatsNewForm.ShowNotes;
 begin
-  FPage.LoadHTML(ReleaseNotesHTML(FNotes, uDlgSkin.DlgTheme));
+  FPage.TextFormat := itfMarkdown;
+  FPage.StyleSheet.Text := ReleaseNotesStyle(uDlgSkin.DlgTheme);
+  FPage.Source := FNotes;
   FPage.ScrollTo(0);
   ActiveControl := FPage;
 end;
@@ -494,10 +343,10 @@ begin
     FWhich.Caption := PreviousVersion + '  ' + #$E2#$86#$92 + '  ' + NewVersion
   else
     FWhich.Caption := NewVersion;
-  FNotes := ReleaseNotes(PreviousVersion);
+  FNotes := ReleaseNotesMarkdown(PreviousVersion);
   { an update from a version the notes do not go back to still gets the
-    latest section rather than an empty page }
-  if Length(FNotes) = 0 then FNotes := ReleaseNotes('');
+    history rather than an empty page }
+  if FNotes = '' then FNotes := ReleaseNotesMarkdown('');
   ShowNotes;
   ShowModal;
 end;
@@ -506,7 +355,7 @@ procedure TWhatsNewForm.ShowAll;
 begin
   FTitle.Caption := 'What''s new in Heckers Sketch';
   FWhich.Caption := 'This is ' + CurrentVersion;
-  FNotes := ReleaseNotes('');
+  FNotes := ReleaseNotesMarkdown('');
   ShowNotes;
   ShowModal;
 end;

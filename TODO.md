@@ -2388,6 +2388,64 @@ swap with an immediate payoff and it puts LazInk in the build where it can be
 lived with.  Then decide about the help, with the table question settled one
 way or the other.  Nothing here is urgent.
 
+### The manual inside the program - 17 September 2026
+
+Tony: "i want them stored on github like it is... i dont want you to make a
+browser... we will going forward need to have a zip archive of the help
+docs in the releases and then we can have heckers sketch fetch it and unzip
+it and keep a copy locally next to the executable.  that way if you run off
+a usb drive and bring it to a place where you have no internet you might
+still have the files."  And: "build the help form with a real lfm!", and
+"it should detect you dont have the docs updated and it should retreive
+them and maybe the auto updates should retreive them automatically."
+
+**How it fits together.**
+* `build.sh github` packs `docs/help` into `heckers-sketch-help.zip` with a
+  `VERSION` file holding the tag, attaches it to the release, and puts it in
+  `SHA256SUMS`.  The all-builds zip's `help/` gets the same `VERSION`.
+* `uHelpDocs` fetches the zip for the running version (the latest for a
+  developer's build, or when a release has none), checks it against the
+  sums, unpacks it into `help.new` beside the program - refusing any name
+  that climbs out or starts from a root, anything over the size and count
+  limits, and any zip without an `index.html` - then swaps it in, moving the
+  old folder aside first so a failure leaves one or the other.  Links are
+  removed as links when clearing, never followed.
+* `THelpFetch` does it on a thread.  `KeepHelpCurrent`, a few seconds after
+  start alongside the update check, fetches when the pages are missing or
+  from another release - so after an update they follow on their own.  The
+  update-check switch governs it, `--offline` stops it, and a failure waits
+  six hours before trying again.
+* `uHelpView` (with `uHelpView.lfm`) is the window: LazInk's `TInkPage`,
+  Back / Forward / Contents / Find, "Get latest pages", "Open on the web".
+  Links to the manual's own website are turned back into the local files;
+  anything else goes to the browser.  With no pages it says so and fetches
+  them with a progress bar; with stale ones it shows those and fetches the
+  new ones in the background.
+* One fetch at a time; if the program's own is running when the window
+  opens, the program passes its progress and result on.
+
+**Tested.**  The unpacking: a good zip, a newer one replacing it whole, a
+`../` name and an absolute path refused with nothing written, a zip with no
+index and a file that is not a zip both refused with the old pages intact.
+The staleness rule.  `help-window` in the drive suite: contents, a link,
+Back, Find.  **Not yet tested end to end** until a release carries the zip -
+the first one after this commit - and that is the check to make straight
+after it: a fresh folder, no help, `/manual`, and watch it arrive.
+
+**Two things found on the way.**  `ShowHelp` was already a method of every
+control, so the entry point is `OpenHelpWindow`.  And the same stale-build
+trap LazInk's demo hit: an `.lfm` edited in the same second as a build is
+not picked up, and the old form - with a property BGRA's button does not
+have - kept crashing the window after the file was fixed.  Deleting
+`lib/x86_64-linux/uHelpView.*` fixed it.
+
+**What's New reads Markdown now.**  `uWhatsNew` keeps the part only this
+program knows - which release sections are newer than the version updated
+from - and hands those to `TInkPage` as Markdown with a theme style sheet.
+The line-by-line parser and the HTML builder are gone: 599 lines to 363.
+Checked with `--updated-from=v2026.09.16.7`: .9 and .8 shown, nothing older.
+`ARGS=` passes arguments like that through `tools/xephyr.sh`.
+
 ### Our tests used up the house's GitHub allowance - 16 September 2026
 
 Tony: "my v2026.09.15.7 is not updating on my wife's computer it gets a 403

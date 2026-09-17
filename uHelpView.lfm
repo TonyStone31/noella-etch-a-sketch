@@ -1,0 +1,199 @@
+object HelpForm: THelpForm
+  Left = 300
+  Height = 760
+  Top = 120
+  Width = 1040
+  Caption = 'Heckers Sketch - Help'
+  ClientHeight = 760
+  ClientWidth = 1040
+  Constraints.MinHeight = 360
+  Constraints.MinWidth = 560
+  KeyPreview = True
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnKeyDown = FormKeyDown
+  OnShow = FormShow
+  Position = poMainFormCenter
+  object pnlBar: TBCPanel
+    Left = 0
+    Height = 48
+    Top = 0
+    Width = 1040
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 0
+    object btnBack: TBCButton
+      Left = 10
+      Height = 32
+      Hint = 'Back  (Alt+Left)'
+      Top = 8
+      Width = 84
+      Caption = '< Back'
+      ShowHint = True
+      OnClick = btnBackClick
+    end
+    object btnForward: TBCButton
+      Left = 98
+      Height = 32
+      Hint = 'Forward  (Alt+Right)'
+      Top = 8
+      Width = 98
+      Caption = 'Forward >'
+      ShowHint = True
+      OnClick = btnForwardClick
+    end
+    object btnContents: TBCButton
+      Left = 206
+      Height = 32
+      Hint = 'The contents page  (Alt+Home)'
+      Top = 8
+      Width = 96
+      Caption = 'Contents'
+      ShowHint = True
+      OnClick = btnContentsClick
+    end
+    object btnFind: TBCButton
+      Left = 306
+      Height = 32
+      Hint = 'Find on this page  (Ctrl+F)'
+      Top = 8
+      Width = 70
+      Caption = 'Find'
+      ShowHint = True
+      OnClick = btnFindClick
+    end
+    object lblTitle: TLabel
+      Left = 390
+      Height = 20
+      Top = 14
+      Width = 316
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = False
+      Caption = ''
+      Font.Height = -15
+      Font.Style = [fsBold]
+      ParentFont = False
+      Transparent = True
+    end
+    object btnRefresh: TBCButton
+      Left = 714
+      Height = 32
+      Hint = 'Download the help pages again from GitHub'
+      Top = 8
+      Width = 150
+      Anchors = [akTop, akRight]
+      Caption = 'Get latest pages'
+      ShowHint = True
+      OnClick = btnRefreshClick
+    end
+    object btnWeb: TBCButton
+      Left = 870
+      Height = 32
+      Hint = 'Open this page on the website, in your browser'
+      Top = 8
+      Width = 160
+      Anchors = [akTop, akRight]
+      Caption = 'Open on the web'
+      ShowHint = True
+      OnClick = btnWebClick
+    end
+  end
+  object pnlNotice: TBCPanel
+    Left = 0
+    Height = 34
+    Top = 48
+    Width = 1040
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 1
+    Visible = False
+    object lblNotice: TLabel
+      Left = 14
+      Height = 18
+      Top = 8
+      Width = 700
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = False
+      Caption = ''
+      ParentFont = False
+      Transparent = True
+    end
+    object pbNotice: TProgressBar
+      Left = 730
+      Height = 14
+      Top = 10
+      Width = 296
+      Anchors = [akTop, akRight]
+      Max = 100
+      TabOrder = 0
+    end
+  end
+  object pnlEmpty: TBCPanel
+    Left = 0
+    Height = 678
+    Top = 82
+    Width = 1040
+    Align = alClient
+    BevelOuter = bvNone
+    TabOrder = 2
+    Visible = False
+    object lblEmptyTitle: TLabel
+      Left = 60
+      Height = 28
+      Top = 60
+      Width = 900
+      AutoSize = False
+      Caption = 'The help pages are not on this computer yet'
+      Font.Height = -20
+      Font.Style = [fsBold]
+      ParentFont = False
+      Transparent = True
+    end
+    object lblEmptyText: TLabel
+      Left = 60
+      Height = 80
+      Top = 100
+      Width = 900
+      AutoSize = False
+      Caption = ''
+      ParentFont = False
+      Transparent = True
+      WordWrap = True
+    end
+    object pbEmpty: TProgressBar
+      Left = 60
+      Height = 18
+      Top = 190
+      Width = 440
+      Max = 100
+      TabOrder = 0
+    end
+    object btnEmptyGet: TBCButton
+      Left = 60
+      Height = 36
+      Top = 224
+      Width = 200
+      Caption = 'Download the pages'
+      OnClick = btnRefreshClick
+    end
+    object btnEmptyWeb: TBCButton
+      Left = 270
+      Height = 36
+      Top = 224
+      Width = 200
+      Caption = 'Read them on the web'
+      OnClick = btnWebClick
+    end
+  end
+  object Page: TInkPage
+    Left = 0
+    Height = 678
+    Top = 82
+    Width = 1040
+    Align = alClient
+    TabOrder = 3
+    OnLinkClick = PageLinkClick
+    OnNavigate = PageNavigate
+  end
+end

@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper;
 
 var
   Fails: Integer = 0;
@@ -2356,6 +2356,179 @@ begin
     Ok(not D.SetLineLength(0, 0), '  and nothing is not a length');
   finally
     D.Free;
+  end;
+end;
+
+{ The manual beside the program: unpacking a release's help zip.
+
+  Tony: "have heckers sketch fetch it and unzip it and keep a copy locally
+  next to the executable."  The download is checked against the release's
+  sums; what is tested here is the part that writes files - that a good zip
+  lands whole, and that a bad one lands nowhere and leaves what was there. }
+procedure TestHelpZipInstalls;
+var
+  Root, Dest, Z, Outside: string;
+  Err: string;
+
+  procedure MakeZip(const Path: string; const Names, Bodies: array of string);
+  var
+    Zp: TZipper;
+    I: Integer;
+    S: TStringStream;
+    Streams: array of TStringStream;
+  begin
+    Zp := TZipper.Create;
+    SetLength(Streams, Length(Names));
+    try
+      Zp.FileName := Path;
+      for I := 0 to High(Names) do
+      begin
+        S := TStringStream.Create(Bodies[I]);
+        Streams[I] := S;
+        Zp.Entries.AddFileEntry(S, Names[I]);
+      end;
+      Zp.ZipAllFiles;
+    finally
+      Zp.Free;
+      for I := 0 to High(Streams) do Streams[I].Free;
+    end;
+  end;
+
+  function ReadAll(const F: string): string;
+  var
+    L: TStringList;
+  begin
+    L := TStringList.Create;
+    try
+      L.LoadFromFile(F);
+      Result := Trim(L.Text);
+    finally
+      L.Free;
+    end;
+  end;
+
+begin
+  WriteLn('-- the help pages unpack beside the program, and a bad zip does not');
+  Root := IncludeTrailingPathDelimiter(GetTempDir(False)) +
+    'hsk-helptest-' + IntToStr(GetProcessID);
+  ForceDirectories(Root);
+  Dest := Root + PathDelim + 'help';
+  Z := Root + PathDelim + 'pages.zip';
+  Outside := Root + PathDelim + 'escaped.txt';
+  try
+    { a good one }
+    MakeZip(Z, ['index.html', 'tools/arc.html', 'VERSION'],
+      ['<title>Help</title>', '<title>Arc</title>', 'v2026.09.17.1']);
+    Ok(InstallHelpZip(Z, Dest, Err), '  a good zip installs (' + Err + ')');
+    Ok(FileExists(Dest + PathDelim + 'index.html'), '  with its index');
+    Ok(FileExists(Dest + PathDelim + 'tools' + PathDelim + 'arc.html'),
+      '  and the page in its subfolder');
+    Ok(ReadAll(Dest + PathDelim + 'VERSION') = 'v2026.09.17.1', '  and its version');
+    Ok(not DirectoryExists(Dest + '.new') and not DirectoryExists(Dest + '.old'),
+      '  and nothing left over from the swap');
+
+    { a newer one replaces it whole - a page that is gone is gone }
+    DeleteFile(Z);
+    MakeZip(Z, ['index.html', 'VERSION'], ['<title>Help 2</title>', 'v2026.09.18.1']);
+    Ok(InstallHelpZip(Z, Dest, Err), '  a newer zip replaces it');
+    Ok(ReadAll(Dest + PathDelim + 'VERSION') = 'v2026.09.18.1', '  with the newer version');
+    Ok(not FileExists(Dest + PathDelim + 'tools' + PathDelim + 'arc.html'),
+      '  and nothing of the old copy mixed in');
+
+    { a zip with a name that climbs out of its folder: refused whole }
+    DeleteFile(Z);
+    MakeZip(Z, ['index.html', '../escaped.txt'], ['<title>x</title>', 'gotcha']);
+    Ok(not InstallHelpZip(Z, Dest, Err), '  a zip that climbs out is refused');
+    Ok(Pos('outside', Err) > 0, '  and says why (' + Err + ')');
+    Ok(not FileExists(Outside), '  nothing was written outside');
+    Ok(ReadAll(Dest + PathDelim + 'VERSION') = 'v2026.09.18.1',
+      '  and the pages already there are untouched');
+
+    { an absolute path: refused too }
+    DeleteFile(Z);
+    MakeZip(Z, ['index.html', '/tmp/hsk-abs-escape.txt'], ['<title>x</title>', 'gotcha']);
+    Ok(not InstallHelpZip(Z, Dest, Err), '  an absolute path is refused');
+    Ok(not FileExists('/tmp/hsk-abs-escape.txt'), '  and not written');
+
+    { a zip with no index: refused, old pages kept }
+    DeleteFile(Z);
+    MakeZip(Z, ['readme.txt'], ['nothing here']);
+    Ok(not InstallHelpZip(Z, Dest, Err), '  a zip with no index.html is refused');
+    Ok(ReadAll(Dest + PathDelim + 'VERSION') = 'v2026.09.18.1',
+      '  and the pages already there survive it');
+
+    { not a zip at all }
+    DeleteFile(Z);
+    with TStringList.Create do
+    try
+      Text := 'this is not a zip';
+      SaveToFile(Z);
+    finally
+      Free;
+    end;
+    Ok(not InstallHelpZip(Z, Dest, Err), '  a file that is not a zip is refused');
+    Ok(FileExists(Dest + PathDelim + 'index.html'), '  and the pages survive that too');
+
+    { the addresses a release's files are at }
+    Ok(HelpZipURL('v1') = 'https://github.com/' + UPDATE_REPO +
+      '/releases/download/v1/heckers-sketch-help.zip', '  the zip''s address');
+    Ok(HelpSumsURL('v1') = 'https://github.com/' + UPDATE_REPO +
+      '/releases/download/v1/SHA256SUMS', '  and the sums''');
+  finally
+    DeleteFile(Z);
+    DeleteFile(Outside);
+    DeleteFile(Dest + PathDelim + 'index.html');
+    DeleteFile(Dest + PathDelim + 'VERSION');
+    DeleteFile(Dest + PathDelim + 'tools' + PathDelim + 'arc.html');
+    RemoveDir(Dest + PathDelim + 'tools');
+    RemoveDir(Dest);
+    RemoveDir(Root);
+  end;
+end;
+
+{ When the pages beside the program want fetching. }
+procedure TestHelpStaleness;
+var
+  Dir: string;
+  Mine: Boolean;
+
+  procedure Put(const Name, Body: string);
+  begin
+    with TStringList.Create do
+    try
+      Text := Body;
+      SaveToFile(Dir + Name);
+    finally
+      Free;
+    end;
+  end;
+
+begin
+  WriteLn('-- the pages beside the program are fetched when they are missing or old');
+  Dir := HelpFolder;
+  { only if nothing is there already - this is the test program's own
+    folder, and a real copy of the manual there is not ours to touch }
+  Mine := not DirectoryExists(Dir);
+  if not Mine then
+  begin
+    WriteLn('  (skipped: ', Dir, ' already exists)');
+    Exit;
+  end;
+  try
+    Ok(HelpIsStale('v2026.09.17.1'), '  no pages: stale');
+    Ok(HelpIsStale('v0.0.0-dev'), '  no pages: a developer''s build fetches some too');
+    ForceDirectories(Dir);
+    Put('index.html', '<title>Help</title>');
+    Ok(HelpIsStale('v2026.09.17.1'), '  pages that do not say their version: stale for a release');
+    Put('VERSION', 'v2026.09.17.1');
+    Ok(LocalHelpVersion = 'v2026.09.17.1', '  the version is read');
+    Ok(not HelpIsStale('v2026.09.17.1'), '  matching pages: not stale');
+    Ok(HelpIsStale('v2026.09.18.1'), '  after an update: stale');
+    Ok(not HelpIsStale('v0.0.0-dev'), '  and a developer''s build takes what is there');
+  finally
+    DeleteFile(Dir + 'index.html');
+    DeleteFile(Dir + 'VERSION');
+    RemoveDir(Dir);
   end;
 end;
 
@@ -7142,6 +7315,8 @@ begin
   TestFilletRoundsACorner;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestHelpZipInstalls;  WriteLn;
+  TestHelpStaleness;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

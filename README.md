@@ -7,7 +7,8 @@ MIT licensed.
 **[Download the latest release](../../releases/latest)** - one file, no
 installer.
 **[Read the manual](https://tonystone31.github.io/noella-etch-a-sketch/)** -
-every tool, command and key.
+every tool, command and key.  The same pages open inside the program
+(`/manual`), from a copy it keeps beside itself.
 
 > **It is a desktop program.**  It needs a Windows or Linux computer with a
 > mouse and a keyboard.  There is no phone or tablet version, and it will not
@@ -99,7 +100,9 @@ Download the file for your computer from
 
 It's portable: settings and the draft live next to the program, so it can
 run from a USB stick.  It checks GitHub every few hours for a newer version
-and `/update` installs it; `--offline` keeps it off the network entirely.
+and `/update` installs it, and it keeps its own copy of the manual in a `help`
+folder beside itself, fetched from the matching release.  `--offline` keeps
+it off the network entirely.
 `--help` lists the command-line switches.
 
 ## Problems and feedback

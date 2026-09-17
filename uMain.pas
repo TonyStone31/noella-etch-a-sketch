@@ -216,6 +216,9 @@ type
     procedure CornerSelection;
     procedure ShowOpenEdges;
     procedure OpenManual;
+    procedure KeepHelpCurrent;
+    procedure HelpFetchProgress(BytesReceived, TotalBytes: Int64);
+    procedure HelpFetchDone(Sender: TObject);
     { the system colour picker, for a pen that is not on the palette }
     procedure PickAnyColour;
     procedure FormCreate(Sender: TObject);
@@ -1283,7 +1286,7 @@ var
 implementation
 
 uses
-  FileUtil;
+  FileUtil, uHelpDocs, uHelpView;
 
 {$R *.lfm}
 
@@ -19272,6 +19275,8 @@ begin
         back, or the connection gave up - which on a bad line is a program
         that takes half a minute to start for no reason the user can see. }
       CheckForUpdate(False);
+      { and the manual beside the program, in step with it }
+      KeepHelpCurrent;
     end;
     if FUpTime > 4.0 then
       FStartupDone := True;
@@ -21018,24 +21023,76 @@ begin
   end;
 end;
 
-{ The manual: the copy that travels with the program if this build carries
-  one, and the website if it does not.  A portable program whose help is on a
-  website is no help on a machine that cannot reach one. }
+{ The manual, in its own window.
+
+  It used to hand the copy beside the program to the browser, or the
+  website when there was none.  Now the pages are shown here - see
+  uHelpView - and fetched from the release when they are missing or
+  belong to another version, so a copy carried on a stick has its manual
+  wherever it goes, once it has been online once. }
 procedure TMainForm.OpenManual;
-var
-  Page: string;
 begin
-  Page := HelpPage;
-  if Page <> '' then
+  uDlgSkin.UseTheme(Themes[FThemeIdx]);
+  OpenHelpWindow('');
+  FCmdMsg := 'Opened the manual.';
+end;
+
+{ Keep the manual beside the program in step with the program.
+
+  Asked once, a few seconds after start, alongside the update check: when
+  the pages are missing or came from a different release - which is exactly
+  the state right after an update - the right ones are fetched in the
+  background.  Nothing is shown unless the help window is open to show it.
+
+  The same switch as the update check governs it (/update never turns both
+  off), --offline stops it, and a failure is not retried for six hours, so a
+  machine with no internet does not try on every start. }
+procedure TMainForm.KeepHelpCurrent;
+var
+  Ini: TIniFile;
+  Last: string;
+begin
+  if NetOffline then Exit;
+  if not HelpIsStale(CurrentVersion) then Exit;
+  Ini := TIniFile.Create(ConfigFile);
+  try
+    if not Ini.ReadBool('update', 'check', True) then Exit;
+    Last := Ini.ReadString('help', 'tried', '');
+    if (Last <> '') and (Now - StrToFloatDef(Last, 0) < 0.25) then Exit;
+    Ini.WriteString('help', 'tried', FloatToStr(Now));
+  finally
+    Ini.Free;
+  end;
+  Trail('help pages: fetching for ' + CurrentVersion);
+  StartHelpFetch(CurrentVersion, @HelpFetchProgress, @HelpFetchDone);
+end;
+
+procedure TMainForm.HelpFetchProgress(BytesReceived, TotalBytes: Int64);
+begin
+  if HelpForm <> nil then HelpForm.FetchProgress(BytesReceived, TotalBytes);
+end;
+
+procedure TMainForm.HelpFetchDone(Sender: TObject);
+var
+  F: THelpFetch;
+  Ini: TIniFile;
+begin
+  F := Sender as THelpFetch;
+  if F.OK then
   begin
-    OpenInBrowser('file://' + Page);
-    FCmdMsg := 'Opened the manual.';
+    Trail('help pages: installed from ' + F.GotTag);
+    { a success clears the six-hour wait, so the next update's pages are
+      fetched as soon as that update lands }
+    Ini := TIniFile.Create(ConfigFile);
+    try
+      Ini.DeleteKey('help', 'tried');
+    finally
+      Ini.Free;
+    end;
   end
   else
-  begin
-    OpenInBrowser(MANUAL_URL);
-    FCmdMsg := 'This copy has no manual beside it - opening the one on the web.';
-  end;
+    Trail('help pages: not fetched - ' + F.Err);
+  if HelpForm <> nil then HelpForm.FetchDone(Sender);
 end;
 
 { Every edge where a solid is not closed, drawn on the model.
