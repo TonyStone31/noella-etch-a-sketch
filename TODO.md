@@ -2189,6 +2189,34 @@ is rebuilding the toy by hand and finding fault after fault in it - the model
 the help pages all use is not geometry that the program itself could have
 produced.  **Take his model when he offers it.**
 
+### Two reports from Tony, 16 and 17 September - both fixed
+
+**Guides taken with the drawing, and no crossing on the far side.**  Two
+faults in one report.  The triple-click flood walks shared corners, and a
+guide laid from a corner shares it - so it went through the guide and took
+every guide it touched; the double-click had the same hole for a guide stub
+lying on a face.  A box took any guide running through it.  Now the flood
+and the double-click never take a guide (a click on one is just the guide),
+and `TWorkDoc.BoxPick` takes guides only when the box caught nothing else.
+Select All already left them out.
+
+The second half: a guide is stored as a foot-long stub, and the crossing
+cache tested the stub, so crossings were found only within a foot of where
+the tape laid it.  The test that "covered" it used a ten-foot guide.  Now
+each guide is run past the drawing's bounds both ways, and `ArcSnaps` offers
+where a guide meets an arc.  The new test lays guides the way the tape does.
+
+**Sluggish on Windows** (1694x769 at 125%).  Paper frames of 400+ ms while
+moving, and 60-90 ms screen frames sitting still, zoomed in with the arc
+tool.  Two causes: every wheel step and mouse move redrew the paper and
+invalidated the whole form, so a burst of events meant a burst of full
+redraws - now `ViewMoved` marks it and `FlushView` draws once per tick (100
+wheel steps: 10 paper paints, was 100).  And the blue wash over the face
+under the pointer was painted straight onto the window canvas every paint,
+25 ms at that size; it is now drawn into a surface kept for the purpose
+(slow frames on the zoomed hover test: 14 to 0).  Worth Tony trying on the
+same machine - the numbers above are from this Linux box.
+
 ### Two reports, read the same afternoon
 
 **Truss notation had not stopped working.**  "wtf happened to being able to

@@ -532,6 +532,9 @@ type
       the geometry that is asked, not the box around it. }
     function BoxTakes(const V: TProjector; I: Integer;
       X0, Y0, X1, Y1: Double; Crossing: Boolean): Boolean;
+    { everything a box takes, with guides only if it caught nothing else }
+    function BoxPick(const V: TProjector; X0, Y0, X1, Y1: Double;
+      Crossing: Boolean): TIntArrayW;
     procedure ScreenBounds(const V: TProjector; I: Integer;
       out X0, Y0, X1, Y1: Double);
     { Cut every flat face this segment crosses in two.  Returns how many were
@@ -6864,6 +6867,47 @@ begin
   end;
 end;
 
+{ Guides come along only when the box caught nothing else.  A box dragged
+  round a shape is after the shape, and a guide is not part of the drawing -
+  but one runs through almost any box, so it was taken every time.  Tony, 16
+  September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS! guides are not
+  part of a drawing!"  A box round nothing but guides is plainly after them,
+  so that still works. }
+function TWorkDoc.BoxPick(const V: TProjector; X0, Y0, X1, Y1: Double;
+  Crossing: Boolean): TIntArrayW;
+var
+  I, N, G: Integer;
+  Guides: TIntArrayW;
+begin
+  Result := nil;
+  Guides := nil;
+  N := 0;
+  G := 0;
+  for I := 0 to FLive - 1 do
+    if BoxTakes(V, I, X0, Y0, X1, Y1, Crossing) then
+    begin
+      if FEnts[I].Kind = ekGuide then
+      begin
+        if G >= Length(Guides) then SetLength(Guides, Max(16, G * 2));
+        Guides[G] := I;
+        Inc(G);
+      end
+      else
+      begin
+        if N >= Length(Result) then SetLength(Result, Max(64, N * 2));
+        Result[N] := I;
+        Inc(N);
+      end;
+    end;
+  if N > 0 then
+    SetLength(Result, N)
+  else
+  begin
+    SetLength(Guides, G);
+    Result := Guides;
+  end;
+end;
+
 { Does a box dragged over the screen take this thing?
 
   A containing box - dragged left to right - takes what lies wholly inside
@@ -7695,6 +7739,9 @@ procedure TWorkDoc.RebuildSnapCache;
 const
   MAX_LINES = 500;
 var
+  GLo, GHi: array of TP3;
+  BLo, BHi, GDir: TP3;
+  Reach: Double;
   I, J, N, LineCount, NGuide: Integer;
   P: TP3;
   TA, TB: Double;
@@ -7894,17 +7941,50 @@ begin
         GIdx[NGuide] := I;
         Inc(NGuide);
       end;
+  { A guide is stored as a stub - where it was laid, and a point a foot
+    along it that records its direction - but it stands for the whole
+    infinite line.  This used the stub as it was, so it found crossings
+    within a foot of where the guide was laid and nothing further along.
+
+    Tony, 16 September, with a guide laid an inch up from the left-hand
+    side of a rectangle: "i should have been able to easily snap to the
+    guide on the right hand side of this square at the 1 inch up mark...
+    that guide line should have let me snap anywhere it intersected other
+    lines!"  The right-hand side was the other side of the stub's start.
+    The test that covered this used a guide ten feet long, which is not
+    what the tape lays.
+
+    So each guide is run out past the whole drawing both ways first. }
   if (NGuide > 0) and (LineCount + NGuide <= MAX_LINES) then
   begin
+    SetLength(GLo, NGuide);
+    SetLength(GHi, NGuide);
+    if not Bounds(BLo, BHi) then
+    begin
+      BLo := P3(0, 0, 0);
+      BHi := P3(0, 0, 0);
+    end;
+    Reach := Dist(BLo, BHi) + 1;
+    for I := 0 to NGuide - 1 do
+    begin
+      GDir := Norm3(P3(FEnts[GIdx[I]].B.X - FEnts[GIdx[I]].A.X,
+                       FEnts[GIdx[I]].B.Y - FEnts[GIdx[I]].A.Y,
+                       FEnts[GIdx[I]].B.Z - FEnts[GIdx[I]].A.Z));
+      GLo[I] := P3(FEnts[GIdx[I]].A.X - GDir.X * Reach,
+                   FEnts[GIdx[I]].A.Y - GDir.Y * Reach,
+                   FEnts[GIdx[I]].A.Z - GDir.Z * Reach);
+      GHi[I] := P3(FEnts[GIdx[I]].A.X + GDir.X * Reach,
+                   FEnts[GIdx[I]].A.Y + GDir.Y * Reach,
+                   FEnts[GIdx[I]].A.Z + GDir.Z * Reach);
+    end;
     for I := 0 to NGuide - 1 do
     begin
       for J := 0 to LineCount - 1 do
-        if SegCross(FEnts[GIdx[I]].A, FEnts[GIdx[I]].B,
+        if SegCross(GLo[I], GHi[I],
                     FEnts[Idx[J]].A, FEnts[Idx[J]].B, P, TA, TB) then
           Put(P, snCross);
       for J := I + 1 to NGuide - 1 do
-        if SegCross(FEnts[GIdx[I]].A, FEnts[GIdx[I]].B,
-                    FEnts[GIdx[J]].A, FEnts[GIdx[J]].B, P, TA, TB) then
+        if SegCross(GLo[I], GHi[I], GLo[J], GHi[J], P, TA, TB) then
           Put(P, snCross);
     end;
   end;
@@ -7962,10 +8042,10 @@ procedure TWorkDoc.ArcSnaps(var N: Integer);
 const
   MAX_ARCS = 300;
 var
-  I, J, K, Q, ArcCount: Integer;
+  I, J, K, Q, G, ArcCount: Integer;
   Idx: array of Integer;
   Cuts: array of array of Double;
-  AU, AV, Nm, P, U, Wv: TP3;
+  AU, AV, Nm, P, U, Wv, GDir: TP3;
   Ang, Tmp: Double;
 
   procedure Put(const Pt: TP3; Kind: TSnapKind);
@@ -8103,6 +8183,52 @@ var
     end;
   end;
 
+  { an infinite line through LA along LD, against arc AI }
+  procedure GuideMeetsArc(const LA, LD: TP3; AI: Integer);
+  var
+    U, V, Nrm, W, Pt: TP3;
+    E: TWorkEnt;
+    Dn, Off, Bq, Cq, Disc, T, Tol: Double;
+    S: Integer;
+
+    procedure Offer(const Q: TP3);
+    begin
+      if OnArc(E, AngleOf(E, Q)) then Put(Q, snCross);
+    end;
+
+  begin
+    E := FEnts[Idx[AI]];
+    Axes(E, U, V, Nrm);
+    Tol := 1E-6 * (1 + E.R);
+    W := P3(LA.X - E.C.X, LA.Y - E.C.Y, LA.Z - E.C.Z);
+    Dn := Dot3(LD, Nrm);
+    Off := Dot3(W, Nrm);
+    if Abs(Dn) < 1E-9 then
+    begin
+      { along the arc's plane: in it, or nowhere }
+      if Abs(Off) > Tol then Exit;
+      Bq := Dot3(W, LD);
+      Cq := Dot3(W, W) - E.R * E.R;
+      Disc := Bq * Bq - Cq;
+      if Disc < -Tol then Exit;
+      Disc := Sqrt(Max(0, Disc));
+      for S := -1 to 1 do
+      begin
+        if S = 0 then Continue;
+        if (S = 1) and (Disc < 1E-12) then Continue;   { a tangent, once }
+        T := -Bq + S * Disc;
+        Offer(P3(LA.X + LD.X * T, LA.Y + LD.Y * T, LA.Z + LD.Z * T));
+      end;
+    end
+    else
+    begin
+      { through the plane at one point, which has to be on the circle }
+      T := -Off / Dn;
+      Pt := P3(LA.X + LD.X * T, LA.Y + LD.Y * T, LA.Z + LD.Z * T);
+      if Abs(Dist(Pt, E.C) - E.R) <= Tol then Offer(Pt);
+    end;
+  end;
+
   function Coplanar(AI, AJ: Integer): Boolean;
   var
     UI, VI, NI, UJ, VJ, NJ: TP3;
@@ -8143,6 +8269,21 @@ begin
           CrossPlane(I, J);
           CrossPlane(J, I);
         end;
+  { Where a guide crosses an arc - a guide laid an inch up from the side of
+    a rounded rectangle meets the rounded corner, not the straight side.
+    The guide is a line without end; it does not cut the arc (a guide is
+    construction), it only offers the point. }
+  if (not FGuidesHidden) and (ArcCount <= MAX_ARCS) then
+    for G := 0 to FLive - 1 do
+    begin
+      if (FEnts[G].Kind <> ekGuide) or
+         (Dist(FEnts[G].A, FEnts[G].B) < 1E-9) then Continue;
+      GDir := Norm3(P3(FEnts[G].B.X - FEnts[G].A.X, FEnts[G].B.Y - FEnts[G].A.Y,
+                       FEnts[G].B.Z - FEnts[G].A.Z));
+      for I := 0 to ArcCount - 1 do
+        GuideMeetsArc(FEnts[G].A, GDir, I);
+    end;
+
   { the middles of the pieces }
   for I := 0 to ArcCount - 1 do
   begin

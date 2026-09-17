@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Guides are no longer picked up with your drawing.**  A double or triple
+  click, or a box dragged round a shape, takes the shape and leaves the
+  guides alone.  A box round nothing but guides still takes them, and a
+  click on a guide still picks it.
+- **A guide gives a point to snap to wherever it crosses something**, all
+  the way along it - not only near where the tape laid it.  That includes
+  where it crosses an arc or a rounded corner.
+- **Smoother zooming, panning and orbiting on Windows.**  The drawing is
+  redrawn once per frame however many wheel steps or mouse moves arrive,
+  and the blue wash over the face under the pointer no longer slows every
+  frame when you are zoomed in close.
+
 ## v2026.09.17.2
 
 ### New

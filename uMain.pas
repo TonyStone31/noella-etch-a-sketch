@@ -787,6 +787,13 @@ type
     FSidesCircle, FSidesArc: Integer;
     FMovePending: Boolean;
     FScreenDirty: Boolean;
+    { the camera moved and the picture has not been redrawn for it yet - see
+      ViewMoved }
+    FViewDirty: Boolean;
+    { the face whose blue wash is already in the picture being shown, so the
+      overlay does not paint it again pixel by pixel - see pbScreenPaint }
+    FHintInShot: Integer;
+    FHintShot: TArtSurface;
     { 0 when the pointer is on the button out of the toy, -1 when it is not }
     FHotMode: Integer;
     FHotView: Integer;
@@ -1180,6 +1187,8 @@ type
     procedure ZoomAt(Factor: Double; AnchorSX, AnchorSY: Double);
     procedure SetScaleIdx(I: Integer);
     procedure PanBy(DX, DY: Double);
+    procedure ViewMoved;
+    procedure FlushView;
     { Travel is False where there is nothing to keep your bearings with - a
       drawing just loaded, a different sheet, a change of projection.  The
       point of moving instead of jumping is to hold on to where things are,
@@ -2570,6 +2579,7 @@ begin
   FUIScale := EnsureRange(Screen.PixelsPerInch / 96, 1.0, 3.0);
   DoubleBuffered := True;
 
+  FHintInShot := -1;
   FPaper := TArtSurface.Create(16, 16);
   FArt := TArtSurface.Create(16, 16);
   FInkToy := TArtSurface.Create(16, 16);
@@ -2767,6 +2777,8 @@ begin
   for I := High(FDrawings) downto 0 do
     FDrawings[I].Free;
   FOverlay.Free;
+  FHintShot.Free;
+  FSelShot.Free;
   for I := 0 to 1 do
     FKnobSkin[I].Free;
   FViewSkin.Free;
@@ -3289,6 +3301,8 @@ var
 
 begin
   if Face < 0 then Exit;
+  { already in the picture that was put on the screen - see pbScreenPaint }
+  if (S = nil) and (Face = FHintInShot) then Exit;
   Pts := FD.Doc.Outline(Proj, Face);
   N := Length(Pts);
   if N < 3 then Exit;
@@ -4926,10 +4940,7 @@ begin
     FCameraMoving := True;
     FLastWheel := GetTickCount64;
   end;
-  RepaintPaper;
-  RenderPro;
-  RecomposeAll;
-  Invalidate;
+  ViewMoved;
 end;
 
 procedure TMainForm.SetScaleIdx(I: Integer);
@@ -4960,6 +4971,41 @@ procedure TMainForm.PanBy(DX, DY: Double);
 begin
   FD.ViewX := FD.ViewX + DX;
   FD.ViewY := FD.ViewY + DY;
+  ViewMoved;
+end;
+
+{ The camera has moved: say so, and draw it once, on the next frame.
+
+  Tony, 17 September, on Windows: "seems to be sluggish responding to my
+  zoom in and zoom out and moving".  His report had frames of 400 to 600 ms
+  with thirteen things in the drawing, nearly all of it "paper".  The paper
+  is cheap - 3 to 16 ms here with his drawing - but a wheel zoom redrew it,
+  the drawing and the composite at once for every wheel event, and a
+  smooth wheel or a touchpad on Windows sends many more of those than the
+  screen shows frames.  The frame watchdog adds up everything done between
+  two paints, so twenty-five redraws nobody saw came out as one frame of
+  four hundred milliseconds.
+
+  It also invalidated the whole window each time - the tool strip, the
+  deck, every panel - where only the drawing had changed.  That cost never
+  appeared in the watchdog's numbers at all, because they only time the
+  drawing's own paint.
+
+  So a camera change only marks the view, and the tick draws it once,
+  however many changes came in since the last frame; a paint that arrives
+  first draws it itself.  The readouts along the top are refreshed on their
+  own throttle, as they always were. }
+procedure TMainForm.ViewMoved;
+begin
+  FViewDirty := True;
+  FScreenDirty := True;
+  InvalidateStatus;
+end;
+
+procedure TMainForm.FlushView;
+begin
+  if not FViewDirty then Exit;
+  FViewDirty := False;
   RepaintPaper;
   RenderPro;
   RecomposeAll;
@@ -11464,6 +11510,8 @@ end;
 
 procedure TMainForm.pbScreenPaint(Sender: TObject);
 var
+  Shown: TArtSurface;
+  HF: Integer;
   CR, Rad, SX, SY, Arm, Gap, I: Integer;
   Contrast, Halo, CPix: TPix;
   CW, CA: Double;
@@ -11471,6 +11519,9 @@ var
   TPaint, TAll: QWord;
 begin
   if not FBooted then Exit;
+  { a paint that comes before the tick draws the moved camera itself, so a
+    frame is never shown for a view that is no longer the view }
+  FlushView;
   TPaint := GetTickCount64;
   try
   if FErasing then
@@ -11490,10 +11541,35 @@ begin
     if FSelShot = nil then FSelShot := TArtSurface.Create(FArt.Width, FArt.Height)
     else FSelShot.SetSize(FArt.Width, FArt.Height);
     FSelShot.CompositeOver(FArt, FSelLayer, Rect(0, 0, FArt.Width, FArt.Height));
-    FSelShot.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
+    Shown := FSelShot;
   end
   else
-    FArt.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
+    Shown := FArt;
+  { The blue wash over the face being pointed at, drawn into the picture
+    before it goes to the screen rather than onto the screen after it.
+
+    It was written onto the canvas a dot at a time, and a dot on a canvas is
+    a call into the platform each.  Zoomed in, the face is the whole window:
+    measured at 25 ms a frame on a 919 x 471 window here, and Tony's report
+    from a 1694 x 769 Windows screen had frames of 60 to 94 ms standing
+    still with the arc tool over a face.  Into a copy of the picture it is a
+    row fill in memory, and the copy goes to the screen in the one blit it
+    was going to have anyway. }
+  FHintInShot := -1;
+  if (FMode = mdPro) and not FErasing and (FPopup = POP_NONE) then
+  begin
+    HF := HintFaceNow;
+    if HF >= 0 then
+    begin
+      if FHintShot = nil then FHintShot := TArtSurface.Create(Shown.Width, Shown.Height)
+      else FHintShot.SetSize(Shown.Width, Shown.Height);
+      FHintShot.CopyRegion(Shown, 0, 0, 0, 0, Shown.Width, Shown.Height);
+      PaintFaceHint(nil, HF, HINT_BLUE, FHintShot, 0, 0);
+      FHintInShot := HF;
+      Shown := FHintShot;
+    end;
+  end;
+  Shown.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
   if FErasing then Exit;
 
   if FMode = mdPro then
@@ -11545,7 +11621,9 @@ begin
     Rad := Max(4, FPenSize div 2) + Round(5 * FUIScale);
   CR := Rad + Round(8 * FUIScale);
   FOverlay.SetSize(CR * 2, CR * 2);
-  FOverlay.CopyRegion(FArt, SX - CR, SY - CR, 0, 0, CR * 2, CR * 2);
+  { from the picture actually shown, so the selection outline and the face
+    wash are in the square too rather than wiped under the pointer }
+  FOverlay.CopyRegion(Shown, SX - CR, SY - CR, 0, 0, CR * 2, CR * 2);
   { That square is the finished drawing, without the tool's preview in it -
     so pasting it back wipes whatever preview was within reach of the
     pointer.  Mostly that is the last few pixels of a rubber band, which
@@ -14957,10 +15035,7 @@ begin
         end;
       end;
       FCameraMoving := True;
-      RepaintPaper;
-      RenderPro;
-      RecomposeAll;
-      Invalidate;
+      ViewMoved;
     end
     else
       PanBy(X - FPanRefX, Y - FPanRefY);
@@ -16080,6 +16155,9 @@ var
 begin
   SelectOnly(I);
   if I < 0 then Exit;
+  { a guide is not part of the drawing, so it has nothing attached to it -
+    and nothing attached has it; see SelectConnected }
+  if FD.Doc[I].Kind = ekGuide then Exit;
   if FD.Doc[I].Kind = ekFace then
   begin
     for J := 0 to FD.Doc.Live - 1 do
@@ -16126,6 +16204,11 @@ var
   procedure Take(E: Integer);
   begin
     if (E < 0) or Have[E] then Exit;
+    { A guide laid from a corner shares that corner, and the flood used to
+      walk straight through it and bring every guide in the drawing along.
+      Tony, 16 September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS!
+      guides are not part of a drawing!" }
+    if FD.Doc[E].Kind = ekGuide then Exit;
     Have[E] := True;
     if QTail >= Length(Queue) then SetLength(Queue, Max(64, QTail * 2));
     Queue[QTail] := E;
@@ -16135,6 +16218,8 @@ var
 begin
   SelectOnly(I);
   if I < 0 then Exit;
+  { three clicks on a guide is still just the guide }
+  if FD.Doc[I].Kind = ekGuide then Exit;
   N := FD.Doc.Live;
   SetLength(Have, N);
   SetLength(Queue, 64);
@@ -16239,6 +16324,7 @@ end;
 procedure TMainForm.SelectInBox(X0, Y0, X1, Y1: Integer; Crossing, Add: Boolean);
 var
   I, T: Integer;
+  Picked: TIntArrayW;
   Tk: QWord;
   BX0, BY0, BX1, BY1: Double;
 begin
@@ -16249,9 +16335,9 @@ begin
   BeginBulkSelect;
   { What the box takes is BoxTakes' question, not one asked here - see it for
     why a crossing box now has to touch the geometry rather than the box
-    around it, and for what it does with a guide. }
-  for I := 0 to FD.Doc.Live - 1 do
-    if FD.Doc.BoxTakes(Proj, I, X0, Y0, X1, Y1, Crossing) then SelectAdd(I);
+    around it, and BoxPick for when it takes a guide. }
+  Picked := FD.Doc.BoxPick(Proj, X0, Y0, X1, Y1, Crossing);
+  for I := 0 to High(Picked) do SelectAdd(Picked[I]);
   EndBulkSelect;
   Took('box select', Tk);
   FScreenDirty := True;
@@ -16432,7 +16518,10 @@ begin
     pointer was - on every face, with every tool that washes one.  Drawn
     into the square as well now, clipped to it. }
   HF := HintFaceNow;
-  if HF >= 0 then PaintFaceHint(nil, HF, HINT_BLUE, S, OX, OY);
+  { the square is copied from the picture shown, which has the wash in it
+    already when pbScreenPaint put it there }
+  if (HF >= 0) and (HF <> FHintInShot) then
+    PaintFaceHint(nil, HF, HINT_BLUE, S, OX, OY);
   if not ArcFillet(F, Typed) then Exit;
   S.BlendMode := bmNormal;
   PA := ScreenOf(ArcPoint(F.ArcC, F.R, F.A0, F.Pl, F.Nm));
@@ -19384,7 +19473,9 @@ begin
   if DY <> 0 then pbKnobR.Invalidate;
 
   finally
-    { one repaint per tick at most, whatever asked for it }
+    { one repaint per tick at most, whatever asked for it - and the camera
+      drawn once for whatever moved it since the last one }
+    FlushView;
     if FScreenDirty then
     begin
       FScreenDirty := False;

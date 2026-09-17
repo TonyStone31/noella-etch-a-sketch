@@ -1378,6 +1378,83 @@ begin
   end;
 end;
 
+{ The tape lays a guide as a foot-long stub - where it was laid and which
+  way it runs - and the guide stands for the whole line.  The test above used
+  a guide ten feet long, and missed that crossings were only found along the
+  stub.  Tony, 16 September: a guide an inch up from the left of a square
+  gave nothing to snap to on the right. }
+procedure TestShortGuidesCrossFarAway;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Hit: TSnapHit;
+  Pick: TIntArrayW;
+  Guides: Integer;
+
+  function OffersAt(const P: TP3; Want: TSnapKind): Boolean;
+  var
+    Sc: TPointF;
+  begin
+    Sc := Project(V, P);
+    Result := D.BestSnap(V, Sc.X, Sc.Y, 12, Hit) and
+              (Hit.Kind = Want) and (Dist(Hit.P, P) < 1E-6);
+  end;
+
+  function CountGuides(const A: TIntArrayW): Integer;
+  var
+    K: Integer;
+  begin
+    Result := 0;
+    for K := 0 to High(A) do
+      if D[A[K]].Kind = ekGuide then Inc(Result);
+  end;
+
+begin
+  WriteLn('-- a guide laid by the tape crosses things a long way off');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 0; V.OY := 0; V.Ppu := 40;
+    { a square with its top right corner rounded }
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), clBlack, 1, False);
+    D.AddLine(P3(10, 0, 0), P3(10, 8, 0), clBlack, 1, False);
+    D.AddArc(P3(8, 8, 0), 2, 0, Pi / 2, plXY, clBlack, 1);
+    D.AddLine(P3(8, 10, 0), P3(0, 10, 0), clBlack, 1, False);
+    D.AddLine(P3(0, 10, 0), P3(0, 0, 0), clBlack, 1, False);
+    { an inch up the left side, the stub pointing away from the square }
+    D.AddGuide(P3(0, 1 / 12, 0), P3(-1, 1 / 12, 0));
+    Ok(OffersAt(P3(10, 1 / 12, 0), snCross),
+      'the far side, ten feet from the stub, is a point to aim at');
+    { up the left side at 9', through the rounded corner }
+    D.AddGuide(P3(0, 9, 0), P3(-1, 9, 0));
+    Ok(OffersAt(P3(8 + Sqrt(3), 9, 0), snCross),
+      'where a guide crosses an arc is a point to aim at');
+    { a guide past the arc's end crosses the circle but not the arc }
+    D.AddGuide(P3(0, 7, 0), P3(-1, 7, 0));
+    Ok(not OffersAt(P3(8 + Sqrt(3), 7, 0), snCross),
+      'the circle beyond the arc offers nothing');
+    { two stubs a long way apart still meet }
+    D.AddGuide(P3(5, -3, 0), P3(5, -4, 0));
+    Ok(OffersAt(P3(5, 9, 0), snCross),
+      'two short guides meet well away from both stubs');
+
+    { a box round the square takes the square and none of the guides }
+    Pick := D.BoxPick(V, -500, -500, 500, 500, True);
+    Guides := CountGuides(Pick);
+    Ok((Length(Pick) = 5) and (Guides = 0),
+      Format('a box round the square takes its five pieces, no guides (%d, %d)',
+        [Length(Pick), Guides]));
+    Pick := D.BoxPick(V, -500, -500, 500, 500, False);
+    Ok(CountGuides(Pick) = 0, 'nor does a window box');
+    { a box across nothing but a guide takes the guide }
+    Pick := D.BoxPick(V, -100, -5, -60, 5, True);
+    Ok((Length(Pick) = 1) and (D[Pick[0]].Kind = ekGuide),
+      'a box round only a guide takes the guide');
+  finally
+    D.Free;
+  end;
+end;
+
 { Undo has to put back the openings as well as the outlines.
 
   Tony, 15 September: "notice i moved the heckers sketch block words and then
@@ -7301,6 +7378,7 @@ begin
   TestErasingAnEdgeTakesItsFaces;  WriteLn;
   TestTrussNotation;  WriteLn;
   TestGuidesMakeCrossings;  WriteLn;
+  TestShortGuidesCrossFarAway;  WriteLn;
   TestUndoPutsTheHolesBack;  WriteLn;
   TestGuidePointGoesWithItsLine;  WriteLn;
   TestGuidePointIsEasyToPick;  WriteLn;

@@ -1,0 +1,70 @@
+# Guides stay out of what a double, triple or box pick takes.
+#
+# Tony, 16 September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS! guides
+# are not part of a drawing!"  A guide laid from a corner shares that corner,
+# and a triple-click walked through it and took every guide in the drawing.
+#
+# What to look for: hsk-gs-triple has the rectangle picked and the bar saying
+# 5 things selected (four sides and the face), with the guide point on the
+# corner and the guides not highlighted; hsk-gs-box the same from a box
+# dragged right to left across everything; hsk-gs-guide a box across the
+# guide above alone, which takes it - 1 thing selected.
+activate
+wait 1000
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 800
+
+key r
+wait 300
+at 400 300
+click
+at 700 500 400
+click
+wait 600
+
+# a guide above the rectangle, and a guide point on its top right corner -
+# the point shares the corner, the way the report's guides did
+key t
+wait 300
+at 400 300 300
+click
+at 400 200 300
+click
+wait 500
+key escape
+key t
+wait 300
+at 400 300 300
+click
+at 700 300 300
+click
+wait 500
+key escape
+
+# three clicks on the top edge
+key space
+wait 300
+at 550 300 300
+click
+click
+click
+wait 800
+shot /tmp/hsk-gs-triple.png
+
+# a crossing box over the lot
+drag 800 560 330 250
+wait 800
+shot /tmp/hsk-gs-box.png
+
+# a box that crosses only the guide above
+drag 1000 230 960 170
+wait 800
+shot /tmp/hsk-gs-guide.png
+key escape
+wait 400
