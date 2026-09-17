@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The grid in ISO and 3D is a floor.**  Squares lying in the red and' + LineEnding +
+    '  green plane, turning with the camera, only in the quarter where both axes' + LineEnding +
+    '  are drawn solid - a floor to judge a model against, not paper behind it.' + LineEnding +
+    '  Darker than it was, and heavier every fifth line.  It starts off now;' + LineEnding +
+    '  <kbd>G</kbd> or the GRID button turns it on.' + LineEnding +
+    '- **The bottom bar says more while you work** - what the cursor is holding' + LineEnding +
+    '  on to, then what to do, then the keys that would do something right now.' + LineEnding +
+    '  The card beside the pointer carries the keys as well.' + LineEnding +
+    '- **The select tool leaves guides alone** unless you are right on one, and a' + LineEnding +
+    '  guide under the pointer says so by turning its own dashes blue rather' + LineEnding +
+    '  than being outlined in a thick band.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Drawing with something selected is quicker.**  The picture, the' + LineEnding +
+    '  selection over it and the wash on the face under the pointer are kept' + LineEnding +
+    '  between frames instead of being rebuilt on every one.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.6' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

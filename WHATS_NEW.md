@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **The grid in ISO and 3D is a floor.**  Squares lying in the red and
+  green plane, turning with the camera, only in the quarter where both axes
+  are drawn solid - a floor to judge a model against, not paper behind it.
+  Darker than it was, and heavier every fifth line.  It starts off now;
+  <kbd>G</kbd> or the GRID button turns it on.
+- **The bottom bar says more while you work** - what the cursor is holding
+  on to, then what to do, then the keys that would do something right now.
+  The card beside the pointer carries the keys as well.
+- **The select tool leaves guides alone** unless you are right on one, and a
+  guide under the pointer says so by turning its own dashes blue rather
+  than being outlined in a thick band.
+
+### Fixed
+
+- **Drawing with something selected is quicker.**  The picture, the
+  selection over it and the wash on the face under the pointer are kept
+  between frames instead of being rebuilt on every one.
+
 ## v2026.09.17.6
 
 ### Changed

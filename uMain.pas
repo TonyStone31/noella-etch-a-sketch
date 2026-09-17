@@ -803,7 +803,14 @@ type
     { the face whose blue wash is already in the picture being shown, so the
       overlay does not paint it again pixel by pixel - see pbScreenPaint }
     FHintInShot: Integer;
-    FHintShot: TArtSurface;
+    { What was last put on the screen: the picture, the selection over it and
+      the wash on the face under the pointer.  None of those change between
+      one paint and the next unless something says so, and rebuilding it
+      every paint cost a full-window composite and a full-window copy each
+      time - 44 to 84 ms a frame on Tony's report of 17 September, with
+      nothing else happening at all. }
+    FShotOK: Boolean;
+    FShotHadSel: Boolean;
     { the paper's fill, made once per theme and size - see RepaintPaper }
     FPaperBase: TArtSurface;
     FPaperBaseKey: string;
@@ -1175,6 +1182,9 @@ type
     { pro }
     function ToolName(T: TProTool): string;
     function Prompt: string;
+    function SnapSays: string;
+    function ModifierTip: string;
+    function ShortKeys: string;
     { The size being pulled right now, in the same words it would be typed
       in, or empty when nothing is being pulled. }
     function LiveMeasure: string;
@@ -1265,6 +1275,7 @@ type
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
+    procedure PaintGuideHover(C: TCanvas; I: Integer);
     { the cube: where it sits, what it draws, and the glide it starts }
     function CubeRect: TRect;
     function OverCube(X, Y: Integer): Boolean;
@@ -1733,6 +1744,10 @@ const
       'half of it, click the face, then click two points on the axis - or a ' +
       'circle to follow round.  Type an angle first for a part turn.  This ' +
       'is SketchUp''s Follow Me, and it will also sweep a face along a line.');
+
+  { How close the cursor has to be to a guide before it is the thing being
+    pointed at.  Tighter than an edge on purpose - see PickAt. }
+  GUIDE_PICK_PX = 4;
 
   TOY_HINT = 'Arrow keys or the dials draw.  Shift to go fast, Ctrl to creep.';
 
@@ -2813,7 +2828,6 @@ begin
   for I := High(FDrawings) downto 0 do
     FDrawings[I].Free;
   FOverlay.Free;
-  FHintShot.Free;
   FPaperBase.Free;
   FSelShot.Free;
   for I := 0 to 1 do
@@ -3249,6 +3263,7 @@ begin
 
     FPaper.SetSize(AW, AH);
     FArt.SetSize(AW, AH);
+    FShotOK := False;
     FInkToy.SetSize(AW, AH);
     FInkPro.SetSize(AW, AH);
     FInkToy.ClearTransparent;
@@ -4588,7 +4603,7 @@ var
   I, N, Drawn, Missed: Integer;
   Lo, Hi: TP3;
   C: array[0..3] of TP3;
-  Fade: Double;
+  Fade, Heavy, A: Double;
   X0, X1, Y0, Y1, V, PitchX, PitchY, Area, LX, LY: Double;
   PA, PB, UX, UY, Org: TPointF;
   Col: TPix;
@@ -4643,6 +4658,15 @@ begin
     Lo.Y := Min(Lo.Y, C[I].Y);  Hi.Y := Max(Hi.Y, C[I].Y);
   end;
 
+  { Only the quarter the drawing belongs in - where both axes are drawn
+    solid.  Tony, 17 September: "that grid should only be visible between the
+    green and red in the default view... not the dashed negative side".  The
+    dashes mean the other way along an axis, and floor out there is floor
+    nobody is drawing on. }
+  Lo.X := Max(Lo.X, 0);
+  Lo.Y := Max(Lo.Y, 0);
+  if (Hi.X <= Lo.X) or (Hi.Y <= Lo.Y) then Exit;
+
   { a camera near the ground makes that box enormous; rule what is worth
     ruling and leave the rest }
   if ((Hi.X - Lo.X) / Pitch > MAX_LINES * 40) or
@@ -4685,13 +4709,31 @@ begin
   if LX > 1E-9 then
     while (Area / LX) * PitchY < MIN_PX do PitchY := Coarser(PitchY, Pitch);
 
+  { And coarse enough that the whole window gets ruled.
+
+    It used to stop after MAX_LINES and leave the rest of the ground bare:
+    the lines are laid from the low corner of the box the window casts onto
+    the ground, so what ran out was the near half - the half the drawing is
+    usually standing in.  Tony, 17 September: "i clicked the grid button and
+    it didnt turn on.  i am not seeing it while i orbit."  It was on, and it
+    was behind him.  Now the pitch is coarsened until the count fits, which
+    is a wider lattice on a wide view rather than half a one. }
+  while (Hi.X - Lo.X) / PitchX > MAX_LINES do PitchX := Coarser(PitchX, Pitch);
+  while (Hi.Y - Lo.Y) / PitchY > MAX_LINES do PitchY := Coarser(PitchY, Pitch);
+
   X0 := Floor(Lo.X / PitchX) * PitchX;
   X1 := Ceil(Hi.X / PitchX) * PitchX;
   Y0 := Floor(Lo.Y / PitchY) * PitchY;
   Y1 := Ceil(Hi.Y / PitchY) * PitchY;
 
-  Col := MixPix(Theme.Screen1, Theme.Grid, 0.85);
-  Fade := 0.30;
+  Col := Theme.Grid;
+  { As strong as the ruled paper in the flat views, and every fifth line
+    heavier, so the floor reads as squared paper laid on the ground rather
+    than a haze you have to look for.  Tony, 17 September: "i clicked the
+    grid button and it didnt turn on" - it had, at a third of the weight the
+    plan view uses, on a light screen. }
+  Fade := 0.45;
+  Heavy := 1.00;
   { Hairlines, not the general line.  The general one measures its distance
     from every pixel near it, which on a hundred and ninety faint lines was
     most of every orbiting frame on Tony's machine - 17 September, "zooming
@@ -4703,30 +4745,45 @@ begin
 
   V := X0;
   N := 0;
-  while (V <= X1 + 1E-9) and (N < MAX_LINES) do
+  { the cap is a guard now rather than the rule - the pitch above is what
+    keeps the count sane }
+  while (V <= X1 + 1E-9) and (N < MAX_LINES * 2) do
   begin
     PA := ScreenOf(P3(V, Y0, 0));
     PB := ScreenOf(P3(V, Y1, 0));
     if Offscreen(PA, PB) then Inc(Missed)
-    else begin FPaper.HairLine(PA.X, PA.Y, PB.X, PB.Y, Col, Fade); Inc(Drawn); end;
+    else
+    begin
+      if Abs(V / PitchX - Round(V / PitchX / 5) * 5) < 1E-6 then A := Heavy
+      else A := Fade;
+      FPaper.HairLine(PA.X, PA.Y, PB.X, PB.Y, Col, A);
+      Inc(Drawn);
+    end;
     V := V + PitchX;
     Inc(N);
   end;
 
   V := Y0;
   N := 0;
-  while (V <= Y1 + 1E-9) and (N < MAX_LINES) do
+  while (V <= Y1 + 1E-9) and (N < MAX_LINES * 2) do
   begin
     PA := ScreenOf(P3(X0, V, 0));
     PB := ScreenOf(P3(X1, V, 0));
     if Offscreen(PA, PB) then Inc(Missed)
-    else begin FPaper.HairLine(PA.X, PA.Y, PB.X, PB.Y, Col, Fade); Inc(Drawn); end;
+    else
+    begin
+      if Abs(V / PitchY - Round(V / PitchY / 5) * 5) < 1E-6 then A := Heavy
+      else A := Fade;
+      FPaper.HairLine(PA.X, PA.Y, PB.X, PB.Y, Col, A);
+      Inc(Drawn);
+    end;
     V := V + PitchY;
     Inc(N);
   end;
   if FTimings then
   begin
-    TimingLine(Format('ground grid: %d ruled, %d missed the window', [Drawn, Missed]));
+    TimingLine(Format('ground grid: %d ruled, %d missed the window; x %.2f..%.2f pitch %.3f, y %.2f..%.2f pitch %.3f, fade %.2f',
+      [Drawn, Missed, X0, X1, PitchX, Y0, Y1, PitchY, Fade]));
   end;
   FPaper.Touch;
 end;
@@ -4915,9 +4972,15 @@ begin
       if GridPitch < SnapStep then GridPitch := SnapStep;
       GridPitch := GridPitch * Ppu;
       case FD.View of
-        vkIso: PaintIsoGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
+        { The flat paper view is ruled like paper - it is a plan, and the
+          paper is the ground seen square on.  Both views that show the model
+          in three dimensions get the floor itself: squares lying in the red
+          and green plane, turning with the camera.  Tony, 17 September: "in
+          any 3d view that grid should only be visible between the green and
+          red" - the isometric lattice climbed the two walls as well, which
+          is paper, not a floor. }
         vkPlan: PaintMeasuredGrid(FPaper, Theme, GridPitch, FD.ViewX, FD.ViewY, 5);
-        vkOrbit: PaintGroundGrid(GridPitch / Ppu);
+        vkIso, vkOrbit: PaintGroundGrid(GridPitch / Ppu);
       end;
     end;
     TGrid := GetTickCount64;
@@ -4947,6 +5010,7 @@ begin
   if (R.Right <= R.Left) or (R.Bottom <= R.Top) then Exit;
   InflateRect(R, 1, 1);
   FArt.CompositeOver(FPaper, ActiveInk, R);
+  FShotOK := False;
   FScreenDirty := True;
 end;
 
@@ -4954,6 +5018,7 @@ procedure TMainForm.RecomposeAll;
 var
   T0: QWord;
 begin
+  FShotOK := False;
   T0 := GetTickCount64;
   FArt.CompositeOver(FPaper, ActiveInk, Rect(0, 0, FArt.Width, FArt.Height));
   ActiveInk.ResetDirty;
@@ -8220,8 +8285,23 @@ begin
 
   UIFont(pbCmd.Canvas, 11, False, Theme.Text);
   S := Prompt;
+  { What it is holding on to, ahead of what to do with it - the way the chip
+    beside the cursor reads, and the way SketchUp's bottom line reads. }
+  if (FMode = mdPro) and (SnapSays <> '') then S := SnapSays + '  -  ' + S;
   pbCmd.Canvas.TextOut(X, (H - pbCmd.Canvas.TextHeight(S)) div 2, S);
   Inc(X, pbCmd.Canvas.TextWidth(S) + Round(10 * FUIScale));
+  { and the keys that would do something right now, quietly, after it }
+  if (FMode = mdPro) and (FInput = '') and (ModifierTip <> '') then
+  begin
+    UIFont(pbCmd.Canvas, 10, False, Theme.TextDim);
+    S := ModifierTip;
+    if X + pbCmd.Canvas.TextWidth(S) < W - Round(220 * FUIScale) then
+    begin
+      pbCmd.Canvas.TextOut(X, (H - pbCmd.Canvas.TextHeight(S)) div 2, S);
+      Inc(X, pbCmd.Canvas.TextWidth(S) + Round(10 * FUIScale));
+    end;
+    UIFont(pbCmd.Canvas, 11, False, Theme.Text);
+  end;
 
   if (GetTickCount64 div 500) mod 2 = 0 then Caret := '_' else Caret := ' ';
   { What SketchUp's measurements box does: while you drag, it shows the size
@@ -11080,6 +11160,53 @@ end;
   these now: each piece of the outline is sampled against the faces in front
   of it and drawn where nothing covers it.  The whole line used to be traced
   through everything, which lit up the far half of an edge behind a wall. }
+{ The guide under the cursor, said in blue along its own dashes.
+
+  A guide point is a small thing and takes a ring round it; a guide line
+  runs off both edges of the window, so it is drawn as the line it is,
+  clipped to the window, in the same dash pattern it already has. }
+procedure TMainForm.PaintGuideHover(C: TCanvas; I: Integer);
+var
+  E: TWorkEnt;
+  D: TP3;
+  L: Double;
+  PA, PB: TPointF;
+  R: Integer;
+begin
+  if (I < 0) or (I >= FD.Doc.Live) or (FD.Doc[I].Kind <> ekGuide) then Exit;
+  E := FD.Doc[I];
+  C.Brush.Style := bsClear;
+  C.Pen.Color := PixToColor(Pix(60, 120, 235));
+  C.Pen.Width := Max(1, Round(FUIScale));
+  if Dist(E.A, E.B) < 1E-9 then
+  begin
+    { a guide point: a ring round it, the size it is drawn }
+    PA := ScreenOf(E.A);
+    if IsNan(PA.X) or IsNan(PA.Y) then Exit;
+    R := Max(4, Round(5 * FUIScale));
+    C.Pen.Style := psSolid;
+    C.Ellipse(Round(PA.X) - R, Round(PA.Y) - R, Round(PA.X) + R, Round(PA.Y) + R);
+    Exit;
+  end;
+  D := P3(E.B.X - E.A.X, E.B.Y - E.A.Y, E.B.Z - E.A.Z);
+  L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
+  if L < 1E-9 then Exit;
+  PA := ScreenOf(P3(E.A.X - D.X / L * 5000, E.A.Y - D.Y / L * 5000,
+                    E.A.Z - D.Z / L * 5000));
+  PB := ScreenOf(P3(E.A.X + D.X / L * 5000, E.A.Y + D.Y / L * 5000,
+                    E.A.Z + D.Z / L * 5000));
+  if IsNan(PA.X) or IsNan(PA.Y) or IsNan(PB.X) or IsNan(PB.Y) or
+     IsInfinite(PA.X) or IsInfinite(PA.Y) or IsInfinite(PB.X) or IsInfinite(PB.Y) then Exit;
+  { the canvas is asked for whole numbers, and a coordinate five thousand
+    feet away does not fit one }
+  PA := PtF(EnsureRange(PA.X, -32000, 32000), EnsureRange(PA.Y, -32000, 32000));
+  PB := PtF(EnsureRange(PB.X, -32000, 32000), EnsureRange(PB.Y, -32000, 32000));
+  C.Pen.Style := psDash;
+  C.MoveTo(Round(PA.X), Round(PA.Y));
+  C.LineTo(Round(PB.X), Round(PB.Y));
+  C.Pen.Style := psSolid;
+end;
+
 { The same trace as TraceOutlineVisible, into one of our own surfaces rather
   than onto an LCL canvas.  See the note in EnsureSelLayer for why that is
   the difference between a frame and two seconds. }
@@ -11288,8 +11415,8 @@ var
   Hi: TPointFArray;
   RectPrev: TP3Array;
   RectI: Integer;
-  S1, S2: string;
-  W1, W2, BoxW, BoxH, LnH: Integer;
+  S1, S2, S3: string;
+  W1, W2, W3, BoxW, BoxH, LnH: Integer;
   StrainPts: TPointFArray;
 
   { When the cursor is locked to an axis the band is drawn in that axis's
@@ -11652,7 +11779,15 @@ begin
   if (FTool in [ptSelect, ptMove, ptRotate]) and (FHoverEnt >= 0) and
      not IsSelected(FHoverEnt) then
   begin
-    TraceOutlineVisible(C, FHoverEnt, Pix(150, 185, 245), Max(2, Round(2 * FUIScale)));
+    { A guide says so by changing colour, not by being outlined.  Tony, 17
+      September: "it just changes the color of the dash line to blue... not a
+      thick blue highlight like we do".  It is construction, and a band of
+      blue laid over the drawing to say the cursor is near a dashed line is
+      louder than the thing it is pointing at. }
+    if FD.Doc[FHoverEnt].Kind = ekGuide then
+      PaintGuideHover(C, FHoverEnt)
+    else
+      TraceOutlineVisible(C, FHoverEnt, Pix(150, 185, 245), Max(2, Round(2 * FUIScale)));
   end;
 
   { the box itself.  Dashed for a crossing box, solid for a containing one,
@@ -11821,13 +11956,24 @@ begin
     end;
   end;
 
+  { and the keys that would do something, under the two lines - the card
+    beside the pointer is where somebody is looking, so it is where the
+    modifiers belong as well as along the bottom }
+  S3 := ShortKeys;
   UIFont(C, 9, True, Theme.Text);
   LnH := C.TextHeight('Xg');
   W1 := C.TextWidth(S1);
   UIFont(C, 9, False, Theme.Text);
   W2 := C.TextWidth(S2);
-  BoxW := Max(W1, W2) + Round(18 * FUIScale);
+  W3 := 0;
+  if S3 <> '' then
+  begin
+    UIFont(C, 8, False, Theme.TextDim);
+    W3 := C.TextWidth(S3);
+  end;
+  BoxW := Max(W1, Max(W2, W3)) + Round(18 * FUIScale);
   BoxH := 2 * LnH + Round(14 * FUIScale);
+  if S3 <> '' then Inc(BoxH, LnH);
 
   R := TipSpot(SX, SY, BoxW, BoxH);
 
@@ -11842,6 +11988,12 @@ begin
   C.TextOut(R.Left + Round(9 * FUIScale), R.Top + Round(5 * FUIScale), S1);
   UIFont(C, 9, False, Theme.Text);
   C.TextOut(R.Left + Round(9 * FUIScale), R.Top + Round(5 * FUIScale) + LnH, S2);
+  if S3 <> '' then
+  begin
+    UIFont(C, 8, False, Theme.TextDim);
+    C.TextOut(R.Left + Round(9 * FUIScale),
+      R.Top + Round(5 * FUIScale) + 2 * LnH, S3);
+  end;
 end;
 
 { A note beside the button the pointer is on.
@@ -11896,6 +12048,7 @@ procedure TMainForm.pbScreenPaint(Sender: TObject);
 var
   Shown: TArtSurface;
   HF: Integer;
+  HaveSel: Boolean;
   CR, Rad, SX, SY, Arm, Gap, I: Integer;
   Contrast, Halo, CPix: TPix;
   CW, CA: Double;
@@ -11915,20 +12068,46 @@ begin
     pbScreen.Canvas.FillRect(0, 0, pbScreen.Width, pbScreen.Height);
   end;
 
-  if (FMode = mdPro) and (Length(FSel) > 0) and not FErasing then
+  { What goes on the screen: the picture, with the selection over it and the
+    wash on the face under the pointer, kept from the last paint unless one
+    of the three has changed.  A paint that changes none of them - the window
+    being uncovered, the cursor moving over the same face - is then the blit
+    alone. }
+  HF := -1;
+  if (FMode = mdPro) and not FErasing and (FPopup = POP_NONE) then HF := HintFaceNow;
+  HaveSel := (FMode = mdPro) and (Length(FSel) > 0) and not FErasing;
+  if HaveSel then EnsureSelLayer;       { may say the shot is stale }
+  if FShotOK and (HaveSel = FShotHadSel) and (HF = FHintInShot) then
   begin
-    { The selection comes from its cached layer, composited over the picture
-      - see EnsureSelLayer.  Every selection, not only a huge one: drawing it
-      on the canvas instead cost Tony nearly two seconds a frame at twelve
-      hundred things picked. }
-    EnsureSelLayer;
-    if FSelShot = nil then FSelShot := TArtSurface.Create(FArt.Width, FArt.Height)
-    else FSelShot.SetSize(FArt.Width, FArt.Height);
-    FSelShot.CompositeOver(FArt, FSelLayer, Rect(0, 0, FArt.Width, FArt.Height));
-    Shown := FSelShot;
+    if HaveSel or (FHintInShot >= 0) then Shown := FSelShot else Shown := FArt;
+  end
+  else if not HaveSel and (HF < 0) then
+  begin
+    Shown := FArt;
+    FHintInShot := -1;
+    FShotHadSel := False;
+    FShotOK := True;
   end
   else
-    Shown := FArt;
+  begin
+    { one surface for both jobs: the selection composited over the picture,
+      and the wash drawn into the same copy }
+    if FSelShot = nil then FSelShot := TArtSurface.Create(FArt.Width, FArt.Height)
+    else FSelShot.SetSize(FArt.Width, FArt.Height);
+    if HaveSel then
+      { The selection comes from its cached layer, composited over the
+        picture - see EnsureSelLayer.  Every selection, not only a huge one:
+        drawing it on the canvas instead cost Tony nearly two seconds a frame
+        at twelve hundred things picked. }
+      FSelShot.CompositeOver(FArt, FSelLayer, Rect(0, 0, FArt.Width, FArt.Height))
+    else
+      FSelShot.CopyRegion(FArt, 0, 0, 0, 0, FArt.Width, FArt.Height);
+    if HF >= 0 then PaintFaceHint(nil, HF, HINT_BLUE, FSelShot, 0, 0);
+    FHintInShot := HF;
+    FShotHadSel := HaveSel;
+    FShotOK := True;
+    Shown := FSelShot;
+  end;
   { The blue wash over the face being pointed at, drawn into the picture
     before it goes to the screen rather than onto the screen after it.
 
@@ -11939,20 +12118,6 @@ begin
     still with the arc tool over a face.  Into a copy of the picture it is a
     row fill in memory, and the copy goes to the screen in the one blit it
     was going to have anyway. }
-  FHintInShot := -1;
-  if (FMode = mdPro) and not FErasing and (FPopup = POP_NONE) then
-  begin
-    HF := HintFaceNow;
-    if HF >= 0 then
-    begin
-      if FHintShot = nil then FHintShot := TArtSurface.Create(Shown.Width, Shown.Height)
-      else FHintShot.SetSize(Shown.Width, Shown.Height);
-      FHintShot.CopyRegion(Shown, 0, 0, 0, 0, Shown.Width, Shown.Height);
-      PaintFaceHint(nil, HF, HINT_BLUE, FHintShot, 0, 0);
-      FHintInShot := HF;
-      Shown := FHintShot;
-    end;
-  end;
   Shown.DrawTo(pbScreen.Canvas, FJitterX, FJitterY);
   if FErasing then Exit;
 
@@ -12448,6 +12613,106 @@ begin
         T := PreviewTarget;
         if Dist(FP1, T) > 1E-9 then Result := FormatLen(Dist(FP1, T), FD.Units);
       end;
+  end;
+end;
+
+{ What the cursor is holding on to, in words rather than in capitals.
+
+  The chip beside the pointer says ENDPOINT; this is the other half of what
+  SketchUp puts along the bottom - the same fact, said as part of the
+  sentence telling you what to do with it. }
+function TMainForm.SnapSays: string;
+begin
+  if FAxisLock in [0..2] then
+    Exit('held on the ' + AxisName(FAxisLock) + ' axis');
+  case FSnapKind of
+    snEndpoint: Result := 'on the end of an edge';
+    snMidpoint: Result := 'on the middle of an edge';
+    snSubMid:   Result := 'on the middle of a piece';
+    snCenter:   Result := 'on a center';
+    snCross:    Result := 'where two lines cross';
+    snOnEdge:   Result := 'on an edge';
+    snOnFace:   Result := 'on a face';
+    snQuadrant: Result := 'on the quarter of a circle';
+    snOrigin:   Result := 'on the origin';
+    snOnAxis:
+      case FSnapAxis of
+        0: Result := 'on the red axis';
+        1: Result := 'on the green axis';
+      else Result := 'on the blue axis';
+      end;
+  else
+    Result := '';
+  end;
+end;
+
+{ The keys that do something right now, for the tool in hand and where it
+  is up to.  Tony, 17 September: "there is some status helpers that pop up
+  telling you to use alt or ctrl keys and why... SketchUp does it in the
+  bottom of their status bar.  It gives lots of good info in their tools."
+
+  Only what is true at this moment: a modifier named when it does nothing is
+  worse than saying nothing, because it is tried once and never again. }
+function TMainForm.ModifierTip: string;
+begin
+  Result := '';
+  case FTool of
+    ptSelect:
+      if Length(FSel) = 0 then
+        Result := 'Ctrl adds, Shift toggles, double-click takes what is ' +
+                  'attached, three clicks take all of it'
+      else
+        Result := 'Ctrl adds, Shift toggles, Ctrl+Shift takes away';
+    ptLine:
+      if FStage = 0 then
+        Result := 'arrows pick the plane, Alt holds it where it is'
+      else
+        Result := 'arrows lock red, green or blue, Shift holds the one you ' +
+                  'are on, double-click finishes';
+    ptRect:
+      if FStage = 0 then Result := 'arrows pick the plane, Alt holds it'
+      else Result := 'type 8x10, or a minus to flip a side';
+    ptCircle, ptArc:
+      if FStage = 0 then
+        Result := '+ and - change the sides, arrows pick the plane'
+      else
+        Result := '+ and - change the sides, or type 24s';
+    ptPush:
+      if FLastPush <> 0 then
+        Result := Format('double-click repeats the last push (%s)',
+          [FormatLen(Abs(FLastPush), FD.Units)])
+      else
+        Result := 'type how far, or rest on an edge to go to it';
+    ptOffset: Result := 'type the offset - a minus goes inward';
+    ptMove:
+      if FStage = 0 then Result := 'Ctrl leaves a copy behind'
+      else Result := 'Ctrl copies, Shift holds the axis, then 3x or /3 for an array';
+    ptErase: Result := 'Ctrl softens an edge instead, Ctrl+Shift brings it back';
+    ptMeasure: Result := 'Ctrl changes what it leaves behind - ' + TapeDropSays;
+    ptOrbit: Result := 'Shift pans, Ctrl clicks into the nearest view when you let go';
+    ptRotate, ptProtractor: Result := 'arrows pick the plane by color';
+    ptDim: Result := 'click the body of an edge for all of it';
+    ptText: Result := 'Shift+Enter for a second line';
+  end;
+end;
+
+{ The same thing as ModifierTip, short enough for the card beside the
+  pointer - keys and what they do, nothing else. }
+function TMainForm.ShortKeys: string;
+begin
+  Result := '';
+  case FTool of
+    ptSelect:   Result := 'Ctrl adds  Shift toggles  double-click takes more';
+    ptLine:     if FStage = 0 then Result := 'arrows: the plane   Alt: hold it'
+                else Result := 'arrows: lock an axis   Shift: hold it';
+    ptRect:     if FStage = 0 then Result := 'arrows: the plane   Alt: hold it';
+    ptCircle, ptArc: Result := '+ and -: sides';
+    ptPush:     if FLastPush <> 0 then Result := 'double-click: the last push again';
+    ptMove:     Result := 'Ctrl: leave a copy   Shift: hold the axis';
+    ptErase:    Result := 'Ctrl: soften   Ctrl+Shift: bring back';
+    ptMeasure:  Result := 'Ctrl: what it leaves behind';
+    ptOrbit:    Result := 'Shift: pan   Ctrl: click into a view';
+    ptRotate, ptProtractor: Result := 'arrows: the plane';
   end;
 end;
 
@@ -15833,6 +16098,8 @@ begin
         eraser is not going to take is the same fault the other way round. }
       FHoverEnt := FD.Doc.HitNote(X, Y);
       if FHoverEnt < 0 then
+        { the eraser keeps its full reach on a guide: rubbing one out is
+          what the eraser is for, and nothing else is lost by taking it }
         FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
       if FHoverEnt < 0 then
         FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale);
@@ -16453,6 +16720,7 @@ begin
     [Pointer(FD.Doc), FD.Doc.FEditSeq, Length(FSel), Sum, X, FD.Az, FD.El, FD.Zoom, FD.ViewX, FD.ViewY,
      Ord(FD.View), FArt.Width, FArt.Height, FUIScale]);
   if (FSelLayer <> nil) and (Key = FSelLayerKey) then Exit;
+  FShotOK := False;                { the selection moved: the shot is stale }
   if FSelLayer = nil then FSelLayer := TArtSurface.Create(FArt.Width, FArt.Height)
   else FSelLayer.SetSize(FArt.Width, FArt.Height);
   FSelLayer.ClearTransparent;
@@ -17601,7 +17869,12 @@ begin
     a ray at every face in it whether or not the cursor was sitting on an
     edge.  HitFace is the expensive one of the three and it is the one that
     was never needed when the answer was an edge. }
-  Result := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
+  { A guide has to be under the cursor, not merely near it.  Tony, 17
+    September: "the select tool shouldnt easily snap to guides... sketchup
+    makes it so the select tool needs to be right over it".  Nine pixels of
+    reach on a line that runs the width of the drawing is how a guide ended
+    up picked while aiming at the edge it was measured from. }
+  Result := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale, GUIDE_PICK_PX * FUIScale);
   if Result >= 0 then Exit;
   Result := FD.Doc.HitFace(Proj, SX, SY);
   if Result >= 0 then Exit;
@@ -22943,7 +23216,11 @@ begin
         came through the new postbox, and right: this is a program for
         measuring things, and a measured grid is how a drawing says how big
         it is before anything has been drawn on it. }
-      FShowGrid := Ini.ReadBool('look', 'grid', True);
+      { Off until somebody asks for it.  Tony, 17 September: "sketchup
+        doesnt do grid paper like we do at all... it should be off by
+        default".  A setting already saved is untouched - this is only what
+        a fresh copy starts with. }
+      FShowGrid := Ini.ReadBool('look', 'grid', False);
       { PRO unless the toy was the last thing used - the drawing side is
         what the program is for; the toy is where it came from }
       FMode := TAppMode(EnsureRange(Ini.ReadInteger('look', 'mode', 1), 0, 1));

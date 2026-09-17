@@ -1011,6 +1011,46 @@ These stay because the reasoning in them is the expensive part - the
 measurement that settled an argument, the trap that cost a day, the thing
 that looked obvious and was wrong.
 
+### The grid is a floor, and the bar says more - 17 September
+
+**The grid.**  Tony: "i am imagining a grid only being useful as a floor
+reference for viewing... a virtual floor.  not really part of your drawing
+but there as if it is in the drawing until i toggle it off."  So ISO uses
+`PaintGroundGrid` as well as 3D - the isometric lattice was paper, and its
+three families climbed the two walls - and the floor is ruled only where
+both axes are solid, the positive quarter.  Darker (0.45, and 1.0 every
+fifth line, in the theme's own grid colour) because at 0.30 on a light
+screen he pressed the button and thought nothing had happened.  It starts
+off in a fresh copy, which is his call: "it should be off by default".
+
+Worth knowing for next time: what looked like a screen-aligned paper grid
+in his 3D view was the floor, seen from az -90 where one family runs up the
+glass and the other across it.  The picture is the same either way; the
+weight was the real complaint.
+
+**The bar and the card.**  "there is some status helpers that pop up telling
+you to use alt or ctrl keys and why... SketchUp does it in the bottom of
+their status bar."  `SnapSays` puts what the cursor is holding on to in
+front of the prompt, `ModifierTip` puts the keys that would do something
+right now after it, dimmed, and `ShortKeys` is the same list short enough
+for the card beside the pointer.  Only what is true at that moment: a
+modifier named when it does nothing is tried once and never again.
+
+**Guides, again.**  "the select tool shouldnt easily snap to guides...
+sketchup makes it so the select tool needs to be right over it and it just
+changes the color of the dash line to blue... not a thick blue highlight
+like we do."  `HitEdge` takes a guide reach of its own (`GUIDE_PICK_PX`, 4
+px, against 9 for an edge), used by the picker and the select hover but not
+by the eraser, where rubbing a guide out is the point.  A guide under the
+pointer is drawn in blue along its own dashes - `PaintGuideHover`.
+
+**And what the frames cost with something picked.**  The report of 16:52
+had frames of 44 to 84 ms with nothing happening but a mouse move: every
+paint composited the selection over the whole picture and copied the whole
+picture again for the face wash.  Kept between paints now (`FShotOK`),
+rebuilt when the drawing, the selection or the face under the pointer
+changes.  A full paint with 375 things picked: 24.2 ms to 14.5.
+
 ### An update that stood still, and a report about the etch-a-sketch, 17 September
 
 **The update.**  Tony updated on Windows with a drawing open; the old copy

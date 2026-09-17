@@ -589,7 +589,13 @@ type
     procedure MoveNote(Index: Integer; const From, ToPt, Grab: TP3);
     { The same search but only over edges - lines, arcs and dimensions.
       Erasing means erasing an edge; a face is what is left behind. }
-    function HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
+    { GuideTolPx is how close the cursor has to be to a guide, which is not
+      the same question as how close to an edge: a guide is construction, it
+      runs the width of the drawing, and picking one by accident while
+      aiming at something else is what SketchUp avoids by making you be
+      right on it.  Left out, it is the same as TolPx. }
+    function HitEdge(const V: TProjector; SX, SY, TolPx: Double;
+      GuideTolPx: Double = -1): Integer;
     { The guide point nearest the cursor, or -1.  Asked before anything else
       the select tool asks, because a guide point is usually sitting on the
       very line it was measured along - and a line passing through a point
@@ -8981,7 +8987,8 @@ begin
   end;
 end;
 
-function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double): Integer;
+function TWorkDoc.HitEdge(const V: TProjector; SX, SY, TolPx: Double;
+  GuideTolPx: Double): Integer;
 var
   I: Integer;
   D, Best: Double;
@@ -9004,7 +9011,12 @@ begin
       same surprise as snapping to one }
     if (FEnts[I].Kind = ekGuide) and FGuidesHidden then Continue;
     if FEnts[I].Kind = ekGuide then
-      D := GuideScreenDist(V, FEnts[I], SX, SY)
+    begin
+      D := GuideScreenDist(V, FEnts[I], SX, SY);
+      { a guide answers on its own reach, which may be shorter than an
+        edge's - see the note on GuideTolPx }
+      if (GuideTolPx >= 0) and (D > GuideTolPx) then Continue;
+    end
     else if FEnts[I].Kind = ekArc then
       { A circle in the model is an ellipse on screen once its plane is tilted
         away from the camera, and a part arc is not a whole circle either.
