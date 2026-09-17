@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.16.6' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Round the corners of a shape with the arc tool, like SketchUp.**  Click a' + LineEnding +
+    '  point on each edge near a corner and pull the middle in towards the' + LineEnding +
+    '  corner.  When the arc curves smoothly into both edges it turns magenta and' + LineEnding +
+    '  says TANGENT TO EDGE.  Click to put it in and keep the square corner, or' + LineEnding +
+    '  double-click to trim the corner away.  Type a radius while it''s magenta to' + LineEnding +
+    '  set the size.  After that, double-click near any other corner for the same' + LineEnding +
+    '  again.' + LineEnding +
+    '- **Type a line''s length.**  Pick a line, type a new length, press Enter.' + LineEnding +
+    '  A loose line moves the end it was drawn to, a line joined at one end moves' + LineEnding +
+    '  its free end, and a line joined at both ends can''t be changed that way -' + LineEnding +
+    '  the same rule as SketchUp''s Entity Info.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
