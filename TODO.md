@@ -2388,6 +2388,42 @@ swap with an immediate payoff and it puts LazInk in the build where it can be
 lived with.  Then decide about the help, with the table question settled one
 way or the other.  Nothing here is urgent.
 
+### Our tests used up the house's GitHub allowance - 16 September 2026
+
+Tony: "my v2026.09.15.7 is not updating on my wife's computer it gets a 403
+unexpected response error... That means it probably happens on all my
+machines."  Linux Mint, same network as this machine; a few minutes later
+it "just worked after trying again".
+
+**What it was.**  GitHub's API answers sixty requests an hour per network
+address without an account.  Every drive-suite start of the program ran the
+update check - each in a fresh folder that had never checked, so the
+six-hourly throttle never applied - and an evening of full runs at twenty
+units apiece used the allowance up for everything behind the router.  Her
+check was refused; an hour later the window rolled over.  "Unexpected
+response status code: 403" is fphttpclient's wording, which is the Linux
+backend - the Windows one says "the server answered".
+
+Measured, not assumed: GitHub's own count had reset to 2 used by the time I
+looked, and after the fix a whole drive-suite run used **zero**.
+
+**Three changes.**
+* `--offline` - `uNet.NetOffline` - and nothing goes out: no update check, no
+  report.  `tools/xephyr.sh` passes it always.  Guarded at all four entry
+  points, both backends, so nothing added later can leak.
+* `FetchLatest` falls back to the release feed (`/releases.atom`) when the
+  API refuses.  The feed is served like a web page, carries every tag newest
+  first, and the files of a release are always at
+  `/releases/download/<tag>/<name>`.  Checked against the API: same tag,
+  same asset address, and the checksum file downloads from the feed's
+  address.  The size is unknown that way; the progress bar already copes.
+* `NetFriendlyError` - a 403 or 429 says GitHub is limiting this network for
+  the moment, rather than a number.
+
+Copies already out there (v2026.09.15.7 and the rest) still use the API
+alone, and they are fine once the tests stop spending the allowance - which
+they have.
+
 **The release notes window is LazInk's now - DONE 16 September.**  LazInk
 grew a page viewer, tables, lists, code and key labels, Markdown and a test
 suite in a session of its own, and is published at

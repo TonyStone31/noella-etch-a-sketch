@@ -98,8 +98,9 @@ Download the file for your computer from
 | `*-checked` | the same, with extra error checking - slower, but better crash reports |
 
 It's portable: settings and the draft live next to the program, so it can
-run from a USB stick.  It checks GitHub once a day for a newer version and
-`/update` installs it.  `--help` lists the command-line switches.
+run from a USB stick.  It checks GitHub every few hours for a newer version
+and `/update` installs it; `--offline` keeps it off the network entirely.
+`--help` lists the command-line switches.
 
 ## Problems and feedback
 

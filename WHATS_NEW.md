@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Updates no longer fail with a bare "403".**  GitHub only answers so many
+  update checks an hour from one home or office network, and when that runs
+  out the check was simply refused.  It now falls back to GitHub's release
+  page, which doesn't have that limit, and if that fails too it says so in
+  plain words instead of a number.  (Our own testing was what used it up on
+  16 September - that is fixed as well.)
+
+### New
+
+- **`--offline`** starts the program with the network switched off entirely:
+  no update check and no reports.  `--help` lists it.
+
 ## v2026.09.16.8
 
 ### New

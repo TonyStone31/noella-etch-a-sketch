@@ -52,6 +52,9 @@ function CurrentVersion: string;
 { Tags are dotted numbers - v2026.09.03.13 - compared piece by piece as
   numbers, so 13 lands after 9 rather than before it as it would as text. }
 function NewerThan(const A, B: string): Boolean;
+{ The same, from the release feed - what FetchLatest falls back to when the
+  API refuses.  Visible so it can be tested on its own. }
+function FetchFromFeed(out Info: TUpdateInfo; out Err: string): Boolean;
 function FetchLatest(out Info: TUpdateInfo; out Err: string): Boolean;
 function Download(const URL, Path: string; TotalBytes: Int64;
   OnProgress: TDownloadProgress; out Err: string): Boolean;
@@ -113,9 +116,63 @@ begin
   Result := NetGetText(URL, 'application/vnd.github+json', Body, Err);
 end;
 
+{ The newest release, read from the release feed rather than the API.
+
+  The API is the tidy way - it gives the tag, the files and their sizes in
+  one answer - but it is rate limited: sixty requests an hour per network
+  address without an account, shared by every machine behind the same
+  router.  On 16 September an evening of test runs used that up and Tony's
+  wife's computer was refused with a bare "403".
+
+  The feed is the release page as Atom, served like any web page, and it
+  carries the tag of every release newest first.  The files of a release
+  are always at /releases/download/<tag>/<name>, so the tag is all that is
+  needed; the size is not known this way, and the progress bar copes. }
+function FetchFromFeed(out Info: TUpdateInfo; out Err: string): Boolean;
+const
+  MARK = '/releases/tag/';
+var
+  Body, Tag: string;
+  P, Q: Integer;
+begin
+  Result := False;
+  if not NetGetText('https://github.com/' + UPDATE_REPO + '/releases.atom',
+       'application/atom+xml', Body, Err) then Exit;
+  { the first entry's link - the feed's own links come before the first
+    entry and point at /releases, not /releases/tag/ }
+  P := Pos('<entry>', Body);
+  if P = 0 then
+  begin
+    Err := 'the release feed lists no releases';
+    Exit;
+  end;
+  P := Pos(MARK, Copy(Body, P, MaxInt)) + P - 1;
+  if P < Pos('<entry>', Body) then
+  begin
+    Err := 'the release feed was not readable';
+    Exit;
+  end;
+  Inc(P, Length(MARK));
+  Q := P;
+  while (Q <= Length(Body)) and not (Body[Q] in ['"', '<', ' ', '''']) do Inc(Q);
+  Tag := Copy(Body, P, Q - P);
+  if (Tag = '') or (Tag[1] <> 'v') then
+  begin
+    Err := 'the release feed was not readable';
+    Exit;
+  end;
+  Info.Tag := Tag;
+  Info.AssetURL := 'https://github.com/' + UPDATE_REPO + '/releases/download/' +
+    Tag + '/' + ASSET_NAME;
+  Info.SumsURL := 'https://github.com/' + UPDATE_REPO + '/releases/download/' +
+    Tag + '/SHA256SUMS';
+  Info.Size := 0;
+  Result := True;
+end;
+
 function FetchLatest(out Info: TUpdateInfo; out Err: string): Boolean;
 var
-  Body, N: string;
+  Body, N, ApiErr: string;
   J, A: TJSONData;
   Arr: TJSONArray;
   O: TJSONObject;
@@ -128,7 +185,15 @@ begin
   Info.Size := 0;
 
   if not GetText('https://api.github.com/repos/' + UPDATE_REPO +
-       '/releases/latest', Body, Err) then Exit;
+       '/releases/latest', Body, Err) then
+  begin
+    { the API said no - most likely its rate limit; the feed is the way
+      round it, and only if that fails too does anybody hear about either }
+    ApiErr := Err;
+    if FetchFromFeed(Info, Err) then Exit(True);
+    Err := NetFriendlyError(ApiErr);
+    Exit;
+  end;
 
   J := nil;
   try

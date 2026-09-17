@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Updates no longer fail with a bare "403".**  GitHub only answers so many' + LineEnding +
+    '  update checks an hour from one home or office network, and when that runs' + LineEnding +
+    '  out the check was simply refused.  It now falls back to GitHub''s release' + LineEnding +
+    '  page, which doesn''t have that limit, and if that fails too it says so in' + LineEnding +
+    '  plain words instead of a number.  (Our own testing was what used it up on' + LineEnding +
+    '  16 September - that is fixed as well.)' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`--offline`** starts the program with the network switched off entirely:' + LineEnding +
+    '  no update check and no reports.  `--help` lists it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

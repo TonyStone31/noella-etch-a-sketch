@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls,
-  uUpdate;
+  uUpdate, uNet;
 
 type
   TUpdateForm = class(TForm)
@@ -124,7 +124,7 @@ begin
   FLastPaint := 0;
   if not Download(FInfo.AssetURL, FTmp, FInfo.Size, @DownloadProgress, Err) then
   begin
-    Fail('The download failed: ' + Err);
+    Fail('The download failed: ' + NetFriendlyError(Err));
     Exit;
   end;
 

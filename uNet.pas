@@ -43,6 +43,24 @@ function NetBackend: string;
 const
   USER_AGENT = 'heckers-sketch';
 
+var
+  { Set by --offline.  Nothing goes out while it is on - not the update
+    check, not a report - and everything that would have says why.
+
+    Made for the tests, and made after they cost the house its updates.  The
+    drive suite starts the program dozens of times an hour, each in a fresh
+    folder, so the six-hourly throttle never applied and every start asked
+    GitHub's API what the newest release was.  GitHub allows sixty of those
+    an hour per address without an account, and after an evening of test
+    runs Tony's wife's computer, behind the same router, was refused: "403
+    unexpected response". }
+  NetOffline: Boolean = False;
+
+{ What a failed exchange should say to a person.  A 403 or a 429 from GitHub
+  is almost always its rate limit, which is about the network the machine is
+  on rather than about the machine, and clears on its own within the hour. }
+function NetFriendlyError(const Err: string): string;
+
 implementation
 
 uses
@@ -51,6 +69,15 @@ uses
   {$ELSE}
   fphttpclient, opensslsockets
   {$ENDIF};
+
+function NetFriendlyError(const Err: string): string;
+begin
+  if (Pos('403', Err) > 0) or (Pos('429', Err) > 0) then
+    Result := 'GitHub is limiting requests from this network for the moment ' +
+      '- try again within the hour'
+  else
+    Result := Err;
+end;
 
 { Host and path out of a URL.  WinHTTP has WinHttpCrackUrl for this, which
   wants a struct with eleven fields filled in exactly right; the four things
@@ -304,6 +331,12 @@ function NetGet(const URL, Accept: string; Dest: TStream;
 var
   H: string;
 begin
+  Status := 0;
+  if NetOffline then
+  begin
+    Err := 'offline (--offline)';
+    Exit(False);
+  end;
   H := '';
   if Accept <> '' then H := 'Accept: ' + Accept;
   Result := Exchange('GET', URL, H, nil, Dest, 60000, Status, Err);
@@ -312,6 +345,12 @@ end;
 function NetPost(const URL: string; Data: TStream; const ContentType: string;
   out Status: Integer; out Err: string): Boolean;
 begin
+  Status := 0;
+  if NetOffline then
+  begin
+    Err := 'offline (--offline)';
+    Exit(False);
+  end;
   Result := Exchange('POST', URL, 'Content-Type: ' + ContentType, Data, nil,
     60000, Status, Err);
 end;
@@ -331,6 +370,11 @@ begin
   Result := False;
   Status := 0;
   Err := '';
+  if NetOffline then
+  begin
+    Err := 'offline (--offline)';
+    Exit;
+  end;
   C := TFPHTTPClient.Create(nil);
   try
     C.AllowRedirect := True;
@@ -364,6 +408,11 @@ begin
   Result := False;
   Status := 0;
   Err := '';
+  if NetOffline then
+  begin
+    Err := 'offline (--offline)';
+    Exit;
+  end;
   C := TFPHTTPClient.Create(nil);
   Sink := TStringStream.Create('');
   try

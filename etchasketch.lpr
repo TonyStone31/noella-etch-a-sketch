@@ -12,7 +12,7 @@ uses
   Interfaces, // this includes the LCL widgetset
   Forms, SysUtils, printer4lazarus,
   {$IFDEF WINDOWS}Windows,{$ENDIF}
-  uSurface, uTri, uSkin, uShoot, uDlgSkin, uRecord, uExport, uExample, uWork, uPaths, uSingle, uSplash, uMain;
+  uSurface, uTri, uSkin, uShoot, uDlgSkin, uRecord, uExport, uExample, uWork, uPaths, uSingle, uSplash, uNet, uMain;
 
 {$R *.res}
 
@@ -71,6 +71,7 @@ begin
     WriteLn('  --size=1600x1000   open at a particular size, centerd');
     WriteLn('  --multi            open a second copy anyway');
     WriteLn('  --no-splash        skip the start-up screen');
+    WriteLn('  --offline          never use the network - no update check, no reports');
     WriteLn('  --blank            start on an empty sheet - no draft, no example');
     WriteLn('                     (the last draft is kept as ...-before-blank.hsk)');
     WriteLn('  --updated          wait for the copy being replaced to go');
@@ -114,7 +115,7 @@ begin
 end;
 
 var
-  UpdateWait: Integer;
+  UpdateWait, I: Integer;
 
 begin
   if AskedForHelp then Halt(0);
@@ -128,6 +129,10 @@ begin
     ShowAlreadyRunning;
     Halt(0);
   end;
+
+  { --offline: nothing goes out to the network - see uNet.NetOffline }
+  for I := 1 to ParamCount do
+    if LowerCase(ParamStr(I)) = '--offline' then uNet.NetOffline := True;
 
   RequireDerivedFormResource := True;
   Application.Scaled := True;
