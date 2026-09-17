@@ -1037,6 +1037,7 @@ type
       text.  One place, so a crash report and a report somebody writes by
       hand say the same things about the same program. }
     function DiagnosticText: string;
+    function SettingsText: string;
     { The drawing as it stood, beside the report, so it can be opened here. }
     procedure SaveCrashDoc(const ReportPath: string);
     procedure ShakeWatch(X, Y: Integer);
@@ -1287,6 +1288,7 @@ type
     procedure SaveSettings;
     procedure ShowAbout;
     procedure ShowFacts(const Title, AText: string);
+    procedure ShowLongText(const Title, AText: string);
   end;
 
 var
@@ -1295,7 +1297,7 @@ var
 implementation
 
 uses
-  FileUtil, uHelpDocs, uHelpView;
+  FileUtil, Clipbrd, uHelpDocs, uHelpView;
 
 {$R *.lfm}
 
@@ -1373,7 +1375,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The aliases all
     still work; they are in the README. }
-  CMD_LIST: array[0..70] of TCmdItem = (
+  CMD_LIST: array[0..71] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1442,6 +1444,7 @@ const
     (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False;
                          Eg:   '/session session.txt'),
     (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False),
+    (Name: 'state';      Hint: 'what a report says about the program right now'; Arg: False),
     (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False),
     (Name: 'text';       Hint: 'a note on the drawing';                 Arg: False),
     (Name: 'threads';    Hint: 'background work, on or off';            Arg: False),
@@ -9719,6 +9722,7 @@ begin
       specialize IfThen<string>(Note = '', '(nothing written)', Note) +
       LineEnding + LineEnding +
       'state:' + LineEnding + DiagnosticText +
+      LineEnding + 'settings and circumstances:' + LineEnding + SettingsText +
       LineEnding + 'machine:' + LineEnding + MachineText;
     if FReportExtra <> '' then
       Body := Body + LineEnding + 'in the dialog:' + LineEnding + FReportExtra;
@@ -13593,6 +13597,16 @@ begin
     Trail('machine:' + LineEnding + MachineText);
     ShowFacts('This machine, as a report says it', MachineText);
   end
+  else if W = 'state' then
+  begin
+    { the rest of a report - what the program was doing and how it was set }
+    FCmdMsg := 'That is what goes with a report about the program right now.';
+    WriteLn(DiagnosticText);
+    WriteLn(SettingsText);
+    Flush(Output);
+    ShowLongText('The program, as a report says it',
+      DiagnosticText + LineEnding + SettingsText);
+  end
   else if W = 'timings' then
   begin
     FTimings := not FTimings;
@@ -14729,6 +14743,231 @@ begin
     'drawing below:' + LineEnding + ActsText;
 end;
 
+{ Everything else the program knows about how it was being used.
+
+  Tony, 17 September, after a report about sluggishness that did not say the
+  grid was off: "the reports need to include as much info as possible ...
+  it could mean 10 hours tracing a bug or 10 minutes."  So this is the long
+  list - how it was started, the window and the screen it is on, the view
+  cube, what every tool is set to, every sheet that is open, and what was
+  on the go - and it is cheap, because every line is a field already held.
+
+  The rule from uSysInfo still holds: nothing about the person.  A file
+  named on the command line is written as <file>, never as its path, and a
+  sheet is numbered rather than named.  Each group is guarded on its own so
+  one bad value costs a line, not the report. }
+function TMainForm.SettingsText: string;
+const
+  FILL_NAMES: array[0..2] of string = ('normal', 'maximized', 'full screen');
+  TOUCH_NAMES: array[TTouchMode] of string =
+    ('none', 'pending', 'as mouse', 'gesture', 'spent');
+  CORNER_NAMES: array[0..3] of string =
+    ('top left', 'top right', 'bottom left', 'bottom right');
+  ERASE_NAMES: array[0..2] of string = ('delete', 'soften', 'unsoften');
+  PLANE_NAMES: array[TPlane] of string = ('XY', 'XZ', 'YZ', 'free');
+  TAPE_NAMES: array[0..3] of string =
+    ('line and point', 'point', 'line', 'nothing');
+  KIND_NAMES: array[TEntKind] of string =
+    ('line', 'arc', 'note', 'dim', 'face', 'guide', 'bore');
+var
+  R: string;
+
+  procedure Add(const Line: string);
+  begin
+    R := R + Line + LineEnding;
+  end;
+
+  function YN(B: Boolean): string;
+  begin
+    if B then Result := 'on' else Result := 'off';
+  end;
+
+  function Args: string;
+  var
+    I, Eq: Integer;
+    A: string;
+  begin
+    Result := '';
+    for I := 1 to ParamCount do
+    begin
+      A := ParamStr(I);
+      if (A = '') or (A[1] <> '-') then
+        A := '<file>'
+      else
+      begin
+        { a switch's value is kept unless it looks like a place on disk }
+        Eq := Pos('=', A);
+        if (Eq > 0) and ((Pos('/', A) > 0) or (Pos('\', A) > 0) or
+           (Pos(':', Copy(A, Eq, MaxInt)) > 0)) then
+          A := Copy(A, 1, Eq) + '<file>';
+      end;
+      Result := Result + ' ' + A;
+    end;
+    if Result = '' then Result := ' (none)';
+  end;
+
+  function SelKinds: string;
+  var
+    N: array[TEntKind] of Integer;
+    K: TEntKind;
+    I: Integer;
+  begin
+    for K := Low(TEntKind) to High(TEntKind) do N[K] := 0;
+    for I := 0 to High(FSel) do
+      if (FSel[I] >= 0) and (FSel[I] < FD.Doc.Live) then
+        Inc(N[FD.Doc[FSel[I]].Kind]);
+    Result := '';
+    for K := Low(TEntKind) to High(TEntKind) do
+      if N[K] > 0 then
+        Result := Result + Format(' %s=%d', [KIND_NAMES[K], N[K]]);
+    if Result = '' then Result := ' none';
+  end;
+
+  function Forms_: string;
+  var
+    I: Integer;
+  begin
+    Result := '';
+    for I := 0 to Screen.CustomFormCount - 1 do
+      if Screen.CustomForms[I].Visible then
+        Result := Result + ' ' + Screen.CustomForms[I].ClassName;
+    if Screen.ActiveCustomForm <> nil then
+      Result := Result + '  (active ' + Screen.ActiveCustomForm.ClassName + ')';
+    if Screen.ActiveControl <> nil then
+      Result := Result + '  (focus ' + Screen.ActiveControl.ClassName + ')';
+  end;
+
+var
+  I, J, Groups, G, Grps: Integer;
+  Known: Boolean;
+  D: TDrawing;
+  M: TMonitor;
+  Seen: array of Integer;
+begin
+  R := '';
+  try
+    Add('started with:' + Args);
+    Add(Format('run tag=%s  updated from=%s  whats new shown=%s  ' +
+      'draft restored=%s (age %d)  crash offered=%s  offline=%s',
+      [FRunTag, specialize IfThen<string>(FUpdatedFrom = '', '-', FUpdatedFrom),
+       YN(FWhatsNewShown), YN(FRestored), FDraftAge, YN(FCrashToOffer),
+       YN(NetOffline)]));
+    Add(Format('update seen=%s  help pages=%s%s  drawing file=%s  ' +
+      'threads=%s  timings=%s',
+      [specialize IfThen<string>(FUpdateTag = '', '-', FUpdateTag),
+       specialize IfThen<string>(LocalHelpVersion = '', 'none', LocalHelpVersion),
+       specialize IfThen<string>(HelpFetching <> nil, ' (fetching)', ''),
+       specialize IfThen<string>(FDocPath = '', 'never saved', 'saved as ' +
+         ExtractFileExt(FDocPath)),
+       YN(FThreads), YN(FTimings)]));
+  except
+    on E: Exception do Add('start facts failed: ' + E.ClassName);
+  end;
+
+  try
+    Add(Format('window: %s  %d,%d %dx%d  state=%d  client %dx%d  ' +
+      'drawing area %dx%d  tools wide=%s  info panel=%s  dials=%s',
+      [FILL_NAMES[Ord(FFill)], Left, Top, Width, Height, Ord(WindowState),
+       ClientWidth, ClientHeight, pbScreen.Width, pbScreen.Height,
+       YN(FToolsWide), YN(FInfoOn), YN(FProDials)]));
+    M := Monitor;
+    if M <> nil then
+      Add(Format('on monitor %d of %d: %d,%d %dx%d at %d dpi (screen says %d)' +
+        ', primary=%s',
+        [M.MonitorNum + 1, Screen.MonitorCount, M.Left, M.Top, M.Width,
+         M.Height, M.PixelsPerInch, Screen.PixelsPerInch, YN(M.Primary)]));
+    Add('forms showing:' + Forms_);
+  except
+    on E: Exception do Add('window facts failed: ' + E.ClassName);
+  end;
+
+  try
+    Add(Format('look: theme=%s grid=%s edge width=%d ink=%s%s ' +
+      'rounded to 1/%d  circle sides=%d arc sides=%d',
+      [Theme.Name, YN(FShowGrid), FEdgeW, IntToHex(ColorToRGB(FInkColor), 6),
+       specialize IfThen<string>(FInkAuto, ' (auto)', ''),
+       FLenDenom, FSidesCircle, FSidesArc]));
+    Add(Format('view cube=%s corner=%s fit to selection=%s hot=%s ' +
+      'dragging=%s  glide=%.2f  orbit snap target=%s  preset=%d',
+      [YN(FCubeOn), CORNER_NAMES[FCubeCorner and 3], YN(FCubeFitSel),
+       YN(FCubeHasHot), YN(FCubeDrag), FGlideT, YN(FSnapHasHot),
+       FViewPreset]));
+  except
+    on E: Exception do Add('look facts failed: ' + E.ClassName);
+  end;
+
+  try
+    Add(Format('tool options: tape leaves=%s erase=%s move copy=%s ' +
+      'rigid=%s detach=%s dirlock=%d last push=%s last radius=%s ' +
+      'fillet pending=%s',
+      [TAPE_NAMES[Max(0, Min(3, FTapeDrop))], ERASE_NAMES[Max(0, Min(2, FEraseMode))], YN(FMoveCopy),
+       YN(FMoveRigid), YN(FDetachMove), FDirLock,
+       FormatLen(FLastPush, FD.Units), FormatLen(FLastFilletR, FD.Units),
+       YN(FFilletPending)]));
+    Add(Format('going on: typed="%s" popup=%d clicks=%d boxing=%s ' +
+      'panning=%s orbiting=%s freehand=%s erasing=%s moving=%s busy=%s ' +
+      'loading=%s dim edit=%d cut edit=%d camera moving=%s',
+      [FInput, FPopup, FClickN, YN(FBoxing), YN(FPanning), YN(FOrbiting),
+       YN(FFreehand), YN(FErasing2), YN(FMovePending), YN(FBusy),
+       YN(FLoading), FDimEdit, FSliceEdit, YN(FCameraMoving)]));
+    Add(Format('bar said: "%s"', [FCmdMsg]));
+    Add(Format('touch: seen=%s mode=%s down=%s points=%d  keys: arrows=%s%s%s%s ' +
+      'boost=%s precise=%s',
+      [YN(FTouchOn), TOUCH_NAMES[FTouchMode], YN(FTouchDown), FTouchCount,
+       specialize IfThen<string>(FKeyLeft, 'L', '-'),
+       specialize IfThen<string>(FKeyRight, 'R', '-'),
+       specialize IfThen<string>(FKeyUp, 'U', '-'),
+       specialize IfThen<string>(FKeyDown, 'D', '-'),
+       YN(FBoost), YN(FPrecise)]));
+    Add('selected:' + SelKinds);
+    if FMode = mdToy then
+      Add(Format('toy: pen=%d style=%s hue=%.0f symmetry=%d mirror=%s auto=%s',
+        [FPenSize, STYLE_NAMES[FStyle], FHue, FSym, YN(FMirror), YN(FAuto)]));
+  except
+    on E: Exception do Add('tool facts failed: ' + E.ClassName);
+  end;
+
+  try
+    Add(Format('sheets open: %d', [Length(FDrawings)]));
+    for I := 0 to High(FDrawings) do
+    begin
+      D := FDrawings[I];
+      if D = nil then Continue;
+      { solids, counted by their group numbers }
+      Groups := 0;
+      SetLength(Seen, 0);
+      for G := 0 to D.Doc.Live - 1 do
+      begin
+        Grps := D.Doc[G].Grp;
+        if Grps <= 0 then Continue;
+        Known := False;
+        for J := 0 to High(Seen) do
+          if Seen[J] = Grps then Known := True;
+        if not Known then
+        begin
+          SetLength(Seen, Length(Seen) + 1);
+          Seen[High(Seen)] := Grps;
+          Inc(Groups);
+        end;
+      end;
+      Add(Format('  sheet %d%s: things=%d solids=%d modified=%s view=%s ' +
+        'plane=%s units=%s scale=%s snap=%s zoom=%.3f az=%.1f el=%.1f ' +
+        'cut=%s (%s to %s) guides=%s undo=%d redo=%d',
+        [I + 1, specialize IfThen<string>(I = FTabIdx, ' (showing)', ''),
+         D.Doc.Live, Groups, YN(D.Dirty), VIEW_NAMES[D.View], PLANE_NAMES[D.Plane],
+         uWork.UnitName(D.Units), ScaleTable(D.Units, D.ScaleIdx).Name,
+         SnapName(D.Units, D.SnapIdx), D.Zoom, RadToDeg(D.Az),
+         RadToDeg(D.El), YN(D.SliceOn), FormatLen(D.SliceLo, D.Units),
+         FormatLen(D.SliceHi, D.Units),
+         specialize IfThen<string>(D.Doc.GuidesHidden, 'hidden', 'shown'),
+         D.UndoTop, D.RedoTop]));
+    end;
+  except
+    on E: Exception do Add('sheet facts failed: ' + E.ClassName);
+  end;
+  Result := R;
+end;
+
 { Put everything down.
 
   Whatever threw was almost certainly reached from a tool part way through
@@ -14799,6 +15038,7 @@ begin
     CurrentVersion, ' built ', BUILD_STAMP);
       WriteLn(F, E.ClassName, ': ', E.Message);
       Write(F, DiagnosticText);
+      Write(F, SettingsText);
       Write(F, MachineText);
       WriteLn(F, BackTraceStrFunc(ExceptAddr));
       if ExceptFrameCount > 0 then
@@ -22594,6 +22834,65 @@ begin
     Box.ShowModal;
   finally
     Box.Free;
+  end;
+end;
+
+{ A long report section, to read and copy.  The facts box above paints a
+  line a row and fits /sysinfo; /state is sixty lines, some of them wider
+  than any window, with times in them that the box took for "name: value".
+  So a plain text box that scrolls, and a button to copy it all. }
+procedure TMainForm.ShowLongText(const Title, AText: string);
+var
+  Dlg: TForm;
+  Memo: TMemo;
+  Bar: TPanel;
+  BtnCopy, BtnClose: TButton;
+begin
+  Dlg := TForm.CreateNew(nil);
+  try
+    Dlg.Caption := Title;
+    Dlg.Position := poMainFormCenter;
+    Dlg.BorderStyle := bsSizeable;
+    Dlg.ClientWidth := Min(Round(1000 * FUIScale), Screen.WorkAreaWidth - 80);
+    Dlg.ClientHeight := Min(Round(640 * FUIScale), Screen.WorkAreaHeight - 80);
+    Dlg.KeyPreview := True;
+    Bar := TPanel.Create(Dlg);
+    Bar.Parent := Dlg;
+    Bar.Align := alBottom;
+    Bar.Height := Round(48 * FUIScale);
+    Bar.BevelOuter := bvNone;
+    BtnClose := TButton.Create(Dlg);
+    BtnClose.Parent := Bar;
+    BtnClose.Caption := 'Close';
+    BtnClose.ModalResult := mrOK;
+    BtnClose.Cancel := True;
+    BtnClose.Default := True;
+    BtnClose.SetBounds(Bar.Width - Round(120 * FUIScale), Round(8 * FUIScale),
+      Round(110 * FUIScale), Round(32 * FUIScale));
+    BtnClose.Anchors := [akTop, akRight];
+    BtnCopy := TButton.Create(Dlg);
+    BtnCopy.Parent := Bar;
+    BtnCopy.Caption := 'Copy it all';
+    BtnCopy.ModalResult := mrYes;
+    BtnCopy.SetBounds(Bar.Width - Round(250 * FUIScale), Round(8 * FUIScale),
+      Round(122 * FUIScale), Round(32 * FUIScale));
+    BtnCopy.Anchors := [akTop, akRight];
+    Memo := TMemo.Create(Dlg);
+    Memo.Parent := Dlg;
+    Memo.Align := alClient;
+    Memo.ReadOnly := True;
+    Memo.WordWrap := False;
+    Memo.ScrollBars := ssBoth;
+    Memo.Font.Name := {$IFDEF WINDOWS}'Consolas'{$ELSE}'Monospace'{$ENDIF};
+    Memo.Font.Height := -Round(13 * FUIScale);
+    Memo.Lines.Text := AText;
+    if Dlg.ShowModal = mrYes then
+    begin
+      Clipboard.AsText := AText;
+      FCmdMsg := 'Copied.';
+    end;
+  finally
+    Dlg.Free;
   end;
 end;
 

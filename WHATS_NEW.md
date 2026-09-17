@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Problem reports say much more about how the program was set up** - how
+  it was started, the window and screen, the theme and grid, the view
+  cube, each tool's settings, and every open sheet.  Nothing about you;
+  type `/state` to see exactly what would go.
+
 ## v2026.09.17.3
 
 ### Fixed
