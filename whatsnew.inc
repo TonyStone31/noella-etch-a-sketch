@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Problem reports say much more about how the program was set up** - how' + LineEnding +
+    '  it was started, the window and screen, the theme and grid, the view' + LineEnding +
+    '  cube, each tool''s settings, and every open sheet.  Nothing about you;' + LineEnding +
+    '  type `/state` to see exactly what would go.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
