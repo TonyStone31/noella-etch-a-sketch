@@ -766,6 +766,30 @@ var
     D.SetFaceHoles(Ring, Holes);
   end;
 
+  { every upright face inside the opening's footprint points at its middle }
+  function LiningFacesIn: Boolean;
+  var
+    K, Q, N: Integer;
+    Mid, Nm: TP3;
+  begin
+    Result := True;
+    N := 0;
+    for K := 0 to D.Live - 1 do
+    begin
+      if (D[K].Kind <> ekFace) or (Length(D[K].Poly) <> 4) then Continue;
+      Nm := D.FaceNormal(K);
+      if Abs(Nm.Z) > 0.5 then Continue;
+      Mid := P3(0, 0, 0);
+      for Q := 0 to 3 do
+        Mid := P3(Mid.X + D[K].Poly[Q].X / 4, Mid.Y + D[K].Poly[Q].Y / 4, 0);
+      { the lining is the walls standing on the 8 x 4 opening }
+      if (Mid.X < 0.5) or (Mid.X > 9.5) or (Mid.Y < 0.5) or (Mid.Y > 5.5) then Continue;
+      Inc(N);
+      if Nm.X * (5 - Mid.X) + Nm.Y * (3 - Mid.Y) <= 0 then Result := False;
+    end;
+    if N <> 4 then Result := False;
+  end;
+
 begin
   WriteLn('the lining of an opening pushed up');
   for I := 0 to 1 do
@@ -780,6 +804,11 @@ begin
       { and the lining really is there: four walls inside, four outside }
       Ok(CountKind(D, ekFace) >= 10,
          'two caps, four walls and four lining pieces');
+      { Closed is not the same as right way out: every edge can be shared
+        properly by a solid that is inside out.  The lining has to face the
+        opening, or the pit's walls are taken for backs and the edges behind
+        them show through - Tony's report of 17 September. }
+      Ok(LiningFacesIn, 'the lining faces into the opening, not into the wall');
     finally
       D.Free;
     end;
@@ -3878,6 +3907,130 @@ begin
   for I := 0 to High(R) do
     Worst := Max(Worst, Abs(R[I].Z - 4));
   Ok(Worst < 1E-9, Format('the top offsets at z = 4, not on the ground (worst %.3g off)', [Worst]));
+end;
+
+{ The cheap one pixel line the ground grid is ruled with. }
+procedure TestHairLine;
+var
+  S: TArtSurface;
+  X, Lit, Off: Integer;
+  P: PPix;
+begin
+  WriteLn('-- hairlines');
+  S := TArtSurface.Create(200, 100);
+  try
+    S.Clear(Pix(255, 255, 255));
+    S.HairLine(10, 50.5, 190, 50.5, Pix(0, 0, 0), 1);
+    Lit := 0;
+    for X := 0 to 199 do
+    begin
+      P := S.ScanLine(50);
+      Inc(P, X);
+      if P^.R < 128 then Inc(Lit);
+    end;
+    Ok((Lit >= 175) and (Lit <= 185), Format('a level line lights its own row (%d pixels)', [Lit]));
+    Off := 0;
+    for X := 0 to 199 do
+    begin
+      P := S.ScanLine(20);
+      Inc(P, X);
+      if P^.R < 250 then Inc(Off);
+    end;
+    Ok(Off = 0, 'and nothing thirty rows away');
+    { a line a million pixels long, and one that is not a line at all }
+    S.HairLine(-1E6, -3E5, 1E6, 4E5, Pix(0, 0, 0), 0.5);
+    S.HairLine(NaN, 0, 10, 10, Pix(0, 0, 0), 1);
+    S.HairLine(-50, -50, -10, -10, Pix(0, 0, 0), 1);
+    Ok(True, 'lines far off the surface, or made of NaN, draw without trouble');
+  finally
+    S.Free;
+  end;
+end;
+
+{ A rounded rectangle taken in further than its corners' radius.  Every
+  piece of each rounded corner used to turn round and come out as a little
+  loop the wrong way about - Tony, 17 September.  The rounding is used up
+  instead, and the corner is sharp, the way SketchUp does it. }
+procedure TestOffsetRoundedCorners;
+const
+  W = 12; H = 7; R = 1; STEPS = 12;
+var
+  Loop, Got: TP3Array;
+  C: array[0..3] of TP3;
+  I, K, N: Integer;
+  A, MinX, MaxX, MinY, MaxY: Double;
+  Crossed: Boolean;
+
+  procedure Put(const P: TP3);
+  begin
+    SetLength(Loop, Length(Loop) + 1);
+    Loop[High(Loop)] := P;
+  end;
+
+  function SegsCross(const P1, P2, P3_, P4: TP3): Boolean;
+  var
+    D1, D2, D3, D4: Double;
+  begin
+    D1 := (P4.X - P3_.X) * (P1.Y - P3_.Y) - (P4.Y - P3_.Y) * (P1.X - P3_.X);
+    D2 := (P4.X - P3_.X) * (P2.Y - P3_.Y) - (P4.Y - P3_.Y) * (P2.X - P3_.X);
+    D3 := (P2.X - P1.X) * (P3_.Y - P1.Y) - (P2.Y - P1.Y) * (P3_.X - P1.X);
+    D4 := (P2.X - P1.X) * (P4.Y - P1.Y) - (P2.Y - P1.Y) * (P4.X - P1.X);
+    Result := (D1 * D2 < -1E-12) and (D3 * D4 < -1E-12);
+  end;
+
+  function SelfCrosses(const L: TP3Array): Boolean;
+  var
+    P, Q, M: Integer;
+  begin
+    Result := False;
+    M := Length(L);
+    for P := 0 to M - 1 do
+      for Q := P + 2 to M - 1 do
+      begin
+        if (P = 0) and (Q = M - 1) then Continue;
+        if SegsCross(L[P], L[(P + 1) mod M], L[Q], L[(Q + 1) mod M]) then Exit(True);
+      end;
+  end;
+
+begin
+  WriteLn('-- offsetting a rounded rectangle');
+  { anticlockwise, each corner an arc of STEPS pieces }
+  C[0] := P3(W - R, R, 0);  C[1] := P3(W - R, H - R, 0);
+  C[2] := P3(R, H - R, 0);  C[3] := P3(R, R, 0);
+  Loop := nil;
+  for K := 0 to 3 do
+    for I := 0 to STEPS do
+    begin
+      A := (K - 1) * Pi / 2 + I * (Pi / 2) / STEPS;
+      Put(P3(C[K].X + R * Cos(A), C[K].Y + R * Sin(A), 0));
+    end;
+
+  Got := OffsetLoop(Loop, P3(0, 0, 1), -0.5);
+  Ok(Length(Got) >= 4 * STEPS, Format('in by half the radius, the corners stay round (%d points)', [Length(Got)]));
+  Ok(not SelfCrosses(Got), 'and the outline does not cross itself');
+
+  Got := OffsetLoop(Loop, P3(0, 0, 1), -2);
+  N := Length(Got);
+  Crossed := SelfCrosses(Got);
+  Ok(not Crossed, 'in by twice the radius, the outline does not cross itself');
+  MinX := 1E9; MaxX := -1E9; MinY := 1E9; MaxY := -1E9;
+  for I := 0 to N - 1 do
+  begin
+    MinX := Min(MinX, Got[I].X); MaxX := Max(MaxX, Got[I].X);
+    MinY := Min(MinY, Got[I].Y); MaxY := Max(MaxY, Got[I].Y);
+  end;
+  Ok((Abs(MinX - 2) < 1E-6) and (Abs(MaxX - (W - 2)) < 1E-6) and
+     (Abs(MinY - 2) < 1E-6) and (Abs(MaxY - (H - 2)) < 1E-6),
+    Format('it is the rectangle taken in by 2 (%.3f..%.3f by %.3f..%.3f)', [MinX, MaxX, MinY, MaxY]));
+  K := 0;
+  for I := 0 to N - 1 do
+    if ((Abs(Got[I].X - 2) < 1E-6) or (Abs(Got[I].X - (W - 2)) < 1E-6)) and
+       ((Abs(Got[I].Y - 2) < 1E-6) or (Abs(Got[I].Y - (H - 2)) < 1E-6)) then Inc(K);
+  Ok(K = 4, Format('with four sharp corners where the rounding was used up (%d of %d points are corners)', [K, N]));
+
+  Got := OffsetLoop(Loop, P3(0, 0, 1), 2);
+  Ok((Length(Got) >= 4 * STEPS) and not SelfCrosses(Got),
+    'out by twice the radius, the corners stay round and it does not cross itself');
 end;
 
 procedure TestOffset;
@@ -7551,6 +7704,8 @@ begin
   TestProjectRoundTrip;  WriteLn;
   TestPlaneByDrag;  WriteLn;
   TestOffset;       WriteLn;
+  TestOffsetRoundedCorners;  WriteLn;
+  TestHairLine;  WriteLn;
   TestPushAfterOffset; WriteLn;
   TestDimNote;      WriteLn;
   TestDimResize;    WriteLn;

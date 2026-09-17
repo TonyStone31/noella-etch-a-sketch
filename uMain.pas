@@ -628,6 +628,8 @@ type
     FRunTag: string;
     FDraftAge: Integer;
     FRestored: Boolean;
+    { closing because an update is taking over - nothing is asked }
+    FHandingOver: Boolean;
     { Letting go of a run of lines by leaning on the button.
 
       Hold the left button still and the rubber band stops being a rubber
@@ -802,6 +804,9 @@ type
       overlay does not paint it again pixel by pixel - see pbScreenPaint }
     FHintInShot: Integer;
     FHintShot: TArtSurface;
+    { the paper's fill, made once per theme and size - see RepaintPaper }
+    FPaperBase: TArtSurface;
+    FPaperBaseKey: string;
     { 0 when the pointer is on the button out of the toy, -1 when it is not }
     FHotMode: Integer;
     FHotView: Integer;
@@ -1290,6 +1295,8 @@ type
     function LoadedWords: string;
     procedure EndBusy;
     function RestoreDraft: Boolean;
+    procedure WriteHandoff;
+    function RestoreHandoff: Boolean;
     function LoadExample: Boolean;
     procedure WriteExamples;
     procedure LoadSettings;
@@ -2748,6 +2755,8 @@ var
 begin
   CanClose := True;
   if FMode <> mdPro then Exit;
+  { an update is taking over, and has the drawings already - see DoUpdate }
+  if FHandingOver then Exit;
   N := AnyDirty;
   if N = 0 then Exit;
 
@@ -2805,6 +2814,7 @@ begin
     FDrawings[I].Free;
   FOverlay.Free;
   FHintShot.Free;
+  FPaperBase.Free;
   FSelShot.Free;
   for I := 0 to 1 do
     FKnobSkin[I].Free;
@@ -2874,6 +2884,12 @@ begin
   { Nothing named on the command line, so carry on from last time.  A file
     asked for by name always wins - it is a clear instruction, and the draft
     is only a safety net. }
+  { After an update, the drawings the old copy handed over - every sheet, its
+    file, and what is not saved.  Any other time a handoff is left over from
+    an update that never got as far as starting this, and the draft beside
+    it is at least as new, so it goes. }
+  if not Opened and (FUpdatedFrom <> '') then Opened := RestoreHandoff;
+  if FileExists(HandoffFile) then DeleteFile(HandoffFile);
   if not Opened then Opened := RestoreDraft;
   { Still nothing?  Then this is either somebody's first run or a fresh
     folder, and an empty sheet is a poor way to explain what a drawing
@@ -4676,6 +4692,11 @@ begin
 
   Col := MixPix(Theme.Screen1, Theme.Grid, 0.85);
   Fade := 0.30;
+  { Hairlines, not the general line.  The general one measures its distance
+    from every pixel near it, which on a hundred and ninety faint lines was
+    most of every orbiting frame on Tony's machine - 17 September, "zooming
+    and moving around is not as smooth as it used to be".  These are one
+    pixel wide and faint, and the cheap antialiasing looks the same. }
 
   Drawn := 0;
   Missed := 0;
@@ -4687,7 +4708,7 @@ begin
     PA := ScreenOf(P3(V, Y0, 0));
     PB := ScreenOf(P3(V, Y1, 0));
     if Offscreen(PA, PB) then Inc(Missed)
-    else begin FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade); Inc(Drawn); end;
+    else begin FPaper.HairLine(PA.X, PA.Y, PB.X, PB.Y, Col, Fade); Inc(Drawn); end;
     V := V + PitchX;
     Inc(N);
   end;
@@ -4699,7 +4720,7 @@ begin
     PA := ScreenOf(P3(X0, V, 0));
     PB := ScreenOf(P3(X1, V, 0));
     if Offscreen(PA, PB) then Inc(Missed)
-    else begin FPaper.Line(PA.X, PA.Y, PB.X, PB.Y, 1.0, Col, Fade); Inc(Drawn); end;
+    else begin FPaper.HairLine(PA.X, PA.Y, PB.X, PB.Y, Col, Fade); Inc(Drawn); end;
     V := V + PitchY;
     Inc(N);
   end;
@@ -4840,6 +4861,7 @@ end;
   one guard here enough. }
 procedure TMainForm.RepaintPaper;
 var
+  Key: string;
   GridPitch: Double;
   T0, TBase, TGrid: QWord;
   Sig: TPaperSig;
@@ -4857,7 +4879,23 @@ begin
   try
   if FMode = mdPro then
   begin
-    PaintScreenPaper(FPaper, Theme, False);
+    { The fill does not move with the camera, so it is made once and copied.
+      It was made fresh on every paint - a shaded fill of every pixel, and on
+      a light theme a scatter of grain - which was five or six milliseconds
+      of each orbiting frame at Tony's window size, for the same picture
+      every time.  Copied, the grain also stays where it was laid rather than
+      crawling as the camera turns, which the note above already promised. }
+    Key := Format('%d %d %d', [FThemeIdx, FPaper.Width, FPaper.Height]);
+    if (FPaperBase = nil) or (Key <> FPaperBaseKey) then
+    begin
+      if FPaperBase = nil then
+        FPaperBase := TArtSurface.Create(FPaper.Width, FPaper.Height)
+      else
+        FPaperBase.SetSize(FPaper.Width, FPaper.Height);
+      PaintScreenPaper(FPaperBase, Theme, False);
+      FPaperBaseKey := Key;
+    end;
+    FPaper.CopyRegion(FPaperBase, 0, 0, 0, 0, FPaper.Width, FPaper.Height);
     TBase := GetTickCount64;
     if FShowGrid then
     begin
@@ -9325,7 +9363,8 @@ begin
   if MessageDlg('Update available',
        Format('%s is out, and this is %s.'#13#10#13#10 +
          'It will be fetched, put in place, and the program restarted.  ' +
-         'Your drawing is kept and comes straight back.',
+         'Your drawings are kept just as they are - every sheet, and ' +
+         'anything not saved yet stays not saved - and come straight back.',
          [Info.Tag, CurrentVersion]),
        mtConfirmation, [mbYes, mbNo], 0) <> mrYes then
   begin
@@ -9339,13 +9378,161 @@ begin
     scratch with it, and the download has to land on the same volume as the
     file it is about to replace or the rename cannot be atomic }
   Tmp := AppDataDir + 'heckers-sketch-' + Info.Tag + '.download';
+  { Written before the update runs, because the update is what starts the
+    new copy, and the new copy reads this as soon as it may.  Nothing can
+    change the drawing while the update window is up. }
+  WriteHandoff;
   UpdateForm := TUpdateForm.Create(Self);
   try
-    if UpdateForm.Run(Info, Tmp) then Close
-    else FCmdMsg := 'The update was not installed.';
+    if UpdateForm.Run(Info, Tmp) then
+    begin
+      { No question on the way out.  Tony, 17 September: the save question
+        came up, he did not answer it straight away, and the new copy - which
+        waits for this one to let go - gave up and said another copy was
+        running.  Everything is in the handoff; asking only adds a way for
+        the update to fail. }
+      FHandingOver := True;
+      Close;
+    end
+    else
+    begin
+      DeleteFile(HandoffFile);
+      FCmdMsg := 'The update was not installed.';
+    end;
   finally
     UpdateForm.Free;
   end;
+end;
+
+{ The drawings as they are, for the copy that replaces this one.
+
+  The draft would bring the work back, but the way a crash recovery does:
+  not knowing which file it came from, and with nothing marked unsaved.  An
+  update is not a crash.  Tony: "bring back the unsaved flags ... keep your
+  drawings just as [they are] and restart."  So this carries what the draft
+  leaves out, in comment lines the reader skips - the file, the sheet in
+  front, and which sheets have work that is not saved. }
+procedure TMainForm.WriteHandoff;
+var
+  L: TStringList;
+  I: Integer;
+  Dirt: string;
+begin
+  try
+    L := TStringList.Create;
+    try
+      L.Add('# handoff from ' + CurrentVersion);
+      L.Add('# path ' + FDocPath);
+      L.Add('# tab ' + IntToStr(FTabIdx));
+      Dirt := '';
+      for I := 0 to High(FDrawings) do
+        if FDrawings[I].Dirty then Dirt := Dirt + ' ' + IntToStr(I);
+      L.Add('# dirty' + Dirt);
+      BuildSession(L);
+      ForceDirectories(ExtractFilePath(HandoffFile));
+      L.SaveToFile(HandoffFile);
+    finally
+      L.Free;
+    end;
+  except
+    { the draft is already written; the handoff is the better copy, not
+      the only one }
+    on E: Exception do DeleteFile(HandoffFile);
+  end;
+end;
+
+{ The other half, in the new copy: the drawings back exactly as they were
+  left - the same file behind them, the same sheet in front, and unsaved
+  work still unsaved, so closing later asks the question the update did
+  not.  Only after an update; one found any other time is stale and goes. }
+function TMainForm.RestoreHandoff: Boolean;
+var
+  L: TStringList;
+  I, K, Tab, NDirty: Integer;
+  Path, S: string;
+  Dirty: array of Boolean;
+  Words: TStringArray;
+begin
+  Result := False;
+  if not FileExists(HandoffFile) then Exit;
+  Path := '';
+  Tab := 0;
+  Dirty := nil;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(HandoffFile);
+    except
+      Exit;
+    end;
+    for I := 0 to L.Count - 1 do
+    begin
+      S := L[I];
+      if Copy(S, 1, 1) <> '#' then Break;
+      if Copy(S, 1, 7) = '# path ' then Path := Copy(S, 8, MaxInt)
+      else if Copy(S, 1, 6) = '# tab ' then Tab := StrToIntDef(Trim(Copy(S, 7, MaxInt)), 0)
+      else if Copy(S, 1, 7) = '# dirty' then
+      begin
+        Words := Trim(Copy(S, 8, MaxInt)).Split([' '], TStringSplitOptions.ExcludeEmpty);
+        for K := 0 to High(Words) do
+          if StrToIntDef(Words[K], -1) >= 0 then
+          begin
+            if StrToInt(Words[K]) >= Length(Dirty) then
+              SetLength(Dirty, StrToInt(Words[K]) + 1);
+            Dirty[StrToInt(Words[K])] := True;
+          end;
+      end;
+    end;
+  finally
+    L.Free;
+  end;
+
+  { the same guard the draft has: a handoff that takes the program down on
+    the way in is set aside next time rather than read again - and the draft
+    beside it holds the same work }
+  with TIniFile.Create(ConfigFile) do
+  try
+    WriteBool('startup', 'restoring', True);
+  finally
+    Free;
+  end;
+  try
+    try
+      Result := LoadDocument(HandoffFile);
+    except
+      Result := False;
+    end;
+  finally
+    with TIniFile.Create(ConfigFile) do
+    try
+      WriteBool('startup', 'restoring', False);
+    finally
+      Free;
+    end;
+  end;
+  DeleteFile(HandoffFile);
+  if not Result or FLoadSkipped then Exit(False);
+
+  FDocPath := Path;
+  NDirty := 0;
+  for I := 0 to High(FDrawings) do
+  begin
+    FDrawings[I].Dirty := (I < Length(Dirty)) and Dirty[I];
+    if FDrawings[I].Dirty then Inc(NDirty);
+  end;
+  if NDirty > 0 then Inc(FEditSeq);       { so the draft is written again too }
+  SelectDrawing(EnsureRange(Tab, 0, High(FDrawings)));
+  LayoutTabs;
+  RefreshChrome;
+  if FDocPath <> '' then FHint := FDocPath
+  else FHint := 'Not saved to a file yet  -  Ctrl+S';
+  FRestored := True;
+  FCmdMsg := 'Updated from ' + IfThen(FUpdatedFrom = '', 'the last version', FUpdatedFrom) +
+    ' - your drawings are back just as you left them' +
+    IfThen(NDirty = 0, '.',
+      Format(', %d sheet%s not saved yet.', [NDirty, IfThen(NDirty = 1, '', 's')]));
+  Trail(Format('picked up the handoff: %d sheets, %d not saved, from %s',
+    [Length(FDrawings), NDirty, IfThen(Path = '', 'no file', ExtractFileName(Path))]));
 end;
 
 { A crash last time leaves a note behind.  Offer to send it, and open it
@@ -13785,6 +13972,16 @@ begin
     Flush(Output);
     Trail('machine:' + LineEnding + MachineText);
     ShowFacts('This machine, as a report says it', MachineText);
+  end
+  { for testing: what an update does at the end, without the update - the
+    handoff written and the program closed without a question.  Start it
+    again with --updated to see the drawings come back. }
+  else if W = 'handoff' then
+  begin
+    SaveDraft;
+    WriteHandoff;
+    FHandingOver := True;
+    Close;
   end
   else if W = 'state' then
   begin

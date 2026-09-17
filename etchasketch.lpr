@@ -10,7 +10,7 @@ uses
   athreads,
   {$ENDIF}
   Interfaces, // this includes the LCL widgetset
-  Forms, SysUtils, printer4lazarus,
+  Forms, Dialogs, Controls, SysUtils, printer4lazarus,
   {$IFDEF WINDOWS}Windows,{$ENDIF}
   uSurface, uTri, uSkin, uShoot, uDlgSkin, uRecord, uExport, uExample, uWork, uPaths, uSingle, uSplash, uNet, uMain;
 
@@ -36,6 +36,29 @@ begin
     + 'each other''s work.',
     'Heckers Sketch', MB_OK or MB_ICONINFORMATION);
   {$ENDIF}
+end;
+
+{ After an update, the copy being replaced has not let go in the time
+  allowed.  Say so and offer to keep waiting, rather than calling it a
+  second copy and leaving - which is what happened on 17 September, when the
+  old copy was sitting on a question nobody had answered yet, and the update
+  ended with nothing running at all. }
+var
+  LCLStarted: Boolean = False;
+
+function KeepWaitingForOldCopy: Boolean;
+begin
+  if not LCLStarted then
+  begin
+    Application.Initialize;
+    LCLStarted := True;
+  end;
+  Result := QuestionDlg('Heckers Sketch',
+    'The update is in place, but the copy it replaces has not closed yet - ' +
+    'it may be waiting for an answer.' + LineEnding + LineEnding +
+    'Close it, then press Keep waiting.',
+    mtInformation,
+    [mrRetry, 'Keep waiting', 'IsDefault', mrCancel, 'Give up', 'IsCancel'], 0) = mrRetry;
 end;
 
 { --no-splash: for anything driving the program from a script }
@@ -116,6 +139,7 @@ end;
 
 var
   UpdateWait, I: Integer;
+  OnlyCopy: Boolean;
 
 begin
   if AskedForHelp then Halt(0);
@@ -124,7 +148,10 @@ begin
     turns overwriting each other's work. }
   UpdateWait := AfterAnUpdate;
   if UpdateWait > 0 then DropInheritedUpdateLock;
-  if not WantsAnother and not BecomeTheOnlyCopy(UpdateWait) then
+  OnlyCopy := WantsAnother or BecomeTheOnlyCopy(UpdateWait);
+  while not OnlyCopy and (UpdateWait > 0) and KeepWaitingForOldCopy do
+    OnlyCopy := BecomeTheOnlyCopy(UpdateWait);
+  if not OnlyCopy then
   begin
     ShowAlreadyRunning;
     Halt(0);
@@ -137,7 +164,7 @@ begin
   RequireDerivedFormResource := True;
   Application.Scaled := True;
   Application.Title := 'Heckers Sketch';
-  Application.Initialize;
+  if not LCLStarted then Application.Initialize;
   { up before the window, so a slow drawing is visibly being read.
 
     It stays up for a few seconds even when there was nothing to wait for,

@@ -13,6 +13,29 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Updating keeps your drawings exactly as they are.**  No save question' + LineEnding +
+    '  on the way out: every sheet, the file it came from, and anything not saved' + LineEnding +
+    '  yet all come straight back in the new version, still marked unsaved.  If' + LineEnding +
+    '  an older copy is ever slow to close, the new one asks you to keep waiting' + LineEnding +
+    '  instead of giving up.' + LineEnding +
+    '- **Orbiting and zooming with the grid on are quicker** - the paper and the' + LineEnding +
+    '  ground grid behind the drawing now cost a fraction of what they did.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Offsetting a rounded shape inward** no longer flips its rounded corners' + LineEnding +
+    '  inside out.  Taken in further than the corners are round, the corners' + LineEnding +
+    '  come out square, and the ring and the middle are two clean faces' + LineEnding +
+    '  push/pull can find.' + LineEnding +
+    '- **Lines no longer show through the walls of a pit.**  Pushing up a ring' + LineEnding +
+    '  sometimes lined its opening inside out, so the pit''s walls were not drawn' + LineEnding +
+    '  and the edges behind them showed through.  New pushes are right; for one' + LineEnding +
+    '  already in a drawing, pick the pit''s walls and use Reverse.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

@@ -28,6 +28,9 @@ function AppDataDir: string;
 function IsPortable: Boolean;
 function ConfigFile: string;
 function DraftFile: string;
+{ What a program being updated leaves for the copy replacing it - every
+  sheet, the file it came from and what is not saved yet. }
+function HandoffFile: string;
 { Where the example drawings are put: beside the program when it is portable,
   and in the user's folder when it is not. }
 function ExamplesDir: string;
@@ -117,6 +120,11 @@ end;
 function DraftFile: string;
 begin
   Result := AppDataDir + 'heckers-sketch-draft.hsk';
+end;
+
+function HandoffFile: string;
+begin
+  Result := AppDataDir + 'heckers-sketch-handoff.hsk';
 end;
 
 function ExamplesDir: string;

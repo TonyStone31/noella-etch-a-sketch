@@ -1011,6 +1011,49 @@ These stay because the reasoning in them is the expensive part - the
 measurement that settled an argument, the trap that cost a day, the thing
 that looked obvious and was wrong.
 
+### An update that stood still, and a report about the etch-a-sketch, 17 September
+
+**The update.**  Tony updated on Windows with a drawing open; the old copy
+asked whether to save, he did not answer at once, and the new copy - which
+waits fifteen seconds for the old one to let go - gave up and said another
+copy was running.  Nothing was left running.  Now the old copy writes a
+*handoff* (`heckers-sketch-handoff.hsk`: the session plus comment lines for
+the file path, the sheet in front and which sheets are unsaved), closes
+without asking (`FHandingOver`), and the new copy started with
+`--updated-from` loads it (`RestoreHandoff`) - same file behind it, unsaved
+still unsaved - and deletes it.  A handoff found on any other start is stale
+and goes; the draft beside it is at least as new.  And if the old copy is
+still there after fifteen seconds, the new one asks "Keep waiting / Give
+up" (`KeepWaitingForOldCopy` in the .lpr) instead of calling it a second
+copy.  `/handoff` does the old copy's half without an update, for testing.
+Only updates *from* this version on get the first half; the waiting
+question helps the one into it.
+
+**The report** (12:58, v2026.09.17.5), three findings:
+
+* *Offset inward flipped rounded corners.*  `OffsetLoop` offset every piece
+  of an arc; taken in further than the radius, each piece came out
+  backwards and the corner was a little loop the wrong way round.  Those
+  loops closed tiny faces of their own - "6 faces now" where there should be
+  2 - which is the "push/pull wasn't detecting faces".  Reversed pieces are
+  now taken out and their neighbours met again, so the corner comes out
+  square, as in SketchUp.  `TestOffsetRoundedCorners`, `offset-rounded`.
+* *Lines behind faces while orbiting* was mostly pits lined inside out.
+  `PushPull` assumed an opening is stored wound against its outline; a ring
+  from the region finder can have it the same way, and then every lining
+  wall faced into the material, was taken for a back, and let the edges
+  under the ring show through.  The opening is turned round first now.
+  `TestRingLining` checks the lining faces the opening, not only that the
+  solid is closed - closed was passing either way.  Walls already in a
+  drawing stay as they are: Reverse fixes them.
+* *Smoothness.*  On his machine the paper was 31-47 ms of each orbiting
+  frame with the grid on.  Three things: the paper's fill was made fresh
+  every paint (now kept per theme and size, 5.7 ms to 0.7); the general line
+  measured distance over a 3.5 px band where 1 px can be lit (`Pad` is
+  `HW + 1`, the picture unchanged); and the ground grid now uses a Wu
+  hairline, `TArtSurface.HairLine` (grid 18 ms to 6 here).  Quick frames
+  were looked at and left alone: on his drawing they save 4 ms of 18.
+
 ### Six small ones and a colour, 17 September
 
 Tony picked six off the loose-ends list in one go, plus the logo colour.

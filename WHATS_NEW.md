@@ -10,6 +10,29 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Updating keeps your drawings exactly as they are.**  No save question
+  on the way out: every sheet, the file it came from, and anything not saved
+  yet all come straight back in the new version, still marked unsaved.  If
+  an older copy is ever slow to close, the new one asks you to keep waiting
+  instead of giving up.
+- **Orbiting and zooming with the grid on are quicker** - the paper and the
+  ground grid behind the drawing now cost a fraction of what they did.
+
+### Fixed
+
+- **Offsetting a rounded shape inward** no longer flips its rounded corners
+  inside out.  Taken in further than the corners are round, the corners
+  come out square, and the ring and the middle are two clean faces
+  push/pull can find.
+- **Lines no longer show through the walls of a pit.**  Pushing up a ring
+  sometimes lined its opening inside out, so the pit's walls were not drawn
+  and the edges behind them showed through.  New pushes are right; for one
+  already in a drawing, pick the pit's walls and use Reverse.
+
 ## v2026.09.17.5
 
 ### New

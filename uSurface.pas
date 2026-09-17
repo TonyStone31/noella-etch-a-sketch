@@ -143,6 +143,11 @@ type
     procedure Disc(CX, CY, Radius: Single; const C: TPix; Alpha: Single = 1.0);
     procedure DiscV(CX, CY, Radius: Single; const C1, C2: TPix; Alpha: Single = 1.0);
     procedure Ring(CX, CY, Radius, LineW: Single; const C: TPix; Alpha: Single = 1.0);
+    { A one pixel line, antialiased the cheap way - two pixels a step and no
+      distance measured - for faint things drawn in bulk, like the ground
+      grid.  Cut to the surface first, so a line that runs a long way off
+      the edge costs only what is on it.  No depth test. }
+    procedure HairLine(X0, Y0, X1, Y1: Single; const C: TPix; Alpha: Single);
     procedure Line(X0, Y0, X1, Y1, LineW: Single; const C: TPix; Alpha: Single = 1.0);
     procedure Arc(CX, CY, Radius, A0, A1, LineW: Single; const C: TPix; Alpha: Single = 1.0);
     procedure Poly(const Pts: array of TPointF; LineW: Single; const C: TPix;
@@ -1090,6 +1095,91 @@ end;
   and the isometric paper, which is four hundred such diagonals, took over a
   second to draw. For each row, work out the span the segment can actually
   reach and walk only that. }
+{ Xiaolin Wu's line.  The ends are cut to the surface (Liang and Barsky)
+  before anything is walked, then the long axis is stepped a pixel at a time
+  and the two pixels either side of the line share its coverage. }
+procedure TArtSurface.HairLine(X0, Y0, X1, Y1: Single; const C: TPix; Alpha: Single);
+var
+  T0, T1, DX, DY, Grad, Inter, F: Double;
+  Steep: Boolean;
+  I, IA, IB, Y: Integer;
+  Tmp: Double;
+
+  function Clip(P, Q: Double): Boolean;
+  var
+    R: Double;
+  begin
+    Result := True;
+    if Abs(P) < 1E-12 then
+    begin
+      if Q < 0 then Result := False;
+      Exit;
+    end;
+    R := Q / P;
+    if P < 0 then
+    begin
+      if R > T1 then Result := False
+      else if R > T0 then T0 := R;
+    end
+    else
+    begin
+      if R < T0 then Result := False
+      else if R < T1 then T1 := R;
+    end;
+  end;
+
+  procedure Plot(A, B: Integer; Cover: Double);
+  begin
+    if Steep then BlendPixel(B, A, C, Cover * Alpha)
+    else BlendPixel(A, B, C, Cover * Alpha);
+  end;
+
+begin
+  if (FWidth <= 0) or (FHeight <= 0) or not (Alpha > 0) then Exit;
+  if IsNan(X0) or IsNan(Y0) or IsNan(X1) or IsNan(Y1) then Exit;
+  DX := X1 - X0;
+  DY := Y1 - Y0;
+  T0 := 0;
+  T1 := 1;
+  { a pixel of margin all round, so a line along the very edge still lands }
+  if not Clip(-DX, X0 + 1) then Exit;
+  if not Clip(DX, FWidth - X0) then Exit;
+  if not Clip(-DY, Y0 + 1) then Exit;
+  if not Clip(DY, FHeight - Y0) then Exit;
+  if T1 < T0 then Exit;
+  X1 := X0 + DX * T1;  Y1 := Y0 + DY * T1;
+  X0 := X0 + DX * T0;  Y0 := Y0 + DY * T0;
+
+  Steep := Abs(Y1 - Y0) > Abs(X1 - X0);
+  if Steep then
+  begin
+    Tmp := X0; X0 := Y0; Y0 := Tmp;
+    Tmp := X1; X1 := Y1; Y1 := Tmp;
+  end;
+  if X0 > X1 then
+  begin
+    Tmp := X0; X0 := X1; X1 := Tmp;
+    Tmp := Y0; Y0 := Y1; Y1 := Tmp;
+  end;
+  DX := X1 - X0;
+  DY := Y1 - Y0;
+  if DX < 1E-9 then Grad := 0 else Grad := DY / DX;
+
+  { pixel centres sit at .5; step every whole column the line spans }
+  IA := Round(X0);
+  IB := Round(X1);
+  Inter := Y0 + Grad * (IA + 0.5 - X0) - 0.5;
+  for I := IA to IB do
+  begin
+    Y := Floor(Inter);
+    F := Inter - Y;
+    Plot(I, Y, 1 - F);
+    Plot(I, Y + 1, F);
+    Inter := Inter + Grad;
+  end;
+  Invalidate;
+end;
+
 procedure TArtSurface.Line(X0, Y0, X1, Y1, LineW: Single; const C: TPix; Alpha: Single);
 var
   X, Y, IX0, IY0, IX1, IY1, RX0, RX1: Integer;
@@ -1114,7 +1204,13 @@ begin
       X1 := X1 - DX; Y1 := Y1 - DYc;
     end;
   end;
-  Pad := HW + 3;
+  { How far round the line a pixel can be and still be touched: coverage
+    ends half a pixel past the edge, and a pixel's centre is half a pixel
+    from its corner.  It was three pixels, which on a one pixel line walked
+    and measured three times as many pixels as could ever be lit - the ground
+    grid in the 3D view was most of every orbiting frame on Tony's machine,
+    17 September, and almost all of that was pixels coming out blank. }
+  Pad := HW + 1;
   IX0 := LoBound(Min(X0, X1) - Pad, FWidth);
   IY0 := LoBound(Min(Y0, Y1) - Pad, FHeight);
   IX1 := HiBound(Max(X0, X1) + Pad, FWidth);
@@ -1688,12 +1784,8 @@ begin
     Inc(S, SrcX + X0);
     D := ScanLine(DY + Y);
     Inc(D, DX + X0);
-    for X := X0 to X1 - 1 do
-    begin
-      D^ := S^;
-      Inc(S);
-      Inc(D);
-    end;
+    { a row at a time - this copies a whole window of paper every frame }
+    Move(S^, D^, (X1 - X0) * SizeOf(TPix));
   end;
   MarkAllDirty;
   Invalidate;

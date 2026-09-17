@@ -2012,6 +2012,9 @@ var
   DU, DV: array of Double;         // each edge's unit direction
   NU, NV: array of Double;         // each edge's outward normal
   RU, RV: array of Double;         // the answer, in plane coordinates
+  Act: array of Integer;           // the edges still in it
+  Keep: array of Boolean;
+  M, Q, Turned: Integer;
   Area, L, Cr, T, Sgn, AU, AV, Lift: Double;
 begin
   Result := nil;
@@ -2073,28 +2076,83 @@ begin
     NV[I] := -DU[I] * Sgn;
   end;
 
-  SetLength(Result, Cnt);
-  SetLength(RU, Cnt); SetLength(RV, Cnt);
+  { The edges still in the answer.  One with no length has no direction to
+    offset along, so it is left out from the start and its neighbours meet
+    across it. }
+  SetLength(Act, Cnt);
+  M := 0;
   for I := 0 to Cnt - 1 do
-  begin
-    { corner I is where the offset of edge I-1 meets the offset of edge I }
-    K := (I + Cnt - 1) mod Cnt;
-    Cr := DU[K] * DV[I] - DV[K] * DU[I];
-    if Abs(Cr) < 1E-7 then
+    if (DU[I] <> 0) or (DV[I] <> 0) then
     begin
-      { the two edges run the same way, so there is no corner to sharpen -
-        step straight out along the normal }
-      AU := PU[I] + NU[I] * D;
-      AV := PV[I] + NV[I] * D;
-    end
-    else
-    begin
-      AU := (PU[I] + NU[I] * D) - (PU[K] + NU[K] * D);
-      AV := (PV[I] + NV[I] * D) - (PV[K] + NV[K] * D);
-      T := (AU * DV[I] - AV * DU[I]) / Cr;
-      AU := PU[K] + NU[K] * D + DU[K] * T;
-      AV := PV[K] + NV[K] * D + DV[K] * T;
+      Act[M] := I;
+      Inc(M);
     end;
+
+  { Corners, then the edges that came out backwards, then again without them.
+
+    Each corner is where the offsets of two neighbouring edges meet.  That is
+    exact for a corner - but an edge shorter than the offset can come out
+    pointing the wrong way, its two corners having crossed over.  An arc is a
+    run of exactly such edges: taken in further than its radius, every piece
+    of a rounded corner turned round, and the corner came out as a little
+    loop the wrong way about.  Tony, 17 September: "if i tried to offset it
+    inside it looked like it was flipping the inner rounded corners the wrong
+    way".  SketchUp's answer is the one geometry gives: the rounding is used
+    up and the corner is sharp.  So a piece that has turned round is taken
+    out, and the edges either side of it meet directly.  Taking one out moves
+    the corners either side, which can turn another, so it goes round until
+    nothing has. }
+  SetLength(RU, Cnt); SetLength(RV, Cnt);
+  repeat
+    if M < 3 then Exit(nil);
+    for Q := 0 to M - 1 do
+    begin
+      I := Act[Q];
+      K := Act[(Q + M - 1) mod M];
+      { corner Q is where the offset of the edge before meets this one's }
+      Cr := DU[K] * DV[I] - DV[K] * DU[I];
+      if Abs(Cr) < 1E-7 then
+      begin
+        { the two edges run the same way, so there is no corner to sharpen -
+          step straight out along the normal }
+        AU := PU[I] + NU[I] * D;
+        AV := PV[I] + NV[I] * D;
+      end
+      else
+      begin
+        AU := (PU[I] + NU[I] * D) - (PU[K] + NU[K] * D);
+        AV := (PV[I] + NV[I] * D) - (PV[K] + NV[K] * D);
+        T := (AU * DV[I] - AV * DU[I]) / Cr;
+        AU := PU[K] + NU[K] * D + DU[K] * T;
+        AV := PV[K] + NV[K] * D + DV[K] * T;
+      end;
+      RU[Q] := AU;
+      RV[Q] := AV;
+    end;
+    { which of them now run backwards along their own edge }
+    Turned := 0;
+    SetLength(Keep, M);
+    for Q := 0 to M - 1 do
+    begin
+      I := Act[Q];
+      J := (Q + 1) mod M;
+      Keep[Q] := (RU[J] - RU[Q]) * DU[I] + (RV[J] - RV[Q]) * DV[I] > EPS;
+      if not Keep[Q] then Inc(Turned);
+    end;
+    if Turned = 0 then Break;
+    if Turned = M then Exit(nil);          { the whole thing turned inside out }
+    J := 0;
+    for Q := 0 to M - 1 do
+      if Keep[Q] then
+      begin
+        Act[J] := Act[Q];
+        Inc(J);
+      end;
+    M := J;
+  until False;
+
+  SetLength(Result, M);
+  for Q := 0 to M - 1 do
     { Back into the model, and out to the plane the loop is actually on.
 
       Ax and Bx span the plane through the origin parallel to the face, and
@@ -2105,13 +2163,9 @@ begin
       offset at x = 0.  A mile away, when the face is a long way from the
       origin.  The plane's own height along its normal is the missing part,
       and it is the same for every corner. }
-    Result[I] := P3(Ax.X * AU + Bx.X * AV + N.X * Lift,
-                    Ax.Y * AU + Bx.Y * AV + N.Y * Lift,
-                    Ax.Z * AU + Bx.Z * AV + N.Z * Lift);
-    { kept apart from PU/PV, which the next corner still needs to read }
-    RU[I] := AU;
-    RV[I] := AV;
-  end;
+    Result[Q] := P3(Ax.X * RU[Q] + Bx.X * RV[Q] + N.X * Lift,
+                    Ax.Y * RU[Q] + Bx.Y * RV[Q] + N.Y * Lift,
+                    Ax.Z * RU[Q] + Bx.Z * RV[Q] + N.Z * Lift);
 
   { An offset inward that goes further than the shape can take turns it
     inside out - a 10 x 6 box taken in by 4 comes back as a line, and by 5 as
@@ -2119,10 +2173,10 @@ begin
     by returning nothing rather than laying down a sliver that looks like
     geometry and measures wrong. }
   T := 0;
-  for I := 0 to Cnt - 1 do
+  for Q := 0 to M - 1 do
   begin
-    J := (I + 1) mod Cnt;
-    T := T + (RU[I] * RV[J] - RU[J] * RV[I]);
+    J := (Q + 1) mod M;
+    T := T + (RU[Q] * RV[J] - RU[J] * RV[Q]);
   end;
   if (T * Area <= 0) or (Abs(T) < Abs(Area) * 1E-6) then Result := nil;
 end;
@@ -7498,7 +7552,8 @@ var
   Quad: array[0..3] of TP3;
   Ink, LineInk: TColor;
   Wt: Single;
-  Plug: Boolean;
+  Plug, Same: Boolean;
+  Turn: Double;
 begin
   Result := False;
   FLastBore := -1;
@@ -7566,9 +7621,19 @@ begin
     M := Length(FEnts[Index].Holes[H]);
     SetLength(HBase[H], M);
     SetLength(HTop[H], M);
+    { which way round the opening turns, seen along the face's normal - the
+      outline turns positively by definition, so an opening should not }
+    Turn := 0;
+    for I := 0 to M - 1 do
+      Turn := Turn + Dot3(Nm, Cross3(FEnts[Index].Holes[H][I],
+        FEnts[Index].Holes[H][(I + 1) mod M]));
+    Same := Turn > 0;
     for I := 0 to M - 1 do
     begin
-      HBase[H][I] := FEnts[Index].Holes[H][I];
+      if Same then
+        HBase[H][I] := FEnts[Index].Holes[H][M - 1 - I]
+      else
+        HBase[H][I] := FEnts[Index].Holes[H][I];
       HTop[H][I] := P3(HBase[H][I].X + Nm.X * Dist,
                        HBase[H][I].Y + Nm.Y * Dist,
                        HBase[H][I].Z + Nm.Z * Dist);
@@ -7691,7 +7756,18 @@ begin
     material under it goes on - and then the ring meets whatever was plugged
     into the opening, which had to run opposite to it or the solid was never
     closed to begin with.  Both ways the lining runs along the ring, not
-    against it. }
+    against it.
+
+    "Already stored turning the opposite way" is what the drawing tools make,
+    and not a promise: a ring worked out by the region finder can carry its
+    opening wound the same way as its outline.  Its lining then came out
+    inside out, every wall of the pit facing into the material - so the pit's
+    walls were taken for backs and not drawn, and the edges under the ring
+    showed through them.  Tony, 17 September: "i see many more lines behind
+    faces while orbiting that used to be hidden".  So the winding is measured
+    rather than assumed - see where HBase is filled - and an opening that turns
+    the same way as the outline is turned round before anything is built on
+    it, so the top, the cap and the lining all agree. }
   for H := 0 to High(HBase) do
   begin
     M := Length(HBase[H]);
