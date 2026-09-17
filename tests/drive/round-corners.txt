@@ -1,0 +1,104 @@
+# Rounding the corners of a rectangle with the arc tool, SketchUp's way.
+#
+# Tony: "i was trying to make a rectangle have rounded corners using the arc
+# tool in its corners but it seemed like i was always getting like a bubbled
+# out corner unless i got the dimension just right."
+#
+# Click a point on each of the two edges near a corner, pull the middle in
+# towards the corner until the arc turns magenta - TANGENT TO EDGE - then
+# double-click: the first click puts the arc in, the second trims the square
+# corner away.  A double-click near any other corner does the same again.
+#
+# What to look for: hsk-rc-tangent has a magenta arc, tangent into both
+# edges, with TANGENT TO EDGE beside the pointer; hsk-rc-trimmed has that
+# corner rounded with no square corner left behind it; hsk-rc-repeated has a
+# second corner rounded to the same radius.
+activate
+wait 1000
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 1000
+
+# a rectangle, well clear of everything
+key r
+wait 300
+at 400 250
+click
+at 800 550 500
+click
+wait 900
+
+# the arc: a point on the bottom edge near the bottom-left corner, then one
+# on the left edge
+key a
+wait 400
+at 440 550 400
+wait 300
+click
+wait 300
+at 400 500 400
+wait 300
+click
+wait 300
+# pull the middle in towards the corner, to where the fillet's middle sits
+at 425 530 300
+at 412 538 300
+wait 600
+shot /tmp/hsk-rc-tangent.png
+
+# double-click: the arc goes in, then the corner comes off
+click
+click
+wait 1000
+shot /tmp/hsk-rc-trimmed.png
+
+# and the same again at the top-right corner
+at 797 253 400
+wait 300
+click
+click
+wait 1000
+shot /tmp/hsk-rc-repeated.png
+
+# A plain click at the bottom-right corner: the arc goes in tangent, and the
+# square corner stays - cut at the touching points, to erase or keep.
+# Tony: "in sketchup you have to erase the sharp left over 90 degree lines
+# after you put the arc there".  hsk-rc-kept shows the arc with the corner
+# still behind it.
+key escape
+wait 300
+key a
+wait 300
+at 760 550 400
+wait 300
+click
+wait 300
+at 800 510 400
+wait 300
+click
+wait 300
+at 788 538 300
+wait 600
+click
+wait 1000
+at 900 400 300
+wait 600
+shot /tmp/hsk-rc-kept.png
+
+# and after that plain click, a double-click at a different corner - later -
+# rounds THAT corner rather than trimming the old one.  hsk-rc-fourth has
+# all four corners round, the bottom-right one still with its square corner.
+wait 1500
+at 400 253 400
+wait 300
+click
+click
+wait 1000
+at 900 400 300
+wait 600
+shot /tmp/hsk-rc-fourth.png

@@ -1326,6 +1326,58 @@ it was.  It did not show up in this report because he was drawing a
 rectangle, not hovering a face.  Draw it into a surface like the selection
 and the question goes away.
 
+### Rounded corners, and the arc-bulge report explained - 16 September 2026
+
+The open report "the arc tool kept the arc outside the rectangle" is this.
+Tony, explaining it properly: "i was trying to make a rectangle have rounded
+corners using the arc tool in its corners but it seemed like i was always
+getting like a bubbled out corner unless i got the dimension just right.
+sketchup seems to handle it much better... there arc shows up with a hint
+about tangent on edge."
+
+Nothing was broken; nothing helped either.  The bulge was whatever the mouse
+said, and a fillet is one exact bulge out of all of them.  Built to
+SketchUp's behavior, read from their help and forum and then confirmed by
+Tony in SketchUp itself:
+
+* picks on the two edges of a corner, pull towards it, **magenta** and
+  TANGENT TO EDGE when it locks - `TWorkDoc.FilletFromEnds`, and the lock is
+  "the pull within a finger's width of that arc's middle";
+* a radius typed while magenta, or `2"r` at any time - `FilletAt`;
+* a **click leaves the square corner**, cut at the touching points - Tony:
+  "maybe you just want an arc inside the pointed corner... so keep it just
+  like sketchup!"  I had Enter-with-a-radius trimming too; that was mine, not
+  SketchUp's, and it went;
+* a **double-click trims** - `TrimFillet` - and a double-click near another
+  corner repeats the radius there; a double-click on a corner already
+  rounded with a plain click only trims, rather than laying a second arc.
+
+The drive test that took the help pictures found a real bug the unit tests
+could not: a plain click left the trim waiting, and the next double-click -
+at a different corner, much later - used it up on the old corner.  The
+waiting trim now belongs only to the double-click whose first click put the
+arc in.
+
+**Entity length**, done the same afternoon with SketchUp's rule rather than a
+modifier key: a loose line moves its last end, one joined at one end moves
+its free end, one joined at both cannot be typed at all.  DaveR, on their
+forum, is the source.  `TWorkDoc.LineLengthEnd`.
+
+**Found on the way, not fixed: the cursor wipes what is under it.**  The
+pointer is drawn by copying a square of the finished drawing from under it
+and pasting it back with the crosshair on - and the finished drawing does not
+include anything painted on the canvas afterwards.  So every tool preview,
+the face-hover stipple and any canvas text lose whatever is within about
+seventeen pixels of the pointer.  Visible as a clean square of paper in the
+middle of a stippled face with push/pull in hand, and it hid all but the ends
+of the fillet arc until the arc was drawn into the cursor's square as well
+(`PaintUnderCursor`).  The general fix is to composite the cursor with alpha
+rather than pasting an opaque square - which wants a look at how
+`TArtSurface.DrawTo` reaches the canvas on gtk3 before anybody promises it.
+
+Not done: SketchUp's Alt tangent lock, and an arc tangent off the end of a
+single line.
+
 ### The dirty rectangle, which turned out to be the ground grid - 16 September 2026
 
 Item 4 of the agreed order, and the measurement moved the target before any

@@ -56,3 +56,31 @@ straight pieces it is made of, as in SketchUp; `+` and `-` step it while the
 tool is in hand, and the cursor tip shows the count.  Circles start at 24,
 arcs at 12.  The count is kept with the arc and is what every later cut - a
 tunnel drilled through it - is made in.
+
+## Rounding corners - 16 September 2026
+
+Built after Tony tried to round a rectangle's corners and kept getting "a
+bubbled out corner unless i got the dimension just right", and after reading
+SketchUp's help and forum on it:
+
+* Click a point on each of two edges near a corner; pull the middle towards
+  the corner; when the arc runs tangent into both edges it turns magenta and
+  says TANGENT TO EDGE.  Ours locks when the pull is within a finger's width
+  of that arc, and moves the second end to the first end's distance from the
+  corner - the only place an arc can be tangent to both.
+* A radius typed while magenta sets the size (SketchUp: "you have to drag
+  the arc out to show magenta before typing the radius").  `2"r` is a radius
+  at any time.
+* A click leaves the square corner, cut at the touching points - confirmed
+  by Tony from SketchUp: "you have to erase the sharp left over 90 degree
+  lines after you put the arc there".
+* A double-click trims it - SketchUp's help: "repeats the previous arc
+  parameters and even cleans out the excess waste", and Tony checked it.
+* A double-click near another corner repeats the radius there, trimmed.
+
+Not done: SketchUp's Alt (Command on a Mac) tangent lock, and a tangent arc
+continuing off the end of a single line.  Ours finds tangency only at a
+corner of two lines.
+
+Entity Info's edge length is done the same week, with SketchUp's rule for
+which end moves (see `TWorkDoc.LineLengthEnd`).

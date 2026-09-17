@@ -2047,6 +2047,318 @@ begin
       [WorstDeg]));
 end;
 
+{ Rounding a corner, SketchUp's way.
+
+  Tony: "i was trying to make a rectangle have rounded corners using the arc
+  tool in its corners but it seemed like i was always getting like a bubbled
+  out corner unless i got the dimension just right."
+
+  A fillet is right when the arc runs TANGENT into both lines - the radius
+  from the centre to each touching point stands square to the line there.
+  That is the property every check below comes back to, in a square corner,
+  a sharp one, on a wall and on a slope. }
+procedure TestFilletRoundsACorner;
+var
+  D: TWorkDoc;
+  F: TFillet;
+  I, NLine, NArc, AtCorner: Integer;
+  P0, P1, RA, RB, DA, DB: TP3;
+  Ang: Double;
+
+  function Tangent(const Ctr, P, Along: TP3): Boolean;
+  var
+    Rv: TP3;
+  begin
+    Rv := Norm3(P3(P.X - Ctr.X, P.Y - Ctr.Y, P.Z - Ctr.Z));
+    Result := Abs(Dot3(Rv, Norm3(Along))) < 1E-6;
+  end;
+
+  function Lines(Doc: TWorkDoc): Integer;
+  begin
+    Result := CountKind(Doc, ekLine);
+  end;
+
+begin
+  WriteLn('-- a corner rounds off tangent into both of its lines');
+
+  { a ten by six rectangle, and a radius of two in its origin corner }
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.FilletAt(P3(0, 0, 0), 2, F), '  a square corner has a fillet');
+    Ok(SamePt(F.ArcC, P3(2, 2, 0), 1E-6),
+      Format('  its centre is two in from both sides (%.3f %.3f)', [F.ArcC.X, F.ArcC.Y]));
+    Ok(Abs(F.T - 2) < 1E-9, '  and it touches each line two from the corner');
+    Ok(Abs(Abs(F.Sweep) - Pi / 2) < 1E-6, '  a quarter turn, for a square corner');
+    P0 := ArcPoint(F.ArcC, 2, F.A0, F.Pl);
+    P1 := ArcPoint(F.ArcC, 2, F.A0 + F.Sweep, F.Pl);
+    Ok((SamePt(P0, F.S, 1E-6) and SamePt(P1, F.E, 1E-6)) or
+       (SamePt(P0, F.E, 1E-6) and SamePt(P1, F.S, 1E-6)),
+      '  the arc starts and ends on the two touching points');
+    Ok(Tangent(F.ArcC, F.S, P3(1, 0, 0)) or Tangent(F.ArcC, F.S, P3(0, 1, 0)),
+      '  tangent where it meets the first line');
+    Ok(Tangent(F.ArcC, F.E, P3(1, 0, 0)) or Tangent(F.ArcC, F.E, P3(0, 1, 0)),
+      '  and tangent where it meets the second');
+    { the bulge towards the corner, not away from it - the bubble }
+    RA := ArcPoint(F.ArcC, 2, F.A0 + F.Sweep / 2, F.Pl);
+    Ok(Dist(RA, P3(0, 0, 0)) < Dist(F.ArcC, P3(0, 0, 0)),
+      '  and it bows towards the corner, which is the whole difference from a bubble');
+
+    Ok(not D.FilletAt(P3(0, 0, 0), 7, F),
+      '  a radius bigger than the six-foot side is refused, not run off its end');
+    Ok(not D.FilletAt(P3(5, 3, 0), 1, F), '  the middle of the face is no corner');
+
+    { round it, and trim the square corner off }
+    NLine := Lines(D);
+    Ok(D.FilletAt(P3(0, 0, 0), 2, F), '  again, for real');
+    Ok(D.ApplyFillet(F, 12, 0, 2, True), '  it rounds');
+    EqI(Lines(D), NLine, '  still four lines - two shortened, nothing left at the corner');
+    EqI(CountKind(D, ekArc), 1, '  and one arc');
+    AtCorner := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and
+         (SamePt(D[I].A, P3(0, 0, 0), 1E-6) or SamePt(D[I].B, P3(0, 0, 0), 1E-6)) then
+        Inc(AtCorner);
+    EqI(AtCorner, 0, '  nothing reaches the old corner any more');
+    NArc := -1;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekArc then NArc := I;
+    EqI(D[NArc].Sides, 12, '  and the arc keeps the side count it was drawn with');
+    { the lines now stop exactly where the arc starts }
+    Ok(D.CornerLines(D[NArc].A, I, AtCorner) = False,
+      '  the arc end is where a line stops, not a new corner to round');
+
+    { the other three corners still round, one after another }
+    Ok(D.FilletAt(P3(10, 0, 0), 2, F) and D.ApplyFillet(F, 12, 0, 2, True),
+      '  the next corner rounds too');
+    Ok(D.FilletAt(P3(10, 6, 0), 2, F) and D.ApplyFillet(F, 12, 0, 2, True),
+      '  and the next');
+    Ok(D.FilletAt(P3(0, 6, 0), 2, F) and D.ApplyFillet(F, 12, 0, 2, True),
+      '  and the last');
+    EqI(CountKind(D, ekArc), 4, '  four arcs round the rectangle');
+    EqI(Lines(D), 4, '  and four straight sides between them');
+    NLine := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekLine then
+        if Abs(Dist(D[I].A, D[I].B) - 6) < 1E-6 then Inc(NLine)
+        else if Abs(Dist(D[I].A, D[I].B) - 2) < 1E-6 then Inc(NLine);
+    EqI(NLine, 4, '  six feet long on the long sides, two on the short');
+  finally
+    D.Free;
+  end;
+
+  { without trimming, the corner stays - cut at the touching points, so the
+    corner pieces can be rubbed out one at a time }
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.FilletAt(P3(0, 0, 0), 1, F) and D.ApplyFillet(F, 12, 0, 2, False),
+      '  a fillet without the trim');
+    EqI(Lines(D), 6, '  leaves both corner pieces as lines of their own');
+    { and the second click of a double-click takes them off afterwards }
+    EqI(D.TrimFillet(F), 2, '  the trim afterwards takes the two corner pieces');
+    EqI(Lines(D), 4, '  leaving the four sides');
+    EqI(D.TrimFillet(F), 0, '  and asked again, there is nothing left to take');
+  finally
+    D.Free;
+  end;
+
+  { a corner rounded with a plain click is still a corner; rounding it again
+    with the same radius - a double-click there - trims it, and does not lay
+    a second arc over the first }
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.FilletAt(P3(0, 0, 0), 1, F) and D.ApplyFillet(F, 12, 0, 2, False),
+      '  a corner rounded and kept');
+    Ok(D.FilletAt(P3(0, 0, 0), 1, F), '  is still a corner with a fillet');
+    Ok(D.ApplyFillet(F, 12, 0, 2, True), '  and rounding it again with a trim');
+    EqI(CountKind(D, ekArc), 1, '  leaves one arc, not two');
+    EqI(Lines(D), 4, '  and takes the corner off');
+  finally
+    D.Free;
+  end;
+
+  { two picks near a corner, the way the arc tool gets them: the first is
+    kept where it was clicked, and the second is moved to match - that is
+    the only place an arc can be tangent to both }
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.FilletFromEnds(P3(1.5, 0, 0), P3(0, 3, 0), F),
+      '  picks on the two lines near a corner make a fillet');
+    Ok(SamePt(F.S, P3(1.5, 0, 0), 1E-9), '  starting where the first click was');
+    Ok(SamePt(F.E, P3(0, 1.5, 0), 1E-6),
+      Format('  and ending the same distance up the other line (%.3f %.3f)', [F.E.X, F.E.Y]));
+    Ok(Abs(F.R - 1.5) < 1E-6, '  a radius of one and a half');
+    { picked the other way round }
+    Ok(D.FilletFromEnds(P3(0, 3, 0), P3(1.5, 0, 0), F), '  and picked the other way round');
+    Ok(SamePt(F.S, P3(0, 3, 0), 1E-9) and SamePt(F.E, P3(3, 0, 0), 1E-6),
+      '  it still starts on the first click');
+    Ok(Tangent(F.ArcC, F.S, P3(0, 1, 0)) and Tangent(F.ArcC, F.E, P3(1, 0, 0)),
+      '  and still runs tangent into both');
+    P0 := ArcPoint(F.ArcC, F.R, F.A0, F.Pl);
+    P1 := ArcPoint(F.ArcC, F.R, F.A0 + F.Sweep, F.Pl);
+    Ok((SamePt(P0, F.S, 1E-6) and SamePt(P1, F.E, 1E-6)) or
+       (SamePt(P0, F.E, 1E-6) and SamePt(P1, F.S, 1E-6)),
+      '  with the arc running between the two');
+    Ok(not D.FilletFromEnds(P3(1.5, 0, 0), P3(4, 0, 0), F),
+      '  two picks on the same line are not a corner');
+    Ok(not D.FilletFromEnds(P3(1.5, 0, 0), P3(10, 3, 0), F),
+      '  nor are picks on lines that do not meet');
+  finally
+    D.Free;
+  end;
+
+  { a sharp corner: sixty degrees.  The touching points are R / tan(30)
+    from the corner, and the arc is still tangent both ways }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(10, 0, 0), 0, 2, False);
+    Ang := Pi / 3;
+    D.AddLine(P3(0, 0, 0), P3(10 * Cos(Ang), 10 * Sin(Ang), 0), 0, 2, False);
+    Ok(D.FilletAt(P3(0, 0, 0), 1, F), '  a sixty degree corner has a fillet');
+    Ok(Abs(F.T - 1 / Tan(Pi / 6)) < 1E-9,
+      Format('  touching %.4f from the corner, which is 1 / tan 30', [F.T]));
+    Ok(Tangent(F.ArcC, F.S, P3(1, 0, 0)) or Tangent(F.ArcC, F.S, P3(Cos(Ang), Sin(Ang), 0)),
+      '  tangent to one line');
+    Ok(Tangent(F.ArcC, F.E, P3(1, 0, 0)) or Tangent(F.ArcC, F.E, P3(Cos(Ang), Sin(Ang), 0)),
+      '  and the other');
+    Ok(Abs(Abs(F.Sweep) - (Pi - Ang)) < 1E-6, '  turning through the outside angle');
+  finally
+    D.Free;
+  end;
+
+  { up a wall, and on a slope - the plane comes from the two lines }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(8, 0, 0), 0, 2, False);
+    D.AddLine(P3(0, 0, 0), P3(0, 0, 8), 0, 2, False);
+    Ok(D.FilletAt(P3(0, 0, 0), 1, F), '  a corner standing up a wall');
+    Ok(F.Pl = plXZ, '  is rounded in the wall''s plane');
+    Ok(Tangent(F.ArcC, F.S, P3(1, 0, 0)) or Tangent(F.ArcC, F.S, P3(0, 0, 1)),
+      '  tangent up the wall');
+    Ok(D.ApplyFillet(F, 12, 0, 2, True), '  and rounds');
+    P0 := D[D.Live - 1].A;
+    Ok(SamePt(P0, F.S, 1E-6) or SamePt(P0, F.E, 1E-6),
+      '  with the arc landing where it should');
+  finally
+    D.Free;
+  end;
+
+  D := TWorkDoc.Create;
+  try
+    { two lines on a roof pitched about the X axis }
+    DA := Norm3(P3(1, 0, 0));
+    DB := Norm3(P3(0, 1, 1));
+    D.AddLine(P3(0, 0, 0), P3(DA.X * 8, DA.Y * 8, DA.Z * 8), 0, 2, False);
+    D.AddLine(P3(0, 0, 0), P3(DB.X * 8, DB.Y * 8, DB.Z * 8), 0, 2, False);
+    Ok(D.FilletAt(P3(0, 0, 0), 1, F), '  a corner on a sloped roof');
+    Ok(F.Pl = plFree, '  is rounded in a free plane');
+    Ok(Tangent(F.ArcC, F.S, DA) or Tangent(F.ArcC, F.S, DB), '  tangent to one line');
+    Ok(Tangent(F.ArcC, F.E, DA) or Tangent(F.ArcC, F.E, DB), '  and the other');
+    Ok(D.ApplyFillet(F, 12, 0, 2, True), '  and rounds');
+    P0 := D[D.Live - 1].A;
+    P1 := D[D.Live - 1].B;
+    Ok((SamePt(P0, F.S, 1E-6) and SamePt(P1, F.E, 1E-6)) or
+       (SamePt(P0, F.E, 1E-6) and SamePt(P1, F.S, 1E-6)),
+      '  and the stored arc lies on the roof, end to end');
+  finally
+    D.Free;
+  end;
+
+  { three lines into one point is not a corner anybody can round }
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(8, 0, 0), 0, 2, False);
+    D.AddLine(P3(0, 0, 0), P3(0, 8, 0), 0, 2, False);
+    D.AddLine(P3(0, 0, 0), P3(5, 5, 0), 0, 2, False);
+    Ok(not D.FilletAt(P3(0, 0, 0), 1, F), '  three lines into a point: refused');
+    { nor a line carrying straight on through }
+    D.Clear;
+    D.AddLine(P3(0, 0, 0), P3(8, 0, 0), 0, 2, False);
+    D.AddLine(P3(0, 0, 0), P3(-8, 0, 0), 0, 2, False);
+    Ok(not D.FilletAt(P3(0, 0, 0), 1, F), '  a straight run: refused');
+  finally
+    D.Free;
+  end;
+end;
+
+{ Where a double-click lands when it repeats the last fillet. }
+procedure TestNearestCornerIsFound;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  C: TP3;
+begin
+  WriteLn('-- a double-click near a corner finds that corner');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 100; V.OY := 300; V.Ppu := 20;
+    MakeRect(D, 0, 0, 10, 6);
+    { the (10, 6) corner is at 300, 180 on screen }
+    Ok(D.NearestCorner(V, 305, 186, 16, C), '  a few pixels off the corner');
+    Ok(SamePt(C, P3(10, 6, 0), 1E-9),
+      Format('  finds that corner (%.1f %.1f)', [C.X, C.Y]));
+    Ok(not D.NearestCorner(V, 200, 240, 16, C), '  and nothing from the middle');
+  finally
+    D.Free;
+  end;
+end;
+
+{ Typing a line's length: SketchUp's rule for which end gives.
+
+  A loose line moves the end it was drawn to.  Joined at one end, the free
+  end moves.  Joined at both, it cannot be changed - there is no end that
+  could move without tearing something. }
+procedure TestTypedLineLength;
+var
+  D: TWorkDoc;
+  MoveB: Boolean;
+begin
+  WriteLn('-- a line''s length, typed, moves the end that is free');
+  D := TWorkDoc.Create;
+  try
+    { loose }
+    D.AddLine(P3(0, 0, 0), P3(4, 0, 0), 0, 2, False);
+    Ok(D.LineLengthEnd(0, MoveB) and MoveB, '  a loose line moves the end it was drawn to');
+    Ok(D.SetLineLength(0, 10), '  and takes a new length');
+    Ok(SamePt(D[0].A, P3(0, 0, 0), 1E-9) and SamePt(D[0].B, P3(10, 0, 0), 1E-9),
+      '  the start stays, the end goes out to ten');
+
+    { joined at its start: the end moves }
+    D.AddLine(P3(0, 0, 0), P3(0, 5, 0), 0, 2, False);
+    Ok(D.LineLengthEnd(0, MoveB) and MoveB, '  held at its start, the end moves');
+
+    { joined at its end instead: the start moves, along the line }
+    D.Clear;
+    D.AddLine(P3(0, 0, 0), P3(4, 0, 0), 0, 2, False);
+    D.AddLine(P3(4, 0, 0), P3(4, 5, 0), 0, 2, False);
+    Ok(D.LineLengthEnd(0, MoveB) and not MoveB, '  held at its end, the start moves');
+    Ok(D.SetLineLength(0, 6), '  and takes a new length');
+    Ok(SamePt(D[0].B, P3(4, 0, 0), 1E-9) and SamePt(D[0].A, P3(-2, 0, 0), 1E-9),
+      '  the joined end stays put, the start goes back to -2');
+    Ok(SamePt(D[1].A, P3(4, 0, 0), 1E-9), '  and the line joined to it is untouched');
+
+    { joined at both ends: refused, and nothing moves }
+    D.AddLine(P3(-2, 0, 0), P3(-2, 3, 0), 0, 2, False);
+    Ok(not D.LineLengthEnd(0, MoveB), '  held at both ends, it cannot be changed');
+    Ok(not D.SetLineLength(0, 9), '  and a length typed at it is refused');
+    Ok(Abs(Dist(D[0].A, D[0].B) - 6) < 1E-9, '  leaving it as it was');
+
+    { an arc end counts as a joint too }
+    D.Clear;
+    D.AddLine(P3(0, 0, 0), P3(4, 0, 0), 0, 2, False);
+    D.AddArc(P3(4, 1, 0), 1, -Pi / 2, Pi, plXY, 0, 2);
+    Ok(D.LineLengthEnd(0, MoveB) and not MoveB, '  an arc on its end holds that end');
+
+    Ok(not D.SetLineLength(0, 0), '  and nothing is not a length');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCrossingsBreakEdges;
 var
   D: TWorkDoc;
@@ -6827,6 +7139,9 @@ begin
   TestTheReachIsTheWholeReach;  WriteLn;
   TestCrossingBoxTouchesTheGeometry;  WriteLn;
   TestOrbitSnapFindsTheNearestView;  WriteLn;
+  TestFilletRoundsACorner;  WriteLn;
+  TestNearestCornerIsFound;  WriteLn;
+  TestTypedLineLength;  WriteLn;
   TestViewCube;  WriteLn;
   TestEdgeSnapSeesOnlyWhatIsVisible;  WriteLn;
   TestSnapToFaceOutline;  WriteLn;

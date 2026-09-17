@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Round the corners of a shape with the arc tool, like SketchUp.**  Click a
+  point on each edge near a corner and pull the middle in towards the
+  corner.  When the arc curves smoothly into both edges it turns magenta and
+  says TANGENT TO EDGE.  Click to put it in and keep the square corner, or
+  double-click to trim the corner away.  Type a radius while it's magenta to
+  set the size.  After that, double-click near any other corner for the same
+  again.
+- **Type a line's length.**  Pick a line, type a new length, press Enter.
+  A loose line moves the end it was drawn to, a line joined at one end moves
+  its free end, and a line joined at both ends can't be changed that way -
+  the same rule as SketchUp's Entity Info.
+
 ## v2026.09.16.5
 
 ### New

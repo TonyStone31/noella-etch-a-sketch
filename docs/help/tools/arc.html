@@ -4,8 +4,72 @@
 <title>Arc - Heckers Sketch</title>
 <link rel="stylesheet" href="../style.css"></head>
 <body><div class="wrap"><nav class="crumbs"><a href="../index.html">Help</a> &rsaquo; Arc</nav>
-<header><h1>Arc</h1><p class="lead">An arc between two points.</p></header>
-<p>Keyboard: <kbd>A</kbd></p><h2>How to use it</h2><ol><li>Click the two ends, then pull the middle out to the bulge you want.</li><li>It will join two loose ends, which is the usual reason for reaching for it.</li></ol><h2>How smooth it is</h2>
+<header><h1>Arc</h1><p class="lead">An arc between two points - and the way to round a corner.</p></header>
+<p>Keyboard: <kbd>A</kbd></p>
+
+<h2>How to use it</h2>
+<ol>
+<li>Click where the arc starts.</li>
+<li>Click where it ends.</li>
+<li>Move the pointer to pull the middle of the arc out, and click.  Or type
+how far the middle bulges out - <kbd>6"</kbd> - and press
+<kbd>Enter</kbd>.</li>
+</ol>
+<p>It is also the tool for joining two loose ends with a curve.</p>
+
+<h2>Rounding a corner</h2>
+<p>This works like SketchUp's 2 Point Arc.</p>
+<ol>
+<li>Click a point on one edge, near the corner.</li>
+<li>Click a point on the other edge.</li>
+<li>Pull the middle <b>in towards the corner</b>.  When the arc curves
+smoothly into both edges it turns <b style="color:#e128e1">magenta</b> and
+says <b>TANGENT TO EDGE</b>.  That is a proper rounded corner.</li>
+<li>Now finish it one of two ways:
+  <ul>
+  <li><b>Click</b> - the arc goes in and the square corner <b>stays</b>.
+  Erase the two leftover corner lines yourself, or keep them if you wanted an
+  arc inside the corner.</li>
+  <li><b>Double-click</b> - the arc goes in and the square corner is
+  <b>trimmed away</b> in one go.</li>
+  </ul>
+</li>
+</ol>
+<p>When it turns magenta the arc starts exactly where you first clicked, and
+its other end moves to the same distance from the corner on the other edge.
+That's the only place an arc can curve smoothly into both edges, so if the
+second end jumps a little when it locks, that's why.</p>
+
+<h3>Setting the size</h3>
+<ul>
+<li>While it is magenta, <b>type a radius</b> and press <kbd>Enter</kbd> -
+<kbd>2"</kbd>.  Both ends move to suit.</li>
+<li>Or type the radius with an <kbd>r</kbd> on the end - <kbd>2"r</kbd> -
+and it is taken as a radius even when the arc is not magenta yet.</li>
+<li>Without the magenta and without an <kbd>r</kbd>, a number is the bulge,
+as it always was.</li>
+</ul>
+<p>Pressing <kbd>Enter</kbd> leaves the square corner in place, the same as a
+click.</p>
+
+<h3>The same again on the other corners</h3>
+<p>Once one corner is rounded, <b>double-click near any other corner</b> and
+it is rounded to the same radius and trimmed.  Four double-clicks and a
+rectangle has four round corners.</p>
+<p>Double-clicking a corner you rounded earlier with a plain click just trims
+it - it doesn't put a second arc on top.</p>
+
+<h3>What counts as a corner</h3>
+<ul>
+<li>Two loose lines meeting at an angle - square or not, flat, up a wall or
+on a slope.</li>
+<li>Not three lines meeting at one point: there's no single way to round
+that.</li>
+<li>Not the edges of a solid built by push/pull or a wizard.</li>
+<li>A radius too big for the shorter of the two edges is refused.</li>
+</ul>
+
+<h2>How smooth it is</h2>
 <p>An arc is drawn as a run of straight segments - twelve to begin with.</p>
 <ul><li>With the arc tool live, <kbd>+</kbd> and <kbd>-</kbd> step the number
 of segments up and down by one, and the hint line at the bottom shows where
@@ -14,10 +78,26 @@ you are.</li>
 <kbd>s12</kbd> - and press <kbd>Enter</kbd>.  Anything from 3 to 360.</li>
 <li>It is remembered for the next arc.</li>
 <li>Or change it afterwards, from the <a href="../entity.html">entity
-panel</a>.</li></ul><h2>What it looks like</h2><figure>
-  <div class="shot-missing">shots/tool-arc.png &mdash; not taken yet<br>The arc tool in use.</div>
-  <figcaption>The arc tool in use.</figcaption>
-</figure><h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
+panel</a>.</li></ul>
+
+<h2>What it looks like</h2>
+<figure>
+  <img src="../shots/tool-arc-tangent.png" alt="The arc tool rounding the corner of a rectangle, with the arc shown in magenta and the words TANGENT TO EDGE.">
+  <figcaption>A point on each edge, then the middle pulled in towards the
+  corner.  Magenta and <b>TANGENT TO EDGE</b> mean the arc curves smoothly
+  into both edges.</figcaption>
+</figure>
+<figure>
+  <img src="../shots/tool-arc-kept.png" alt="A rectangle with an arc inside its bottom-left corner and the square corner still there.">
+  <figcaption>Finished with a <b>click</b>: the arc is in, and the square
+  corner is still there to erase or keep.</figcaption>
+</figure>
+<figure>
+  <img src="../shots/tool-arc-rounded.png" alt="A rectangle with all four corners rounded.">
+  <figcaption>A <b>double-click</b> at each corner rounds it to the same
+  radius and trims the square corner away.</figcaption>
+</figure>
+<h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
 <footer>Heckers Sketch - help.  This page is a skeleton: the words are
 right, the pictures are not there yet.</footer>
 </div></body></html>

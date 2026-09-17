@@ -192,6 +192,18 @@ type
 
   { TWorkDoc }
 
+  { A corner rounded off: the two loose lines that met there, where the arc
+    touches each of them, and the arc itself.  See TWorkDoc.FilletAt. }
+  TFillet = record
+    Corner, S, E: TP3;       { the corner, and the two tangent points }
+    LineA, LineB: Integer;   { S lies on LineA, E on LineB }
+    R, T: Double;            { radius; corner to each tangent point }
+    Pl: TPlane;
+    Nm: TP3;                 { the plane's facing, for a free one }
+    ArcC: TP3;
+    A0, Sweep, Bulge: Double;
+  end;
+
   TWorkDoc = class
   private
     FEnts: array of TWorkEnt;
@@ -253,6 +265,21 @@ type
       or arc and can be rubbed out on its own.  Returns how many edges were
       broken up. }
     function SplitCrossings(FirstNew: Integer): Integer;
+    { Rounding a corner, SketchUp's way - see the bodies. }
+    function FarEnd(I: Integer; const P: TP3): TP3;
+    function ArcFromChordFor(var F: TFillet): Boolean;
+    function CornerLines(const Corner: TP3; out LA, LB: Integer): Boolean;
+    function FilletAt(const Corner: TP3; R: Double; out F: TFillet): Boolean;
+    function FilletFromEnds(const S, E: TP3; out F: TFillet): Boolean;
+    function NearestCorner(const V: TProjector; SX, SY, TolPx: Double;
+      out Corner: TP3): Boolean;
+    function ApplyFillet(const F: TFillet; Sides: Integer; Ink: TColor;
+      Weight: Single; Trim: Boolean): Boolean;
+    function TrimFillet(const F: TFillet): Integer;
+    { A line's length, typed.  See the body for which end gives. }
+    function LineEndJoined(I: Integer; AtB: Boolean): Boolean;
+    function LineLengthEnd(I: Integer; out MoveB: Boolean): Boolean;
+    function SetLineLength(I: Integer; NewLen: Double): Boolean;
     procedure AddArc(const C: TP3; R, A0, Sweep: Double; Pl: TPlane;
       Ink: TColor; Weight: Single);
     procedure SetArcSides(Index, N: Integer);
@@ -4742,6 +4769,472 @@ end;
   as a crossing is what the eye sees crossing.  A piece of one keeps its
   share of the sides, which lands the pieces' corners back on the whole
   one's whenever the cut fell on a corner - as a tangent always does. }
+{ ---------------------------------------------------------------------- }
+{ rounding a corner                                                       }
+{ ---------------------------------------------------------------------- }
+
+{ Tony, 16 September: "i was trying to make a rectangle have rounded corners
+  using the arc tool in its corners but it seemed like i was always getting
+  like a bubbled out corner unless i got the dimension just right.  sketchup
+  seems to handle it much better... there arc shows up with a hint about
+  tangent on edge."
+
+  SketchUp's two-point arc, read against their help and their forum: click a
+  point on each of the two edges near a corner and pull the bulge out; when
+  the arc runs tangent into both edges it turns magenta; a radius typed then
+  sets the size; a double-click finishes it AND trims the square corner away;
+  and a double-click near any other corner repeats the same fillet there.
+
+  A plain click leaves the square corner in place, cut at the touching
+  points.  Tony, from using SketchUp: "you have to erase the sharp left over
+  90 degree lines after you put the arc there... maybe you just want an arc
+  inside the pointed corner... so keep it just like sketchup!"  So the trim
+  is only ever the double-click's, never the click's or the Enter's.
+
+  Ours had none of it.  The bulge was whatever the mouse said, so an arc that
+  met the edges smoothly was a matter of luck - and every other bulge is the
+  bubble he was getting.  These are the geometry for all of it, kept here
+  rather than in the tool so the tests can ask them directly.
+
+  Only loose lines take part - the same rule SplitCrossings has.  A corner
+  of a built solid is part of something made on purpose, and rounding it
+  from underneath would tear the solid. }
+
+{ The two loose lines that meet at Corner - exactly two, not parallel.  A
+  corner with three lines into it has no single fillet, and saying no is
+  better than guessing which pair was meant. }
+function TWorkDoc.CornerLines(const Corner: TP3; out LA, LB: Integer): Boolean;
+const
+  TOL = 1E-6;
+var
+  I, N: Integer;
+  DA, DB: TP3;
+begin
+  Result := False;
+  LA := -1;
+  LB := -1;
+  N := 0;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekLine then Continue;
+    if FEnts[I].Dim or (FEnts[I].Grp <> 0) then Continue;
+    if not (SamePt(FEnts[I].A, Corner, TOL) or SamePt(FEnts[I].B, Corner, TOL)) then
+      Continue;
+    if Dist(FEnts[I].A, FEnts[I].B) < TOL then Continue;
+    Inc(N);
+    if N = 1 then LA := I
+    else if N = 2 then LB := I;
+  end;
+  if N <> 2 then Exit;
+  DA := Norm3(P3(FarEnd(LA, Corner).X - Corner.X, FarEnd(LA, Corner).Y - Corner.Y,
+                 FarEnd(LA, Corner).Z - Corner.Z));
+  DB := Norm3(P3(FarEnd(LB, Corner).X - Corner.X, FarEnd(LB, Corner).Y - Corner.Y,
+                 FarEnd(LB, Corner).Z - Corner.Z));
+  { straight on through, or doubled back: no corner to round }
+  Result := Abs(Dot3(DA, DB)) < 1 - 1E-6;
+end;
+
+{ The other end of a line from P. }
+function TWorkDoc.FarEnd(I: Integer; const P: TP3): TP3;
+begin
+  if Dist(FEnts[I].A, P) < Dist(FEnts[I].B, P) then Result := FEnts[I].B
+  else Result := FEnts[I].A;
+end;
+
+{ Everything about a fillet of radius R at Corner, without doing it.
+
+  The tangent points sit T from the corner along each line, where T is
+  R / tan(half the angle between them) - for a square corner, T is R.  A
+  radius too big for the shorter of the two lines is refused rather than
+  run off its end: the fillet would have to eat the next corner too, and
+  that is not what anybody typed a radius to get. }
+function TWorkDoc.FilletAt(const Corner: TP3; R: Double; out F: TFillet): Boolean;
+const
+  TOL = 1E-6;
+var
+  UA, UB, N, Mid, Dir: TP3;
+  Th, LenA, LenB, U1, V1, U2, V2, UC, VC, Ln, NU, NV, Sag: Double;
+  FO, FU, FV: TP3;
+begin
+  Result := False;
+  FillChar(F, SizeOf(F), 0);
+  if R <= TOL then Exit;
+  if not CornerLines(Corner, F.LineA, F.LineB) then Exit;
+  F.Corner := Corner;
+  UA := FarEnd(F.LineA, Corner);
+  UB := FarEnd(F.LineB, Corner);
+  LenA := Dist(UA, Corner);
+  LenB := Dist(UB, Corner);
+  UA := Norm3(P3(UA.X - Corner.X, UA.Y - Corner.Y, UA.Z - Corner.Z));
+  UB := Norm3(P3(UB.X - Corner.X, UB.Y - Corner.Y, UB.Z - Corner.Z));
+  Th := ArcCos(EnsureRange(Dot3(UA, UB), -1, 1));
+  if (Th < 1E-6) or (Th > Pi - 1E-6) then Exit;
+  F.R := R;
+  F.T := R / Tan(Th / 2);
+  if (F.T > LenA + TOL) or (F.T > LenB + TOL) then Exit;
+  F.S := P3(Corner.X + UA.X * F.T, Corner.Y + UA.Y * F.T, Corner.Z + UA.Z * F.T);
+  F.E := P3(Corner.X + UB.X * F.T, Corner.Y + UB.Y * F.T, Corner.Z + UB.Z * F.T);
+
+  { the plane the two lines lie in, named when it is one of the three }
+  N := Norm3(Cross3(UA, UB));
+  F.Nm := N;
+  if Abs(N.Z) > 1 - 1E-9 then F.Pl := plXY
+  else if Abs(N.Y) > 1 - 1E-9 then F.Pl := plXZ
+  else if Abs(N.X) > 1 - 1E-9 then F.Pl := plYZ
+  else
+  begin
+    { keep whatever free plane the window had, and put it back after -
+      this is a question, not a change of working plane }
+    GetFreePlane(FO, FU, FV, Dir);
+    SetFreePlane(Corner, N);
+    F.Pl := plFree;
+  end;
+
+  { The bulge, signed the way ArcFromChord reads it: towards the corner.
+    The arc turns through the outside angle, pi less the corner's, so its
+    middle stands R(1 - cos(half of that)) off the chord. }
+  PlaneCoords(F.Pl, F.S, U1, V1);
+  PlaneCoords(F.Pl, F.E, U2, V2);
+  PlaneCoords(F.Pl, Corner, UC, VC);
+  Ln := Sqrt(Sqr(U2 - U1) + Sqr(V2 - V1));
+  if Ln < TOL then
+  begin
+    if F.Pl = plFree then SetFreePlane(FO, Dir);
+    Exit;
+  end;
+  NU := -(V2 - V1) / Ln;
+  NV := (U2 - U1) / Ln;
+  Sag := R * (1 - Cos((Pi - Th) / 2));
+  Mid := P3((U1 + U2) / 2, (V1 + V2) / 2, 0);
+  if (UC - Mid.X) * NU + (VC - Mid.Y) * NV >= 0 then F.Bulge := Sag
+  else F.Bulge := -Sag;
+  Result := ArcFromChord(F.S, F.E, F.Bulge, F.Pl, F.ArcC, R, F.A0, F.Sweep);
+  if F.Pl = plFree then
+  begin
+    { AddArc reads the free plane when it is called, so ApplyFillet sets it
+      again from F.Nm; the window's own is put back here }
+    SetFreePlane(FO, Dir);
+  end;
+end;
+
+{ The fillet a pair of picks is aiming at: S on one line near a corner, E on
+  the other.  The radius is taken from how far S is from the corner, so the
+  first click is where the arc starts, as it was clicked - E is moved to
+  match, because an arc can only run tangent into both lines when it touches
+  both at the same distance.  That is the magenta state. }
+function TWorkDoc.FilletFromEnds(const S, E: TP3; out F: TFillet): Boolean;
+const
+  TOL = 1E-6;
+var
+  I, J, Swap, LA, LB, Other: Integer;
+  Ends: array[0..1] of TP3;
+  Corner, UA, UB: TP3;
+  T, Th: Double;
+
+  function OnLine(K: Integer; const P: TP3): Boolean;
+  var
+    L, D1, D2: Double;
+  begin
+    L := Dist(FEnts[K].A, FEnts[K].B);
+    D1 := Dist(FEnts[K].A, P);
+    D2 := Dist(FEnts[K].B, P);
+    { strictly inside it: a pick on the corner itself is no fillet }
+    Result := (D1 > TOL) and (D2 > TOL) and (Abs(D1 + D2 - L) < 1E-6 * (1 + L));
+  end;
+
+begin
+  Result := False;
+  FillChar(F, SizeOf(F), 0);
+  for I := 0 to FLive - 1 do
+  begin
+    if (FEnts[I].Kind <> ekLine) or FEnts[I].Dim or (FEnts[I].Grp <> 0) then
+      Continue;
+    if not OnLine(I, S) then Continue;
+    Ends[0] := FEnts[I].A;
+    Ends[1] := FEnts[I].B;
+    for J := 0 to 1 do
+    begin
+      Corner := Ends[J];
+      T := Dist(S, Corner);
+      { the line E sits on has to be the other line at this corner }
+      if not CornerLines(Corner, LA, LB) then Continue;
+      if LA = I then Other := LB
+      else if LB = I then Other := LA
+      else Continue;
+      if not OnLine(Other, E) then Continue;
+      { the radius whose tangent points are T from the corner }
+      UA := Norm3(P3(FarEnd(LA, Corner).X - Corner.X,
+                     FarEnd(LA, Corner).Y - Corner.Y,
+                     FarEnd(LA, Corner).Z - Corner.Z));
+      UB := Norm3(P3(FarEnd(LB, Corner).X - Corner.X,
+                     FarEnd(LB, Corner).Y - Corner.Y,
+                     FarEnd(LB, Corner).Z - Corner.Z));
+      Th := ArcCos(EnsureRange(Dot3(UA, UB), -1, 1));
+      if not FilletAt(Corner, T * Tan(Th / 2), F) then Continue;
+      { S should come back as the S that was clicked, on whichever side }
+      if Dist(F.E, S) < Dist(F.S, S) then
+      begin
+        F.E := F.S;
+        F.S := S;
+        Swap := F.LineA; F.LineA := F.LineB; F.LineB := Swap;
+        { the arc was built S to E; built the other way round the bulge
+          changes side }
+        F.Bulge := -F.Bulge;
+        Exit(ArcFromChordFor(F));
+      end;
+      Exit(True);
+    end;
+  end;
+end;
+
+{ Is anything else joined to this end of line I - another line or an arc
+  with an end in the same place? }
+function TWorkDoc.LineEndJoined(I: Integer; AtB: Boolean): Boolean;
+const
+  TOL = 1E-6;
+var
+  K: Integer;
+  P: TP3;
+begin
+  Result := False;
+  if AtB then P := FEnts[I].B else P := FEnts[I].A;
+  for K := 0 to FLive - 1 do
+  begin
+    if K = I then Continue;
+    if not (FEnts[K].Kind in [ekLine, ekArc]) then Continue;
+    if FEnts[K].Dim then Continue;
+    if SamePt(FEnts[K].A, P, TOL) or SamePt(FEnts[K].B, P, TOL) then Exit(True);
+  end;
+end;
+
+{ Which end of a line gives when its length is typed - SketchUp's rule, as
+  their forum's DaveR puts it:
+
+    "the edge is not connected to any other edges, the length change is made
+    relative to the last endpoint.  The edge is connected to another edge at
+    only one end, the length change is made relative to the free end.  The
+    edge is connected to an edge at each of its ends, the length cannot be
+    edited."
+
+  Tony, 16 September, on which end should move: "maybe the user could
+  indicate which way they want it to move some how... with an extra key.
+  idk... i dont want to stray from sketchup too much."  SketchUp's rule
+  needs no key, because in every case it allows there is only one end that
+  can move without tearing something - so this is that rule and nothing
+  more.  False when both ends are held. }
+function TWorkDoc.LineLengthEnd(I: Integer; out MoveB: Boolean): Boolean;
+var
+  JA, JB: Boolean;
+begin
+  Result := False;
+  MoveB := True;
+  if (I < 0) or (I >= FLive) or (FEnts[I].Kind <> ekLine) or FEnts[I].Dim then
+    Exit;
+  JA := LineEndJoined(I, False);
+  JB := LineEndJoined(I, True);
+  if JA and JB then Exit;
+  { loose, or held at A: the end it was drawn to moves.  Held at B: A does. }
+  MoveB := not JB;
+  Result := True;
+end;
+
+{ Make line I NewLen long, moving the end LineLengthEnd names along the line's
+  own direction. }
+function TWorkDoc.SetLineLength(I: Integer; NewLen: Double): Boolean;
+var
+  MoveB: Boolean;
+  L: Double;
+  D: TP3;
+begin
+  Result := False;
+  if NewLen <= 1E-9 then Exit;
+  if not LineLengthEnd(I, MoveB) then Exit;
+  L := Dist(FEnts[I].A, FEnts[I].B);
+  if L < 1E-9 then Exit;
+  if MoveB then
+  begin
+    D := P3((FEnts[I].B.X - FEnts[I].A.X) / L, (FEnts[I].B.Y - FEnts[I].A.Y) / L,
+            (FEnts[I].B.Z - FEnts[I].A.Z) / L);
+    FEnts[I].B := P3(FEnts[I].A.X + D.X * NewLen, FEnts[I].A.Y + D.Y * NewLen,
+                     FEnts[I].A.Z + D.Z * NewLen);
+  end
+  else
+  begin
+    D := P3((FEnts[I].A.X - FEnts[I].B.X) / L, (FEnts[I].A.Y - FEnts[I].B.Y) / L,
+            (FEnts[I].A.Z - FEnts[I].B.Z) / L);
+    FEnts[I].A := P3(FEnts[I].B.X + D.X * NewLen, FEnts[I].B.Y + D.Y * NewLen,
+                     FEnts[I].B.Z + D.Z * NewLen);
+  end;
+  FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+  Result := True;
+end;
+
+{ Take the square corner off a fillet that is already in: every loose line
+  running between the corner and one of the two touching points.  Its own
+  step because SketchUp's double-click is two clicks - the first puts the
+  arc in, the second trims - and the second has to find what the first
+  left.  Answers how many went. }
+function TWorkDoc.TrimFillet(const F: TFillet): Integer;
+const
+  TOL = 1E-6;
+var
+  Doomed: array of Boolean;
+  K: Integer;
+begin
+  Result := 0;
+  SetLength(Doomed, FLive);
+  for K := 0 to FLive - 1 do
+  begin
+    Doomed[K] := False;
+    if (FEnts[K].Kind <> ekLine) or FEnts[K].Dim or (FEnts[K].Grp <> 0) then
+      Continue;
+    if (SamePt(FEnts[K].A, F.Corner, TOL) and
+        (SamePt(FEnts[K].B, F.S, TOL) or SamePt(FEnts[K].B, F.E, TOL))) or
+       (SamePt(FEnts[K].B, F.Corner, TOL) and
+        (SamePt(FEnts[K].A, F.S, TOL) or SamePt(FEnts[K].A, F.E, TOL))) then
+    begin
+      Doomed[K] := True;
+      Inc(Result);
+    end;
+  end;
+  if Result > 0 then DeleteMarked(Doomed);
+end;
+
+{ ArcFromChord for a fillet whose ends have been swapped, in its own plane. }
+function TWorkDoc.ArcFromChordFor(var F: TFillet): Boolean;
+var
+  FO, FU, FV, Dir: TP3;
+  R: Double;
+begin
+  if F.Pl = plFree then
+  begin
+    GetFreePlane(FO, FU, FV, Dir);
+    SetFreePlane(F.Corner, F.Nm);
+  end;
+  Result := ArcFromChord(F.S, F.E, F.Bulge, F.Pl, F.ArcC, R, F.A0, F.Sweep);
+  if F.Pl = plFree then SetFreePlane(FO, Dir);
+end;
+
+{ The roundable corner nearest a screen point - a point where exactly two
+  loose lines meet at an angle.  This is what a double-click reaches for
+  when it repeats the last fillet: SketchUp's "move your cursor close to
+  another corner and double-click". }
+function TWorkDoc.NearestCorner(const V: TProjector; SX, SY, TolPx: Double;
+  out Corner: TP3): Boolean;
+var
+  I, K, LA, LB: Integer;
+  P: TP3;
+  Q: TPointF;
+  D, Best: Double;
+  PC: TProjCache;
+begin
+  Result := False;
+  Corner := P3(0, 0, 0);
+  Best := TolPx;
+  BeginProject(V, PC);
+  for I := 0 to FLive - 1 do
+  begin
+    if (FEnts[I].Kind <> ekLine) or FEnts[I].Dim or (FEnts[I].Grp <> 0) then
+      Continue;
+    if not InSlice(I) then Continue;
+    for K := 0 to 1 do
+    begin
+      if K = 0 then P := FEnts[I].A else P := FEnts[I].B;
+      Q := ProjectAt(PC, P);
+      D := Sqrt(Sqr(SX - Q.X) + Sqr(SY - Q.Y));
+      if D >= Best then Continue;
+      if HiddenAt(V, P) then Continue;
+      if not CornerLines(P, LA, LB) then Continue;
+      Best := D;
+      Corner := P;
+      Result := True;
+    end;
+  end;
+end;
+
+{ Round the corner.
+
+  The arc goes in; each line is cut at its tangent point; and with Trim, the
+  two short pieces between the tangent points and the corner go - which is
+  SketchUp's double-click, "the face and edges on the outside of your arc
+  disappear".  The face is not touched here: faces come from the edges that
+  close them, so once the corner's edges are gone the next rebuild draws the
+  rounded face on its own.
+
+  Without Trim the corner stays and the lines are still cut, so the pieces
+  can be rubbed out one at a time - the same arrangement as an arc drawn
+  across any other edge. }
+function TWorkDoc.ApplyFillet(const F: TFillet; Sides: Integer; Ink: TColor;
+  Weight: Single; Trim: Boolean): Boolean;
+const
+  TOL = 1E-6;
+var
+  FO, FU, FV, Dir, FarA, FarB: TP3;
+  LA, LB, Arc, K: Integer;
+  R: Double;
+
+  { cut line K at P, keeping the piece away from the corner in place and
+    adding the corner piece; true when a corner piece was made }
+  function Cut(K: Integer; const P, FarP: TP3): Boolean;
+  begin
+    Result := False;
+    if Dist(P, FarP) < TOL then
+    begin
+      { the fillet takes the whole of this line }
+      FEnts[K].A := F.Corner;
+      FEnts[K].B := P;
+      Exit(True);
+    end;
+    FEnts[K].A := FarP;
+    FEnts[K].B := P;
+    AddLine(P, F.Corner, FEnts[K].Ink, FEnts[K].Weight, False);
+    Result := True;
+  end;
+
+begin
+  Result := False;
+  LA := F.LineA;
+  LB := F.LineB;
+  if (LA < 0) or (LB < 0) or (LA >= FLive) or (LB >= FLive) then Exit;
+  R := Dist(F.ArcC, F.S);
+  if R <= TOL then Exit;
+  FarA := FarEnd(LA, F.Corner);
+  FarB := FarEnd(LB, F.Corner);
+
+  { A corner rounded before with a plain click still has its square corner,
+  so it is still a corner - and a double-click there has to mean "trim it",
+  not "put a second arc on top of the first".  If an arc already runs
+  between the two touching points, the lines are already cut there too, and
+  all that is left to do is the trim. }
+  for K := 0 to FLive - 1 do
+    if (FEnts[K].Kind = ekArc) and
+       ((SamePt(FEnts[K].A, F.S, 1E-6) and SamePt(FEnts[K].B, F.E, 1E-6)) or
+        (SamePt(FEnts[K].A, F.E, 1E-6) and SamePt(FEnts[K].B, F.S, 1E-6))) then
+    begin
+      if Trim then TrimFillet(F);
+      Exit(True);
+    end;
+
+  { the corner pieces, cut off each line }
+  Cut(LA, F.S, FarA);
+  Cut(LB, F.E, FarB);
+
+  if F.Pl = plFree then
+  begin
+    GetFreePlane(FO, FU, FV, Dir);
+    SetFreePlane(F.Corner, F.Nm);
+  end;
+  AddArc(F.ArcC, R, F.A0, F.Sweep, F.Pl, Ink, Weight);
+  Arc := FLive - 1;
+  if F.Pl = plFree then SetFreePlane(FO, Dir);
+  if Sides > 0 then SetArcSides(Arc, Sides);
+
+  if Trim then TrimFillet(F);
+  FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+  Result := True;
+end;
+
+
 function TWorkDoc.SplitCrossings(FirstNew: Integer): Integer;
 const
   TOL = 1E-6;      { how close two edges pass before they count as meeting }

@@ -76,10 +76,11 @@ chain_members() {
     commands) echo "command-list cmd-example cmd-wheel toy-command whatsnew-drag" ;;
     views)    echo "plan-slice plan-hidden view-cube cube-corners round-corner" ;;
     tools)    echo "dim-face-edge dim-needs-something tape-finishes guide-picking copy-paste" ;;
+    shapes)   echo "round-corners line-length move-edge" ;;
     *)        echo "" ;;
   esac
 }
-CHAINS="commands views tools"
+CHAINS="commands views tools shapes"
 
 # Between one script and the next: drop whatever tool or dialog the last one
 # left, and start a fresh sheet.  Not a fresh program - the settings, the
@@ -113,7 +114,7 @@ if [ $# -gt 0 ]; then
 else
   # the ones that run on their own, then the chains
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
-         glass-revolve ring-hint move-edge face-needs-edges entity-panel
+         glass-revolve ring-hint face-needs-edges entity-panel
          gif-loop frame-watchdog close-asks orbit-grid orbit-snap
          $CHAINS"
   # SOLO=1 takes the chains apart again, for when a chain has failed and the
@@ -124,7 +125,8 @@ else
            cmd-example cmd-wheel gif-loop view-cube cube-corners
            whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
            face-needs-edges tape-finishes guide-picking frame-watchdog
-           close-asks copy-paste entity-panel orbit-grid orbit-snap"
+           close-asks copy-paste entity-panel orbit-grid orbit-snap
+           round-corners line-length"
   fi
 fi
 

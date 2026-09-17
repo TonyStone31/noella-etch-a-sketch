@@ -1,0 +1,62 @@
+# Typing a line's length, SketchUp's Entity Info way.
+#
+# Pick a line, type a length, Enter.  A loose line moves the end it was
+# drawn to; a line joined at one end moves its free end; joined at both, it
+# says it cannot be changed.
+#
+# What to look for: hsk-ll-before has one loose line picked and the entity
+# panel saying "type a length, Enter"; hsk-ll-after has it longer, from the
+# same start; hsk-ll-fixed has a rectangle side picked and the panel saying
+# it is joined at both ends.
+activate
+wait 1000
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 1000
+key slash
+type info on
+key return
+wait 800
+
+# a loose line
+key l
+wait 300
+at 400 300
+click
+at 600 300 400
+click
+key escape
+wait 600
+
+# pick it
+key space
+wait 300
+at 500 300 300
+click
+wait 600
+shot /tmp/hsk-ll-before.png
+type 5'
+key return
+wait 1000
+shot /tmp/hsk-ll-after.png
+
+# a rectangle side is joined at both ends
+key escape
+key r
+wait 300
+at 400 450
+click
+at 600 600 400
+click
+wait 600
+key space
+wait 300
+at 500 450 300
+click
+wait 600
+shot /tmp/hsk-ll-fixed.png

@@ -75,7 +75,6 @@ examples to copy.
 - `tool-line.png` - The Line tool in use.  DONE
 - `tool-rect.png` - The Rectangle tool in use.  DONE
 - `tool-circle.png` - The Circle tool in use.  DONE
-- `tool-arc.png` - The Arc tool in use.
 - `tool-push.png` - The Push/Pull tool in use.  DONE
 - `tool-push.gif` - Picking the tool and raising a circle.  DONE
 - `tool-revolve.png` - The Revolve tool in use.

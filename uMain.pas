@@ -548,6 +548,14 @@ type
     { how many clicks have landed in the same spot in quick succession: two
       takes what is attached, three takes everything joined on }
     FClickN: Integer;
+    { the corner the last arc rounded, kept for the second click of a
+      double-click to trim, and the radius a double-click elsewhere repeats -
+      see ArcFillet }
+    FLastFillet: TFillet;
+    FFilletPending: Boolean;
+    FFilletSeq: Int64;
+    FFilletTick: QWord;
+    FLastFilletR: Double;
     FClickT: QWord;
     FClickX, FClickY: Integer;
 
@@ -942,6 +950,8 @@ type
     procedure CentreSelection;
     function ReverseSelectedFaces: Integer;
     function SelectedDim: Integer;
+    function SelectedLine: Integer;
+    function ApplyLineLength(NewLen: Double): Boolean;
     procedure ApplySlice;
     procedure SetSlice(AOn: Boolean; ALo, AHi: Double; const Why: string = '');
     procedure NudgeSlice(Steps: Integer; Which: Integer);
@@ -1239,6 +1249,10 @@ type
     procedure HoldTurn;
     procedure GlideTo(Az, El: Double);
     function OrbitSnapTarget(out T: TCubeTarget): Boolean;
+    function ArcFillet(out F: TFillet; out Typed: Boolean): Boolean;
+    function FilletCandidate(out F: TFillet): Boolean;
+    function ArcDoubleClick(SX, SY: Integer): Boolean;
+    procedure PaintUnderCursor(S: TArtSurface; OX, OY: Integer);
     procedure SnapOrbitToNearest;
     procedure StepGlide(Dt: Double);
     procedure PaintHeldPlane(C: TCanvas);
@@ -3559,6 +3573,55 @@ begin
   if Length(FSel) <> 1 then Exit;
   if FD.Doc[FSel[0]].Kind <> ekDim then Exit;
   Result := FSel[0];
+end;
+
+{ The one line that is picked - a drawn edge, not a dimension - or -1. }
+function TMainForm.SelectedLine: Integer;
+begin
+  Result := -1;
+  if Length(FSel) <> 1 then Exit;
+  if (FSel[0] < 0) or (FSel[0] >= FD.Doc.Live) then Exit;
+  if (FD.Doc[FSel[0]].Kind <> ekLine) or FD.Doc[FSel[0]].Dim then Exit;
+  Result := FSel[0];
+end;
+
+{ Pick a line, type a length, Enter: SketchUp's Entity Info length, done the
+  way every other size in this program is given.  Which end moves is
+  SketchUp's rule - see TWorkDoc.LineLengthEnd - and the message says which,
+  because a rule nobody is told is a surprise. }
+function TMainForm.ApplyLineLength(NewLen: Double): Boolean;
+var
+  I: Integer;
+  Was: Double;
+  MoveB: Boolean;
+begin
+  Result := False;
+  I := SelectedLine;
+  if I < 0 then Exit;
+  Was := Dist(FD.Doc[I].A, FD.Doc[I].B);
+  if not FD.Doc.LineLengthEnd(I, MoveB) then
+  begin
+    FCmdMsg := 'That line is joined at both ends, so its length cannot be ' +
+      'typed - move one of its ends instead, the way SketchUp does.';
+    Result := True;
+    Exit;
+  end;
+  if NewLen <= 0 then
+  begin
+    FCmdMsg := 'A length has to be more than nothing.';
+    Result := True;
+    Exit;
+  end;
+  PushUndo;
+  FD.Doc.SetLineLength(I, NewLen);
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  Invalidate;
+  InvalidateStatus;
+  FCmdMsg := Format('%s -> %s, the free end moved.',
+    [FormatLen(Was, FD.Units), FormatLen(NewLen, FD.Units)]);
+  Result := True;
 end;
 
 { Pick a dimension, type what it ought to read, and the drawing moves.
@@ -6677,6 +6740,7 @@ end;
   a stepper drifting away from the row it belongs to. }
 procedure TMainForm.RebuildInfo;
 var
+  InfoMoveB: Boolean;
   I, K, NL, NA, NF, NT, ND, NG: Integer;
   E: TWorkEnt;
   TotL, TotA: Double;
@@ -6799,6 +6863,13 @@ begin
       begin
         Head(IfThen(E.Dim, 'DIMENSION', 'LINE'));
         Row('Length', FormatLen(Dist(E.A, E.B), FD.Units));
+        { SketchUp greys the field when both ends are joined; this says it
+          in words, and says how to change it when it can be }
+        if not E.Dim then
+          if FD.Doc.LineLengthEnd(I, InfoMoveB) then
+            Row('', 'type a length, Enter')
+          else
+            Row('', 'joined at both ends - fixed');
         Row('From', Place(E.A));
         Row('To', Place(E.B));
         Row('Width', Format('%d px', [Round(E.Weight)]));
@@ -10612,6 +10683,8 @@ end;
 
 procedure TMainForm.PaintProOverlay(C: TCanvas);
 var
+  ArcFil: TFillet;
+  ArcTyped: Boolean;
   ArcPl: TPlane;
   ArcC, ArcU, ArcV, ArcMid, ArcFoot: TP3;
   ArcR, ArcA0, ArcSw, ArcBulge, U1, V1, U2, V2, Ln: Double;
@@ -10747,6 +10820,36 @@ begin
         begin
           Rubber(FP1, FCur);
           EndMark(FP1);
+        end
+        else if (FStage = 2) and ArcFillet(ArcFil, ArcTyped) then
+        begin
+          { Magenta, SketchUp's color for "tangent to edge", and drawn where
+            it will really land - the second end moved to match the first,
+            which is why it can jump when it locks. }
+          Rubber(ArcFil.Corner, ArcFil.S);
+          Rubber(ArcFil.Corner, ArcFil.E);
+          C.Pen.Style := psSolid;
+          C.Pen.Width := Max(3, Round(3 * FUIScale));
+          C.Pen.Color := PixToColor(Pix(225, 40, 225));
+          PA := ScreenOf(ArcPoint(ArcFil.ArcC, ArcFil.R, ArcFil.A0,
+            ArcFil.Pl, ArcFil.Nm));
+          C.MoveTo(Round(PA.X), Round(PA.Y));
+          for ArcK := 1 to FSidesArc do
+          begin
+            PB := ScreenOf(ArcPoint(ArcFil.ArcC, ArcFil.R,
+              ArcFil.A0 + ArcFil.Sweep * ArcK / FSidesArc, ArcFil.Pl, ArcFil.Nm));
+            C.LineTo(Round(PB.X), Round(PB.Y));
+          end;
+          C.Pen.Width := 1;
+          EndMark(ArcFil.S);
+          EndMark(ArcFil.E);
+          { the words, below and to the right of the pointer - clear of the
+            cursor's own square, which wipes whatever canvas text is inside
+            it, and of the tool glyph above it }
+          UIFont(C, 8, True, Pix(225, 40, 225));
+          C.Brush.Style := bsClear;
+          C.TextOut(FMouseSX + Round(24 * FUIScale), FMouseSY + Round(10 * FUIScale),
+            'TANGENT TO EDGE');
         end
         else if FStage = 2 then
         begin
@@ -11286,6 +11389,13 @@ begin
   CR := Rad + Round(8 * FUIScale);
   FOverlay.SetSize(CR * 2, CR * 2);
   FOverlay.CopyRegion(FArt, SX - CR, SY - CR, 0, 0, CR * 2, CR * 2);
+  { That square is the finished drawing, without the tool's preview in it -
+    so pasting it back wipes whatever preview was within reach of the
+    pointer.  Mostly that is the last few pixels of a rubber band, which
+    nobody notices.  A fillet is different: the pointer sits right on the
+    arc when it locks, and all that was left of it were two stubs at the
+    ends.  So the fillet goes into the square first, under the crosshair. }
+  if FMode = mdPro then PaintUnderCursor(FOverlay, SX - CR, SY - CR);
 
   if Theme.DarkScreen then Contrast := Pix(255, 255, 255) else Contrast := Pix(20, 20, 24);
   FOverlay.BlendMode := bmNormal;
@@ -11669,6 +11779,8 @@ var
   T: TP3;
   W, H, L, LBulge: Double;
   LPl: TPlane;
+  LFil: TFillet;
+  LTyped: Boolean;
 begin
   Result := '';
   if FMode <> mdPro then Exit;
@@ -11691,7 +11803,9 @@ begin
         Result := FormatLen(Dist(FP1, FCur), FD.Units)
       else if FStage = 2 then
       begin
-        if ArcPicks(FCur, LPl, T, W, H, L, LBulge) then
+        if ArcFillet(LFil, LTyped) then
+          Result := 'radius ' + FormatLen(LFil.R, FD.Units)
+        else if ArcPicks(FCur, LPl, T, W, H, L, LBulge) then
           Result := 'bulge ' + FormatLen(Abs(LBulge), FD.Units);
       end;
     ptRotate, ptProtractor:
@@ -11722,6 +11836,9 @@ end;
 function TMainForm.Prompt: string;
 var
   PromptAlong: Double;
+  PMoveB: Boolean;
+  PFil: TFillet;
+  PTyped: Boolean;
 begin
   case FTool of
     ptLine:
@@ -11750,10 +11867,22 @@ begin
         Result := 'to the next point, or type a length  -  double-click to finish';
     ptArc:
       case FStage of
-        0: Result := 'pick the first end';
+        0:
+          if FLastFilletR > 0 then
+            Result := 'pick the first end - or double-click a corner to round it ' +
+              FormatLen(FLastFilletR, FD.Units)
+          else
+            Result := 'pick the first end - on an edge near a corner to round it';
         1: Result := 'pick the second end';
       else
-        Result := 'pull the middle out, or type the bulge';
+        if ArcFillet(PFil, PTyped) then
+          Result := 'TANGENT TO EDGE - click, double-click to trim the corner, ' +
+            'or type a radius'
+        else if FilletCandidate(PFil) then
+          Result := 'pull the middle towards the corner until it turns tangent, ' +
+            'or type the bulge'
+        else
+          Result := 'pull the middle out, or type the bulge';
       end;
     ptRect:
       if FStage = 0 then Result := 'pick a corner'
@@ -11818,6 +11947,8 @@ begin
           Result := '1 picked - M to move, + and - for the text size, Delete to remove'
         else if SelectedDim >= 0 then
           Result := 'dimension picked - type a size and the drawing follows'
+        else if (SelectedLine >= 0) and FD.Doc.LineLengthEnd(SelectedLine, PMoveB) then
+          Result := 'line picked - type a length and Enter; the free end moves'
         else
         Result := Format('%d picked - M to move, Delete to remove',
           [Length(FSel)]);
@@ -12513,6 +12644,8 @@ end;
 
 procedure TMainForm.ProCommit;
 var
+  Fil: TFillet;
+  FilTyped: Boolean;
   I, NPieces, NWas, NBroke: Integer;
   T, C: TP3;
   Loop: TP3Array;
@@ -12707,6 +12840,37 @@ begin
 
     ptArc:
       begin
+        { A corner being rounded: its own geometry, and the square corner
+          left where it is.
+
+          Tony: "in sketchup you have to erase the sharp left over 90 degree
+          lines after you put the arc there... because in some situations...
+          who knows maybe you just want an arc inside the pointed corner...
+          so keep it just like sketchup!"
+
+          So a click, or a radius typed and Enter, puts the arc in and cuts
+          the two lines at the touching points - the corner pieces are then
+          lines of their own, to rub out or to keep.  Only the second click
+          of a double-click trims, which is the one place SketchUp's help
+          says it "cleans out the excess waste". }
+        if ArcFillet(Fil, FilTyped) then
+        begin
+          PushUndo;
+          FD.Doc.ApplyFillet(Fil, FSidesArc, FInkColor, FEdgeW, False);
+          FLastFilletR := Fil.R;
+          RebuildFlatFaces;
+          RenderPro;
+          RecomposeAll;
+          FCmdMsg := 'Arc tangent to both edges, radius ' +
+            FormatLen(Fil.R, FD.Units) +
+            '.  The corner is still there - erase it, or double-click to trim it.';
+          FLastFillet := Fil;
+          FFilletPending := True;
+          FFilletSeq := FEditSeq;
+          FFilletTick := GetTickCount64;
+          ResetTool;
+          Exit;
+        end;
         Ok := ArcPicks(FCur, ArcPl, C, R, A0, Sweep, Bulge);
         if not Ok and (Dist(FP1, FP2) < 1E-9) then
         begin
@@ -13720,6 +13884,8 @@ begin
       { said its piece already }
     else if SelectedDim >= 0 then
       { refused, and said why }
+    else if (SelectedLine >= 0) and ApplyLineLength(L) then
+      { a line picked: its length, SketchUp's Entity Info way }
     else
       FCmdMsg := FInput + ' = ' + FormatLen(L, FD.Units) + ' (pick a start point first)';
     FInput := '';
@@ -16028,6 +16194,134 @@ end;
 
 { The selection drawn again where it would land, plus the line back to where
   it was grabbed. }
+{ The arc's two ends are on the two lines of a corner, so it could round
+  that corner off.  The fillet that keeps the first click where it was. }
+function TMainForm.FilletCandidate(out F: TFillet): Boolean;
+begin
+  Result := (FTool = ptArc) and (FStage = 2) and
+            FD.Doc.FilletFromEnds(FP1, FP2, F);
+end;
+
+{ Is the arc being placed a fillet, and which one?
+
+  SketchUp turns the arc magenta when it runs tangent into both lines, and
+  that is the moment a click rounds the corner.  Here it is the same moment,
+  found the other way round: the fillet is worked out from the two ends, and
+  the arc is taken as that fillet when the pull brings its middle within a
+  finger's width of the fillet's middle.  Short of that the arc is whatever
+  the pull says, as before - the bubble is still there if you want a bubble.
+
+  A number typed while it is magenta is the radius, which is SketchUp's
+  rule; a number with an r after it is the radius whatever the pull is
+  doing.  Either way the arc is made to that radius, the touching points
+  moved to suit.  Typed says a radius was typed. }
+function TMainForm.ArcFillet(out F: TFillet; out Typed: Boolean): Boolean;
+const
+  LOCK_PX = 16;
+var
+  Txt: string;
+  L: Double;
+  RSuffix, Near_: Boolean;
+  M: TPointF;
+  F2: TFillet;
+begin
+  Result := False;
+  Typed := False;
+  if not FilletCandidate(F) then Exit;
+  M := ScreenOf(ArcPoint(F.ArcC, F.R, F.A0 + F.Sweep / 2, F.Pl, F.Nm));
+  Near_ := Sqrt(Sqr(M.X - FMouseSX) + Sqr(M.Y - FMouseSY)) <= LOCK_PX * FUIScale;
+  Txt := Trim(FInput);
+  RSuffix := (Length(Txt) > 1) and (Txt[Length(Txt)] in ['r', 'R']);
+  if RSuffix then Delete(Txt, Length(Txt), 1);
+  if (Txt <> '') and (RSuffix or Near_) then
+  begin
+    if not ParseLen(Txt, FD.Units, L) then Exit;
+    if not FD.Doc.FilletAt(F.Corner, L, F2) then Exit;
+    F := F2;
+    Typed := True;
+    Exit(True);
+  end;
+  Result := Near_;
+end;
+
+{ The part of a tool's preview that sits under the pointer, drawn into the
+  cursor's own square - see where pbScreenPaint calls it.  OX, OY is where
+  the square's corner is on the screen. }
+procedure TMainForm.PaintUnderCursor(S: TArtSurface; OX, OY: Integer);
+var
+  F: TFillet;
+  Typed: Boolean;
+  K: Integer;
+  PA, PB: TPointF;
+begin
+  if not ArcFillet(F, Typed) then Exit;
+  S.BlendMode := bmNormal;
+  PA := ScreenOf(ArcPoint(F.ArcC, F.R, F.A0, F.Pl, F.Nm));
+  for K := 1 to FSidesArc do
+  begin
+    PB := ScreenOf(ArcPoint(F.ArcC, F.R, F.A0 + F.Sweep * K / FSidesArc,
+      F.Pl, F.Nm));
+    S.Line(PA.X - OX, PA.Y - OY, PB.X - OX, PB.Y - OY,
+      Max(3, Round(3 * FUIScale)), Pix(225, 40, 225), 1);
+    PA := PB;
+  end;
+end;
+
+{ The second click of a double-click, with the arc tool in hand.
+
+  Right after an arc went in as a fillet, it trims that corner: SketchUp's
+  double-click, "the face and edges on the outside of your arc disappear".
+  Otherwise, near a corner, it rounds that corner with the last radius -
+  "move your cursor close to another corner and double-click". }
+function TMainForm.ArcDoubleClick(SX, SY: Integer): Boolean;
+var
+  Corner: TP3;
+  F: TFillet;
+  N: Integer;
+begin
+  Result := False;
+  if FTool <> ptArc then Exit;
+  { Only the double-click whose first click put the arc in.  The drive test
+    that took the help pictures caught it the other way: a plain click left
+    the trim waiting, and the next double-click - on a different corner, a
+    minute later - used it up on the old corner instead of rounding the new
+    one.  The two clicks of one double-click are well inside a second apart;
+    anything later is a new gesture. }
+  if FFilletPending and (FFilletSeq = FEditSeq) and
+     (GetTickCount64 - FFilletTick < 800) then
+  begin
+    FFilletPending := False;
+    N := FD.Doc.TrimFillet(FLastFillet);
+    if N > 0 then
+    begin
+      RebuildFlatFaces;
+      RenderPro;
+      RecomposeAll;
+      FCmdMsg := 'Corner rounded to ' + FormatLen(FLastFillet.R, FD.Units) +
+        ' and trimmed.  Double-click another corner for the same again.';
+      ResetTool;
+      Exit(True);
+    end;
+  end;
+  FFilletPending := False;
+  if FLastFilletR <= 0 then Exit;
+  if not FD.Doc.NearestCorner(Proj, SX, SY, 18 * FUIScale, Corner) then Exit;
+  ResetTool;
+  if not FD.Doc.FilletAt(Corner, FLastFilletR, F) then
+  begin
+    FCmdMsg := 'A ' + FormatLen(FLastFilletR, FD.Units) +
+      ' radius does not fit that corner.';
+    Exit(True);
+  end;
+  PushUndo;
+  FD.Doc.ApplyFillet(F, FSidesArc, FInkColor, FEdgeW, True);
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  FCmdMsg := 'Same again - corner rounded to ' + FormatLen(F.R, FD.Units) + '.';
+  Result := True;
+end;
+
 function TMainForm.ArcPicks(const B: TP3; out Pl: TPlane; out C: TP3;
   out R, A0, Sweep, Bulge: Double): Boolean;
 var
@@ -17807,6 +18101,13 @@ begin
     { A second click in quick succession lets go of a run of lines.  That is
       a thing about runs of lines and nothing else: on push/pull a double
       click repeats the last pull, which the tool handles itself. }
+    { the arc's double-click is SketchUp's: trim the corner just rounded,
+      or round the corner under the pointer with the same radius }
+    if (FClickN >= 2) and (FTool = ptArc) and ArcDoubleClick(X, Y) then
+    begin
+      FScreenDirty := True;
+      Exit;
+    end;
     if (FClickN >= 2) and (FTool in [ptLine, ptRect, ptCircle, ptArc]) then
     begin
       ResetTool;
