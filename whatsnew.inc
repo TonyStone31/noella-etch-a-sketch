@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`--blank`** starts the program on an empty sheet - no example, no' + LineEnding +
+    '  draft.  Whatever draft was there is kept beside it as' + LineEnding +
+    '  `heckers-sketch-draft-before-blank.hsk`, so nothing is lost.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The buttons along the bottom fit a smaller window.**  On a narrower' + LineEnding +
+    '  screen their words ran out of the buttons and over each other.  The' + LineEnding +
+    '  buttons on the right now shrink first, then turn into icons, and a label' + LineEnding +
+    '  that still doesn''t fit is shortened instead of spilling.' + LineEnding +
+    '- **The tool list on the left fits a shorter window.**  MORE TOOLS and SHOP' + LineEnding +
+    '  no longer end up drawn on top of each other.' + LineEnding +
+    '- **The blue highlight on a face no longer has a hole under the pointer.**' + LineEnding +
+    '- **The release notes window has a scroll bar in the theme''s colors.**' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.7' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
