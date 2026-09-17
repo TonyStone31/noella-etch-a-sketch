@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.16.7' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **This window is drawn by LazInk now**, our own text package, rather than' + LineEnding +
+    '  by code of its own.  It looks much the same.  You can still drag the page' + LineEnding +
+    '  with a finger to scroll it, and the arrow keys, Page Up and Page Down and' + LineEnding +
+    '  the mouse wheel all work.  The scroll bar is a plain one for now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.16.6' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
@@ -28,13 +37,6 @@ const
     '  A loose line moves the end it was drawn to, a line joined at one end moves' + LineEnding +
     '  its free end, and a line joined at both ends can''t be changed that way -' + LineEnding +
     '  the same rule as SketchUp''s Entity Info.' + LineEnding +
-    '' + LineEnding +
-    '### Changed' + LineEnding +
-    '' + LineEnding +
-    '- **This window is drawn by LazInk now**, our own text package, rather than' + LineEnding +
-    '  by code of its own.  It looks much the same.  You can still drag the page' + LineEnding +
-    '  with a finger to scroll it, and the arrow keys, Page Up and Page Down and' + LineEnding +
-    '  the mouse wheel all work.  The scroll bar is a plain one for now.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.16.5' + LineEnding +
     '' + LineEnding +
