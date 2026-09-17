@@ -2428,9 +2428,13 @@ them and maybe the auto updates should retreive them automatically."
 `../` name and an absolute path refused with nothing written, a zip with no
 index and a file that is not a zip both refused with the old pages intact.
 The staleness rule.  `help-window` in the drive suite: contents, a link,
-Back, Find.  **Not yet tested end to end** until a release carries the zip -
-the first one after this commit - and that is the check to make straight
-after it: a fresh folder, no help, `/manual`, and watch it arrive.
+Back, Find.  **End to end, checked against v2026.09.17**, the first release carrying
+the zip: the released Linux binary (sum verified), started in an empty
+folder with the network on, fetched and unpacked the pages on its own a few
+seconds after start - `help/VERSION` read `v2026.09.17` - and `/manual`
+showed them with "pages from v2026.09.17" in the title.  `tools/xephyr.sh`
+grew `NETWORK=1` and `APP=path` for exactly this check; the drive suite
+stays offline.
 
 **Two things found on the way.**  `ShowHelp` was already a method of every
 control, so the entry point is `OpenHelpWindow`.  And the same stale-build
