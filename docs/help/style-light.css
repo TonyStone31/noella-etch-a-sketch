@@ -1,0 +1,16 @@
+/* The light palette, and nothing else.
+
+   The pages are written in the program's PRO Dark colours - style.css - and
+   this sheet is laid over the top of that one to swap the palette for the
+   PRO Light one, to the byte.  Only the custom properties: every rule in
+   style.css is written in terms of them, so nothing else has to be said
+   twice.
+
+   Two readers use it.  A browser picks it up from the media query at the
+   foot of style.css, which asks the desktop.  The program's own help window
+   cannot ask anything of the desktop and does not need to - it knows which
+   theme the program is wearing - so it adds a link to this file to the page
+   as it loads it.  See THelpForm.PageWithMode in uHelpView. */
+:root{--bg:#f4f5f6;--panel:#eceef1;--hi:#e4e6e9;--line:#cfd3d8;
+      --text:#22262c;--dim:#5e6670;--accent:#176bbd;--paper:#ffffff;
+      --hover:#0d4f8f}

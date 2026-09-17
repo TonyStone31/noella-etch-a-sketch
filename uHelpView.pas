@@ -58,10 +58,17 @@ type
     procedure btnWebClick(Sender: TObject);
     procedure PageLinkClick(Sender: TObject; const URL: string);
     procedure PageNavigate(Sender: TObject);
+  public
+    { the window is kept between opens; the theme may change while it is
+      hidden, so whoever opens it dresses it again }
+    procedure Dress;
+  private
+    function PageIsLight: Boolean;
+    function PageWithMode(const HTML: string): string;
+    procedure GoToPage(const PathOrURI: string);
   private
     FWanted: string;        { the page asked for, relative to the folder }
     FFetching: Boolean;
-    procedure Dress;
     procedure ShowPages(const Rel: string);
     procedure ShowEmpty(const Why: string);
     procedure Notice(const S: string; Busy: Boolean);
@@ -90,12 +97,16 @@ implementation
 {$R *.lfm}
 
 uses
-  uHelpDocs, uUpdate, uNet, uDlgSkin, uSurface, uHelpImage;
+  uHelpDocs, uUpdate, uNet, uDlgSkin, uSurface, uHelpImage, URIParser;
 
 procedure OpenHelpWindow(const Rel: string);
 begin
   if HelpForm = nil then
-    Application.CreateForm(THelpForm, HelpForm);
+    Application.CreateForm(THelpForm, HelpForm)
+  else
+    { the window is kept between opens, so the theme may have changed under
+      it since - dress it again rather than showing last week's colours }
+    HelpForm.Dress;
   HelpForm.OpenAt(Rel);
 end;
 
@@ -178,6 +189,93 @@ begin
   Page.Font.Color := PixToColor(DlgTheme.Text);
 end;
 
+{ The manual is written in the program's dark colours, and a reader in a
+  browser gets the light ones from a media query the renderer here cannot
+  judge.  The program's own theme is the better answer anyway - Tony, 17
+  September: "there should be a way to pass the etch sketches current mode
+  to the help docs so they can render the same way".
+
+  A stylesheet of our own was the obvious way and does not work: the page's
+  own rules win over it, and its palette is a set of custom properties set
+  on :root, which cannot be overridden from outside.  So the mode is put
+  where the page itself reads it - a class on the body, which style.css
+  answers with the light palette - and the page is handed over as text
+  rather than as a file.  See body.light in docs/help/style.css. }
+function THelpForm.PageIsLight: Boolean;
+begin
+  Result := not DlgTheme.DarkScreen and
+    (DlgTheme.Panel.R + DlgTheme.Panel.G + DlgTheme.Panel.B >= 3 * 128);
+end;
+
+{ The page, with the light palette linked into it when the program is
+  wearing a light theme.
+
+  Not a class on the body and not a stylesheet of our own: LazInk reads
+  custom properties from :root only, and a page's own rules beat one handed
+  in from outside.  A second stylesheet linked after the page's own is
+  plain CSS - later rules win - and it is what a browser does with the
+  media query at the foot of style.css. }
+function THelpForm.PageWithMode(const HTML: string): string;
+var
+  Low, Prefix: string;
+  P, Q: Integer;
+begin
+  Result := HTML;
+  if not PageIsLight then Exit;
+  Low := LowerCase(HTML);
+  P := Pos('style.css"', Low);
+  if P <= 0 then Exit;
+  { the same folder the page reached style.css through - pages under tools/
+    say ../style.css }
+  Q := P;
+  while (Q > 1) and (Low[Q - 1] <> '"') do Dec(Q);
+  Prefix := Copy(HTML, Q, P - Q);
+  P := Pos('>', Low, P);
+  if P <= 0 then Exit;
+  Insert(LineEnding + '<link rel="stylesheet" href="' + Prefix +
+    'style-light.css">', Result, P + 1);
+end;
+
+{ Every page this window shows goes through here, so every one carries the
+  mode - the contents, a link inside a page, and Back and Forward, which
+  replay what was loaded rather than reading the file again. }
+procedure THelpForm.GoToPage(const PathOrURI: string);
+var
+  Path, Anchor, Src: string;
+
+  L: TStringList;
+  P: Integer;
+begin
+  Path := PathOrURI;
+  Anchor := '';
+  P := Pos('#', Path);
+  if P > 0 then
+  begin
+    Anchor := Copy(Path, P + 1, MaxInt);
+    Delete(Path, P, MaxInt);
+  end;
+  if LowerCase(Copy(Path, 1, 7)) = 'file://' then
+    if not URIToFilename(Path, Path) then Path := '';
+  if (Path = '') or not FileExists(Path) or
+     (LowerCase(ExtractFileExt(Path)) <> '.html') then
+  begin
+    { not one of ours - hand it to the renderer as it is }
+    if FileExists(Path) then Page.LoadFromFile(Path)
+    else Page.LoadFromURL(PathOrURI);
+    if Anchor <> '' then Page.JumpToAnchor(Anchor);
+    Exit;
+  end;
+  L := TStringList.Create;
+  try
+    L.LoadFromFile(Path);
+    Src := L.Text;
+  finally
+    L.Free;
+  end;
+  Page.LoadHTML(PageWithMode(Src), FilenameToURI(ExpandFileName(Path)));
+  if Anchor <> '' then Page.JumpToAnchor(Anchor);
+end;
+
 procedure THelpForm.OpenAt(const Rel: string);
 var
   R: TRect;
@@ -228,8 +326,7 @@ begin
   pnlEmpty.Visible := False;
   Page.Visible := True;
   try
-    Page.LoadFromFile(Folder + SetDirSeparators(Target));
-    if Anchor <> '' then Page.JumpToAnchor(Copy(Anchor, 2, MaxInt));
+    GoToPage(Folder + SetDirSeparators(Target) + Anchor);
   except
     on E: Exception do
       ShowEmpty('The page could not be read: ' + E.Message);
@@ -372,7 +469,7 @@ begin
   Local := LocalFileForWeb(URL);
   if Local <> '' then
   begin
-    Page.LoadFromURL(Local + Copy(URL, Pos('#', URL + '#'), MaxInt));
+    GoToPage(Local + Copy(URL, Pos('#', URL + '#'), MaxInt));
     Exit;
   end;
   { anywhere else on the internet, or an e-mail address: the real browser }
@@ -383,7 +480,7 @@ begin
     Exit;
   end;
   try
-    Page.LoadFromURL(URL);
+    GoToPage(URL);
   except
     on E: Exception do
       Notice('That page could not be opened - ' + E.Message, False);

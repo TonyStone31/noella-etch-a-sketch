@@ -5,9 +5,15 @@
 <link rel="stylesheet" href="../style.css"></head>
 <body><div class="wrap"><nav class="crumbs"><a href="../index.html">Help</a> &rsaquo; Measure</nav>
 <header><h1>Measure</h1><p class="lead">Read a distance.</p></header>
-<p>Keyboard: <kbd>T</kbd></p><h2>How to use it</h2><ol><li>Click two points and read the distance between them.</li><li>It leaves a guide line behind, which you can snap to.</li></ol><h2>Guides</h2>
-<p>The tape leaves a guide behind: a dashed line at the distance you measured
-and a point where the measurement landed.  Where that guide crosses an edge
+<p>Keyboard: <kbd>T</kbd></p><h2>How to use it</h2><ol><li>Click two points and read the distance between them.</li><li>It leaves a guide behind to snap to - a point, or a dashed line, depending on where you pulled it from.</li></ol><h2>Guides</h2>
+<p>What it leaves depends on where you pulled it from - SketchUp's rule:</p>
+<table class="sheet">
+<tr><th>Pulled from</th><th>What you get</th></tr>
+<tr><td>Along an edge - a point in from a corner, say</td><td>A guide point where it landed, and no line.  A dashed line lying on the edge you measured along marks nothing.</td></tr>
+<tr><td>Off an edge, into the face</td><td>A guide line parallel to that edge, at the distance you measured, and a point.</td></tr>
+<tr><td>From a corner, or in mid air</td><td>A line across the run, and a point.  There is no edge to be parallel to.</td></tr>
+</table>
+<p>The line is dashed and has no ends - it runs the width of the drawing.  Where that guide crosses an edge
 is a place the cursor will snap to - which is the whole reason for laying
 one.  Two guides crossing each other make a point as well.</p>
 <p>Rub out the dashed line with the eraser and the point goes with it - they

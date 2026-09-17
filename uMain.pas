@@ -18079,8 +18079,9 @@ end;
   the run just measured, which is the only direction the gesture named. }
 procedure TMainForm.LayGuide;
 var
-  D, Nm, AU, AV: TP3;
-  L: Double;
+  D, E, Nm, AU, AV: TP3;
+  Have: Boolean;
+  Kind: TTapeGuide;
 begin
   if Dist(FP1, FP2) < 1E-9 then Exit;
   PushUndo;
@@ -18103,36 +18104,40 @@ begin
     Exit;
   end;
 
-  { The line runs across the measurement, not along it.  The point of a guide
-    is to mark a distance: measure three feet off a wall and the useful line
-    is the one three feet out, running crosswise, snappable anywhere along
-    its length.  A guide laid along the run lies on top of it and marks
-    nothing.
-
-    SketchUp reaches the same place from the other side - click an edge, drag
-    away from it, get a line parallel to that edge - because dragging away
-    from an edge is dragging across it.  Taken from the drag it also answers
-    sensibly from a corner, where there is no single edge to be parallel
-    to. }
+  { What it leaves depends on where it was pulled from - see TapeGuide in
+    uWork.  Off an edge: a line parallel to that edge.  Along an edge: a
+    point and no line.  From anywhere else: the line across the run. }
   PlaneAxes(FD.Plane, AU, AV);
   Nm := Cross3(AU, AV);
-  D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
-  D := Cross3(Nm, D);
-  L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
-  if L < 1E-9 then
-  begin
-    { measured straight out of the working plane, so there is no crosswise
-      direction in it - fall back to the run itself rather than to nothing }
-    D := P3(FP2.X - FP1.X, FP2.Y - FP1.Y, FP2.Z - FP1.Z);
-    L := Sqrt(Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z));
-  end;
+  Have := (FMeasEdge >= 0) and (FMeasEdge < FD.Doc.Live) and
+          (FD.Doc[FMeasEdge].Kind = ekLine);
+  if Have then
+    E := P3(FD.Doc[FMeasEdge].B.X - FD.Doc[FMeasEdge].A.X,
+            FD.Doc[FMeasEdge].B.Y - FD.Doc[FMeasEdge].A.Y,
+            FD.Doc[FMeasEdge].B.Z - FD.Doc[FMeasEdge].A.Z)
+  else
+    E := P3(0, 0, 0);
+  Kind := TapeGuide(Have, E, FP1, FP2, Nm, D);
+  { and at a corner the click may have found the other edge of the two, so
+    the run is asked of every edge through where it started }
+  if (Kind <> tgPointOnly) and FD.Doc.RunsAlongEdge(FP1, FP2) then
+    Kind := tgPointOnly;
 
-  if (L > 1E-9) and (FTapeDrop <> 1) then
-    FD.Doc.AddGuide(FP2,
-      P3(FP2.X + D.X / L, FP2.Y + D.Y / L, FP2.Z + D.Z / L));
+  { A line is laid unless the run was along the edge it started on - and even
+    then, if the mode is line only, the parallel one is what it means. }
+  if (FTapeDrop <> 1) and ((Kind <> tgPointOnly) or (FTapeDrop = 2)) and
+     (Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z) > 1E-18) then
+    FD.Doc.AddGuide(FP2, P3(FP2.X + D.X, FP2.Y + D.Y, FP2.Z + D.Z));
   if FTapeDrop <> 2 then FD.Doc.AddGuide(FP2, FP2);
 
-  FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   ' + TapeDropSays;
+  if (Kind = tgPointOnly) and (FTapeDrop <> 2) then
+    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
+      '   a point where it landed - measured along the edge, so no line with it'
+  else if Kind = tgAlongEdge then
+    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) +
+      '   a guide parallel to the edge it came off  -  ' + TapeDropSays
+  else
+    FCmdMsg := FormatLen(Dist(FP1, FP2), FD.Units) + '   ' + TapeDropSays;
   RenderPro;
   RecomposeAll;
 end;

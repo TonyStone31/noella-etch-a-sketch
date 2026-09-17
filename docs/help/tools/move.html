@@ -4,9 +4,51 @@
 <title>Move - Heckers Sketch</title>
 <link rel="stylesheet" href="../style.css"></head>
 <body><div class="wrap"><nav class="crumbs"><a href="../index.html">Help</a> &rsaquo; Move</nav>
-<header><h1>Move</h1><p class="lead">Move things, or copy them.</p></header>
-<p>Keyboard: <kbd>M</kbd></p><h2>How to use it</h2><ol><li>Pick a point on what is selected, then click where that point should end up.</li><li>Hold Ctrl to leave a copy behind.</li>
-<li>Hold Shift to keep the axis it has drifted onto.</li></ol>
+<header><h1>Move</h1><p class="lead">Move what is picked - and stretch whatever is joined to it.</p></header>
+<p>Keyboard: <kbd>M</kbd></p>
+
+<h2>How to use it</h2>
+<ol>
+<li><b>Pick what is to move</b> first - a corner, an edge, a face, or a
+whole solid with three clicks.</li>
+<li><b>Press <kbd>M</kbd></b>, then click a point on it to take hold of.
+That point is the handle: a corner or a midpoint gives you something to land
+on exactly.</li>
+<li><b>Click where the handle should end up</b> - or type how far and press
+<kbd>Enter</kbd>.</li>
+</ol>
+<figure>
+  <a class="zoom" href="../shots/tool-move.gif" target="_blank" title="Open larger"><img src="../shots/tool-move.gif" alt="One side of a rectangle moved six inches, the two sides joined to it stretching to follow."></a>
+  <figcaption>One side picked, moved six inches: the two sides joined to it stretch to follow, and it is still a rectangle.  The size is typed rather than dragged for.</figcaption>
+</figure>
+
+<h2>Saying how far</h2>
+<table class="sheet">
+<tr><th>Type</th><th>What it does</th></tr>
+<tr><td><code>6"</code>, <code>2'6</code>, <code>0-8-8</code></td><td>That far, in the direction you are already going</td></tr>
+<tr><td><code>[4,2,0]</code></td><td>Put the handle at that point in the drawing</td></tr>
+<tr><td><code>&lt;4,2,0&gt;</code></td><td>Move it by that much, along each axis</td></tr>
+<tr><td><code>3x</code> after a copy</td><td>Three copies, evenly spaced - see below</td></tr>
+<tr><td><code>/3</code> after a copy</td><td>Three copies filling the gap you just made</td></tr>
+</table>
+<p>See <a href="../typing.html">typing measurements</a> for the full list of
+what a length can look like.</p>
+
+<h2>Keeping it straight</h2>
+<ul>
+<li>The move locks onto red, green or blue on its own as you drift onto one -
+the cursor says which.</li>
+<li><kbd>Shift</kbd> holds the axis it is on, so a wobble of the hand does
+not take it off.</li>
+<li>The arrow keys lock an axis outright before you move.</li>
+</ul>
+
+<h2>Copies and arrays</h2>
+<p>Hold <kbd>Ctrl</kbd> while moving and the original stays where it was.
+Straight after a copy, type <code>3x</code> for three of them at that spacing,
+or <code>/3</code> to fill the gap you just made with three - which is how
+studs, joists or fence posts get laid out.</p>
+
 <h2>What comes with it</h2>
 <p>A corner sitting where a moving corner sits moves too, so whatever is
 joined on stretches to follow.  Move one side of a rectangle and the two
@@ -19,10 +61,12 @@ away on its own and leaves everything else where it is.  The ghost turns
 amber to say so and the hint line says "on its own".  <code>/detach off</code>
 puts it back.  SketchUp has no such thing; it is here because a line drawn as
 a guide to something else should be able to leave without dragging the
-something else along.</p><h2>What it looks like</h2><figure>
-  <div class="shot-missing">shots/tool-move.png &mdash; not taken yet<br>The move tool in use.</div>
-  <figcaption>The move tool in use.</figcaption>
-</figure><h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
-<footer>Heckers Sketch - help.  This page is a skeleton: the words are
-right, the pictures are not there yet.</footer>
+something else along.</p>
+
+<h2>See also</h2><ul>
+<li><a href="../typing.html">Typing measurements</a></li>
+<li><a href="select.html">The select tool</a> - getting hold of the right thing first</li>
+<li><a href="rotate.html">Rotate</a> - the same idea, about a point</li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
 </div></body></html>

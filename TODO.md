@@ -1011,6 +1011,45 @@ These stay because the reasoning in them is the expensive part - the
 measurement that settled an argument, the trap that cost a day, the thing
 that looked obvious and was wrong.
 
+### The tape's two guides, and the manual in both modes - 17 September
+
+**The tape.**  Tony, after checking SketchUp: "when i draw a point in from
+the corner staying in the line it drops a point only... but if i used the
+tape measure from the line and set it up into the face of the rectangle then
+it does the guide line".  `TapeGuide` in uWork decides which, and
+`TWorkDoc.RunsAlongEdge` asks every edge through where the tape started -
+at a corner the click finds one of the two meeting there, and the run is
+along the other one as often as not.  From anywhere else it still lays the
+line across the run, which is ours and is what marks a distance from a
+corner.  `TestTapeGuideKind`.
+
+**Light and dark in the manual.**  "there should be a way to pass the etch
+sketches current mode to the help docs so they can render the same way."
+Three things had to be true at once: the website follows the reader's
+system, the program follows the program, and neither needs the pages
+rewritten.  A stylesheet handed in from outside does not work - the page's
+own rules win, and its palette is custom properties on `:root`, which cannot
+be reached from outside.  So `docs/help/style-light.css` holds the light
+palette and nothing else; a browser pulls it in through the media query at
+the foot of style.css, and the help window links it into the page as it
+loads it (`THelpForm.PageWithMode`, which is why every page now goes through
+`GoToPage` rather than `LoadFromFile`).  The window also re-dresses itself
+on every open, since the theme may have changed while it was hidden.
+
+**Pictures.**  Three pages that had none: revolve (a ball and a wine glass,
+rewritten step by step with a what-went-wrong table), move (a side of a
+rectangle stretched six inches), and the plan view (the cut travelling up
+through the toy).  The recordings are `tools/gif-revolve-ball.txt`,
+`gif-revolve-glass.txt`, `gif-move-stretch.txt` and `gif-plan-cut.txt`, with
+two prepared profiles beside them.  Worth knowing for the next one: a
+script's coordinates are the window's, the recording films the whole screen
+including the title bar, and the two differ by about 26 px - which is how a
+click meant for an edge landed on the face twice.
+
+**Not done, and asked for**: Alt to cycle inferences the way SketchUp's line
+tool does.  Ours is taken - Alt holds the working plane, which is in the
+keys page - so it wants a decision rather than a patch.
+
 ### The grid is a floor, and the bar says more - 17 September
 
 **The grid.**  Tony: "i am imagining a grid only being useful as a floor

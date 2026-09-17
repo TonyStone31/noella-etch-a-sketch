@@ -10,6 +10,26 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The manual follows the program's theme.**  Open it while the program is
+  in a light theme and the pages are light; in a dark one they stay dark.
+  On the website the pages follow whatever your system asks for.
+- **The manual has pictures where it was thin**: the revolve tool has a ball
+  and a wine glass being spun, the move tool shows a side of a rectangle
+  being stretched, and the plan view shows the cut travelling up through a
+  model.  The revolve page is rewritten step by step, with a table of what
+  to do when it will not spin.
+
+### Changed
+
+- **The tape leaves what SketchUp leaves.**  Measured along an edge - a
+  point in from a corner, say - it drops a guide point and no line.  Pulled
+  off an edge into the face, it drops a guide line parallel to that edge.
+  From anywhere else it still lays the line across the run.
+
 ## v2026.09.17.7
 
 ### Changed

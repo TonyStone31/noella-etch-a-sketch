@@ -596,6 +596,14 @@ type
       right on it.  Left out, it is the same as TolPx. }
     function HitEdge(const V: TProjector; SX, SY, TolPx: Double;
       GuideTolPx: Double = -1): Integer;
+    { Does the run from A to B lie along an edge that passes through A?
+
+      The tape leaves a point and no line when it is measured along an edge -
+      and "the edge" is not always the one the cursor was over when it
+      started: at a corner two edges meet, and a run in from the corner is
+      along one of them whichever the click found.  So every edge through A
+      is asked, not only that one. }
+    function RunsAlongEdge(const A, B: TP3): Boolean;
     { The guide point nearest the cursor, or -1.  Asked before anything else
       the select tool asks, because a guide point is usually sitting on the
       very line it was measured along - and a line passing through a point
@@ -1000,6 +1008,28 @@ function Norm3(const A: TP3): TP3;
   A loop that eats itself is not cleaned up here, and does not need to be: the
   region engine splits every crossing and walks the cycles, so an offset that
   overshoots simply comes back as smaller regions. }
+{ What the tape leaves behind, which depends on where it was pulled from.
+
+  SketchUp's rule, and the one Tony asked for on 17 September: "when i draw a
+  point in from the corner staying in the line it drops a point only... but
+  if i used the tape measure from the line and set it up into the face of the
+  rectangle then it does the guide line".
+
+  * Started on an edge and pulled off it - a guide line parallel to that
+    edge, through where the measurement landed.  Their help: "click a point
+    on an entity parallel to where the guide should go, move the cursor
+    perpendicular to that point."
+  * Along an edge - a point, and no line.  A guide lying on top of the edge
+    it was measured along marks nothing.
+  * Neither - the line across the run, which is ours: from a corner, or in
+    mid air, there is no edge to be parallel to, and a line crosswise to the
+    measurement is the one that marks the distance. }
+type
+  TTapeGuide = (tgPointOnly, tgAlongEdge, tgAcrossRun);
+
+function TapeGuide(HaveEdge: Boolean; const EdgeDir, A, B, PlaneNm: TP3;
+  out Dir: TP3): TTapeGuide;
+
 function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Array;
 
 { The two in-plane coordinates of a model point. }
@@ -2006,6 +2036,46 @@ begin
   else
     begin AU := P3(0, 1, 0); AV := P3(0, 0, 1); end;
   end;
+end;
+
+function TapeGuide(HaveEdge: Boolean; const EdgeDir, A, B, PlaneNm: TP3;
+  out Dir: TP3): TTapeGuide;
+var
+  Run, E, X: TP3;
+  L: Double;
+begin
+  Dir := P3(0, 0, 0);
+  Run := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+  L := Sqrt(Sqr(Run.X) + Sqr(Run.Y) + Sqr(Run.Z));
+  if L < 1E-9 then Exit(tgPointOnly);
+  Run := P3(Run.X / L, Run.Y / L, Run.Z / L);
+
+  if HaveEdge then
+  begin
+    L := Sqrt(Sqr(EdgeDir.X) + Sqr(EdgeDir.Y) + Sqr(EdgeDir.Z));
+    if L > 1E-9 then
+    begin
+      E := P3(EdgeDir.X / L, EdgeDir.Y / L, EdgeDir.Z / L);
+      X := Cross3(E, Run);
+      { measured along the edge it started on: a point, nothing else }
+      if Sqrt(Sqr(X.X) + Sqr(X.Y) + Sqr(X.Z)) < 1E-6 then Exit(tgPointOnly);
+      Dir := E;
+      Exit(tgAlongEdge);
+    end;
+  end;
+
+  { across the run, in the working plane }
+  X := Cross3(PlaneNm, Run);
+  L := Sqrt(Sqr(X.X) + Sqr(X.Y) + Sqr(X.Z));
+  if L < 1E-9 then
+  begin
+    { measured straight out of the working plane, so there is no crosswise
+      direction in it - fall back to the run itself rather than to nothing }
+    Dir := Run;
+    Exit(tgAcrossRun);
+  end;
+  Dir := P3(X.X / L, X.Y / L, X.Z / L);
+  Result := tgAcrossRun;
 end;
 
 function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Array;
@@ -8984,6 +9054,50 @@ begin
       Best := D;
       Result := I;
     end;
+  end;
+end;
+
+function TWorkDoc.RunsAlongEdge(const A, B: TP3): Boolean;
+const
+  TOL = 1E-6;
+var
+  I: Integer;
+  Run, E, X: TP3;
+  L, T: Double;
+
+  { A is on this line, at an end or along it }
+  function Touches(const P, Q: TP3): Boolean;
+  var
+    D: TP3;
+    LL: Double;
+  begin
+    if (Dist(A, P) < TOL) or (Dist(A, Q) < TOL) then Exit(True);
+    D := P3(Q.X - P.X, Q.Y - P.Y, Q.Z - P.Z);
+    LL := Sqr(D.X) + Sqr(D.Y) + Sqr(D.Z);
+    if LL < 1E-18 then Exit(False);
+    T := ((A.X - P.X) * D.X + (A.Y - P.Y) * D.Y + (A.Z - P.Z) * D.Z) / LL;
+    if (T < -TOL) or (T > 1 + TOL) then Exit(False);
+    Result := Dist(A, P3(P.X + D.X * T, P.Y + D.Y * T, P.Z + D.Z * T)) < TOL;
+  end;
+
+begin
+  Result := False;
+  Run := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+  L := Sqrt(Sqr(Run.X) + Sqr(Run.Y) + Sqr(Run.Z));
+  if L < 1E-9 then Exit;
+  Run := P3(Run.X / L, Run.Y / L, Run.Z / L);
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekLine then Continue;
+    if FEnts[I].Dim then Continue;
+    if not Touches(FEnts[I].A, FEnts[I].B) then Continue;
+    E := P3(FEnts[I].B.X - FEnts[I].A.X, FEnts[I].B.Y - FEnts[I].A.Y,
+            FEnts[I].B.Z - FEnts[I].A.Z);
+    L := Sqrt(Sqr(E.X) + Sqr(E.Y) + Sqr(E.Z));
+    if L < 1E-9 then Continue;
+    E := P3(E.X / L, E.Y / L, E.Z / L);
+    X := Cross3(E, Run);
+    if Sqrt(Sqr(X.X) + Sqr(X.Y) + Sqr(X.Z)) < 1E-6 then Exit(True);
   end;
 end;
 

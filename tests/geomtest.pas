@@ -1346,6 +1346,71 @@ begin
   end;
 end;
 
+{ What the tape leaves behind, by where it was pulled from - SketchUp's rule,
+  asked for on 17 September. }
+procedure TestTapeGuideKind;
+var
+  Dir, Up: TP3;
+  D: TWorkDoc;
+  I: Integer;
+
+  function Same(const A: TP3; X, Y, Z: Double): Boolean;
+  begin
+    Result := (Abs(A.X - X) < 1E-9) and (Abs(A.Y - Y) < 1E-9) and (Abs(A.Z - Z) < 1E-9);
+  end;
+
+begin
+  WriteLn('-- what the tape leaves behind');
+  Up := P3(0, 0, 1);
+  { along the edge it started on: a point, no line }
+  Ok(TapeGuide(True, P3(1, 0, 0), P3(0, 0, 0), P3(1, 0, 0), Up, Dir) = tgPointOnly,
+    'measured along the edge it came off - a point only');
+  Ok(TapeGuide(True, P3(1, 0, 0), P3(3, 0, 0), P3(1, 0, 0), Up, Dir) = tgPointOnly,
+    'and the same measuring back along it');
+  { off the edge, into the face: a line parallel to that edge }
+  Ok((TapeGuide(True, P3(1, 0, 0), P3(2, 0, 0), P3(2, 1, 0), Up, Dir) = tgAlongEdge) and
+     Same(Dir, 1, 0, 0),
+    'pulled off the edge - a guide parallel to it');
+  { at an angle to it, still parallel to the edge }
+  Ok((TapeGuide(True, P3(0, 1, 0), P3(0, 0, 0), P3(2, 2, 0), Up, Dir) = tgAlongEdge) and
+     Same(Dir, 0, 1, 0),
+    'and at an angle off it, still parallel to the edge');
+  { no edge at all: the line across the run, in the working plane }
+  Ok((TapeGuide(False, P3(0, 0, 0), P3(0, 0, 0), P3(0, 2, 0), Up, Dir) = tgAcrossRun) and
+     (Abs(Dir.X) = 1) and (Abs(Dir.Y) < 1E-9),
+    'from a corner - the line across the run');
+  { straight up out of the working plane, where there is no crosswise }
+  Ok((TapeGuide(False, P3(0, 0, 0), P3(0, 0, 0), P3(0, 0, 3), Up, Dir) = tgAcrossRun) and
+     Same(Dir, 0, 0, 1),
+    'straight out of the plane - along the run, since nothing crosses it');
+  Ok(TapeGuide(True, P3(1, 0, 0), P3(1, 1, 1), P3(1, 1, 1), Up, Dir) = tgPointOnly,
+    'a measurement of nothing leaves a point');
+
+  { At a corner the click finds one of the two edges meeting there, and a run
+    in from the corner is along the other one as often as not - so the run is
+    asked of every edge through where it started. }
+  D := TWorkDoc.Create;
+  try
+    for I := 0 to 3 do
+      D.AddLine(Rect4(0, 0, 10, 6, 0)[I], Rect4(0, 0, 10, 6, 0)[(I + 1) mod 4],
+        0, 1, False);
+    Ok(D.RunsAlongEdge(P3(0, 0, 0), P3(1, 0, 0)),
+      'in from the corner along the bottom edge');
+    Ok(D.RunsAlongEdge(P3(0, 0, 0), P3(0, 2, 0)),
+      'and up the side from the same corner');
+    Ok(D.RunsAlongEdge(P3(3, 0, 0), P3(5, 0, 0)),
+      'along the edge from the middle of it');
+    Ok(not D.RunsAlongEdge(P3(0, 0, 0), P3(2, 2, 0)),
+      'but a run off into the face is not along anything');
+    Ok(not D.RunsAlongEdge(P3(3, 3, 0), P3(5, 3, 0)),
+      'nor one that starts in the middle of the face');
+    Ok(not D.RunsAlongEdge(P3(0, 0, 0), P3(0, 0, 4)),
+      'nor one going straight up off the drawing');
+  finally
+    D.Free;
+  end;
+end;
+
 { Where a guide crosses an edge is the point the guide exists to make.
 
   Tony, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE I
@@ -7671,6 +7736,7 @@ begin
   TestMoveStretchesWhatItJoins;  WriteLn;
   TestErasingAnEdgeTakesItsFaces;  WriteLn;
   TestTrussNotation;  WriteLn;
+  TestTapeGuideKind;  WriteLn;
   TestGuidesMakeCrossings;  WriteLn;
   TestShortGuidesCrossFarAway;  WriteLn;
   TestUndoPutsTheHolesBack;  WriteLn;

@@ -13,6 +13,26 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The manual follows the program''s theme.**  Open it while the program is' + LineEnding +
+    '  in a light theme and the pages are light; in a dark one they stay dark.' + LineEnding +
+    '  On the website the pages follow whatever your system asks for.' + LineEnding +
+    '- **The manual has pictures where it was thin**: the revolve tool has a ball' + LineEnding +
+    '  and a wine glass being spun, the move tool shows a side of a rectangle' + LineEnding +
+    '  being stretched, and the plan view shows the cut travelling up through a' + LineEnding +
+    '  model.  The revolve page is rewritten step by step, with a table of what' + LineEnding +
+    '  to do when it will not spin.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The tape leaves what SketchUp leaves.**  Measured along an edge - a' + LineEnding +
+    '  point in from a corner, say - it drops a guide point and no line.  Pulled' + LineEnding +
+    '  off an edge into the face, it drops a guide line parallel to that edge.' + LineEnding +
+    '  From anywhere else it still lays the line across the run.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.7' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

@@ -1,7 +1,24 @@
-/* The help pages wear the program's own PRO Dark colors, so opening the
-   help does not feel like leaving the program. */
+/* The help pages wear the program's own colors, so opening the help does
+   not feel like leaving the program.  PRO Dark by default.
+
+   Light comes three ways, and they do not fight: a reader whose system
+   asks for light gets it from the media query; anything that sets
+   class="light" on the body gets it too (the toggle on the website); and
+   the program's own help window hands its theme over by adding a
+   stylesheet of its own - see uHelpView.ApplyPageTheme - because the
+   renderer there has no idea what the desktop prefers.  The values are the
+   program's PRO Light theme, to the byte. */
 :root{--bg:#23262c;--panel:#1d2027;--hi:#33383f;--line:#3c424a;
-      --text:#e8ecf2;--dim:#8a93a0;--accent:#4ac8f0;--paper:#ffffff}
+      --text:#e8ecf2;--dim:#8a93a0;--accent:#4ac8f0;--paper:#ffffff;
+      --hover:#ffffff}
+/* A browser asks the desktop; the program's help window knows the answer
+   already and adds style-light.css to the page instead.  The values are the
+   same ones, kept in that file. */
+@media (prefers-color-scheme: light){
+  :root{--bg:#f4f5f6;--panel:#eceef1;--hi:#e4e6e9;--line:#cfd3d8;
+        --text:#22262c;--dim:#5e6670;--accent:#176bbd;--paper:#ffffff;
+        --hover:#0d4f8f}
+}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
      font:15px/1.65 system-ui,'Segoe UI',Ubuntu,sans-serif}
@@ -11,7 +28,7 @@ h1{font-size:28px;margin:0 0 6px}
 h2{font-size:19px;margin:32px 0 10px;color:var(--accent)}
 .lead{color:var(--dim);margin:0;font-size:16px}
 a{color:var(--accent)}
-a:hover{color:#fff}
+a:hover{color:var(--hover)}
 nav.crumbs{font-size:13px;color:var(--dim);margin-bottom:18px}
 ol,ul{padding-left:22px}
 li{margin:7px 0}
