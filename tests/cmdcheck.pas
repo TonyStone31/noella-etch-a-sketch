@@ -1,3 +1,4 @@
+#!/usr/bin/env instantfpc
 program cmdcheck;
 
 { Every command the list offers is a command the program answers to.
@@ -17,7 +18,10 @@ program cmdcheck;
 
   This was a Python script inside run-cmds.sh until 17 September.  It is
   Pascal now, like everything else here, so nothing in the repository needs
-  a Python to run. }
+  a Python to run - and a Pascal script: instantfpc, which comes with Free
+  Pascal, compiles it the first time it is run and keeps it after that, so
+  tests/cmdcheck.pas runs directly.  (A file that starts with #! is for
+  instantfpc; plain fpc will not take it.) }
 
 {$mode objfpc}{$H+}
 

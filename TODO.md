@@ -316,11 +316,22 @@ python."  None is left in this repository or in LazHIDControl or LazInk:
 * LazHIDControl's README example is bash; LazInk's two help checks are
   Pascal programs reading the pages with the FCL's HTML reader.
 
-One is left and it is not public: **`tools/fetch-reports.py`**, the report
-collector, which lives in the ignored `tools/` folder.  It should still be a
-small Pascal program - a fetch, a name check, a size cap and a file write -
-ported with the old one kept alongside until the new one has collected a
-day's reports and agreed with it.
+**Scripts are Pascal now, through `instantfpc`** (17 September).  It ships
+with Free Pascal: a `.pas` file with `#!/usr/bin/env instantfpc` on its first
+line runs directly, compiled the first time and cached after that.  On this
+machine the toolchain's `fpc` is not on PATH, so `~/.local/bin/instantfpc` is
+a three-line wrapper that passes `--compiler=`.  A file with a shebang no
+longer compiles with plain `fpc`, which is the one thing to remember.
+
+`tests/cmdcheck.pas`, LazInk's `tools/audit_help.pas` and the report
+collector all run that way.  **The collector, `tools/fetch-reports.pas`**,
+replaces `fetch-reports.py` (both in the ignored `tools/`): the same name
+check, done a character at a time instead of with a pattern whose `$` also
+matched before a trailing newline; the same caps, enforced while the upload
+arrives rather than after; the same banner, flags, drawings and index.  It
+finds `reports/` from the folder it is run in, or `--root`.  **Keep the
+Python one beside it until the Pascal one has collected a day's reports and
+agreed** - then change the cron line and delete the `.py`.
 
 ---
 
