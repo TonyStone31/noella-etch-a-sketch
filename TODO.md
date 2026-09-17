@@ -13,39 +13,104 @@ argue against.
 `docs/transition-ticket.md` is how a duct fitting gets called out on a job.
 `docs/interchange-and-flat-patterns.md` is DXF and the unfolding.
 
-**History lives in the commit messages.**  This file is what is left to do.
-`git log` reads better than a diary kept by hand ever did, and it cannot go
-out of date.
+**History lives in the commit messages.**  This file is what is left to do,
+down to **Done and settled** - past that are the write-ups worth keeping
+because the reasoning in them was the expensive part.  When something is
+finished, its note moves down there and anything left over goes into
+**Loose ends**.
 
 ---
 
-## Where it stands, 14 September 2026
+## Where it stands, 17 September 2026
 
 Drawing: lines, rectangles, circles, arcs, offset, push/pull, revolve, drill,
 move, rotate, erase, text with leader lines, dimensions you place yourself -
 and can retype to resize what they measure - the tape measure with guides and
-the protractor with angled ones.  Snapping and inference, and a snapped point
-holds until you mean to leave it.
+the protractor with angled ones.  Rounded corners the SketchUp way (a click
+keeps the corner, a double-click trims it).  Snapping and inference, and a
+snapped point holds until you mean to leave it.  Edges that cross cut each
+other as they land.
 
 Faces are derived from the edges that close them, in any plane, including
 sloped ones.  Faces that are not flat are cut into triangles before they are
 drawn, so their depth is exact rather than fitted.  Loose faces are wound
 against their neighbours rather than one at a time.  The program knows whether
-a solid is closed, and says so on the way out.
+a solid is closed, and shows where it is not.
 
 Views: PLAN draws on the ground and can cut a slice through the model at a
-height, ISO locks to the three paper axes, 3D is the free camera.
+height, ISO locks to the three paper axes, 3D is the free camera.  The view
+cube, and Ctrl on the orbit to click into the nearest of its twenty-six
+views.  An entity panel on the right (`/info`) that edits sides, soften,
+note size, face direction and a line's length.
 
 Getting it out: an export room with a live preview - PNG, JPEG, animated GIF
 with a camera recorder, SVG, DXF flat or in 3D, STL, and OpenSCAD.  Printing
 at scale or full size across many sheets.
 
 Around the edges: portable, single instance, drafts that survive a crash,
-self-update, crash and bug reports that go somewhere, Windows on its own TLS.
+self-update, Windows on its own TLS, the manual inside the program (downloaded beside it, kept
+current, drawn by LazInk), and reports that carry the frame times, the last
+few dozen actions, the drawing, and how the program was started and set up.
 
-Two test suites, both green: `./tests/run.sh` (758 checks) and
-`./tests/run-region.sh` (84), plus `./tests/run-cmds.sh` reading the command
-table against the dispatcher, and GUI scripts driven through Xephyr.
+Tests, all green: `./tests/run.sh` (1087 checks), `./tests/run-region.sh`
+(91), `./tests/run-cmds.sh` reading the command table against the
+dispatcher, and `./tests/run-drive.sh` - 45 scripts driven through Xephyr,
+six at a time, some of them chained in one program.
+
+---
+
+## Loose ends, small
+
+Gathered from the notes further down, so none of them is only findable by
+reading a write-up of something finished.  Roughly smallest first.
+
+* **Aliases in the command list.**  `/e`, `/mv`, `/tape` work but are not in
+  the list, and typing one does not count as using the command, so it never
+  floats to the top.  An alias column on `CMD_LIST` fixes both - about ten
+  lines, and `run-cmds.sh` would want to learn it.
+* **`/rendertime` and `/timings` into the copyable box.**  They write a
+  paragraph into a bar built for a sentence (see *The command bar* below).
+  `ShowLongText`, built for `/state`, is a scrolling box with a copy button -
+  the second half of that note, already made.
+* **The view cube from the keyboard**, and a cube drag that clicks into the
+  nearest view when let go.  `CubeNearest` and `GlideTo` are both there.
+* **Colour and pen width in the entity panel.**  The panel shows them; a
+  setter on picked entities is the missing piece.  Then **radius on a
+  circle**, **the plane an arc was drawn in**, and a **name on a solid**
+  (that last one wants a field in the file).
+* **Examples: the checksum rule.**  Today they are written over the top every
+  run; one somebody has edited and saved under its own name must be left
+  alone.  See *Examples written out beside the portable exe*.
+* **The Python heredoc in `build.sh`** - see *Python, on the way out*.
+* **The pull-while-dragging orbit snap**, as an experiment.  The release
+  version is built; the questions are kept with its write-up.
+* **The cursor square wipes canvas drawing under it** for the rubber bands
+  and canvas text of the tools that still paint straight onto the window.
+  The face wash and the fillet arc are handled.  The general fix is
+  compositing the cursor with alpha.
+* **Arcs: SketchUp's Alt tangent lock**, and an arc tangent off the end of a
+  single line.
+* **Typed resize by a dimension**: an arc only partly past the moving plane
+  comes out wrong, nothing between the ends stretches, and there is no
+  handle to drag.
+* **The manual's words against the tools as they are now** - one pass, page
+  by page.  The eraser page was found a version behind once already.
+* **The plan view**: poché on a cut wall, 2D mode as a lens, and whether
+  `fit` should frame only what is in the slice.
+* **A GIF of the plan cut sweeping up the building** instead of the camera
+  turning - nearly free now the recorder exists.
+* **Loose faces adopted into a solid** when they close one with faces that
+  already belong to it.
+* **Drive scripts that compare their screenshots** against kept ones, so a
+  pass means something.
+* **Tie `TOOL_NAMES` to the command rows that set a tool**, if another
+  renamed tool goes stale in the list.
+* **Unexplained, needs a session that catches it**: the eraser once drew a
+  dimension off a guide point (15 September).
+* **Open hunt**: the surface guard's canary, last seen reading 4.07615 on 15
+  September.  Notes in uSurface.
+* **Then re-measure, and only then ask about OpenGL** - the last step of the
+  order agreed on 15 September; the rest of it is done.
 
 ---
 
@@ -91,7 +156,6 @@ not worth a worker; the hover that walked it every mouse move was the cost,
 now fixed by keeping the projected positions per camera (SameProjector).
 Remaining thread candidates: the face fill by bands, then lines-on-faces by
 line.
-then the face fill by bands, then lines-on-faces by line.
 
 **Threads - a weekend job, soon.**  The rules and the OpenGL discussion are
 in docs/render-acceleration.md.  Agreed 2026-09-07: no threads until the
@@ -156,12 +220,6 @@ into the drawing; hammer the general tools before the generators.
 
 ## Smaller things, roughly in order
 
-* **Edges that partly overlap - DONE 14 September 2026.**
-  `TWorkDoc.AddLineSplit`: a line drawn along one already there cuts both
-  where they share, so the overlap is one edge and the tails are their own.
-  Only loose lines - a line that belongs to a solid is part of something that
-  was built, and cutting it up underneath the solid is a different and worse
-  idea.  The line tool uses it; rectangles, circles and arcs still do not.
 * **The eraser's modifier keys - half done, 14 September 2026.**  Ctrl
   softens an edge and Ctrl+Shift brings it back, which is SketchUp's Ctrl and
   Ctrl+Shift, and both read the `Soft` flag that already existed.
@@ -171,15 +229,7 @@ into the drawing; hammer the general tools before the generators.
   file, and a "show hidden geometry" switch, because without a way back a
   hidden edge is an edge somebody has lost.  That is a feature, and it should
   be built as one.
-* **A leader that follows its edge - DONE 14 September 2026.**  If the whole
-  of a line is moving, whatever sits on that line moves with it, so a note
-  aimed at the middle of an edge travels with the edge.  Remembering which
-  entity a note is tied to would be the thorough answer and wants a field in
-  the file; this is the cheap nine-tenths of it.
-* **More in the settings lists - DONE 14 September 2026.**  The colour list
-  has a row past the twelve swatches that opens the platform's own picker,
-  which is the thing a row of swatches could never hold.  The palette stays
-  twelve: a wall of swatches is a worse list, not a better one.
+
 * **Custom mouse cursors - looked at 14 September, not done on purpose.**
   The obvious half is already there: the drawing takes a crosshair, orbit and
   the pan take the four-way, the chrome takes a hand.  What the entry means
@@ -189,32 +239,13 @@ into the drawing; hammer the general tools before the generators.
   wrong to use.  The glyph riding beside the crosshair was a deliberate
   choice, not a stopgap.  Leave it until somebody says the crosshair is not
   enough.
-* **Light mode is harder to read than dark - DONE 14 September 2026,
-  measured.**  The accent was the whole of it: at $1C7CD6 it made 3.7 to one
-  against the light panel where the dark theme's accent makes 8.4, and the
-  accent is text as often as it is a fill - the update line, a heading, the
-  tool in hand.  It is $176BBD now, which is 4.7, and the quiet text went
-  from 4.2 to 5.0.
 
-  The other half was that text on an accent fill was written down as "dark,
-  because the accents here are bright" in six places.  True of five themes
-  and false of the light one, where it put pale grey on mid blue.
-  `uSurface.OnPix` answers it from the fill's luminance instead, once.
 * **Neon on a light screen** is muted - the cost of going alpha-based so a
   drawing survives a theme change.
-* **A ground plane in the orbit view - DONE 14 September 2026.**  The four
-  corners of the window are cast back onto Z = 0 and the ground is ruled over
-  whatever that covers, at the same pitch the paper grid and the scale bar
-  use.  Faint, under everything, and off with the GRID button.  A camera
-  looking along the ground casts its corners past the horizon, so the count
-  is capped and the lattice dropped when the view is too flat to rule.
-* **Print more than one sheet - DONE 14 September 2026.**  `/print all` sends
-  every sheet of the drawing, a page each.  `/print` still does the one on
-  screen, because printing tabs somebody is not looking at should be asked
-  for.  The loop itself has not been through a real printer - only the
-  dialog, the command and the tab being put back afterwards.
+
 * **Undo memory.**  TOY keeps sixteen full-screen bitmaps.  PRO keeps document
   copies, which is cheap.  TOY could be smarter.
+
 * **Performance with fittings.**  /rendertime times a whole frame (paper,
   drawing, composite) and the overlay with the current selection; /timings
   prints the steps of each edit.  Through 2026-09-07, release build at
@@ -239,6 +270,7 @@ into the drawing; hammer the general tools before the generators.
   and the select hover runs three hit tests - one walk should do.  Then
   the region engine (PlanesOf / SegsInPlane are planes times segments).
   Threads after that; see the note at the top of Next up.
+
 * **Remote-display performance.**  Motion is serviced once a tick so the
   pointer tracks over VNC.  What is left is the whole-bitmap reload.
 
@@ -251,7 +283,9 @@ deal with size is before it is a problem, and because both wanted a run of
 their own rather than being folded into a fix for something else.
 
 Measured 5 September 2026, after a dead-code pass took out eleven routines and
-sixteen unused locals.
+sixteen unused locals.  **Twelve days later, 17 September, both have doubled**:
+`uMain.pas` is 22,914 lines and `uWork.pas` 11,810.  The case below is
+stronger than when it was written, and the split is still mechanical.
 
 * **`TWorkDoc.Render` is 591 lines** - the longest routine in the program by a
   wide margin.  It draws faces, then lines, arcs, notes, dimensions, guides and
@@ -375,6 +409,673 @@ Two small things that serve the spec directly, neither started:
 
 ### Worth doing
 
+* **Textures on a face.**  Pick a face, pick a picture off the disk, stretch
+  or tile it.  Asked for 13 September.
+
+  The reason it is cheap here and expensive elsewhere: **our 3D view is
+  orthographic on purpose**, so the map from a screen pixel back to a point
+  on the face is affine - `u = ax + by + c`, `v = dx + ey + f`, worked out
+  once per face from three known points, then two multiply-adds and a lookup
+  per pixel.  No perspective divide, no per-scanline correction.  A
+  perspective camera, which `docs/isometric-views.md` turned down for other
+  reasons, would have made this the hard version of the problem.
+
+  The pieces: read the picture with the LCL into a BGRA buffer; keep an
+  origin, a U vector and a V vector per face in model space, which is the
+  same thing SketchUp's texture pins are; sample inside `FillLoops` instead
+  of writing a flat colour, times the Lambert term already computed there.
+  Holes, clipping and the four-times supersampling all come free - they are
+  already in that routine.  Call it a day or two.
+
+  Where the picture lives is settled - see **Decided in passing** below.  The
+  drawing stays plain text and a drawing with assets saves as a `.hskz` zip
+  with the pictures beside it, so nothing has to be base64'd into a file that
+  is meant to be readable.
+
+  **And the argument for doing it is not pretty pictures.**  It is reference
+  imagery at true scale: photograph a panel or a wall, drop it on a face,
+  scale it against one known dimension, and trace over it.  That is the same
+  want as PDF import below, reached from a different direction, and it is
+  worth far more on a job than a render is.
+
+  The guard rail: this is a picture on a face, not materials.  No library,
+  no shading model, no reflectance, no UV editing beyond an origin, a size
+  and a rotation.  "No textures, no materials" is in **Where the line is**
+  below and this is a deliberate step over one half of it - so the other
+  half has to stay put.
+
+* **The drawing sheet - border, title block, revisions.**  Tony: "blue prints
+  layout designer".  A printed sheet wants a border, the program name, who
+  drew it, a description, dates, a revision block and a sheet number.  Most
+  useful on a 2D drawing.
+
+  This is also the thing SketchUp charges for and everybody complains about:
+  LayOut is paid, slow and widely disliked, and FreeCAD's TechDraw is not
+  loved either.  A model to a dimensioned, to-scale, printable sheet with a
+  title block is genuinely underserved.  We already have most of the parts -
+  sheets and tabs, a real scale, dimensions with text you can override, and
+  now printing that comes out at true size.
+
+  Second, though, not first: it is documentation, and documentation does not
+  bring anybody new through the door.
+
+* **PDF import, as lines.**  Tony's own daily problem: almost every drawing
+  that arrives at work is a PDF and there is no way to scale it.  Bringing
+  one in as our own 2D lines - then setting the scale off a known dimension,
+  and adding revision clouds and notes over the top - would be worth a lot to
+  anyone in the trades.
+
+  Not started, and not to be started casually.  A PDF is a page description,
+  not a drawing: vector PDFs give real paths and would work; a scanned one is
+  a picture and needs tracing, which is a different project.  Wants a proper
+  discussion first, including which library reads the page content - there is
+  no chance of writing that from scratch here.
+
+### Decided in passing
+
+* **The file stays plain text; assets go in a zip.**  A `.hsk` you can read,
+  diff and merge in git is a real differentiator and rare in CAD, so it stays
+  the default.  A drawing that needs assets - textures, an imported PDF, a
+  logo in a title block - saves as `.hskz`: a zip holding `drawing.hsk` plus
+  `assets/`, the way ODF does it.  Text unless there is a reason not to be,
+  and the reason visible in the extension.
+
+* **The title block ranks higher than first written.**  For a regular Joe the
+  *oh shit* is not drawing the box - it is **printing something that looks
+  professional with his name in the corner**.  That is the artifact he shows
+  somebody and the screenshot that gets posted.  Drawing the box is the
+  setup; the sheet is the punchline.  It also has a home now: `PrintTileMarks`
+  already draws in page coordinates after the model render, which is exactly
+  the seam a title block lives in - so paper space is a new idea with a
+  precedent rather than a new architecture.
+
+### Why the rubber band is not the colour of the plane
+
+Asked for on 13 September, and it has been tried before.  Written down so it
+is not tried a third time.
+
+A line's colour here is **the direction it runs in**.  A plane is named by
+the axis it *faces* - that is the convention the arrows use, right for red,
+left for green, up for blue - and that is the one axis a line lying in the
+plane can never run along.  Colour an outline on XZ green and every side of
+it is labelled with the one direction it does not go in.  It reads as
+information and it is the opposite of true.
+
+What is real is the thing behind the request: while drawing you want to see
+that you are still flat.  A single segment cannot say it - one line is one
+direction and a plane takes two, which is exactly why a rectangle already
+reads correctly with its red and blue sides.  So the plane says it itself:
+`PaintHeldPlane` draws two short lines through the point along the plane's
+own two directions, in their own axis colours.  Red and blue is upright, red
+and green is flat.
+
+### The command bar, next time somebody is in there
+
+Raised 13 September, not started.  With the deck down to one row there is
+room to make the command bar taller, and a reason to: `/rendertime` and
+`/timings` write a paragraph into a strip built for a sentence, so the end of
+what they say is simply not there.  Two halves, and they are separable:
+
+* **Wrap the bar to two or three lines** when the message is long, and back
+  to one when it is not.  Cheap, and it fixes the common case.
+* **A long answer belongs somewhere you can copy it from.**  A report you
+  cannot select is a report you have to retype into a bug report by hand.
+  Either a small panel with the text selectable, or - probably better and
+  certainly smaller - `/copy`, which puts the last message on the clipboard
+  and says so.  Then nothing has to become a dialog.
+
+Do the wrap first and see whether the second half is still wanted.
+
+**17 September:** the second half half-exists.  `/state` needed somewhere to
+put sixty lines, so `ShowLongText` is a scrolling box with a copy button.
+Pointing `/rendertime` and `/timings` at it is a few lines each.
+
+### The rectangle, on a plane that is not the ground
+
+Tony, 13 September, flagged and deliberately left for later:
+
+> "There is a bug in there when I am try to draw it on a different plane I
+> can only get each plane in one flat direction sort of.  It's hard to
+> explain."
+
+Not reproduced yet, and worth a report with a session in it rather than a
+guess.  What to look at first: `RectCorners` lays the four corners out along
+the working plane's own two directions - `PlaneAxes` for XY, XZ and YZ, and
+`GetFreePlane` for a face - so a rectangle is always square to those two
+directions and cannot be drawn turned.  If that is what he is describing then
+it is a limit rather than a fault, and the answer is either a rectangle that
+can be rotated as it is drawn, or Rotate afterwards.  If it is something
+else - a plane that will not take a rectangle at all, or one that takes it in
+the wrong plane - that is a fault.  Ask for the report first.
+
+### Still to discuss
+
+* **The other two visual worlds - and Tony has already solved this once.**
+  The main window is eight paint boxes and nothing else; `uSpool`,
+  `uTransition` and `uUpdateForm` are 48 TLabels, 22 TEdits, 15 TButtons and
+  13 TComboBoxes of plain LCL.  A wizard that looks like a system dialog next
+  to a hand-drawn dark chassis is the real "looks unprofessional".
+
+  **Look at `../lazrandr`.**  That is the pattern, and it is his own:
+
+  * The LFM files carry plain, designer-friendly components with ordinary
+    anchors, *"so the forms stay openable in the Lazarus designer"* - his
+    words, in `utheme.pas`, and that discipline is the whole reason it stays
+    maintainable.
+  * `utheme.pas` applies the look at **runtime**: a palette (`clWindowBg`,
+    `clSurface`, `clRaised`, `clAccent`, `clDanger`...) and *kinds* rather
+    than per-control settings - `bkPrimary`, `bkNeutral`, `bkDanger`,
+    `bkGhost` for buttons, `pkWindow`, `pkSurface`, `pkRaised`, `pkHeader`
+    for panels.
+  * BCButton, BCLabel and BCPanel for the parts worth styling; **TComboBox,
+    TCheckBox and TMemo left native**, which is exactly the gap in
+    BGRAControls and evidently not a problem in practice.
+
+  That is what "sexy but official" means: a conventional desktop form, laid
+  out the way a desktop form is laid out, whose buttons happen to be
+  handsome.  It is the right answer for our dialogs and wizards.
+
+  **It is not the answer for the drawing chrome**, and the measurement above
+  says why: the hand-drawn window costs 0.4 ms a paint, looks identical on
+  both platforms, and GTK3 cannot get at it.  The line to hold is that the
+  main window is a canvas and the dialogs are forms, and they are allowed to
+  be built differently as long as they share a palette.
+
+  What it costs, said properly: BGRABitmap becomes a dependency **of the
+  build**, not of the program.  It links in statically, so what somebody
+  downloads is still one executable with no installer and nothing to go and
+  find - which is the thing that line in the README is actually promising,
+  and it stays true.  What changes is that a person building from source
+  needs the package installed, which is already true of Lazarus itself.
+  When the day comes, say it that way in the README rather than deleting the
+  claim.
+
+  Licence is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
+  program.  Worth doing the next time a wizard needs work rather than as a
+  project of its own, and `utheme.pas` is most of the way there already.
+
+* **A control base class.**  The cut strip is the second hand-rolled control
+  in a fortnight (after the command bar) and the pattern is the same each
+  time: hit test, hover, press, paint into a TArtSurface.  One base class
+  with subclasses for button, field, spin and slider is maybe 300 lines and
+  would make the next ten cheap.  Worth doing the next time a control is
+  needed rather than as a project of its own.
+
+---
+
+## Open questions
+
+* **A perspective camera, for looking only.**  A report on 11 September asked
+  whether the far end of a hundred foot barn should not look narrower than the
+  near end.  It should, to the eye - and it does not, because the 3D view is a
+  parallel projection and `docs/isometric-views.md` turned perspective off on
+  purpose so that lengths stay to scale.  SketchUp has both and defaults to
+  perspective, which is where the expectation comes from; its Parallel
+  Projection behaves exactly as ours does.
+
+  The shape of it, if we do it: perspective is a *viewing* mode, never a
+  working one.  Turn it on to show somebody the model, turn it off to draw,
+  and never let a dimension be read off a perspective view.  `Project` would
+  gain a divide by depth and `Unproject` a matching one, both behind the same
+  `TProjector`, so the tools would not need to know.  What has to be decided
+  first is what the tools do while it is on: refuse to draw, or quietly snap
+  back to parallel for the duration.  Until that is answered this is not
+  ready to build.
+
+* **Which way a loose face is meant to point.**  A face the region finder
+  works out is now wound to face along whichever axis it is squarest to,
+  positively - the same rule a face you draw has always followed.  That gets
+  a roof right, because both slopes are squarest to blue.  It cannot get the
+  two ends of a barn right: they are back to back, they both come out facing
+  the same way, and one of them therefore shows its back.  Nor can it help a
+  roof steeper than 45 degrees, where the slopes are squarest to the ground
+  axes and go one each way again.
+
+  Reverse Face on the right button is the answer for now, and it is the
+  answer SketchUp gives too: when the rule guesses wrong, the person looking
+  at it says so.  Doing better without being told means knowing which side is
+  outside, and the only thing that really knows is a closed solid.  Orienting away from the model's centre
+  would fix the barn and break a plan drawn on the ground beside a building.
+  Making every face agree with its neighbours across shared edges cannot be
+  done at all where three faces meet on one edge - the top of a wall, the
+  wall under it, the gable standing on it - which is every house.  Worth
+  coming back to when there is a real notion of a solid to hang it on.
+
+* **Making a solid out of what you drew.**  A face already carries `Solid`
+  and `Grp` - which solid it belongs to, or 0 for loose drawing - and
+  push/pull sets both, the file keeps them, back-face culling and push/pull's
+  drag-along both read them.  What is missing is anything that promotes loose
+  faces into one: a roof built on top of a box is loose faces sitting on a
+  solid, and nothing ever looks at that closed shell and says so.
+
+  The test is not vague - within a candidate set, every edge is used by
+  exactly two faces - and once it passes, orienting the whole shell outwards
+  once settles winding, culling and every later question about which side is
+  out.  Inference gets it too: the snap could prefer the skin facing the
+  camera over a point on the far side.  What has to be decided first is
+  **when** it happens.  Every region rebuild would be expensive and would
+  change what geometry *is* while somebody is drawing on it.  SketchUp only
+  does it inside a group, on demand.  Until that trigger is chosen this is
+  not ready to build.
+
+* **Five things about the transition ticket** are listed at the end of
+  `docs/transition-ticket.md` and want checking against a real one - the first
+  being which side an arrow names.
+* **DXF import** is deliberately last.  Writing is bounded work; reading is
+  not, and a file that opens looking right at a twelfth of its size is worse
+  than one that refuses.  Only when there is a particular file that has to
+  come in.
+
+---
+
+## Where the line is
+
+No objects, no groups, no components.  No booleans, no curved surfaces, no
+materials - no library, no shading model, no reflectance.  A picture
+stretched on a face is a different thing and is discussed above; materials
+are what turns a sketch pad into something that needs a render farm.
+
+Those are where this stops being a quick tool and starts being a worse copy of
+SketchUp.
+
+Two things that were on this list have since been built, on purpose and with
+the reasons written down elsewhere: Follow Me (uWork.Revolve and Sweep), and
+touch (uTouch.pas and docs/touch.md - the all-in-one made it worth having).
+
+**And there is already a CAD program written in Lazarus: zcad.**  We are not
+competing with it and we should not try.  It is a CAD program; this is a
+sketch pad that happens to be to scale.  The moment a feature here only makes
+sense to somebody who would otherwise be using a CAD program, it belongs in
+zcad and not in this.  Simple is the product.
+
+---
+
+## Researched, nothing built
+
+### Sending it to the printer, if that is ever wanted
+
+Researched 15 September, nothing built.  A printer takes G-code, not a model,
+and slicing is a whole program with years in it - supports, infill,
+perimeters, temperatures, retraction.  We should never write one.  So:
+
+    Heckers Sketch -> STL -> a slicer -> .gcode -> the printer
+
+PrusaSlicer has a proper headless command line for the middle of that, the
+same shape as the FreeCAD note above.  The far end is solved on two stacks:
+**Klipper + Moonraker**, a documented HTTP/JSON-RPC API that Mainsail and
+Fluidd are themselves only front ends onto; and **PrusaLink**, a local REST
+API embedded in MK4S firmware, with Prusa Connect as an optional cloud layer
+nobody has to touch.
+
+Resin is the wrong branch for this: it slices to per-vendor proprietary
+binaries - .ctb, .pwmx, .goo - with no standard and essentially no documented
+network API.
+
+The line to hold, if it is ever built: **we never own a slicing setting.**
+Hand the file to the slicer they already configured.  The moment this program
+has an infill percentage in it, it has stopped being a simple drawing
+program.
+
+### Importing manufacturers' equipment models
+
+Tony: the heating and cooling makers publish models of their equipment and it
+would be good to bring those in - an air handler, a fan, a rooftop unit -
+rather than drawing a box the right size and hoping.
+
+**What they actually publish**, checked rather than guessed (Greenheck,
+Daikin, and the aggregators - BIMobject, CADdetails, ARCAT):
+
+* **RFA** - Revit families, the main event for MEP.  Proprietary, no spec,
+  cannot be read.  Same wall as writing one; see the Cricut note for the
+  same conclusion reached from the other side.
+* **IPT** and **F3D** - Inventor and Fusion.  Also proprietary.
+* **DWG** - everywhere, and AutoCAD's own binary.  Reverse-engineered by
+  others (LibreDWG) but a large job to do ourselves.
+* **DXF** - AutoCAD's documented interchange format, and text.  Often offered
+  beside the DWG; anything DWG converts to it with the ODA free converter or
+  by the person sending it.
+* **STEP** - some makers offer it.  The honest neutral 3D format and a real
+  parser is a big piece of work: an EXPRESS schema, B-rep topology and NURBS
+  surfaces, none of which this program has a representation for.
+
+**So DXF is the way in, and it is the one we are already halfway to.**  We
+write it - uDxf.pas - so the group codes, the units and the layer handling
+are already understood at this end.  Reading needs: 3DFACE, POLYLINE/VERTEX
+meshes, LINE, LWPOLYLINE, CIRCLE, ARC, and INSERT/BLOCK for anything
+assembled out of parts.  $INSUNITS decides the scale, which is the thing that
+has to be right or the unit arrives eight feet tall or eight inches.
+STL and OBJ are nearly free if anyone ships them - both are a few dozen lines
+and we already write STL.
+
+**The design question is what an imported unit BECOMES**, and it matters more
+than the parsing.  This document is faces and lines with a region engine over
+it, and a manufacturer's air handler is thousands of triangles.  Dropped in
+as loose geometry it would be slow, would confuse the region finder, and
+would be senseless to push or pull.  What somebody actually wants from it is
+coordination: does this thing fit the ceiling, does the duct clear it, what
+is the clearance to the filter door.
+
+So the likely right shape is a **block**: one group that moves, turns, snaps
+and measures as a unit, draws as itself, and is not editable geometry.  That
+also sidesteps the region engine entirely.  A second, cheaper option worth
+weighing first: many equipment DXFs are 2D plan and elevation outlines, which
+are lighter, more useful for a coordination drawing, and import as ordinary
+lines with no new concepts at all.
+
+**A DXF importer is wanted.**  Tony, 15 September: it is the first way in.
+Not built, and on this list on purpose.
+
+### Somebody else's converter, as a door rather than a dependency
+
+Tony's idea, and it is a good one: rather than teach this program every
+format, find the free converter that already reads them all, keep it OUT of
+our build, and either hand its output to our importer or simply tell the
+person where to get it and what to do.  Nothing bundled - they install it.
+
+**Nobody has to install Python.**  Tony's objection when this was first
+written up, and it was a fair reading of how it was put: "runs a Python
+script" sounds exactly like a dependency.  It is not one.  FreeCAD embeds its
+own interpreter - the Linux AppImage carries the Python binary inside it, the
+Windows installer bundles it with its libraries - so `freecadcmd` IS the
+interpreter, the script runs inside FreeCAD, and no system Python is touched
+or wanted.  One application, installed the way applications are.
+
+The ODA converter has no Python at all: a plain executable and seven
+positional arguments,
+
+    ODAFileConverter.exe "C:\in" "C:\out" ACAD2018 DXF 0 1
+
+in-folder, out-folder, version, format, recurse, audit.  One thing to know:
+it is a Qt program driven by a command line, so on a HEADLESS Linux box it
+still wants an X display.  On a desktop, which is the case here, that never
+comes up.
+
+**And for the job actually in front of us, neither is needed.**  The
+manufacturers ship DXF and DWG - Greenheck offers 2D AutoCAD drawings and 3D
+AutoCAD models outright.  So the common path is:
+
+    DXF  ->  us                                   nothing installed at all
+    DWG  ->  ODA (one exe)  ->  DXF  ->  us       nothing scripted
+
+FreeCAD earns its place for STEP and IGES, which is the mechanical-CAD corner
+rather than the heating-and-cooling one.  It is the third door, not the
+front one, and it should be described that way to anybody.
+
+**FreeCAD is the answer to "is there an amazing free one".**  LGPL, genuinely
+open source, on all three platforms, and built on Open CASCADE - so it reads
+STEP and IGES properly, as B-rep, which is the hard part nobody else gives
+away.  It also reads DXF, OBJ, STL and BREP, and writes DXF, STL and OBJ.  It
+has a headless mode - `freecadcmd` on Linux and macOS, `FreeCADCmd.exe` on
+Windows - that runs a Python script with no window, so a conversion is one
+command and no clicking.
+
+**DWG needs a step before that**, even for FreeCAD, which cannot read it
+alone.  It names three helpers: **LibreDWG** (GPL-3, genuinely open, and its
+own documentation says it is a work in progress that lacks some entities),
+the **ODA File Converter** (free to use but proprietary - the de-facto
+standard, and what FreeCAD and LibreCAD both point people at), and QCAD Pro,
+which is paid.  So the open path is LibreDWG and the reliable one is ODA, and
+neither can be shipped with us - which is fine, because neither should be.
+
+**The pipeline that falls out of this:**
+
+    anything  ->  FreeCAD (installed by them)  ->  DXF or STL  ->  us
+    DWG       ->  ODA or LibreDWG  ->  DXF  ->  FreeCAD or straight to us
+
+**And it changes what our first importer should be.**  STL is the better
+first target, not DXF:
+
+* it is triangles and nothing else, so reading it is a few dozen lines, and
+  we already WRITE it so the units and the winding are understood here;
+* FreeCAD will turn anything it can read into one;
+* and equipment is exactly the case where triangles are enough - an air
+  handler is a thing you place and measure against, not a thing you edit.
+
+DXF stays worth doing and stays the better answer for the other half of the
+job: 2D plan and elevation outlines, which arrive as real lines and arcs
+rather than a mesh, and which are what a coordination drawing actually wants.
+So: two importers, smallest first, and STL is the smaller.
+
+**If we ever want to read DXF ourselves rather than convert into it**, the
+reference to read is `ezdxf` - MIT, Python, full read and write of R12
+through R2018 in both ASCII and binary, and the best documentation of the
+format outside Autodesk's own.  Not to depend on; to learn from.
+
+**What "quickly accessible from our program" could mean**, in rising order of
+work and none of it decided:
+
+1. Say so.  The open dialog, offered a .step or a .dwg, explains what it is
+   and where FreeCAD is, and offers to open that page.  No detection, no
+   processes, and it is most of the value.
+2. Find it.  Look for freecadcmd in the usual places, and if it is there
+   offer "convert this with FreeCAD" - one process, one temporary file, and
+   our own importer on the far end.
+3. Drive it.  Ship the little Python script the conversion needs and run it
+   headless.  Still no bundling - the script is ours and it is twenty lines.
+
+Licence-wise all three are clean: running a program is not linking to it, so
+FreeCAD being LGPL and the ODA converter being proprietary freeware are both
+fine as long as we ship neither.
+
+Nothing decided.  The smallest first step, if this is wanted, is an STL
+reader and option 1 above - a sentence in a dialog - and neither needs the
+other.
+
+And the order to offer them in, which follows from the Python point: DXF
+first because it needs nothing installed, DWG second because it needs one
+executable and no scripting, STEP last because it needs a whole application -
+a good one, freely given, and still a whole application.
+
+### Cutting machines, and the Cricut in particular
+
+Tony has a **Cricut Explore 3**.  The question was whether we can cut to it
+directly.  Today, no, and it is worth writing down why so nobody spends a
+weekend finding out again.
+
+* **CutcutGo** (github.com/virtualabs/cutcutgo) is the real work: open GRBL
+  firmware that turns a Cricut into a G-code machine, no account and no
+  Design Space.  It is for the **original Cricut Maker** and means opening
+  the machine and flashing the board.  The Maker 3 needs its electronics
+  reverse-engineered from scratch, and the Explore line is not covered at
+  all.
+* **Inkcut issue #426** asks for stock-firmware Maker support and reaches no
+  conclusion - the people asking say themselves they do not know how
+  tractable it is, and the thread carries no findings about the protocol.
+* Over USB on an unmodified machine the protocol is encrypted and there is
+  essentially nothing public beyond the cartridge-era machines.  That is not
+  for want of trying: Provo Craft sued Make-the-Cut and Sure Cuts A Lot in
+  2010-11 and both dropped Cricut support.
+
+So the way out is the file, not the wire, and the file had a defect worth
+fixing on its own account: **the SVG carried no units**.  Fixed 14 September -
+`WriteSVG` writes width and height in inches or millimetres against the
+viewBox, so the drawing arrives at its real size wherever it goes.
+`TestSvgIsTrueSize` measures the wine glass at two zooms in plan and from the
+front, and an independent renderer agrees: 366 px at 96 dpi for the 3.81 in
+the file claims.
+
+If a machine ever does open up - a Maker v1 with CutcutGo, or somebody cracks
+the Explore - the work on our side is a G-code writer, and it is small: the
+cut paths are the same projected polylines WriteSVG already walks.
+
+---
+
+## Waiting on something
+
+### The logo letters come up red when they are raised
+
+Tony, 14 September: "i sort of like how i raised the letters and they have
+red lines around the letters however i dont understand why the letters became
+red, probably a bug!"
+
+Not a bug in the program - the generator gives the letter faces the toy's own
+red, the same ink as the body, on the reasoning that the logo is printed on a
+red toy.  Flat, they read as dark lines on the frame because the lines over
+them are black and the face is barely visible.  Raised a sixteenth, the sides
+and the top are suddenly red on a body that renders pale, and it looks like
+something went wrong.
+
+The question is what the logo should be, not where the bug is.  Worth asking
+Tony whether he wants the letters the colour of the frame - so raising one
+reads as embossing - or a deliberate contrast colour.  Whatever he says is a
+one line change in examples/make-etch-a-sketch.pas.
+
+### A GIF export that crashed after the fact
+
+Tony, 14 September: exported a GIF on the Windows machine, opened it, and
+thinks the program went down.  A report was promised and has not arrived; the
+one that came in at 07:41 was about /reface and carries no crash file.
+
+Nothing to go on yet.  What there is: the film is held whole in memory before
+a byte is written - a twelve second clip at 900x492 is about two hundred
+megabytes of frames - and the packing pass is already skipped past a size for
+that reason.  If a crash file turns up, the stage it died in is in the report
+now, frame by frame.
+
+### Our own fork of BGRABitmap, for later
+
+Tony, 13 September: he likes the project and wants to keep using and
+supporting it, and to send improvements back when we have any.  So the plan is
+a fork we build against, not a vendored copy we quietly diverge with - the
+point is to be able to contribute, which means staying close enough to upstream
+that a patch still applies.
+
+Not a priority.  Nothing is blocked on it: BGRABitmap does everything asked of
+it so far, and the one fault we hit was ours - `BGRAColorQuantizerFactory` was
+never assigned.  Worth revisiting the first time we want a change in it rather
+than around it.
+
+The one we already know we would want: **a streaming GIF writer**.
+TBGRAAnimatedGif assembles the whole film in memory before writing a byte,
+which is the only reason there is a frame budget at all.  A writer that took
+one frame at a time and emitted it would remove the ceiling entirely and let a
+recording run as long as somebody likes at any size.  That is a real
+contribution rather than a private patch, so it belongs upstream.
+
+### The recording workflow needs another pass
+
+Tony, having used it: "the workflow for recording a gif isn't too intuitive but
+it did work."  He is going to send specific notes.  Known already, and fixed on
+14 September: the popup did not pan or zoom the way the drawing area does -
+left-drag turned it, the wheel zoomed to the middle rather than the cursor, and
+the buttons did not match.  Now middle turns, right slides, left does nothing,
+and the wheel zooms 1.15 anchored on the pointer, the same as `ZoomAt` in the
+drawing area.
+
+Still open, and worth thinking about before he writes: getting to it takes
+Export, then GIF, then a button - three steps before you find out it exists.
+It may want to be reachable straight from the toolbar, or from the right button
+on the drawing itself.
+
+### Examples written out beside the portable exe
+
+**Part of this is done.**  The toy etch-a-sketch is carried inside the program
+as `uExample.pas` - generated by `examples/make-etch-a-sketch.pas`, same source
+as `examples/etch-a-sketch.hsk` - and it opens on a run that has nothing else
+to show: no drawing named on the command line and no draft to pick up.  So the
+first thing anybody ever sees is a toy with a robot on it rather than an empty
+sheet, and the portable build is still one file.
+
+**And the folder is done too.**  `uPaths.ExamplesDir` is `examples` beside the
+program, and it is written out on every run over the top of whatever was
+there.  The file the program writes is byte for byte the file the generator
+makes - the same three-line comment at the top of each - so the copy in the
+repository does not churn every time somebody runs the program from the source
+folder.
+
+**And there are two of them now, 14 September.**  The wine glass joins the
+toy: `examples/make-glass.pas` draws the outline of half a glass and calls
+`TWorkDoc.Revolve`, which is the same code the tool calls - so the model
+follows the tool rather than being traced once and slowly going stale.
+`uExamples.pas` is the list, and adding another is a generator and one line.
+
+The tests insist on four things for every example, all of them found the hard
+way: the file and the copy inside the program are the same bytes, every face
+belongs to a solid so `/reface` cannot eat it, the whole thing is a closed
+solid, and it stands on the ground.
+
+What is left of Tony's idea below: more of them - the crown, and a few
+deliberately wild ones - and the checksum rule, so an example improved in a
+later version replaces the old one while something somebody has edited and
+saved under its own name is left alone.  Today's version simply writes them
+out over the top every run, which is right for a file nobody has touched and
+wrong the moment they have.
+
+
+
+Tony, 13 September.  The program ships as one executable on purpose and that
+should not change, so the examples have to come out of it rather than beside
+it: on first run it makes an `examples` folder next to itself and writes them
+out, and it does it again for any that have gone missing or been altered.
+The very first run ever opens a couple of them, so somebody who has just
+downloaded it sees the thing working instead of an empty sheet.
+
+Content: the wine glass, the crown, and a handful of deliberately wild ones -
+the point is demonstration, not tuition.  Worth accumulating over time, so
+the list wants to be easy to add to: drawings as resources compiled in, a
+table of name and bytes, and one pass that writes any that are absent or do
+not match.
+
+Two things to get right.  Altered means altered by us as well as by them - a
+checksum per file, so an example improved in a later version replaces the old
+one instead of being left because a file of that name exists.  And it must
+never overwrite something the person has been working on: an example they
+have edited and saved under its own name is theirs now, so the check should
+be against what we wrote last, not against what the example currently says.
+
+---
+
+# Done and settled, and why it is worth remembering
+
+These stay because the reasoning in them is the expensive part - the
+measurement that settled an argument, the trap that cost a day, the thing
+that looked obvious and was wrong.
+
+### Small things done 13 and 14 September
+
+* **Edges that partly overlap - DONE 14 September 2026.**
+  `TWorkDoc.AddLineSplit`: a line drawn along one already there cuts both
+  where they share, so the overlap is one edge and the tails are their own.
+  Only loose lines - a line that belongs to a solid is part of something that
+  was built, and cutting it up underneath the solid is a different and worse
+  idea.  The line tool uses it; rectangles, circles and arcs still do not.
+
+* **A leader that follows its edge - DONE 14 September 2026.**  If the whole
+  of a line is moving, whatever sits on that line moves with it, so a note
+  aimed at the middle of an edge travels with the edge.  Remembering which
+  entity a note is tied to would be the thorough answer and wants a field in
+  the file; this is the cheap nine-tenths of it.
+
+* **More in the settings lists - DONE 14 September 2026.**  The colour list
+  has a row past the twelve swatches that opens the platform's own picker,
+  which is the thing a row of swatches could never hold.  The palette stays
+  twelve: a wall of swatches is a worse list, not a better one.
+
+* **Light mode is harder to read than dark - DONE 14 September 2026,
+  measured.**  The accent was the whole of it: at $1C7CD6 it made 3.7 to one
+  against the light panel where the dark theme's accent makes 8.4, and the
+  accent is text as often as it is a fill - the update line, a heading, the
+  tool in hand.  It is $176BBD now, which is 4.7, and the quiet text went
+  from 4.2 to 5.0.
+
+  The other half was that text on an accent fill was written down as "dark,
+  because the accents here are bright" in six places.  True of five themes
+  and false of the light one, where it put pale grey on mid blue.
+  `uSurface.OnPix` answers it from the fill's luminance instead, once.
+
+* **A ground plane in the orbit view - DONE 14 September 2026.**  The four
+  corners of the window are cast back onto Z = 0 and the ground is ruled over
+  whatever that covers, at the same pitch the paper grid and the scale bar
+  use.  Faint, under everything, and off with the GRID button.  A camera
+  looking along the ground casts its corners past the horizon, so the count
+  is capped and the lattice dropped when the view is too flat to rule.
+
+* **Print more than one sheet - DONE 14 September 2026.**  `/print all` sends
+  every sheet of the drawing, a page each.  `/print` still does the one on
+  screen, because printing tabs somebody is not looking at should be asked
+  for.  The loop itself has not been through a real printer - only the
+  dialog, the command and the tab being put back afterwards.
+
 * **Show people WHERE a shape is not closed - DONE 14 September 2026.**
   `/holes` (also `/openedges`, `/notclosed`) checks whatever is selected, or
   every solid in the drawing when nothing is, and draws every unshared edge
@@ -461,68 +1162,6 @@ Two small things that serve the spec directly, neither started:
   end moves*, and the honest answer is the one the move tool already uses:
   the end you did not anchor, with a way to swap.  It works the same in plan,
   which un-scratches the 2D half for nothing.
-
-* **Textures on a face.**  Pick a face, pick a picture off the disk, stretch
-  or tile it.  Asked for 13 September.
-
-  The reason it is cheap here and expensive elsewhere: **our 3D view is
-  orthographic on purpose**, so the map from a screen pixel back to a point
-  on the face is affine - `u = ax + by + c`, `v = dx + ey + f`, worked out
-  once per face from three known points, then two multiply-adds and a lookup
-  per pixel.  No perspective divide, no per-scanline correction.  A
-  perspective camera, which `docs/isometric-views.md` turned down for other
-  reasons, would have made this the hard version of the problem.
-
-  The pieces: read the picture with the LCL into a BGRA buffer; keep an
-  origin, a U vector and a V vector per face in model space, which is the
-  same thing SketchUp's texture pins are; sample inside `FillLoops` instead
-  of writing a flat colour, times the Lambert term already computed there.
-  Holes, clipping and the four-times supersampling all come free - they are
-  already in that routine.  Call it a day or two.
-
-  Where the picture lives is settled - see **Decided in passing** below.  The
-  drawing stays plain text and a drawing with assets saves as a `.hskz` zip
-  with the pictures beside it, so nothing has to be base64'd into a file that
-  is meant to be readable.
-
-  **And the argument for doing it is not pretty pictures.**  It is reference
-  imagery at true scale: photograph a panel or a wall, drop it on a face,
-  scale it against one known dimension, and trace over it.  That is the same
-  want as PDF import below, reached from a different direction, and it is
-  worth far more on a job than a render is.
-
-  The guard rail: this is a picture on a face, not materials.  No library,
-  no shading model, no reflectance, no UV editing beyond an origin, a size
-  and a rotation.  "No textures, no materials" is in **Where the line is**
-  below and this is a deliberate step over one half of it - so the other
-  half has to stay put.
-
-* **The drawing sheet - border, title block, revisions.**  Tony: "blue prints
-  layout designer".  A printed sheet wants a border, the program name, who
-  drew it, a description, dates, a revision block and a sheet number.  Most
-  useful on a 2D drawing.
-
-  This is also the thing SketchUp charges for and everybody complains about:
-  LayOut is paid, slow and widely disliked, and FreeCAD's TechDraw is not
-  loved either.  A model to a dimensioned, to-scale, printable sheet with a
-  title block is genuinely underserved.  We already have most of the parts -
-  sheets and tabs, a real scale, dimensions with text you can override, and
-  now printing that comes out at true size.
-
-  Second, though, not first: it is documentation, and documentation does not
-  bring anybody new through the door.
-
-* **PDF import, as lines.**  Tony's own daily problem: almost every drawing
-  that arrives at work is a PDF and there is no way to scale it.  Bringing
-  one in as our own 2D lines - then setting the scale off a known dimension,
-  and adding revision clouds and notes over the top - would be worth a lot to
-  anyone in the trades.
-
-  Not started, and not to be started casually.  A PDF is a page description,
-  not a drawing: vector PDFs give real paths and would work; a scanned one is
-  a picture and needs tracing, which is a different project.  Wants a proper
-  discussion first, including which library reads the page content - there is
-  no chance of writing that from scratch here.
 
 ### The plan view - one project, two halves
 
@@ -619,24 +1258,6 @@ tools away - half of PRO's value is that it turned the dials off.  It is a UI
 simplification and nothing else: it does not change the document, the file or
 the renderer, which is why it is small **once the two halves above are done**.
 
-### Decided in passing
-
-* **The file stays plain text; assets go in a zip.**  A `.hsk` you can read,
-  diff and merge in git is a real differentiator and rare in CAD, so it stays
-  the default.  A drawing that needs assets - textures, an imported PDF, a
-  logo in a title block - saves as `.hskz`: a zip holding `drawing.hsk` plus
-  `assets/`, the way ODF does it.  Text unless there is a reason not to be,
-  and the reason visible in the extension.
-
-* **The title block ranks higher than first written.**  For a regular Joe the
-  *oh shit* is not drawing the box - it is **printing something that looks
-  professional with his name in the corner**.  That is the artifact he shows
-  somebody and the screenshot that gets posted.  Drawing the box is the
-  setup; the sheet is the punchline.  It also has a home now: `PrintTileMarks`
-  already draws in page coordinates after the model render, which is exactly
-  the seam a title block lives in - so paper space is a new idea with a
-  precedent rather than a new architecture.
-
 ### Settled
 
 * **The plan view, both halves, and the tool strip - built 13 September
@@ -685,23 +1306,6 @@ the renderer, which is why it is small **once the two halves above are done**.
   The hand-skinning stays.  One consistent look on Windows and Linux, and
   GTK3 cannot get at it.
 
-### The command bar, next time somebody is in there
-
-Raised 13 September, not started.  With the deck down to one row there is
-room to make the command bar taller, and a reason to: `/rendertime` and
-`/timings` write a paragraph into a strip built for a sentence, so the end of
-what they say is simply not there.  Two halves, and they are separable:
-
-* **Wrap the bar to two or three lines** when the message is long, and back
-  to one when it is not.  Cheap, and it fixes the common case.
-* **A long answer belongs somewhere you can copy it from.**  A report you
-  cannot select is a report you have to retype into a bug report by hand.
-  Either a small panel with the text selectable, or - probably better and
-  certainly smaller - `/copy`, which puts the last message on the clipboard
-  and says so.  Then nothing has to become a dialog.
-
-Do the wrap first and see whether the second half is still wanted.
-
 ### The lesson of 13 September: it exists and nobody can find it
 
 Twice in one day, and the second time from the person who commissioned the
@@ -725,185 +1329,6 @@ to check anything against before it ships:
 
 `/plan` and `/revolve` both existed the whole time.  A command is not a way
 in - it is a shortcut for somebody who already knows.
-
-### The rectangle, on a plane that is not the ground
-
-Tony, 13 September, flagged and deliberately left for later:
-
-> "There is a bug in there when I am try to draw it on a different plane I
-> can only get each plane in one flat direction sort of.  It's hard to
-> explain."
-
-Not reproduced yet, and worth a report with a session in it rather than a
-guess.  What to look at first: `RectCorners` lays the four corners out along
-the working plane's own two directions - `PlaneAxes` for XY, XZ and YZ, and
-`GetFreePlane` for a face - so a rectangle is always square to those two
-directions and cannot be drawn turned.  If that is what he is describing then
-it is a limit rather than a fault, and the answer is either a rectangle that
-can be rotated as it is drawn, or Rotate afterwards.  If it is something
-else - a plane that will not take a rectangle at all, or one that takes it in
-the wrong plane - that is a fault.  Ask for the report first.
-
-### Why the rubber band is not the colour of the plane
-
-Asked for on 13 September, and it has been tried before.  Written down so it
-is not tried a third time.
-
-A line's colour here is **the direction it runs in**.  A plane is named by
-the axis it *faces* - that is the convention the arrows use, right for red,
-left for green, up for blue - and that is the one axis a line lying in the
-plane can never run along.  Colour an outline on XZ green and every side of
-it is labelled with the one direction it does not go in.  It reads as
-information and it is the opposite of true.
-
-What is real is the thing behind the request: while drawing you want to see
-that you are still flat.  A single segment cannot say it - one line is one
-direction and a plane takes two, which is exactly why a rectangle already
-reads correctly with its red and blue sides.  So the plane says it itself:
-`PaintHeldPlane` draws two short lines through the point along the plane's
-own two directions, in their own axis colours.  Red and blue is upright, red
-and green is flat.
-
-
-### Still to discuss
-
-* **The other two visual worlds - and Tony has already solved this once.**
-  The main window is eight paint boxes and nothing else; `uSpool`,
-  `uTransition` and `uUpdateForm` are 48 TLabels, 22 TEdits, 15 TButtons and
-  13 TComboBoxes of plain LCL.  A wizard that looks like a system dialog next
-  to a hand-drawn dark chassis is the real "looks unprofessional".
-
-  **Look at `../lazrandr`.**  That is the pattern, and it is his own:
-
-  * The LFM files carry plain, designer-friendly components with ordinary
-    anchors, *"so the forms stay openable in the Lazarus designer"* - his
-    words, in `utheme.pas`, and that discipline is the whole reason it stays
-    maintainable.
-  * `utheme.pas` applies the look at **runtime**: a palette (`clWindowBg`,
-    `clSurface`, `clRaised`, `clAccent`, `clDanger`...) and *kinds* rather
-    than per-control settings - `bkPrimary`, `bkNeutral`, `bkDanger`,
-    `bkGhost` for buttons, `pkWindow`, `pkSurface`, `pkRaised`, `pkHeader`
-    for panels.
-  * BCButton, BCLabel and BCPanel for the parts worth styling; **TComboBox,
-    TCheckBox and TMemo left native**, which is exactly the gap in
-    BGRAControls and evidently not a problem in practice.
-
-  That is what "sexy but official" means: a conventional desktop form, laid
-  out the way a desktop form is laid out, whose buttons happen to be
-  handsome.  It is the right answer for our dialogs and wizards.
-
-  **It is not the answer for the drawing chrome**, and the measurement above
-  says why: the hand-drawn window costs 0.4 ms a paint, looks identical on
-  both platforms, and GTK3 cannot get at it.  The line to hold is that the
-  main window is a canvas and the dialogs are forms, and they are allowed to
-  be built differently as long as they share a palette.
-
-  What it costs, said properly: BGRABitmap becomes a dependency **of the
-  build**, not of the program.  It links in statically, so what somebody
-  downloads is still one executable with no installer and nothing to go and
-  find - which is the thing that line in the README is actually promising,
-  and it stays true.  What changes is that a person building from source
-  needs the package installed, which is already true of Lazarus itself.
-  When the day comes, say it that way in the README rather than deleting the
-  claim.
-
-  Licence is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
-  program.  Worth doing the next time a wizard needs work rather than as a
-  project of its own, and `utheme.pas` is most of the way there already.
-
-* **A control base class.**  The cut strip is the second hand-rolled control
-  in a fortnight (after the command bar) and the pattern is the same each
-  time: hit test, hover, press, paint into a TArtSurface.  One base class
-  with subclasses for button, field, spin and slider is maybe 300 lines and
-  would make the next ten cheap.  Worth doing the next time a control is
-  needed rather than as a project of its own.
-
-
-## Open questions
-
-* **A perspective camera, for looking only.**  A report on 11 September asked
-  whether the far end of a hundred foot barn should not look narrower than the
-  near end.  It should, to the eye - and it does not, because the 3D view is a
-  parallel projection and `docs/isometric-views.md` turned perspective off on
-  purpose so that lengths stay to scale.  SketchUp has both and defaults to
-  perspective, which is where the expectation comes from; its Parallel
-  Projection behaves exactly as ours does.
-
-  The shape of it, if we do it: perspective is a *viewing* mode, never a
-  working one.  Turn it on to show somebody the model, turn it off to draw,
-  and never let a dimension be read off a perspective view.  `Project` would
-  gain a divide by depth and `Unproject` a matching one, both behind the same
-  `TProjector`, so the tools would not need to know.  What has to be decided
-  first is what the tools do while it is on: refuse to draw, or quietly snap
-  back to parallel for the duration.  Until that is answered this is not
-  ready to build.
-
-* **Which way a loose face is meant to point.**  A face the region finder
-  works out is now wound to face along whichever axis it is squarest to,
-  positively - the same rule a face you draw has always followed.  That gets
-  a roof right, because both slopes are squarest to blue.  It cannot get the
-  two ends of a barn right: they are back to back, they both come out facing
-  the same way, and one of them therefore shows its back.  Nor can it help a
-  roof steeper than 45 degrees, where the slopes are squarest to the ground
-  axes and go one each way again.
-
-  Reverse Face on the right button is the answer for now, and it is the
-  answer SketchUp gives too: when the rule guesses wrong, the person looking
-  at it says so.  Doing better without being told means knowing which side is
-  outside, and the only thing that really knows is a closed solid.  Orienting away from the model's centre
-  would fix the barn and break a plan drawn on the ground beside a building.
-  Making every face agree with its neighbours across shared edges cannot be
-  done at all where three faces meet on one edge - the top of a wall, the
-  wall under it, the gable standing on it - which is every house.  Worth
-  coming back to when there is a real notion of a solid to hang it on.
-
-* **Making a solid out of what you drew.**  A face already carries `Solid`
-  and `Grp` - which solid it belongs to, or 0 for loose drawing - and
-  push/pull sets both, the file keeps them, back-face culling and push/pull's
-  drag-along both read them.  What is missing is anything that promotes loose
-  faces into one: a roof built on top of a box is loose faces sitting on a
-  solid, and nothing ever looks at that closed shell and says so.
-
-  The test is not vague - within a candidate set, every edge is used by
-  exactly two faces - and once it passes, orienting the whole shell outwards
-  once settles winding, culling and every later question about which side is
-  out.  Inference gets it too: the snap could prefer the skin facing the
-  camera over a point on the far side.  What has to be decided first is
-  **when** it happens.  Every region rebuild would be expensive and would
-  change what geometry *is* while somebody is drawing on it.  SketchUp only
-  does it inside a group, on demand.  Until that trigger is chosen this is
-  not ready to build.
-
-* **Five things about the transition ticket** are listed at the end of
-  `docs/transition-ticket.md` and want checking against a real one - the first
-  being which side an arrow names.
-* **DXF import** is deliberately last.  Writing is bounded work; reading is
-  not, and a file that opens looking right at a twelfth of its size is worse
-  than one that refuses.  Only when there is a particular file that has to
-  come in.
-
----
-
-## Where the line is
-
-No objects, no groups, no components.  No booleans, no curved surfaces, no
-materials - no library, no shading model, no reflectance.  A picture
-stretched on a face is a different thing and is discussed above; materials
-are what turns a sketch pad into something that needs a render farm.
-
-Those are where this stops being a quick tool and starts being a worse copy of
-SketchUp.
-
-Two things that were on this list have since been built, on purpose and with
-the reasons written down elsewhere: Follow Me (uWork.Revolve and Sweep), and
-touch (uTouch.pas and docs/touch.md - the all-in-one made it worth having).
-
-**And there is already a CAD program written in Lazarus: zcad.**  We are not
-competing with it and we should not try.  It is a CAD program; this is a
-sketch pad that happens to be to scale.  The moment a feature here only makes
-sense to somebody who would otherwise be using a CAD program, it belongs in
-zcad and not in this.  Simple is the product.
-
 
 ### The command list, and what is left of it
 
@@ -1906,7 +2331,7 @@ move tool live so it can be placed - which is SketchUp's Paste In Place
 behaviour and saves inventing a rule for where it lands.  Across sheets it is
 the same code, because the copy does not point at the old sheet.
 
-## Where this is going, agreed 15 September 2026
+### Where this is going, agreed 15 September 2026
 
 Tony, after an evening of comparing: "SketchUp is way smoother and crisper
 moving than us when orbiting and the snapping behavior is so much more
@@ -2735,212 +3160,6 @@ decides whether anything more is wanted:
   editing the polyhedron or wrapping it in a transform, which is a different
   workflow and would explain "properties" better than an STL can.
 
-### Sending it to the printer, if that is ever wanted
-
-Researched 15 September, nothing built.  A printer takes G-code, not a model,
-and slicing is a whole program with years in it - supports, infill,
-perimeters, temperatures, retraction.  We should never write one.  So:
-
-    Heckers Sketch -> STL -> a slicer -> .gcode -> the printer
-
-PrusaSlicer has a proper headless command line for the middle of that, the
-same shape as the FreeCAD note above.  The far end is solved on two stacks:
-**Klipper + Moonraker**, a documented HTTP/JSON-RPC API that Mainsail and
-Fluidd are themselves only front ends onto; and **PrusaLink**, a local REST
-API embedded in MK4S firmware, with Prusa Connect as an optional cloud layer
-nobody has to touch.
-
-Resin is the wrong branch for this: it slices to per-vendor proprietary
-binaries - .ctb, .pwmx, .goo - with no standard and essentially no documented
-network API.
-
-The line to hold, if it is ever built: **we never own a slicing setting.**
-Hand the file to the slicer they already configured.  The moment this program
-has an infill percentage in it, it has stopped being a simple drawing
-program.
-
-### Importing manufacturers' equipment models
-
-Tony: the heating and cooling makers publish models of their equipment and it
-would be good to bring those in - an air handler, a fan, a rooftop unit -
-rather than drawing a box the right size and hoping.
-
-**What they actually publish**, checked rather than guessed (Greenheck,
-Daikin, and the aggregators - BIMobject, CADdetails, ARCAT):
-
-* **RFA** - Revit families, the main event for MEP.  Proprietary, no spec,
-  cannot be read.  Same wall as writing one; see the Cricut note for the
-  same conclusion reached from the other side.
-* **IPT** and **F3D** - Inventor and Fusion.  Also proprietary.
-* **DWG** - everywhere, and AutoCAD's own binary.  Reverse-engineered by
-  others (LibreDWG) but a large job to do ourselves.
-* **DXF** - AutoCAD's documented interchange format, and text.  Often offered
-  beside the DWG; anything DWG converts to it with the ODA free converter or
-  by the person sending it.
-* **STEP** - some makers offer it.  The honest neutral 3D format and a real
-  parser is a big piece of work: an EXPRESS schema, B-rep topology and NURBS
-  surfaces, none of which this program has a representation for.
-
-**So DXF is the way in, and it is the one we are already halfway to.**  We
-write it - uDxf.pas - so the group codes, the units and the layer handling
-are already understood at this end.  Reading needs: 3DFACE, POLYLINE/VERTEX
-meshes, LINE, LWPOLYLINE, CIRCLE, ARC, and INSERT/BLOCK for anything
-assembled out of parts.  $INSUNITS decides the scale, which is the thing that
-has to be right or the unit arrives eight feet tall or eight inches.
-STL and OBJ are nearly free if anyone ships them - both are a few dozen lines
-and we already write STL.
-
-**The design question is what an imported unit BECOMES**, and it matters more
-than the parsing.  This document is faces and lines with a region engine over
-it, and a manufacturer's air handler is thousands of triangles.  Dropped in
-as loose geometry it would be slow, would confuse the region finder, and
-would be senseless to push or pull.  What somebody actually wants from it is
-coordination: does this thing fit the ceiling, does the duct clear it, what
-is the clearance to the filter door.
-
-So the likely right shape is a **block**: one group that moves, turns, snaps
-and measures as a unit, draws as itself, and is not editable geometry.  That
-also sidesteps the region engine entirely.  A second, cheaper option worth
-weighing first: many equipment DXFs are 2D plan and elevation outlines, which
-are lighter, more useful for a coordination drawing, and import as ordinary
-lines with no new concepts at all.
-
-**A DXF importer is wanted.**  Tony, 15 September: it is the first way in.
-Not built, and on this list on purpose.
-
-### Somebody else's converter, as a door rather than a dependency
-
-Tony's idea, and it is a good one: rather than teach this program every
-format, find the free converter that already reads them all, keep it OUT of
-our build, and either hand its output to our importer or simply tell the
-person where to get it and what to do.  Nothing bundled - they install it.
-
-**Nobody has to install Python.**  Tony's objection when this was first
-written up, and it was a fair reading of how it was put: "runs a Python
-script" sounds exactly like a dependency.  It is not one.  FreeCAD embeds its
-own interpreter - the Linux AppImage carries the Python binary inside it, the
-Windows installer bundles it with its libraries - so `freecadcmd` IS the
-interpreter, the script runs inside FreeCAD, and no system Python is touched
-or wanted.  One application, installed the way applications are.
-
-The ODA converter has no Python at all: a plain executable and seven
-positional arguments,
-
-    ODAFileConverter.exe "C:\in" "C:\out" ACAD2018 DXF 0 1
-
-in-folder, out-folder, version, format, recurse, audit.  One thing to know:
-it is a Qt program driven by a command line, so on a HEADLESS Linux box it
-still wants an X display.  On a desktop, which is the case here, that never
-comes up.
-
-**And for the job actually in front of us, neither is needed.**  The
-manufacturers ship DXF and DWG - Greenheck offers 2D AutoCAD drawings and 3D
-AutoCAD models outright.  So the common path is:
-
-    DXF  ->  us                                   nothing installed at all
-    DWG  ->  ODA (one exe)  ->  DXF  ->  us       nothing scripted
-
-FreeCAD earns its place for STEP and IGES, which is the mechanical-CAD corner
-rather than the heating-and-cooling one.  It is the third door, not the
-front one, and it should be described that way to anybody.
-
-**FreeCAD is the answer to "is there an amazing free one".**  LGPL, genuinely
-open source, on all three platforms, and built on Open CASCADE - so it reads
-STEP and IGES properly, as B-rep, which is the hard part nobody else gives
-away.  It also reads DXF, OBJ, STL and BREP, and writes DXF, STL and OBJ.  It
-has a headless mode - `freecadcmd` on Linux and macOS, `FreeCADCmd.exe` on
-Windows - that runs a Python script with no window, so a conversion is one
-command and no clicking.
-
-**DWG needs a step before that**, even for FreeCAD, which cannot read it
-alone.  It names three helpers: **LibreDWG** (GPL-3, genuinely open, and its
-own documentation says it is a work in progress that lacks some entities),
-the **ODA File Converter** (free to use but proprietary - the de-facto
-standard, and what FreeCAD and LibreCAD both point people at), and QCAD Pro,
-which is paid.  So the open path is LibreDWG and the reliable one is ODA, and
-neither can be shipped with us - which is fine, because neither should be.
-
-**The pipeline that falls out of this:**
-
-    anything  ->  FreeCAD (installed by them)  ->  DXF or STL  ->  us
-    DWG       ->  ODA or LibreDWG  ->  DXF  ->  FreeCAD or straight to us
-
-**And it changes what our first importer should be.**  STL is the better
-first target, not DXF:
-
-* it is triangles and nothing else, so reading it is a few dozen lines, and
-  we already WRITE it so the units and the winding are understood here;
-* FreeCAD will turn anything it can read into one;
-* and equipment is exactly the case where triangles are enough - an air
-  handler is a thing you place and measure against, not a thing you edit.
-
-DXF stays worth doing and stays the better answer for the other half of the
-job: 2D plan and elevation outlines, which arrive as real lines and arcs
-rather than a mesh, and which are what a coordination drawing actually wants.
-So: two importers, smallest first, and STL is the smaller.
-
-**If we ever want to read DXF ourselves rather than convert into it**, the
-reference to read is `ezdxf` - MIT, Python, full read and write of R12
-through R2018 in both ASCII and binary, and the best documentation of the
-format outside Autodesk's own.  Not to depend on; to learn from.
-
-**What "quickly accessible from our program" could mean**, in rising order of
-work and none of it decided:
-
-1. Say so.  The open dialog, offered a .step or a .dwg, explains what it is
-   and where FreeCAD is, and offers to open that page.  No detection, no
-   processes, and it is most of the value.
-2. Find it.  Look for freecadcmd in the usual places, and if it is there
-   offer "convert this with FreeCAD" - one process, one temporary file, and
-   our own importer on the far end.
-3. Drive it.  Ship the little Python script the conversion needs and run it
-   headless.  Still no bundling - the script is ours and it is twenty lines.
-
-Licence-wise all three are clean: running a program is not linking to it, so
-FreeCAD being LGPL and the ODA converter being proprietary freeware are both
-fine as long as we ship neither.
-
-Nothing decided.  The smallest first step, if this is wanted, is an STL
-reader and option 1 above - a sentence in a dialog - and neither needs the
-other.
-
-And the order to offer them in, which follows from the Python point: DXF
-first because it needs nothing installed, DWG second because it needs one
-executable and no scripting, STEP last because it needs a whole application -
-a good one, freely given, and still a whole application.
-
-### Cutting machines, and the Cricut in particular
-
-Tony has a **Cricut Explore 3**.  The question was whether we can cut to it
-directly.  Today, no, and it is worth writing down why so nobody spends a
-weekend finding out again.
-
-* **CutcutGo** (github.com/virtualabs/cutcutgo) is the real work: open GRBL
-  firmware that turns a Cricut into a G-code machine, no account and no
-  Design Space.  It is for the **original Cricut Maker** and means opening
-  the machine and flashing the board.  The Maker 3 needs its electronics
-  reverse-engineered from scratch, and the Explore line is not covered at
-  all.
-* **Inkcut issue #426** asks for stock-firmware Maker support and reaches no
-  conclusion - the people asking say themselves they do not know how
-  tractable it is, and the thread carries no findings about the protocol.
-* Over USB on an unmodified machine the protocol is encrypted and there is
-  essentially nothing public beyond the cartridge-era machines.  That is not
-  for want of trying: Provo Craft sued Make-the-Cut and Sure Cuts A Lot in
-  2010-11 and both dropped Cricut support.
-
-So the way out is the file, not the wire, and the file had a defect worth
-fixing on its own account: **the SVG carried no units**.  Fixed 14 September -
-`WriteSVG` writes width and height in inches or millimetres against the
-viewBox, so the drawing arrives at its real size wherever it goes.
-`TestSvgIsTrueSize` measures the wine glass at two zooms in plan and from the
-front, and an independent renderer agrees: 366 px at 96 dpi for the 3.81 in
-the file claims.
-
-If a machine ever does open up - a Maker v1 with CutcutGo, or somebody cracks
-the Explore - the work on our side is a G-code writer, and it is small: the
-cut paths are the same projected polylines WriteSVG already walks.
-
 ### The drive scripts now have a runner, and it is only a smoke test
 
 tests/run-drive.sh runs the scripts in tests/drive and says whether each one
@@ -2958,36 +3177,6 @@ run that script by itself before believing it.
 Worth doing some day: have the scripts compare their screenshots against
 kept ones, so a pass means something.
 
-### The logo letters come up red when they are raised
-
-Tony, 14 September: "i sort of like how i raised the letters and they have
-red lines around the letters however i dont understand why the letters became
-red, probably a bug!"
-
-Not a bug in the program - the generator gives the letter faces the toy's own
-red, the same ink as the body, on the reasoning that the logo is printed on a
-red toy.  Flat, they read as dark lines on the frame because the lines over
-them are black and the face is barely visible.  Raised a sixteenth, the sides
-and the top are suddenly red on a body that renders pale, and it looks like
-something went wrong.
-
-The question is what the logo should be, not where the bug is.  Worth asking
-Tony whether he wants the letters the colour of the frame - so raising one
-reads as embossing - or a deliberate contrast colour.  Whatever he says is a
-one line change in examples/make-etch-a-sketch.pas.
-
-### A GIF export that crashed after the fact
-
-Tony, 14 September: exported a GIF on the Windows machine, opened it, and
-thinks the program went down.  A report was promised and has not arrived; the
-one that came in at 07:41 was about /reface and carries no crash file.
-
-Nothing to go on yet.  What there is: the film is held whole in memory before
-a byte is written - a twelve second clip at 900x492 is about two hundred
-megabytes of frames - and the packing pass is already skipped past a size for
-that reason.  If a crash file turns up, the stage it died in is in the report
-now, frame by frame.
-
 ### Closing without saving - DONE 16 September 2026
 
 Tony, 14 September: closed the drawings, chose not to save, opened the program
@@ -3003,105 +3192,6 @@ suite covers a sheet with work and a sheet nobody touched.
 Still true and still right: the draft is written on the way out by design,
 because pulling the plug must lose nothing.  Answering "close without saving"
 to the quit prompt does not drop it, and nobody has asked for that.
-
-### Our own fork of BGRABitmap, for later
-
-Tony, 13 September: he likes the project and wants to keep using and
-supporting it, and to send improvements back when we have any.  So the plan is
-a fork we build against, not a vendored copy we quietly diverge with - the
-point is to be able to contribute, which means staying close enough to upstream
-that a patch still applies.
-
-Not a priority.  Nothing is blocked on it: BGRABitmap does everything asked of
-it so far, and the one fault we hit was ours - `BGRAColorQuantizerFactory` was
-never assigned.  Worth revisiting the first time we want a change in it rather
-than around it.
-
-The one we already know we would want: **a streaming GIF writer**.
-TBGRAAnimatedGif assembles the whole film in memory before writing a byte,
-which is the only reason there is a frame budget at all.  A writer that took
-one frame at a time and emitted it would remove the ceiling entirely and let a
-recording run as long as somebody likes at any size.  That is a real
-contribution rather than a private patch, so it belongs upstream.
-
-### The recording workflow needs another pass
-
-Tony, having used it: "the workflow for recording a gif isn't too intuitive but
-it did work."  He is going to send specific notes.  Known already, and fixed on
-14 September: the popup did not pan or zoom the way the drawing area does -
-left-drag turned it, the wheel zoomed to the middle rather than the cursor, and
-the buttons did not match.  Now middle turns, right slides, left does nothing,
-and the wheel zooms 1.15 anchored on the pointer, the same as `ZoomAt` in the
-drawing area.
-
-Still open, and worth thinking about before he writes: getting to it takes
-Export, then GIF, then a button - three steps before you find out it exists.
-It may want to be reachable straight from the toolbar, or from the right button
-on the drawing itself.
-
-### Examples written out beside the portable exe
-
-**Part of this is done.**  The toy etch-a-sketch is carried inside the program
-as `uExample.pas` - generated by `examples/make-etch-a-sketch.pas`, same source
-as `examples/etch-a-sketch.hsk` - and it opens on a run that has nothing else
-to show: no drawing named on the command line and no draft to pick up.  So the
-first thing anybody ever sees is a toy with a robot on it rather than an empty
-sheet, and the portable build is still one file.
-
-**And the folder is done too.**  `uPaths.ExamplesDir` is `examples` beside the
-program, and it is written out on every run over the top of whatever was
-there.  The file the program writes is byte for byte the file the generator
-makes - the same three-line comment at the top of each - so the copy in the
-repository does not churn every time somebody runs the program from the source
-folder.
-
-**And there are two of them now, 14 September.**  The wine glass joins the
-toy: `examples/make-glass.pas` draws the outline of half a glass and calls
-`TWorkDoc.Revolve`, which is the same code the tool calls - so the model
-follows the tool rather than being traced once and slowly going stale.
-`uExamples.pas` is the list, and adding another is a generator and one line.
-
-The tests insist on four things for every example, all of them found the hard
-way: the file and the copy inside the program are the same bytes, every face
-belongs to a solid so `/reface` cannot eat it, the whole thing is a closed
-solid, and it stands on the ground.
-
-What is left of Tony's idea below: more of them - the crown, and a few
-deliberately wild ones - and the checksum rule, so an example improved in a
-later version replaces the old one while something somebody has edited and
-saved under its own name is left alone.  Today's version simply writes them
-out over the top every run, which is right for a file nobody has touched and
-wrong the moment they have.
-
-
-
-Tony, 13 September.  The program ships as one executable on purpose and that
-should not change, so the examples have to come out of it rather than beside
-it: on first run it makes an `examples` folder next to itself and writes them
-out, and it does it again for any that have gone missing or been altered.
-The very first run ever opens a couple of them, so somebody who has just
-downloaded it sees the thing working instead of an empty sheet.
-
-Content: the wine glass, the crown, and a handful of deliberately wild ones -
-the point is demonstration, not tuition.  Worth accumulating over time, so
-the list wants to be easy to add to: drawings as resources compiled in, a
-table of name and bytes, and one pass that writes any that are absent or do
-not match.
-
-Two things to get right.  Altered means altered by us as well as by them - a
-checksum per file, so an example improved in a later version replaces the old
-one instead of being left because a file of that name exists.  And it must
-never overwrite something the person has been working on: an example they
-have edited and saved under its own name is theirs now, so the check should
-be against what we wrote last, not against what the example currently says.
-
----
-
-# Done and settled, and why it is worth remembering
-
-These stay because the reasoning in them is the expensive part - the
-measurement that settled an argument, the trap that cost a day, the thing
-that looked obvious and was wrong.
 
 ### Done 13 September: faces are cut into triangles before rasterising
 

@@ -66,9 +66,6 @@ AGENTS.md
 SUGGESTIONS_TO_CLAUDE.md
 docs/bug-report-endpoint.md
 
-# a compiled binary that got in here once under a mistyped name
-etchasketcdhjsd
-
 # --- the program's own runtime files -----------------------------------------
 # It keeps its settings, draft, lock and crash reports next to the executable
 # now that it is portable - and during development the executable is right
@@ -81,3 +78,9 @@ heckers-sketch-crash.txt*
 heckers-sketch-*.download
 *.hsk.would-not-open
 reports/
+# the manual it downloads beside itself (the source is docs/help), and the
+# folder its exports go to by default.  Both were committed by accident once.
+/help/
+/help.new/
+/help.old/
+/exports/
