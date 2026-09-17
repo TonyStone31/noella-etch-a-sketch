@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Click a picture in the manual to see it larger.**  Every screenshot and' + LineEnding +
+    '  animation opens in a window of its own, as big as the window you make' + LineEnding +
+    '  it - drag the window bigger and the picture grows.  Esc closes it.  On' + LineEnding +
+    '  the website, a click opens the picture full size in a new tab.' + LineEnding +
+    '- **The animations are recorded at full size** now, so they are sharp when' + LineEnding +
+    '  you open them larger.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **The manual''s contents page looks like cards**, three to a row, the same' + LineEnding +
+    '  in the program as on the website.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.1' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

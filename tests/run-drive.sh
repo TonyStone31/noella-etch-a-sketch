@@ -116,7 +116,7 @@ else
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
          glass-revolve ring-hint face-needs-edges entity-panel
          gif-loop frame-watchdog close-asks orbit-grid orbit-snap
-         narrow-window blank-start help-window
+         narrow-window blank-start help-window help-picture
          $CHAINS"
   # SOLO=1 takes the chains apart again, for when a chain has failed and the
   # question is whether any of it was ever broken
@@ -127,7 +127,7 @@ else
            whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
            face-needs-edges tape-finishes guide-picking frame-watchdog
            close-asks copy-paste entity-panel orbit-grid orbit-snap
-           round-corners line-length narrow-window blank-start help-window"
+           round-corners line-length narrow-window blank-start help-window help-picture"
   fi
 fi
 
@@ -174,7 +174,7 @@ blank_for() {
 rundir_for() {
   local d
   case "$1" in
-    help-window)
+    help-window|help-picture)
       d="$(mktemp -d /tmp/hsk-rundir-XXXXXX)"
       mkdir -p "$d/help" && cp -r docs/help/. "$d/help/"
       echo "$d" ;;

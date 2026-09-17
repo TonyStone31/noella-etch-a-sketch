@@ -69,3 +69,7 @@ table.cards small{color:var(--dim);font-size:13px;line-height:1.4}
   table.cards td{margin:0 0 8px}
   table.cards td.empty{display:none}
 }
+
+/* A picture is a link to itself: click it to see it full size - a new tab
+   in a browser, a picture window in the program. */
+a.zoom{display:block;cursor:zoom-in}

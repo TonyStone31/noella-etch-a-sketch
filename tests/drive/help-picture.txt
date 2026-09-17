@@ -1,0 +1,28 @@
+# A picture in the manual, clicked, opens larger in a window of its own.
+#
+# Tony: "for the gif files... be able to click them and see a larger image".
+# Every picture is a link to itself; in the program a click opens the
+# picture window, fitted to its size, and Esc closes it again.
+#
+# run-drive.sh puts a copy of docs/help beside the program first.
+#
+# What to look for: hsk-pic-1 is the Push/Pull page with its animation;
+# hsk-pic-2 is the animation filling a window of its own; hsk-pic-3 is back
+# on the Push/Pull page, which the click did not replace.
+activate
+wait 1200
+key slash
+type manual
+key return
+wait 2500
+at 215 662 500
+click
+wait 1800
+shot /tmp/hsk-pic-1.png
+at 600 705 400
+click
+wait 2500
+shot /tmp/hsk-pic-2.png
+key escape
+wait 800
+shot /tmp/hsk-pic-3.png

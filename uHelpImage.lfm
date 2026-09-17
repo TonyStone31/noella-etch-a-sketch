@@ -1,0 +1,26 @@
+object HelpImageForm: THelpImageForm
+  Left = 200
+  Height = 800
+  Top = 80
+  Width = 1200
+  Caption = 'Heckers Sketch - Picture'
+  ClientHeight = 800
+  ClientWidth = 1200
+  Constraints.MinHeight = 200
+  Constraints.MinWidth = 300
+  KeyPreview = True
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnKeyDown = FormKeyDown
+  Position = poMainFormCenter
+  object Page: TInkPage
+    Left = 0
+    Height = 800
+    Top = 0
+    Width = 1200
+    Align = alClient
+    TabOrder = 0
+    OnLinkClick = PageLinkClick
+  end
+end

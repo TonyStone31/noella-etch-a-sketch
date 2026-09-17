@@ -90,7 +90,7 @@ implementation
 {$R *.lfm}
 
 uses
-  uHelpDocs, uUpdate, uNet, uDlgSkin, uSurface;
+  uHelpDocs, uUpdate, uNet, uDlgSkin, uSurface, uHelpImage;
 
 procedure OpenHelpWindow(const Rel: string);
 begin
@@ -355,8 +355,20 @@ end;
 
 procedure THelpForm.PageLinkClick(Sender: TObject; const URL: string);
 var
-  Local: string;
+  Local, Ext: string;
 begin
+  { A picture - clicked, or a link straight to one - opens larger in the
+    picture window rather than replacing the page being read. }
+  Ext := LowerCase(ExtractFileExt(URL));
+  if (Page.ClickedLink.Image <> '') or (Ext = '.png') or (Ext = '.gif') or
+     (Ext = '.jpg') or (Ext = '.jpeg') then
+  begin
+    if Page.ClickedLink.Image <> '' then
+      OpenPictureWindow(Page.ClickedLink.Image, lblTitle.Caption)
+    else
+      OpenPictureWindow(URL, lblTitle.Caption);
+    Exit;
+  end;
   Local := LocalFileForWeb(URL);
   if Local <> '' then
   begin

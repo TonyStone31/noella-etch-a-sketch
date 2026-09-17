@@ -2450,6 +2450,33 @@ The line-by-line parser and the HTML builder are gone: 599 lines to 363.
 Checked with `--updated-from=v2026.09.16.7`: .9 and .8 shown, nothing older.
 `ARGS=` passes arguments like that through `tools/xephyr.sh`.
 
+### Pictures you can open larger - 17 September 2026
+
+Tony: "for the gif files... be able to click them and see a larger
+image... I prefer not to get that package any bulkier."  LazInk's P7 made
+a picture inside a link clickable, told the host it was a picture
+(`ClickedLink.Image`), and added `ImageFit`.
+
+* Every `<img>` in `docs/help` is wrapped in
+  `<a class="zoom" href="same picture" target="_blank">` - fourteen of them.
+  A browser opens the picture in a new tab.
+* `uHelpImage` (with its `.lfm`): one reusable window, 85% of the screen, a
+  `TInkPage` with `ImageFit := iifWindow` and nothing on it but the picture;
+  Esc closes it.  `THelpForm.PageLinkClick` sends a clicked picture, or a
+  link straight to a `.png`/`.gif`/`.jpg`, there instead of replacing the
+  page.
+* The three animations are re-recorded at 1100 wide instead of 700, so the
+  big view needs no enlarging: push/pull 0.77 -> 1.49 MB, rounding corners
+  1.08 -> 1.67 MB, orbit snap 1.71 -> 3.42 MB (at 6 frames a second and 48
+  colours - at 8 and 64 it was 5.0 MB).  The help zip grows by about 3 MB.
+  `tools/gif-push.txt` needed the Push/Pull button's new position.
+* `help-picture` in the drive suite: open the manual, go to Push/Pull, click
+  the animation, see it in its own window, Esc back to the page.
+
+The index's cards now look the same in the program as in a browser -
+LazInk's P7 table work (equal columns, padding, spacing, cell colours,
+rounded cells, `<small>`).
+
 ### Our tests used up the house's GitHub allowance - 16 September 2026
 
 Tony: "my v2026.09.15.7 is not updating on my wife's computer it gets a 403

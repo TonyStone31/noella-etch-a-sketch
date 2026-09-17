@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Click a picture in the manual to see it larger.**  Every screenshot and
+  animation opens in a window of its own, as big as the window you make
+  it - drag the window bigger and the picture grows.  Esc closes it.  On
+  the website, a click opens the picture full size in a new tab.
+- **The animations are recorded at full size** now, so they are sharp when
+  you open them larger.
+
+### Changed
+
+- **The manual's contents page looks like cards**, three to a row, the same
+  in the program as on the website.
+
 ## v2026.09.17.1
 
 ### Changed
