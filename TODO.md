@@ -1363,6 +1363,11 @@ modifier key: a loose line moves its last end, one joined at one end moves
 its free end, one joined at both cannot be typed at all.  DaveR, on their
 forum, is the source.  `TWorkDoc.LineLengthEnd`.
 
+**Half-fixed, 16 September evening: the blue face wash is drawn into the
+cursor's square now** (`PaintFaceHint` takes a surface, `HintFaceNow` says
+which face).  What is left of the note below is the rubber bands and canvas
+text of the other tools, which nobody has seen trouble from yet.
+
 **Found on the way, not fixed: the cursor wipes what is under it.**  The
 pointer is drawn by copying a square of the finished drawing from under it
 and pasting it back with the crosshair on - and the finished drawing does not

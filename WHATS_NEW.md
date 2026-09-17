@@ -10,6 +10,25 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **`--blank`** starts the program on an empty sheet - no example, no
+  draft.  Whatever draft was there is kept beside it as
+  `heckers-sketch-draft-before-blank.hsk`, so nothing is lost.
+
+### Fixed
+
+- **The buttons along the bottom fit a smaller window.**  On a narrower
+  screen their words ran out of the buttons and over each other.  The
+  buttons on the right now shrink first, then turn into icons, and a label
+  that still doesn't fit is shortened instead of spilling.
+- **The tool list on the left fits a shorter window.**  MORE TOOLS and SHOP
+  no longer end up drawn on top of each other.
+- **The blue highlight on a face no longer has a hole under the pointer.**
+- **The release notes window has a scroll bar in the theme's colors.**
+
 ## v2026.09.16.7
 
 ### Changed

@@ -116,6 +116,7 @@ else
   NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
          glass-revolve ring-hint face-needs-edges entity-panel
          gif-loop frame-watchdog close-asks orbit-grid orbit-snap
+         narrow-window blank-start
          $CHAINS"
   # SOLO=1 takes the chains apart again, for when a chain has failed and the
   # question is whether any of it was ever broken
@@ -126,7 +127,7 @@ else
            whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
            face-needs-edges tape-finishes guide-picking frame-watchdog
            close-asks copy-paste entity-panel orbit-grid orbit-snap
-           round-corners line-length"
+           round-corners line-length narrow-window blank-start"
   fi
 fi
 
@@ -160,6 +161,14 @@ died_on() {
   sed -n 's/^== //p' "$OUT/$1.said" 2>/dev/null | tail -1
 }
 
+# Scripts that want the program to start on an empty sheet - see --blank.
+blank_for() {
+  case "$1" in
+    blank-start) echo 1 ;;
+    *)           echo "" ;;
+  esac
+}
+
 # One script or one chain, start to finish.  Says how it went as it finishes
 # rather than waiting for the rest, so a run in progress is readable.
 run_one() {
@@ -172,8 +181,8 @@ run_one() {
     script="tests/drive/$n.txt"
     d="$(drawing_for "$n")"
   fi
-  LOG="$OUT/$n.applog" timeout 300 tools/xephyr.sh "$script" $d \
-    >"$OUT/$n.said" 2>&1
+  BLANK="$(blank_for "$n")" LOG="$OUT/$n.applog" timeout 300 \
+    tools/xephyr.sh "$script" $d >"$OUT/$n.said" 2>&1
   rc=$?
   echo "$rc" > "$OUT/$n.rc"
   if [ "$rc" = 0 ]; then
@@ -215,8 +224,8 @@ done
 solo() {
   local n="$1" d
   d="$(drawing_for "$n")"
-  if LOG="$OUT/$n.applog" timeout 180 tools/xephyr.sh "tests/drive/$n.txt" $d \
-       >"$OUT/$n.solo" 2>&1; then
+  if BLANK="$(blank_for "$n")" LOG="$OUT/$n.applog" timeout 180 \
+       tools/xephyr.sh "tests/drive/$n.txt" $d >"$OUT/$n.solo" 2>&1; then
     return 0
   fi
   sed -n '$p' "$OUT/$n.solo" 2>/dev/null | sed 's/^/    said: /'

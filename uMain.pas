@@ -974,7 +974,9 @@ type
     procedure PaintGroundGrid(Pitch: Double);
     procedure PaintAxes;
     procedure PaintPushPreview(C: TCanvas);
-    procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+    procedure PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix;
+      S: TArtSurface = nil; OX: Integer = 0; OY: Integer = 0);
+    function HintFaceNow: Integer;
     procedure CheckForUpdate(Loud: Boolean);
     procedure DoUpdate;
     procedure ShowWhatsNew;
@@ -1279,6 +1281,9 @@ var
   MainForm: TMainForm;
 
 implementation
+
+uses
+  FileUtil;
 
 {$R *.lfm}
 
@@ -2736,6 +2741,16 @@ begin
   RememberWindow;
 end;
 
+{ --blank on the command line, and no drawing named - see where it is used. }
+function AskedForBlank: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if LowerCase(ParamStr(I)) = '--blank' then Result := True;
+end;
+
 procedure TMainForm.FormDestroy(Sender: TObject);
 var
   I: Integer;
@@ -2795,6 +2810,25 @@ begin
       Opened := LoadDocument(ParamStr(I));
       Break;
     end;
+  { --blank: start on an empty sheet - no draft, no example.
+
+    Tony: "we should also have a startup parameter like --blank so it
+    automatically opens with a blank drawing and doesnt load anything not
+    even the initial toy model... it will make some of our testing and
+    scripts shorter so we dont have to clear them all the time."
+
+    The one thing it must not do is lose somebody's work.  The draft is
+    written again a few seconds after the first stroke, and that would be
+    over whatever was there - so the old one is copied aside first, beside
+    it, where the next person to wonder where it went can find it. }
+  if AskedForBlank then
+  begin
+    if FileExists(DraftFile) then
+      CopyFile(DraftFile, ChangeFileExt(DraftFile, '') + '-before-blank.hsk',
+        [cffOverwriteFile]);
+    Opened := True;
+    Trail('started blank (--blank)');
+  end;
   { Nothing named on the command line, so carry on from last time.  A file
     asked for by name always wins - it is a clear instruction, and the draft
     is only a safety net. }
@@ -3206,7 +3240,12 @@ end;
   WashFace, where the eraser uses them.  Neither had ever been asked of this
   one.  That is the third or fourth time the same shape of fault has turned
   up: a rule learnt in one picker and never carried to its neighbour. }
-procedure TMainForm.PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix);
+{ With S given, the same wash drawn into that surface instead of onto the
+  canvas, S's corner being at OX, OY on the screen, and only the part that
+  falls inside it.  That is how the wash gets into the cursor's square - see
+  PaintUnderCursor. }
+procedure TMainForm.PaintFaceHint(C: TCanvas; Face: Integer; const Col: TPix;
+  S: TArtSurface; OX, OY: Integer);
 var
   Pts: TPointFArray;
   HPts: array of TPointFArray;
@@ -3267,6 +3306,11 @@ begin
   end;
   X0 := Max(X0, 0); Y0 := Max(Y0, 0);
   X1 := Min(X1, pbScreen.Width - 1); Y1 := Min(Y1, pbScreen.Height - 1);
+  if S <> nil then
+  begin
+    X0 := Max(X0, OX); Y0 := Max(Y0, OY);
+    X1 := Min(X1, OX + S.Width - 1); Y1 := Min(Y1, OY + S.Height - 1);
+  end;
   if (X1 <= X0) or (Y1 <= Y0) then Exit;
 
   { How deep the face is under any pixel of it.  The view is orthographic and
@@ -3359,12 +3403,29 @@ begin
           if (Zb > -1E29) and (Zb > Dp + 1E-3 * (1 + Abs(Dp))) then
             Inside := False;
         end;
-        if Inside then C.Pixels[X, Y] := PixToColor(Col);
+        if Inside then
+          if S <> nil then S.BlendPixel(X - OX, Y - OY, Col, 1)
+          else C.Pixels[X, Y] := PixToColor(Col);
         Inc(X, Step);
       end;
       Inc(I, 2);
     end;
     Inc(Y, Step);
+  end;
+
+  if S <> nil then
+  begin
+    { the bold edge, into the square too }
+    for I := 0 to N - 1 do
+      S.Line(Pts[(I + N - 1) mod N].X - OX, Pts[(I + N - 1) mod N].Y - OY,
+        Pts[I].X - OX, Pts[I].Y - OY, Max(2, Round(2 * FUIScale)), Col, 1);
+    for H := 0 to High(HPts) do
+      for I := 0 to High(HPts[H]) do
+        S.Line(HPts[H][(I + Length(HPts[H]) - 1) mod Length(HPts[H])].X - OX,
+          HPts[H][(I + Length(HPts[H]) - 1) mod Length(HPts[H])].Y - OY,
+          HPts[H][I].X - OX, HPts[H][I].Y - OY,
+          Max(2, Round(2 * FUIScale)), Col, 1);
+    Exit;
   end;
 
   C.Pen.Color := PixToColor(Col);
@@ -5343,7 +5404,8 @@ procedure TMainForm.RebuildDeck;
 var
   W, H, Pad, LabW, RowH, RowGap, IconW, IconGap, RightW: Integer;
   Y0, RowY, X, Avail, SegW, SwSz, SwGap, I, G, GX, GrpGap: Integer;
-  RightW6, GrpX, NSet: Integer;
+  RightW6, GrpX, NSet, NamedW: Integer;
+  NamedIcons: Boolean;
   Blank: TPix;
 
   procedure Add(K: TDeckKind; const B: TRect; G, V: Integer;
@@ -5402,12 +5464,18 @@ var
   var
     IX, J, BW: Integer;
   begin
-    BW := Round(88 * FUIScale);
+    BW := NamedW;
     IX := W - Pad - Length(A) * BW - (Length(A) - 1) * RowGap;
     for J := 0 to High(A) do
     begin
-      Add(dkSegment, Rect(IX, RY, IX + BW, RY + RowH), GRP_ICON, A[J], N[J],
-        H[J], K[J]);
+      { narrow: the picture alone, with its name in the tooltip - see where
+        NamedIcons is decided }
+      if NamedIcons then
+        Add(dkIcon, Rect(IX, RY, IX + BW, RY + RowH), GRP_ICON, A[J], '',
+          N[J] + ' - ' + H[J], K[J])
+      else
+        Add(dkSegment, Rect(IX, RY, IX + BW, RY + RowH), GRP_ICON, A[J], N[J],
+          H[J], K[J]);
       Inc(IX, BW + RowGap);
     end;
   end;
@@ -5523,8 +5591,31 @@ begin
       too - it puts them in Edit and in a docked tray, and the right button is
       nearer to hand than either. }
     NSet := 5;
-    Avail := W - 2 * Pad - LabW - (6 * Round(88 * FUIScale) + 5 * RowGap)
-             - Round(18 * FUIScale);
+    { Who gives way when the window is narrow.
+
+      The six buttons on the right were a fixed 88 each, so every pixel a
+      narrow window lost came out of the five settings - and at 1100 wide
+      they were ninety pixels apiece for "PRINT SCALE 1\"", which needs a
+      hundred and thirty.  The words ran out of the buttons and over each
+      other; Tony saw it in the help animations.
+
+      The settings say what is set, so they keep the room they need first,
+      and the six - one short word each - shrink towards a floor that still
+      holds "ORIGIN".  Whatever is still short after that is the painter's
+      to handle: see FitCaption, which shortens a label rather than letting
+      it run over. }
+    Avail := W - 2 * Pad - LabW - Round(18 * FUIScale);
+    NamedW := (Avail - (NSet * Round(128 * FUIScale) + (NSet - 1) * RowGap)
+               - 5 * RowGap) div 6;
+    NamedW := EnsureRange(NamedW, Round(60 * FUIScale), Round(88 * FUIScale));
+    { Narrower still, and the six drop their words and keep their pictures.
+      A settings button cut down to "1/16\"" no longer says what it sets,
+      and FIT, GRID and HELP are pictures anybody can read - with the word
+      still in the tooltip. }
+    NamedIcons := (Avail - (6 * NamedW + 5 * RowGap) - (NSet - 1) * RowGap)
+      div NSet < Round(112 * FUIScale);
+    if NamedIcons then NamedW := IconW;
+    Avail := Avail - (6 * NamedW + 5 * RowGap);
     SegW := (Avail - (NSet - 1) * RowGap) div NSet;
     Add(dkSegment, Rect(X + 4 * SegW, RowY, X + 5 * SegW - RowGap,
       RowY + RowH), GRP_POPUP, POP_PREC,
@@ -5679,8 +5770,41 @@ begin
   Result := 0;
 end;
 
+{ A button's words, made to fit its width.
+
+  In order: the whole caption; the caption with its long label cut to one
+  word ("PRINT SCALE  1\"" to "SCALE  1\""); only the value after the double
+  space ("1\""); and last, whatever is left cut short with an ellipsis.  A
+  label that runs outside its button, over its neighbor, is the one outcome
+  that is never acceptable, because then neither can be read. }
+function FitCaption(C: TCanvas; const S: string; Room: Integer): string;
+const
+  SHORT: array[0..4, 0..1] of string = (
+    ('PRINT SCALE', 'SCALE'), ('SNAP TO', 'SNAP'), ('LINE COLOR', 'COLOR'),
+    ('LINE WIDTH', 'WIDTH'), ('ROUNDED TO', 'ROUND'));
+var
+  K, P: Integer;
+begin
+  Result := S;
+  if (Room <= 0) or (C.TextWidth(Result) <= Room) then Exit;
+  for K := 0 to High(SHORT) do
+    if Pos(SHORT[K, 0], Result) = 1 then
+    begin
+      Result := SHORT[K, 1] + Copy(Result, Length(SHORT[K, 0]) + 1, MaxInt);
+      Break;
+    end;
+  if C.TextWidth(Result) <= Room then Exit;
+  P := Pos('  ', Result);
+  if P > 0 then Result := Trim(Copy(Result, P + 2, MaxInt));
+  if C.TextWidth(Result) <= Room then Exit;
+  while (Length(Result) > 1) and (C.TextWidth(Result + '...') > Room) do
+    Delete(Result, Length(Result), 1);
+  Result := Result + '...';
+end;
+
 procedure TMainForm.pbDeckPaint(Sender: TObject);
 var
+  Room: Integer;
   I, TW: Integer;
   It: TDeckItem;
   Sel, Hot, Ena: Boolean;
@@ -5862,6 +5986,14 @@ begin
       UIFont(pbDeck.Canvas, 10, True, OnPix(Theme.Accent))
     else
       UIFont(pbDeck.Canvas, 10, False, Theme.Text);
+    { the room the words have, after the swatch, the chevron and a margin }
+    Room := It.Bounds.Right - It.Bounds.Left - Round(10 * FUIScale);
+    if It.Group = GRP_POPUP then Dec(Room, Round(16 * FUIScale));
+    if (It.Group = GRP_POPUP) and (It.Value = POP_COLOR) then
+      Dec(Room, Round(24 * FUIScale));
+    if (It.Group = GRP_TOOL) and (FMode = mdPro) then
+      Dec(Room, Round(18 * FUIScale));
+    It.Caption := FitCaption(pbDeck.Canvas, It.Caption, Room);
     TW := pbDeck.Canvas.TextWidth(It.Caption);
     { a tool wears its own glyph, so the buttons are told apart at a glance
       and the same drawing follows the cursor }
@@ -6658,7 +6790,7 @@ end;
 
 procedure TMainForm.RebuildTools;
 var
-  I, K, RowH, Gap, Y, W: Integer;
+  I, K, RowH, Gap, Y, W, Brk, BrkH, Need: Integer;
 
   procedure Add(AKind: TDeckKind; const R: TRect; AGroup, AValue: Integer;
     const ACap, AHint: string; AIcon: TIconKind);
@@ -6676,8 +6808,31 @@ begin
   if FMode <> mdPro then Exit;
   W := pbTools.Width;
   if W < 8 then Exit;
+  { And the shop, at the very foot - worked out first, because the tools have
+    to stop above it. }
+  FShopTop := pbTools.Height - Round(56 * FUIScale);
+
+  { Rows as tall as they like to be, unless the window is too short for the
+    column - and then tighter, down to a floor, rather than the list running
+    on underneath MORE and SHOP.  It did, at 650 tall: MORE TOOLS, SHOP and
+    COLLAPSE drawn over each other, which Tony saw in the help animations.
+    Everything in the column scales together, so it still reads as one list. }
+  Brk := 0;
+  for I := 0 to High(MAIN_TOOLS) do
+    for K := 0 to High(MAIN_BREAKS) do
+      if MAIN_BREAKS[K] = I + 1 then Inc(Brk);
   RowH := Round(26 * FUIScale);
   Gap := Round(3 * FUIScale);
+  BrkH := Round(8 * FUIScale);
+  while RowH > Round(17 * FUIScale) do
+  begin
+    Need := Round(6 * FUIScale) + Length(MAIN_TOOLS) * (RowH + Gap) +
+      Brk * BrkH + Round(4 * FUIScale) + RowH + Round(4 * FUIScale);
+    if Need <= FShopTop then Break;
+    Dec(RowH);
+    if Gap > 1 then Dec(Gap);
+    if BrkH > Round(4 * FUIScale) then Dec(BrkH);
+  end;
   Y := Round(6 * FUIScale);
 
   SetLength(FToolRules, 0);
@@ -6691,8 +6846,8 @@ begin
       if MAIN_BREAKS[K] = I + 1 then
       begin
         SetLength(FToolRules, Length(FToolRules) + 1);
-        FToolRules[High(FToolRules)] := Y + Round(3 * FUIScale);
-        Inc(Y, Round(8 * FUIScale));
+        FToolRules[High(FToolRules)] := Y + BrkH div 2 - Round(1 * FUIScale);
+        Inc(Y, BrkH);
         Break;
       end;
   end;
@@ -6708,9 +6863,8 @@ begin
     It is not a drawing tool and it never was - it is a door into the trade
     wizards, and standing it next to MORE with the same arrow on it made two
     quite different doors look like one thing in two halves. }
-  FShopTop := pbTools.Height - Round(56 * FUIScale);
   Add(dkSegment, Rect(Round(4 * FUIScale), FShopTop,
-    W - Round(4 * FUIScale), FShopTop + RowH),
+    W - Round(4 * FUIScale), FShopTop + Round(26 * FUIScale)),
     GRP_POPUP, POP_SHOP, 'SHOP',
     'Sheet metal and pipe: laying a piece out flat, duct fittings, spools.',
     ikShop);
@@ -16247,13 +16401,35 @@ end;
 { The part of a tool's preview that sits under the pointer, drawn into the
   cursor's own square - see where pbScreenPaint calls it.  OX, OY is where
   the square's corner is on the screen. }
+{ The face the overlay is washing blue right now, or -1 - the same choices
+  PaintProOverlay makes, asked once more for the cursor's square. }
+function TMainForm.HintFaceNow: Integer;
+begin
+  Result := -1;
+  case FTool of
+    ptPush, ptDrill:
+      if FStage = 1 then Result := FPushFace else Result := FHoverFace;
+    ptFollow:
+      if FStage = 0 then Result := FHoverFace else Result := FFollowFace;
+    ptLine, ptRect, ptCircle, ptArc:
+      if (FStage = 0) and not FPlaneHeld then
+        Result := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+  end;
+end;
+
 procedure TMainForm.PaintUnderCursor(S: TArtSurface; OX, OY: Integer);
 var
   F: TFillet;
   Typed: Boolean;
-  K: Integer;
+  K, HF: Integer;
   PA, PB: TPointF;
 begin
+  { The blue wash over the face being pointed at.  Painted on the canvas, so
+    the pasted square cut a clean hole of paper out of it right where the
+    pointer was - on every face, with every tool that washes one.  Drawn
+    into the square as well now, clipped to it. }
+  HF := HintFaceNow;
+  if HF >= 0 then PaintFaceHint(nil, HF, HINT_BLUE, S, OX, OY);
   if not ArcFillet(F, Typed) then Exit;
   S.BlendMode := bmNormal;
   PA := ScreenOf(ArcPoint(F.ArcC, F.R, F.A0, F.Pl, F.Nm));

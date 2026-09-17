@@ -71,6 +71,8 @@ begin
     WriteLn('  --size=1600x1000   open at a particular size, centerd');
     WriteLn('  --multi            open a second copy anyway');
     WriteLn('  --no-splash        skip the start-up screen');
+    WriteLn('  --blank            start on an empty sheet - no draft, no example');
+    WriteLn('                     (the last draft is kept as ...-before-blank.hsk)');
     WriteLn('  --updated          wait for the copy being replaced to go');
     WriteLn('  --help             this');
     WriteLn;

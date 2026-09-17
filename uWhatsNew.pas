@@ -299,6 +299,10 @@ begin
   B := TStringBuilder.Create;
   try
     B.Append('<html><head><title>What''s new</title><style>');
+    { the scrollbar in the theme's colours - thumb, then track - the way a
+      browser reads it, which is how LazInk reads it too }
+    B.Append('html { scrollbar-color: ' + Hex(T.Accent) + ' ' +
+      Hex(MixPix(T.Panel, Pix(0, 0, 0), 0.25)) + '; scrollbar-width: thin }');
     B.Append('body { background: ' + Hex(T.Panel) + '; color: ' + Hex(T.TextDim) +
       '; font-size: 14px; padding: 6px }');
     B.Append('h2 { color: ' + Hex(T.Accent) + '; font-size: 20px; margin-top: 20px }');

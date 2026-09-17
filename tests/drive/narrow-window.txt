@@ -1,0 +1,23 @@
+# The window made small: nothing may be drawn over anything else.
+#
+# At 1100 by 650 the five settings along the bottom ran their words out of
+# their buttons and over each other, and the tool strip ran MORE TOOLS on
+# top of SHOP.  Tony saw both in the help animations.  The six buttons on
+# the right now give up width before the settings do, a label too long for
+# its button is shortened rather than spilled, and the tool column tightens
+# its rows before anything overlaps.
+#
+# What to look for: hsk-narrow-1100 and hsk-narrow-900 have every bottom
+# button's words inside the button, and MORE TOOLS, SHOP and COLLAPSE apart
+# from each other and from the tools above them.
+activate
+wait 800
+geometry 0 0 1100 650
+wait 1500
+shot /tmp/hsk-narrow-1100.png
+geometry 0 0 900 560
+wait 1500
+shot /tmp/hsk-narrow-900.png
+geometry 0 0 1500 850
+wait 1500
+shot /tmp/hsk-narrow-wide.png

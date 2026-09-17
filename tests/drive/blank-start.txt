@@ -1,0 +1,19 @@
+# --blank: the program opens on an empty sheet, with no draft and no example.
+#
+# Tony: "a startup parameter like --blank so it automatically opens with a
+# blank drawing and doesnt load anything not even the initial toy model".
+# run-drive.sh starts this one with BLANK=1.
+#
+# What to look for: hsk-blank-start is an empty Sheet 1, and a rectangle
+# drawn on it is the only thing there.
+activate
+wait 1000
+shot /tmp/hsk-blank-start.png
+key r
+wait 300
+at 500 300
+click
+at 700 450 300
+click
+wait 800
+shot /tmp/hsk-blank-drawn.png
