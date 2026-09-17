@@ -110,6 +110,10 @@
         <PackageName Value="Printer4Lazarus"/>
       </Item>
       <Item>
+        <PackageName Value="LazInk"/>
+        <DefaultFilename Value="../LazInk/lazink.lpk" Prefer="True"/>
+      </Item>
+      <Item>
         <PackageName Value="LCL"/>
       </Item>
     </RequiredPackages>

@@ -119,9 +119,14 @@ running log and the commit history is an honest record of how it was built.
 
 ## Building
 
-Needs Lazarus, plus the **BGRABitmap** and **BGRAControls** packages
-(both install from Lazarus's Online Package Manager).  `Printer4Lazarus`
-ships with Lazarus.
+Needs Lazarus, plus these packages:
+
+* **BGRABitmap** and **BGRAControls** - install both from Lazarus's Online
+  Package Manager.
+* **[LazInk](https://github.com/TonyStone31/LazInk)** - clone it next to this
+  folder (`../LazInk`), and the project finds it there.  It draws the
+  release notes window.
+* `Printer4Lazarus` ships with Lazarus.
 
 ```sh
 lazbuild etchasketch.lpi      # or ./build.sh
@@ -135,8 +140,8 @@ the Windows build is cross-compiled.
 
 A macOS build has never been tried.  I don't have a Mac, and I don't have
 much desire to get one, so if you do and you'd like to have a go, I'd love
-the help.  It's Lazarus/LCL plus BGRABitmap and BGRAControls, which both
-support macOS, and nearly all the drawing is done in the program's own pixel
+the help.  It's Lazarus/LCL plus BGRABitmap, BGRAControls and LazInk, which
+are all meant to work on macOS, and nearly all the drawing is done in the program's own pixel
 buffers rather than through the platform, so there's a fair chance it builds
 without much trouble.  Open an
 issue or a pull request with how it went - even a list of what broke is

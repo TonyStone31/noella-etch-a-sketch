@@ -2383,6 +2383,39 @@ swap with an immediate payoff and it puts LazInk in the build where it can be
 lived with.  Then decide about the help, with the table question settled one
 way or the other.  Nothing here is urgent.
 
+**The release notes window is LazInk's now - DONE 16 September.**  LazInk
+grew a page viewer, tables, lists, code and key labels, Markdown and a test
+suite in a session of its own, and is published at
+https://github.com/TonyStone31/LazInk.  Checked against this program's own
+help folder there: 38 pages, 12 images, 2,205 text fragments, all present.
+
+`uWhatsNew.pas` keeps the part only this program knows - which releases to
+show - and hands the notes to a `TInkPage` as a small HTML page in the
+dialog's colours.  The hand-written layout, wrapping, drawn scrollbar and
+page dragging went: 599 lines to 510, and the 89 is net of the hundred lines
+that turn the notes into HTML.  The larger saving is that the renderer is
+now tested and maintained in one place.
+
+**Touch came with it, on purpose.**  The drag-to-scroll this window had to
+learn for Windows touch screens - a finger arrives as a mouse press, moves
+and a release, and there is no wheel - was added to `TInkPage` before the
+swap rather than kept here, with a dead zone wide enough for a fingertip
+that rolls as it taps, and a drag that ends on a link not counting as a
+click.  Tested in LazInk; `whatsnew-drag` still drags it here.
+
+**What got worse:** the scrollbar is LazInk's stock one, light grey, where
+the old window drew its own in the theme's colours.  Noted in LazInk's
+roadmap as a themed scrollbar; not worth a workaround here.
+
+The project finds LazInk at `../LazInk/lazink.lpk`, and the Windows cross
+build compiles it.
+
+**The help pages inside the program** are the next use, and LazInk can
+already render them.  What is left is this program's end: a copy of
+`docs/help` beside the executable (the release zip already ships one), a
+window with Back, and `/manual` opening that instead of the browser - with
+the browser kept for anybody who prefers it.
+
 **The full list now lives in LazInk itself** (16 September): 
 `/media/tony/storpart/synced/GIT/LazInk/ROADMAP.md`.  Tony wants LazInk kept
 as its own project, built over there, with this program as one of its users -

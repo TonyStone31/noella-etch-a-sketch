@@ -16,6 +16,15 @@ unit uWhatsNew;
   headings and the lead-in of each bullet are all told apart, and the window
   is dressed in the same theme as everything else - see uDlgSkin.
 
+  The setting is LazInk's now (https://github.com/TonyStone31/LazInk).  This
+  unit used to lay the words out itself - measuring, wrapping, a scrollbar
+  drawn by hand, and dragging the page for a finger - three hundred lines of
+  a text renderer that belonged in a package.  It moved there: the notes are
+  turned into a small page of HTML in the dialog's own colours and handed to
+  a TInkPage, which wraps, scrolls by wheel, keys and drag, and is tested on
+  its own.  What stays here is the part only this program knows - which
+  releases to show.
+
   Copyright (c) 2021-2026 Noella Stone - MIT, see LICENSE.
 }
 
@@ -25,7 +34,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Graphics, Forms, Controls, StdCtrls,
-  ExtCtrls, LCLType, BCPanel, BCLabel, BCButton,
+  ExtCtrls, LCLType, LCLIntf, BCPanel, BCLabel, BCButton, InkPage,
   uUpdate, uSkin, uDlgSkin, uSurface;
 
 type
@@ -43,7 +52,6 @@ type
   TWhatsNewForm = class(TForm)
   private
     FNotes: TNoteArray;
-    FScroll, FTall: Integer;
 
     FHead, FBody, FFoot: TBCPanel;
     { Plain labels, transparent, rather than the drawn ones.  A drawn label
@@ -51,33 +59,15 @@ type
       which on a skinned panel is not the colour the panel actually painted -
       so the title came out sitting in a pale box. }
     FTitle, FWhich: TLabel;
-    FPage: TPaintBox;
+    FPage: TInkPage;
     FShut, FGo: TBCButton;
 
     FDrag: uDlgSkin.TFormDrag;
-    { a finger, or a mouse button, dragging the page up and down }
-    FPageGrab: Boolean;
-    FPageGrabY, FPageGrabAt: Integer;
 
     procedure Build;
-    procedure PagePaint(Sender: TObject);
-    { one pass over the notes: measures when Draw is false, sets them when it
-      is, and either way comes back with how tall the whole thing is }
-    function Run(C: TCanvas; Draw: Boolean): Integer;
-    procedure PageWheel(Sender: TObject; Shift: TShiftState;
-      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
-    { Dragging the page, which is how a finger scrolls.
-
-      A paint box has no scrolling of its own - the wheel works because it
-      was wired up by hand, and a touch screen has no wheel to wire.  On
-      Windows a finger drag arrives as a press, some moves and a release, so
-      taking those and moving the page by how far the finger went is the
-      whole of it, and it costs a mouse the same gesture for free. }
-    procedure PageDown(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
-    procedure PageMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
-    procedure PageUp(Sender: TObject; Button: TMouseButton;
-      Shift: TShiftState; X, Y: Integer);
+    { the notes as a page, and onto the screen }
+    procedure ShowNotes;
+    procedure PageLink(Sender: TObject; const URL: string);
     procedure KeyDownH(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure HeadDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -85,7 +75,6 @@ type
     procedure HeadUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure DoGo(Sender: TObject);
-    procedure ScrollTo(V: Integer);
   public
     constructor CreateNew(AOwner: TComponent; Dummy: Integer = 0); override;
     { after an update: what changed since PreviousVersion }
@@ -100,6 +89,8 @@ type
 function ReleaseNotes(const Since: string): TNoteArray;
 { The same as flat text, for anything that only wants the words. }
 function ReleaseNotesText(const Since: string): string;
+{ The same as a page of HTML in the given colours - what the window shows. }
+function ReleaseNotesHTML(const Notes: TNoteArray; const T: TTheme): string;
 
 implementation
 
@@ -254,6 +245,100 @@ begin
   end;
 end;
 
+{ The notes as a page.  Everything the file says is text, so it is escaped
+  first; then the two bits of markdown the notes use inside a bullet - a
+  `backticked` command and a **bold** lead-in - are given their tags.  The
+  colours come from the dialog's theme, through a style sheet at the top,
+  so the page is the window's and not a white web page inside it. }
+function ReleaseNotesHTML(const Notes: TNoteArray; const T: TTheme): string;
+var
+  I: Integer;
+  B: TStringBuilder;
+  InList: Boolean;
+
+  function Hex(const P: TPix): string;
+  begin
+    Result := Format('#%.2x%.2x%.2x', [P.R, P.G, P.B]);
+  end;
+
+  function Esc(const S: string): string;
+  begin
+    Result := StringReplace(S, '&', '&amp;', [rfReplaceAll]);
+    Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
+    Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
+  end;
+
+  { `code` spans, in pairs; an odd one out is left as it was typed }
+  function Inline(const S: string): string;
+  var
+    P, Q: Integer;
+    Rest: string;
+  begin
+    Result := '';
+    Rest := Esc(S);
+    repeat
+      P := Pos('`', Rest);
+      if P = 0 then Break;
+      Q := Pos('`', Copy(Rest, P + 1, MaxInt));
+      if Q = 0 then Break;
+      Result := Result + Copy(Rest, 1, P - 1) + '<code>' +
+        Copy(Rest, P + 1, Q - 1) + '</code>';
+      Rest := Copy(Rest, P + Q + 1, MaxInt);
+    until False;
+    Result := Result + Rest;
+    Result := StringReplace(Result, '**', '', [rfReplaceAll]);
+  end;
+
+  procedure EndList;
+  begin
+    if InList then B.Append('</ul>');
+    InList := False;
+  end;
+
+begin
+  B := TStringBuilder.Create;
+  try
+    B.Append('<html><head><title>What''s new</title><style>');
+    B.Append('body { background: ' + Hex(T.Panel) + '; color: ' + Hex(T.TextDim) +
+      '; font-size: 14px; padding: 6px }');
+    B.Append('h2 { color: ' + Hex(T.Accent) + '; font-size: 20px; margin-top: 20px }');
+    B.Append('h3 { color: ' + Hex(T.TextDim) + '; font-size: 12px; margin-top: 8px }');
+    B.Append('li { color: ' + Hex(T.TextDim) + '; margin-bottom: 8px }');
+    B.Append('code { background: ' + Hex(MixPix(T.Panel, T.Text, 0.12)) + ' }');
+    B.Append('hr { color: ' + Hex(T.TextDim) + ' }');
+    B.Append('</style></head><body>');
+    InList := False;
+    for I := 0 to High(Notes) do
+      case Notes[I].Kind of
+        nkVersion:
+          begin
+            EndList;
+            B.Append('<h2>' + Esc(Notes[I].Text) + '</h2><hr>');
+          end;
+        nkSection:
+          begin
+            EndList;
+            B.Append('<h3>' + Esc(UpperCase(Notes[I].Text)) + '</h3>');
+          end;
+        nkBullet:
+          begin
+            if not InList then B.Append('<ul>');
+            InList := True;
+            B.Append('<li>');
+            if Notes[I].Lead <> '' then
+              B.Append('<b><font color="' + Hex(T.Text) + '">' +
+                Inline(Notes[I].Lead) + '</font></b> ');
+            B.Append(Inline(Notes[I].Text) + '</li>');
+          end;
+      end;
+    EndList;
+    B.Append('</body></html>');
+    Result := B.ToString;
+  finally
+    B.Free;
+  end;
+end;
+
 { --- the window -------------------------------------------------------- }
 
 constructor TWhatsNewForm.CreateNew(AOwner: TComponent; Dummy: Integer);
@@ -312,14 +397,15 @@ begin
   FBody.SetBounds(PAD, Y, DLG_W - 2 * PAD, DLG_H - Y - FOOT_H);
   uDlgSkin.SkinPanel(FBody, False, 12);
 
-  FPage := TPaintBox.Create(Self);
+  FPage := TInkPage.Create(Self);
   FPage.Parent := FBody;
   FPage.SetBounds(10, 10, FBody.Width - 20, FBody.Height - 20);
-  FPage.OnPaint := @PagePaint;
-  FPage.OnMouseWheel := @PageWheel;
-  FPage.OnMouseDown := @PageDown;
-  FPage.OnMouseMove := @PageMove;
-  FPage.OnMouseUp := @PageUp;
+  FPage.Color := PixToColor(uDlgSkin.DlgTheme.Panel);
+  FPage.Font.Color := PixToColor(uDlgSkin.DlgTheme.Text);
+  { dragging the page is how a finger scrolls it - LazInk's own, on by
+    default, and said here so nobody turns it off without knowing why }
+  FPage.DragScroll := True;
+  FPage.OnLinkClick := @PageLink;
 
   FFoot := TBCPanel.Create(Self);
   FFoot.Parent := Self;
@@ -368,207 +454,32 @@ begin
   uDlgSkin.DragEnd(FDrag);
 end;
 
-procedure TWhatsNewForm.ScrollTo(V: Integer);
-var
-  Most: Integer;
+{ A link in the notes goes to the browser - the notes are not a place to
+  wander off from. }
+procedure TWhatsNewForm.PageLink(Sender: TObject; const URL: string);
 begin
-  Most := Max(0, FTall - FPage.Height);
-  V := EnsureRange(V, 0, Most);
-  if V = FScroll then Exit;
-  FScroll := V;
-  FPage.Invalidate;
-end;
-
-procedure TWhatsNewForm.PageWheel(Sender: TObject; Shift: TShiftState;
-  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
-begin
-  if WheelDelta > 0 then ScrollTo(FScroll - 56)
-  else ScrollTo(FScroll + 56);
-  Handled := True;
-end;
-
-procedure TWhatsNewForm.PageDown(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
-begin
-  if Button <> mbLeft then Exit;
-  FPageGrab := True;
-  FPageGrabY := Y;
-  FPageGrabAt := FScroll;
-end;
-
-procedure TWhatsNewForm.PageMove(Sender: TObject; Shift: TShiftState;
-  X, Y: Integer);
-begin
-  if not FPageGrab then Exit;
-  { the page follows the finger: drag down and the words come down with it,
-    which is the way every touch screen in the world behaves }
-  ScrollTo(FPageGrabAt - (Y - FPageGrabY));
-end;
-
-procedure TWhatsNewForm.PageUp(Sender: TObject; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
-begin
-  FPageGrab := False;
+  if (Pos('http://', URL) = 1) or (Pos('https://', URL) = 1) then OpenURL(URL);
 end;
 
 procedure TWhatsNewForm.KeyDownH(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
+  { Esc and Enter put it away; everything else - the arrows, Page Up and
+    Down, Home and End - is left for the page, which scrolls itself }
   case Key of
-    VK_ESCAPE, VK_RETURN: ModalResult := mrOk;
-    VK_DOWN:  ScrollTo(FScroll + 40);
-    VK_UP:    ScrollTo(FScroll - 40);
-    VK_NEXT:  ScrollTo(FScroll + FPage.Height - 40);
-    VK_PRIOR: ScrollTo(FScroll - FPage.Height + 40);
-    VK_HOME:  ScrollTo(0);
-    VK_END:   ScrollTo(FTall);
-  else
-    Exit;
-  end;
-  Key := 0;
-end;
-
-{ One pass over the notes.  Measuring and drawing walk the same code so a
-  line can never be laid out one way and drawn another - which is how a
-  scrollbar ends up describing a page that is not there. }
-function TWhatsNewForm.Run(C: TCanvas; Draw: Boolean): Integer;
-const
-  MARGIN = 20;
-  BULLET = 22;       { how far a bullet's words are indented }
-  GUTTER = 28;       { room for the scrollbar }
-var
-  I, Y, W: Integer;
-  T: TTheme;
-
-  { Lay a run of words out from X, wrapping at the right margin, and come
-    back with where the next word after it would go.  Height comes out of
-    the canvas font so a theme with a different size still stacks. }
-  procedure Words(const S: string; var AX, AY: Integer; Indent: Integer;
-    const Col: TColor; Bold: Boolean);
-  var
-    P, Q, Wid, LineH: Integer;
-    Word_: string;
-  begin
-    if S = '' then Exit;
-    if Bold then C.Font.Style := [fsBold] else C.Font.Style := [];
-    C.Font.Color := Col;
-    LineH := C.TextHeight('Xg') + 3;
-    P := 1;
-    while P <= Length(S) do
-    begin
-      Q := P;
-      while (Q <= Length(S)) and (S[Q] <> ' ') do Inc(Q);
-      Word_ := Copy(S, P, Q - P);
-      Wid := C.TextWidth(Word_ + ' ');
-      if (AX > Indent) and (AX + C.TextWidth(Word_) > W - GUTTER) then
+    VK_ESCAPE, VK_RETURN:
       begin
-        AX := Indent;
-        Inc(AY, LineH);
+        ModalResult := mrOk;
+        Key := 0;
       end;
-      if Draw then C.TextOut(AX, AY, Word_);
-      Inc(AX, Wid);
-      P := Q + 1;
-      { two spaces after a full stop are a sentence break in the file, not a
-        word, so they are eaten rather than drawn as an empty one }
-      while (P <= Length(S)) and (S[P] = ' ') do Inc(P);
-    end;
   end;
-
-var
-  X: Integer;
-begin
-  T := uDlgSkin.DlgTheme;
-  W := FPage.Width;
-  Y := 6 - FScroll;
-
-  for I := 0 to High(FNotes) do
-    case FNotes[I].Kind of
-
-      nkVersion:
-        begin
-          if I > 0 then Inc(Y, 22);
-          C.Font.Height := -20;
-          C.Font.Style := [fsBold];
-          C.Font.Color := PixToColor(T.Accent);
-          if Draw then C.TextOut(MARGIN, Y, FNotes[I].Text);
-          Inc(Y, C.TextHeight('Xg') + 8);
-          { a rule under it, so a long history reads as a stack of releases
-            rather than one run of paragraphs }
-          if Draw then
-          begin
-            C.Pen.Color := PixToColor(T.TextDim);
-            C.Pen.Width := 1;
-            C.Line(MARGIN, Y, W - GUTTER, Y);
-          end;
-          Inc(Y, 14);
-        end;
-
-      nkSection:
-        begin
-          Inc(Y, 6);
-          C.Font.Height := -12;
-          C.Font.Style := [fsBold];
-          C.Font.Color := PixToColor(T.TextDim);
-          if Draw then C.TextOut(MARGIN, Y, UpperCase(FNotes[I].Text));
-          Inc(Y, C.TextHeight('Xg') + 10);
-        end;
-
-      nkBullet:
-        begin
-          C.Font.Height := -14;
-          C.Font.Style := [];
-          { the dot, level with the first line of the words }
-          if Draw then
-          begin
-            C.Brush.Color := PixToColor(T.Accent);
-            C.Brush.Style := bsSolid;
-            C.Ellipse(MARGIN + 3, Y + 7, MARGIN + 9, Y + 13);
-            C.Brush.Style := bsClear;
-          end;
-          X := MARGIN + BULLET;
-          Words(FNotes[I].Lead, X, Y, MARGIN + BULLET, PixToColor(T.Text), True);
-          if (FNotes[I].Lead <> '') and (FNotes[I].Text <> '') then
-            Inc(X, C.TextWidth(' '));
-          Words(FNotes[I].Text, X, Y, MARGIN + BULLET,
-            PixToColor(T.TextDim), False);
-          Inc(Y, C.TextHeight('Xg') + 18);
-        end;
-    end;
-
-  Result := Y + FScroll + 10;
 end;
 
-procedure TWhatsNewForm.PagePaint(Sender: TObject);
-var
-  C: TCanvas;
-  T: TTheme;
-  Most, ThumbH, ThumbY, TrackH: Integer;
+procedure TWhatsNewForm.ShowNotes;
 begin
-  C := FPage.Canvas;
-  T := uDlgSkin.DlgTheme;
-
-  C.Brush.Color := PixToColor(T.Panel);
-  C.Brush.Style := bsSolid;
-  C.FillRect(0, 0, FPage.Width, FPage.Height);
-  C.Brush.Style := bsClear;
-
-  FTall := Run(C, True);
-
-  { The scrollbar, drawn rather than bolted on: a stock one down the side of
-    a themed panel is the one grey thing in the room. }
-  Most := Max(0, FTall - FPage.Height);
-  if Most > 0 then
-  begin
-    TrackH := FPage.Height - 8;
-    C.Brush.Color := uDlgSkin.Shade(PixToColor(T.Panel), -0.25);
-    C.Brush.Style := bsSolid;
-    C.FillRect(FPage.Width - 12, 4, FPage.Width - 6, 4 + TrackH);
-    ThumbH := Max(28, Round(TrackH * FPage.Height / FTall));
-    ThumbY := 4 + Round((TrackH - ThumbH) * FScroll / Most);
-    C.Brush.Color := PixToColor(T.Accent);
-    C.FillRect(FPage.Width - 12, ThumbY, FPage.Width - 6, ThumbY + ThumbH);
-    C.Brush.Style := bsClear;
-  end;
+  FPage.LoadHTML(ReleaseNotesHTML(FNotes, uDlgSkin.DlgTheme));
+  FPage.ScrollTo(0);
+  ActiveControl := FPage;
 end;
 
 procedure TWhatsNewForm.ShowRelease(const PreviousVersion,
@@ -583,7 +494,7 @@ begin
   { an update from a version the notes do not go back to still gets the
     latest section rather than an empty page }
   if Length(FNotes) = 0 then FNotes := ReleaseNotes('');
-  FScroll := 0;
+  ShowNotes;
   ShowModal;
 end;
 
@@ -592,7 +503,7 @@ begin
   FTitle.Caption := 'What''s new in Heckers Sketch';
   FWhich.Caption := 'This is ' + CurrentVersion;
   FNotes := ReleaseNotes('');
-  FScroll := 0;
+  ShowNotes;
   ShowModal;
 end;
 
