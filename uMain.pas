@@ -88,7 +88,7 @@ type
     it is something that can be changed - the two little steppers that change
     it.  The painter is dumb and reads this; the mouse looks in the same
     place for what it hit. }
-  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse);
+  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColour);
   TInfoRow = record
     Caption: string;
     Value: string;
@@ -207,6 +207,10 @@ type
     function OpenDirNow: string;
     { the command list's order: used lately first, then alphabetical }
     procedure BuildCmdOrder;
+    function CmdIndex(const W: string): Integer;
+    procedure TimingLine(const S: string);
+    procedure ShowTimingLog;
+    function CmdAliasFor(Idx: Integer; const Want: string): string;
     procedure SyncCmdList;
     procedure TakeCmdHighlight;
     procedure MoveCmdHighlight(Key: word);
@@ -221,6 +225,7 @@ type
     procedure HelpFetchDone(Sender: TObject);
     { the system colour picker, for a pen that is not on the palette }
     procedure PickAnyColour;
+    function AskColour(Was: TColor; out C: TColor): Boolean;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -728,6 +733,9 @@ type
     { what a dialog reported from inside itself, for the report body }
     FReportExtra: string;
     FTimings: Boolean;
+    { what /timings has seen since it was turned on - the console is not
+      there on Windows, so it is kept to be shown }
+    FTimingLog: array of string;
     { The camera is moving - an orbit or pan in progress, or a wheel zoom
       within the last moment - so frames are drawn quick, and one full
       frame is drawn when it stops.  FQuickFrames turns the whole idea off. }
@@ -913,6 +921,7 @@ type
     { the commands somebody has actually used, most recent first, as a comma
       list - kept in the settings so the list is in their order next time }
     FCmdRecent: string;
+    FCmdWant: string;           { what the list is filtered by, after the slash }
     { the order the rows are in: recents, then the rest alphabetical }
     FCmdOrder: array of Integer;
     { where the arrow beside the prompt is, for hit testing }
@@ -1269,6 +1278,7 @@ type
     function ArcDoubleClick(SX, SY: Integer): Boolean;
     procedure PaintUnderCursor(S: TArtSurface; OX, OY: Integer);
     procedure SnapOrbitToNearest;
+    procedure StepCubeView(Key: Word);
     procedure StepGlide(Dt: Double);
     procedure PaintHeldPlane(C: TCanvas);
 
@@ -1365,6 +1375,12 @@ type
       out empty, which is why sixty of the rows below say nothing about
       it. }
     Eg: string;
+    { The other words that run it, space separated - /e for /erase, /tape
+      for /measure.  Typing one finds the row, and using one counts as
+      using the command, so it floats up the list like the name would.
+      tests/cmdcheck.pas holds this to RunCommand: every word here has to
+      be answered by the same branch as the name. }
+    Also: string;
   end;
 
 const
@@ -1373,92 +1389,100 @@ const
     that is where a thing is when you do.
 
     One row per action rather than one per word - /erase, /e and /del are the
-    same thing and three rows of it would be a worse list.  The aliases all
-    still work; they are in the README. }
+    same thing and three rows of it would be a worse list.  The other words
+    are in Also: typing one finds the row, and the row says so. }
   CMD_LIST: array[0..71] of TCmdItem = (
-    (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False),
-    (Name: 'arc';        Hint: 'the arc tool';                          Arg: False),
+    (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
+    (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
-    (Name: 'center';     Hint: 'center it on the floor at 0,0';         Arg: False),
-    (Name: 'circle';     Hint: 'the circle tool';                       Arg: False),
+    (Name: 'center';     Hint: 'center it on the floor at 0,0';         Arg: False; Eg: ''; Also: 'centre'),
+    (Name: 'circle';     Hint: 'the circle tool';                       Arg: False; Eg: ''; Also: 'c'),
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
     (Name: 'corner';     Hint: 'look from a corner';                    Arg: False),
     (Name: 'cube';       Hint: 'the view cube: on, off, tl/tr/bl/br';    Arg: False;
-                         Eg:   '/cube tr'),
+                         Eg:   '/cube tr';
+                         Also: 'viewcube'),
     (Name: 'cut';        Hint: 'the plan slice: two heights, or "all"'; Arg: True;
-                         Eg:   '/cut 0 9'''),
+                         Eg:   '/cut 0 9''';
+                         Also: 'slice'),
     (Name: 'detach';     Hint: 'move a line away on its own: on, off';  Arg: False;
-                         Eg:   '/detach on'),
-    (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False),
-    (Name: 'drill';      Hint: 'push a shape right through';            Arg: False),
-    (Name: 'erase';      Hint: 'the eraser';                            Arg: False),
-    (Name: 'fit';        Hint: 'zoom until it all shows';               Arg: False),
+                         Eg:   '/detach on';
+                         Also: 'loose'),
+    (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False; Eg: ''; Also: 'dim'),
+    (Name: 'drill';      Hint: 'push a shape right through';            Arg: False; Eg: ''; Also: 'bore punch'),
+    (Name: 'erase';      Hint: 'the eraser';                            Arg: False; Eg: ''; Also: 'e del'),
+    (Name: 'fit';        Hint: 'zoom until it all shows';               Arg: False; Eg: ''; Also: 'zoom'),
     (Name: 'forget';     Hint: 'forget the areas seen, and work them out again'; Arg: False),
     (Name: 'front';      Hint: 'look from the front';                   Arg: False),
     (Name: 'grid';       Hint: 'the ruled paper, on or off';            Arg: False),
-    (Name: 'guides';     Hint: 'clear the guide lines';                 Arg: False),
-    (Name: 'help';       Hint: 'about this program';                    Arg: False),
-    (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False),
+    (Name: 'guides';     Hint: 'clear the guide lines';                 Arg: False; Eg: ''; Also: 'noguides'),
+    (Name: 'help';       Hint: 'about this program';                    Arg: False; Eg: ''; Also: '?'),
+    (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False; Eg: ''; Also: 'openedges notclosed'),
     (Name: 'info';       Hint: 'the entity panel: on, off';            Arg: False;
-                         Eg:   '/info on'),
+                         Eg:   '/info on';
+                         Also: 'entity properties'),
     (Name: 'iso';        Hint: 'the isometric view';                    Arg: False),
-    (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False),
+    (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False; Eg: ''; Also: 'keepdim'),
     (Name: 'left';       Hint: 'look from the left';                    Arg: False),
-    (Name: 'line';       Hint: 'the line tool';                         Arg: False),
-    (Name: 'manual';     Hint: 'open the manual';                       Arg: False),
-    (Name: 'measure';    Hint: 'the tape measure';                      Arg: False),
-    (Name: 'move';       Hint: 'the move tool';                         Arg: False),
-    (Name: 'new';        Hint: 'a new sheet';                           Arg: False),
-    (Name: 'offset';     Hint: 'a parallel copy of a face''s edge';     Arg: False),
-    (Name: 'orbit';      Hint: 'the free camera';                       Arg: False),
-    (Name: 'origin';     Hint: 'put the view back on 0,0,0';            Arg: False),
-    (Name: 'plan';       Hint: 'look straight down';                    Arg: False),
+    (Name: 'line';       Hint: 'the line tool';                         Arg: False; Eg: ''; Also: 'l'),
+    (Name: 'manual';     Hint: 'open the manual';                       Arg: False; Eg: ''; Also: 'docs'),
+    (Name: 'measure';    Hint: 'the tape measure';                      Arg: False; Eg: ''; Also: 'm tape'),
+    (Name: 'move';       Hint: 'the move tool';                         Arg: False; Eg: ''; Also: 'mv'),
+    (Name: 'new';        Hint: 'a new sheet';                           Arg: False; Eg: ''; Also: 'tab'),
+    (Name: 'offset';     Hint: 'a parallel copy of a face''s edge';     Arg: False; Eg: ''; Also: 'f'),
+    (Name: 'orbit';      Hint: 'the free camera';                       Arg: False; Eg: ''; Also: 'spin'),
+    (Name: 'origin';     Hint: 'put the view back on 0,0,0';            Arg: False; Eg: ''; Also: 'o'),
+    (Name: 'plan';       Hint: 'look straight down';                    Arg: False; Eg: ''; Also: '2d flat'),
     (Name: 'plane';      Hint: 'the working plane: xy, xz or yz';       Arg: True;
                          Eg:   '/plane xz'),
     (Name: 'print';      Hint: 'this sheet - or "all", or "full"';      Arg: True;
                          Eg:   '/print all'),
-    (Name: 'protractor'; Hint: 'lay a guide at an angle';               Arg: False),
-    (Name: 'push';       Hint: 'push or pull a face';                   Arg: False),
+    (Name: 'protractor'; Hint: 'lay a guide at an angle';               Arg: False; Eg: ''; Also: 'angle'),
+    (Name: 'push';       Hint: 'push or pull a face';                   Arg: False; Eg: ''; Also: 'pull pushpull p'),
     (Name: 'quick';      Hint: 'quick frames while the camera moves';   Arg: False),
     (Name: 'rebuild';    Hint: 'work the faces out again';              Arg: False),
-    (Name: 'rect';       Hint: 'the rectangle tool';                    Arg: False),
+    (Name: 'rect';       Hint: 'the rectangle tool';                    Arg: False; Eg: ''; Also: 'rectangle r'),
     (Name: 'redo';       Hint: 'put back what was undone';              Arg: False),
-    (Name: 'reface';     Hint: 'throw the flat faces away and rebuild'; Arg: False),
+    (Name: 'reface';     Hint: 'throw the flat faces away and rebuild'; Arg: False; Eg: ''; Also: 'rebuildfaces'),
     (Name: 'regions';    Hint: 'report the flat areas found';           Arg: False),
     (Name: 'rendertime'; Hint: 'time a whole frame';                    Arg: False),
     (Name: 'replay';     Hint: 'play back a session from a report';     Arg: False;
                          Eg:   '/replay session.txt'),
-    (Name: 'report';     Hint: 'send a bug report, with a picture';     Arg: False),
+    (Name: 'report';     Hint: 'send a bug report, with a picture';     Arg: False; Eg: ''; Also: 'bug'),
     (Name: 'resize';     Hint: 'retype a picked dimension';             Arg: True;
-                         Eg:   '/resize 4''6"'),
-    (Name: 'reverse';    Hint: 'turn the picked faces over';            Arg: False),
-    (Name: 'revolve';    Hint: 'spin or sweep a face into a solid';     Arg: False),
+                         Eg:   '/resize 4''6"';
+                         Also: 'size'),
+    (Name: 'reverse';    Hint: 'turn the picked faces over';            Arg: False; Eg: ''; Also: 'rev flip'),
+    (Name: 'revolve';    Hint: 'spin or sweep a face into a solid';     Arg: False; Eg: ''; Also: 'followme follow lathe'),
     (Name: 'right';      Hint: 'look from the right';                   Arg: False),
-    (Name: 'rotate';     Hint: 'the rotate tool';                       Arg: False),
+    (Name: 'rotate';     Hint: 'the rotate tool';                       Arg: False; Eg: ''; Also: 'q turn'),
     (Name: 'save';       Hint: 'save the drawing';                      Arg: False),
     (Name: 'saveas';     Hint: 'save it under a new name';              Arg: False),
     (Name: 'scale';      Hint: 'the print scale: 1/4", 1" and so on';   Arg: True;
                          Eg:   '/scale 1/4"'),
-    (Name: 'select';     Hint: 'the select tool';                       Arg: False),
+    (Name: 'select';     Hint: 'the select tool';                       Arg: False; Eg: ''; Also: 's'),
     (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False;
-                         Eg:   '/session session.txt'),
-    (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False),
+                         Eg:   '/session session.txt';
+                         Also: 'acts'),
+    (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False; Eg: ''; Also: 'pipe scratchpad'),
     (Name: 'state';      Hint: 'what a report says about the program right now'; Arg: False),
-    (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False),
-    (Name: 'text';       Hint: 'a note on the drawing';                 Arg: False),
+    (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False; Eg: ''; Also: 'machine'),
+    (Name: 'text';       Hint: 'a note on the drawing';                 Arg: False; Eg: ''; Also: 'note n'),
     (Name: 'threads';    Hint: 'background work, on or off';            Arg: False),
-    (Name: 'timings';    Hint: 'print the steps of each edit';          Arg: False),
-    (Name: 'top';        Hint: 'look from above';                       Arg: False),
-    (Name: 'toy';        Hint: 'the etch-a-sketch this program began as'; Arg: False),
-    (Name: 'tozero';     Hint: 'put its near bottom corner on 0,0,0';   Arg: False),
-    (Name: 'transition'; Hint: 'build a duct fitting';                  Arg: False),
-    (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False),
-    (Name: 'unfold';     Hint: 'lay a piece out flat';                  Arg: False),
+    (Name: 'timings';    Hint: 'time each step: on, then again to see them'; Arg: False;
+                         Eg:   '/timings show'),
+    (Name: 'top';        Hint: 'look from above';                       Arg: False; Eg: ''; Also: 'down'),
+    (Name: 'toy';        Hint: 'the etch-a-sketch this program began as'; Arg: False; Eg: ''; Also: 'etch etchasketch'),
+    (Name: 'tozero';     Hint: 'put its near bottom corner on 0,0,0';   Arg: False; Eg: ''; Also: 'zero tuck'),
+    (Name: 'transition'; Hint: 'build a duct fitting';                  Arg: False; Eg: ''; Also: 'trans fitting elbow tee'),
+    (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False; Eg: ''; Also: 'u'),
+    (Name: 'unfold';     Hint: 'lay a piece out flat';                  Arg: False; Eg: ''; Also: 'layout'),
     (Name: 'units';      Hint: 'feet and inches, or millimeters';       Arg: False),
     (Name: 'update';     Hint: 'look for a newer build';                Arg: False;
-                         Eg:   '/update never'),
-    (Name: 'whatsnew';   Hint: 'the release notes';                     Arg: False));
+                         Eg:   '/update never';
+                         Also: 'upgrade'),
+    (Name: 'whatsnew';   Hint: 'the release notes';                     Arg: False; Eg: ''; Also: 'changes'));
 
 const
 
@@ -4026,9 +4050,46 @@ begin
   if Copy(W, 1, 1) = '/' then W := Copy(W, 2, MaxInt);
   { anything with an argument after it has been typed on purpose }
   if Pos(' ', W) > 0 then Exit(True);
-  Result := False;
+  Result := CmdIndex(W) >= 0;
+end;
+
+{ The row a word runs, by its name or by any of its other words; -1 when it
+  is not in the list at all. }
+function TMainForm.CmdIndex(const W: string): Integer;
+var
+  I: Integer;
+begin
   for I := 0 to High(CMD_LIST) do
-    if CMD_LIST[I].Name = W then Exit(True);
+    if (CMD_LIST[I].Name = W) or
+       (Pos(' ' + W + ' ', ' ' + CMD_LIST[I].Also + ' ') > 0) then
+      Exit(I);
+  Result := -1;
+end;
+
+{ When the list was found by one of a row's other words rather than its
+  name, that word - so the row can say why it is there.  Typing /tape and
+  getting a row called /measure is otherwise a puzzle. }
+function TMainForm.CmdAliasFor(Idx: Integer; const Want: string): string;
+var
+  Words: TStringList;
+  K: Integer;
+begin
+  Result := '';
+  if (Want = '') or (Idx < 0) or (Idx > High(CMD_LIST)) then Exit;
+  if Pos(Want, CMD_LIST[Idx].Name) > 0 then Exit;
+  Words := TStringList.Create;
+  try
+    Words.Delimiter := ' ';
+    Words.StrictDelimiter := True;
+    Words.DelimitedText := CMD_LIST[Idx].Also;
+    { one that starts with it first, the same order the list is sorted by }
+    for K := 0 to Words.Count - 1 do
+      if Copy(Words[K], 1, Length(Want)) = Want then Exit(Words[K]);
+    for K := 0 to Words.Count - 1 do
+      if Pos(Want, Words[K]) > 0 then Exit(Words[K]);
+  finally
+    Words.Free;
+  end;
 end;
 
 { Take the highlighted row: complete it into the box, and run it when it
@@ -4078,12 +4139,35 @@ var
   Want: string;
 
   { 0 no match, 1 it starts with it, 2 it is in there somewhere }
-  function Rank(const Name: string): Integer;
+  function RankWord(const Name: string): Integer;
   begin
-    if Want = '' then Exit(1);
     if Copy(Name, 1, Length(Want)) = Want then Exit(1);
     if Pos(Want, Name) > 0 then Exit(2);
     Result := 0;
+  end;
+
+  { the best of the row's name and its other words }
+  function Rank(M: Integer): Integer;
+  var
+    Words: TStringList;
+    K, R: Integer;
+  begin
+    if Want = '' then Exit(1);
+    Result := RankWord(CMD_LIST[M].Name);
+    if (Result = 1) or (CMD_LIST[M].Also = '') then Exit;
+    Words := TStringList.Create;
+    try
+      Words.Delimiter := ' ';
+      Words.StrictDelimiter := True;
+      Words.DelimitedText := CMD_LIST[M].Also;
+      for K := 0 to Words.Count - 1 do
+      begin
+        R := RankWord(Words[K]);
+        if (R > 0) and ((Result = 0) or (R < Result)) then Result := R;
+      end;
+    finally
+      Words.Free;
+    end;
   end;
 
   procedure Sweep(Pass: Integer);
@@ -4099,7 +4183,7 @@ var
       for K := 0 to Parts.Count - 1 do
         for M := 0 to High(CMD_LIST) do
           if (not Used[M]) and (CMD_LIST[M].Name = Trim(Parts[K])) and
-             (Rank(CMD_LIST[M].Name) = Pass) then
+             (Rank(M) = Pass) then
           begin
             FCmdOrder[N] := M;
             Used[M] := True;
@@ -4111,7 +4195,7 @@ var
     end;
     { then the rest - CMD_LIST is written alphabetical, so as they come }
     for M := 0 to High(CMD_LIST) do
-      if (not Used[M]) and (Rank(CMD_LIST[M].Name) = Pass) then
+      if (not Used[M]) and (Rank(M) = Pass) then
       begin
         FCmdOrder[N] := M;
         Used[M] := True;
@@ -4125,6 +4209,7 @@ begin
   if Copy(Want, 1, 1) = '/' then Want := Copy(Want, 2, MaxInt);
   I := Pos(' ', Want);
   if I > 0 then Want := Copy(Want, 1, I - 1);
+  FCmdWant := Want;
 
   SetLength(FCmdOrder, Length(CMD_LIST));
   SetLength(Used, Length(CMD_LIST));
@@ -4620,8 +4705,7 @@ begin
   end;
   if FTimings then
   begin
-    WriteLn(Format('ground grid: %d ruled, %d missed the window', [Drawn, Missed]));
-    Flush(Output);
+    TimingLine(Format('ground grid: %d ruled, %d missed the window', [Drawn, Missed]));
   end;
   FPaper.Touch;
 end;
@@ -4805,10 +4889,9 @@ begin
       in TODO.md. }
     if FTimings then
     begin
-      WriteLn(Format('paper: painted %d, skipped %d - base %d, grid %d, axes %d',
+      TimingLine(Format('paper: painted %d, skipped %d - base %d, grid %d, axes %d',
         [FPaperPaints, FPaperSkips, TBase - T0, TGrid - TBase,
          GetTickCount64 - TGrid]));
-      Flush(Output);
     end;
   end
   else
@@ -7078,7 +7161,8 @@ begin
             Row('', 'joined at both ends - fixed');
         Row('From', Place(E.A));
         Row('To', Place(E.B));
-        Row('Width', Format('%d px', [Round(E.Weight)]));
+        Row('Width', Format('%d px', [Round(Max(1, E.Weight))]), iaWidth, I);
+        Row('Color', 'Change...', iaColour, I);
         Row('Crease', IfThen(E.Soft, 'Bring back', 'Soften'), iaSoft, I);
         if E.Grp <> 0 then Row('Part of', Format('solid %d', [E.Grp]))
         else Row('Part of', 'nothing - a loose edge');
@@ -7094,6 +7178,8 @@ begin
           many sides it is drawn with, after it has been drawn. }
         Row('Sides', IntToStr(ArcSteps(E)), iaSides, I);
         Row('Plane', PlaneWord(E.Plane));
+        Row('Width', Format('%d px', [Round(Max(1, E.Weight))]), iaWidth, I);
+        Row('Color', 'Change...', iaColour, I);
         Row('Crease', IfThen(E.Soft, 'Bring back', 'Soften'), iaSoft, I);
       end;
     ekFace:
@@ -7105,6 +7191,9 @@ begin
           Row('Windows', IntToStr(Length(E.Holes)));
         if E.Solid then Row('Part of', Format('solid %d', [E.Grp]))
         else Row('Part of', 'nothing - a loose face');
+        { a face shows only a hint of its colour - it is a material, not a
+          stroke - so this is the tint, not a paint pot }
+        Row('Color', 'Change...', iaColour, I);
         Head('');
         Row('Turn it over', 'Reverse', iaReverse, I);
       end;
@@ -7115,6 +7204,7 @@ begin
         Row('At', Place(E.A));
         Row('Size', Format('%d%%', [Round(FD.Doc.NoteSize(I) * 100)]),
           iaNoteSize, I);
+        Row('Color', 'Change...', iaColour, I);
       end;
     ekDim:
       begin
@@ -7123,6 +7213,7 @@ begin
         if E.Txt <> '' then Row('Written', E.Txt);
         Row('From', Place(E.A));
         Row('To', Place(E.B));
+        Row('Color', 'Change...', iaColour, I);
       end;
     ekGuide:
       begin
@@ -7191,7 +7282,7 @@ begin
       FInfoRows[I].Caption);
 
     VX := R.Left + Round(84 * FUIScale);
-    if FInfoRows[I].Act in [iaSides, iaNoteSize] then
+    if FInfoRows[I].Act in [iaSides, iaNoteSize, iaWidth] then
     begin
       { a number: two steppers hard against the right edge, and the figure to
         their left so it does not move as it changes width }
@@ -7218,6 +7309,19 @@ begin
         Y + Round(2 * FUIScale), W - Pad, Y + RowH - Round(2 * FUIScale));
       FInfoRows[I].Minus := Rect(0, 0, 0, 0);
       PaintInfoStep(C, FInfoRows[I].Plus, S, FInfoHot = I * 2 + 1);
+      { the colour it has now, as a swatch where the value would go }
+      if (FInfoRows[I].Act = iaColour) and (FInfoRows[I].Ent >= 0) and
+         (FInfoRows[I].Ent < FD.Doc.Live) then
+      begin
+        C.Brush.Style := bsSolid;
+        C.Brush.Color := FD.Doc[FInfoRows[I].Ent].Ink;
+        C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.35));
+        C.Pen.Width := 1;
+        C.Rectangle(VX, Y + Round(3 * FUIScale),
+          Min(VX + Round(36 * FUIScale), FInfoRows[I].Plus.Left - Round(6 * FUIScale)),
+          Y + RowH - Round(3 * FUIScale));
+        C.Brush.Style := bsClear;
+      end;
     end
     else
     begin
@@ -7295,6 +7399,7 @@ procedure TMainForm.pbInfoMouseDown(Sender: TObject; Button: TMouseButton;
 var
   H, Row, N, K: Integer;
   Up: Boolean;
+  Picked: TColor;
 begin
   if Button <> mbLeft then Exit;
   H := InfoHit(X, Y);
@@ -7336,6 +7441,31 @@ begin
             FD.Doc.NoteSize(FInfoRows[Row].Ent) / 1.25);
         FCmdMsg := Format('Text at %d%% of normal.',
           [Round(FD.Doc.NoteSize(FInfoRows[Row].Ent) * 100)]);
+      end;
+    iaWidth:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        { through the same widths the LINE WIDTH list offers }
+        N := Round(Max(1, FD.Doc[FInfoRows[Row].Ent].Weight));
+        K := 0;
+        while (K < High(PEN_SIZES)) and (PEN_SIZES[K] < N) do Inc(K);
+        if Up then
+        begin
+          if PEN_SIZES[K] <= N then K := Min(High(PEN_SIZES), K + 1);
+        end
+        else if K > 0 then
+          Dec(K);
+        PushUndo;
+        FD.Doc.SetWeight(FInfoRows[Row].Ent, PEN_SIZES[K]);
+        FCmdMsg := Format('%d px.', [PEN_SIZES[K]]);
+      end;
+    iaColour:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        if not AskColour(FD.Doc[FInfoRows[Row].Ent].Ink, Picked) then Exit;
+        PushUndo;
+        FD.Doc.SetInk(FInfoRows[Row].Ent, Picked);
+        FCmdMsg := 'Color changed.  The LINE COLOR button still sets what you draw next.';
       end;
     iaReverse:
       begin
@@ -8555,8 +8685,43 @@ end;
 procedure TMainForm.Took(const What: string; T0: QWord);
 begin
   if not FTimings then Exit;
-  WriteLn('took ', GetTickCount64 - T0, ' ms: ', What);
+  TimingLine(Format('took %d ms: %s', [GetTickCount64 - T0, What]));
+end;
+
+{ One line of /timings: to the console, where there is one, and kept for the
+  box, because on Windows there is not.  The oldest go once it is long - it
+  is for the last few things you did, not a record. }
+procedure TMainForm.TimingLine(const S: string);
+const
+  KEEP = 400;
+var
+  N: Integer;
+begin
+  WriteLn(S);
   Flush(Output);
+  N := Length(FTimingLog);
+  if N >= KEEP then
+  begin
+    FTimingLog := Copy(FTimingLog, N - KEEP div 2, MaxInt);
+    N := Length(FTimingLog);
+  end;
+  SetLength(FTimingLog, N + 1);
+  FTimingLog[N] := FormatDateTime('hh:nn:ss.zzz', Now) + '  ' + S;
+end;
+
+procedure TMainForm.ShowTimingLog;
+var
+  I: Integer;
+  T: string;
+begin
+  if Length(FTimingLog) = 0 then
+  begin
+    FCmdMsg := 'No timings collected yet - /timings, do something, then /timings again.';
+    Exit;
+  end;
+  T := '';
+  for I := 0 to High(FTimingLog) do T := T + FTimingLog[I] + LineEnding;
+  ShowLongText('Step timings, oldest first', T);
 end;
 
 procedure TMainForm.RenderTiming;
@@ -8566,6 +8731,7 @@ var
   Ms, Ov, Qk, Bl, Gd: Double;
   Ph: array[0..5] of Double;
   WasMoving: Boolean;
+  Box: string;
 begin
   N := 10;
   for I := 0 to 5 do FD.Doc.ProfMs[I] := 0;
@@ -8625,6 +8791,31 @@ begin
     [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, Ph[0], Ph[1] + Ph[2], Ph[3], Ph[4]]);
   FCmdMsg := FCmdMsg + Format('; quick frame %.0f ms; overlay %.0f ms (blit %.0f, guides %.0f) with %d selected',
     [Qk, Ov, Bl, Gd, Length(FSel)]);
+  { A paragraph in a bar built for a sentence loses its end, so the whole of
+    it goes in a box that can be read and copied, a figure a line. }
+  Box := Format(
+    'A whole frame (paper, drawing, composite):  %.1f ms' + LineEnding +
+    '  things on the sheet:                     %d  (%d faces)' + LineEnding +
+    '  index and edges:                         %.1f ms' + LineEnding +
+    '  faces sorted and painted:                %.1f ms' + LineEnding +
+    '  lines on faces:                          %.1f ms' + LineEnding +
+    '  the rest:                                %.1f ms' + LineEnding +
+    'A quick frame, as an orbit draws it:       %.1f ms' + LineEnding +
+    'The paint on top:                          %.1f ms' + LineEnding +
+    '  the picture onto the window:             %.1f ms' + LineEnding +
+    '  guides, rubber band and readouts:        %.1f ms' + LineEnding +
+    '  with this many picked:                   %d' + LineEnding + LineEnding +
+    'Lines-on-faces cache: built %d times, threads %s, last build %.0f ms on %s,' + LineEnding +
+    '  taken %.0f ms after it was done; frames that went without it: %d' + LineEnding +
+    '  (%.0f ms on the last), discarded %d, failed %d' + LineEnding + LineEnding +
+    'Window %dx%d at %.2f scaling, zoom %.3f, view %s.  Each figure is the average of %d.',
+    [Ms, FD.Doc.Live, FaceCount + SolidFaceCount, Ph[0], Ph[1] + Ph[2], Ph[3], Ph[4],
+     Qk, Ov, Bl, Gd, Length(FSel),
+     FD.Doc.OnFaceBuilds, BoolToStr(FD.Doc.Threads, 'on', 'off'),
+     FD.Doc.OnFaceWorkerMs, FD.Doc.OnFaceBuiltOn, FD.Doc.OnFaceLagMs,
+     FD.Doc.OnFaceFallbacks, FD.Doc.OnFaceFallbackMs,
+     FD.Doc.OnFaceDiscarded, FD.Doc.OnFaceFailed,
+     pbScreen.Width, pbScreen.Height, FUIScale, FD.Zoom, VIEW_NAMES[FD.View], N]);
   WriteLn('rendertime ', Ms:0:1, ' ms/frame (paper+render+composite), ', FD.Doc.Live, ' things; index+edges ',
     Ph[0]:0:1, ' faces ', (Ph[1] + Ph[2]):0:1, ' lines-on-faces ',
     Ph[3]:0:1, ' rest ', Ph[4]:0:1, '; quick frame ', Qk:0:1, '; overlay ', Ov:0:1, ' ms of which blit ', Bl:0:1, ' guides ', Gd:0:1, ', with ', Length(FSel), ' selected; onface builds so far ', FD.Doc.OnFaceBuilds,
@@ -8632,7 +8823,9 @@ begin
     FD.Doc.OnFaceFallbacks, ', discarded ', FD.Doc.OnFaceDiscarded, ', failed ', FD.Doc.OnFaceFailed);
   Flush(Output);
   Trail(FCmdMsg);
+  FCmdMsg := Format('A frame takes %.0f ms - the rest is in the box.', [Ms]);
   pbCmd.Invalidate;
+  ShowLongText('How long a frame takes', Box);
 end;
 
 { the normal of an arc's plane }
@@ -11734,8 +11927,7 @@ begin
       terminal without sending a report to read it back }
     if FTimings then
     begin
-      WriteLn('slow frame: ', FSlowLast);
-      Flush(Output);
+      TimingLine('slow frame: ' + FSlowLast);
     end;
     Now64 := GetTickCount64;
     if Now64 - FSlowSaid >= 2000 then
@@ -13487,12 +13679,9 @@ begin
     taken from a menu - it counts as one you use, and the list puts it near
     the top next time.  Here rather than in the list, because a command
     typed from memory is the best evidence of all that you use it. }
-  for I := 0 to High(CMD_LIST) do
-    if CMD_LIST[I].Name = W then
-    begin
-      NoteCmdUsed(W);
-      Break;
-    end;
+  { by its name, so /e and /erase are one entry in what you use }
+  I := CmdIndex(W);
+  if I >= 0 then NoteCmdUsed(CMD_LIST[I].Name);
 
   if (W = 'line') or (W = 'l') then SetTool(ptLine)
   else if (W = 'select') or (W = 's') then SetTool(ptSelect)
@@ -13609,8 +13798,24 @@ begin
   end
   else if W = 'timings' then
   begin
-    FTimings := not FTimings;
-    FCmdMsg := 'Step timings on the console: ' + BoolToStr(FTimings, True);
+    { On, do the thing, off - and turning it off shows what it saw.
+      "/timings show" looks without stopping. }
+    if Rest = 'show' then
+      ShowTimingLog
+    else
+    begin
+      FTimings := not FTimings;
+      if FTimings then
+      begin
+        FTimingLog := nil;
+        FCmdMsg := 'Step timings on.  Do the slow thing, then /timings again to see them.';
+      end
+      else
+      begin
+        FCmdMsg := 'Step timings off.';
+        ShowTimingLog;
+      end;
+    end;
   end
   else if (W = 'all') or (W = 'selectall') then
   begin
@@ -15981,6 +16186,9 @@ begin
     if (FPopup = POP_CMDS) and (I < Length(FCmdOrder)) then
     begin
       S := CMD_LIST[FCmdOrder[I]].Hint;
+      { found by another of its words - say which, or the row is a puzzle }
+      if CmdAliasFor(FCmdOrder[I], FCmdWant) <> '' then
+        S := '/' + CmdAliasFor(FCmdOrder[I], FCmdWant) + ' - ' + S;
       if (I = FPopupHot) and (CMD_LIST[FCmdOrder[I]].Eg <> '') then
       begin
         S := CMD_LIST[FCmdOrder[I]].Eg;
@@ -16123,7 +16331,8 @@ begin
   for K := 0 to High(FTouches) do
     if FTouches[K].Seq = Seq then I := K;
   if FTimings then
-    WriteLn('touch ', Ord(Kind), ' at ', P.X, ',', P.Y, ' finger ', I, ' of ', Length(FTouches), ' mode ', Ord(FTouchMode));
+    TimingLine(Format('touch %d at %.0f,%.0f finger %d of %d mode %d',
+      [Ord(Kind), P.X, P.Y, I, Length(FTouches), Ord(FTouchMode)]));
   case Kind of
     tkBegin:
       begin
@@ -18343,7 +18552,9 @@ begin
     Inc(Made);
     Lap(5);
   end;
-  if FTimings then WriteLn('region loop phases ms: inner ', Acc[0], ' dup ', Acc[1], ' was ', Acc[2], ' opening ', Acc[3], ' seen ', Acc[4], ' add ', Acc[5]);
+  if FTimings then
+    TimingLine(Format('region loop phases ms: inner %d dup %d was %d opening %d seen %d add %d',
+      [Acc[0], Acc[1], Acc[2], Acc[3], Acc[4], Acc[5]]));
   LineIx.Free;
   PlaneIx.Free;
   RegionIx.Free;
@@ -19861,7 +20072,7 @@ end;
 function TMainForm.CubeMouse(X, Y: Integer; Down, Up: Boolean): Boolean;
 var
   R: TRect;
-  Half, Az, El, NewAz, NewEl, FitZ, FitX, FitY: Double;
+  Half, Az, El, NewAz, NewEl, FitZ, FitX, FitY, Near_: Double;
   T: TCubeTarget;
   Was: Boolean;
 begin
@@ -19884,6 +20095,23 @@ begin
     if Up then
     begin
       FCubeDrag := False;
+      { A drag let go close to one of the twenty-six clicks into it - within
+        eight degrees, which is near enough that it reads as "that one" and
+        far enough that an in-between view can still be kept.  Ctrl clicks
+        into the nearest from anywhere, the same as Ctrl on the orbit tool. }
+      if FCubeMoved then
+      begin
+        T := CubeNearest(ViewDir(Proj), Near_);
+        if (ssCtrl in GetKeyShiftState) or (Near_ >= Cos(DegToRad(8))) then
+        begin
+          Az := FD.Az;
+          CubeAzEl(T.Dir, Az, El);
+          FViewPreset := -1;
+          GlideTo(Az, El);
+          FCmdMsg := T.Name + '.';
+        end;
+        Exit;
+      end;
       { it never travelled, so it was a click after all }
       if not FCubeMoved and
          CubeAt(Proj, (R.Left + R.Right) / 2, (R.Top + R.Bottom) / 2,
@@ -20152,6 +20380,52 @@ begin
   GlideTo(Az, El);
   FCmdMsg := 'Snapped to ' + T.Name + '.';
   Trail('orbit snapped to ' + T.Name);
+end;
+
+{ Ctrl and an arrow: one step round the twenty-six, gliding the way a click
+  on the cube does.  In the 3D view only - PLAN and ISO are fixed cameras,
+  and Ctrl and an arrow there are left to do what the arrow alone does. }
+procedure TMainForm.StepCubeView(Key: Word);
+var
+  T: TCubeTarget;
+  Near_, Az, El: Double;
+  Dir: TP3;
+  Step: TCubeStep;
+begin
+  if (FD = nil) or (FD.View <> vkOrbit) then Exit;
+  case Key of
+    VK_LEFT:  Step := csLeft;
+    VK_RIGHT: Step := csRight;
+    VK_UP:    Step := csUp;
+  else
+    Step := csDown;
+  end;
+  { from where a glide already under way is going, so a quick second press
+    carries on from the first rather than from somewhere in between }
+  if FGlideT > 0 then
+    Az := FGlideAz1
+  else
+    Az := FD.Az;
+  if FGlideT > 0 then
+    T := CubeNearest(P3(Cos(FGlideEl1) * Cos(FGlideAz1),
+      Cos(FGlideEl1) * Sin(FGlideAz1), Sin(FGlideEl1)), Near_)
+  else
+    T := CubeNearest(ViewDir(Proj), Near_);
+  Dir := CubeStep(T.Dir, Az, Step);
+  if (Dir.X = 0) and (Dir.Y = 0) and (Step in [csLeft, csRight]) then
+  begin
+    { looking straight down or up: turn the drawing a side's worth }
+    if Step = csRight then Az := Az + Pi / 4 else Az := Az - Pi / 4;
+    El := FD.El;
+    if FGlideT > 0 then El := FGlideEl1;
+  end
+  else
+    CubeAzEl(Dir, Az, El);
+  T := CubeNearest(Dir, Near_);
+  FViewPreset := -1;
+  GlideTo(Az, El);
+  FCmdMsg := T.Name + '  - Ctrl and the arrows walk round the view cube.';
+  Trail('cube step to ' + T.Name);
 end;
 
 procedure TMainForm.GlideTo(Az, El: Double);
@@ -20761,6 +21035,12 @@ begin
           that is what they are for in every list anybody has ever used }
         if (FPopup = POP_CMDS) and (Key in [VK_UP, VK_DOWN, VK_PRIOR, VK_NEXT]) then
           MoveCmdHighlight(Key)
+        { Ctrl turns the view instead, a step round the cube at a time -
+          only in 3D, and only between shapes, so an arrow lock mid-line is
+          never taken from under anybody }
+        else if (ssCtrl in Shift) and (FMode = mdPro) and (FD.View = vkOrbit) and
+           (FStage = 0) and (Key in [VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN]) then
+          StepCubeView(Key)
         { before a shape is under way the arrows pick the plane; after that
           they lock a direction, which is only meaningful for a line }
         else if (FTool in [ptRect, ptCircle, ptArc]) or
@@ -21341,14 +21621,24 @@ end;
   because that is the one with the eyedropper and the recent colours in it. }
 procedure TMainForm.PickAnyColour;
 var
+  C: TColor;
+begin
+  if not AskColour(FInkColor, C) then Exit;
+  SetInk(C, False);
+  FCmdMsg := 'Pen color set.';
+end;
+
+{ The platform's own colour picker, started on Was. }
+function TMainForm.AskColour(Was: TColor; out C: TColor): Boolean;
+var
   D: TColorDialog;
 begin
+  C := Was;
   D := TColorDialog.Create(nil);
   try
-    D.Color := FInkColor;
-    if not D.Execute then Exit;
-    SetInk(D.Color, False);
-    FCmdMsg := 'Pen color set.';
+    D.Color := Was;
+    Result := D.Execute;
+    if Result then C := D.Color;
   finally
     D.Free;
   end;
@@ -22283,33 +22573,40 @@ end;
 
 { Put the example drawings on disk, beside the program.
 
-  Every run, over the top of whatever is there.  That is on purpose: an
-  example is a thing to take apart, and somebody who has taken one apart
-  should find it whole again next time rather than meet their own
-  half-dismantled version and have to work out what it was meant to look
-  like.  Anybody who wants to keep their version saves it under a name of
-  their own, which is what Save As has always been for.
+  Written out as well as carried inside, because the program being one file
+  is no help to somebody who wants to open the example again after drawing
+  over it, send it to a friend, or read it in a text editor.
 
-  It is written out as well as carried inside, because the program being one
-  file is no help to somebody who wants to open the example again after
-  drawing over it, send it to a friend, or read it in a text editor. }
+  It used to write them over the top on every run, on the argument that an
+  example is a thing to take apart and should be found whole again next
+  time.  True of one somebody took apart and walked away from; not true of
+  one they changed and saved, which was quietly thrown away the next time
+  the program started.  Now each is checked against what was written last -
+  see PutExample - and one that has been saved over since is left alone.
+  An untouched one still gets the newer version when the program has one.
+  Somebody who wants the original back deletes their copy. }
 procedure TMainForm.WriteExamples;
 var
-  L: TStringList;
+  Ini: TIniFile;
   I: Integer;
+  Rec: string;
 begin
   try
     if not ForceDirectories(ExamplesDir) then Exit;
-    L := TStringList.Create;
+    Ini := TIniFile.Create(ConfigFile);
     try
       for I := 0 to ExampleCount - 1 do
       begin
-        L.Clear;
-        ExampleLines(I, L);
-        if L.Count > 0 then L.SaveToFile(ExamplesDir + ExampleFile(I));
+        Rec := Ini.ReadString('examples', ExampleFile(I), '');
+        case PutExample(I, ExamplesDir, Rec) of
+          ewWritten, ewUpToDate:
+            Ini.WriteString('examples', ExampleFile(I), Rec);
+          ewKeptTheirs:
+            Trail('example ' + ExampleFile(I) + ' has been changed here - left alone');
+        end;
       end;
     finally
-      L.Free;
+      Ini.Free;
     end;
   except
     { a read-only folder, a full disk, a stick pulled out halfway - none of

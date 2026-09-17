@@ -144,18 +144,19 @@ need_tools() {
 # lists in step by hand.  The generated file is committed, so a build from the
 # IDE without this script still has one; it just may be a build behind.
 gen_whatsnew() {
-  python3 - "$ROOT/WHATS_NEW.md" "$ROOT/whatsnew.inc" <<'PY'
-import sys
-src, dst = sys.argv[1], sys.argv[2]
-lines = open(src, encoding='utf-8').read().split('\n')
-out = ['{ Generated from WHATS_NEW.md by build.sh - edit that, not this. }',
-       'const', '  WHATS_NEW_MD =']
-for i, l in enumerate(lines):
-    q = "'" + l.replace("'", "''") + "'"
-    sep = ' + LineEnding +' if i < len(lines) - 1 else ';'
-    out.append('    ' + q + sep)
-open(dst, 'w', encoding='utf-8').write('\n'.join(out) + '\n')
-PY
+  local src="$ROOT/WHATS_NEW.md" dst="$ROOT/whatsnew.inc"
+  {
+    printf '%s\n' "{ Generated from WHATS_NEW.md by build.sh - edit that, not this. }" \
+      'const' '  WHATS_NEW_MD ='
+    # Every line a quoted Pascal string, apostrophes doubled.  A file that
+    # ends in a newline has one more line after it, an empty one - which is
+    # how the notes reader has always seen it - so a marker stands in for
+    # that line and is taken off again at the end.
+    { cat "$src"; [ -n "$(tail -c1 "$src")" ] || printf '\001'; } |
+      awk -v q="'" '
+        { gsub(q, q q); if (NR > 1) print "    " q prev q " + LineEnding +"; prev = $0 }
+        END { sub(/\001$/, "", prev); print "    " q prev q ";" }'
+  } > "$dst"
 }
 
 build_linux() {

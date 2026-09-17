@@ -33,10 +33,33 @@ function ExampleAbout(I: Integer): string;
 { The drawing itself, as the lines of a .hsk file. }
 procedure ExampleLines(I: Integer; L: TStrings);
 
+{ Put one example on disk in Dir, unless somebody has made it theirs.
+
+  Recorded is the checksum of what was written there last time, as kept in
+  the settings, and comes back as the checksum of what is there now.  The
+  rule, from the TODO of 13 September: an example improved in a later
+  version replaces the old one, and one somebody has edited and saved over
+  is theirs and is left alone.  So:
+
+  * not there - written;
+  * the same as this version - nothing to do;
+  * what we wrote last time - it has not been touched, so the new version
+    goes over it;
+  * anything else - it has been changed since we wrote it, and it stays.
+
+  No record at all is taken as ours: every version before this one wrote
+  the examples over the top on every run, so a file that predates the
+  record has never had a chance to be anybody's. }
+type
+  TExampleWrite = (ewWritten, ewUpToDate, ewKeptTheirs, ewFailed);
+
+function PutExample(I: Integer; const Dir: string;
+  var Recorded: string): TExampleWrite;
+
 implementation
 
 uses
-  uExample, uExGlass;
+  SysUtils, uExample, uExGlass, uUpdate;
 
 const
   FILES: array[0..1] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk');
@@ -66,6 +89,56 @@ begin
   case I of
     0: ExampleDrawing(L);
     1: GlassDrawing(L);
+  end;
+end;
+
+function ReadRaw(const Path: string): string;
+var
+  F: TFileStream;
+begin
+  Result := '';
+  F := TFileStream.Create(Path, fmOpenRead or fmShareDenyNone);
+  try
+    SetLength(Result, F.Size);
+    if F.Size > 0 then F.ReadBuffer(Result[1], F.Size);
+  finally
+    F.Free;
+  end;
+end;
+
+function PutExample(I: Integer; const Dir: string;
+  var Recorded: string): TExampleWrite;
+var
+  L: TStringList;
+  Path, Sum: string;
+begin
+  Result := ewFailed;
+  if (I < 0) or (I >= ExampleCount) then Exit;
+  Path := IncludeTrailingPathDelimiter(Dir) + ExampleFile(I);
+  L := TStringList.Create;
+  try
+    try
+      ExampleLines(I, L);
+      if L.Count = 0 then Exit;
+      if FileExists(Path) then
+      begin
+        if ReadRaw(Path) = L.Text then
+        begin
+          Recorded := Sha256Of(Path);
+          Exit(ewUpToDate);
+        end;
+        Sum := Sha256Of(Path);
+        if (Recorded <> '') and (Sum <> Recorded) then
+          Exit(ewKeptTheirs);
+      end;
+      L.SaveToFile(Path);
+      Recorded := Sha256Of(Path);
+      Result := ewWritten;
+    except
+      Result := ewFailed;
+    end;
+  finally
+    L.Free;
   end;
 end;
 

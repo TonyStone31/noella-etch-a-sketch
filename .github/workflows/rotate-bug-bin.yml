@@ -33,9 +33,8 @@ jobs:
 
           OLD_BIN=""
           if [ -f "$CONFIG" ]; then
-            OLD_BIN=$(python3 -c \
-              'import json; print(json.load(open("docs/bug-report-endpoint.json")).get("current_bin",""))' \
-              2>/dev/null || true)
+            # jq ships on GitHub's Ubuntu runners
+            OLD_BIN=$(jq -r '.current_bin // ""' "$CONFIG" 2>/dev/null || true)
           fi
 
           # Actually create/initialize the new bin now.

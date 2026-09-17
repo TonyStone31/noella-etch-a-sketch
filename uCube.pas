@@ -71,6 +71,22 @@ procedure CubeAzEl(const Dir: TP3; var Az: Double; out El: Double);
   nearly there has to be able to ask. }
 function CubeNearest(const Look: TP3; out Near_: Double): TCubeTarget;
 
+{ One step round the twenty-six from the keyboard: Right and Left go round
+  the sides, a face to an edge to the next face, and Up and Down tip over
+  the top or under the bottom - side, to the edge above it, to the top.
+  Dir is where the camera stands now, as one of the twenty-six; Az is the
+  turn in force, which says which way round a camera looking straight down
+  is facing.  Straight down or straight up, Right and Left have no side to
+  walk to, so they come back unchanged and the caller turns the camera
+  instead.
+
+  Tony: a keyboard walk through the twenty-six "would make it reachable
+  without a mouse" - the TODO's words, 14 September. }
+type
+  TCubeStep = (csLeft, csRight, csUp, csDown);
+
+function CubeStep(const Dir: TP3; Az: Double; Step: TCubeStep): TP3;
+
 { Draw the cube into a surface of its own.  The surface should be square and
   at least 2 * Half + a few pixels across; the cube is centred in it.  Hot is
   the target under the pointer, if there is one.
@@ -143,6 +159,51 @@ begin
 end;
 
 { Which of the twenty-six a camera is closest to already - see the interface. }
+const
+  { the sides, in the order a camera meets them turning with Az }
+  RING: array[0..7] of TPoint = (
+    (X: 1; Y: 0), (X: 1; Y: 1), (X: 0; Y: 1), (X: -1; Y: 1),
+    (X: -1; Y: 0), (X: -1; Y: -1), (X: 0; Y: -1), (X: 1; Y: -1));
+
+function CubeStep(const Dir: TP3; Az: Double; Step: TCubeStep): TP3;
+var
+  X, Y, Z, K, Best: Integer;
+  D, BestD: Double;
+begin
+  X := Round(Dir.X); Y := Round(Dir.Y); Z := Round(Dir.Z);
+  Result := P3(X, Y, Z);
+  if (X = 0) and (Y = 0) then
+  begin
+    { over the top or under the bottom: the side a step down lands on is
+      the one the camera is already turned towards }
+    Best := 0;
+    BestD := -2;
+    for K := 0 to 7 do
+    begin
+      D := (RING[K].X * Cos(Az) + RING[K].Y * Sin(Az)) /
+           Sqrt(Sqr(RING[K].X) + Sqr(RING[K].Y));
+      if D > BestD then
+      begin
+        BestD := D;
+        Best := K;
+      end;
+    end;
+    case Step of
+      csDown: if Z > 0 then Result := P3(RING[Best].X, RING[Best].Y, 1);
+      csUp:   if Z < 0 then Result := P3(RING[Best].X, RING[Best].Y, -1);
+    end;
+    Exit;
+  end;
+  K := 0;
+  while (K < 7) and ((RING[K].X <> X) or (RING[K].Y <> Y)) do Inc(K);
+  case Step of
+    csRight: Result := P3(RING[(K + 1) mod 8].X, RING[(K + 1) mod 8].Y, Z);
+    csLeft:  Result := P3(RING[(K + 7) mod 8].X, RING[(K + 7) mod 8].Y, Z);
+    csUp:    if Z < 1 then Result := P3(X, Y, Z + 1) else Result := P3(0, 0, 1);
+    csDown:  if Z > -1 then Result := P3(X, Y, Z - 1) else Result := P3(0, 0, -1);
+  end;
+end;
+
 function CubeNearest(const Look: TP3; out Near_: Double): TCubeTarget;
 var
   IX, IY, IZ: Integer;

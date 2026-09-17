@@ -1,0 +1,65 @@
+# The entity panel changes what a line is drawn with, after it is drawn.
+#
+# Tony: colour and pen width on whatever is picked - the panel showed them
+# and could not change them.  The LINE COLOR and LINE WIDTH buttons still set
+# what the next thing is drawn with; these change what is already there.
+#
+# What to look for: hsk-es-picked has a loose line picked and the panel
+# showing Width 1 px and a Color swatch; hsk-es-wider has the line at 4 px
+# after two presses of +; hsk-es-dialog is the colour picker open; hsk-es-red
+# has the line red, the swatch red, and the bar saying the colour changed.
+geometry 0 0 1400 800
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 300
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 1000
+key slash
+type info on
+key return
+wait 800
+key l
+wait 300
+at 400 300
+click
+at 600 300 400
+click
+key escape
+wait 600
+key space
+wait 300
+at 500 300 300
+click
+wait 800
+shot /tmp/hsk-es-picked.png
+
+# two presses of + on the width
+at 1372 178 300
+click
+wait 400
+click
+wait 800
+shot /tmp/hsk-es-wider.png
+
+# Change... opens the colour picker; pick the red and take it
+at 1350 197 300
+click
+wait 2000
+shot /tmp/hsk-es-dialog.png
+at 757 368 300
+click
+wait 400
+at 943 551 300
+click
+wait 1200
+at 900 600 300
+wait 500
+shot /tmp/hsk-es-red.png

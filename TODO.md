@@ -52,9 +52,9 @@ self-update, Windows on its own TLS, the manual inside the program (downloaded b
 current, drawn by LazInk), and reports that carry the frame times, the last
 few dozen actions, the drawing, and how the program was started and set up.
 
-Tests, all green: `./tests/run.sh` (1087 checks), `./tests/run-region.sh`
+Tests, all green: `./tests/run.sh` (1103 checks), `./tests/run-region.sh`
 (91), `./tests/run-cmds.sh` reading the command table against the
-dispatcher, and `./tests/run-drive.sh` - 45 scripts driven through Xephyr,
+dispatcher, and `./tests/run-drive.sh` - 47 scripts driven through Xephyr,
 six at a time, some of them chained in one program.
 
 ---
@@ -64,24 +64,9 @@ six at a time, some of them chained in one program.
 Gathered from the notes further down, so none of them is only findable by
 reading a write-up of something finished.  Roughly smallest first.
 
-* **Aliases in the command list.**  `/e`, `/mv`, `/tape` work but are not in
-  the list, and typing one does not count as using the command, so it never
-  floats to the top.  An alias column on `CMD_LIST` fixes both - about ten
-  lines, and `run-cmds.sh` would want to learn it.
-* **`/rendertime` and `/timings` into the copyable box.**  They write a
-  paragraph into a bar built for a sentence (see *The command bar* below).
-  `ShowLongText`, built for `/state`, is a scrolling box with a copy button -
-  the second half of that note, already made.
-* **The view cube from the keyboard**, and a cube drag that clicks into the
-  nearest view when let go.  `CubeNearest` and `GlideTo` are both there.
-* **Colour and pen width in the entity panel.**  The panel shows them; a
-  setter on picked entities is the missing piece.  Then **radius on a
-  circle**, **the plane an arc was drawn in**, and a **name on a solid**
-  (that last one wants a field in the file).
-* **Examples: the checksum rule.**  Today they are written over the top every
-  run; one somebody has edited and saved under its own name must be left
-  alone.  See *Examples written out beside the portable exe*.
-* **The Python heredoc in `build.sh`** - see *Python, on the way out*.
+* **More rows in the entity panel**: **radius on a circle**, **the plane an
+  arc was drawn in**, and a **name on a solid** (that last one wants a field
+  in the file).  Colour and width went in on 17 September.
 * **The pull-while-dragging orbit snap**, as an experiment.  The release
   version is built; the questions are kept with its write-up.
 * **The cursor square wipes canvas drawing under it** for the rubber bands
@@ -319,21 +304,23 @@ That needs reading, and reading is easier in a file that fits on a screen.
 
 ## Python, on the way out
 
-Two bits of it are left, and neither needs to be.
+Tony, 17 September: "we do not want python in my public git ... I despise
+python."  None is left in this repository or in LazHIDControl or LazInk:
 
-* **`tools/fetch-reports.py`** should be a small Pascal program.  It is a
-  fetch, a name check, a size cap and a file write - nothing that wants a
-  language runtime.  It also has to keep working, so this is a port with the
-  old one kept alongside until the new one has collected a day's reports and
-  agreed with it.
+* `build.sh` turns `WHATS_NEW.md` into `whatsnew.inc` with awk now, byte
+  for byte what the Python heredoc wrote.
+* `tests/run-cmds.sh` compiles `tests/cmdcheck.pas`, which does what the
+  Python did and one thing more - it holds the command list's other words
+  to the dispatcher.
+* The bug-bin workflow reads its JSON with `jq`.
+* LazHIDControl's README example is bash; LazInk's two help checks are
+  Pascal programs reading the pages with the FCL's HTML reader.
 
-* **`build.sh` turns `WHATS_NEW.md` into `whatsnew.inc`** with an inline
-  python3 heredoc.  That one is worth killing first: it puts Python on the
-  critical path of a release, on any machine that cuts one.  It is a read, a
-  split on headings and a write.
-
-The GUI driver was the third and is gone - `tools/drive/hsdrive` does that
-job in Pascal now, through LazHIDControl.
+One is left and it is not public: **`tools/fetch-reports.py`**, the report
+collector, which lives in the ignored `tools/` folder.  It should still be a
+small Pascal program - a fetch, a name check, a size cap and a file write -
+ported with the old one kept alongside until the new one has collected a
+day's reports and agreed with it.
 
 ---
 
@@ -528,7 +515,8 @@ Do the wrap first and see whether the second half is still wanted.
 
 **17 September:** the second half half-exists.  `/state` needed somewhere to
 put sixty lines, so `ShowLongText` is a scrolling box with a copy button.
-Pointing `/rendertime` and `/timings` at it is a few lines each.
+`/rendertime` and `/timings` use it too now, the same day.  The wrap is
+still not done.
 
 ### The rectangle, on a plane that is not the ground
 
@@ -902,24 +890,6 @@ cut paths are the same projected polylines WriteSVG already walks.
 
 ## Waiting on something
 
-### The logo letters come up red when they are raised
-
-Tony, 14 September: "i sort of like how i raised the letters and they have
-red lines around the letters however i dont understand why the letters became
-red, probably a bug!"
-
-Not a bug in the program - the generator gives the letter faces the toy's own
-red, the same ink as the body, on the reasoning that the logo is printed on a
-red toy.  Flat, they read as dark lines on the frame because the lines over
-them are black and the face is barely visible.  Raised a sixteenth, the sides
-and the top are suddenly red on a body that renders pale, and it looks like
-something went wrong.
-
-The question is what the logo should be, not where the bug is.  Worth asking
-Tony whether he wants the letters the colour of the frame - so raising one
-reads as embossing - or a deliberate contrast colour.  Whatever he says is a
-one line change in examples/make-etch-a-sketch.pas.
-
 ### A GIF export that crashed after the fact
 
 Tony, 14 September: exported a GIF on the Windows machine, opened it, and
@@ -995,11 +965,10 @@ belongs to a solid so `/reface` cannot eat it, the whole thing is a closed
 solid, and it stands on the ground.
 
 What is left of Tony's idea below: more of them - the crown, and a few
-deliberately wild ones - and the checksum rule, so an example improved in a
-later version replaces the old one while something somebody has edited and
-saved under its own name is left alone.  Today's version simply writes them
-out over the top every run, which is right for a file nobody has touched and
-wrong the moment they have.
+deliberately wild ones.  **The checksum rule went in on 17 September**
+(`PutExample` in uExamples): the settings keep a checksum of what was
+written, an untouched file gets the newer version, and one that has been
+saved over since is left alone.  `TestExamplesKeepEdits`.
 
 
 
@@ -1030,6 +999,51 @@ be against what we wrote last, not against what the example currently says.
 These stay because the reasoning in them is the expensive part - the
 measurement that settled an argument, the trap that cost a day, the thing
 that looked obvious and was wrong.
+
+### Six small ones and a colour, 17 September
+
+Tony picked six off the loose-ends list in one go, plus the logo colour.
+
+* **Aliases in the command list.**  `CMD_LIST` gained `Also`; typing one
+  finds the row, the row says which word found it, and using one counts as
+  using the command.  `tests/cmdcheck.pas` insists every word in `Also` is
+  answered by the same branch of `RunCommand` as the name.
+* **`/rendertime` and `/timings` in the copyable box** (`ShowLongText`).
+  `/timings` keeps what it saw (`TimingLine`), because on Windows there is no
+  console to read it from.
+* **The cube from the keyboard**: Ctrl and the arrows, `CubeStep` in uCube,
+  `TestCubeStepsWalkTheCube`.  **And a cube drag let go within eight degrees
+  of a view clicks onto it**; Ctrl makes that from anywhere, the same as the
+  orbit tool.  `cube-keys` in the drive suite.
+* **Colour and width in the entity panel.**  `TWorkDoc.SetInk` and
+  `SetWeight`; `entity-style` in the drive suite opens the picker and takes
+  a red.
+* **The examples' checksum rule** and **no Python** - see above.
+
+### The logo letters come up red when they are raised
+
+Tony, 14 September: "i sort of like how i raised the letters and they have
+red lines around the letters however i dont understand why the letters became
+red, probably a bug!"
+
+Not a bug in the program - the generator gives the letter faces the toy's own
+red, the same ink as the body, on the reasoning that the logo is printed on a
+red toy.  Flat, they read as dark lines on the frame because the lines over
+them are black and the face is barely visible.  Raised a sixteenth, the sides
+and the top are suddenly red on a body that renders pale, and it looks like
+something went wrong.
+
+The question is what the logo should be, not where the bug is.  Worth asking
+Tony whether he wants the letters the colour of the frame - so raising one
+reads as embossing - or a deliberate contrast colour.  Whatever he says is a
+one line change in examples/make-etch-a-sketch.pas.
+
+**Done 17 September.**  Tony: "the color needs to be of the frame" - so it
+looks embossed.  The letters already were the frame's colour; what made them
+red was push/pull giving the new edges the *face's* ink, so a raised letter
+came out outlined in red on a body outlined in black.  The new edges take the
+outline's ink now (`TWorkDoc.OutlineInk`), and a raised letter reads as
+embossed.  `TestPushedEdgesKeepTheOutlineInk`.
 
 ### Small things done 13 and 14 September
 

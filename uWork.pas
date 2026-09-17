@@ -430,6 +430,10 @@ type
     { a fresh solid identity, for something built rather than pulled }
     function NewGroup: Integer;
     procedure SetSoft(Index: Integer; Soft: Boolean);
+    { What an entity is drawn with, changed after the fact - the entity
+      panel's colour and width rows. }
+    procedure SetInk(Index: Integer; Ink: TColor);
+    procedure SetWeight(Index: Integer; Weight: Single);
     { Turn a face over: its outline and its openings run the other way round,
       so its normal points the other way. }
     procedure FlipFace(Index: Integer);
@@ -595,6 +599,9 @@ type
       there is not one.  A solid's new edges copy it, so everything drawn
       from the same pen looks like it. }
     function EdgeWeight(const A, B: TP3): Single;
+    { The colour of the pen that drew this face's outline, or Default when no
+      edge of it can be found.  A solid's new edges are drawn with it. }
+    function OutlineInk(Face: Integer; Default: TColor): TColor;
     { The nearest point lying *on* a line or an arc, within TolPx of the
       pointer.  This is SketchUp's On Edge inference: hovering an edge should
       give you a point on that edge, not the nearest corner of it. }
@@ -3919,6 +3926,18 @@ begin
   FEnts[Index].Soft := Soft;
 end;
 
+procedure TWorkDoc.SetInk(Index: Integer; Ink: TColor);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  FEnts[Index].Ink := Ink;
+end;
+
+procedure TWorkDoc.SetWeight(Index: Integer; Weight: Single);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  FEnts[Index].Weight := Weight;
+end;
+
 procedure TWorkDoc.SetDimOffset(Index: Integer; const Off: TP3);
 begin
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekDim) then Exit;
@@ -7091,6 +7110,47 @@ begin
         Exit(FEnts[I].Weight);
 end;
 
+{ Tony, 14 September, raising a letter of the toy's logo: "they have red
+  lines around the letters however i dont understand why the letters became
+  red".  The letter's face carries the toy's red - a face only shows a hint
+  of its ink - but its outline is drawn in the dark stylus ink, and the new
+  edges were given the face's colour.  So a raised letter came out outlined
+  in red on a body outlined in black.  The edges follow the edges now, the
+  same way EdgeWeight already made them follow the pen's width.
+
+  An outline piece that matches exactly is asked first; failing that, any
+  line or arc that ends on one of the corners - a side cut by a crossing no
+  longer runs corner to corner. }
+function TWorkDoc.OutlineInk(Face: Integer; Default: TColor): TColor;
+const
+  TOL = 1E-7;
+var
+  I, K, N: Integer;
+  A, B: TP3;
+begin
+  Result := Default;
+  if (Face < 0) or (Face >= FLive) then Exit;
+  N := Length(FEnts[Face].Poly);
+  for K := 0 to N - 1 do
+  begin
+    A := FEnts[Face].Poly[K];
+    B := FEnts[Face].Poly[(K + 1) mod N];
+    for I := 0 to FLive - 1 do
+      if FEnts[I].Kind = ekLine then
+        if (SamePt(FEnts[I].A, A, TOL) and SamePt(FEnts[I].B, B, TOL)) or
+           (SamePt(FEnts[I].A, B, TOL) and SamePt(FEnts[I].B, A, TOL)) then
+          Exit(FEnts[I].Ink);
+  end;
+  for K := 0 to N - 1 do
+  begin
+    A := FEnts[Face].Poly[K];
+    for I := 0 to FLive - 1 do
+      if FEnts[I].Kind in [ekLine, ekArc] then
+        if SamePt(FEnts[I].A, A, TOL) or SamePt(FEnts[I].B, A, TOL) then
+          Exit(FEnts[I].Ink);
+  end;
+end;
+
 { Hand every edge lying along this face's outline to the given group.  An
   edge counts when every point that defines it sits on the outline - both
   ends of a line, or a handful of samples round an arc. }
@@ -7181,7 +7241,7 @@ var
   FN, Mid: TP3;
   Size, Tol: Double;
   Quad: array[0..3] of TP3;
-  Ink: TColor;
+  Ink, LineInk: TColor;
   Wt: Single;
   Holes: array of TP3Array;
   Near: Integer;
@@ -7254,6 +7314,7 @@ begin
   if Far < 0 then Exit;
 
   Ink := FEnts[Index].Ink;
+  LineInk := OutlineInk(Index, Ink);
   Wt := EdgeWeight(FEnts[Index].Poly[0], FEnts[Index].Poly[1]);
   if Wt <= 0 then Wt := FEnts[Index].Weight;
   if Wt <= 0 then Wt := 1;
@@ -7316,10 +7377,10 @@ begin
     end;
     AddFaceRaw(Quad, Ink, True);
     FEnts[FLive - 1].Grp := G;
-    AddLine(FEnts[Index].Poly[I], Top[I], Ink, Wt, False);
+    AddLine(FEnts[Index].Poly[I], Top[I], LineInk, Wt, False);
     FEnts[FLive - 1].Grp := G;
     FEnts[FLive - 1].Soft := N >= 9;
-    AddLine(Top[I], Top[J], Ink, Wt, False);
+    AddLine(Top[I], Top[J], LineInk, Wt, False);
     FEnts[FLive - 1].Grp := G;
   end;
 
@@ -7435,7 +7496,7 @@ var
   HBase, HTop, RevH: array of TP3Array;
   H, M: Integer;
   Quad: array[0..3] of TP3;
-  Ink: TColor;
+  Ink, LineInk: TColor;
   Wt: Single;
   Plug: Boolean;
 begin
@@ -7448,6 +7509,7 @@ begin
   if N < 3 then Exit;
   Nm := FaceNormal(Index);
   Ink := FEnts[Index].Ink;
+  LineInk := OutlineInk(Index, Ink);
 
   { The sides and the top are drawn with the same pen as the outline they grew
     out of.  They used to be hardcoded to 1, so a box pulled from a rectangle
@@ -7603,13 +7665,13 @@ begin
     end;
     AddFaceRaw(Quad, Ink, True);
     FEnts[FLive - 1].Grp := G;
-    AddLine(Base[I], Top[I], Ink, Wt, False);
+    AddLine(Base[I], Top[I], LineInk, Wt, False);
     FEnts[FLive - 1].Grp := G;
     { Many sides means the outline was a curve to begin with, so the creases
       running down the extrusion are not real edges - they are how a round
       surface is stored.  Nine or more and they are softened. }
     FEnts[FLive - 1].Soft := N >= 9;
-    AddLine(Top[I], Top[J], Ink, Wt, False);
+    AddLine(Top[I], Top[J], LineInk, Wt, False);
     FEnts[FLive - 1].Grp := G;
   end;
 
@@ -7648,10 +7710,10 @@ begin
       end;
       AddFaceRaw(Quad, Ink, True);
       FEnts[FLive - 1].Grp := G;
-      AddLine(HBase[H][I], HTop[H][I], Ink, Wt, False);
+      AddLine(HBase[H][I], HTop[H][I], LineInk, Wt, False);
       FEnts[FLive - 1].Grp := G;
       FEnts[FLive - 1].Soft := M >= 9;
-      AddLine(HTop[H][I], HTop[H][J], Ink, Wt, False);
+      AddLine(HTop[H][I], HTop[H][J], LineInk, Wt, False);
       FEnts[FLive - 1].Grp := G;
     end;
   end;

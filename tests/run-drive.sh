@@ -74,7 +74,7 @@ SOLO="${SOLO:-}"
 chain_members() {
   case "$1" in
     commands) echo "command-list cmd-example cmd-wheel toy-command whatsnew-drag" ;;
-    views)    echo "plan-slice plan-hidden view-cube cube-corners round-corner" ;;
+    views)    echo "plan-slice plan-hidden view-cube cube-corners cube-keys round-corner" ;;
     tools)    echo "dim-face-edge dim-needs-something tape-finishes guide-picking copy-paste" ;;
     shapes)   echo "round-corners line-length guide-select move-edge" ;;
     *)        echo "" ;;

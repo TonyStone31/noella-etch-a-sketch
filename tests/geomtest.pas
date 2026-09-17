@@ -2053,6 +2053,52 @@ begin
   end;
 end;
 
+{ Ctrl and the arrows walk the view cube: round the sides, and over the top. }
+procedure TestCubeStepsWalkTheCube;
+var
+  D, Start: TP3;
+  I, Seen: Integer;
+  Near_: Double;
+
+  function Same(const A: TP3; X, Y, Z: Integer): Boolean;
+  begin
+    Result := (Round(A.X) = X) and (Round(A.Y) = Y) and (Round(A.Z) = Z);
+  end;
+
+begin
+  WriteLn('-- the arrows walk round the view cube');
+  D := CubeStep(P3(1, 0, 0), 0, csRight);
+  Ok(Same(D, 1, 1, 0), 'right from FRONT is ' + CubeNearest(D, Near_).Name);
+  D := CubeStep(P3(1, 0, 0), 0, csLeft);
+  Ok(Same(D, 1, -1, 0), 'left from FRONT is ' + CubeNearest(D, Near_).Name);
+  { eight rights is all the way round, through every side once }
+  Start := P3(1, 0, 1);
+  D := Start;
+  Seen := 0;
+  for I := 1 to 8 do
+  begin
+    D := CubeStep(D, 0, csRight);
+    if Same(D, 1, 0, 1) then Inc(Seen);
+    if Round(D.Z) <> 1 then Seen := -99;
+  end;
+  Ok(Seen = 1, 'eight steps right go round once, staying up top');
+  { up from a side: the edge above it, then the top; then down comes back
+    to the side the camera is turned towards }
+  D := CubeStep(P3(0, 1, 0), Pi / 2, csUp);
+  Ok(Same(D, 0, 1, 1), 'up from RIGHT is ' + CubeNearest(D, Near_).Name);
+  D := CubeStep(D, Pi / 2, csUp);
+  Ok(Same(D, 0, 0, 1), 'and up again is the top');
+  Ok(Same(CubeStep(D, Pi / 2, csUp), 0, 0, 1), 'and up from the top stays there');
+  D := CubeStep(D, Pi / 2, csDown);
+  Ok(Same(D, 0, 1, 1), 'down from the top lands on the side it faced: ' +
+    CubeNearest(D, Near_).Name);
+  Ok(Same(CubeStep(P3(0, 0, 1), 0, csRight), 0, 0, 1),
+    'right from the top has no side to walk to, and says so by staying');
+  D := CubeStep(P3(-1, 0, 0), Pi, csDown);
+  D := CubeStep(D, Pi, csDown);
+  Ok(Same(D, 0, 0, -1), 'two downs from BACK is the bottom');
+end;
+
 { The nearest of the cube's twenty-six, which is what an orbit clicks into.
 
   Tony: "let it do the animation like the cube does because it looks nice and
@@ -2122,6 +2168,43 @@ begin
   Ok(WorstDeg < 30,
     Format('  the furthest any camera can be from all of them is %.1f degrees',
       [WorstDeg]));
+end;
+
+{ A raised letter of the toy's logo came out outlined in red: the new edges
+  took the face's colour, not the colour of the outline they rose from. }
+procedure TestPushedEdgesKeepTheOutlineInk;
+const
+  DARK = $00201C1A;
+  REDISH = $002030C8;
+var
+  D: TWorkDoc;
+  I, Face, Wrong, New_: Integer;
+  Was: Integer;
+begin
+  WriteLn('-- the edges a push makes are drawn in the outline''s colour');
+  D := TWorkDoc.Create;
+  try
+    D.AddLine(P3(0, 0, 0), P3(2, 0, 0), DARK, 1, False);
+    D.AddLine(P3(2, 0, 0), P3(2, 1, 0), DARK, 1, False);
+    D.AddLine(P3(2, 1, 0), P3(0, 1, 0), DARK, 1, False);
+    D.AddLine(P3(0, 1, 0), P3(0, 0, 0), DARK, 1, False);
+    D.AddFaceRaw([P3(0, 0, 0), P3(2, 0, 0), P3(2, 1, 0), P3(0, 1, 0)], REDISH, False);
+    Face := D.Live - 1;
+    Was := D.Live;
+    Ok(D.PushPull(Face, 0.25), 'the red face with a dark outline pushed');
+    Wrong := 0;
+    New_ := 0;
+    for I := Was to D.Live - 1 do
+      if D[I].Kind = ekLine then
+      begin
+        Inc(New_);
+        if D[I].Ink <> DARK then Inc(Wrong);
+      end;
+    Ok((New_ > 0) and (Wrong = 0),
+      Format('every new edge is dark (%d new, %d not)', [New_, Wrong]));
+  finally
+    D.Free;
+  end;
 end;
 
 { Rounding a corner, SketchUp's way.
@@ -2433,6 +2516,64 @@ begin
     Ok(not D.SetLineLength(0, 0), '  and nothing is not a length');
   finally
     D.Free;
+  end;
+end;
+
+{ An example somebody changed and saved stays theirs; an untouched one gets
+  the newer version. }
+procedure TestExamplesKeepEdits;
+var
+  Dir, Path, Rec: string;
+  L: TStringList;
+  R: TExampleWrite;
+
+  procedure Scribble(const Extra: string);
+  begin
+    L.LoadFromFile(Path);
+    L.Add(Extra);
+    L.SaveToFile(Path);
+  end;
+
+begin
+  WriteLn('-- examples written out, and left alone once they are somebody''s');
+  Dir := IncludeTrailingPathDelimiter(GetTempDir(False)) +
+    'hsk-examples-' + IntToStr(GetProcessID);
+  ForceDirectories(Dir);
+  Path := IncludeTrailingPathDelimiter(Dir) + ExampleFile(0);
+  L := TStringList.Create;
+  try
+    Rec := '';
+    R := PutExample(0, Dir, Rec);
+    Ok((R = ewWritten) and FileExists(Path) and (Rec <> ''),
+      'missing, so written, and what was written is recorded');
+    R := PutExample(0, Dir, Rec);
+    Ok(R = ewUpToDate, 'the second run finds it up to date');
+
+    { somebody draws on it and saves }
+    Scribble('# mine now');
+    R := PutExample(0, Dir, Rec);
+    L.LoadFromFile(Path);
+    Ok((R = ewKeptTheirs) and (L[L.Count - 1] = '# mine now'),
+      'changed since it was written, so it is left alone');
+
+    { an older version of ours, untouched: the record matches the file }
+    L.SaveToFile(Path);
+    Rec := Sha256Of(Path);
+    R := PutExample(0, Dir, Rec);
+    L.LoadFromFile(Path);
+    Ok((R = ewWritten) and (L[L.Count - 1] <> '# mine now'),
+      'what we wrote last time, untouched, gets the new version');
+
+    { no record at all: every earlier version overwrote on every run, so a
+      file from before the record is ours }
+    Scribble('# from an old version');
+    Rec := '';
+    R := PutExample(0, Dir, Rec);
+    Ok(R = ewWritten, 'no record, so it is taken as ours and replaced');
+  finally
+    L.Free;
+    DeleteFile(Path);
+    RemoveDir(Dir);
   end;
 end;
 
@@ -7390,9 +7531,12 @@ begin
   TestTheReachIsTheWholeReach;  WriteLn;
   TestCrossingBoxTouchesTheGeometry;  WriteLn;
   TestOrbitSnapFindsTheNearestView;  WriteLn;
+  TestCubeStepsWalkTheCube;  WriteLn;
   TestFilletRoundsACorner;  WriteLn;
+  TestPushedEdgesKeepTheOutlineInk;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestExamplesKeepEdits;  WriteLn;
   TestHelpZipInstalls;  WriteLn;
   TestHelpStaleness;  WriteLn;
   TestViewCube;  WriteLn;

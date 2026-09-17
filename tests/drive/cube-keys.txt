@@ -1,0 +1,42 @@
+# Ctrl and the arrows walk round the view cube, and a cube drag let go near
+# a view clicks into it.
+#
+# What to look for: hsk-ck-1 is FRONT TOP (one step right from the corner
+# view the example opens in); hsk-ck-2 is TOP, two steps up; hsk-ck-3 is
+# still TOP, turned a side's worth; hsk-ck-drag is a short drag on the cube
+# that ended square on the view it was let go near, the bar naming it.
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+key escape
+key slash
+type cube on
+key return
+wait 500
+at 700 600
+hold ctrl
+key right
+let ctrl
+wait 1200
+shot /tmp/hsk-ck-1.png
+hold ctrl
+key up
+let ctrl
+wait 1200
+hold ctrl
+key up
+let ctrl
+wait 1200
+shot /tmp/hsk-ck-2.png
+hold ctrl
+key right
+let ctrl
+wait 1200
+shot /tmp/hsk-ck-3.png
+
+# a drag on the cube that ends a few degrees off TOP clicks back into it
+at 1310 140 300
+drag 1310 140 1318 146
+wait 1500
+shot /tmp/hsk-ck-drag.png

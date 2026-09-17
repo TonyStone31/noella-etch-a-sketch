@@ -13,6 +13,39 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Color and width in the entity panel.**  Pick a line or an arc and step' + LineEnding +
+    '  its width with - and +, or press Change... beside Color to recolor' + LineEnding +
+    '  whatever is picked.  The LINE COLOR and LINE WIDTH buttons still set what' + LineEnding +
+    '  you draw next.' + LineEnding +
+    '- **Ctrl and the arrow keys walk round the view cube** in the 3D view -' + LineEnding +
+    '  left and right go round the sides, up and down tip over the top or under' + LineEnding +
+    '  the bottom.' + LineEnding +
+    '- **A cube drag let go near a view clicks onto it**, and with Ctrl held it' + LineEnding +
+    '  clicks onto the nearest view from anywhere.' + LineEnding +
+    '- **Short command names show up in the list.**  Typing `/tape` finds' + LineEnding +
+    '  `/measure`, and the row says which name found it.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **`/rendertime` and `/timings` show their numbers in a box you can copy' + LineEnding +
+    '  from**, instead of a line in the command bar that ran off the end.' + LineEnding +
+    '  `/timings` on, do the slow thing, `/timings` again.' + LineEnding +
+    '- **Examples you have changed are left alone.**  The example drawings' + LineEnding +
+    '  beside the program used to be written over every time it started; one' + LineEnding +
+    '  you have edited and saved now stays yours, and an untouched one still' + LineEnding +
+    '  gets the newer version.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A raised letter or shape keeps its outline color.**  Push/pull gave the' + LineEnding +
+    '  new edges the face''s color, so raising a letter of the toy''s logo' + LineEnding +
+    '  outlined it in red.  The new edges now match the outline they came from,' + LineEnding +
+    '  and a raised letter looks embossed.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.4' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +

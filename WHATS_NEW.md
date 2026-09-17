@@ -10,6 +10,39 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Color and width in the entity panel.**  Pick a line or an arc and step
+  its width with - and +, or press Change... beside Color to recolor
+  whatever is picked.  The LINE COLOR and LINE WIDTH buttons still set what
+  you draw next.
+- **Ctrl and the arrow keys walk round the view cube** in the 3D view -
+  left and right go round the sides, up and down tip over the top or under
+  the bottom.
+- **A cube drag let go near a view clicks onto it**, and with Ctrl held it
+  clicks onto the nearest view from anywhere.
+- **Short command names show up in the list.**  Typing `/tape` finds
+  `/measure`, and the row says which name found it.
+
+### Changed
+
+- **`/rendertime` and `/timings` show their numbers in a box you can copy
+  from**, instead of a line in the command bar that ran off the end.
+  `/timings` on, do the slow thing, `/timings` again.
+- **Examples you have changed are left alone.**  The example drawings
+  beside the program used to be written over every time it started; one
+  you have edited and saved now stays yours, and an untouched one still
+  gets the newer version.
+
+### Fixed
+
+- **A raised letter or shape keeps its outline color.**  Push/pull gave the
+  new edges the face's color, so raising a letter of the toy's logo
+  outlined it in red.  The new edges now match the outline they came from,
+  and a raised letter looks embossed.
+
 ## v2026.09.17.4
 
 ### Changed
