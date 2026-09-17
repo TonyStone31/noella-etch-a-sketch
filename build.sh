@@ -204,11 +204,13 @@ build_windows() {
   # ws2_32 and wsock32 are Winsock, which the update check needs; they have
   # shipped with every Windows since 98 and are not something to carry.
   # winhttp is Windows' own HTTPS, which the updater and the report use; it
-  # has shipped with every Windows since XP.
+  # has shipped with every Windows since XP.  shlwapi is the shell's light
+  # utility library - the LCL calls it to ask Windows which program opens a
+  # link - and has shipped since Windows 98.
   if command -v objdump >/dev/null; then
     local extra
     extra="$(objdump -p "$ROOT/$APP.exe" | sed -n 's/.*DLL Name: //p' | sort -u |
-      grep -viE '^(advapi32|comctl32|comdlg32|gdi32|kernel32|ole32|oleaut32|shell32|user32|version|winmm|winspool|ws2_32|wsock32|crypt32|iphlpapi|winhttp)\.(dll|drv)$' || true)"
+      grep -viE '^(advapi32|comctl32|comdlg32|gdi32|kernel32|ole32|oleaut32|shell32|user32|version|winmm|winspool|ws2_32|wsock32|crypt32|iphlpapi|winhttp|shlwapi)\.(dll|drv)$' || true)"
     if [ -n "$extra" ]; then
       say "WARNING - this build needs DLLs that are not part of Windows:"
       printf '   %s\n' $extra
