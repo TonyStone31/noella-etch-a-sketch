@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **This window is drawn by LazInk now**, our own text package, rather than
+  by code of its own.  It looks much the same.  You can still drag the page
+  with a finger to scroll it, and the arrow keys, Page Up and Page Down and
+  the mouse wheel all work.  The scroll bar is a plain one for now.
+
 ## v2026.09.16.6
 
 ### New
@@ -25,13 +34,6 @@
   A loose line moves the end it was drawn to, a line joined at one end moves
   its free end, and a line joined at both ends can't be changed that way -
   the same rule as SketchUp's Entity Info.
-
-### Changed
-
-- **This window is drawn by LazInk now**, our own text package, rather than
-  by code of its own.  It looks much the same.  You can still drag the page
-  with a finger to scroll it, and the arrow keys, Page Up and Page Down and
-  the mouse wheel all work.  The scroll bar is a plain one for now.
 
 ## v2026.09.16.5
 
