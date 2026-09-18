@@ -282,16 +282,31 @@ arrows round the edge of it for stepping to the next face, and most keep a
 sliver of the neighbouring faces visible so there is still something to aim
 at.
 
-Not built.  The cheapest version is probably the arrows - four of them
-round the cube while it is face-on, one step each - and it is a
-self-contained job in the cube's own painting and hit-testing.  Worth doing
-before the cube gets recommended to anybody, because a control that strands
-you is worse than no control.
+**Built the same evening, and it turned out to need no new targets at all.**
+Tony: "you need to be able to access the edges still even though you flipped
+it flat to the top ... they should highlight easily to show that you can
+switch back to those views."
 
-The animation was re-recorded meanwhile: it clicks the cube once, from the
-only state the script can know - the view the drawing opens in - and uses
-the keyboard for everything after, which needs no geometry.  The page says
-the flat-square thing outright.
+The eight cells round the border of a face were *already* hit - `CubeAt`
+classifies anything past `BAND` (0.65 of the half-width) as an edge or a
+corner, whatever the view.  They were only never **drawn**: `PaintCube` drew
+each face's outline and nothing inside it, because on a three-quarter view
+the cube's own edges say where the cells are.  Square on there are no such
+edges, so the ring was invisible and the control looked like a dead end.
+
+So: when a face is nearly square on - `Lit > 0.97`, about fourteen degrees -
+its two cell divisions each way are drawn faintly.  An ordinary
+three-quarter view is unchanged, which was checked on screen rather than
+argued.  Hovering already highlighted the cell and names it in the corner;
+that now has something visible under it.
+
+`TestCubeKeepsItsEdgesWhenFaceOn` holds the behaviour down: looking straight
+down, the middle of the square is the face, the four sides are edges, the
+corners are corners, and the four sides are four *different* places to go -
+a ring that all led to the same view would be decoration.
+
+The animation was re-recorded to show it: click the top face, rest on the
+ring, click it, and you are back out at BACK RIGHT TOP.
 
 ---
 

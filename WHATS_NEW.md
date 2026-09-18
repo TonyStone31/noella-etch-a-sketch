@@ -14,9 +14,11 @@
 
 ### Fixed
 
-- **The view cube page says what happens when you are square on to a
-  face**: the cube becomes a flat square with nothing to click, so the way
-  back out is Ctrl and an arrow, a drag, or the VIEW button.
+- **The view cube still works when you are square on to a face.**  Looked
+  at straight on it is a flat square, and the ring of eight targets round
+  its border is now drawn - the four sides are the views either way off
+  this face, the corners are corner views.  They light up as you pass
+  over them, so the cube can bring you back out as well as take you in.
 - **The view cube, the tape measure and rotate have animations** - the
   cube flying between views, a tape pulled off an edge leaving a guide
   line, and a rectangle turned by a typed angle.  Rotate's two sections

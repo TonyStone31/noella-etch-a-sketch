@@ -2749,6 +2749,70 @@ end;
   The drawing here is that, stripped to three things: a panel, a rim lying on
   it, and an edge underneath that runs out past the panel's far side so that
   part of it can be seen.  Without the fix the fourth check fails. }
+{ Looked at square on, the cube draws as a flat square: its real edges and
+  corners are edge-on and have no width on the screen.  The eight cells round
+  the border are still targets, though, and this is what says so - because
+  the answer to "can I get back out of a face view using the cube" has to be
+  yes, and it is not visible from the picture.
+
+  Tony, 18 September: "you need to be able to access the edges still even
+  though you flipped it flat to the top." }
+procedure TestCubeKeepsItsEdgesWhenFaceOn;
+var
+  V: TProjector;
+  T: TCubeTarget;
+  Half, CX, CY: Double;
+  A, B, C, D: TP3;
+
+  function DirAt(DX, DY: Double; out Got: TCubeTarget): Boolean;
+  begin
+    Result := CubeAt(V, CX, CY, Half, CX + DX, CY + DY, Got);
+  end;
+
+  function Parts(const D: TP3): Integer;
+  begin
+    Result := 0;
+    if Abs(D.X) > 0.5 then Inc(Result);
+    if Abs(D.Y) > 0.5 then Inc(Result);
+    if Abs(D.Z) > 0.5 then Inc(Result);
+  end;
+
+begin
+  WriteLn('-- the cube keeps its edges when you are square on to a face');
+  FillChar(V, SizeOf(V), 0);
+  { straight down: the top face fills the cube and nothing else shows }
+  V.Kind := vkOrbit;
+  V.Az := 0;
+  V.El := Pi / 2;
+  V.Ppu := 1;
+  Half := 45;
+  CX := 1000; CY := 140;
+
+  Ok(DirAt(0, 0, T) and (Parts(T.Dir) = 1) and (T.Dir.Z > 0.5),
+    'the middle of it is the face itself');
+
+  { out past the band in one direction only: an edge, two parts to it }
+  Ok(DirAt(0, -Half * 0.85, T) and (Parts(T.Dir) = 2) and (T.Dir.Z > 0.5),
+    'the border straight up from the middle is an edge, not the face');
+  Ok(DirAt(Half * 0.85, 0, T) and (Parts(T.Dir) = 2) and (T.Dir.Z > 0.5),
+    'and so is the border out to the side');
+
+  { out past it in both: a corner, three parts }
+  Ok(DirAt(Half * 0.85, -Half * 0.85, T) and (Parts(T.Dir) = 3),
+    'and the corner of the square really is a corner of the cube');
+
+  { and the four sides of the square are four different ways off it, rather
+    than four names for the same one - which is what makes the ring a way
+    out rather than decoration }
+  DirAt(0, -Half * 0.85, T);  A := T.Dir;
+  DirAt(0, Half * 0.85, T);   B := T.Dir;
+  DirAt(-Half * 0.85, 0, T);  C := T.Dir;
+  DirAt(Half * 0.85, 0, T);   D := T.Dir;
+  Ok((Dist(A, B) > 0.5) and (Dist(A, C) > 0.5) and (Dist(A, D) > 0.5) and
+     (Dist(B, C) > 0.5) and (Dist(B, D) > 0.5) and (Dist(C, D) > 0.5),
+    'the four sides of it are four different places to go');
+end;
+
 procedure TestPickPrefersWhatIsInFrontHere;
 var
   D: TWorkDoc;
@@ -8068,6 +8132,7 @@ begin
   TestPushedEdgesKeepTheOutlineInk;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestCubeKeepsItsEdgesWhenFaceOn;  WriteLn;
   TestPickPrefersWhatIsInFrontHere;  WriteLn;
   TestFilledLoopsWithHolesAndLevelEdges;  WriteLn;
   TestFaceMaterial;  WriteLn;

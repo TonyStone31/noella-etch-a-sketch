@@ -422,6 +422,7 @@ var
   Lit, Up: Double;
   CX, CY: Double;
   Q: array[0..3] of TPointF;
+  G0, G1: TPointF;
   Fill, Line: TPix;
   Hot: Boolean;
 
@@ -524,6 +525,39 @@ begin
       if Up < 0.55 then Continue;
       S.Line(Q[I].X, Q[I].Y, Q[J].X, Q[J].Y, 1.4,
         MixPix(Th.PanelHi, Pix(255, 255, 255), 0.75), (Up - 0.55) * 1.6);
+    end;
+
+    { --- square on to a face: show the ring of targets round it ---------
+
+      Looked at square on, the cube is a flat square: its real edges and
+      corners are edge-on, have no width on the screen, and there is nothing
+      left to aim at.  So the cube could take you to a face and not bring
+      you back, and somebody hunting for a corner would be hunting for one
+      that is not there.
+
+      Tony, 18 September, after watching the help animation do exactly that:
+      "you need to be able to access the edges still even though you flipped
+      it flat to the top ... they should highlight easily to show that you
+      can switch back to those views."
+
+      The eight cells round the border were always there and always hit -
+      `CubeAt` classifies anything past BAND as an edge or a corner.  They
+      were simply never drawn, because on a three-quarter view the cube's
+      own edges say where they are.  Face on, they have to be drawn.  Faint,
+      and only when the face is nearly square on, so that an ordinary view
+      is not gridded over for no reason. }
+    if Lit > 0.97 then
+    begin
+      Line := MixPix(Th.PanelHi, Pix(255, 255, 255), 0.55);
+      for I := 1 to 2 do
+      begin
+        G0 := OnScreen(V, Corner(Face, I, 0), CX, CY, Half);
+        G1 := OnScreen(V, Corner(Face, I, 3), CX, CY, Half);
+        S.Line(G0.X, G0.Y, G1.X, G1.Y, 1.0, Line, 0.55);
+        G0 := OnScreen(V, Corner(Face, 0, I), CX, CY, Half);
+        G1 := OnScreen(V, Corner(Face, 3, I), CX, CY, Half);
+        S.Line(G0.X, G0.Y, G1.X, G1.Y, 1.0, Line, 0.55);
+      end;
     end;
   end;
   S.Touch;

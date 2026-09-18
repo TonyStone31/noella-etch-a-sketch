@@ -13,6 +13,26 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The view cube page says what happens when you are square on to a' + LineEnding +
+    '  face**: the cube becomes a flat square with nothing to click, so the way' + LineEnding +
+    '  back out is Ctrl and an arrow, a drag, or the VIEW button.' + LineEnding +
+    '- **The view cube, the tape measure and rotate have animations** - the' + LineEnding +
+    '  cube flying between views, a tape pulled off an edge leaving a guide' + LineEnding +
+    '  line, and a rectangle turned by a typed angle.  Rotate''s two sections' + LineEnding +
+    '  about which plane it turns in are now one, and the page about sending a' + LineEnding +
+    '  report says what happens to it after you press send.' + LineEnding +
+    '- **Solids and 3D printing** shows what `/holes` is for: an edge rubbed' + LineEnding +
+    '  off a box, and every unmatched edge drawn in red round the opening.' + LineEnding +
+    '  Units, sheets and the etch-a-sketch pages read better too.' + LineEnding +
+    '- **The rubber band stops claiming an axis it is not holding.**  With the' + LineEnding +
+    '  axis inferences switched off by Alt, a line that happened to drift onto' + LineEnding +
+    '  red still turned red, which read as a snap coming and going.  It now' + LineEnding +
+    '  takes an axis color only when it is really on one.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
