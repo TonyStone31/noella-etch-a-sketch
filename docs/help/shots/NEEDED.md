@@ -67,9 +67,14 @@ come from looking at a shot you have already taken; the example drawing opens
 in the same place every time, which is what makes that work.  Then swap the
 `shot-missing` div on the page for an `<img>`.
 
-Eight are done - `tool-rect`, `tool-line`, `tool-circle`, `tool-push`,
-`tool-offset`, `typing`, `commands` and `recording` - and they are the worked
-examples to copy.
+Seven stills are done - `tool-rect`, `tool-line`, `tool-circle`,
+`tool-push`, `typing`, `commands` and `recording` - and they are the worked
+examples to copy.  `tool-offset.png` was one of them and has been thrown
+away: it was taken before the grid became a floor in the positive quadrant,
+so it showed a grid over the whole world and dated the whole page.  Two
+animations replaced it.  **A still that shows the paper, the grid or the
+axes will go stale when those change** - prefer an animation of the tool
+doing its job, framed on the geometry.
 
 - `tool-select.png` - The Select tool in use.
 - `tool-line.png` - The Line tool in use.  DONE
@@ -80,7 +85,7 @@ examples to copy.
 - `tool-revolve.png` - The Revolve tool in use.
 - `tool-move.png` - The Move tool in use.
 - `tool-rotate.png` - The Rotate tool in use.
-- `tool-offset.png` - The Offset tool in use.  DONE
+- `tool-offset.gif`, `tool-offset-rim.gif` - offset then push, both ways.  DONE
 - `tool-drill.png` - The Drill tool in use.
 - `tool-erase.png` - The Erase tool in use.
 - `tool-measure.png` - The Measure tool in use.

@@ -18,6 +18,10 @@
   page: Auto follows your phone or desktop, Light and Dark override it,
   and the choice is remembered in that browser.  The manual opened inside
   the program has no button and still follows the program's own theme.
+- **The offset page has two animations** - offset the top of a box and
+  push the middle down for a tray, or the border up for a rim - and the
+  old picture, which showed the floor grid the way it used to be drawn,
+  is gone.
 - **Four more again**: snapping (the cursor walking one edge while the
   diamond keeps changing its name), the working plane, the drill, and
   dimensions.

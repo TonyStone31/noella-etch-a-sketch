@@ -267,6 +267,42 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## The offset page, and a thing the docs found - 18 September
+
+Tony: "The offset tool probably needs a gif and the old image is showing the
+floor grid wrong."  It was - `tool-offset.png` was taken before the grid
+became a floor in the positive quadrant, so it showed a grid stretching over
+the whole world, negative side and all, and dated the page.  Thrown away and
+replaced with two animations.
+
+**The pair is the point.**  The first offsets the top of a box in by 2'-0"
+and pushes the middle **down** 8'-0" - a tray.  The second does the same
+offset and pushes the **border up** 3'-0" - a rim.  Same tool, same two
+clicks, opposite results, which is the thing the page had been saying in
+words: the offset decides nothing, it just leaves you two faces where there
+was one.  Both sizes are typed rather than dragged for, so the numbers in
+the picture are numbers somebody chose.
+
+**And the page was wrong about circles.**  It said "offset a circle and you
+get a ring".  You get the second circle, at an exact distance all the way
+round - but the band between them is **not a face**: the status bar says
+"1 face now - nothing new closed", and push/pull on the band answers "pick a
+start point first".  A ring is an annulus, an outer loop with a hole in it,
+rather than a simple closed loop, and the region finder is not making one.
+So you cannot offset a circle and push the wall up to get a pipe.
+
+That is worth a decision rather than just a corrected sentence: either the
+region finder learns to close an annulus, or this stays a known limit.  The
+page now says what actually happens and points at the drill instead.  Found
+by writing the documentation, which is the argument for writing it.
+
+**Noted for the next still picture:** one that shows the paper, the grid or
+the axes will go stale when those change.  Prefer an animation of the tool
+doing its job, framed on the geometry.  Written into
+`docs/help/shots/NEEDED.md`.
+
+---
+
 ## Four more help pages - 18 September
 
 `snapping`, `planes`, `drill` and `dim`.  Eighteen pages still have no
