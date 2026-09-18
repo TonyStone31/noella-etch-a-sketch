@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.18.3' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Pipe is black or stainless, and rounder.**  The spool builder has a' + LineEnding +
+    '  Material box: black carbon steel or stainless.  Pipe is drawn with 36' + LineEnding +
+    '  facets round it instead of 24, and a bend is walked in seven and a half' + LineEnding +
+    '  degree steps instead of fifteen, so an elbow reads as an elbow.' + LineEnding +
+    '- **Big drawings of pipe draw twice as fast.**  Filling a long thin face' + LineEnding +
+    '  on the diagonal - which is every facet of a pipe - was costing what its' + LineEnding +
+    '  bounding box costs rather than what the face costs.  A two-inch spool' + LineEnding +
+    '  went from 70 milliseconds a frame to 34.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
