@@ -1030,7 +1030,24 @@ type
 function TapeGuide(HaveEdge: Boolean; const EdgeDir, A, B, PlaneNm: TP3;
   out Dir: TP3): TTapeGuide;
 
-function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Array;
+{ How far the middle of an arc stands off the middle of its chord - the
+  sagitta, which this program calls the bulge - for the arc that leaves A
+  along Dir and ends at B.
+
+  SketchUp's tangent arc, which Alt locks: "hover the edge you want it
+  tangent to before the first click".  For a circular arc the angle between
+  the chord and the tangent at an end is half the arc's own angle, so the
+  sagitta is (chord / 2) * tan(that angle / 2).  The sign says which side of
+  the chord it bulges towards.
+
+  False when there is no arc to be had: the tangent runs straight along the
+  chord, straight back down it, or out of the plane being drawn on. }
+function TangentSagitta(const A, B, Dir: TP3; Pl: TPlane;
+  out Bulge: Double): Boolean;
+
+
+function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double;
+  Tidy: Boolean = True): TP3Array;
 
 { The two in-plane coordinates of a model point. }
 procedure PlaneCoords(Pl: TPlane; const P: TP3; out U, W: Double);
@@ -2038,6 +2055,45 @@ begin
   end;
 end;
 
+function TangentSagitta(const A, B, Dir: TP3; Pl: TPlane;
+  out Bulge: Double): Boolean;
+var
+  U1, V1, U2, V2, DU, DV, Ln, TU, TV, TL, Cs, Sn, Ang: Double;
+  AU, AV: TP3;
+begin
+  Result := False;
+  Bulge := 0;
+  PlaneCoords(Pl, A, U1, V1);
+  PlaneCoords(Pl, B, U2, V2);
+  DU := U2 - U1;
+  DV := V2 - V1;
+  Ln := Sqrt(Sqr(DU) + Sqr(DV));
+  if Ln < 1E-9 then Exit;
+  PlaneAxes(Pl, AU, AV);
+  TU := Dot3(Dir, AU);
+  TV := Dot3(Dir, AV);
+  TL := Sqrt(Sqr(TU) + Sqr(TV));
+  if TL < 1E-9 then Exit;              { the edge stands out of the plane }
+  TU := TU / TL;
+  TV := TV / TL;
+  DU := DU / Ln;
+  DV := DV / Ln;
+  { the tangent runs both ways along the edge; take the way that leaves A
+    heading towards B }
+  if TU * DU + TV * DV < 0 then
+  begin
+    TU := -TU;
+    TV := -TV;
+  end;
+  Cs := TU * DU + TV * DV;
+  Sn := TU * DV - TV * DU;             { signed: which side it leans }
+  Ang := ArcTan2(Sn, Cs);
+  if Abs(Ang) < 1E-6 then Exit;        { straight on: no arc, no tangent }
+  if Abs(Abs(Ang) - Pi) < 1E-6 then Exit;
+  Bulge := -(Ln / 2) * Tan(Ang / 2);
+  Result := True;
+end;
+
 function TapeGuide(HaveEdge: Boolean; const EdgeDir, A, B, PlaneNm: TP3;
   out Dir: TP3): TTapeGuide;
 var
@@ -2078,7 +2134,8 @@ begin
   Result := tgAcrossRun;
 end;
 
-function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double): TP3Array;
+function OffsetLoop(const Loop: TP3Array; const Normal: TP3; D: Double;
+  Tidy: Boolean = True): TP3Array;
 const
   EPS = 1E-9;
 var
@@ -2217,6 +2274,10 @@ begin
     end;
     if Turned = 0 then Break;
     if Turned = M then Exit(nil);          { the whole thing turned inside out }
+    { Alt on the offset tool says leave them: SketchUp keeps the overlaps
+      when it is held, and a fitter who wants to see what the corner really
+      did is entitled to.  The loops are geometry, they are just not tidy. }
+    if not Tidy then Break;
     J := 0;
     for Q := 0 to M - 1 do
       if Keep[Q] then

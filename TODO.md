@@ -1041,10 +1041,26 @@ perpendicular only.  Two halves had to be built.
   mode resets with the tool, and pressing it works the cursor out again
   where it stands rather than waiting for the next twitch of the mouse.
 
-`inference-alt` in the drive suite walks all five states.  Still theirs and
-not ours: Alt on the arc (tangent lock), on the offset (keep overlaps), on
-rotate (own axes against parent), and the protractor's Alt to leave the
-inferred plane.  Each is a small job now that the pattern is here.
+`inference-alt` in the drive suite walks all five states.
+
+**And then the other three, the same afternoon** - `alt-tools` drives them:
+
+* **The arc's tangent lock.**  Theirs wants the edge hovered before the
+  first click; ours already knows which edge the first click landed on, so
+  Alt at the bulge stage runs the arc out of that edge and holds it there.
+  `TangentSagitta` in uWork: for a circular arc the angle between the chord
+  and the tangent at an end is half the arc's own angle, so the sagitta is
+  (chord / 2) * tan(half of it).  `TestTangentSagitta` checks the number and
+  that the arc really does leave along the edge.
+* **The offset's kept overlaps.**  `OffsetLoop` grew a `Tidy` parameter: the
+  corner-squaring pass that went in this morning is what SketchUp does
+  without Alt, and with Alt the loops stay as they fall.
+* **The protractor's freedom.**  Ours takes the turning plane from the face
+  under the cursor when the vertex is clicked; Alt stops it, and it lies
+  flat unless an arrow picks a plane.
+
+Flip's Alt - the object's own axes against the parent's - has nothing to
+hang on: Flip is not built.
 
 ### The tape's two guides, and the manual in both modes - 17 September
 

@@ -25,6 +25,11 @@ inward both work, and taking it in further than the shape will go is refused
 rather than drawn - a 10 x 6 taken in by 3 would come back as a line and by 4
 as a box wound inside out, and neither is an offset of anything.
 
-Not built: working on a run of selected lines rather than a whole face, Alt
-to keep the overlaps, and double-clicking another face to repeat.  Offsetting
+Alt to keep the overlaps is **done, 17 September 2026**.  Ours tidies a
+corner taken in further than it is round by rebuilding it square, which is
+what SketchUp does when Alt is not held; with Alt the loops are left as they
+fall.
+
+Not built: working on a run of selected lines rather than a whole face, and
+double-clicking another face to repeat.  Offsetting
 an arc gives straight segments, because that is how arcs are stored.)*

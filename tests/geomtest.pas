@@ -1346,6 +1346,47 @@ begin
   end;
 end;
 
+{ Alt's tangent lock on the arc: the bulge that runs the arc out of the edge
+  its first point sits on, smoothly. }
+procedure TestTangentSagitta;
+var
+  Bulge, R, A0, Sw, Ang, Want: Double;
+  C, T0: TP3;
+  I: Integer;
+begin
+  WriteLn('-- the bulge that makes an arc tangent to its edge');
+  { a ten foot chord along red, the edge at 45 degrees to it: the arc turns
+    through twice that, so the sagitta is 5 * tan(22.5 degrees) }
+  Ok(TangentSagitta(P3(0, 0, 0), P3(10, 0, 0), P3(1, 1, 0), plXY, Bulge),
+    'a tangent at 45 degrees gives a bulge');
+  Want := 5 * Tan(DegToRad(22.5));
+  Ok(Abs(Abs(Bulge) - Want) < 1E-9,
+    Format('and it is (chord/2) tan(half the turn): %.6f, wanted %.6f',
+      [Abs(Bulge), Want]));
+
+  { the same edge sloping the other way puts the bulge on the other side }
+  Ok(TangentSagitta(P3(0, 0, 0), P3(10, 0, 0), P3(1, -1, 0), plXY, R) and
+     (R * Bulge < 0), 'leaning the other way bulges the other way');
+
+  { straight along the chord is no arc at all, and neither is straight back }
+  Ok(not TangentSagitta(P3(0, 0, 0), P3(10, 0, 0), P3(1, 0, 0), plXY, R),
+    'a tangent along the chord is a straight line, not an arc');
+  Ok(not TangentSagitta(P3(0, 0, 0), P3(10, 0, 0), P3(0, 0, 1), plXY, R),
+    'an edge standing out of the plane has no say in it');
+
+  { and the arc it makes really does leave along the edge }
+  Ok(TangentSagitta(P3(0, 0, 0), P3(8, 4, 0), P3(1, 0, 0), plXY, Bulge),
+    'a chord up and along, tangent to red');
+  Ok(ArcFromChord(P3(0, 0, 0), P3(8, 4, 0), Bulge, plXY, C, R, A0, Sw),
+    'the arc comes out of it');
+  { the tangent at the start is square to the radius there }
+  T0 := P3(-(0 - C.Y), (0 - C.X), 0);         { the radius turned 90 degrees }
+  Ang := Abs(T0.X) / Sqrt(Sqr(T0.X) + Sqr(T0.Y));
+  Ok(Ang > 0.999999, Format('and it leaves along red (%.6f)', [Ang]));
+  I := 0;
+  if I <> 0 then WriteLn('');
+end;
+
 { What the tape leaves behind, by where it was pulled from - SketchUp's rule,
   asked for on 17 September. }
 procedure TestTapeGuideKind;
@@ -7736,6 +7777,7 @@ begin
   TestMoveStretchesWhatItJoins;  WriteLn;
   TestErasingAnEdgeTakesItsFaces;  WriteLn;
   TestTrussNotation;  WriteLn;
+  TestTangentSagitta;  WriteLn;
   TestTapeGuideKind;  WriteLn;
   TestGuidesMakeCrossings;  WriteLn;
   TestShortGuidesCrossFarAway;  WriteLn;

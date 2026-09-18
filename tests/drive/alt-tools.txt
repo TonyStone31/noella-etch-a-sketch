@@ -1,0 +1,64 @@
+# Alt on the arc, the offset and the protractor - SketchUp's uses of the key.
+#
+# Their help: the arc's Alt locks the tangent inference; the offset's keeps
+# the overlaps that are otherwise tidied away; the protractor's frees it from
+# the plane it inferred.
+#
+# What to look for: hsk-alt-arcfree is an arc pulled by hand off the end of a
+# line; hsk-alt-arclock is the same arc leaving that line smoothly, with
+# "tangent to the edge it started on, held" in the bar; hsk-alt-offraw is a
+# rounded rectangle offset inward with the corner overlaps left in; and
+# hsk-alt-rot says the protractor is free of the face under the cursor.
+geometry 0 0 1400 800
+activate
+wait 1200
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 1000
+
+# a line, then an arc off its end
+key l
+wait 400
+at 400 500
+click
+at 700 500 400
+click
+key escape
+wait 600
+key a
+wait 400
+at 700 500 400
+wait 400
+click
+at 950 330 400
+wait 400
+click
+wait 400
+at 800 380 400
+wait 700
+shot /tmp/hsk-alt-arcfree.png
+hold alt
+key alt
+let alt
+wait 800
+shot /tmp/hsk-alt-arclock.png
+key escape
+wait 500
+
+# the protractor, freed from the face under the cursor
+key slash
+type protractor
+key return
+wait 600
+hold alt
+key alt
+let alt
+wait 700
+shot /tmp/hsk-alt-rot.png
+key escape
+wait 500

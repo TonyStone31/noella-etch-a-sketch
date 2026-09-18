@@ -78,7 +78,13 @@ SketchUp's help and forum on it:
   parameters and even cleans out the excess waste", and Tony checked it.
 * A double-click near another corner repeats the radius there, trimmed.
 
-Not done: SketchUp's Alt (Command on a Mac) tangent lock, and a tangent arc
+Alt's tangent lock is **done, 17 September 2026**: start the arc on an edge
+and Alt runs it out of that edge smoothly, holding the bulge there while the
+cursor moves.  Ours needs no hovering first - the edge the first click landed
+on is the one it uses.  `TangentSagitta` in uWork does the arithmetic; a
+typed bulge still wins over the lock, the way a typed number always does.
+
+Not done: a tangent arc
 continuing off the end of a single line.  Ours finds tangency only at a
 corner of two lines.
 

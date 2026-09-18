@@ -46,8 +46,11 @@ and free rotation further out.
 *(Rotate is implemented: the center, a point to measure from, then swing to
 the angle or type it - `34.1`, or `8:12` for a slope, negative the other way.
 The arrows pick the plane by axis color, Ctrl leaves a copy, and the angle
-snaps to the fifteens near them.  Shift to hold an inferred plane, Alt to
-move the protractor off it, Flip and Folding are not built.)*
+snaps to the fifteens near them.  Shift to hold an inferred plane.  **Alt frees the
+protractor from the face under the cursor, 17 September 2026** - it then
+turns flat unless an arrow picks a plane, and Alt again follows faces.  Flip
+and Folding are not built, so Flip's Alt - own axes against the parent's -
+has nothing to hang on yet.)*
 
 ## What the rotate tool picks up
 

@@ -590,6 +590,19 @@ type
     FParDir: TP3;
     { 0 none, 1 parallel, 2 perpendicular - what the cursor is on now }
     FParPerp: Integer;
+    { The arc's tangent lock: the edge its first point sits on, and whether
+      Alt has pinned the bulge to run out of that edge smoothly.  SketchUp:
+      "hover the edge you want it tangent to before the first click, and Alt
+      locks the tangent inference". }
+    FArcTanHas, FArcTanLock: Boolean;
+    FArcTanDir: TP3;
+    { The offset's Alt: leave the overlaps a tight corner makes instead of
+      taking them out.  Theirs, and off unless asked for. }
+    FOffsetRaw: Boolean;
+    { The protractor's Alt: stop taking the plane from the face under the
+      cursor.  Theirs: "Alt frees the protractor from the plane it
+      inferred". }
+    FRotFree: Boolean;
     { the face the shape is being drawn on, so a point can be held to it }
     FFacePt, FFaceNm: TP3;
     { true while a push is lining itself up with another face }
@@ -1293,6 +1306,7 @@ type
     procedure TraceOutline(C: TCanvas; const Hi: TPointFArray;
       const Col: TPix);
     procedure PaintProOverlay(C: TCanvas);
+    function TangentBulge(Pl: TPlane; out Bulge: Double): Boolean;
     procedure PaintGuideHover(C: TCanvas; I: Integer);
     { the cube: where it sits, what it draws, and the glide it starts }
     function CubeRect: TRect;
@@ -3674,7 +3688,8 @@ begin
   if (FOffFace < 0) or (FOffFace >= FD.Doc.Live) then Exit;
   D := OffsetDistance;
   if Abs(D) < 1E-9 then Exit;
-  Result := OffsetLoop(FD.Doc[FOffFace].Poly, FD.Doc.FaceNormal(FOffFace), D);
+  Result := OffsetLoop(FD.Doc[FOffFace].Poly, FD.Doc.FaceNormal(FOffFace), D,
+    not FOffsetRaw);
 end;
 
 procedure TMainForm.CommitOffset;
@@ -12504,6 +12519,10 @@ begin
   FInferMode := imAll;
   FParHas := False;
   FParPerp := 0;
+  FArcTanHas := False;
+  FArcTanLock := False;
+  FOffsetRaw := False;
+  FRotFree := False;
   FFollowFace := -1;
   FUnfoldPick := False;
   FNoteDrag := -1;
@@ -12769,6 +12788,10 @@ begin
     ptCircle, ptArc:
       if FStage = 0 then
         Result := '+ and - change the sides, arrows pick the plane'
+      else if (FTool = ptArc) and (FStage = 2) and FArcTanHas then
+        Result := specialize IfThen<string>(FArcTanLock,
+          'tangent to the edge it started on, held - Alt lets go',
+          '+ and - change the sides, Alt runs it out of its edge smoothly')
       else
         Result := '+ and - change the sides, or type 24s';
     ptPush:
@@ -12777,14 +12800,21 @@ begin
           [FormatLen(Abs(FLastPush), FD.Units)])
       else
         Result := 'type how far, or rest on an edge to go to it';
-    ptOffset: Result := 'type the offset - a minus goes inward';
+    ptOffset:
+      if FOffsetRaw then Result := 'overlaps kept - Alt tidies them again'
+      else Result := 'type the offset - a minus goes inward, Alt keeps the overlaps';
     ptMove:
       if FStage = 0 then Result := 'Ctrl leaves a copy behind'
       else Result := 'Ctrl copies, Shift holds the axis, then 3x or /3 for an array';
     ptErase: Result := 'Ctrl softens an edge instead, Ctrl+Shift brings it back';
     ptMeasure: Result := 'Ctrl changes what it leaves behind - ' + TapeDropSays;
     ptOrbit: Result := 'Shift pans, Ctrl clicks into the nearest view when you let go';
-    ptRotate, ptProtractor: Result := 'arrows pick the plane by color';
+    ptRotate, ptProtractor:
+      if FRotFree then
+        Result := 'free of the face under the cursor - arrows pick the plane, ' +
+                  'Alt follows faces again'
+      else
+        Result := 'arrows pick the plane by color, Alt frees it from the face';
     ptDim: Result := 'click the body of an edge for all of it';
     ptText: Result := 'Shift+Enter for a second line';
   end;
@@ -12808,7 +12838,9 @@ begin
     ptErase:    Result := 'Ctrl: soften   Ctrl+Shift: bring back';
     ptMeasure:  Result := 'Ctrl: what it leaves behind';
     ptOrbit:    Result := 'Shift: pan   Ctrl: click into a view';
-    ptRotate, ptProtractor: Result := 'arrows: the plane';
+    ptRotate, ptProtractor:
+      if FRotFree then Result := 'free of the face   Alt: follow faces'
+      else Result := 'arrows: the plane   Alt: free of the face';
   end;
 end;
 
@@ -13125,9 +13157,12 @@ begin
               else flat - which is the one a duct run turns in }
             if FRotAxisIx >= 0 then
               FRotAxis := AxisDir(FRotAxisIx)
-            else if FD.Doc.FaceUnder(Proj, FMouseSX, FMouseSY, I, T) then
+            else if (not FRotFree) and
+                    FD.Doc.FaceUnder(Proj, FMouseSX, FMouseSY, I, T) then
               FRotAxis := Norm3(FD.Doc.FaceNormal(I))
             else
+              { Alt has freed it from the face, so it lies flat unless an
+                arrow says otherwise - theirs frees it the same way }
               FRotAxis := P3(0, 0, 1);
             FStage := 1;
             FDirLock := -1;
@@ -13243,6 +13278,20 @@ begin
       begin
         FP1 := FCur;
         FStage := 1;
+        { the edge this arc is starting on, for Alt's tangent lock - see
+          TangentBulge }
+        FArcTanHas := False;
+        FArcTanLock := False;
+        I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale,
+          GUIDE_PICK_PX * FUIScale);
+        if (I >= 0) and (FD.Doc[I].Kind = ekLine) and not FD.Doc[I].Dim then
+        begin
+          FArcTanDir := P3(FD.Doc[I].B.X - FD.Doc[I].A.X,
+                           FD.Doc[I].B.Y - FD.Doc[I].A.Y,
+                           FD.Doc[I].B.Z - FD.Doc[I].A.Z);
+          FArcTanHas := Sqr(FArcTanDir.X) + Sqr(FArcTanDir.Y) +
+                        Sqr(FArcTanDir.Z) > 1E-12;
+        end;
       end
       else if FStage = 1 then
       begin
@@ -17619,6 +17668,14 @@ begin
   Result := True;
 end;
 
+{ Alt's tangent lock, in one line: the bulge that runs the arc out of the
+  edge its first point sits on - see TangentSagitta in uWork. }
+function TMainForm.TangentBulge(Pl: TPlane; out Bulge: Double): Boolean;
+begin
+  Result := FArcTanHas and
+            TangentSagitta(FP1, FP2, FArcTanDir, Pl, Bulge);
+end;
+
 function TMainForm.ArcPicks(const B: TP3; out Pl: TPlane; out C: TP3;
   out R, A0, Sweep, Bulge: Double): Boolean;
 var
@@ -17676,6 +17733,10 @@ begin
   NU := -(V2 - V1) / Ln;
   NV := (U2 - U1) / Ln;
   Bulge := (UC - (U1 + U2) / 2) * NU + (VC - (V1 + V2) / 2) * NV;
+  { Alt has pinned it to leave the edge smoothly, so the cursor no longer
+    says how far it bulges - the two ends and the edge decide that between
+    them.  A typed length still wins, the way a typed length always does. }
+  if FArcTanLock and TangentBulge(Pl, L) then Bulge := L;
   if (FInput <> '') and ParseLen(FInput, FD.Units, L) then
     Bulge := Sign(IfThen(Bulge = 0, 1, Bulge)) * L;
   if Abs(Bulge) < 1E-9 then Bulge := Ln / 8;
@@ -21516,6 +21577,66 @@ begin
         is exactly when it is wanted - before it, there is no direction to
         offer and Alt is ours, holding the working plane so you can draw in
         mid air.  See TInferMode. }
+      { The arc's tangent lock, theirs: "hover the edge you want it tangent
+        to before the first click, and Alt locks the tangent inference".
+        Ours knows which edge the first click landed on, so the hovering is
+        done for you. }
+      if (FTool = ptArc) and (FStage = 2) then
+      begin
+        if not FArcTanHas then
+          FCmdMsg := 'Nothing to be tangent to - start an arc on an edge and ' +
+            'Alt runs it out of that edge smoothly.'
+        else
+        begin
+          FArcTanLock := not FArcTanLock;
+          if FArcTanLock then
+            FCmdMsg := 'Tangent to the edge it starts on, held.  Alt again to ' +
+              'pull the bulge by hand.'
+          else
+            FCmdMsg := 'The bulge follows the cursor again.';
+        end;
+        FCur := ResolveSnapAt(FMouseSX, FMouseSY);
+        InvalidateStatus;
+        pbCmd.Invalidate;
+        pbScreen.Invalidate;
+        Key := 0;
+        Exit;
+      end;
+
+      { The protractor's, theirs: "Alt frees the protractor from the plane
+        it inferred".  Ours takes that plane from the face under the cursor
+        when the vertex is clicked, so this is what stops it. }
+      if (FTool in [ptRotate, ptProtractor]) and (FStage = 0) then
+      begin
+        FRotFree := not FRotFree;
+        if FRotFree then
+          FCmdMsg := 'Free of the face under the cursor: it turns flat unless ' +
+            'an arrow picks a plane.  Alt again to follow faces.'
+        else
+          FCmdMsg := 'Following the face under the cursor again.';
+        pbCmd.Invalidate;
+        pbScreen.Invalidate;
+        Key := 0;
+        Exit;
+      end;
+
+      { The offset's, theirs: Alt keeps the overlaps a tight corner makes,
+        which are otherwise taken out.  Ours takes them out by rebuilding the
+        corner square - see OffsetLoop - so this says "leave it raw". }
+      if (FTool = ptOffset) and (FStage >= 1) then
+      begin
+        FOffsetRaw := not FOffsetRaw;
+        if FOffsetRaw then
+          FCmdMsg := 'Overlaps kept: a corner taken in further than it is ' +
+            'round comes back as it falls, loops and all.  Alt again to tidy them.'
+        else
+          FCmdMsg := 'Overlaps tidied, which is the usual way.';
+        pbCmd.Invalidate;
+        pbScreen.Invalidate;
+        Key := 0;
+        Exit;
+      end;
+
       if (FTool = ptLine) and (FStage >= 1) then
       begin
         if FInferMode = High(TInferMode) then FInferMode := Low(TInferMode)
