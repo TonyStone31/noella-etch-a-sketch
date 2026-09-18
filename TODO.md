@@ -1011,6 +1011,41 @@ These stay because the reasoning in them is the expensive part - the
 measurement that settled an argument, the trap that cost a day, the thing
 that looked obvious and was wrong.
 
+### Alt cycles the inferences, and the magenta pair that needed building
+
+Tony, 17 September: "we do want you to use the alt key to cycle inference
+for the line tool and probably others like SketchUp does.  Gotta remember we
+need to try to be as compatible with SketchUp as possible... sort of a
+SketchUp clone but of course better in some ways.  Our goal is to almost be
+able to let a SketchUp developer open heckers sketch and be productive
+immediately."
+
+That is the standard to hold this against, and it is the same bargain
+Lazarus takes with Delphi: match what is there, be stricter where being
+strict is better, and say where you differ.
+
+Their cycle, from `docs/sketchup/05-drawing-basics.md`: after the first
+click, Alt goes all inferences, all *linear* inferences off, parallel and
+perpendicular only.  Two halves had to be built.
+
+* **The third stop needed a magenta pair we did not have.**  `DirTry` is
+  `AxisTry` generalised to any direction - the same screen-space arithmetic
+  - and `ParPerpTry` offers along the reference edge and square to it in the
+  working plane.  The reference is the edge the line was started on, or the
+  piece just drawn, whichever came last.  `FParPerp` says which is showing;
+  the band and the dotted line go magenta, and the card says PARALLEL TO
+  EDGE or PERPENDICULAR TO EDGE.
+* **Alt, and what it used to do.**  Ours held the working plane, which
+  SketchUp has no equivalent for.  It still does - *before* the first click,
+  where SketchUp puts nothing on the key.  After it, Alt is theirs.  The
+  mode resets with the tool, and pressing it works the cursor out again
+  where it stands rather than waiting for the next twitch of the mouse.
+
+`inference-alt` in the drive suite walks all five states.  Still theirs and
+not ours: Alt on the arc (tangent lock), on the offset (keep overlaps), on
+rotate (own axes against parent), and the protractor's Alt to leave the
+inferred plane.  Each is a small job now that the pattern is here.
+
 ### The tape's two guides, and the manual in both modes - 17 September
 
 **The tape.**  Tony, after checking SketchUp: "when i draw a point in from

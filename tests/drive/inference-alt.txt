@@ -1,0 +1,60 @@
+# Alt steps through what the cursor may infer, the way SketchUp's line tool
+# does - and the parallel and perpendicular offers it needs.
+#
+# Tony, 17 September: "we do want you to use the alt key to cycle inference
+# for the line tool... we need to try to be as compatible with SketchUp as
+# possible."  Their help: after the first click, Alt cycles all inferences
+# on, all linear inferences off, parallel and perpendicular only.
+#
+# What to look for: hsk-ia-perp says PERPENDICULAR TO EDGE with a magenta
+# band; hsk-ia-par says PARALLEL TO EDGE; hsk-ia-off says GRID, with the bar
+# offering Alt to bring them back; hsk-ia-pp is parallel again with "parallel
+# and square only" in the bar; hsk-ia-all is back to all of them.
+activate
+wait 1000
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 1000
+
+# a slanted line, so parallel to it is not an axis
+key l
+wait 400
+at 400 550
+click
+at 700 350 500
+click
+wait 600
+
+# square to it, then along it
+at 820 530 700
+wait 800
+shot /tmp/hsk-ia-perp.png
+at 900 217 700
+wait 800
+shot /tmp/hsk-ia-par.png
+
+# Alt: the linear inferences off
+hold alt
+key alt
+let alt
+wait 700
+shot /tmp/hsk-ia-off.png
+# Alt: parallel and square only
+hold alt
+key alt
+let alt
+wait 700
+shot /tmp/hsk-ia-pp.png
+# Alt: all of them again
+hold alt
+key alt
+let alt
+wait 700
+shot /tmp/hsk-ia-all.png
+key escape
+wait 400

@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Parallel and square to an edge, in magenta.**  While a line is under
+  way the cursor offers directions along the edge it started on, or the
+  piece just drawn, and square to it - SketchUp's magenta pair, which we
+  did not have.
+- **Alt steps through what the cursor may infer**, part way along a line:
+  all of them, then the directions off, then parallel and square only.
+  That is SketchUp's key and SketchUp's cycle.  Corners, midpoints and
+  crossings keep snapping on every stop.  Before a line is started, Alt
+  still holds the working plane.
+
 ## v2026.09.17.8
 
 ### New

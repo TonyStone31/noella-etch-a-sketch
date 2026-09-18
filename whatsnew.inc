@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Parallel and square to an edge, in magenta.**  While a line is under' + LineEnding +
+    '  way the cursor offers directions along the edge it started on, or the' + LineEnding +
+    '  piece just drawn, and square to it - SketchUp''s magenta pair, which we' + LineEnding +
+    '  did not have.' + LineEnding +
+    '- **Alt steps through what the cursor may infer**, part way along a line:' + LineEnding +
+    '  all of them, then the directions off, then parallel and square only.' + LineEnding +
+    '  That is SketchUp''s key and SketchUp''s cycle.  Corners, midpoints and' + LineEnding +
+    '  crossings keep snapping on every stop.  Before a line is started, Alt' + LineEnding +
+    '  still holds the working plane.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

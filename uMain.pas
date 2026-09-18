@@ -56,6 +56,16 @@ uses
 type
   TAppMode = (mdToy, mdPro);
 
+  { What the cursor is allowed to infer, and what Alt cycles through.
+
+    SketchUp's line tool: after the first click, Alt steps from all
+    inferences, to the linear ones off, to parallel and perpendicular only.
+    Their help, in docs/sketchup/05-drawing-basics.md.  A linear inference is
+    a direction being offered - on an axis, along an axis from a point,
+    parallel or perpendicular to an edge.  The points - an endpoint, a
+    midpoint, a crossing - are not linear and are never turned off by it. }
+  TInferMode = (imAll, imNoLinear, imParPerp);
+
   TProTool = (ptSelect, ptMove, ptLine, ptRect, ptArc, ptCircle, ptPush,
     ptText, ptErase, ptMeasure, ptDim, ptOrbit, ptOffset, ptRotate,
     ptProtractor, ptDrill, ptFollow);
@@ -572,6 +582,14 @@ type
       flat planes instead and latches, because sometimes you mean to draw in
       mid air; Esc, or a new tool, hands it back to the face. }
     FPlaneHeld: Boolean;
+    { Alt's three stops on the line tool, and the edge the parallel and
+      perpendicular offers are measured from - the segment just drawn, or
+      the edge the line was started on. }
+    FInferMode: TInferMode;
+    FParHas: Boolean;
+    FParDir: TP3;
+    { 0 none, 1 parallel, 2 perpendicular - what the cursor is on now }
+    FParPerp: Integer;
     { the face the shape is being drawn on, so a point can be held to it }
     FFacePt, FFaceNm: TP3;
     { true while a push is lining itself up with another face }
@@ -2072,23 +2090,20 @@ var
 
     Working on screen, the answer comes back as a point on the axis itself,
     so the working plane has no say in it. }
-  procedure AxisTry(const R: TP3);
+  { One direction offered from a reference point.  Kind is 0, 1 or 2 for the
+    three axes, 3 for parallel to the reference edge and 4 for perpendicular
+    to it - all the same arithmetic, all measured on screen. }
+  procedure DirTry(const R, AD0: TP3; Kind: Integer);
   var
-    K: Integer;
     Off, Along, T, LenSq: Double;
     PR, PA: TPointF;
     AD: TP3;
     UX, UY, VX, VY: Double;
   begin
+    AD := Norm3(AD0);
+    if Sqr(AD.X) + Sqr(AD.Y) + Sqr(AD.Z) < 0.5 then Exit;
     PR := ScreenOf(R);
-    for K := 0 to 2 do
     begin
-      { one unit along the axis, as it reads on screen }
-      case K of
-        0: AD := P3(1, 0, 0);
-        1: AD := P3(0, 1, 0);
-      else AD := P3(0, 0, 1);
-      end;
       PA := ScreenOf(P3(R.X + AD.X, R.Y + AD.Y, R.Z + AD.Z));
       UX := PA.X - PR.X;
       UY := PA.Y - PR.Y;
@@ -2107,27 +2122,50 @@ var
         out of the screen plane simply has no opinion.  In plan and isometric
         no axis is ever that steep; only the free camera can do it, which is
         why this only ever went wrong in the 3D view. }
-      if LenSq < Sqr(0.2 * Ppu) then Continue;
+      if LenSq < Sqr(0.2 * Ppu) then Exit;
 
       VX := SX - PR.X;
       VY := SY - PR.Y;
       Along := (VX * UX + VY * UY) / LenSq;      // in axis units
       Off := Abs(VX * UY - VY * UX) / Sqrt(LenSq);
 
-      if Abs(Along) * Sqrt(LenSq) < AXIS_MIN_PX then Continue;
+      if Abs(Along) * Sqrt(LenSq) < AXIS_MIN_PX then Exit;
       if Off < AxPx then
       begin
         { belt and braces: a point that is not a real number, or is further
           out than any drawing could be, is not an answer }
         T := Along;
-        if IsNan(T) or IsInfinite(T) or (Abs(T) > 1E9) then Continue;
+        if IsNan(T) or IsInfinite(T) or (Abs(T) > 1E9) then Exit;
         AxPx := Off;
-        AxIdx := K;
+        AxIdx := Kind;
         AxRef := R;
         { the point on the axis nearest the cursor, in the model }
         AxPt := P3(R.X + AD.X * T, R.Y + AD.Y * T, R.Z + AD.Z * T);
       end;
     end;
+  end;
+
+  { the three axes, from a reference point }
+  procedure AxisTry(const R: TP3);
+  begin
+    DirTry(R, P3(1, 0, 0), 0);
+    DirTry(R, P3(0, 1, 0), 1);
+    DirTry(R, P3(0, 0, 1), 2);
+  end;
+
+  { parallel to the reference edge, and square to it in the working plane -
+    SketchUp's magenta pair }
+  procedure ParPerpTry(const R: TP3);
+  var
+    AU, AV, Nm, Perp: TP3;
+  begin
+    if not FParHas then Exit;
+    DirTry(R, FParDir, 3);
+    PlaneAxes(FD.Plane, AU, AV);
+    Nm := Cross3(AU, AV);
+    Perp := Cross3(Nm, FParDir);
+    if Sqr(Perp.X) + Sqr(Perp.Y) + Sqr(Perp.Z) > 1E-12 then
+      DirTry(R, Perp, 4);
   end;
 
 begin
@@ -2261,7 +2299,7 @@ begin
     the working plane, which pins Z to that plane's height, so Z could only
     ever read the same number.  A point on the blue axis is a point with a
     real Z, and the readout follows it up. }
-  if (not PtOK) and
+  if (not PtOK) and (FInferMode = imAll) and
      AxisSnap(Proj, SX, SY, EDGE_PX * FUIScale, AxSnapP, AxSnapK) then
   begin
     FSnapKind := snOnAxis;
@@ -2279,10 +2317,20 @@ begin
   AxPt := Wf;
   AxRef := Wf;              { only read once AxisTry has set it; keeps the
                               compiler from having to take that on trust }
+  FParPerp := 0;
   if FDirLock < 0 then
   begin
-    if FStage > 0 then AxisTry(FP1);
-    if FLockOn then AxisTry(FLockPt);
+    { Alt says which of these are on offer - see TInferMode }
+    if FInferMode = imAll then
+    begin
+      if FStage > 0 then AxisTry(FP1);
+      if FLockOn then AxisTry(FLockPt);
+    end;
+    if FInferMode in [imAll, imParPerp] then
+    begin
+      if FStage > 0 then ParPerpTry(FP1);
+      if FLockOn then ParPerpTry(FLockPt);
+    end;
   end;
 
   { A corner beats a guide it is nearer than.
@@ -2309,6 +2357,19 @@ begin
   if PtOK and (AxIdx >= 0) and
      (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint, snOrigin]) then
     AxIdx := -1;
+
+  if AxIdx >= 3 then
+  begin
+    { Parallel or square to an edge.  The point is taken straight off the
+      ray - there are no other two coordinates to hold, since the direction
+      is not an axis - and the distance along it still snaps. }
+    W := AxPt;
+    FParPerp := AxIdx - 2;
+    FAxisLock := -1;
+    FAxisFrom := AxRef;
+    FSnapKind := snGrid;
+    Exit(W);
+  end;
 
   if AxIdx >= 0 then
   begin
@@ -8450,6 +8511,9 @@ const
     ('LOCKED TO RED', 'LOCKED TO GREEN', 'LOCKED TO BLUE');
 begin
   if FAxisLock in [0..2] then Exit(AXIS_LABEL[FAxisLock]);
+  { SketchUp's magenta pair, named the way it names them }
+  if FParPerp = 1 then Exit('PARALLEL TO EDGE');
+  if FParPerp = 2 then Exit('PERPENDICULAR TO EDGE');
   case FSnapKind of
     snEndpoint: Result := 'ENDPOINT';
     snMidpoint: Result := 'MIDPOINT';
@@ -11460,7 +11524,12 @@ var
       to.  An edge that runs off on its own gets no axis color, the same way
       it gets none once it is drawn. }
     if FAxisLock in [0..2] then Ax := FAxisLock else Ax := AxisAlong(A, B);
-    if Ax >= 0 then
+    { Parallel or square to an edge is magenta, which is the colour SketchUp
+      gives that pair - and it is not an axis colour, so it cannot be read
+      as one. }
+    if FParPerp > 0 then
+      C.Pen.Color := PixToColor(Pix($C8, $3C, $C8))
+    else if Ax >= 0 then
       C.Pen.Color := PixToColor(AxisPix(Ax))
     else
       C.Pen.Color := PixToColor(Theme.Accent);
@@ -11835,6 +11904,19 @@ begin
       C.Ellipse(Round(Hi[0].X) - 7, Round(Hi[0].Y) - 7,
                 Round(Hi[0].X) + 7, Round(Hi[0].Y) + 7);
     end;
+  end;
+
+  { --- parallel or square to an edge, in magenta like SketchUp ---------- }
+  if FParPerp > 0 then
+  begin
+    GP := ScreenOf(FAxisFrom);
+    C.Pen.Style := psDot;
+    C.Pen.Color := PixToColor(Pix($C8, $3C, $C8));
+    C.Pen.Width := Max(1, Round(FUIScale));
+    C.MoveTo(Round(GP.X), Round(GP.Y));
+    C.LineTo(SX + Round((SX - GP.X) * 0.18), SY + Round((SY - GP.Y) * 0.18));
+    C.Pen.Style := psSolid;
+    C.Pen.Width := 1;
   end;
 
   { --- the axis you are locked to --------------------------------------- }
@@ -12418,6 +12500,10 @@ end;
 procedure TMainForm.ResetTool;
 begin
   FStage := 0;
+  { Alt's inference cycle is for the run being drawn, not for the session }
+  FInferMode := imAll;
+  FParHas := False;
+  FParPerp := 0;
   FFollowFace := -1;
   FUnfoldPick := False;
   FNoteDrag := -1;
@@ -12625,6 +12711,8 @@ function TMainForm.SnapSays: string;
 begin
   if FAxisLock in [0..2] then
     Exit('held on the ' + AxisName(FAxisLock) + ' axis');
+  if FParPerp = 1 then Exit('parallel to the last edge');
+  if FParPerp = 2 then Exit('square to the last edge');
   case FSnapKind of
     snEndpoint: Result := 'on the end of an edge';
     snMidpoint: Result := 'on the middle of an edge';
@@ -12667,8 +12755,14 @@ begin
       if FStage = 0 then
         Result := 'arrows pick the plane, Alt holds it where it is'
       else
-        Result := 'arrows lock red, green or blue, Shift holds the one you ' +
-                  'are on, double-click finishes';
+        case FInferMode of
+          imNoLinear: Result := 'Alt: back to parallel and square, then to all - ' +
+            'points still snap';
+          imParPerp: Result := 'parallel and square only - Alt for all of them';
+        else
+          Result := 'arrows lock red, green or blue, Shift holds the one you ' +
+                    'are on, Alt steps through the inferences';
+        end;
     ptRect:
       if FStage = 0 then Result := 'arrows pick the plane, Alt holds it'
       else Result := 'type 8x10, or a minus to flip a side';
@@ -12704,7 +12798,9 @@ begin
   case FTool of
     ptSelect:   Result := 'Ctrl adds  Shift toggles  double-click takes more';
     ptLine:     if FStage = 0 then Result := 'arrows: the plane   Alt: hold it'
-                else Result := 'arrows: lock an axis   Shift: hold it';
+                else if FInferMode = imNoLinear then Result := 'Alt: inferences back on'
+                else if FInferMode = imParPerp then Result := 'parallel and square only   Alt: all'
+                else Result := 'arrows: lock an axis   Shift: hold it   Alt: what it infers';
     ptRect:     if FStage = 0 then Result := 'arrows: the plane   Alt: hold it';
     ptCircle, ptArc: Result := '+ and -: sides';
     ptPush:     if FLastPush <> 0 then Result := 'double-click: the last push again';
@@ -13097,6 +13193,21 @@ begin
         FP1 := FCur;
         FStage := 1;
         FDirLock := -1;
+        { What parallel and square are offered from until a piece is drawn:
+          the edge this line starts on, which is how SketchUp's magenta pair
+          gets something to be parallel to.  Once a piece is drawn, that
+          piece takes over - see ProCommit. }
+        FInferMode := imAll;
+        FParHas := False;
+        I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale,
+          GUIDE_PICK_PX * FUIScale);
+        if (I >= 0) and (FD.Doc[I].Kind = ekLine) and not FD.Doc[I].Dim then
+        begin
+          FParDir := P3(FD.Doc[I].B.X - FD.Doc[I].A.X,
+                        FD.Doc[I].B.Y - FD.Doc[I].A.Y,
+                        FD.Doc[I].B.Z - FD.Doc[I].A.Z);
+          FParHas := Sqr(FParDir.X) + Sqr(FParDir.Y) + Sqr(FParDir.Z) > 1E-12;
+        end;
       end
       else if FClickN >= 2 then
       begin
@@ -13655,6 +13766,10 @@ begin
           { Whatever this line did to the flat areas - closed a loop, cut a
             face in two, cut one of the halves again - is worked out by asking
             what the edges enclose, rather than by a rule per case. }
+          { what parallel and square are measured from, from here on: the
+            piece just drawn - see TInferMode }
+          FParDir := P3(T.X - FP1.X, T.Y - FP1.Y, T.Z - FP1.Z);
+          FParHas := Sqr(FParDir.X) + Sqr(FParDir.Y) + Sqr(FParDir.Z) > 1E-12;
           I := FaceCount;
           K := RebuildFlatFaces;
           FHealOn := False;
@@ -21396,6 +21511,33 @@ begin
 
     if Key = VK_MENU then
     begin
+      { Mid-line, Alt is SketchUp's: it steps through what the cursor is
+        allowed to infer.  Their help says "after the first click", and that
+        is exactly when it is wanted - before it, there is no direction to
+        offer and Alt is ours, holding the working plane so you can draw in
+        mid air.  See TInferMode. }
+      if (FTool = ptLine) and (FStage >= 1) then
+      begin
+        if FInferMode = High(TInferMode) then FInferMode := Low(TInferMode)
+        else Inc(FInferMode);
+        case FInferMode of
+          imNoLinear: FCmdMsg := 'Inferences: the points only - no axis, ' +
+            'nothing parallel.  Alt again for parallel and square.';
+          imParPerp: FCmdMsg := 'Inferences: parallel and square to the last ' +
+            'edge only.  Alt again for all of them.';
+        else
+          FCmdMsg := 'Inferences: all of them.  Alt steps through them.';
+        end;
+        { work the cursor out again where it stands: the mode has changed
+          under it, and waiting for the next twitch of the mouse to show
+          that would read as the key having done nothing }
+        FCur := ResolveSnapAt(FMouseSX, FMouseSY);
+        InvalidateStatus;
+        pbCmd.Invalidate;
+        pbScreen.Invalidate;
+        Key := 0;
+        Exit;
+      end;
       { Alt steps through the flat planes and latches, so you can draw in mid
         air.  It used to only suspend snapping, which it still does while
         held. }

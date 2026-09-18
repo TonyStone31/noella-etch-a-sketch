@@ -22,6 +22,8 @@ will land - not where the pointer is.</p>
 <tr><td>Blue</td><td>ON FACE</td><td class="alias">on the surface, when nothing better is near</td></tr>
 <tr><td>Yellow</td><td>ORIGIN</td><td class="alias">0,0,0</td></tr>
 <tr><td>Axis color</td><td>ON RED / GREEN / BLUE AXIS</td><td class="alias">on one of the three lines through the origin</td></tr>
+<tr><td>Magenta</td><td>PARALLEL TO EDGE</td><td class="alias">along the edge the line started on, or the piece just drawn</td></tr>
+<tr><td>Magenta</td><td>PERPENDICULAR TO EDGE</td><td class="alias">square to that same edge, in the plane you are drawing on</td></tr>
 <tr><td>Accent</td><td>GRID</td><td class="alias">the SNAP TO step, when there is nothing else - a dot, not a diamond</td></tr>
 </table>
 <p>A corner beats a midpoint, a midpoint beats a point on an edge, and
@@ -41,6 +43,10 @@ locks blue.  Down lets go.  The rubber band turns that color to say so.</li>
 already drifted onto.</li>
 <li>Type a length and press <kbd>Enter</kbd> and the direction is whatever is
 locked or inferred, at exactly that distance.</li>
+<li><b>Alt</b>, part way along a line, steps through what may be inferred:
+all of it, then the directions off, then parallel and square to the last edge
+only.  This is SketchUp's cycle, on SketchUp's key.  Points - corners,
+midpoints, crossings - keep snapping whichever stop you are on.</li>
 </ul>
 
 <h2>The grid step</h2>

@@ -77,5 +77,18 @@ plane, ↑ the flat XY plane.
 
 ## Toggling linear inferencing (Line tool)
 After the first click, **Alt** cycles: all inferences on → all linear inferences
-off → parallel and perpendicular only.  *(Not implemented; our Alt holds the
-working plane instead.)*
+off → parallel and perpendicular only.
+
+**Ours matches, 17 September 2026.**  Same three stops, same key, same place -
+after the first click.  A linear inference is a direction being offered: on an
+axis, along an axis from a point, or parallel or square to an edge.  The points
+- endpoint, midpoint, crossing, on edge - are not linear and stay on through
+all three.
+
+Parallel and square are measured from the edge the line was started on, or
+from the piece just drawn, whichever came last, and they are drawn magenta as
+they are over there.
+
+*Before* the first click Alt is still ours, holding the working plane so a
+shape can be drawn in mid air.  SketchUp has nothing on Alt there, and nothing
+that does that job, so there is nothing to clash with.
