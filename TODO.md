@@ -267,6 +267,39 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## A theme switch on the manual's website - 18 September
+
+Tony, reading the manual on his phone: "I think we will want a toggle
+link/button in the html."
+
+`docs/help/theme.js`, and the thing worth remembering about it is where the
+button comes from: **it is built by the script rather than written into the
+pages.**  The same files are rendered two ways - by a browser on the website
+and by LazInk in the program's own help window - and LazInk has no
+JavaScript at all.  A button in the markup would sit there in the program
+doing nothing when tapped.  Built in JavaScript, it simply never exists
+there, which is right: that window already wears whatever theme the program
+is wearing, handed over as a stylesheet by `PageWithMode`.
+
+Three states, because two would be a lie about what Auto means.  The choice
+lands as `data-theme` on `<html>` rather than a class on the body, because
+the palettes are custom properties on `:root` and that is the only place an
+override can beat them - `:root[data-theme="light"]` at 0,2,0 against the
+media query's 0,1,0, so it wins whatever the order.
+
+The first half of the script runs while the page is still parsing, on
+purpose: waiting for the document would flash the wrong theme on every page
+turn.
+
+Checked, because none of it is visible from here: node ran the logic against
+a stub DOM - starts on Auto with no attribute, builds one button, cycles
+auto/light/dark and saves each, restores a remembered choice on reload, and
+survives storage that throws the way a private window's does.  And the
+in-program help was driven and photographed to make sure LazInk skips a
+`<script>` tag rather than printing its contents.
+
+---
+
 ## Four more help pages, and a page for something unbuilt - 18 September
 
 `select`, `erase`, `faces` and `protractor` had no pictures.  They have one

@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- **A light/dark switch on the manual's website.**  Top right of every
+  page: Auto follows your phone or desktop, Light and Dark override it,
+  and the choice is remembered in that browser.  The manual opened inside
+  the program has no button and still follows the program's own theme.
 - **Four more pages of the manual have pictures**: the select tool (one
   click, two, three, then a dragged box), the eraser, faces front and back
   - which now shows an edge rubbed out and drawn back in, faces going and

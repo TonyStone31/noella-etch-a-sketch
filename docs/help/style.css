@@ -19,6 +19,24 @@
         --text:#22262c;--dim:#5e6670;--accent:#176bbd;--paper:#ffffff;
         --hover:#0d4f8f}
 }
+/* And the switch on the website, which beats both of the above because it is
+   the one the reader asked for out loud.  data-theme lands on <html> rather
+   than a class on the body: the palettes are custom properties on :root, so
+   that is the only place an override can win from.  Set by theme.js, which
+   never runs in the program's help window - see the note at the top of it. */
+:root[data-theme="light"]{--bg:#f4f5f6;--panel:#eceef1;--hi:#e4e6e9;
+      --line:#cfd3d8;--text:#22262c;--dim:#5e6670;--accent:#176bbd;
+      --paper:#ffffff;--hover:#0d4f8f}
+:root[data-theme="dark"]{--bg:#23262c;--panel:#1d2027;--hi:#33383f;
+      --line:#3c424a;--text:#e8ecf2;--dim:#8a93a0;--accent:#4ac8f0;
+      --paper:#ffffff;--hover:#ffffff}
+/* The theme switch.  Floated so it sits beside the crumbs or the title
+   rather than pushing anything down, and big enough to hit with a thumb. */
+.themebtn{float:right;margin:-4px 0 0 12px;background:var(--panel);
+  color:var(--dim);border:1px solid var(--line);border-radius:999px;
+  padding:6px 14px;font:13px system-ui,'Segoe UI',Ubuntu,sans-serif;
+  cursor:pointer;min-height:32px}
+.themebtn:hover{color:var(--text);border-color:var(--accent)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
      font:15px/1.65 system-ui,'Segoe UI',Ubuntu,sans-serif}
