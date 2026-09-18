@@ -110,6 +110,59 @@ paper on purpose, gamma-space blending in `BlendPixel`, or edge weight.
 
 ---
 
+## Two reports from the etch-a-sketch toy - 17 September, late
+
+Both came in while Tony was drawing the toy itself, and he called them
+"probably mostly user error".  One of them is not.
+
+### The pick takes the wall under the rim
+
+"trying to erase the black ring on the top of the knobs... but it ends up
+selecting some of its walls underneath it sometimes."
+
+Real, and the mechanism is in `HitEdge`.  It keeps the edge with the
+smallest **screen** distance within nine pixels, and depth only ever
+disqualifies: an edge is skipped when it is hidden at all three of the
+points sampled along it, at 0.2, 0.5 and 0.8.  A knob's wall edge is a
+silhouette - visible down its whole length - so it is never skipped, and
+where it passes within a pixel or two of the rim on screen it simply wins on
+2D distance.  Nothing prefers what is in front.
+
+**The rule it should have**: among the edges within reach, prefer the one
+that is visible *at the point nearest the cursor* - not merely visible
+somewhere along itself.  That is what "in front wins" means when you are
+pointing at a spot, it keeps the good half of the three-sample rule (an edge
+coming out from behind something is still pickable by the part you can see),
+and it needs only the boolean `HiddenAt` already there, so no depth-sign
+convention has to be got right.  Cost is one depth-buffer lookup per
+candidate inside nine pixels, which is a handful.
+
+Not done: it is a change to the hottest path in the program and to how the
+select tool *feels*, and the feel is Tony's call.
+
+### Groups, and locking
+
+"i think this is why we will need to make things groups and stuff that can be
+locked ... i could have made that etchasketch a group and locked it then
+moved the letters onto its surface where i want them, then ungrouped and
+regrouped ... im struggling to properly set my letters on the face."
+
+He is describing SketchUp's Groups exactly, and the reason people reach for
+them is exactly this: **a group is what stops the geometry you are working
+against from joining onto the geometry you are working with**.  Letters laid
+on a face merge with it; the hollow of an R cuts the face under it; erasing
+the R takes a piece of the face with it.  That is not a bug in the region
+finder - it is the region finder working, on a drawing that has no way to
+say "these two things are separate objects".
+
+It is the largest single gap between us and SketchUp, bigger than any tool.
+`Grp` already exists on an entity for solids, so there is a thread to pull,
+but the real work is everywhere else: picking, moving, erasing, the region
+finder, save and load, the entity panel, and a way in and out of a group.
+Not a late-night job.
+
+---
+
 ## The ink pass, chased - 17 September
 
 The frame line in Tony's reports had been saying `ink 83` at 507 things and
