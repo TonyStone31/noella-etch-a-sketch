@@ -10,7 +10,7 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## v2026.09.18.2
+## Next release
 
 ### New
 
@@ -22,6 +22,11 @@
   on the diagonal - which is every facet of a pipe - was costing what its
   bounding box costs rather than what the face costs.  A two-inch spool
   went from 70 milliseconds a frame to 34.
+
+## v2026.09.18.2
+
+### New
+
 - **Duct looks like duct.**  Everything the fitting builder makes is
   galvanised sheet now instead of paper-white, and the fabric of a flex
   connector is black canvas rather than metal.
