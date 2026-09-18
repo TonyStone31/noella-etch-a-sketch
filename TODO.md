@@ -267,6 +267,56 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## The fitting dialog will not take a coat of paint - 18 September
+
+Tony: "if we are gonna dabble in that dialog it may be time to transition it
+to the sexy bgra controls so the dialog carries more of our look."
+
+**Tried the cheap way first and it does not work.**  The other dialogs are
+built in code out of BGRA controls and skinned as they are made; this one is
+a designed form, `uTransition.lfm`, with eighty-four controls on it:
+
+| | |
+|---|---|
+| TLabel | 36 |
+| TEdit | 20 |
+| TComboBox | 7 |
+| TButton | 7 |
+| TRadioGroup | 6 |
+| TCheckBox | 2 |
+| TPageControl, TTabSheet, TPaintBox | 5 |
+
+So rather than convert them, a pass was written that walks the tree and puts
+the theme on anything that honours `Color` and `Font`.  The form went dark,
+the edits and combos and labels came with it - **and the captions on all six
+radio groups and both check boxes vanished.**  On GTK3 those captions are
+drawn by the widgetset, which ignores `Font.Color`, so they stayed dark on a
+now-dark background.  Leaving those two kinds alone does not help either:
+they inherit the form's colour, so darkening the form alone is enough to
+lose them.
+
+Reverted, and the dialog is native and readable again.  The finding is the
+useful part: **this dialog cannot be themed by repainting.  The radio groups
+and the check boxes have to be replaced**, and once those go the buttons may
+as well go with them.
+
+The job, when it is wanted:
+
+* the six `TRadioGroup`s become panels of BGRA radio buttons - there is no
+  drop-in, so this is the real work and it is most of the day;
+* the two `TCheckBox`es and the seven `TButton`s swap for their BC
+  equivalents, which is a class change in the `.lfm` plus whatever
+  properties do not carry across;
+* labels, edits and combos are then a two-line `Dress` walk of the kind
+  already written and thrown away - it is in this commit's history if it is
+  wanted back.
+
+Worth doing when the shop tools get their next pass, and not before: Tony
+has already said the shop tools need more work, and reskinning a dialog that
+is about to change shape is work done twice.
+
+---
+
 ## TDF corners in the fitting builder - 18 September
 
 Tony: "in the duct fitting builder we have tdf flanges... except the picture

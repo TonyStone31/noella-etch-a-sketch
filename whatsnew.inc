@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **TDF flanges can be drawn with the corners in.**  The duct fitting' + LineEnding +
+    '  builder offers *TDF flange with the corners in* beside the plain one.' + LineEnding +
+    '  A TDF''s sides each stop short of the corner so the next can fold, which' + LineEnding +
+    '  leaves a square gap at each of the four; pick the new one and those gaps' + LineEnding +
+    '  are filled with the corner pieces that go in them in the shop, instead' + LineEnding +
+    '  of being left open the way the flange comes off the machine.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

@@ -138,6 +138,11 @@ const
     them apart in the picture is the shading and the edges, which is exactly
     what tells them apart on the bench. }
   GALV_R = 178;  GALV_G = 185;  GALV_B = 193;
+  { And the fabric of a flex connector, which is not metal and should not
+    look like it: the neoprene-coated canvas everybody has handled, near
+    black with a little warmth so it does not read as a hole in the
+    drawing. }
+  CANVAS_R = 38;  CANVAS_G = 36;  CANVAS_B = 34;
   { A notch is cut on the angle the way the snips do it: a line marked the
     notch depth in from the end, and the cut run from about three quarters
     of that out along the opening edge back to the point where the mark
@@ -677,6 +682,10 @@ type
     Weight: Single;
     Inch: Double;
     Spec: TTransitionSpec;     { for the stiffening, wall by wall }
+    { what every face built with this is made of.  Galvanised sheet unless
+      something says otherwise, and the only thing that says otherwise is
+      the fabric of a flex connector. }
+    Mat: TColor;
   end;
 
 function Add(const A, B: TP3; F: Double): TP3;
@@ -712,7 +721,7 @@ procedure BFace(const B: TBuild; const P: array of TP3);
 begin
   B.D.AddFaceRaw(P, B.Ink, True);
   B.D.SetFaceGroup(B.D.Live - 1, B.G);
-  B.D.SetMaterial(B.D.Live - 1, RGBToColor(GALV_R, GALV_G, GALV_B));
+  B.D.SetMaterial(B.D.Live - 1, B.Mat);
 end;
 
 { The same, wound so its normal points the way Out does.  The renderer
@@ -1159,6 +1168,7 @@ begin
   Result.Inch := T.Inch;
   if Result.Inch <= 0 then Result.Inch := 1 / 12;
   Result.Spec := T;
+  Result.Mat := RGBToColor(GALV_R, GALV_G, GALV_B);
 end;
 
 { the offset the dimensions and the tag stand off by }
@@ -1211,6 +1221,7 @@ begin
   { the fabric, in canvas, squashed to half }
   FB := B;
   FB.Ink := $00A8C4D8;
+  FB.Mat := RGBToColor(CANVAS_R, CANVAS_G, CANVAS_B);
   Section(P0, Strip);
   Section(P1, Strip + Fabric);
   if EndIx = 0 then BuildRun(FB, P0, P1, [Raw, Raw], [False, True], -1)
