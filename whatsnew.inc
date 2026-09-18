@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.18.5' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A fifth example: a football.**  Twelve pentagons and twenty hexagons,' + LineEnding +
+    '  cut off the corners of an icosahedron the way the real one is - and the' + LineEnding +
+    '  panels stand off a dark inner ball so the seams read as seams.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.4' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
