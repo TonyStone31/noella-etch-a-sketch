@@ -750,8 +750,16 @@ type
       EdgeW: Single);
 
   public
-    { where a frame's time went, ms, added up until cleared: setup, edges
-      drawn whole, faces gathered, faces painted, visible runs, the rest }
+    { Where a frame's time went, ms, added up until cleared:
+
+        0  setup, the edge index, and the edges drawn whole
+        1  the faces gathered and their depths taken
+        2  sorted, and every visible one painted
+        3  the lines that live on a face, put back on the visible stretches
+        4  guide points, and the tidying up
+
+      The list used to be one out of step with the code, which sent a
+      profiling session after the wrong pass. }
     ProfMs: array[0..5] of Double;
     { The surface and the projector of the last render.  Its depth buffer
       answers "is this point hidden" in one lookup for anything asked with

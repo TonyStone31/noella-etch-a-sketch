@@ -1458,6 +1458,20 @@ var
   { the exact depth for this row, where DepthMesh supplied triangles }
   Mesh: TDepthTris;
   MeshY0, MeshY1: array of Integer;
+  { The edges of every loop, flattened, so a row does not have to walk the
+    whole outline to find the two or three edges that actually cross it.
+
+    This was most of the ink pass.  A face with rounded corners is eighty
+    edges and a hole is thirty more; the row loop asked all of them, four
+    times a row, for every row of the face's box.  On the drawing Tony sent
+    at 23:19 - an etch-a-sketch toy, 409 faces - that came to eleven
+    milliseconds a frame, half of it in here.  At any one row a closed
+    outline is crossed by a handful of edges and no more. }
+  EAX, EAY, EBX, EBY, ELo, EHi: array of Single;
+  EOrder, EAct: array of Integer;
+  NE, NAct, NextE, AI, AJ: Integer;
+  { and the same for the depth triangles, which were walked whole for every
+    row as well }
   RowZ: array of Double;
   RowHas: array of Boolean;
   TI, TC, TXLo, TXHi: Integer;
@@ -1540,6 +1554,50 @@ begin
 
   SetLength(Xs, Total + 2);
   SetLength(Cov, X1 - X0 + 2);
+
+  { --- the edges, once ------------------------------------------------
+        A level edge is left out: the crossing test can never fire on one,
+        because both its ends answer the same side of any sample row. }
+  SetLength(EAX, Total); SetLength(EAY, Total);
+  SetLength(EBX, Total); SetLength(EBY, Total);
+  SetLength(ELo, Total); SetLength(EHi, Total);
+  SetLength(EOrder, Total); SetLength(EAct, Total);
+  NE := 0;
+  for L := 0 to High(Loops) do
+  begin
+    N := Length(Loops[L]);
+    if N < 3 then Continue;
+    for I := 0 to N - 1 do
+    begin
+      J := (I + 1) mod N;
+      if Loops[L][I].Y = Loops[L][J].Y then Continue;
+      EAX[NE] := Loops[L][I].X; EAY[NE] := Loops[L][I].Y;
+      EBX[NE] := Loops[L][J].X; EBY[NE] := Loops[L][J].Y;
+      if EAY[NE] < EBY[NE] then
+      begin ELo[NE] := EAY[NE]; EHi[NE] := EBY[NE]; end
+      else
+      begin ELo[NE] := EBY[NE]; EHi[NE] := EAY[NE]; end;
+      EOrder[NE] := NE;
+      Inc(NE);
+    end;
+  end;
+  if NE = 0 then Exit;
+  { in the order they start down the screen, so the row loop can take them
+    in as it reaches them - insertion sort, because a face is tens of edges
+    and it is already nearly sorted by the way an outline is written }
+  for I := 1 to NE - 1 do
+  begin
+    AI := EOrder[I];
+    J := I - 1;
+    while (J >= 0) and (ELo[EOrder[J]] > ELo[AI]) do
+    begin
+      EOrder[J + 1] := EOrder[J];
+      Dec(J);
+    end;
+    EOrder[J + 1] := AI;
+  end;
+  NAct := 0;
+  NextE := 0;
   if Length(Mesh) > 0 then
   begin
     SetLength(RowZ, X1 - X0 + 2);
@@ -1550,6 +1608,28 @@ begin
   begin
     for X := 0 to High(Cov) do
       Cov[X] := 0;
+
+    { --- which edges this row can possibly be crossed by ---------------
+          The samples sit inside (Y, Y + 1), so an edge matters here when it
+          reaches into that band.  Taken in as the rows come down to them,
+          dropped once the rows have passed them, and the bounds are kept
+          generous by a whole row either way: a handful of edges that cannot
+          fire costs nothing, and one wrongly dropped is a hole in a face. }
+    while (NextE < NE) and (ELo[EOrder[NextE]] <= Y + 1) do
+    begin
+      EAct[NAct] := EOrder[NextE];
+      Inc(NAct);
+      Inc(NextE);
+    end;
+    AJ := 0;
+    for AI := 0 to NAct - 1 do
+      if EHi[EAct[AI]] >= Y then
+      begin
+        EAct[AJ] := EAct[AI];
+        Inc(AJ);
+      end;
+    NAct := AJ;
+    if NAct = 0 then Continue;
 
     { --- the exact depth along this row, one triangle at a time --------
           Each triangle is clipped to the band of the row - not to the line
@@ -1606,18 +1686,13 @@ begin
     begin
       SY := Y + (K + 0.5) / Smp;
       Cnt := 0;
-      for L := 0 to High(Loops) do
+      for AI := 0 to NAct - 1 do
       begin
-        N := Length(Loops[L]);
-        if N < 3 then Continue;
-        for I := 0 to N - 1 do
-        begin
-          J := (I + 1) mod N;
-          if (Loops[L][I].Y <= SY) = (Loops[L][J].Y <= SY) then Continue;
-          T := (SY - Loops[L][I].Y) / (Loops[L][J].Y - Loops[L][I].Y);
-          Xs[Cnt] := Loops[L][I].X + (Loops[L][J].X - Loops[L][I].X) * T;
-          Inc(Cnt);
-        end;
+        J := EAct[AI];
+        if (EAY[J] <= SY) = (EBY[J] <= SY) then Continue;
+        T := (SY - EAY[J]) / (EBY[J] - EAY[J]);
+        Xs[Cnt] := EAX[J] + (EBX[J] - EAX[J]) * T;
+        Inc(Cnt);
       end;
       if Cnt < 2 then Continue;
 

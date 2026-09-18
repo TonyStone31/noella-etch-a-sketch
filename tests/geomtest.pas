@@ -2729,6 +2729,77 @@ begin
   end;
 end;
 
+{ FillLoops is half the ink pass, so it was made to look at only the edges
+  that reach a row instead of all of them.  The cases that would break are
+  the ones the active list has to get exactly right: a hole, which needs
+  four crossings on a row rather than two; a level edge, which is left out
+  of the list altogether because it can never be crossed; and a shape whose
+  loops start at different heights, which is what the taking-in and the
+  dropping are for. }
+procedure TestFilledLoopsWithHolesAndLevelEdges;
+var
+  S: TArtSurface;
+  Loops: array of TPtFLoop;
+
+  function At(X, Y: Integer): Integer;
+  var
+    P: PPix;
+  begin
+    P := S.ScanLine(Y);
+    Inc(P, X);
+    Result := P^.R;
+  end;
+
+  procedure Rect_(K: Integer; X0, Y0, X1, Y1: Single);
+  begin
+    SetLength(Loops[K], 4);
+    Loops[K][0] := PtF(X0, Y0);
+    Loops[K][1] := PtF(X1, Y0);
+    Loops[K][2] := PtF(X1, Y1);
+    Loops[K][3] := PtF(X0, Y1);
+  end;
+
+begin
+  WriteLn('-- filled loops: holes, level edges, loops at different heights');
+  S := TArtSurface.Create(200, 200);
+  try
+    { a square with a square hole in it }
+    SetLength(Loops, 2);
+    Rect_(0, 20, 20, 120, 120);
+    Rect_(1, 50, 50, 90, 90);
+    S.Clear(Pix(255, 255, 255));
+    S.FillLoops(Loops, Pix(0, 0, 0), 1);
+    Ok(At(30, 30) < 40, 'the ring is filled');
+    Ok(At(110, 110) < 40, 'the far corner of it too');
+    Ok(At(70, 70) > 230, 'and the hole is not');
+    Ok(At(70, 40) < 40, 'above the hole is');
+    Ok(At(70, 100) < 40, 'below it is');
+    Ok(At(10, 70) > 230, 'outside it is not');
+    Ok(At(150, 70) > 230, 'nor the other side');
+
+    { a triangle - every edge slanted, none level - and one whose loops
+      begin at different heights, so the list takes them in as it reaches
+      them rather than all at once }
+    SetLength(Loops, 2);
+    SetLength(Loops[0], 3);
+    Loops[0][0] := PtF(100, 20);
+    Loops[0][1] := PtF(160, 140);
+    Loops[0][2] := PtF(40, 140);
+    Rect_(1, 20, 160, 60, 190);
+    S.Clear(Pix(255, 255, 255));
+    S.FillLoops(Loops, Pix(0, 0, 0), 1);
+    Ok(At(100, 100) < 40, 'the triangle is filled');
+    { five rows below the apex the triangle is already five pixels wide, so
+      the outside to test against is off to the side of it }
+    Ok(At(100, 15) > 230, 'and nothing above its apex');
+    Ok(At(40, 40) > 230, 'nor out to the side of it');
+    Ok(At(40, 175) < 40, 'the square that starts lower down is filled too');
+    Ok(At(80, 175) > 230, 'and nothing beside it');
+  finally
+    S.Free;
+  end;
+end;
+
 procedure TestFaceMaterial;
 var
   D: TWorkDoc;
@@ -7936,6 +8007,7 @@ begin
   TestPushedEdgesKeepTheOutlineInk;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestFilledLoopsWithHolesAndLevelEdges;  WriteLn;
   TestFaceMaterial;  WriteLn;
   TestPaintedFaceComesOutPainted;  WriteLn;
   TestExamplesKeepEdits;  WriteLn;

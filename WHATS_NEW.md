@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- **Big drawings draw faster.**  Filling the faces was half of every
+  frame; it now looks only at the edges that reach each row instead of
+  all of them.  Measured on three drawings sent in with reports: about a
+  sixth off the time a frame takes, and more the more detailed the shapes.
 - **Set a color on everything picked at once.**  With several things
   picked the entity panel now paints every picked face, or recolors every
   picked line, arc, note and dimension, in one trip through the color

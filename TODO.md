@@ -110,6 +110,63 @@ paper on purpose, gamma-space blending in `BlendPixel`, or edge weight.
 
 ---
 
+## The ink pass, chased - 17 September
+
+The frame line in Tony's reports had been saying `ink 83` at 507 things and
+`ink 61` at 1259, so the ink pass rather than the screen pass was the cost.
+`tools/inkprof.pas` loads the drawing a report carries - the real one, not a
+made-up model - and times `Render` with TWorkDoc's own `ProfMs` breakdown.
+
+**Where it went**, on the etch-a-sketch toy from the 23:19 report, 1259
+things and 409 faces, one orbit frame:
+
+| pass | ms | share |
+|---|---|---|
+| setup, edge index, edges drawn whole | 2.0 | 8% |
+| faces gathered | 1.6 | 7% |
+| **faces painted** | **15.2** | **63%** |
+| lines put back on visible faces | 4.8 | 20% |
+
+Sorting, the plane table and `EnsureOnFace` all measured under half a
+millisecond - so "faces painted" meant the fill itself.  Taking the fill out
+altogether dropped the frame from 25 ms to 12 ms: **`FillLoops` was half the
+frame**.  Inside it, four samples a row cost about 7 ms and the per-row walk
+over the depth triangles about 3 ms.
+
+**What was wrong with it.**  Every sample row walked *every edge of every
+loop* to find the two or three it is actually crossed by.  A face with
+rounded corners is eighty edges and a hole adds thirty more, four samples a
+row, every row of the face's box.  So: the edges are flattened once, sorted
+by where they start down the screen, and taken into an active list as the
+rows reach them and dropped once the rows have passed - the ordinary active
+edge table.  Level edges are left out entirely; the crossing test can never
+fire on one.
+
+**Measured, three runs each, on the three drawings the reports carried:**
+
+| drawing | before | after |
+|---|---|---|
+| 1259 things, 409 faces | 24.0 ms | 20.7 ms |
+| 664 things, 210 faces | 26.0 ms | 21.3 ms |
+| 507 things, 196 faces | 20.0 ms | 16.3 ms |
+
+**And one thing that was tried and thrown away**: the same treatment for the
+depth triangles, which are also walked whole every row.  It made things
+*worse* - 15.5 ms to 18.1 ms on the same drawing - because the existing
+reject is two integer compares, and a sort plus a per-row compaction costs
+more than it saves.  Measured, reverted, written down here so nobody tries
+it twice.
+
+**What is left.**  The second drawing has half the faces of the first and
+paints slower, so what remains is not face count but the pixels they cover -
+real work, plus overdraw, because the painter's algorithm fills a face even
+when a nearer one will cover it entirely.  Cutting that means occlusion
+before filling, which is a bigger change than this one.  `ProfMs`' comment
+was also one out of step with the code, which sends a profiling session
+after the wrong pass; fixed.
+
+---
+
 ## Colours on a whole selection - 17 September
 
 By report, an hour after the material went in: "would be great if we could
