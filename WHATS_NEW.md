@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The manual is drawn by a new engine.**  LazInk, which draws the help
+  window inside the program, has replaced the renderer it grew up with -
+  so this build carries a manual that lays out through a proper box tree
+  and hangs its text on baselines.  It should read the same and draw
+  faster, and there is one fewer licence riding along with the download:
+  LazInk is MIT throughout now, where the old renderer was MPL and owed
+  its source to anybody who was given a copy of this.
+
 ## v2026.09.18.5
 
 ### New
