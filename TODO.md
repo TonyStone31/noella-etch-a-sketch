@@ -267,6 +267,34 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## The cube has no way out of a face - 18 September
+
+Tony, watching the animation: "you click the top of the cube and it rolls
+down so you miscalculate how far down you need to click the cube to get it
+to change the view again."
+
+He was reporting a bad recording and found a real gap doing it.  **Once you
+are square on to a face, the cube draws as a flat square** - no corners, no
+edges, nothing on it to click.  The cube took you there and cannot bring you
+back; you need Ctrl and an arrow, a drag, or the VIEW button.  Every other
+program's cube keeps a way out at that point: Revit and Fusion put little
+arrows round the edge of it for stepping to the next face, and most keep a
+sliver of the neighbouring faces visible so there is still something to aim
+at.
+
+Not built.  The cheapest version is probably the arrows - four of them
+round the cube while it is face-on, one step each - and it is a
+self-contained job in the cube's own painting and hit-testing.  Worth doing
+before the cube gets recommended to anybody, because a control that strands
+you is worse than no control.
+
+The animation was re-recorded meanwhile: it clicks the cube once, from the
+only state the script can know - the view the drawing opens in - and uses
+the keyboard for everything after, which needs no geometry.  The page says
+the flat-square thing outright.
+
+---
+
 ## The cube, the tape, rotate, and the report page - 18 September
 
 Three animations, all of them of things a still picture genuinely cannot
