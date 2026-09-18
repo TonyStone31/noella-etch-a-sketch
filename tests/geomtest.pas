@@ -6167,7 +6167,8 @@ procedure TestMetal;
 var
   D: TWorkDoc;
   T: TTransitionSpec;
-  First, Plain, I, Diag: Integer;
+  First, Plain, I, J, Diag, Soft: Integer;
+  Dish, Crown: Double;
 begin
   WriteLn('Gauge and stiffening');
   T := Default(TTransitionSpec);
@@ -6190,17 +6191,48 @@ begin
     T.W0 := 30 / 12; T.H0 := 30 / 12; T.W1 := 30 / 12; T.H1 := 30 / 12;
     T.Stiffen := stAuto;
     First := BuildTransition(D, T, 0, 1);
-    { a ridge is three facets, four edges along and three across each end }
-    Ok(D.Live - First = Plain + 8 * (3 + 4 + 6), 'auto on a 30" duct: two ridges on each of four walls');
+    { A cross break is not laid on the wall, it IS the wall: each of the
+      four panels comes back as four triangles round a raised middle, with
+      the X of creases between them.  One face out, four faces and four
+      lines in, on each of four walls. }
+    Ok(D.Live - First = Plain + 4 * (3 + 4),
+      Format('auto on a 30" duct: every wall broken into four (%d over %d)',
+        [D.Live - First, Plain]));
+    { and the middle of a broken panel really does stand off the flat }
+    Dish := 0;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+          if D[I].Poly[J].Z > Dish then Dish := D[I].Poly[J].Z;
+    Ok(Abs(Dish - (30 + 0.19) / 12) < 1E-6,
+      Format('and the top panel lifts three sixteenths over its middle (%.4f)', [Dish]));
     Ok(Pos('cross break the bottom, right side, top, left side', MetalWords(T)) > 0, 'and the ticket names the walls');
     D.Clear;
     T.Len := 4;
     First := BuildTransition(D, T, 0, 1);
     Ok(Pos('beads every 12"', MetalWords(T)) > 0, 'a 48" run gets beads instead');
+    { A bead is rolled, so it is a half round rather than a box: nine lines
+      run along each one - the two where it leaves the flat, drawn, and the
+      seven over the top of it, softened so the shading does the work. }
     Diag := 0;
+    Soft := 0;
     for I := First to D.Live - 1 do
-      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y - D[I].B.Y) < 1E-9) and (Abs(D[I].A.Y - 1) < 0.05) then Inc(Diag);
-    Ok(Diag = 16, Format('a bead across each wall a foot in, four edges each (%d)', [Diag]));
+      if (D[I].Kind = ekLine) and (Abs(D[I].A.Y - D[I].B.Y) < 1E-9) and
+         (Abs(D[I].A.Y - 1) < 0.05) then
+      begin
+        Inc(Diag);
+        if D[I].Soft then Inc(Soft);
+      end;
+    Ok(Diag = 4 * 9, Format('a bead across each wall a foot in (%d lines along)', [Diag]));
+    Ok(Soft = 4 * 7, Format('and all but its two outer joins are softened (%d)', [Soft]));
+    { it is round, not flat-topped: the crown of it stands proud }
+    Crown := 0;
+    for I := First to D.Live - 1 do
+      if D[I].Kind = ekFace then
+        for J := 0 to High(D[I].Poly) do
+          if D[I].Poly[J].Z > Crown then Crown := D[I].Poly[J].Z;
+    Ok(Abs(Crown - (30 + 0.19) / 12) < 1E-6,
+      Format('and stands a fat eighth proud at the crown (%.4f)', [Crown]));
     D.Clear;
     T.Stiffen := stNone;
     T.Len := 2;

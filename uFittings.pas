@@ -119,6 +119,25 @@ type
 const
   DRIVE_FLANGE_IN = 0.5;    { the drive edge, bent out: inches }
   TDF_RETURN_IN = 0.5;      { the fold back on a TDF flange: inches }
+  { The hole punched through a TDF corner for the bolt that pulls the joint
+    up.  It is SQUARE, and that is the whole point of it: the bolt is a
+    carriage bolt, and the square shoulder under its domed head sits in the
+    square hole and stops the bolt turning while the nut goes on from the
+    other side - so one man with one wrench can do up a joint he can only
+    reach from one end.  Three eighths of a bolt wants a shade over three
+    eighths of hole. }
+  CORNER_BOLT_SQ_IN = 0.44;
+  { Galvanised sheet: a cool grey, a little blue in it, and light - a new
+    sheet off the pile is brighter than people remember and darker than
+    white.  Every face the fitting builder makes is sheet metal, so every
+    face it makes gets this, and anything else is a decision somebody makes
+    afterwards with the entity panel.
+
+    It reads as duct instead of as paper, and it does something useful as
+    well: a flange, a bead and a wall are all the same metal, so what tells
+    them apart in the picture is the shading and the edges, which is exactly
+    what tells them apart on the bench. }
+  GALV_R = 178;  GALV_G = 185;  GALV_B = 193;
   { A notch is cut on the angle the way the snips do it: a line marked the
     notch depth in from the end, and the cut run from about three quarters
     of that out along the opening edge back to the point where the mark
@@ -143,10 +162,18 @@ const
   STIFFEN_WIDTH_IN = 18;
   STIFFEN_LENGTH_IN = 12;
   BEAD_SPACING_IN = 12;
-  { the ridges as drawn: a rolled bead is three quarters wide and stands a
-    fat eighth proud; a cross break is a shallower, narrower crease }
+  { A rolled bead is three quarters of an inch wide and stands a fat eighth
+    proud, and it is ROUND - it comes off a roll, not a brake.  Drawn with
+    enough facets across to read as a curve, and the ones in the middle of
+    it softened so the shading does the work rather than a row of creases.
+
+    A cross break is not a ridge at all, which is what was wrong with it: the
+    panel is put through the brake on both diagonals so the whole of it
+    dishes, and what you see is a shallow pyramid with an X of creases in it.
+    Three sixteenths over the middle of a big panel is about life. }
   BEAD_WIDTH_IN = 0.75;  BEAD_HEIGHT_IN = 0.19;
-  BREAK_WIDTH_IN = 0.5;  BREAK_HEIGHT_IN = 0.06;
+  BEAD_FACETS = 8;
+  CROSS_DISH_IN = 0.19;
   FLEX_FABRIC_IN: array[TFlexSize] of Double = (0, 3, 3, 6);
   FITTING_NAMES: array[TFittingKind] of string = ('Transition', 'Elbow', 'Tee');
   TURN_NAMES: array[TTurn] of string = ('Right', 'Left', 'Up', 'Down');
@@ -669,10 +696,23 @@ begin
   B.D.SetGroup(B.D.Live - 1, B.G);
 end;
 
+{ A line that is there to be shaded round rather than looked at: the facet
+  joins down a rolled bead, the fan of a dished panel.  The renderer hides a
+  soft edge unless it is on the silhouette, which is what makes a curve read
+  as a curve instead of as a barrel of staves. }
+procedure BSoft(const B: TBuild; const P, Q: TP3);
+begin
+  if Dist(P, Q) < 1E-9 then Exit;
+  B.D.AddLine(P, Q, B.Ink, B.Weight, False);
+  B.D.SetGroup(B.D.Live - 1, B.G);
+  B.D.SetSoft(B.D.Live - 1, True);
+end;
+
 procedure BFace(const B: TBuild; const P: array of TP3);
 begin
   B.D.AddFaceRaw(P, B.Ink, True);
   B.D.SetFaceGroup(B.D.Live - 1, B.G);
+  B.D.SetMaterial(B.D.Live - 1, RGBToColor(GALV_R, GALV_G, GALV_B));
 end;
 
 { The same, wound so its normal points the way Out does.  The renderer
@@ -782,33 +822,87 @@ var
     of a cross break.  Three facets across it - up, over the crest, down -
     so it shades like the rolled metal does, its four edges drawn along
     it, and its profile at each end in three short lines. }
+  { A rolled bead from one point to another across a panel.
+
+    It used to be three flat facets - up, along the top, down - with all four
+    of its long joins drawn as hard edges, which is a box with creases in it
+    and not a bead.  A bead comes off a roll: the section is a half round.
+    So it is a half round now, in BEAD_FACETS steps, and only the two edges
+    where it leaves the panel are drawn hard.  The joins between the facets
+    are soft, so the renderer hides them and lets the shading say it is
+    curved - the same way a pulled circle reads as a pipe rather than as a
+    barrel of staves. }
   procedure Ridge(const From, Till: TP3; WidthIn, HeightIn: Double; const Nrm: TP3);
   var
     Dir, Side: TP3;
-    PA, PB: array[0..3] of TP3;
-    Off: array[0..3] of Double;
-    Up: array[0..3] of Double;
+    PA, PB: array[0..BEAD_FACETS] of TP3;
     I: Integer;
+    T, Off, Up: Double;
     Thin: TBuild;
   begin
     Dir := Towards(From, Till);
     Side := Norm3(Cross3(Nrm, Dir));
-    Off[0] := -WidthIn / 2; Off[1] := -WidthIn / 5; Off[2] := WidthIn / 5; Off[3] := WidthIn / 2;
-    Up[0] := 0; Up[1] := HeightIn; Up[2] := HeightIn; Up[3] := 0;
-    for I := 0 to 3 do
+    for I := 0 to BEAD_FACETS do
     begin
-      PA[I] := Add(Add(From, Side, Off[I] * B.Inch), Nrm, Up[I] * B.Inch);
-      PB[I] := Add(Add(Till, Side, Off[I] * B.Inch), Nrm, Up[I] * B.Inch);
+      T := I / BEAD_FACETS;
+      Off := (T - 0.5) * WidthIn;
+      { a half round: nought at both edges, full height over the middle }
+      Up := HeightIn * Sqrt(Max(0, 1 - Sqr(2 * T - 1)));
+      PA[I] := Add(Add(From, Side, Off * B.Inch), Nrm, Up * B.Inch);
+      PB[I] := Add(Add(Till, Side, Off * B.Inch), Nrm, Up * B.Inch);
     end;
     Thin := B;
     Thin.Weight := Max(0.5, B.Weight * 0.6);
-    for I := 0 to 2 do
+    for I := 0 to BEAD_FACETS - 1 do
       BFaceOut(B, [PA[I], PB[I], PB[I + 1], PA[I + 1]], Nrm);
-    for I := 0 to 3 do BLine(Thin, PA[I], PB[I]);
-    for I := 0 to 2 do
+    { where it leaves the flat, hard; everything up and over it, soft }
+    BLine(Thin, PA[0], PB[0]);
+    BLine(Thin, PA[BEAD_FACETS], PB[BEAD_FACETS]);
+    for I := 1 to BEAD_FACETS - 1 do BSoft(Thin, PA[I], PB[I]);
+    for I := 0 to BEAD_FACETS - 1 do
     begin
-      BLine(Thin, PA[I], PA[I + 1]);
-      BLine(Thin, PB[I], PB[I + 1]);
+      BSoft(Thin, PA[I], PA[I + 1]);
+      BSoft(Thin, PB[I], PB[I + 1]);
+    end;
+  end;
+
+  { A panel put through the brake on both diagonals.
+
+    This was drawn as two narrow creases laid along the diagonals, which is
+    what a cross break is *called* and not what it is: the sheet is bent, so
+    the whole panel lifts to a shallow pyramid and what you see is four
+    triangles and an X where they meet.  Drawn that way it also does the job
+    a picture is for - you can see at a glance which way the panel was
+    broken.
+
+    The face comes in as the flat polygon the wall would have been.  Every
+    piece of it is fanned to a middle raised by CROSS_DISH_IN, the fan joins
+    are soft, and the four that land on a real corner of the panel are drawn
+    hard, because those are the creases. }
+  procedure CrossBreak(const Poly: array of TP3; const Nrm: TP3;
+    const Corner: array of TP3);
+  var
+    I, J: Integer;
+    Mid: TP3;
+    Hard: Boolean;
+    Thin: TBuild;
+  begin
+    if Length(Poly) < 3 then Exit;
+    Mid := P3(0, 0, 0);
+    for I := 0 to High(Poly) do
+      Mid := Add(Mid, Poly[I], 1);
+    Mid := P3(Mid.X / Length(Poly), Mid.Y / Length(Poly), Mid.Z / Length(Poly));
+    Mid := Add(Mid, Nrm, CROSS_DISH_IN * B.Inch);
+    Thin := B;
+    Thin.Weight := Max(0.5, B.Weight * 0.6);
+    for I := 0 to High(Poly) do
+    begin
+      J := (I + 1) mod Length(Poly);
+      BFaceOut(B, [Poly[I], Poly[J], Mid], Nrm);
+      Hard := False;
+      for J := 0 to High(Corner) do
+        if Dist(Poly[I], Corner[J]) < 1E-9 then Hard := True;
+      if Hard then BLine(Thin, Poly[I], Mid) else BSoft(Thin, Poly[I], Mid);
     end;
   end;
 
@@ -816,30 +910,31 @@ var
     creases, beads are rolled ridges across the panel every foot along the
     run, a little in from the seams.  Only on a panel big enough to want
     it. }
-  procedure Stiffen(K: Integer);
+  { What wall K wants, if anything.  Asked before the wall is drawn now,
+    because a cross break is not laid on the wall - it IS the wall, bent. }
+  function StiffenOn(K: Integer): TStiffen;
   var
-    J, N, I: Integer;
-    Wd, Ln, T, Inset: Double;
-    S: TStiffen;
-    Nrm, A, Bp: TP3;
+    J: Integer;
+    Wd, Ln: Double;
   begin
     J := (K + 1) mod 4;
     Wd := Max(Dist(C[0][K], C[0][J]), Dist(C[1][K], C[1][J]));
     Ln := Min(Dist(C[0][K], C[1][K]), Dist(C[0][J], C[1][J]));
-    S := StiffenFor(B.Spec, Wd / B.Inch, Ln / B.Inch);
-    if S = stNone then Exit;
+    Result := StiffenFor(B.Spec, Wd / B.Inch, Ln / B.Inch);
+  end;
+
+  procedure Stiffen(K: Integer);
+  var
+    J, N, I: Integer;
+    Ln, T: Double;
+    S: TStiffen;
+    Nrm, A, Bp: TP3;
+  begin
+    J := (K + 1) mod 4;
+    Ln := Min(Dist(C[0][K], C[1][K]), Dist(C[0][J], C[1][J]));
+    S := StiffenOn(K);
     Nrm := OutNormal(K);
     case S of
-      stCrossBreak:
-        begin
-          { the creases stop short of the corners, where the brake cannot
-            reach and the ends would pile up }
-          Inset := 0.06;
-          Ridge(Lerp3(C[0][K], C[1][J], Inset), Lerp3(C[0][K], C[1][J], 1 - Inset),
-            BREAK_WIDTH_IN, BREAK_HEIGHT_IN, Nrm);
-          Ridge(Lerp3(C[0][J], C[1][K], Inset), Lerp3(C[0][J], C[1][K], 1 - Inset),
-            BREAK_WIDTH_IN, BREAK_HEIGHT_IN, Nrm);
-        end;
       stBeads:
         begin
           N := Trunc(Ln / (BEAD_SPACING_IN * B.Inch));
@@ -887,14 +982,17 @@ var
     Drawn, it is the L that fills the gap - out to the end of one flange,
     round the outside of the corner, back to the end of the other, and in to
     the corner of the duct - with the same fold back along the two outer
-    edges that the flanges have. }
+    edges that the flanges have, and the square bolt hole punched through
+    it.  See CORNER_BOLT_SQ_IN for why the hole is square. }
   procedure TDFCorner(E, K: Integer);
   var
-    Prev: Integer;
-    C0, Ua, Ub, Na, Nb, SI: TP3;
-    F, R: Double;
+    Prev, I: Integer;
+    C0, Ua, Ub, Na, Nb, SI, Mid: TP3;
+    F, R, H: Double;
     Poly: array[0..5] of TP3;
+    Hole: TP3Array;
   begin
+    SetLength(Hole, 4);
     Prev := (K + 3) mod 4;
     { a corner needs both its flanges: where a wall has been left out for
       the caller - a tee's branch - there is nothing here to tie together }
@@ -915,6 +1013,18 @@ var
     Poly[4] := Add(C0, Ub, F);
     Poly[5] := C0;
     BFaceOut(B, Poly, P3(-SI.X, -SI.Y, -SI.Z));
+
+    { and the square hole punched through it, out past the corner of the
+      duct where there is metal behind nothing }
+    H := CORNER_BOLT_SQ_IN * B.Inch / 2;
+    Mid := Add(Add(C0, Na, F / 2), Nb, F / 2);
+    Hole[0] := Add(Add(Mid, Na, -H), Nb, -H);
+    Hole[1] := Add(Add(Mid, Na,  H), Nb, -H);
+    Hole[2] := Add(Add(Mid, Na,  H), Nb,  H);
+    Hole[3] := Add(Add(Mid, Na, -H), Nb,  H);
+    B.D.SetFaceHoles(B.D.Live - 1, [Hole]);
+    for I := 0 to 3 do BLine(B, Hole[I], Hole[(I + 1) mod 4]);
+
     BLine(B, Poly[0], Poly[1]); BLine(B, Poly[1], Poly[2]);
     BLine(B, Poly[2], Poly[3]); BLine(B, Poly[3], Poly[4]);
 
@@ -1010,8 +1120,17 @@ begin
     SetLength(Poly, N0 + N1);
     for I := 0 to N1 - 1 do Poly[I] := P1[I];
     for I := 0 to N0 - 1 do Poly[N1 + I] := P0[N0 - 1 - I];
-    BFaceOut(B, Poly, OutNormal(K));
-    Stiffen(K);
+    { A cross-broken wall is not a flat panel with something added to it -
+      it is the panel itself, bent on both diagonals.  So it is drawn
+      instead of the flat face, not on top of one. }
+    if StiffenOn(K) = stCrossBreak then
+      CrossBreak(Poly, OutNormal(K),
+        [C[0][K], C[0][(K + 1) mod 4], C[1][(K + 1) mod 4], C[1][K]])
+    else
+    begin
+      BFaceOut(B, Poly, OutNormal(K));
+      Stiffen(K);
+    end;
   end;
   { the seams, from the point of one cut to the point of the other }
   for K := 0 to 3 do
