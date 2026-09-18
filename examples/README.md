@@ -28,6 +28,11 @@ drawing behind the dashed halves - the halves that mean *the other way* - and
 that is a strange place to keep something you are measuring.  This way nine
 inches along is nine inches, not minus four and a half.
 
+The logo is **raised off the body by a sixteenth**, the way it is moulded
+into the real one - a name printed flat reads as a sticker.  It is raised
+with `TWorkDoc.PushPull`, the code the tool runs, so a letter comes up the
+way it would come up under somebody's hand.
+
 The logo is block capitals, and **each letter is one closed loop** rather than
 a pile of bars.  Bars were easier to write and left a line across every join,
 so pushing an H up meant pushing three pieces and getting a letter with seams
@@ -152,6 +157,50 @@ real model: about 15 ms a frame in an orbit view.
 cd examples
 fpc -Mobjfpc -Sh -Fu.. make-broom.pas
 ./makebroom
+```
+
+---
+
+## `robot.hsk` - the one built out of another model
+
+A robot six foot two, standing, with **the etch-a-sketch set in his chest**
+at fifty inches - about where a light switch goes, and about where your
+hands are when you are standing at something.  Tony: "as if someone could
+walk up to the robot and sketch something."
+
+| | |
+|---|---|
+| overall | 74" tall, 30" across the hands |
+| torso | 21 x 10 x 23, the toy on a red bezel at its middle |
+| arms | ball joint at the shoulder, ball at the elbow, two fingers |
+
+**The toy is not drawn again.**  It is loaded out of `uExample` - the same
+drawing every help picture uses - stood on end with a quarter turn about
+red, and set on the chest.  A model built out of another model, which is
+what anybody would do.  If the toy is improved, the robot gets it.
+
+That is also the clearest argument in the folder for **parts**
+(`docs/groupplan.md`): `PlaceDrawing` in the generator copies every line and
+face and hole across, because there is no way yet to say "one of those,
+here."  When parts arrive this becomes a placement instead of a second set
+of geometry.
+
+Two things learned putting him together, both worth keeping:
+
+* **The arms floated the first time**, because the shoulders were typed as
+  66 inches and the top of the torso works out at 62 and a half.  Every
+  height is derived now - `TORSO_T`, `SHZ` - rather than typed.
+* **A ball with eighteen segments by nine speckles.**  The facets come out
+  under a pixel at the size anybody looks at him and the flat shading turns
+  to noise; twelve by six reads as a ball.  The same lesson the pipe taught
+  from the other end.
+
+### Making it again
+
+```
+cd examples
+fpc -Mobjfpc -Sh -Fu.. make-robot.pas
+./makerobot
 ```
 
 ---

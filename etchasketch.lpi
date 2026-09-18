@@ -162,6 +162,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="uExRobot.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="uExamples.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

@@ -33,6 +33,9 @@ uses
 const
   { the toy, in inches }
   BW = 12.0;      BH = 9.0;      BT = 1.25;     { body: wide, high, thick }
+  { How far the logo stands off the body.  A sixteenth: moulded in, the way
+    it is on the real toy, rather than printed on like a sticker. }
+  EMBOSS = 0.0625;
   SX0 = 1.5;      SX1 = 10.5;                   { the screen opening }
   SY0 = 2.25;     SY1 = 7.75;
   RECESS = 0.12;                                { how far the screen sits in }
@@ -385,6 +388,7 @@ var
   U: TStringList;
   Outer, Screen: TP3Array;
   Logo, Robot: array of TP3Array;
+  LetterFace: Integer;
   Holes: array of TP3Array;
   BaseP, Diag, CamZoom: Double;
   BLo, BHi, CamMid: TP3;
@@ -481,25 +485,41 @@ begin
     end;
   D.SetFaceHoles(ScrFace, Holes);
 
-  { the letters themselves.  R is the one with a counter: its hole is the
-    loop after it, and that loop is a face in its own right as well - the
-    island in the middle of the bowl. }
+  { The letters themselves, RAISED off the face they sit in.
+
+    Tony: "we want the hecker sketch logo on the toy to be embossed or
+    raised."  Quite right - it is moulded into the plastic on the real one,
+    and a name printed flat on a model reads as a sticker.
+
+    They are raised with **TWorkDoc.PushPull** rather than by building the
+    walls here, for the same reason the wine glass is turned with Revolve:
+    it is the code the tool runs, so the letter comes up the way it would
+    come up under somebody's hand, and if push/pull ever changes the logo
+    changes with it.
+
+    R is the one with a counter: its hole is the loop after it, and that
+    loop is a face in its own right as well - the island in the middle of
+    the bowl.  The island stays down on the body, because the counter of a
+    raised R is a hole you can see the body through. }
   for I := 0 to High(Logo) do
   begin
     { a counter belongs to the letter before it and is dealt with there }
     if IsCounter(Logo, I) then Continue;
     D.AddFaceRaw(Logo[I], RED, True);
-    D.SetFaceGroup(D.Live - 1, BODY);
+    LetterFace := D.Live - 1;
+    D.SetFaceGroup(LetterFace, BODY);
     if (I < High(Logo)) and IsCounter(Logo, I + 1) then
     begin
       { the bowl of the R: a hole in the letter, and the island inside it is
         a face of its own, wound the other way about }
       SetLength(Holes, 1);
       Holes[0] := Logo[I + 1];
-      D.SetFaceHoles(D.Live - 1, Holes);
+      D.SetFaceHoles(LetterFace, Holes);
       D.AddFaceRaw(Reversed(Logo[I + 1]), RED, True);
       D.SetFaceGroup(D.Live - 1, BODY);
     end;
+    if not D.PushPull(LetterFace, I_(EMBOSS)) then
+      WriteLn('the letter would not come up - loop ', I);
   end;
 
   for I := 0 to High(Robot) do

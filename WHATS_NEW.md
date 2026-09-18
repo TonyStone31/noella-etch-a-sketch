@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A fourth example: the robot.**  Six foot two, standing, with the
+  etch-a-sketch set in his chest at the height your hands are - ball
+  joints at the shoulders and two-fingered hands.  The toy in his chest
+  is the toy example itself, stood on end, not a copy of it.
+- **The logo on the etch-a-sketch is raised**, a sixteenth proud of the
+  body, the way it is moulded into the real one.
+
 ## v2026.09.18.3
 
 ### New
