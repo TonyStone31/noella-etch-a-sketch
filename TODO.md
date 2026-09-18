@@ -59,6 +59,57 @@ six at a time, some of them chained in one program.
 
 ---
 
+## Measured: what sub-pixel placement is worth - 17 September
+
+Tony: "i'm just still a little jelous of those crisp looks sketchup gives ...
+hard to point at the differences really."  So before changing anything,
+measure one of the candidates.  `tools/crisp.pas` is the instrument (ignored
+like everything in `tools/`; compile it the way `tests/run.sh` compiles
+geomtest).
+
+**The effect is real and it is big.**  One level edge, moved across a pixel,
+black on white:
+
+| weight | best offset | there | anywhere else |
+|---|---|---|---|
+| 1 (an ordinary edge) | 0.5 | 1 row, ink at 0 | 2 rows, ink at 127 |
+| 2 (a profile) | 0.0 | 2 rows, solid | 3 rows, solid with a fringe |
+| 3 | 0.5 | 3 rows | 4 rows |
+
+A weight-1 edge is either a solid black line or two rows of fifty percent
+grey, depending on nothing but where the geometry happened to land.  That is
+the whole of it - a line that is half as dark and twice as wide reads as
+soft.
+
+**But it cannot be fixed by nudging the view.**  `LineW` gives an ordinary
+edge `EdgeW` and a profile `EdgeW + 1`, which at our scale is 1 and 2 - and
+odd weights want the half-pixel offset while even weights want the whole
+one.  The two want opposites.  Shifting the whole projection half a pixel
+was measured on a floor plan and did nothing worth having: -3%, +0%, +1%,
+-2% of the half-lit pixels across plan, front, iso and orbit.  Any fix has
+to be per line, where the line is drawn, snapping the across-coordinate to
+whole or whole-and-a-half by the parity of its weight.
+
+**And it only ever helps flat views.**  Edges that come out level or upright
+on screen, which are the only ones with anything to snap to:
+
+| view | edges | level or upright |
+|---|---|---|
+| plan | 19 | 17 (89%) |
+| front, straight on | 10 | 10 (100%) |
+| iso | 19 | 0 |
+| orbit, off an axis | 19 | 0 |
+
+So: worth doing for plan and elevation drawings, where it would be a visible
+sharpening for a contained change in `TArtSurface.Line`.  **Worth nothing at
+all for the 3D views**, which is where the jealousy actually comes from - in
+iso and orbit not one edge is axis-aligned, and every one of them is
+antialiased across two rows no matter what anybody does.  If the 3D look is
+the thing to chase, it is one of the other candidates: the grain we put on
+paper on purpose, gamma-space blending in `BlendPixel`, or edge weight.
+
+---
+
 ## A face is painted, not inked - 17 September
 
 Tony, testing: "when i make colors red for example for a face ... that shit
