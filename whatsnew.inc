@@ -13,10 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.18.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **Duct looks like duct.**  Everything the fitting builder makes is' + LineEnding +
+    '  galvanised sheet now instead of paper-white, and the fabric of a flex' + LineEnding +
+    '  connector is black canvas rather than metal.' + LineEnding +
+    '- **Rolled beads are round and cross breaks are bent.**  A bead was three' + LineEnding +
+    '  flat facets with a crease down each join - a box, not a bead; it is a' + LineEnding +
+    '  half round now with only its outer two edges drawn.  A cross break was' + LineEnding +
+    '  two narrow creases laid on the panel; the panel itself is now bent on' + LineEnding +
+    '  both diagonals, so it dishes and shows the X, which is what a cross' + LineEnding +
+    '  break is.' + LineEnding +
+    '- **TDF corners have their bolt hole** - square, because the bolt through' + LineEnding +
+    '  it is a carriage bolt and the square shoulder under its head is what' + LineEnding +
+    '  stops the bolt turning while the nut goes on.' + LineEnding +
     '- **TDF flanges can be drawn with the corners in.**  The duct fitting' + LineEnding +
     '  builder offers *TDF flange with the corners in* beside the plain one.' + LineEnding +
     '  A TDF''s sides each stop short of the corner so the next can fold, which' + LineEnding +
