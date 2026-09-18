@@ -6763,7 +6763,8 @@ var
   D: TWorkDoc;
   S: TSpoolSpec;
   Pts: TP3Array;
-  First, I, Faces: Integer;
+  First, I, Faces, Mat: Integer;
+  MatCol: TColor;
 begin
   WriteLn('A pipe spool from the fitter''s iso');
   S := Default(TSpoolSpec);
@@ -6776,7 +6777,7 @@ begin
   Ok(Abs(CutLength(S, 0) - 21 / 12) < 1E-9, 'the first leg cuts at 21"');
   Ok(Abs(CutLength(S, 1) - 21 / 12) < 1E-9, 'and so does the second');
   SpoolPath(S, Pts);
-  Ok(Length(Pts) = 9, 'the centreline: two straights and a 90 in six');
+  Ok(Length(Pts) = 15, 'the centreline: two straights and a 90 walked in twelve');
   Ok(Dist(Pts[High(Pts)], P3(2, 2, 0)) < 1E-9, 'ending where the fitter said');
   Ok(Abs(Pts[1].Y - 21 / 12) < 1E-9, 'the bend starting 3" back from the corner');
   D := TWorkDoc.Create;
@@ -6784,12 +6785,26 @@ begin
     First := BuildSpool(D, S, 0, 1);
     Faces := 0;
     for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
-    Ok(Faces = 8 * PIPE_SIDES, 'the pipe: eight rings of twenty-four, open at both ends');
+    { a ring of facets for every step of the centreline - said that way
+      round so it stays true when the pipe is made smoother again }
+    Ok(Faces = (Length(Pts) - 1) * PIPE_SIDES,
+      Format('the pipe: a ring of %d for each of the %d steps, open at both ends',
+        [PIPE_SIDES, Length(Pts) - 1]));
     S.Ends[0] := peFlange;
     First := BuildSpool(D, S, 0, 1);
     Faces := 0;
     for I := First to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
-    Ok(Faces = 8 * PIPE_SIDES + PIPE_SIDES + 2, 'a flange at the start is a solid disc');
+    Ok(Faces = (Length(Pts) - 1) * PIPE_SIDES + PIPE_SIDES + 2,
+      'a flange at the start is a solid disc');
+    { and what it is made of - the only thing the finish changes }
+    Mat := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and D.Material(I, MatCol) then Inc(Mat);
+    Ok(Mat = Faces, 'every face of it carries a material');
+    S.Finish := pfStainless;
+    First := BuildSpool(D, S, 0, 1);
+    D.Material(First, MatCol);
+    Ok(MatCol = RGBToColor(198, 202, 207), 'and stainless is a different one');
     Ok(Pos('1 x 90', SpoolTicket(S)) > 0, 'the ticket counts the elbow');
     Ok(Pos('cut 21"', SpoolTicket(S)) > 0, 'and gives the cut length');
   finally

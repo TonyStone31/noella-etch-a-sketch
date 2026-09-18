@@ -14,6 +14,14 @@
 
 ### New
 
+- **Pipe is black or stainless, and rounder.**  The spool builder has a
+  Material box: black carbon steel or stainless.  Pipe is drawn with 36
+  facets round it instead of 24, and a bend is walked in seven and a half
+  degree steps instead of fifteen, so an elbow reads as an elbow.
+- **Big drawings of pipe draw twice as fast.**  Filling a long thin face
+  on the diagonal - which is every facet of a pipe - was costing what its
+  bounding box costs rather than what the face costs.  A two-inch spool
+  went from 70 milliseconds a frame to 34.
 - **Duct looks like duct.**  Everything the fitting builder makes is
   galvanised sheet now instead of paper-white, and the fabric of a flex
   connector is black canvas rather than metal.

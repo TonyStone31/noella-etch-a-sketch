@@ -267,6 +267,53 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## Sexier pipe, and the frame cost that came with it - 18 September
+
+Tony: "the iso pipe fitters thing should build some sexier pipe too and we
+now need the option to have it as black pipe or stainless... Probably could
+make them smoother as well if our circles had more points."
+
+* **Material**: `TPipeFinish`, black carbon steel or stainless, a box in the
+  spool dialog, and the colour put on in `Regroup` - which is the one pass
+  that sees every face, including the ones `TWorkDoc.Sweep` makes for
+  itself and never tells anybody about.
+* **Rounder**: `PIPE_SIDES` 24 to 36, and `BEND_STEP` from fifteen degrees
+  to seven and a half, so a long-radius ninety is twelve steps instead of
+  six.  The spool test now counts a ring of facets per step of the
+  centreline rather than a hard number, so it stays true next time.
+
+**And then the bill arrived**: a two-leg spool went to **70 ms a frame**.
+The profile said 90% of it was painting faces - 1,048 of them taking 64 ms,
+about six times what the broom's faces cost each.
+
+The reason is worth writing down because it is general.  `FillLoops` clears
+its whole coverage row before every row of a face's **bounding box**.  For a
+fat polygon that is fine.  For a long thin one lying on the diagonal - which
+is *every facet of a pipe* - the box is enormous beside the polygon, and
+nearly all the work was zeroing entries no crossing ever reached.  It now
+remembers the stretch it actually wrote and clears only that.
+
+| drawing | before | after |
+|---|---|---|
+| 2" spool, 1,048 faces | 70 ms | **34 ms** |
+| the broom, 1,108 faces | 15 ms | 14 ms |
+| the etch-a-sketch toy | 20 ms | 19 ms |
+
+So the pipe pays for its extra facets and the rest of the program gets a
+little for nothing.
+
+**One thing chased and found innocent.**  A close look at the pipe shows
+fine stripes along it, and the first guess was that all 972 soft facet
+joins were being drawn.  Counted properly - building the renderer's own
+edge index outside it - **30** of them are drawn, which is the silhouette
+and nothing else.  The stripes are the **flat shading**: each facet is one
+constant tone, so a curved surface always steps, and more facets makes the
+steps finer rather than smoother.  The real answer to "smoother" is
+interpolating the shade across a face - a renderer change, not a pipe one -
+and it is not written down anywhere else, so it is written down here.
+
+---
+
 ## The fitting dialog will not take a coat of paint - 18 September
 
 Tony: "if we are gonna dabble in that dialog it may be time to transition it

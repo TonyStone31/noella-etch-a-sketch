@@ -36,6 +36,8 @@ type
     cbEnd0: TComboBox;
     cbEnd1: TComboBox;
     cbSize: TComboBox;
+    cbFinish: TComboBox;
+    lblFinish: TLabel;
     edLen: TEdit;
     edTag: TEdit;
     lblEnd0: TLabel;
@@ -132,11 +134,15 @@ procedure TSpoolForm.FormCreate(Sender: TObject);
 var
   I: Integer;
   E: TPipeEnd;
+  PF: TPipeFinish;
 begin
   FGrid := 26;
   cbLines.Checked := False;
   for I := 0 to High(NPS_NAMES) do cbSize.Items.Add(NPS_NAMES[I]);
   cbSize.ItemIndex := 5;
+  for PF := Low(TPipeFinish) to High(TPipeFinish) do
+    cbFinish.Items.Add(PIPE_FINISH_NAMES[PF]);
+  cbFinish.ItemIndex := 0;
   for E := Low(TPipeEnd) to High(TPipeEnd) do
   begin
     cbEnd0.Items.Add(PIPE_END_NAMES[E]);
@@ -188,6 +194,7 @@ function TSpoolForm.Read(out S: TSpoolSpec): Boolean;
 begin
   S := Default(TSpoolSpec);
   S.Size := Max(0, cbSize.ItemIndex);
+  S.Finish := TPipeFinish(Max(0, cbFinish.ItemIndex));
   S.LongRadius := rgRadius.ItemIndex <> 1;
   S.Ends[0] := TPipeEnd(Max(0, cbEnd0.ItemIndex));
   S.Ends[1] := TPipeEnd(Max(0, cbEnd1.ItemIndex));

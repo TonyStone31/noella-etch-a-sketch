@@ -1470,6 +1470,15 @@ var
   EAX, EAY, EBX, EBY, ELo, EHi: array of Single;
   EOrder, EAct: array of Integer;
   NE, NAct, NextE, AI, AJ: Integer;
+  { The stretch of the coverage row that was actually written last time.
+
+    Clearing the whole row every row costs what a polygon's bounding box
+    costs rather than what the polygon costs, and for a long thin one lying
+    on the diagonal - which is every facet of a pipe - those are nothing
+    like each other.  A two-inch spool was spending sixty-four milliseconds
+    a frame painting a thousand faces, most of it zeroing entries no
+    crossing ever reached. }
+  ClrLo, ClrHi, CurLo, CurHi: Integer;
   { and the same for the depth triangles, which were walked whole for every
     row as well }
   RowZ: array of Double;
@@ -1604,10 +1613,14 @@ begin
     SetLength(RowHas, X1 - X0 + 2);
   end;
 
+  ClrLo := 0;
+  ClrHi := High(Cov);
   for Y := Y0 to Y1 do
   begin
-    for X := 0 to High(Cov) do
+    for X := ClrLo to ClrHi do
       Cov[X] := 0;
+    CurLo := High(Cov) + 1;
+    CurHi := -1;
 
     { --- which edges this row can possibly be crossed by ---------------
           The samples sit inside (Y, Y + 1), so an edge matters here when it
@@ -1726,12 +1739,18 @@ begin
           { how much of this pixel the span covers horizontally }
           T := Min(XB, X + 1.0) - Max(XA, X * 1.0);
           if T > 0 then
+          begin
             Cov[X - X0] := Cov[X - X0] + T / Smp;
+            if X - X0 < CurLo then CurLo := X - X0;
+            if X - X0 > CurHi then CurHi := X - X0;
+          end;
         end;
       end;
     end;
 
-    for X := X0 to X1 do
+    ClrLo := CurLo;
+    ClrHi := CurHi;
+    for X := Max(X0, X0 + CurLo) to Min(X1, X0 + CurHi) do
       if Cov[X - X0] > 0.002 then
       begin
         if FZOn then

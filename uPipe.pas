@@ -41,8 +41,16 @@ type
     NewSize: Integer;   { the size a reducer goes to, an NPS index }
   end;
 
+  { What the pipe is made of.  Black is carbon steel with the mill scale
+    still on it - what a fitter means by black pipe, and what most of it is;
+    stainless is the bright cool grey of 304 off the rack.  It changes
+    nothing but the colour, which is the point: the same spool drawn twice
+    should be the same spool. }
+  TPipeFinish = (pfBlack, pfStainless);
+
   TSpoolSpec = record
     Size: Integer;               { index into the NPS tables }
+    Finish: TPipeFinish;
     LongRadius: Boolean;         { long radius elbows (1.5 D) or short (1 D) }
     Ends: array[0..1] of TPipeEnd;
     Legs: array of TSpoolLeg;
@@ -67,7 +75,18 @@ const
     'a flanged joint');
   { concentric reducer lengths by the larger size, near enough to B16.9 }
   NPS_REDUCER_LEN: array[0..12] of Double = (1.5, 1.5, 2, 2, 2.5, 3, 3.5, 3.5, 4, 5.5, 6, 7, 8);
-  PIPE_SIDES = 24;
+  { How many facets round a pipe.  It was 24, which is fifteen degrees a
+    facet and reads as a barrel at anything closer than a general view -
+    and pipe is the one thing in this program you always end up looking at
+    closely, because it is the thing being welded.  36 is ten degrees, and
+    the joins are soft so what you see is the shading rather than the
+    facets. }
+  PIPE_SIDES = 36;
+  { and how finely a bend is walked round: seven and a half degrees, so a
+    long-radius ninety comes out in twelve steps rather than six }
+  BEND_STEP = Pi / 24;
+  PIPE_FINISH_NAMES: array[TPipeFinish] of string =
+    ('Black - carbon steel', 'Stainless');
 
 { the bend radius of the elbows, in drawing units }
 function ElbowRadius(const S: TSpoolSpec): Double;
@@ -309,7 +328,7 @@ begin
     O := P3(T1.X + Nrm.X * R, T1.Y + Nrm.Y * R, T1.Z + Nrm.Z * R);
     W := Norm3(Cross3(A, B));
     Rv := P3(T1.X - O.X, T1.Y - O.Y, T1.Z - O.Z);
-    N := Max(2, Round(Turn / (Pi / 12)));
+    N := Max(2, Round(Turn / BEND_STEP));
     for K := 0 to N do
     begin
       Put(P3(O.X + RotV(Rv, W, Turn * K / N).X, O.Y + RotV(Rv, W, Turn * K / N).Y,
@@ -387,12 +406,24 @@ var
     end;
   end;
 
+  { One pass over everything built, giving it the group and - for the faces -
+    the material.  Done here rather than at each face because the pipe
+    itself comes out of TWorkDoc.Sweep, which makes its own faces and knows
+    nothing about what they are made of. }
   procedure Regroup;
   var
     I: Integer;
+    Mat: TColor;
   begin
+    if S.Finish = pfStainless then Mat := RGBToColor(198, 202, 207)
+    else Mat := RGBToColor(68, 64, 60);
     for I := First to D.Live - 1 do
-      if D[I].Kind = ekFace then D.SetFaceGroup(I, G) else D.SetGroup(I, G);
+      if D[I].Kind = ekFace then
+      begin
+        D.SetFaceGroup(I, G);
+        D.SetMaterial(I, Mat);
+      end
+      else D.SetGroup(I, G);
   end;
 
 begin

@@ -47,6 +47,23 @@ object SpoolForm: TSpoolForm
     Style = csDropDownList
     TabOrder = 0
   end
+  object lblFinish: TLabel
+    Left = 150
+    Height = 18
+    Top = 84
+    Width = 80
+    Caption = 'Material'
+  end
+  object cbFinish: TComboBox
+    Left = 150
+    Height = 28
+    Top = 104
+    Width = 116
+    ItemHeight = 0
+    OnChange = AnyChange
+    Style = csDropDownList
+    TabOrder = 20
+  end
   object rgRadius: TRadioGroup
     Left = 16
     Height = 52
