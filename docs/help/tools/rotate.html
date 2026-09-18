@@ -26,26 +26,40 @@ twelve, the way a roof pitch is written - and it is there because that is the
 number on the drawing you are working from, and doing the arctangent in your
 head to get 33.69 is how mistakes happen.</p>
 
-<h2>Which way it turns</h2>
-<p>The arrow keys pick the plane before you start: left or right stands it
-upright, up or down lays it flat.  The color of the protractor says which -
-red, green or blue, the same three the axes use.  Without that it turns in
-whatever plane the three points you clicked happen to lie in, which is right
-most of the time and unhelpful the rest.</p>
-<p><kbd>Ctrl</kbd> leaves a copy behind, so the original stays and a turned
-one appears.  After a copy, <code>3x</code> makes three of them at that angle
-apart, and <code>/3</code> divides the turn into three - the way a bolt circle
-or a row of rafters gets laid out.</p><h2>What it looks like</h2><figure>
-  <div class="shot-missing">shots/tool-rotate.png &mdash; not taken yet<br>The rotate tool in use.</div>
-  <figcaption>The rotate tool in use.</figcaption>
-</figure><h2>Which plane it turns in</h2>
-<p>The plane comes from the face under the cursor when you click the centre,
-or from an arrow key - right red, left green, up blue.  <kbd>Alt</kbd> frees
-it from the face: it then turns flat unless an arrow says otherwise, and
-<kbd>Alt</kbd> again follows faces again.  The protractor works the same
-way.</p>
+<figure>
+  <a class="zoom" href="../shots/tool-rotate.gif" target="_blank" title="Open larger"><img src="../shots/tool-rotate.gif" alt="A rectangle picked, then turned thirty degrees about its middle by typing the angle."></a>
+  <figcaption>Picked first, then the centre, then a point to measure the
+  angle from - and the angle <b>typed</b>.  A swung angle is a number nobody
+  chose; a typed one is 30 degrees exactly.</figcaption>
+</figure>
 
-<h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
-<footer>Heckers Sketch - help.  This page is a skeleton: the words are
-right, the pictures are not there yet.</footer>
+<h2>Which plane it turns in</h2>
+<p>This is the part that catches people, because in 3D "turn it 30 degrees"
+is not a complete instruction until something says <i>about what</i>.</p>
+<ul>
+<li>By default the plane comes from <b>the face under the cursor</b> when you
+click the centre.  Click the centre on the top of a box and it turns flat on
+that top, which is nearly always what you meant.</li>
+<li><b>The arrow keys</b> say it outright, before you start: right is red,
+left is green, up is blue.  The color of the protractor tells you which one
+is holding.</li>
+<li><b>Alt</b> frees it from the face under the cursor.  It then turns flat
+unless an arrow says otherwise, and <kbd>Alt</kbd> again goes back to
+following faces.  The <a href="protractor.html">protractor</a> works exactly
+the same way.</li>
+</ul>
+
+<h2>Copies, and rows of them</h2>
+<p><kbd>Ctrl</kbd> leaves a copy behind, so the original stays and a turned
+one appears.  Straight after a copy, <code>3x</code> makes three of them at
+that angle apart, and <code>/3</code> divides the turn you just made into
+three - which is how a bolt circle, a fan of rafters or a row of spokes gets
+laid out without any arithmetic.</p>
+
+<h2>See also</h2><ul>
+<li><a href="move.html">Move</a> - the same idea in a straight line, with the same copy trick</li>
+<li><a href="protractor.html">The protractor</a> - marking an angle rather than turning by one</li>
+<li><a href="../planes.html">The working plane</a> - the other place this question comes up</li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
 </div></body></html>

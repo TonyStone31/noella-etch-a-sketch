@@ -267,6 +267,40 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## The cube, the tape, rotate, and the report page - 18 September
+
+Three animations, all of them of things a still picture genuinely cannot
+carry:
+
+* **the view cube** - a face, then a corner, then Ctrl and an arrow.  The
+  point of the cube is that every click *flies* instead of jumping, so you
+  keep your place, and that is exactly the part a photograph loses.
+* **the tape** - pulled off an edge into the face, leaving a dashed guide
+  line parallel to that edge.  The page had the rule in a table; now you can
+  see the difference between pulling along an edge and pulling off one.
+* **rotate** - picked, centre, reference, then the angle **typed**.  A swung
+  angle is a number nobody chose.
+
+**Rotate also needed surgery rather than a picture.**  It had two sections
+about which plane it turns in, one called "Which way it turns" and one
+called "Which plane it turns in", with the missing-picture box wedged
+between them - so the Alt behaviour built yesterday was documented in a
+section the reader had already passed.  One section now, in the order the
+question actually arises, and the copy trick has a heading of its own.
+
+**`reporting` was the TLC pick**, because it is the page that serves the
+thing Tony actually wants - real people sending real reports.  It was
+already accurate about what goes in a report; what it never said was what
+happens afterwards.  It now says: the postbox is anonymous, nothing says who
+sent it, **so nobody can write back** - if you want an answer rather than a
+fix, this is not the road - and what you get instead is the fix with a line
+in What's new.  Plus a "things not to worry about" list, because the reports
+that never get sent are the ones where somebody was not sure it was a bug.
+
+Six pages still carry the "this page is a skeleton" footer.
+
+---
+
 ## Four more pages, and what is deliberately not documented - 18 September
 
 `solids` got the animation - one edge off a box, then `/holes` drawing every

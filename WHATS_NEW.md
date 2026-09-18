@@ -14,6 +14,11 @@
 
 ### Fixed
 
+- **The view cube, the tape measure and rotate have animations** - the
+  cube flying between views, a tape pulled off an edge leaving a guide
+  line, and a rectangle turned by a typed angle.  Rotate's two sections
+  about which plane it turns in are now one, and the page about sending a
+  report says what happens to it after you press send.
 - **Solids and 3D printing** shows what `/holes` is for: an edge rubbed
   off a box, and every unmatched edge drawn in red round the opening.
   Units, sheets and the etch-a-sketch pages read better too.
