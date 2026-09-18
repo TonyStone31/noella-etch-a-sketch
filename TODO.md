@@ -267,6 +267,45 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## The red band that was lying, and a tool so nobody probes again - 18 Sept
+
+**The band.**  By report: "this red line seems to snap on the red axis which
+is fine but it seems to be snapping red in multiple positions so something
+may not be right."  The bar in his own screenshot said, at that moment, "the
+points only - no axis, nothing parallel" - Alt had turned the axis
+inferences off.  The rubber band coloured itself by asking `AxisAlong`
+whether the line happened to lie along an axis, which takes no notice of
+what Alt has switched off.  So it went red whenever the line drifted onto
+red, with nothing holding it there.
+
+The colour **is** the inference: red means "I am holding you on red".
+Saying it while holding nothing reads exactly as he described - a snap that
+keeps coming and going.  Now the band only takes an axis colour when the
+cursor is allowed to infer one; a lock put on with the arrows still colours
+whatever Alt says, because that one is held.
+
+**The tool.**  `tools/frame.pas`.  Writing an animation used to be: guess a
+CAMERA line, drive a throwaway probe script, look at the shot, guess again -
+three or four rounds a drawing.  It now loads the drawing, fits it to the
+recording window, prints the CAMERA line to paste, and then prints **the
+client coordinates of every corner, midpoint and face centre**, which is
+what the script actually needs.
+
+Two things it knows that cost an hour to find out:
+
+* the last two numbers on a CAMERA line are measured from the top-left of
+  the **canvas**, not the window - about (156, 75) in at 1100x650;
+* the third number is **not** pixels per unit.  It is a magnifying glass
+  over the drawing's SCALE, so the conversion is
+  `Ppu = PixelsPerUnit(units, scale, dpi) * zoom` - which is why the first
+  version framed a drawing at 2786%.
+
+Checked against the program rather than argued: the line it printed for
+`gif-cross.hsk` frames it at 116% and the corner it named is under the
+cursor with ENDPOINT showing.
+
+---
+
 ## The offset page, and a thing the docs found - 18 September
 
 Tony: "The offset tool probably needs a gif and the old image is showing the

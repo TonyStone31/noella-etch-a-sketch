@@ -11683,7 +11683,21 @@ var
       when its four sides run red and blue - the one color it had no claim
       to.  An edge that runs off on its own gets no axis color, the same way
       it gets none once it is drawn. }
-    if FAxisLock in [0..2] then Ax := FAxisLock else Ax := AxisAlong(A, B);
+    { Only while an axis is something the cursor is actually allowed to
+      infer.  Tony, by report, 18 September: "this red line seems to snap on
+      the red axis which is fine but it seems to be snapping red in multiple
+      positions so something may not be right" - and the bar in his picture
+      said, at the same moment, "the points only - no axis, nothing
+      parallel".  Alt had turned the axis inferences off and the band was
+      still going red whenever the line happened to lie along red.
+
+      The colour IS the inference: red means "I am holding you on red".
+      Saying it while holding nothing is a lie, and a convincing one - it
+      reads as a snap that keeps coming and going.  An axis the arrows have
+      locked is different; that one is held whatever Alt says. }
+    if FAxisLock in [0..2] then Ax := FAxisLock
+    else if FInferMode = imAll then Ax := AxisAlong(A, B)
+    else Ax := -1;
     { Parallel or square to an edge is magenta, which is the colour SketchUp
       gives that pair - and it is not an axis colour, so it cannot be read
       as one. }
