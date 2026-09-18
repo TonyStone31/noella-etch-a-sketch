@@ -205,6 +205,41 @@ fpc -Mobjfpc -Sh -Fu.. make-robot.pas
 
 ---
 
+## `ball.hsk` - the one that is worked out rather than drawn
+
+A size five football, 8.65 inches across, which is the size it is on the
+shelf.  Twelve black pentagons and twenty white hexagons - a truncated
+icosahedron.
+
+**Nothing in it is typed in but twelve points and the golden ratio.**  Start
+with an icosahedron: twelve corners, twenty triangles, its corners at the
+cyclic permutations of (0, ±1, ±φ).  Cut every corner off a third of the way
+along each edge meeting it.  What was a corner becomes a pentagon; what was a
+triangle becomes a hexagon.  The generator does exactly that - it finds the
+edges by distance and the triangles by mutual adjacency, so the panel layout
+is derived and not a table somebody transcribed.
+
+Each panel is a thin slab pulled slightly in from its own edge and laid on
+the sphere, standing off a dark inner ball.  That is what makes the seams
+read as seams: the gaps between the panels show the dark ball behind them.
+
+**One number that mattered.**  The inner ball started at 0.955 of the radius
+and the panels are a quarter inch thick, which left it four hundredths of an
+inch under them - closer than the depth buffer can keep apart, so the dark
+ball came up through the middle of every panel in patches.  At 0.88 the
+seams are deep and nothing fights.  The same lesson as anything else drawn
+too close to itself.
+
+### Making it again
+
+```
+cd examples
+fpc -Mobjfpc -Sh -Fu.. make-ball.pas
+./makeball
+```
+
+---
+
 ## Adding another
 
 Each generator writes two things: the `.hsk` here, and a unit above with the

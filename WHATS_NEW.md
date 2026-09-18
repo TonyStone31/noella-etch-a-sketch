@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A fifth example: a football.**  Twelve pentagons and twenty hexagons,
+  cut off the corners of an icosahedron the way the real one is - and the
+  panels stand off a dark inner ball so the seams read as seams.
+
 ## v2026.09.18.4
 
 ### New

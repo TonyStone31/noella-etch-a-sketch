@@ -59,12 +59,12 @@ function PutExample(I: Integer; const Dir: string;
 implementation
 
 uses
-  SysUtils, uExample, uExGlass, uExBroom, uExRobot, uUpdate;
+  SysUtils, uExample, uExGlass, uExBroom, uExRobot, uExBall, uUpdate;
 
 const
-  FILES: array[0..3] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
-    'broom.hsk', 'robot.hsk');
-  ABOUT: array[0..3] of string = (
+  FILES: array[0..4] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
+    'broom.hsk', 'robot.hsk', 'ball.hsk');
+  ABOUT: array[0..4] of string = (
     'A toy etch-a-sketch, to scale, with a robot on the screen.  Every ' +
     'face of it is something to push.',
     'A wine glass, off the lathe: an outline spun about the blue axis.  ' +
@@ -72,7 +72,9 @@ const
     'A kitchen broom, banded the way a shop one is: a hundred and seventy ' +
     'bristles, every face painted, and not a pen colour anywhere.',
     'A robot six foot two, with the etch-a-sketch set in his chest at the ' +
-    'height your hands are - and the toy is the toy, not a copy of it.');
+    'height your hands are - and the toy is the toy, not a copy of it.',
+    'A football: twelve pentagons and twenty hexagons, cut off the corners ' +
+    'of an icosahedron the way the real one is.');
 
 function ExampleCount: Integer;
 begin
@@ -96,6 +98,7 @@ begin
     1: GlassDrawing(L);
     2: BroomDrawing(L);
     3: RobotDrawing(L);
+    4: BallDrawing(L);
   end;
 end;
 

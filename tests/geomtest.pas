@@ -1008,7 +1008,7 @@ var
   Same: Boolean;
 begin
   WriteLn('the example drawings');
-  EqI(ExampleCount, 4, 'there are four of them');
+  EqI(ExampleCount, 5, 'there are five of them');
 
   for I := 0 to ExampleCount - 1 do
   begin
