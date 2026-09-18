@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.17.10' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Alt does what it does in SketchUp, on three more tools.**  Pulling an' + LineEnding +
+    '  arc''s bulge, it runs the arc out of the edge it started on smoothly and' + LineEnding +
+    '  holds it there.  With the offset tool it keeps the overlaps a tight' + LineEnding +
+    '  corner makes, instead of squaring them off.  With rotate or the' + LineEnding +
+    '  protractor it frees them from the face under the cursor, so they turn' + LineEnding +
+    '  flat unless an arrow picks a plane.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.9' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
@@ -21,12 +32,6 @@ const
     '  way the cursor offers directions along the edge it started on, or the' + LineEnding +
     '  piece just drawn, and square to it - SketchUp''s magenta pair, which we' + LineEnding +
     '  did not have.' + LineEnding +
-    '- **Alt does what it does in SketchUp, on three more tools.**  Pulling an' + LineEnding +
-    '  arc''s bulge, it runs the arc out of the edge it started on smoothly and' + LineEnding +
-    '  holds it there.  With the offset tool it keeps the overlaps a tight' + LineEnding +
-    '  corner makes, instead of squaring them off.  With rotate or the' + LineEnding +
-    '  protractor it frees them from the face under the cursor, so they turn' + LineEnding +
-    '  flat unless an arrow picks a plane.' + LineEnding +
     '- **Alt steps through what the cursor may infer**, part way along a line:' + LineEnding +
     '  all of them, then the directions off, then parallel and square only.' + LineEnding +
     '  That is SketchUp''s key and SketchUp''s cycle.  Corners, midpoints and' + LineEnding +
