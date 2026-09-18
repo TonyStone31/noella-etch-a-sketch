@@ -335,6 +335,60 @@ agreed** - then change the cron line and delete the `.py`.
 
 ---
 
+## TLS in Pascal, if we want it - TlsLib4Pascal
+
+Tony, 17 September: "no more openssl bull shit! be pure pascal even more!
+dont integrate yet but we may want to do this soon!"
+<https://github.com/Xor-el/TlsLib4Pascal>
+
+**What it is.**  TLS 1.2 and 1.3 written in Object Pascal, MIT, by the
+author of CryptoLib4Pascal - which is its one dependency.  Free Pascal
+3.2.2 and up, client and server, PKIX path validation with RFC 6125 name
+checking, OCSP and CRL, optional use of the machine's own trust store,
+key pinning.  AEAD suites only; no CBC-HMAC, no RC4, no 3DES.  Small
+project - tens of commits, a couple of dozen stars - which matters for
+what follows.
+
+**What it would replace, and what it would not.**  Only the Linux half.
+`uNet` already has two floors: Windows goes through WinHTTP, the system's
+own, and that stays - it needs no library from us and it follows the
+machine's proxy and certificate store.  Linux uses `opensslsockets`, which
+is the distribution's OpenSSL, loaded by name at run time.  So the honest
+statement of the gain is: **the Linux build would stop needing libssl on
+the machine**, and would be one file the way the Windows one is.  That is
+a real gain - FPC's OpenSSL loader has broken before on the 1.1/3.x
+soname shuffle, and a program that is supposed to copy onto a stick
+should not care which OpenSSL the machine has.
+
+**What it would cost, said plainly.**  It is the same trade we turned
+down for Windows in the other direction, and it deserves the same
+sentence: the moment TLS is ours, its security updates are ours.  The
+distribution patches its OpenSSL whether or not anybody here is awake; a
+vendored TLS gets patched when we notice.  Against a well-worn OpenSSL,
+a young pure-Pascal stack is the newer code in the position where being
+wrong is worst.  None of that is an argument that it is bad work - it
+reads careful, and the defaults are the modern ones - it is an argument
+about who is on the hook.
+
+**What this program actually does over TLS**, which bounds the risk: an
+update check against GitHub's API, a help-docs zip, and an outgoing bug
+report.  All three are ours talking to a named host, none of them carry a
+credential, and a failure is an inconvenience rather than a loss.  That
+is about as gentle a place to try a new TLS stack as exists.
+
+**If we do it.**  Behind `uNet` and nowhere else - `NetGet`, `NetGetText`,
+`NetPost`, `NetBackend` are the whole surface, and nothing above them
+knows what is underneath.  Keep `opensslsockets` as a fallback for the
+first release or two, with `NetBackend` saying which one answered so a
+bug report tells us, and pin the CA set to the machine's `/etc/ssl/certs`
+rather than carrying our own bundle.  Test it against a host that is
+behind a proxy, and one with a certificate that has just expired, because
+those are the two that a fresh implementation gets wrong.
+
+Not now.  Written down so it is a decision rather than a discovery.
+
+---
+
 ## Where this could go - 12 September 2026
 
 Talked through with Tony after the barn reports.  The question was what this
