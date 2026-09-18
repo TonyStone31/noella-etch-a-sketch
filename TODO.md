@@ -169,6 +169,20 @@ but the real work is everywhere else: picking, moving, erasing, the region
 finder, save and load, the entity panel, and a way in and out of a group.
 Not a late-night job.
 
+**Written up in full: [`docs/groupplan.md`](docs/groupplan.md)** - what
+would have to be touched, in what order, and what each part of it costs.
+Written on 18 September while the reasoning was fresh, and **explicitly not
+the next thing to build**.  Tony: "we really want to make sure we have all
+the issues with basic drawing functionality in all the tools sorted out
+before we pile on yet another feature."  Everything in that document sits on
+top of the pick, the move, the eraser, the region finder and the snap - the
+very things the reports are still finding faults in - so building it first
+would mean fixing each of those twice, and having some of them hidden by the
+new layer until somebody drawing a shed found them.  The document also
+argues the name: **part** rather than group, one idea instead of SketchUp's
+confusing Group-against-Component split, with `/group` kept as another word
+for it because that is what people will type.
+
 ---
 
 ## The ink pass, chased - 17 September
