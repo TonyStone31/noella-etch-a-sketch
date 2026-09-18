@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Alt does what it does in SketchUp, on three more tools.**  Pulling an
+  arc's bulge, it runs the arc out of the edge it started on smoothly and
+  holds it there.  With the offset tool it keeps the overlaps a tight
+  corner makes, instead of squaring them off.  With rotate or the
+  protractor it frees them from the face under the cursor, so they turn
+  flat unless an arrow picks a plane.
+
 ## v2026.09.17.9
 
 ### New
@@ -18,12 +29,6 @@
   way the cursor offers directions along the edge it started on, or the
   piece just drawn, and square to it - SketchUp's magenta pair, which we
   did not have.
-- **Alt does what it does in SketchUp, on three more tools.**  Pulling an
-  arc's bulge, it runs the arc out of the edge it started on smoothly and
-  holds it there.  With the offset tool it keeps the overlaps a tight
-  corner makes, instead of squaring them off.  With rotate or the
-  protractor it frees them from the face under the cursor, so they turn
-  flat unless an arrow picks a plane.
 - **Alt steps through what the cursor may infer**, part way along a line:
   all of them, then the directions off, then parallel and square only.
   That is SketchUp's key and SketchUp's cycle.  Corners, midpoints and
