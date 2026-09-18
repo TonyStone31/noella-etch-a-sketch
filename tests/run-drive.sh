@@ -76,7 +76,7 @@ chain_members() {
     commands) echo "command-list cmd-example cmd-wheel toy-command whatsnew-drag" ;;
     views)    echo "plan-slice plan-hidden view-cube cube-corners cube-keys round-corner" ;;
     tools)    echo "dim-face-edge dim-needs-something tape-finishes guide-picking alt-tools copy-paste" ;;
-    shapes)   echo "round-corners line-length guide-select offset-rounded inference-alt move-edge" ;;
+    shapes)   echo "round-corners line-length guide-select offset-rounded inference-alt move-edge bulk-color" ;;
     *)        echo "" ;;
   esac
 }

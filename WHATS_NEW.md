@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- **Set a color on everything picked at once.**  With several things
+  picked the entity panel now paints every picked face, or recolors every
+  picked line, arc, note and dimension, in one trip through the color
+  picker - and the buttons say how many they will land on.
 - **Paint a face and it is that color.**  Faces have a material of their
   own now, separate from the pen that drew their edges - so red is red
   instead of the grey-pink it used to come out.  Paint it from the entity

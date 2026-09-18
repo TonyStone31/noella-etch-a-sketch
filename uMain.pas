@@ -1016,6 +1016,8 @@ type
       shown is one of them }
     function PaintSelectedFaces(Shown: Integer; C: TColor;
       Painting: Boolean): Integer;
+    { the pen colour of every picked line, arc, note and dimension }
+    function InkSelectedThings(C: TColor): Integer;
     function SelectedDim: Integer;
     function SelectedLine: Integer;
     function ApplyLineLength(NewLen: Double): Boolean;
@@ -3794,13 +3796,37 @@ var
 
 begin
   Result := 0;
-  InSel := False;
+  { Shown < 0 is the panel asking for the whole selection - nothing in
+    particular is being shown, because several things are }
+  InSel := Shown < 0;
   for I := 0 to High(FSel) do
     if FSel[I] = Shown then InSel := True;
   if InSel then
     for I := 0 to High(FSel) do One(FSel[I])
   else
     One(Shown);
+  if Result = 0 then Exit;
+  RenderPro;
+  RecomposeAll;
+  Invalidate;
+end;
+
+{ The colour of everything picked that is drawn with a pen.  Faces are not:
+  they are painted, and PaintSelectedFaces does those.  Nor are guides -
+  they are not part of the drawing and the panel has never offered it. }
+function TMainForm.InkSelectedThings(C: TColor): Integer;
+var
+  I, K: Integer;
+begin
+  Result := 0;
+  for I := 0 to High(FSel) do
+  begin
+    K := FSel[I];
+    if (K < 0) or (K >= FD.Doc.Live) then Continue;
+    if not (FD.Doc[K].Kind in [ekLine, ekArc, ekText, ekDim]) then Continue;
+    FD.Doc.SetInk(K, C);
+    Inc(Result);
+  end;
   if Result = 0 then Exit;
   RenderPro;
   RecomposeAll;
@@ -7359,6 +7385,21 @@ begin
     if NG > 0 then Row('Guides', IntToStr(NG));
     if TotL > 0 then Row('Total length', FormatLen(TotL, FD.Units));
     if TotA > 0 then Row('Total area', FormatArea(TotA, FD.Units));
+    { Changing all of them at once.  The rule the panel had - nothing to
+      edit with several picked, because a stepper that moved nine things at
+      once is a way to lose nine things - holds for steppers and not for a
+      colour: a colour is one decision, it says on the button how many it
+      lands on, and undo puts it back.  SketchUp paints a whole selection
+      this way too. }
+    if (NF > 0) or (NL + NA + NT + ND > 0) then Head('');
+    if NF > 0 then
+    begin
+      Row('Material', Format('Paint %d face%s...',
+        [NF, specialize IfThen<string>(NF = 1, '', 's')]), iaMaterial, -1);
+      Row('', 'Back to default', iaUnpaint, -1);
+    end;
+    if NL + NA + NT + ND > 0 then
+      Row('Color', Format('Change %d...', [NL + NA + NT + ND]), iaColour, -1);
     if NF > 0 then
     begin
       Head('');
@@ -7700,7 +7741,24 @@ begin
       end;
     iaColour:
       begin
-        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        { with several picked the row is for all of them, and there is no one
+          colour to start the dialog from - so it opens on the current pen }
+        if FInfoRows[Row].Ent < 0 then
+        begin
+          if not AskColour(FInkColor, Picked) then Exit;
+          PushUndo;
+          K := InkSelectedThings(Picked);
+          FCmdMsg := Format('%d thing%s recolored.',
+            [K, specialize IfThen<string>(K = 1, '', 's')]);
+          RenderPro;
+          RecomposeAll;
+          RebuildInfo;
+          pbInfo.Invalidate;
+          pbScreen.Invalidate;
+          pbCmd.Invalidate;
+          Exit;
+        end;
+        if FInfoRows[Row].Ent >= FD.Doc.Live then Exit;
         if not AskColour(FD.Doc[FInfoRows[Row].Ent].Ink, Picked) then Exit;
         PushUndo;
         FD.Doc.SetInk(FInfoRows[Row].Ent, Picked);
@@ -7708,9 +7766,12 @@ begin
       end;
     iaMaterial:
       begin
-        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
-        { the colour it has now to start from, or the default it looks like }
-        if not FD.Doc.Material(FInfoRows[Row].Ent, Picked) then
+        if FInfoRows[Row].Ent >= FD.Doc.Live then Exit;
+        { the colour it has now to start from, or the default it looks like.
+          With several picked there is no one material, so it opens on the
+          default. }
+        if (FInfoRows[Row].Ent < 0) or
+           not FD.Doc.Material(FInfoRows[Row].Ent, Picked) then
           Picked := PixToColor(Pix($FA, $FA, $F6));
         if not AskColour(Picked, Picked) then Exit;
         PushUndo;
@@ -7722,7 +7783,7 @@ begin
       end;
     iaUnpaint:
       begin
-        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        if FInfoRows[Row].Ent >= FD.Doc.Live then Exit;
         PushUndo;
         K := PaintSelectedFaces(FInfoRows[Row].Ent, clNone, False);
         if K > 1 then

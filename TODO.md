@@ -110,6 +110,31 @@ paper on purpose, gamma-space blending in `BlendPixel`, or edge weight.
 
 ---
 
+## Colours on a whole selection - 17 September
+
+By report, an hour after the material went in: "would be great if we could
+select the colors for multiple selected faces! and line colors too ... would
+have to show grouped things in the selection info window to bulk apply ...
+does sketchup allow this?"  It does - a material dropped on a selection
+paints all of it, and Entity Info edits what a mixed selection has in common.
+
+The panel already counted what was picked and offered Reverse; the rule
+against anything else was that **a stepper that acted on nine things at once
+is a way to lose nine things**.  That rule is right about steppers and wrong
+about colour: a colour is one decision, the button can say how many it lands
+on, and undo puts it back.  So with several picked the panel now offers
+`Paint n faces...`, `Back to default`, and `Change n...` for the pens - faces
+excluded from that last one, because they are painted rather than inked, and
+guides excluded because they never took a colour.  Widths and sizes are still
+one at a time.
+
+`PaintSelectedFaces` took a `Shown` of -1 to mean the whole selection;
+`InkSelectedThings` is the pen half.  `bulk-color` in the drive suite draws
+two rectangles, picks all ten things with a box drag, and paints both faces
+red in one trip through the picker - the shot shows "2 faces painted."
+
+---
+
 ## A face is painted, not inked - 17 September
 
 Tony, testing: "when i make colors red for example for a face ... that shit

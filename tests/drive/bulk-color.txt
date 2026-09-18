@@ -1,0 +1,72 @@
+# Several things picked, and one decision changing all of them.
+#
+# Tony, by report: "would be great if we could select the colors for multiple
+# selected faces! and line colors too ... would have to show grouped things
+# in the selection info window to bulk apply."
+#
+# The panel used to show counts and a Reverse button with several picked and
+# nothing else, on the rule that a stepper acting on nine things at once is a
+# way to lose nine things.  A colour is not a stepper: it is one decision, the
+# button says how many it lands on, and undo puts it back.
+#
+# What to look for: hsk-bulk-picked has two rectangles and their edges picked,
+# and the panel showing Faces 2, Lines 8, a Material row saying "Paint 2
+# faces...", a Back to default row and a Color row saying "Change 8...".
+# hsk-bulk-painted has both faces red after one trip through the picker.
+geometry 0 0 1400 800
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 300
+key slash
+type plan
+key return
+wait 1000
+key slash
+type clear
+key return
+wait 1000
+key slash
+type info on
+key return
+wait 800
+
+# two rectangles
+key r
+wait 300
+at 300 250
+click
+at 500 400 400
+click
+wait 600
+at 600 250 300
+click
+at 800 400 400
+click
+wait 800
+
+# pick the lot with a box drag round them
+key escape
+wait 300
+key space
+wait 300
+drag 250 200 860 450
+wait 1000
+shot /tmp/hsk-bulk-picked.png
+
+# paint every picked face in one go
+at 1342 188 300
+click
+wait 2500
+shot /tmp/hsk-bulk-dialog.png
+# the red in the middle of the picker, then Select
+at 750 369 300
+click
+wait 500
+at 943 551 300
+click
+wait 1500
+at 900 650 300
+wait 700
+shot /tmp/hsk-bulk-painted.png
