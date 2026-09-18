@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- **Clicking takes what you can see.**  Where an edge on top of something
+  ran close on screen to an edge buried under it, the buried one could win
+  and be picked or erased instead - the rim of a knob against the wall
+  below it.  What is in front at the spot you are pointing at now wins.
 - **Big drawings draw faster.**  Filling the faces was half of every
   frame; it now looks only at the edges that reach each row instead of
   all of them.  Measured on three drawings sent in with reports: about a

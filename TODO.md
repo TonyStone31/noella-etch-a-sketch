@@ -137,8 +137,16 @@ and it needs only the boolean `HiddenAt` already there, so no depth-sign
 convention has to be got right.  Cost is one depth-buffer lookup per
 candidate inside nine pixels, which is a handful.
 
-Not done: it is a change to the hottest path in the program and to how the
-select tool *feels*, and the feel is Tony's call.
+**Done**, the same night - Tony: "Do the point nearest cursor suggestion."
+`SegParam` says where along a segment its nearest point to the cursor sits,
+`ArcNearestAt` does the same walk an arc's distance already did and hands
+back the place as well as the distance, and `HitEdge` sorts its candidates
+into can-be-seen-here and cannot before the nearest of them wins.  The
+three-sample rule stays underneath, unchanged, and is now only asked when
+the cheap question has already said the edge is hidden at the cursor - an
+edge visible under the cursor is plainly not hidden everywhere.  The test
+fails on the old code and passes on the new, which is the only reason to
+believe it.
 
 ### Groups, and locking
 

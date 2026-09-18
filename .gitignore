@@ -84,3 +84,5 @@ reports/
 /help.new/
 /help.old/
 /exports/
+# the folder a drawing saves into by default when it is run from here 
+/drawings/

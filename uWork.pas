@@ -2552,6 +2552,21 @@ end;
 { Straight-line distance from a point to a segment.  Not squared, whatever
   the old name suggested - taking Sqrt of this turned a 9 pixel pick radius
   into 81. }
+{ How far along a segment its nearest point to P lies, 0 at A and 1 at B.
+  The same arithmetic DistToSeg does; kept apart because the pick wants the
+  place as well as the distance - what is under the cursor is decided at the
+  spot you are pointing at, not somewhere else along the edge. }
+function SegParam(PX, PY, AX, AY, BX, BY: Double): Double;
+var
+  DX, DY, L2: Double;
+begin
+  DX := BX - AX;
+  DY := BY - AY;
+  L2 := DX * DX + DY * DY;
+  if L2 < 1E-12 then Exit(0);
+  Result := EnsureRange(((PX - AX) * DX + (PY - AY) * DY) / L2, 0, 1);
+end;
+
 function DistToSeg(PX, PY, AX, AY, BX, BY: Double): Double;
 var
   DX, DY, T, L2: Double;
@@ -8813,28 +8828,46 @@ end;
   never moves a point further from the centre than its own distance times
   Ppu, so a cursor outside that cannot be near the arc - which drops every
   circle but the one being pointed at before any of the chords are walked. }
-function ArcScreenDistAt(const PC: TProjCache; const E: TWorkEnt;
-  SX, SY: Double; TolPx: Double = 1E30): Double;
+function ArcNearestAt(const PC: TProjCache; const E: TWorkEnt;
+  SX, SY: Double; out P: TP3; TolPx: Double = 1E30): Double;
 var
   STEPS: Integer;
   K: Integer;
-  Ang, RPx: Double;
+  Ang, RPx, D: Double;
   PA, PB, PCen: TPointF;
+  A3, B3: TP3;
 begin
   Result := 1E30;
+  P := E.C;
   PCen := ProjectAt(PC, E.C);
   RPx := E.R * PC.Ppu;
   if (Abs(SX - PCen.X) > RPx + TolPx) or (Abs(SY - PCen.Y) > RPx + TolPx) then
     Exit;
   STEPS := ArcSteps(E);
-  PA := ProjectAt(PC, ArcPoint(E.C, E.R, E.A0, E.Plane, E.Nm));
+  A3 := ArcPoint(E.C, E.R, E.A0, E.Plane, E.Nm);
+  PA := ProjectAt(PC, A3);
   for K := 1 to STEPS do
   begin
     Ang := E.A0 + E.Sweep * K / STEPS;
-    PB := ProjectAt(PC, ArcPoint(E.C, E.R, Ang, E.Plane, E.Nm));
-    Result := Min(Result, DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
+    B3 := ArcPoint(E.C, E.R, Ang, E.Plane, E.Nm);
+    PB := ProjectAt(PC, B3);
+    D := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+    if D < Result then
+    begin
+      Result := D;
+      P := Lerp3(A3, B3, SegParam(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
+    end;
     PA := PB;
+    A3 := B3;
   end;
+end;
+
+function ArcScreenDistAt(const PC: TProjCache; const E: TWorkEnt;
+  SX, SY: Double; TolPx: Double = 1E30): Double;
+var
+  Ignored: TP3;
+begin
+  Result := ArcNearestAt(PC, E, SX, SY, Ignored, TolPx);
 end;
 
 function ArcScreenDist(const V: TProjector; const E: TWorkEnt;
@@ -9225,9 +9258,13 @@ var
   PA, PB: TPointF;
   DG: TDimGeom;
   PC: TProjCache;
+  NearPt: TP3;
+  VisHere, BestVis, Take: Boolean;
 begin
   Result := -1;
   Best := TolPx;
+  BestVis := False;
+  NearPt := P3(0, 0, 0);
   { the camera worked out once for the whole walk rather than once per point.
     Project rebuilds the view basis every call - four trig calls in the orbit
     view - and this walks every line in the drawing twice, every mouse move. }
@@ -9252,7 +9289,7 @@ begin
         away from the camera, and a part arc is not a whole circle either.
         Measuring against the drawn segments is the only test that holds up in
         ISO and orbit. }
-      D := ArcScreenDistAt(PC, FEnts[I], SX, SY, TolPx)
+      D := ArcNearestAt(PC, FEnts[I], SX, SY, NearPt, TolPx)
     else if FEnts[I].Kind = ekDim then
     begin
       { A dimension is drawn off to one side of what it measures.  Testing
@@ -9269,18 +9306,52 @@ begin
       PA := ProjectAt(PC, FEnts[I].A);
       PB := ProjectAt(PC, FEnts[I].B);
       D := DistToSeg(SX, SY, PA.X, PA.Y, PB.X, PB.Y);
+      NearPt := Lerp3(FEnts[I].A, FEnts[I].B,
+        SegParam(SX, SY, PA.X, PA.Y, PB.X, PB.Y));
     end;
-    if D < Best then
+    if not (D < TolPx) then Continue;
+
+    { --- what is in front, where you are pointing ----------------------
+
+      Tony, by report: "trying to erase the black ring on the top of the
+      knobs... but it ends up selecting some of its walls underneath it."
+
+      This kept whichever edge came nearest the cursor on the screen, and
+      let depth do nothing but disqualify: an edge was dropped only when it
+      was hidden at all three of the places sampled along it.  The wall of a
+      knob is a silhouette - visible down its whole length - so it was never
+      dropped, and where it ran within a pixel of the rim it simply won on
+      flat distance.  Nothing preferred what was in front.
+
+      So an edge is now asked whether it can be seen AT THE POINT NEAREST
+      THE CURSOR, and one that can beats one that cannot however close the
+      other is.  That is what "in front wins" means when you are pointing at
+      a spot rather than at a whole edge.  Among edges of the same kind the
+      nearest still wins, so nothing else about the feel changes.
+
+      The three-sample rule stays underneath it, unchanged: an edge hidden
+      all the way along is not pickable at all, because out of sight behind
+      a panel is not what anybody meant to click.  It is only asked when the
+      cheap question has already said the edge is hidden here - an edge
+      visible under the cursor is plainly not hidden everywhere. }
+    VisHere := True;
+    if FEnts[I].Kind in [ekLine, ekArc] then
     begin
-      { Out of sight behind a panel is not what anybody meant to click.
-        Sampled at three places along it rather than one, so an edge that
-        comes out from behind something is still there to be had by the part
-        of it you can see. }
-      if (FEnts[I].Kind in [ekLine, ekArc]) and
+      VisHere := not HiddenAt(V, NearPt);
+      if (not VisHere) and
          HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.5)) and
          HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.2)) and
          HiddenAt(V, Lerp3(FEnts[I].A, FEnts[I].B, 0.8)) then Continue;
+    end;
+
+    Take := Result < 0;
+    if not Take then
+      if VisHere and not BestVis then Take := True
+      else if (VisHere = BestVis) and (D < Best) then Take := True;
+    if Take then
+    begin
       Best := D;
+      BestVis := VisHere;
       Result := I;
     end;
   end;

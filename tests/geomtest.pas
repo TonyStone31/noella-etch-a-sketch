@@ -2736,6 +2736,67 @@ end;
   of the list altogether because it can never be crossed; and a shape whose
   loops start at different heights, which is what the taking-in and the
   dropping are for. }
+{ Tony, by report, drawing the knobs on the etch-a-sketch toy: "trying to
+  erase the black ring on the top of the knobs... but it ends up selecting
+  some of its walls underneath it sometimes."
+
+  The pick kept whichever edge came nearest the cursor on the screen, and let
+  depth only disqualify - an edge was dropped when it was hidden at all three
+  of the places sampled along it.  A knob's wall is a silhouette: visible down
+  its whole length, so never dropped, and where it ran within a pixel or two
+  of the rim it won on flat distance.
+
+  The drawing here is that, stripped to three things: a panel, a rim lying on
+  it, and an edge underneath that runs out past the panel's far side so that
+  part of it can be seen.  Without the fix the fourth check fails. }
+procedure TestPickPrefersWhatIsInFrontHere;
+var
+  D: TWorkDoc;
+  V: TProjector;
+  Rim, Wall, Got: Integer;
+  C: TPointF;
+begin
+  WriteLn('-- the pick takes what is in front at the point you are on');
+  D := TWorkDoc.Create;
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 300; V.OY := 300; V.Ppu := 10;
+
+    { the panel, looked down on }
+    D.AddFace([P3(0, 0, 10), P3(10, 0, 10), P3(10, 10, 10), P3(0, 10, 10)],
+      clBlack, False);
+    { the rim, lying on the panel }
+    D.AddLine(P3(2, 2, 10), P3(8, 2, 10), clBlack, 1, False);
+    Rim := D.Live - 1;
+    { the wall below it, running out past the edge of the panel so that the
+      far end of it is in plain sight - which is what stopped the old rule
+      ever disqualifying it }
+    D.AddLine(P3(2, 2.2, 0), P3(14, 2.2, 0), clBlack, 1, False);
+    Wall := D.Live - 1;
+
+    { the drawing is what it is meant to be before anything is asked of it }
+    Ok(D.HiddenAt(V, P3(5, 2.2, 0)), 'the wall is out of sight under the panel');
+    Ok(not D.HiddenAt(V, P3(12, 2.2, 0)), 'and in sight where it runs past it');
+    Ok(not D.HiddenAt(V, P3(5, 2, 10)), 'the rim lies on the panel, so it shows');
+
+    { pointing at the middle of the panel, right on top of the buried wall:
+      the wall is two pixels nearer on the screen and the rim is the one you
+      can see, so the rim is the one meant }
+    C := Project(V, P3(5, 2.2, 0));
+    Got := D.HitEdge(V, C.X, C.Y, 9, -1);
+    Ok(Got = Rim, 'the rim wins over the wall buried under the cursor');
+
+    { and out past the panel, where the wall is the thing in plain sight, it
+      is still the wall that answers - the rule is about what can be seen
+      here, not about preferring rims }
+    C := Project(V, P3(12, 2.2, 0));
+    Got := D.HitEdge(V, C.X, C.Y, 9, -1);
+    Ok(Got = Wall, 'and the wall wins where the wall is what you can see');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestFilledLoopsWithHolesAndLevelEdges;
 var
   S: TArtSurface;
@@ -8007,6 +8068,7 @@ begin
   TestPushedEdgesKeepTheOutlineInk;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestPickPrefersWhatIsInFrontHere;  WriteLn;
   TestFilledLoopsWithHolesAndLevelEdges;  WriteLn;
   TestFaceMaterial;  WriteLn;
   TestPaintedFaceComesOutPainted;  WriteLn;
