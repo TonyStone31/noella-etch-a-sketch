@@ -45,10 +45,16 @@ end moves follows SketchUp's rule:
 </li>
 <li><b>Width</b>, on a line or an arc - <kbd>-</kbd> and <kbd>+</kbd>,
 through the same widths as the LINE WIDTH button.</li>
-<li><b>Color</b>, on anything but a guide - <b>Change...</b> opens the color
-picker.  A face only shows a tint of its color, the way a new face always
-has.  The LINE COLOR and LINE WIDTH buttons still set what the <i>next</i>
-thing is drawn with; these change what is already there.</li>
+<li><b>Color</b>, on a line, an arc, a note or a dimension - <b>Change...</b>
+opens the color picker.  The LINE COLOR and LINE WIDTH buttons still set what
+the <i>next</i> thing is drawn with; these change what is already there.</li>
+<li><b>Material</b>, on a face - <b>Paint...</b> opens the color picker, and
+the face is that color, not a tint of it.  A face's material is a separate
+thing from the pen that drew its edges, which is how SketchUp has it: paint a
+face red and it is red, while the lines around it stay whatever color they
+were.  <b>Back to default</b> returns it to the near-white every face starts
+as.  If the face is one of several picked, all the picked faces are painted
+at once.</li>
 <li><b>Size</b>, on a note.</li>
 <li><b>Reverse</b>, on a face - or on several at once.  See
 <a href="faces.html">faces, front and back</a>.</li>

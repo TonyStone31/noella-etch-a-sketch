@@ -6,6 +6,18 @@ can be seen at a glance rather than found later when something behaves oddly.
 SketchUp works this way and it is worth copying exactly: a model where every
 face is the same white reads worse.
 
+**A material is not a pen colour, and ours used to be** (fixed 17 September
+2026).  A face carried only the ink of whatever drew it, at eight percent
+over the near-white default, so a face painted red came out (250, 230, 226)
+before the shading had even had a go at it - a warm grey.  The eight percent
+was not timidity for its own sake: one field held both the pen and the
+material, so any more than a hint would have turned every face drawn with a
+red pen red.  Faces now have a material of their own, unset until somebody
+paints one, and a painted face shows that colour at full strength with the
+shading still multiplying it.  The entity panel paints, and paints every
+picked face at once.  Not built: named materials, textures, a materials
+browser, and painting the back separately from the front.
+
 ## How a new face is wound
 
 * A face built by **push/pull** is part of a solid.  Its winding is worked out

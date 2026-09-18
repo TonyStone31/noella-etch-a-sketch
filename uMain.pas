@@ -98,7 +98,8 @@ type
     it is something that can be changed - the two little steppers that change
     it.  The painter is dumb and reads this; the mouse looks in the same
     place for what it hit. }
-  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColour);
+  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColour,
+    iaMaterial, iaUnpaint);
   TInfoRow = record
     Caption: string;
     Value: string;
@@ -1011,6 +1012,10 @@ type
     procedure CanvasMenuClick(Sender: TObject);
     procedure CentreSelection;
     function ReverseSelectedFaces: Integer;
+    { the material on a face, or on every picked face when the one being
+      shown is one of them }
+    function PaintSelectedFaces(Shown: Integer; C: TColor;
+      Painting: Boolean): Integer;
     function SelectedDim: Integer;
     function SelectedLine: Integer;
     function ApplyLineLength(NewLen: Double): Boolean;
@@ -3763,6 +3768,45 @@ end;
   whoever is standing outside.  Nothing in the drawing says which side of a
   loose wall is outside, so nothing can work it out.  This is the way to
   say so. }
+{ Paint, and what gets painted.
+
+  The panel is showing one face, but a face is rarely painted on its own -
+  a box is six of them and nobody wants six trips through a colour dialog.
+  So: if the face the panel is showing is part of what is picked, every
+  picked face takes the colour, which is what SketchUp's bucket does with a
+  selection.  If it is not part of the selection - the panel can show what
+  the mouse is over - then it is the only one that changes.
+
+  Painting says whether to paint or to strip back to the default. }
+function TMainForm.PaintSelectedFaces(Shown: Integer; C: TColor;
+  Painting: Boolean): Integer;
+var
+  I: Integer;
+  InSel: Boolean;
+
+  procedure One(K: Integer);
+  begin
+    if (K < 0) or (K >= FD.Doc.Live) then Exit;
+    if FD.Doc[K].Kind <> ekFace then Exit;
+    if Painting then FD.Doc.SetMaterial(K, C) else FD.Doc.ClearMaterial(K);
+    Inc(Result);
+  end;
+
+begin
+  Result := 0;
+  InSel := False;
+  for I := 0 to High(FSel) do
+    if FSel[I] = Shown then InSel := True;
+  if InSel then
+    for I := 0 to High(FSel) do One(FSel[I])
+  else
+    One(Shown);
+  if Result = 0 then Exit;
+  RenderPro;
+  RecomposeAll;
+  Invalidate;
+end;
+
 function TMainForm.ReverseSelectedFaces: Integer;
 var
   I: Integer;
@@ -7212,6 +7256,7 @@ var
   I, K, NL, NA, NF, NT, ND, NG: Integer;
   E: TWorkEnt;
   TotL, TotA: Double;
+  MatCol: TColor;
 
   procedure Head(const S: string);
   begin
@@ -7370,9 +7415,16 @@ begin
           Row('Windows', IntToStr(Length(E.Holes)));
         if E.Solid then Row('Part of', Format('solid %d', [E.Grp]))
         else Row('Part of', 'nothing - a loose face');
-        { a face shows only a hint of its colour - it is a material, not a
-          stroke - so this is the tint, not a paint pot }
-        Row('Color', 'Change...', iaColour, I);
+        { A face is painted, not inked.  The material is its own thing and
+          the row says which it has: the near-white everything starts as,
+          or the colour somebody chose. }
+        if FD.Doc.Material(I, MatCol) then
+        begin
+          Row('Material', 'Change...', iaMaterial, I);
+          Row('', 'Back to default', iaUnpaint, I);
+        end
+        else
+          Row('Material', 'Paint...', iaMaterial, I);
         Head('');
         Row('Turn it over', 'Reverse', iaReverse, I);
       end;
@@ -7420,6 +7472,7 @@ var
   C: TCanvas;
   R: TRect;
   S: string;
+  SwatchCol: TColor;
 begin
   W := pbInfo.Width;
   H := pbInfo.Height;
@@ -7489,11 +7542,18 @@ begin
       FInfoRows[I].Minus := Rect(0, 0, 0, 0);
       PaintInfoStep(C, FInfoRows[I].Plus, S, FInfoHot = I * 2 + 1);
       { the colour it has now, as a swatch where the value would go }
-      if (FInfoRows[I].Act = iaColour) and (FInfoRows[I].Ent >= 0) and
-         (FInfoRows[I].Ent < FD.Doc.Live) then
+      if (FInfoRows[I].Act in [iaColour, iaMaterial]) and
+         (FInfoRows[I].Ent >= 0) and (FInfoRows[I].Ent < FD.Doc.Live) then
       begin
         C.Brush.Style := bsSolid;
-        C.Brush.Color := FD.Doc[FInfoRows[I].Ent].Ink;
+        if FInfoRows[I].Act = iaMaterial then
+        begin
+          if not FD.Doc.Material(FInfoRows[I].Ent, SwatchCol) then
+            SwatchCol := PixToColor(Pix($FA, $FA, $F6));
+          C.Brush.Color := SwatchCol;
+        end
+        else
+          C.Brush.Color := FD.Doc[FInfoRows[I].Ent].Ink;
         C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.35));
         C.Pen.Width := 1;
         C.Rectangle(VX, Y + Round(3 * FUIScale),
@@ -7645,6 +7705,30 @@ begin
         PushUndo;
         FD.Doc.SetInk(FInfoRows[Row].Ent, Picked);
         FCmdMsg := 'Color changed.  The LINE COLOR button still sets what you draw next.';
+      end;
+    iaMaterial:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        { the colour it has now to start from, or the default it looks like }
+        if not FD.Doc.Material(FInfoRows[Row].Ent, Picked) then
+          Picked := PixToColor(Pix($FA, $FA, $F6));
+        if not AskColour(Picked, Picked) then Exit;
+        PushUndo;
+        K := PaintSelectedFaces(FInfoRows[Row].Ent, Picked, True);
+        if K > 1 then
+          FCmdMsg := Format('%d faces painted.', [K])
+        else
+          FCmdMsg := 'Face painted.  The LINE COLOR button still sets what you draw next.';
+      end;
+    iaUnpaint:
+      begin
+        if (FInfoRows[Row].Ent < 0) or (FInfoRows[Row].Ent >= FD.Doc.Live) then Exit;
+        PushUndo;
+        K := PaintSelectedFaces(FInfoRows[Row].Ent, clNone, False);
+        if K > 1 then
+          FCmdMsg := Format('%d faces back to the default material.', [K])
+        else
+          FCmdMsg := 'Back to the default material.';
       end;
     iaReverse:
       begin

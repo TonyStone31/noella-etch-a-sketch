@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Paint a face and it is that color.**  Faces have a material of their
+  own now, separate from the pen that drew their edges - so red is red
+  instead of the grey-pink it used to come out.  Paint it from the entity
+  panel; with several faces picked, all of them are painted at once, and
+  **Back to default** returns one to the near-white it started as.
+
 ## v2026.09.17.10
 
 ### New

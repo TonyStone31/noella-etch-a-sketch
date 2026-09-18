@@ -138,6 +138,19 @@ type
     Grp: Integer;
     Txt: string;
     Ink: TColor;
+    { ekFace: the material painted on the front of it.  MatSet is what says
+      whether it has one, because a colour has no spare value to mean "none"
+      and an entity is born by being zeroed - so black had to stay a colour
+      you can paint with.
+
+      This is kept apart from Ink, and the two used to be one field.  That is
+      what made a face painted red come out grey: the pen colour and the
+      material were the same thing, so a face had to take a mere eight
+      percent of it or every face drawn with a red pen would have been red.
+      SketchUp keeps them apart - an edge has a colour, a face has a material
+      - and a face painted red is red. }
+    MatSet: Boolean;
+    Mat: TColor;
     Weight: Single;
     { ekText: how big the words are, as a multiple of the drawing's normal
       note size.  Nought means normal, which is what every note made before
@@ -434,6 +447,13 @@ type
       panel's colour and width rows. }
     procedure SetInk(Index: Integer; Ink: TColor);
     procedure SetWeight(Index: Integer; Weight: Single);
+    { The material on the front of a face.  Painting is per face, so a box
+      can have a red top and a white side the way it does in SketchUp.
+      Material returns False for a face that has never been painted, which
+      is the near-white all faces start as. }
+    procedure SetMaterial(Index: Integer; C: TColor);
+    procedure ClearMaterial(Index: Integer);
+    function Material(Index: Integer; out C: TColor): Boolean;
     { Turn a face over: its outline and its openings run the other way round,
       so its normal points the other way. }
     procedure FlipFace(Index: Integer);
@@ -4129,6 +4149,29 @@ begin
   FEnts[Index].Weight := Weight;
 end;
 
+procedure TWorkDoc.SetMaterial(Index: Integer; C: TColor);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind <> ekFace then Exit;
+  FEnts[Index].MatSet := True;
+  FEnts[Index].Mat := C;
+end;
+
+procedure TWorkDoc.ClearMaterial(Index: Integer);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  FEnts[Index].MatSet := False;
+  FEnts[Index].Mat := 0;
+end;
+
+function TWorkDoc.Material(Index: Integer; out C: TColor): Boolean;
+begin
+  C := 0;
+  Result := (Index >= 0) and (Index < FLive) and (FEnts[Index].Kind = ekFace)
+    and FEnts[Index].MatSet;
+  if Result then C := FEnts[Index].Mat;
+end;
+
 procedure TWorkDoc.SetDimOffset(Index: Integer; const Off: TP3);
 begin
   if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekDim) then Exit;
@@ -4282,6 +4325,9 @@ var
   procedure FaceOut(const Pts: array of TP3; const Want: TP3);
   begin
     AddFaceRaw(Pts, FEnts[Face].Ink, True);
+    { the sweep is made of the profile, so it is made of what the profile is
+      painted with - the pen came across already }
+    if FEnts[Face].MatSet then SetMaterial(FLive - 1, FEnts[Face].Mat);
     SetFaceGroup(FLive - 1, G);
     if Dot3(FaceNormal(FLive - 1), Want) < 0 then FlipFace(FLive - 1);
   end;
@@ -4484,6 +4530,7 @@ var
   procedure FaceOut(const P: array of TP3; const Want: TP3);
   begin
     AddFaceRaw(P, FEnts[Face].Ink, True);
+    if FEnts[Face].MatSet then SetMaterial(FLive - 1, FEnts[Face].Mat);
     SetFaceGroup(FLive - 1, G);
     if Dot3(FaceNormal(FLive - 1), Want) < 0 then FlipFace(FLive - 1);
   end;
@@ -9946,6 +9993,12 @@ begin
             they belong to.  Their own keyword rather than more fields on the
             end, so a reader that has never heard of a hole skips them and
             gets the face it would have got before. }
+          { What it is painted with, on a line of its own - so a reader that
+            has never heard of a material skips it and gets the face it
+            always got, and a face nobody has painted writes nothing at all
+            and its file is byte for byte what it was. }
+          if FEnts[I].MatSet then
+            L.Add(Format('MATERIAL %d', [FEnts[I].Mat]));
           for K := 0 to High(FEnts[I].Holes) do
             if Length(FEnts[I].Holes[K]) >= 3 then
             begin
@@ -10093,6 +10146,9 @@ begin
       else if (Kind = 'TEXTSIZE') and (T.Count >= 2) and (LastNote >= 0) and
               (LastNote < FLive) then
         SetNoteSize(LastNote, RdF(T[1]))
+      else if (Kind = 'MATERIAL') and (T.Count >= 2) and (LastFace >= 0) and
+              (LastFace < FLive) then
+        SetMaterial(LastFace, StrToIntDef(T[1], 0))
       else if (Kind = 'HOLE') and (T.Count >= 2) and (LastFace >= 0) then
       begin
         N := StrToIntDef(T[1], 0);
@@ -10910,7 +10966,7 @@ var
   ZOK, Drew: Boolean;  I, J, K, N, Steps, NFace: Integer;
   PA, PB: TPointF;
   Ang, Sh: Double;
-  Col: TPix;
+  Col, Face: TPix;
   Look, Lamp, Cen, Nm: TP3;
   Order: array of Integer;
   Depth, Area: array of Double;
@@ -11484,6 +11540,15 @@ begin
       Flat[J] := Project(V, FEnts[K].Poly[J]);
     Nm := FaceNormal(K);
     Col := ColorToPix(FEnts[K].Ink);
+    { What this face is made of.  A face that has been painted shows the
+      material it was painted with, at full strength - SketchUp's way, and
+      the whole point of keeping a material apart from the pen.  One that
+      has never been painted keeps what faces have always looked like here:
+      the near-white default carrying a hint of the pen that drew it. }
+    if FEnts[K].MatSet then
+      Face := ColorToPix(FEnts[K].Mat)
+    else
+      Face := MixPix(Col, FACE_MATERIAL, 0.92);
     { A face is a surface with a material on it, not a stroke of ink.  It
       starts from SketchUp's near-white default and carries only a hint of
       the pen color, so a red-inked part still reads as red without the
@@ -11806,10 +11871,15 @@ begin
         back are the same colour here on purpose - looking straight down, one
         of them is the underside of a floor, and a plan has nothing to say
         about that. }
-      S.FillLoops(Loops, MixPix(MixPix(Col, FACE_MATERIAL, 0.92),
-        Pix(255, 255, 255), 0.55), 1.0)
+      { A painted face is shown as painted even here: somebody chose that
+        colour on purpose, and washing it out would be second-guessing them.
+        An unpainted one stays pale, so it cannot compete with the lines. }
+      if FEnts[K].MatSet then
+        S.FillLoops(Loops, Face, 1.0)
+      else
+        S.FillLoops(Loops, MixPix(Face, Pix(255, 255, 255), 0.55), 1.0)
     else
-      S.FillLoops(Loops, ShadePix(MixPix(Col, FACE_MATERIAL, 0.92), Sh), 1.0);
+      S.FillLoops(Loops, ShadePix(Face, Sh), 1.0);
     { No outline.  Every boundary of a face is a real edge and gets drawn as
       one, so stroking the polygon as well laid a second line over the first -
       which is most of why the edges of a solid looked heavier than the lines

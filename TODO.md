@@ -59,6 +59,47 @@ six at a time, some of them chained in one program.
 
 ---
 
+## A face is painted, not inked - 17 September
+
+Tony, testing: "when i make colors red for example for a face ... that shit
+is not looking red at all ... its still like grey over red ... are we still
+drawing the default faces over our chosen colors?"
+
+Nothing was drawn over it.  The fill was
+`MixPix(Col, FACE_MATERIAL, 0.92)` - eight percent of the chosen colour over
+SketchUp's near-white - so pure red landed on (250, 230, 226), and the
+shading then took a side face down to (200, 184, 181).  Red and green came
+out the same warm grey, which is exactly what he was seeing.  In plan it was
+worse: a second mix toward white left about three and a half percent.
+
+The eight percent was not cowardice.  **One field, `Ink`, was doing two
+jobs** - the pen colour of edges and the material of faces - so anything
+stronger would have turned every face drawn with a red pen red.  The ratio
+was a symptom; the conflated field was the fault.
+
+So faces got a material of their own: `MatSet` + `Mat` on the entity, apart
+from `Ink`.  A flag rather than a colour standing for "none", because an
+entity is born by being `FillChar`ed to zero and black had to stay a colour
+you can paint with.  Unpainted faces render exactly as they always did, so
+no drawing anybody owns changes under them.  It saves as a `MATERIAL` line
+of its own after the `FACE` - the same trick as `TEXTSIZE` and `HOLE`, so an
+older reader skips it, and a drawing with nothing painted is byte for byte
+the file it was, which is what keeps the examples' checksums still true.
+
+The entity panel paints, and paints **every picked face** when the one it is
+showing is among them - a box is six faces and nobody wants six trips
+through a colour dialog.  A swept surface takes the profile's material, the
+way it already took the profile's pen.  Push/pull's moved cap keeps its
+material because the cap is the same entity moved; the new side walls come
+out default, which is what SketchUp does.  Backs stay pale blue whatever the
+front is painted - also SketchUp.
+
+Not built: named materials, textures, a materials browser, painting a back
+separately from its front, and a paint-bucket tool.  The panel is the only
+way in.
+
+---
+
 ## Loose ends, small
 
 Gathered from the notes further down, so none of them is only findable by

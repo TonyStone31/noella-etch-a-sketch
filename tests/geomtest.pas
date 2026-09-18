@@ -2656,6 +2656,145 @@ end;
 
 { An example somebody changed and saved stays theirs; an untouched one gets
   the newer version. }
+{ The complaint that started this: "i make colors red for example for a face
+  ... that shit is not looking red at all ... its still like grey over red".
+  It was true.  A face took eight percent of the pen colour over a near-white
+  default, so pure red fetched up at (250, 230, 226) before the shading had
+  even had a go at it.  A material of its own fixes it, and the only proof
+  that counts is the pixel that lands on the screen. }
+procedure TestPaintedFaceComesOutPainted;
+var
+  D: TWorkDoc;
+  S: TArtSurface;
+  V: TProjector;
+  Loop: TP3Array;
+  P: PPix;
+  Was: TPix;
+
+  function Middle: TPix;
+  begin
+    P := S.ScanLine(100);
+    Inc(P, 100);
+    Result := P^;
+  end;
+
+begin
+  WriteLn('-- a face painted red comes out red');
+  D := TWorkDoc.Create;
+  S := TArtSurface.Create(200, 200);
+  try
+    FillChar(V, SizeOf(V), 0);
+    V.Kind := vkPlan; V.OX := 100; V.OY := 100; V.Ppu := 10;
+    SetLength(Loop, 4);
+    Loop[0] := P3(-5, -5, 0); Loop[1] := P3(5, -5, 0);
+    Loop[2] := P3(5, 5, 0); Loop[3] := P3(-5, 5, 0);
+    { drawn with a red pen and NOT painted: it must stay the near-white it
+      has always been, or every drawing anybody has made changes under them }
+    D.AddFace(Loop, clRed, False);
+    S.Clear(Pix(255, 255, 255));
+    D.Render(S, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Was := Middle;
+    Ok((Was.R > 230) and (Was.G > 230) and (Was.B > 230),
+      Format('a red pen leaves the face near-white (%d,%d,%d)',
+        [Was.R, Was.G, Was.B]));
+
+    D.SetMaterial(0, clRed);
+    S.Clear(Pix(255, 255, 255));
+    D.Render(S, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Was := Middle;
+    { red, and not a rumour of red: at least three times as much red as
+      either of the others.  The old eight percent mix gave 250/230/226,
+      which is a ratio of 1.09 and is why it read as grey. }
+    Ok((Was.R > 200) and (Was.G < 70) and (Was.B < 70),
+      Format('painted red, it renders red (%d,%d,%d)', [Was.R, Was.G, Was.B]));
+
+    D.SetMaterial(0, clGreen);
+    S.Clear(Pix(255, 255, 255));
+    D.Render(S, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Was := Middle;
+    Ok((Was.G > Was.R + 40) and (Was.G > Was.B + 40),
+      Format('and green renders green, not the same grey (%d,%d,%d)',
+        [Was.R, Was.G, Was.B]));
+
+    { and back to where it started }
+    D.ClearMaterial(0);
+    S.Clear(Pix(255, 255, 255));
+    D.Render(S, V, usImperial, nil, Pix(0, 0, 0), 1);
+    Was := Middle;
+    Ok((Was.R > 230) and (Was.G > 230) and (Was.B > 230),
+      'unpainted again, and near-white again');
+  finally
+    S.Free;
+    D.Free;
+  end;
+end;
+
+procedure TestFaceMaterial;
+var
+  D: TWorkDoc;
+  L: TStringList;
+  I, Idx, Painted, Plain, Mats: Integer;
+  C: TColor;
+begin
+  WriteLn('-- a face is painted with a material, not inked with a pen');
+  D := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    D.AddFace([P3(0, 0, 0), P3(10, 0, 0), P3(10, 10, 0), P3(0, 10, 0)],
+      clRed, False);
+    Painted := D.Live - 1;
+    D.AddFace([P3(20, 0, 0), P3(30, 0, 0), P3(30, 10, 0), P3(20, 10, 0)],
+      clRed, False);
+    Plain := D.Live - 1;
+
+    { a face starts with no material at all - the near-white default - even
+      when the pen that drew it was red.  That is the whole separation: the
+      pen is not the paint. }
+    Ok(not D.Material(Painted, C), 'a new face has no material of its own');
+
+    D.SetMaterial(Painted, clRed);
+    Ok(D.Material(Painted, C) and (C = clRed), 'painted red, and red is what it holds');
+    Ok(not D.Material(Plain, C), 'the face beside it is untouched');
+    Ok(D[Painted].Ink = clRed, 'and the pen it was drawn with is unchanged');
+
+    { black is a colour you can paint with - which is why there is a flag
+      saying whether it has one, rather than a colour standing for none }
+    D.SetMaterial(Painted, clBlack);
+    Ok(D.Material(Painted, C) and (C = clBlack), 'black paints like any other colour');
+    D.SetMaterial(Painted, clRed);
+
+    D.SaveTo(L);
+    Mats := 0;
+    for I := 0 to L.Count - 1 do
+      if Copy(Trim(L[I]), 1, 9) = 'MATERIAL ' then Inc(Mats);
+    Ok(Mats = 1, 'one MATERIAL line written, for the one painted face');
+
+    { a drawing where nobody has painted anything writes no material lines,
+      so every file made before this is byte for byte what it was }
+    D.ClearMaterial(Painted);
+    L.Clear;
+    D.SaveTo(L);
+    Mats := 0;
+    for I := 0 to L.Count - 1 do
+      if Copy(Trim(L[I]), 1, 9) = 'MATERIAL ' then Inc(Mats);
+    Ok(Mats = 0, 'nothing painted, nothing written');
+
+    { and it comes back }
+    D.SetMaterial(Painted, clRed);
+    L.Clear;
+    D.SaveTo(L);
+    D.Clear;
+    Idx := 0;
+    D.LoadFrom(L, Idx);
+    Ok(D.Live = 2, 'both faces read back');
+    Ok(D.Material(0, C) and (C = clRed), 'the painted one is still red');
+    Ok(not D.Material(1, C), 'the plain one is still plain');
+  finally
+    L.Free;
+    D.Free;
+  end;
+end;
+
 procedure TestExamplesKeepEdits;
 var
   Dir, Path, Rec: string;
@@ -7797,6 +7936,8 @@ begin
   TestPushedEdgesKeepTheOutlineInk;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestFaceMaterial;  WriteLn;
+  TestPaintedFaceComesOutPainted;  WriteLn;
   TestExamplesKeepEdits;  WriteLn;
   TestHelpZipInstalls;  WriteLn;
   TestHelpStaleness;  WriteLn;
