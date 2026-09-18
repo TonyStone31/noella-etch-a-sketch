@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.18.6' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The manual is drawn by a new engine.**  LazInk, which draws the help' + LineEnding +
+    '  window inside the program, has replaced the renderer it grew up with -' + LineEnding +
+    '  so this build carries a manual that lays out through a proper box tree' + LineEnding +
+    '  and hangs its text on baselines.  It should read the same and draw' + LineEnding +
+    '  faster, and there is one fewer licence riding along with the download:' + LineEnding +
+    '  LazInk is MIT throughout now, where the old renderer was MPL and owed' + LineEnding +
+    '  its source to anybody who was given a copy of this.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
