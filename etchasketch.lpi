@@ -158,6 +158,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="uExBroom.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="uExamples.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

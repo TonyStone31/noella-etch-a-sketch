@@ -14,6 +14,11 @@
 
 ### Fixed
 
+- **A third example drawing: a kitchen broom.**  A hundred and seventy
+  bristles banded in four colours, a blue moulded head and a wooden
+  handle - every face of it painted.  The other two examples are
+  near-white, so this is the one that shows what materials are for.  It is
+  written out beside the program with the others.
 - **The view cube still works when you are square on to a face.**  Looked
   at straight on it is a flat square, and the ring of eight targets round
   its border is now drawn - the four sides are the views either way off

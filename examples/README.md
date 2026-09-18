@@ -107,6 +107,55 @@ fpc -Mobjfpc -Sh -Fu.. make-glass.pas
 
 ---
 
+## `broom.hsk` - the one that explains materials
+
+A kitchen angle broom, the kind that stands behind a door:
+
+| | |
+|---|---|
+| overall | 11.5" wide, about 53" tall |
+| head | 11.5" x 2.6" x 2", blue, 5.4" off the floor |
+| bristles | 170 of them, 5 rows of 34, cut on a slant |
+| handle | 46", leaning back 14 degrees out of the head |
+
+**It is here because nothing else in the folder is coloured.**  The toy and
+the glass are both near-white, which is what a face looks like when nobody
+has painted it, and until the 17th that was the only thing a face could look
+like.  Every face on this one carries a **material** - and not one carries a
+pen colour, which is the distinction the whole change was about.
+
+Two things in `make-broom.pas` were arrived at by looking rather than by
+reasoning, and both are worth knowing before anybody "tidies" them:
+
+* **The bristles carry no edges at all.**  A bristle is a tenth of an inch
+  across and would carry twelve of them.  With edges on, a hundred and
+  seventy of them came out as one black wedge at any zoom you would actually
+  use - the ink swallowed the colour completely.  Without them the material
+  is all there is, which is what a bristle should be, and the model went from
+  3,724 things to 1,324.
+* **Every bristle is a little different.**  All the same length and dead
+  straight reads as a comb rather than a broom, so each gets its own tip
+  height and a nudge sideways from a hash of where it sits.  The same broom
+  comes out every time; there is just no pattern in it the eye can pick up.
+
+Each solid - every bristle, the block, the handle, each band - is a closed
+run of faces wound outwards with a **group of its own**, which is what stops
+the region finder merging bristles into each other where they nearly touch.
+
+At 1,108 faces it is also the heaviest thing in the folder, which makes it
+the honest one to open when somebody wants to know how the program handles a
+real model: about 15 ms a frame in an orbit view.
+
+### Making it again
+
+```
+cd examples
+fpc -Mobjfpc -Sh -Fu.. make-broom.pas
+./makebroom
+```
+
+---
+
 ## Adding another
 
 Each generator writes two things: the `.hsk` here, and a unit above with the

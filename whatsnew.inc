@@ -17,9 +17,11 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
-    '- **The view cube page says what happens when you are square on to a' + LineEnding +
-    '  face**: the cube becomes a flat square with nothing to click, so the way' + LineEnding +
-    '  back out is Ctrl and an arrow, a drag, or the VIEW button.' + LineEnding +
+    '- **The view cube still works when you are square on to a face.**  Looked' + LineEnding +
+    '  at straight on it is a flat square, and the ring of eight targets round' + LineEnding +
+    '  its border is now drawn - the four sides are the views either way off' + LineEnding +
+    '  this face, the corners are corner views.  They light up as you pass' + LineEnding +
+    '  over them, so the cube can bring you back out as well as take you in.' + LineEnding +
     '- **The view cube, the tape measure and rotate have animations** - the' + LineEnding +
     '  cube flying between views, a tape pulled off an edge leaving a guide' + LineEnding +
     '  line, and a rectangle turned by a typed angle.  Rotate''s two sections' + LineEnding +

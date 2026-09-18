@@ -267,6 +267,44 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## A broom, and it became the third example - 18 September
+
+Tony: "a very elaborate broom like a kitchen broom for sweeping floors with
+a lot of bristles and I want you to color the faces properly" - then, once
+it was up: "we are going to want it to be one of the example models if it
+comes out good."
+
+It is `examples/make-broom.pas` now, in the same shape as the other two: it
+writes `examples/broom.hsk` and the carried unit `uExBroom.pas`, and one
+line in `uExamples.pas` lists it.  1,324 things, 1,108 faces, 170 bristles.
+
+**Why it earns its place** - the toy and the glass are both near-white,
+because until the 17th that was the only thing a face could be.  This is the
+one that shows what a material is for, and it uses nothing else: not a pen
+colour on it anywhere.
+
+Two things were found by looking at it rather than by reasoning, and both
+are written into the generator and the examples README so nobody tidies them
+away:
+
+* **the bristles carry no edges.**  A bristle is a tenth of an inch across
+  and would carry twelve.  With edges on, all hundred and seventy came out
+  as a single black wedge at any usable zoom - the ink swallowed the colour
+  completely.  Taking them off dropped the model from 3,724 things to 1,324
+  and is the only reason the banding can be seen at all.
+* **every bristle is a little different**, from a hash of where it sits.
+  Identical and straight reads as a comb.  Deterministic, so the drawing is
+  the same bytes every run - which the example test insists on.
+
+The example tests took it without complaint, which is the part worth
+recording: same bytes inside and out, every face belongs to a solid, it is
+closed and will print, and it stands on z = 0.  1,108 faces also makes it
+the heaviest thing in the folder and so the honest one to open when
+somebody asks how the program copes with a real model - about 15 ms a frame
+in orbit.
+
+---
+
 ## The cube has no way out of a face - 18 September
 
 Tony, watching the animation: "you click the top of the cube and it rolls

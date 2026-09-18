@@ -59,15 +59,18 @@ function PutExample(I: Integer; const Dir: string;
 implementation
 
 uses
-  SysUtils, uExample, uExGlass, uUpdate;
+  SysUtils, uExample, uExGlass, uExBroom, uUpdate;
 
 const
-  FILES: array[0..1] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk');
-  ABOUT: array[0..1] of string = (
+  FILES: array[0..2] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
+    'broom.hsk');
+  ABOUT: array[0..2] of string = (
     'A toy etch-a-sketch, to scale, with a robot on the screen.  Every ' +
     'face of it is something to push.',
     'A wine glass, off the lathe: an outline spun about the blue axis.  ' +
-    'Hollow bowl, solid stem, and closed enough to print.');
+    'Hollow bowl, solid stem, and closed enough to print.',
+    'A kitchen broom, banded the way a shop one is: a hundred and seventy ' +
+    'bristles, every face painted, and not a pen colour anywhere.');
 
 function ExampleCount: Integer;
 begin
@@ -89,6 +92,7 @@ begin
   case I of
     0: ExampleDrawing(L);
     1: GlassDrawing(L);
+    2: BroomDrawing(L);
   end;
 end;
 
