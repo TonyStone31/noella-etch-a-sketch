@@ -13,10 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.18.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **A third example drawing: a kitchen broom.**  A hundred and seventy' + LineEnding +
+    '  bristles banded in four colours, a blue moulded head and a wooden' + LineEnding +
+    '  handle - every face of it painted.  The other two examples are' + LineEnding +
+    '  near-white, so this is the one that shows what materials are for.  It is' + LineEnding +
+    '  written out beside the program with the others.' + LineEnding +
     '- **The view cube still works when you are square on to a face.**  Looked' + LineEnding +
     '  at straight on it is a flat square, and the ring of eight targets round' + LineEnding +
     '  its border is now drawn - the four sides are the views either way off' + LineEnding +
