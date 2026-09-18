@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Solids and 3D printing** shows what `/holes` is for: an edge rubbed
+  off a box, and every unmatched edge drawn in red round the opening.
+  Units, sheets and the etch-a-sketch pages read better too.
+- **The rubber band stops claiming an axis it is not holding.**  With the
+  axis inferences switched off by Alt, a line that happened to drift onto
+  red still turned red, which read as a snap coming and going.  It now
+  takes an axis color only when it is really on one.
+
 ## v2026.09.18
 
 ### Fixed

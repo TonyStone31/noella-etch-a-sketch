@@ -267,6 +267,36 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## Four more pages, and what is deliberately not documented - 18 September
+
+`solids` got the animation - one edge off a box, then `/holes` drawing every
+unmatched edge in red round the opening, which is the difference between
+being told a shape is open and being shown where.  Its coordinates came out
+of `tools/frame.pas` on its first real job, which is the point of building
+it.
+
+`units` was headed "three different settings that people mix up" and then
+listed four; it says four now, and gained the sentence the whole page exists
+to deliver - **snap is the only one of them that moves anything**.  `sheets`
+gained what happens through an update, which was built on the 17th and
+written down nowhere a user would find it.  `toy` got a short "worth
+knowing" and nothing else, as asked: "It's a stupid toy.  They can figure it
+out lol."
+
+**Not documented on purpose**, and worth keeping a list of so it does not
+get done by accident:
+
+* **the text tool** - Tony: "I don't think it is quite exactly SketchUp like
+  yet."  Documenting it now would fix the wrong behaviour in writing.
+* **the shop tools** - his own, and due for more work.  When they are
+  settled they want **one still picture each and no animation** - they are
+  not gestures, they are forms.
+
+Seventeen pages still have no picture.  The ones that would most repay one
+when their tools settle: `measure`, `rotate`, `unfold`, `cube`.
+
+---
+
 ## The red band that was lying, and a tool so nobody probes again - 18 Sept
 
 **The band.**  By report: "this red line seems to snap on the red axis which
