@@ -13,11 +13,27 @@ of whatever else was going on.</p>
 <ol>
 <li>Click a thing to pick it.  An edge, a face, a note, a dimension, a guide -
 anything in the drawing is a thing.</li>
+<li><b>Click twice</b> to take what is attached: a face and the edges round
+it, or an edge and the faces it holds up.</li>
+<li><b>Click three times</b> to take the whole of whatever it is part of -
+every edge and face joined to it, however far that reaches.</li>
 <li>Drag a box to pick several.  Everything the box touches comes with it.</li>
 <li><kbd>Ctrl</kbd> adds to what is picked, <kbd>Shift</kbd> toggles each
 thing, <kbd>Ctrl</kbd>+<kbd>Shift</kbd> takes away.</li>
 <li>Click empty paper, or press <kbd>Esc</kbd>, to let go of the lot.</li>
 </ol>
+<figure>
+  <a class="zoom" href="../shots/tool-select.gif" target="_blank" title="Open larger"><img src="../shots/tool-select.gif" alt="One click picks an edge, two clicks the face beside it, three clicks the whole box, and a dragged box takes everything it touches."></a>
+  <figcaption>One click, two clicks, three clicks, then a dragged box.  The
+  count in the bottom right says what you are holding - one thing, then the
+  face, then all eighteen.</figcaption>
+</figure>
+
+<h2>The one that catches people out</h2>
+<p>The three clicks are not three separate gestures - they are one, two and
+three clicks of the <i>same</i> click, so they have to be quick.  Pause in
+the middle and you have picked twice rather than picked more.  It is the same
+in SketchUp and it is worth practising on a box.</p>
 
 <h2>What picking is for</h2>
 <p>Most of the program acts on what is picked rather than on what is under
@@ -41,10 +57,19 @@ something harmless.</p>
 <h2>What a picked thing looks like</h2>
 <p>Blue, and along its whole length - a guide picked at one end lights up
 right across the paper, because that is where the guide is.  The count is in
-the bar along the bottom.</p><h2>What it looks like</h2><figure>
-  <div class="shot-missing">shots/tool-select.png &mdash; not taken yet<br>The select tool in use.</div>
-  <figcaption>The select tool in use.</figcaption>
-</figure><h2>See also</h2><ul><li><a href="../index.html">All the tools</a></li></ul>
-<footer>Heckers Sketch - help.  This page is a skeleton: the words are
-right, the pictures are not there yet.</footer>
+the bar along the bottom.</p>
+
+<h2>What it will not pick</h2>
+<p>A guide has to be right under the cursor rather than merely near it, and
+it goes blue-dashed rather than lighting up thickly - guides are there to
+draw against, not to be caught by accident.  And of two edges lying close
+together on screen, the one <b>in front at the spot you are pointing at</b>
+wins: the rim of a knob rather than the wall underneath it.</p>
+
+<h2>See also</h2><ul>
+<li><a href="erase.html">The eraser</a> - what taking things away does to faces</li>
+<li><a href="move.html">Move</a> - what happens to what is joined on</li>
+<li><a href="../entity.html">The entity panel</a> - changing what is picked</li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
 </div></body></html>

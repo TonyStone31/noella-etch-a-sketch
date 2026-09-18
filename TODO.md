@@ -267,6 +267,34 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## Four more help pages, and a page for something unbuilt - 18 September
+
+`select`, `erase`, `faces` and `protractor` had no pictures.  They have one
+animation each now, all recorded against `tools/gif-box.hsk` - a box built
+by `tools/mkbox.pas` rather than typed out, so what the recordings open is a
+real solid made the way the program makes one.
+
+* **select** - one click, two clicks, three clicks, then a dragged box, with
+  the count in the corner going 1, face, 18.  The page gained the thing that
+  catches people out: the three clicks are one gesture, not three, so a
+  pause in the middle picks twice instead of picking more.
+* **erase** - two edges off the lid, and the lid goes with them.  The frame
+  that teaches is the one after: pale blue everywhere, because you are
+  looking at the backs of the faces from inside the box.
+* **faces** - the healing story end to end, and a new opening section
+  saying the thing the rest of the page hangs off: a face is not drawn, it
+  is what a closed loop of edges encloses.  Also now documents painting one,
+  which went in yesterday.
+* **protractor** - the three clicks and the guide left behind at 39.7
+  degrees, plus what it is actually for: `8:12` and the rafter line.
+
+**`parts.html`** is a page for something that does not exist, which is
+unusual enough to say why: the idea now has a name, a place in the contents
+and an explanation of why it is waiting, so it reads as coming rather than
+missing.  It points at `docs/groupplan.md` for the detail.
+
+---
+
 ## A face is painted, not inked - 17 September
 
 Tony, testing: "when i make colors red for example for a face ... that shit

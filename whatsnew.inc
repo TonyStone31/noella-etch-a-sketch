@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Big drawings draw faster.**  Filling the faces was half of every' + LineEnding +
+    '  frame; it now looks only at the edges that reach each row instead of' + LineEnding +
+    '  all of them.  Measured on three drawings sent in with reports: about a' + LineEnding +
+    '  sixth off the time a frame takes, and more the more detailed the shapes.' + LineEnding +
+    '- **Set a color on everything picked at once.**  With several things' + LineEnding +
+    '  picked the entity panel now paints every picked face, or recolors every' + LineEnding +
+    '  picked line, arc, note and dimension, in one trip through the color' + LineEnding +
+    '  picker - and the buttons say how many they will land on.' + LineEnding +
+    '- **Paint a face and it is that color.**  Faces have a material of their' + LineEnding +
+    '  own now, separate from the pen that drew their edges - so red is red' + LineEnding +
+    '  instead of the grey-pink it used to come out.  Paint it from the entity' + LineEnding +
+    '  panel; with several faces picked, all of them are painted at once, and' + LineEnding +
+    '  **Back to default** returns one to the near-white it started as.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.17.10' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

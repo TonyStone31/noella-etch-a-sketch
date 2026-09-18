@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parts - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css"></head>
+<body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Parts</nav>
+<header><h1>Parts</h1><p class="lead">Making a piece of a drawing a thing of
+its own.  <b>Planned, not built.</b></p></header>
+
+<div class="note"><b>This is not in the program yet.</b>  The page is here so
+that the idea has a name and a place before the work starts, and so you know
+it is coming rather than missing.  Other programs call this <i>grouping</i>,
+and <code>/group</code> will work as another word for it when it arrives.</div>
+
+<h2>The problem it solves</h2>
+<p>Everything you draw joins onto everything else it touches.  That is
+usually what you want - it is why a rectangle drawn against a wall shares
+that wall's edge, and why a face appears the moment a loop closes.</p>
+<p>It is emphatically <i>not</i> what you want when you lay lettering onto
+the front of a cabinet.  The letters land in the same flat plane as the
+cabinet door, so their edges join the door's edges: the hollow of an
+<b>R</b> becomes a hole in the door rather than a hole in the R, and rubbing
+the R out takes a piece of the door with it.</p>
+<p>The missing idea is that <b>two pieces of geometry can be in the same
+place without being the same object</b>.  A part is that idea.</p>
+
+<h2>What it will do</h2>
+<ul>
+<li><b>Keep itself to itself.</b>  Edges inside a part do not join edges
+outside it.  Nothing merges, nothing gets cut at a crossing, and no face
+appears spanning the two.</li>
+<li><b>Move as one.</b>  Click any of it and you have all of it.</li>
+<li><b>Lock.</b>  A locked part cannot be picked at all, so you can draw
+against something without any risk of drawing <i>into</i> it - which is the
+whole reason people reach for this.</li>
+<li><b>Open and close.</b>  Go inside a part to work on it, and everything
+else dims and goes out of reach until you come back out.</li>
+<li><b>Nest.</b>  A drawer is a part; a chest of drawers is a part made of
+drawers.</li>
+<li><b>Explode.</b>  Let it go back to being ordinary geometry.</li>
+</ul>
+<p>Snapping will still find points inside a closed part, so you can line
+something up with a corner of it without opening it up first.</p>
+
+<h2>Why it is called a part</h2>
+<p>Because that is what it is - a part of the thing you are drawing.  Most
+programs say "group", and that word will work too, because it is what people
+type.  The reason for not simply copying SketchUp here is what sits
+underneath the word: they have two of these, a <b>Group</b> and a
+<b>Component</b>, and which one you should have used is the single most
+confusing thing in the program.  One idea seems better than two, so a part
+will know how many copies of itself exist, and a copy is either linked to
+the original or cut loose from it.  One thing to learn instead of two.</p>
+
+<h2>When</h2>
+<p>After the drawing tools are solid.  Parts sit on top of picking, moving,
+erasing, snapping and the way faces are worked out from edges - so building
+them first would mean fixing every fault underneath them twice, and hiding
+some of those faults until much later.  The plan is written up in full in
+<code>docs/groupplan.md</code> in the source.</p>
+<p>In the meantime, the way to keep lettering off a face is to draw it on its
+own sheet, or to lay it just clear of the face rather than exactly on it.</p>
+
+<h2>See also</h2><ul>
+<li><a href="faces.html">Faces, front and back</a> - why edges joining up makes faces in the first place</li>
+<li><a href="sheets.html">Sheets</a> - the way to keep two drawings apart today</li>
+<li><a href="reporting.html">Sending a report</a> - if this is in your way, say so and it moves up</li>
+</ul>
+<footer>Heckers Sketch - help.</footer>
+</div></body></html>

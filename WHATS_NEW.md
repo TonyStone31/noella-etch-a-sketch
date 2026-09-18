@@ -14,6 +14,13 @@
 
 ### Fixed
 
+- **Four more pages of the manual have pictures**: the select tool (one
+  click, two, three, then a dragged box), the eraser, faces front and back
+  - which now shows an edge rubbed out and drawn back in, faces going and
+  coming with it - and the protractor.
+- **A page about Parts**, which is not built yet: keeping one piece of a
+  drawing to itself so it does not join onto everything it touches.  The
+  page says plainly that it is planned, and why it waits.
 - **Clicking takes what you can see.**  Where an edge on top of something
   ran close on screen to an edge buried under it, the buried one could win
   and be picked or erased instead - the rim of a knob against the wall
