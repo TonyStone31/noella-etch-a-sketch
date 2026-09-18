@@ -267,6 +267,35 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## Four more help pages - 18 September
+
+`snapping`, `planes`, `drill` and `dim`.  Eighteen pages still have no
+picture; these were the four where a still one would not have done the job.
+
+* **snapping** - the cursor walks along a single edge, touching nothing
+  else, and the diamond changes colour and name at every stop.  That is the
+  page's whole argument made visible: read the word, do not trust your aim.
+* **planes** - the same rectangle tool twice with nothing changed between,
+  landing flat on the top of a box and then upright on its side, with the
+  PLANE reading changing to say so.  This is the thing that catches people
+  out in 3D and it cannot be photographed, only filmed.
+* **drill** - the circle first, then the drill, because the mistake people
+  make is expecting the drill to make the shape.  It takes one that is
+  already there.
+* **dim** - corner, corner, then **out**: the third click is the one nobody
+  expects.
+
+**A note for the next time somebody records one.**  The `CAMERA` line in an
+`.hsk` measures its last two numbers from the **canvas's** top-left corner,
+not the window's - about (156, 75) in at 1100x650.  An hour went on that.
+The way to get coordinates is still the same: drive the drawing with a
+throwaway `tests/drive/probe.txt`, take a `shot`, and read them off it -
+hidctl's shots are in client coordinates, which is exactly what the scripts
+take, while the recordings film the whole screen including the title bar and
+are a good deal less useful for measuring.
+
+---
+
 ## A theme switch on the manual's website - 18 September
 
 Tony, reading the manual on his phone: "I think we will want a toggle
