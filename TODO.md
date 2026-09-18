@@ -267,6 +267,41 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## TDF corners in the fitting builder - 18 September
+
+Tony: "in the duct fitting builder we have tdf flanges... except the picture
+isn't complete.  I would like to have a tdf option to have it drawn with the
+cornermatic corners installed or like we have it now."
+
+Right - a TDF's four sides each stop their own width short of the corner so
+the next one has room to fold, and the builder drew exactly that: a flange
+with a square hole at each of the four corners.  True of the flange coming
+off the machine and not true of anything that ever went on a job, where a
+stamped corner is dropped in and crimped to tie the two flanges together and
+give the bolt something to go through.
+
+**A new kind rather than a checkbox**, because the ends are already chosen
+from a list and `deTDFCorner` next to `deTDF` reads as the choice it is -
+and because the list in `uTransition` is built from the enum, so the wizard
+picked it up without being touched.  Added after `deTDF` and not at the end:
+nothing writes the ordinals to disk, which was checked before moving them.
+
+The piece itself is the six-sided L that fills the gap - out to the end of
+one flange, round the outside of the corner, back to the end of the other,
+and in to the corner of the duct - with the same fold back along its two
+outer edges that the flanges have.  It is drawn in a pass of its own after
+the walls, because a corner belongs to two walls rather than to either and
+drawing it from inside the wall loop would put two in every corner.  A
+corner whose wall has been left out for the caller - a tee's branch - is
+skipped: there is nothing there to tie together.
+
+`TestTDFCornersGoInTheGaps` checks the count (four corners, three faces
+each), that each is the six-sided L, and the one that matters on a job:
+**the fitting is exactly as big with the corners in as without**, so a
+corner cannot stand proud of the flange and foul the next piece of duct.
+
+---
+
 ## A broom, and it became the third example - 18 September
 
 Tony: "a very elaborate broom like a kitchen broom for sweeping floors with

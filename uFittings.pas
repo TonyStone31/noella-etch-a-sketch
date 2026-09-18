@@ -33,13 +33,17 @@ type
   { How an end is finished.  Raw is the sheet cut square.  Notched is the
     corners cut back all round so a slip goes on in the field.  A flange is
     the end bent out or in.  TDF is the roll-formed flange commercial duct
-    is joined with - out, with a fold back.  Slip and drive has the drives -
+    is joined with - out, with a fold back.  Each side's flange stops its
+    own width short of the corner so the next one can fold, which leaves a
+    square gap at every corner; the second TDF draws those gaps filled with
+    the corner pieces that go in them in the shop, and the first leaves them
+    open the way the flange comes off the machine.  Slip and drive has the drives -
     the end bent out for the drive cleat - on two opposite sides and the
     slips, which are just the notch, on the other two: named with the top
     and bottom first, so "slip and drive" is slips top and bottom and drives
     on the sides. }
-  TDuctEnd = (deRaw, deNotch, deFlangeOut, deFlangeIn, deTDF, deSlipDrive,
-    deDriveSlip);
+  TDuctEnd = (deRaw, deNotch, deFlangeOut, deFlangeIn, deTDF, deTDFCorner,
+    deSlipDrive, deDriveSlip);
   { A canvas flex connector on an end: two strips of metal with fabric
     between, sold by the strip and fabric widths.  The Junior is the
     residential grade; 3-3-3 the commercial standard; 3-6-3 for more
@@ -123,10 +127,11 @@ const
   DUCT_END_NAMES: array[TDuctEnd] of string = (
     'Raw', 'Notched all round - slip it in the field', 'Flange out',
     'Flange in', 'TDF flange',
+    'TDF flange with the corners in',
     'Slip and drive - slips top and bottom, drives on the sides',
     'Drive and slip - drives top and bottom, slips on the sides');
   { the size each kind starts at, in inches: a notch, a flange, the TDF }
-  DUCT_END_DEFAULT_IN: array[TDuctEnd] of Double = (0, 1, 1, 1, 1.375, 1, 1);
+  DUCT_END_DEFAULT_IN: array[TDuctEnd] of Double = (0, 1, 1, 1, 1.375, 1.375, 1, 1);
   FLEX_NAMES: array[TFlexSize] of string = (
     'No flex connector', 'Junior flex connector, 1 3/4 - 3 - 1 3/4',
     'Flex connector 3 - 3 - 3', 'Flex connector 3 - 6 - 3');
@@ -852,12 +857,77 @@ var
     end;
   end;
 
+  { Which way a flange on wall K lies, in the plane of end E.
+
+    A flange lies in the plane of the end, not square to the wall: on a
+    transition's slanted side that is the difference between a cleat that
+    goes on straight and one that does not.  So the wall's outward direction
+    is taken with its along-the-run part removed. }
+  function FlangeOut(E, K: Integer): TP3;
+  var
+    Nrm, EN: TP3;
+  begin
+    Nrm := OutNormal(K);
+    EN := Norm3(Cross3(Towards(C[E][0], C[E][1]), Towards(C[E][0], C[E][3])));
+    Result := Norm3(Add(Nrm, EN, -Dot3(Nrm, EN)));
+  end;
+
+  { A corner piece in a TDF flange - the stamped corner that goes in on the
+    machine, and what everybody calls a Cornermatic corner after the press
+    that fits them.
+
+    Each side's flange stops its own width short of the corner so the next
+    one has room to fold, which leaves a square notch at every corner of the
+    end.  On a job that gap is filled: a corner is dropped in, crimped, and
+    it ties the two flanges together and gives the bolt something to go
+    through.  Without one the drawing is a flange with four holes in it,
+    which is what it looks like on the machine and not what it looks like on
+    the duct.
+
+    Drawn, it is the L that fills the gap - out to the end of one flange,
+    round the outside of the corner, back to the end of the other, and in to
+    the corner of the duct - with the same fold back along the two outer
+    edges that the flanges have. }
+  procedure TDFCorner(E, K: Integer);
+  var
+    Prev: Integer;
+    C0, Ua, Ub, Na, Nb, SI: TP3;
+    F, R: Double;
+    Poly: array[0..5] of TP3;
+  begin
+    Prev := (K + 3) mod 4;
+    { a corner needs both its flanges: where a wall has been left out for
+      the caller - a tee's branch - there is nothing here to tie together }
+    if (K = SkipWall) or (Prev = SkipWall) then Exit;
+    F := Ends[E].Amount;
+    R := TDF_RETURN_IN * B.Inch;
+    C0 := C[E][K];
+    Ua := Towards(C0, C[E][(K + 1) mod 4]);
+    Ub := Towards(C0, C[E][Prev]);
+    Na := FlangeOut(E, K);
+    Nb := FlangeOut(E, Prev);
+    SI := Towards(C0, C[1 - E][K]);
+
+    Poly[0] := Add(C0, Ua, F);
+    Poly[1] := Add(Poly[0], Na, F);
+    Poly[2] := Add(Add(C0, Na, F), Nb, F);
+    Poly[3] := Add(Add(C0, Ub, F), Nb, F);
+    Poly[4] := Add(C0, Ub, F);
+    Poly[5] := C0;
+    BFaceOut(B, Poly, P3(-SI.X, -SI.Y, -SI.Z));
+    BLine(B, Poly[0], Poly[1]); BLine(B, Poly[1], Poly[2]);
+    BLine(B, Poly[2], Poly[3]); BLine(B, Poly[3], Poly[4]);
+
+    BStrip(B, Poly[1], Poly[2], Add(Poly[2], SI, R), Add(Poly[1], SI, R), Na);
+    BStrip(B, Poly[2], Poly[3], Add(Poly[3], SI, R), Add(Poly[2], SI, R), Nb);
+  end;
+
   { everything at end E of wall K that is not the wall itself: the opening
     edge in its pieces, the notch cuts, the flange }
   procedure FinishEnd(E, K: Integer);
   var
     J: Integer;
-    CI, CJ, U, SI, Nrm, EN, A, C2, A2, B2: TP3;
+    CI, CJ, U, SI, Nrm, A, C2, A2, B2: TP3;
     Nt, F, R: Double;
     P: array[0..5] of TP3;
     N: Integer;
@@ -871,11 +941,9 @@ var
       transition's slanted side that is the difference between a cleat that
       goes on straight and one that does not.  So the wall's outward
       direction is taken with its along-the-run part removed. }
-    Nrm := OutNormal(K);
-    EN := Norm3(Cross3(Towards(C[E][0], C[E][1]), Towards(C[E][0], C[E][3])));
-    Nrm := Norm3(Add(Nrm, EN, -Dot3(Nrm, EN)));
+    Nrm := FlangeOut(E, K);
     case Ends[E].Kind of
-      deFlangeOut, deFlangeIn, deTDF:
+      deFlangeOut, deFlangeIn, deTDF, deTDFCorner:
         begin
           { the fold line is the middle piece of the opening edge; the
             flange stops its own width short of each corner, which is the
@@ -894,7 +962,7 @@ var
           { a flange's face is the one the next piece meets: away from the
             duct body, towards the open end }
           BStrip(B, A, C2, B2, A2, P3(-SI.X, -SI.Y, -SI.Z));
-          if Ends[E].Kind = deTDF then
+          if Ends[E].Kind in [deTDF, deTDFCorner] then
           begin
             { the fold back, along the duct, that the corner piece and the
               cleat take hold of }
@@ -953,6 +1021,13 @@ begin
   for EndIx := 0 to 1 do
     for K := 0 to 3 do
       FinishEnd(EndIx, K);
+  { the corner pieces last, because a corner belongs to two walls rather
+    than to either, and drawing it from inside the wall loop would put two
+    of them in every corner }
+  for EndIx := 0 to 1 do
+    if Ends[EndIx].Kind = deTDFCorner then
+      for K := 0 to 3 do
+        TDFCorner(EndIx, K);
 end;
 
 function StartBuild(D: TWorkDoc; const T: TTransitionSpec; Ink: TColor;

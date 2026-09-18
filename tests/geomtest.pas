@@ -2757,6 +2757,66 @@ end;
 
   Tony, 18 September: "you need to be able to access the edges still even
   though you flipped it flat to the top." }
+{ A TDF flange leaves a square gap at each of the four corners, because each
+  side's flange stops its own width short so the next one can fold.  On a job
+  those gaps get a stamped corner dropped in and crimped - the piece everyone
+  names after the press that fits it.  The builder now draws them, or leaves
+  them open the way the flange comes off the machine.
+
+  Tony, 18 September: "I would like to have a tdf option to have it drawn
+  with the cornermatic corners installed or like we have it now." }
+procedure TestTDFCornersGoInTheGaps;
+var
+  D: TWorkDoc;
+  T: TTransitionSpec;
+  First, I, J, Bare, Fitted, Out_: Integer;
+  FitLo, FitHi, BareLo, BareHi: TP3;
+begin
+  WriteLn('-- TDF corners, in the gaps the flange leaves');
+  T := Default(TTransitionSpec);
+  T.W0 := 20 / 12; T.H0 := 20 / 12; T.W1 := 1; T.H1 := 1; T.Len := 2;
+  T.Inch := 1 / 12;
+  D := TWorkDoc.Create;
+  try
+    { the same fitting twice, the flange bare and then with the corners in }
+    T.Ends[1].Kind := deTDF; T.Ends[1].Amount := 1.375 / 12;
+    First := BuildTransition(D, T, 0, 1);
+    Bare := 0;
+    for I := First to D.Live - 1 do if D[I].Kind = ekFace then Inc(Bare);
+
+    D.Clear;
+    T.Ends[1].Kind := deTDFCorner;
+    First := BuildTransition(D, T, 0, 1);
+    Fitted := 0;
+    for I := First to D.Live - 1 do if D[I].Kind = ekFace then Inc(Fitted);
+
+    { four corners, each the piece itself and its two folds back }
+    Ok(Fitted = Bare + 4 * 3,
+      Format('four corners of three faces each (%d against %d)', [Fitted, Bare]));
+
+    { the piece that fills the gap has six sides: out along one flange,
+      round the outside, back along the other, and in to the duct corner }
+    Out_ := 0;
+    for I := First to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Length(D[I].Poly) = 6) then Inc(Out_);
+    Ok(Out_ = 4, 'and each of the four is the six-sided L that fills a corner');
+
+    { A corner fills a gap the flange left; it must not stand out past the
+      flange, or the next piece of duct would foul on it.  So the fitting is
+      exactly as big with the corners in as without - they take up room that
+      was already being claimed and none that was not. }
+    D.Bounds(FitLo, FitHi);
+    D.Clear;
+    T.Ends[1].Kind := deTDF;
+    First := BuildTransition(D, T, 0, 1);
+    D.Bounds(BareLo, BareHi);
+    Ok((Dist(FitLo, BareLo) < 1E-9) and (Dist(FitHi, BareHi) < 1E-9),
+      'and they take up no room the bare flange was not already claiming');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestCubeKeepsItsEdgesWhenFaceOn;
 var
   V: TProjector;
@@ -8132,6 +8192,7 @@ begin
   TestPushedEdgesKeepTheOutlineInk;  WriteLn;
   TestNearestCornerIsFound;  WriteLn;
   TestTypedLineLength;  WriteLn;
+  TestTDFCornersGoInTheGaps;  WriteLn;
   TestCubeKeepsItsEdgesWhenFaceOn;  WriteLn;
   TestPickPrefersWhatIsInFrontHere;  WriteLn;
   TestFilledLoopsWithHolesAndLevelEdges;  WriteLn;
