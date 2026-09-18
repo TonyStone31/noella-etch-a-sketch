@@ -13,10 +13,32 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.18' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **A light/dark switch on the manual''s website.**  Top right of every' + LineEnding +
+    '  page: Auto follows your phone or desktop, Light and Dark override it,' + LineEnding +
+    '  and the choice is remembered in that browser.  The manual opened inside' + LineEnding +
+    '  the program has no button and still follows the program''s own theme.' + LineEnding +
+    '- **The offset page has two animations** - offset the top of a box and' + LineEnding +
+    '  push the middle down for a tray, or the border up for a rim - and the' + LineEnding +
+    '  old picture, which showed the floor grid the way it used to be drawn,' + LineEnding +
+    '  is gone.' + LineEnding +
+    '- **Four more again**: snapping (the cursor walking one edge while the' + LineEnding +
+    '  diamond keeps changing its name), the working plane, the drill, and' + LineEnding +
+    '  dimensions.' + LineEnding +
+    '- **Four more pages of the manual have pictures**: the select tool (one' + LineEnding +
+    '  click, two, three, then a dragged box), the eraser, faces front and back' + LineEnding +
+    '  - which now shows an edge rubbed out and drawn back in, faces going and' + LineEnding +
+    '  coming with it - and the protractor.' + LineEnding +
+    '- **A page about Parts**, which is not built yet: keeping one piece of a' + LineEnding +
+    '  drawing to itself so it does not join onto everything it touches.  The' + LineEnding +
+    '  page says plainly that it is planned, and why it waits.' + LineEnding +
+    '- **Clicking takes what you can see.**  Where an edge on top of something' + LineEnding +
+    '  ran close on screen to an edge buried under it, the buried one could win' + LineEnding +
+    '  and be picked or erased instead - the rim of a knob against the wall' + LineEnding +
+    '  below it.  What is in front at the spot you are pointing at now wins.' + LineEnding +
     '- **Big drawings draw faster.**  Filling the faces was half of every' + LineEnding +
     '  frame; it now looks only at the edges that reach each row instead of' + LineEnding +
     '  all of them.  Measured on three drawings sent in with reports: about a' + LineEnding +
