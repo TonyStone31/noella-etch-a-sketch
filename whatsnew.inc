@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.18.4' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A fourth example: the robot.**  Six foot two, standing, with the' + LineEnding +
+    '  etch-a-sketch set in his chest at the height your hands are - ball' + LineEnding +
+    '  joints at the shoulders and two-fingered hands.  The toy in his chest' + LineEnding +
+    '  is the toy example itself, stood on end, not a copy of it.' + LineEnding +
+    '- **The logo on the etch-a-sketch is raised**, a sixteenth proud of the' + LineEnding +
+    '  body, the way it is moulded into the real one.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.3' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
