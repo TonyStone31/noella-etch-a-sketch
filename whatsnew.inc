@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.18.8' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **No more "not taken yet" boxes.**  Five pages were showing a dashed' + LineEnding +
+    '  placeholder where a picture had been planned; those pages simply have no' + LineEnding +
+    '  picture now, which is tidier than a note meant for whoever writes the' + LineEnding +
+    '  manual.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
