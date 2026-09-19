@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **No more "not taken yet" boxes.**  Five pages were showing a dashed
+  placeholder where a picture had been planned; those pages simply have no
+  picture now, which is tidier than a note meant for whoever writes the
+  manual.
+
 ## v2026.09.18.7
 
 ### New
@@ -19,10 +28,6 @@
   scaled down on the way out, which turned every one-pixel line into a
   two-pixel grey smear.  They are bigger pictures and a smaller manual:
   20.1 MB of GIF became 14.2 MB of WebP.
-- **No more "not taken yet" boxes.**  Five pages were showing a dashed
-  placeholder where a picture had been planned; those pages simply have no
-  picture now, which is tidier than a note meant for whoever writes the
-  manual.
 - **The manual reads better too.**  Sections have a rule above them so a
   long page has somewhere for the eye to stop, the page head is underlined
   in the accent colour, and captions read as captions.
