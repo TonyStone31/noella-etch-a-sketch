@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.19' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
@@ -28,6 +28,10 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **Clicking a picture in the manual shows the picture.**  Every animation' + LineEnding +
+    '  in the manual is a link to itself, and since they became WebP, clicking' + LineEnding +
+    '  one filled the window with the file read as text.  It opens large, and' + LineEnding +
+    '  keeps playing, the way it always should have.' + LineEnding +
     '- **The manual stays in your colours.**  In a light theme the contents came' + LineEnding +
     '  up light and every page you clicked through to came up dark.  Now the' + LineEnding +
     '  whole manual follows the program''s theme, wherever you got to it from.' + LineEnding +
