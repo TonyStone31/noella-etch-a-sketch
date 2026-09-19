@@ -102,3 +102,24 @@ doing its job, framed on the geometry.
 - `reporting.png` - When it breaks.
 - `commands.png` - The command list, open and narrowed: a slash typed, a couple of letters after it, the list showing what matched.  DONE
 - `keys.png` - The hint line naming the keys for the tool in hand.
+
+---
+
+## They are WebP now, and lossless
+
+Every animation in here is `.webp`, lossless, 1100 pixels wide - the size it
+was grabbed at.  Two things that took a while to learn and are worth not
+learning again:
+
+* **Do not scale the capture.**  It used to grab at 1100 and scale to 700,
+  which is a factor of 0.64, and every one pixel line became a two pixel grey
+  smear before either encoder saw a frame.  Not scaling is also *smaller* for
+  lossless - 617 KB against 805 - because resampling turns solid black and
+  flat fill into thousands of in-between greys, and flat colour is what
+  lossless compression lives on.
+* **Lossless, not q60.**  WebP is both, and lossy is visibly grainy the moment
+  anybody zooms in, which is what a manual gets zoomed for.  `WEBPQ=n` in
+  `tools/gif-shot.sh` drops back to lossy for anything not worth the bytes.
+
+`tools/gif-shot.sh` writes a GIF beside the WebP still, for comparing.  The
+pages point at the WebP.

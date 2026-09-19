@@ -267,7 +267,38 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
-## Replacing the GIFs with WebP - the plan, measured - 18 September
+## The GIFs are gone: the manual is WebP - 18 September
+
+Done, the same evening the plan was written, because LazInk's decoder
+landed: "the new lazink is now rendering webp. i would say ditch all the
+gif files and use the nice crisp webp files."
+
+Twenty-one animations re-recorded, forty references swapped across
+eighteen pages, the GIFs deleted.  Checked in the program rather than
+assumed - the help window opens the snapping page, shows the WebP, and
+*animates* it.
+
+**The plan below said the saving would come from the format.  It did not.**
+It came from a bug the plan had not noticed: the recorder was scaling its
+1100 pixel grab down to 700, and every one pixel line in the manual had
+been a two pixel grey smear since the first recording.  Tony spotted it by
+eye - "it is not nearly as crisp as what i see in the xephyr screen when we
+record" - and fixing it made the pictures both sharper and smaller.  The
+format change on its own was worth little; the pipeline was worth
+everything.
+
+What the manual weighs now: 20.1 MB of blurry GIF became 14.2 MB of
+lossless WebP at full resolution.
+
+The style went over at the same time, since every page was being touched:
+sections have a rule above them so a long page has somewhere for the eye
+to stop, the page head is underlined in the accent rather than the same
+grey as everything else, captions read as captions, and the title is
+bigger.
+
+---
+
+## The plan it replaced, kept for the measurements - 18 September
 
 Tony: "i think we may need to make a plan to replace all our gif files soon
 with smaller cleaner crisper animations... maybe there is a converter we can

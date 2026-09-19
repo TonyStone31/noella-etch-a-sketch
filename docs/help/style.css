@@ -41,30 +41,46 @@
 body{margin:0;background:var(--bg);color:var(--text);
      font:15px/1.65 system-ui,'Segoe UI',Ubuntu,sans-serif}
 .wrap{max-width:820px;margin:0 auto;padding:28px 20px 80px}
-header{border-bottom:1px solid var(--line);margin-bottom:28px;padding-bottom:14px}
-h1{font-size:28px;margin:0 0 6px}
-h2{font-size:19px;margin:32px 0 10px;color:var(--accent)}
-.lead{color:var(--dim);margin:0;font-size:16px}
+/* The page head: the title, the line under it in the accent rather than the
+   panel grey, and the lead.  A hairline the same colour as everything else
+   made the top of a page look like the top of a section; this says "this is
+   the page" once and lets the sections say the rest. */
+header{border-bottom:2px solid var(--accent);margin-bottom:30px;
+       padding-bottom:12px}
+h1{font-size:30px;line-height:1.2;margin:0 0 7px;letter-spacing:-.01em}
+/* Sections get a rule above them.  A manual page is a list of questions and
+   the reader is usually looking for one of them, so the eye wants somewhere
+   to stop - colour alone was not enough on a long page. */
+h2{font-size:19px;margin:36px 0 12px;padding-top:14px;color:var(--accent);
+   border-top:1px solid var(--line)}
+header + h2, .note + h2{border-top:none;padding-top:0;margin-top:26px}
+.lead{color:var(--dim);margin:0;font-size:16.5px;line-height:1.5}
 a{color:var(--accent)}
 a:hover{color:var(--hover)}
 nav.crumbs{font-size:13px;color:var(--dim);margin-bottom:18px}
 ol,ul{padding-left:22px}
 li{margin:7px 0}
 kbd{background:var(--hi);border:1px solid var(--line);border-bottom-width:2px;
-    border-radius:4px;padding:1px 6px;font:13px ui-monospace,monospace}
+    border-radius:4px;padding:1px 6px;font:13px ui-monospace,monospace;
+    color:var(--text)}
 code{background:var(--panel);border:1px solid var(--line);border-radius:4px;
-     padding:1px 5px;font:13px ui-monospace,monospace}
-figure{margin:18px 0;background:var(--panel);border:1px solid var(--line);
-       border-radius:10px;padding:10px}
+     padding:1px 5px;font:13px ui-monospace,monospace;color:var(--text)}
+/* A picture is the biggest thing on most of these pages, so it gets the
+   least furniture: a thin tray to sit in, and a caption that reads as a
+   caption rather than as more of the text. */
+figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);
+       border-radius:10px;padding:8px}
 figure img{display:block;width:100%;border-radius:6px;background:var(--paper)}
-figcaption{color:var(--dim);font-size:13px;margin-top:8px}
+figcaption{color:var(--dim);font-size:13.5px;line-height:1.55;
+           margin:10px 4px 2px;border-left:2px solid var(--line);
+           padding-left:10px}
 .shot-missing{display:flex;align-items:center;justify-content:center;
   min-height:200px;border:2px dashed var(--line);border-radius:6px;
   color:var(--dim);font-size:13px;text-align:center;padding:20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
       gap:12px;margin:14px 0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-      padding:12px 14px}
+      padding:13px 15px}
 .card a{font-weight:600;text-decoration:none}
 .card p{margin:4px 0 0;color:var(--dim);font-size:13px}
 footer{margin-top:50px;padding-top:14px;border-top:1px solid var(--line);
@@ -73,16 +89,17 @@ footer{margin-top:50px;padding-top:14px;border-top:1px solid var(--line);
 
 /* The two cheat sheets are tables, because that is what a cheat sheet is. */
 table.sheet{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
-table.sheet th{text-align:left;color:var(--accent);font-size:13px;
-  text-transform:uppercase;letter-spacing:.04em;font-weight:600;
-  border-bottom:1px solid var(--line);padding:6px 10px 6px 0}
+table.sheet th{text-align:left;color:var(--accent);font-size:12.5px;
+  text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+  border-bottom:2px solid var(--line);padding:4px 10px 8px 0}
 table.sheet td{border-bottom:1px solid var(--line);padding:7px 10px 7px 0;
   vertical-align:top}
 table.sheet tr:last-child td{border-bottom:none}
 table.sheet td:first-child{white-space:nowrap;width:1%}
 table.sheet td.alias{color:var(--dim);font-size:13px}
-.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid
-  var(--accent);border-radius:6px;padding:10px 14px;margin:16px 0;font-size:14px}
+.note{background:var(--panel);border:1px solid var(--line);
+  border-left:4px solid var(--accent);border-radius:6px;
+  padding:12px 16px;margin:20px 0;font-size:14px;line-height:1.6}
 @media (max-width:600px){
   table.sheet td:first-child{white-space:normal}
   table.sheet{font-size:13px}
@@ -94,7 +111,8 @@ table.sheet td.alias{color:var(--dim);font-size:13px}
 table.cards{width:100%;border-collapse:separate;border-spacing:10px;
   margin:4px -10px 10px;table-layout:fixed}
 table.cards td{background:var(--panel);border:1px solid var(--line);
-  border-radius:10px;padding:10px 12px;vertical-align:top;width:33%}
+  border-radius:10px;padding:12px 14px;vertical-align:top;width:33%}
+table.cards a{font-weight:600}
 table.cards td.empty{background:none;border:none}
 table.cards a{text-decoration:none}
 table.cards small{color:var(--dim);font-size:13px;line-height:1.4}
