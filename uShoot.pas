@@ -20,7 +20,7 @@ uses
   BGRABitmap, BGRABitmapTypes, BGRAAnimatedGif,
   { the colour reducer the GIF writer needs - see the initialization }
   BGRAPalette, BGRAColorQuantization,
-  uSurface, uWork, uSkin;
+  uSurface, uWork, uSkin, uWebPAnim;
 
 const
   { The GIF is the one export that can run away with itself - a hundred
@@ -688,6 +688,20 @@ end;
 { Every frame of a film, however the camera got there.  One place, because
   the only difference between a spin and a recording is where the view for
   frame N comes from. }
+{ A film, as a GIF or as a WebP, decided by what it is being asked to
+  write.
+
+  The two formats differ only at the moment a frame is handed over.  A GIF
+  is assembled whole in memory and squeezed to 256 colours at the end; a
+  WebP frame is encoded as it is drawn - losslessly, which for flat fills
+  and one pixel lines is both smaller and exact - and only the encoded
+  bytes are kept, so the memory a film needs stops depending on how long it
+  is.
+
+  Lossless, and not offered as a choice.  We learned this the expensive way
+  on the manual: WebP does both, and lossy is visibly grainy the moment
+  anybody zooms in on a drawing, which is exactly what a drawing is for.
+  Tony: "we probably want to export lossless webp!" }
 function WriteFilm(Doc: TWorkDoc; SrcW, SrcH, W, H: Integer;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
   Frames: Integer; Seconds: Double; Loop, Axes: Boolean; const Path: string;
@@ -697,19 +711,28 @@ var
   S: TArtSurface;
   V: TProjector;
   Gif: TBGRAAnimatedGif;
+  Web: TWebPAnimWriter;
+  AsWebP: Boolean;
 begin
   Result := Frames;
   { the wait between frames comes from the length and the count, so dropping
     the rate to fit the budget makes the film choppier and not shorter }
   Delay := Max(20, Round(Seconds * 1000 / Max(1, Frames)));
   Gif := nil;
+  Web := nil;
+  AsWebP := LowerCase(ExtractFileExt(Path)) = '.webp';
   { one surface for the whole film, drawn over and over }
   S := TArtSurface.Create(Max(1, W), Max(1, H));
   try
     if (S.Width < W) or (S.Height < H) then
       raise Exception.CreateFmt('could not make a picture %d by %d', [W, H]);
-    Gif := TBGRAAnimatedGif.Create;
-    Gif.SetSize(W, H);
+    if AsWebP then
+      Web := TWebPAnimWriter.Create(W, H, True, 100, IfThen(Loop, 0, 1))
+    else
+    begin
+      Gif := TBGRAAnimatedGif.Create;
+      Gif.SetSize(W, H);
+    end;
     for I := 0 to Frames - 1 do
     begin
       Say(Format('drawing frame %d of %d at %dx%d', [I + 1, Frames, W, H]));
@@ -717,8 +740,25 @@ begin
       V := Fitted(ViewAt(I, Frames), SrcW, SrcH, W, H);
       ShootInto(S, Doc, V, U, AFont, LabelCol, EdgeW, Pix(255, 255, 255),
         False, Axes);
+      if AsWebP then
+      begin
+        { straight off the surface: TPix is B, G, R, A in that order, which
+          is what the encoder reads, so there is no copy and no bitmap }
+        Say(Format('encoding frame %d of %d', [I + 1, Frames]));
+        if not Web.AddFrame(PByte(S.ScanLine(0)), Delay, S.Stride) then
+          raise Exception.CreateFmt('frame %d would not encode', [I + 1]);
+        Continue;
+      end;
       { the gif takes ownership of each frame it is handed }
       Gif.AddFullFrame(ToBGRA(S), Delay, False, dmSetExceptTransparent, True);
+    end;
+    if AsWebP then
+    begin
+      Say(Format('writing %s', [ExtractFileName(Path)]));
+      Step(Frames, Frames, 'Writing ' + ExtractFileName(Path) + '...');
+      if not Web.SaveToFile(Path) then
+        raise Exception.Create('the film would not write');
+      Exit;
     end;
     if Loop then Gif.LoopCount := 0 else Gif.LoopCount := 1;
     { Packing walks the film making a duplicate of every frame as it goes, on
@@ -736,6 +776,7 @@ begin
     Step(Frames, Frames, 'Writing ' + ExtractFileName(Path) + '...');
     Gif.SaveToFile(Path);
   finally
+    Web.Free;
     Gif.Free;
     S.Free;
   end;

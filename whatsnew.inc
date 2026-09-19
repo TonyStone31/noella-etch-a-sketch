@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Light or dark in the manual, whichever you are in.**  The switch the' + LineEnding +
+    '  website has is in the program''s manual now: a tap at the top of any page' + LineEnding +
+    '  cycles Auto, Light and Dark, and it stays that way next time you open it.' + LineEnding +
+    '  Auto is the program''s own theme, as before.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The help menu opens above its button again.**  With the entity panel' + LineEnding +
+    '  open, the menu from the HELP button was pushed back to the edge of the' + LineEnding +
+    '  drawing, a panel''s width away from the button it belongs to.  It stands' + LineEnding +
+    '  over the panel now, where it was pointed.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.19' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

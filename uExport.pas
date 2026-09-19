@@ -32,8 +32,8 @@ uses
   uSurface, uWork, uSkin, uDlgSkin, uShoot, uRecord;
 
 type
-  TExportKind = (exPng, exJpeg, exGif, exSvg, exDxfView, exDxfModel, exStl,
-    exScad);
+  TExportKind = (exPng, exJpeg, exGif, exWebP, exSvg, exDxfView, exDxfModel,
+    exStl, exScad);
 
 type
   { how the dialog asks the main window to send a bug report - it cannot do
@@ -206,13 +206,17 @@ const
   SIZE_MINE = 10;
 
   KIND_NAME: array[TExportKind] of string =
-    ('PNG', 'JPEG', 'GIF', 'SVG', 'DXF view', 'DXF model', 'STL', 'OpenSCAD');
+    ('PNG', 'JPEG', 'GIF', 'WebP', 'SVG', 'DXF view', 'DXF model', 'STL',
+     'OpenSCAD');
   KIND_EXT: array[TExportKind] of string =
-    ('.png', '.jpg', '.gif', '.svg', '.dxf', '.dxf', '.stl', '.scad');
+    ('.png', '.jpg', '.gif', '.webp', '.svg', '.dxf', '.dxf', '.stl',
+     '.scad');
   KIND_BLURB: array[TExportKind] of string =
     ('A picture, with the paper behind it or nothing at all.',
      'A picture, smaller and slightly softened.  No transparency.',
      'A little film of a move you record yourself.',
+     'The same film, lossless and a fraction of the size.  Every line as ' +
+     'sharp as it is on screen, and any size you like.',
      'The lines of this view, as vectors, for a drawing program.',
      'This view, flat, as entities somebody can measure in their own CAD.',
      'The model itself, in three dimensions, faces and all.',
@@ -654,8 +658,8 @@ begin
   FOptTitle.Caption := KIND_NAME[FKind];
   FNoteLbl.Caption := KIND_BLURB[FKind];
 
-  Raster := FKind in [exPng, exJpeg, exGif];
-  Anim := FKind = exGif;
+  Raster := FKind in [exPng, exJpeg, exGif, exWebP];
+  Anim := FKind in [exGif, exWebP];
 
   FSizeLbl.Visible := Raster;
   FSize.Visible := Raster;
@@ -1239,7 +1243,7 @@ begin
             'slice.', [NTri]);
       end;
 
-    exGif:
+    exGif, exWebP:
       begin
         FStage := 'working out the size';
         if Length(FCam) < 2 then

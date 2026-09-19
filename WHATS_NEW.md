@@ -14,6 +14,13 @@
 
 ### New
 
+- **Export a film as WebP.**  Beside GIF in the export, and lossless: every
+  shade the drawing has, where a GIF keeps 256 of them.  Nothing extra is
+  shipped or installed to make one - the encoder is Pascal, in the program.
+- **The about box says who built what.**  It is a proper page now, with the
+  people whose work is inside this program named and linked - including
+  Xelitan, whose WebP encoder is why the export above needs nothing beside
+  it.
 - **Light or dark in the manual, whichever you are in.**  The switch the
   website has is in the program's manual now: a tap at the top of any page
   cycles Auto, Light and Dark, and it stays that way next time you open it.

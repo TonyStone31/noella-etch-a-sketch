@@ -51,7 +51,8 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe;
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe,
+  InkPage;
 
 type
   TAppMode = (mdToy, mdPro);
@@ -23873,52 +23874,72 @@ end;
 { ======================================================================== }
 
 type
+  { The about box, which is a page now.
+
+    It used to be lines of text placed by hand with TextOut, which is fine
+    until it has to say more than it did - and it does: who wrote the
+    program, and whose work is inside it.  A credit with no link is not
+    much of a credit, and a link is not a thing TextOut can offer.
+
+    So the inside is LazInk drawing HTML, dressed in the program's own
+    theme, and the frame round it is the same painted shell as before.
+    Tony: "our about window can use lazink to make it sexy as fuck". }
   TAboutBox = class(TForm)
   private
     FSkin: TArtSurface;
     FTheme: TTheme;
     FScale: Single;
+    FPage: TInkPage;
     procedure BoxPaint(Sender: TObject);
-    procedure BoxClick(Sender: TObject);
     procedure BoxKey(Sender: TObject; var Key: word; Shift: TShiftState);
+    procedure PageLink(Sender: TObject; const URL: string);
+    function PageHTML: string;
+    function PageStyle: string;
   public
     constructor CreateStyled(AOwner: TComponent; const ATheme: TTheme; AScale: Single);
     destructor Destroy; override;
   end;
 
-const
-  ABOUT_LINES: array[0..12] of string = (
-    'Noella Stone was seven years old when she decided she wanted to',
-    'write a program.  She drew the screen, the two dials and the shake',
-    'button on paper, picked the colors, and told her dad what each part',
-    'was supposed to do.  He typed while she directed.  19 October 2021.',
-    '',
-    'TOY  -  the program she designed.  Two dials, five kinds of pen, a',
-    'kaleidoscope, and a shake that dissolves the drawing into powder.',
-    '',
-    'PRO  -  the same idea taken seriously.  Pick a scale, put the cursor on',
-    'a point, and type 12''6" to draw exactly that.  Lines, arcs, circles,',
-    'notes and a tape measure, in plan or isometric, on as many sheets as',
-    'you like.  It prints at true scale.  The command bar always tells you',
-    'what it wants next.');
-
 constructor TAboutBox.CreateStyled(AOwner: TComponent; const ATheme: TTheme;
   AScale: Single);
+var
+  Pad: Integer;
 begin
   inherited CreateNew(AOwner);
   FTheme := ATheme;
   FScale := AScale;
   BorderStyle := bsNone;
   Position := poMainFormCenter;
-  ClientWidth := Round(660 * FScale);
-  ClientHeight := Round(452 * FScale);
+  ClientWidth := Round(700 * FScale);
+  ClientHeight := Round(770 * FScale);
+  { never taller than the screen it opens on - the designed size is for a
+    desktop and the program runs on smaller ones }
+  with Screen.WorkAreaRect do
+  begin
+    if ClientWidth > (Right - Left) * 9 div 10 then
+      ClientWidth := (Right - Left) * 9 div 10;
+    if ClientHeight > (Bottom - Top) * 9 div 10 then
+      ClientHeight := (Bottom - Top) * 9 div 10;
+  end;
   Color := PixToColor(FTheme.Shell2);
   KeyPreview := True;
   DoubleBuffered := True;
   FSkin := TArtSurface.Create(ClientWidth, ClientHeight);
   OnPaint := @BoxPaint;
-  OnClick := @BoxClick;
   OnKeyDown := @BoxKey;
+
+  { the page sits inside the painted frame, with the shell showing round it }
+  Pad := Round(26 * FScale);
+  FPage := TInkPage.Create(Self);
+  FPage.Parent := Self;
+  FPage.SetBounds(Pad, Pad, ClientWidth - 2 * Pad, ClientHeight - 2 * Pad);
+  FPage.Anchors := [akLeft, akTop, akRight, akBottom];
+  FPage.Color := PixToColor(FTheme.Panel);
+  FPage.Font.Color := PixToColor(FTheme.Text);
+  FPage.DragScroll := True;
+  FPage.OnLinkClick := @PageLink;
+  FPage.StyleSheet.Text := PageStyle;
+  FPage.LoadHTML(PageHTML);
 end;
 
 destructor TAboutBox.Destroy;
@@ -23927,62 +23948,118 @@ begin
   inherited Destroy;
 end;
 
-procedure TAboutBox.BoxPaint(Sender: TObject);
+{ The page's look, out of the program's theme, so the box is the same
+  object as the window behind it. }
+function TAboutBox.PageStyle: string;
+
+  function Hex(const P: TPix): string;
+  begin
+    Result := Format('#%.2x%.2x%.2x', [P.R, P.G, P.B]);
+  end;
+
 var
-  I, Y, Pad: Integer;
-  S: string;
+  Base: Integer;
 begin
-  Pad := Round(34 * FScale);
+  Base := Max(11, Round(14 * FScale));
+  Result :=
+    'html { scrollbar-color: ' + Hex(FTheme.Accent) + ' ' +
+      Hex(MixPix(FTheme.Panel, Pix(0, 0, 0), 0.25)) + '; scrollbar-width: thin }' +
+    ' body { background: ' + Hex(FTheme.Panel) + '; color: ' +
+      Hex(FTheme.TextDim) + '; font-size: ' + IntToStr(Base) +
+      'px; line-height: 1.55; padding: ' + IntToStr(Round(18 * FScale)) + 'px }' +
+    ' h1 { color: ' + Hex(FTheme.Text) + '; font-size: ' +
+      IntToStr(Round(Base * 1.9)) + 'px; margin-top: 0; margin-bottom: 2px }' +
+    ' h2 { color: ' + Hex(FTheme.Accent) + '; font-size: ' +
+      IntToStr(Round(Base * 1.15)) + 'px; margin-top: ' +
+      IntToStr(Round(22 * FScale)) + 'px; margin-bottom: 6px;' +
+      ' text-transform: uppercase }' +
+    ' p { margin-top: 0; margin-bottom: ' + IntToStr(Round(10 * FScale)) + 'px }' +
+    ' .lede { color: ' + Hex(FTheme.Accent) + '; margin-bottom: ' +
+      IntToStr(Round(16 * FScale)) + 'px }' +
+    ' strong, b { color: ' + Hex(FTheme.Text) + ' }' +
+    ' a { color: ' + Hex(FTheme.Accent) + ' }' +
+    ' .signed { color: ' + Hex(FTheme.TextDim) + '; font-style: italic;' +
+      ' text-align: right; margin-top: ' + IntToStr(Round(18 * FScale)) + 'px }' +
+    ' table.credits { width: 100%; border-collapse: separate;' +
+      ' border-spacing: ' + IntToStr(Round(6 * FScale)) + 'px }' +
+    ' table.credits td { background: ' +
+      Hex(MixPix(FTheme.Panel, FTheme.PanelHi, 0.55)) + '; color: ' +
+      Hex(FTheme.TextDim) + '; border: 1px solid ' +
+      Hex(MixPix(FTheme.Panel, FTheme.Text, 0.18)) + '; border-radius: 8px;' +
+      ' padding: ' + IntToStr(Round(9 * FScale)) + 'px; width: 50%;' +
+      ' valign: top }' +
+    ' table.credits a { font-weight: bold; text-decoration: none }';
+end;
+
+{ What it says.  The story first, because that is what the program is; then
+  what it is made of, because none of that was ours and all of it is worth
+  naming. }
+function TAboutBox.PageHTML: string;
+begin
+  Result :=
+    '<h1>' + APP_NAME + '</h1>' +
+    '<p class="lede">NozelFab Incorporated &middot; ' + CurrentVersion + '</p>' +
+
+    '<p><b>Noella Stone was seven years old</b> when she decided she wanted ' +
+    'to write a program.  She drew the screen, the two dials and the shake ' +
+    'button on paper, picked the colours, and told her dad what each part ' +
+    'was supposed to do.  He typed while she directed.  19 October 2021.</p>' +
+
+    '<h2>Toy</h2>' +
+    '<p>The program she designed.  Two dials, five kinds of pen, a ' +
+    'kaleidoscope, and a shake that dissolves the drawing into powder.</p>' +
+
+    '<h2>Pro</h2>' +
+    '<p>The same idea taken seriously.  Pick a scale, put the cursor on a ' +
+    'point, and type 12&#39;6&quot; to draw exactly that.  Lines, arcs, ' +
+    'circles, notes and a tape measure, in plan or isometric, and it prints ' +
+    'at true scale.</p>' +
+
+    '<h2>Standing on</h2>' +
+    '<table class="credits">' +
+    '<tr>' +
+    '<td><a href="https://www.freepascal.org/">Free Pascal</a> and ' +
+    '<a href="https://www.lazarus-ide.org/">Lazarus</a><br>' +
+    'One source, every desktop.</td>' +
+    '<td><a href="https://github.com/bgrabitmap/bgrabitmap">BGRABitmap</a> ' +
+    'and BGRAControls<br>' +
+    'The bitmaps, and the buttons round them.</td>' +
+    '</tr><tr>' +
+    '<td><a href="https://github.com/TonyStone31/LazInk">LazInk</a><br>' +
+    'Ours.  It draws this page and the manual - HTML in a native control, ' +
+    'no browser near it.</td>' +
+    '<td><a href="https://github.com/Xelitan/Pure-Pascal-Webp-for-Delphi-Lazarus-Free-Pascal">' +
+    'Xelitan&#39;s WebP encoder</a><br>' +
+    'Pure Pascal, MIT.  It is why a film exports as a WebP with nothing ' +
+    'shipped beside the program.  Thank you.</td>' +
+    '</tr></table>' +
+
+    '<p class="signed">Good job, Noella.  Love you.  &mdash; Dad</p>' +
+    '<p class="signed">Esc closes this.</p>';
+end;
+
+{ A credit with a link in it is only a credit if the link goes somewhere. }
+procedure TAboutBox.PageLink(Sender: TObject; const URL: string);
+begin
+  if (Pos('http://', URL) = 1) or (Pos('https://', URL) = 1) then
+    OpenURL(URL);
+end;
+
+procedure TAboutBox.BoxPaint(Sender: TObject);
+begin
   PaintShell(FSkin, FTheme);
   FSkin.RoundFrame(Rect(1, 1, ClientWidth - 1, ClientHeight - 1),
     Round(14 * FScale), 2.0, FTheme.Accent, 0.85);
-  FSkin.Line(Pad, Round(104 * FScale), ClientWidth - Pad, Round(104 * FScale),
-    1.4, FTheme.Accent, 0.6);
   FSkin.DrawTo(Canvas, 0, 0);
-
-  Canvas.Brush.Style := bsClear;
-  Canvas.Font.Name := {$IFDEF WINDOWS}'Segoe UI'{$ELSE}'Sans'{$ENDIF};
-
-  Canvas.Font.Height := -Round(24 * FScale);
-  Canvas.Font.Style := [fsBold];
-  Canvas.Font.Color := PixToColor(FTheme.Text);
-  Canvas.TextOut(Pad, Round(40 * FScale), APP_NAME);
-
-  Canvas.Font.Height := -Round(12 * FScale);
-  Canvas.Font.Style := [];
-  Canvas.Font.Color := PixToColor(FTheme.Accent);
-  Canvas.TextOut(Pad, Round(76 * FScale), 'NozelFab Incorporated');
-
-  Canvas.Font.Height := -Round(13 * FScale);
-  Canvas.Font.Color := PixToColor(FTheme.Text);
-  Y := Round(122 * FScale);
-  for I := 0 to High(ABOUT_LINES) do
-  begin
-    Canvas.TextOut(Pad, Y, ABOUT_LINES[I]);
-    Inc(Y, Round(20 * FScale));
-  end;
-
-  Canvas.Font.Height := -Round(12 * FScale);
-  Canvas.Font.Style := [fsItalic];
-  Canvas.Font.Color := PixToColor(FTheme.TextDim);
-  S := 'Good job, Noella.  Love you.  - Dad';
-  Canvas.TextOut(ClientWidth - Pad - Canvas.TextWidth(S), Y + Round(8 * FScale), S);
-
-  Canvas.Font.Style := [];
-  S := 'click anywhere, or press Esc, to close';
-  Canvas.TextOut((ClientWidth - Canvas.TextWidth(S)) div 2,
-    ClientHeight - Round(28 * FScale), S);
-end;
-
-procedure TAboutBox.BoxClick(Sender: TObject);
-begin
-  Close;
 end;
 
 procedure TAboutBox.BoxKey(Sender: TObject; var Key: word; Shift: TShiftState);
 begin
-  Close;
-  Key := 0;
+  if (Key = VK_ESCAPE) or (Key = VK_RETURN) or (Key = VK_F1) then
+  begin
+    Close;
+    Key := 0;
+  end;
 end;
 
 { ======================================================================== }

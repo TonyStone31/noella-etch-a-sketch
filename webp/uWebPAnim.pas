@@ -44,9 +44,44 @@ type
     Millis: Integer;
   end;
 
+type
+  { A film written a frame at a time.
+
+    The whole-array call below wants every frame in memory at once, and a
+    frame is four bytes a pixel: a minute of 1920 x 1080 is eight gigabytes,
+    which is not a thing to ask of a laptop for a file that will come back
+    under ten megabytes.
+
+    So this takes them one at a time and keeps only what the file will hold
+    - each frame ENCODED, which is the compressed VP8L chunk and a hundredth
+    of the size.  The most it ever holds is the finished file. }
+  TWebPAnimWriter = class
+  private
+    FW, FH, FLoop: Integer;
+    FLossless: Boolean;
+    FQuality: Single;
+    FFrames: TMemoryStream;   { the ANMF chunks, one after another }
+    FCount: Integer;
+  public
+    constructor Create(AWidth, AHeight: Integer; ALossless: Boolean = True;
+      AQuality: Single = 92; ALoop: Integer = 0);
+    destructor Destroy; override;
+    { One frame, top-down BGRA.  Stride is the bytes from one row to the
+      next, which is Width * 4 unless the surface it came from pads its
+      rows; 0 means that default.  The frame is encoded here and the pixels
+      are not kept, so the caller may draw over them at once. }
+    function AddFrame(BGRA: PByte; Millis: Integer; Stride: Integer = 0): Boolean;
+    { The container round everything added so far. }
+    function SaveToFile(const Path: string): Boolean;
+    property Count: Integer read FCount;
+  end;
+
 { Write the frames as one animated WebP.  Lossless unless Quality is given a
   value of 0..100, which switches to lossy at that quality - the same choice
-  the recorder makes, for the same reason.  Loops forever when Loop is 0. }
+  the recorder makes, for the same reason.  Loops forever when Loop is 0.
+
+  Convenient when the frames are already in hand; a long film should use
+  TWebPAnimWriter above and hand them over one at a time. }
 function SaveWebPAnimation(const Frames: array of TWebPFrame;
   Width, Height: Integer; const Path: string;
   Lossless: Boolean = True; Quality: Single = 92;
@@ -131,25 +166,75 @@ begin
   end;
 end;
 
-function SaveWebPAnimation(const Frames: array of TWebPFrame;
-  Width, Height: Integer; const Path: string;
-  Lossless: Boolean; Quality: Single; Loop: Integer): Boolean;
+{ --- the writer ------------------------------------------------------- }
+
+constructor TWebPAnimWriter.Create(AWidth, AHeight: Integer;
+  ALossless: Boolean; AQuality: Single; ALoop: Integer);
+begin
+  inherited Create;
+  FW := AWidth; FH := AHeight;
+  FLossless := ALossless; FQuality := AQuality; FLoop := ALoop;
+  FFrames := TMemoryStream.Create;
+end;
+
+destructor TWebPAnimWriter.Destroy;
+begin
+  FFrames.Free;
+  inherited Destroy;
+end;
+
+function TWebPAnimWriter.AddFrame(BGRA: PByte; Millis: Integer;
+  Stride: Integer): Boolean;
 var
-  Body, Out_: TMemoryStream;
-  I, Sz, Ofs, Len: Integer;
   Enc: PByte;
+  Sz, Ofs, Len: Integer;
   Tag: string;
-  Hdr: array[0..9] of Byte;
-  Anim: array[0..5] of Byte;
-  AnmfHdr: array[0..15] of Byte;
   Payload: TMemoryStream;
-  Ok: Boolean;
+  Byte0: Byte;
 begin
   Result := False;
-  if (Length(Frames) = 0) or (Width <= 0) or (Height <= 0) then Exit;
+  if (BGRA = nil) or (FW <= 0) or (FH <= 0) then Exit;
+  if Stride <= 0 then Stride := FW * 4;
+  if FLossless then
+    Result := WebPEncodeLosslessBGRA(BGRA, FW, FH, Stride, Enc, Sz)
+  else
+    Result := WebPEncodeBGRA(BGRA, FW, FH, Stride, FQuality, Enc, Sz);
+  if not Result then Exit;
+  try
+    Result := FindImageChunk(Enc, Sz, Tag, Ofs, Len);
+    if not Result then Exit;
+    Payload := TMemoryStream.Create;
+    try
+      { the ANMF header, then the picture chunk whole - tag, size and all }
+      PutU24(Payload, 0);                  { x, in pairs of pixels }
+      PutU24(Payload, 0);                  { y }
+      PutU24(Payload, FW - 1);
+      PutU24(Payload, FH - 1);
+      PutU24(Payload, Millis);
+      Byte0 := 0;                          { blend over, do not dispose }
+      Payload.Write(Byte0, 1);
+      PutChunk(Payload, Tag, @Enc[Ofs], Len);
+      PutChunk(FFrames, 'ANMF', PByte(Payload.Memory), Payload.Size);
+    finally
+      Payload.Free;
+    end;
+    Inc(FCount);
+  finally
+    FreeMem(Enc);
+  end;
+end;
 
-  Body := TMemoryStream.Create;
-  Out_ := TMemoryStream.Create;
+function TWebPAnimWriter.SaveToFile(const Path: string): Boolean;
+var
+  Head: TMemoryStream;
+  Hdr: array[0..9] of Byte;
+  Anim: array[0..5] of Byte;
+  Chunks: TMemoryStream;
+begin
+  Result := False;
+  if FCount = 0 then Exit;
+  Head := TMemoryStream.Create;
+  Chunks := TMemoryStream.Create;
   try
     { --- VP8X: the canvas, and the flag that says there is an animation --
           bit 1 of the flags is ANIMATION.  The alpha bit is left off: what
@@ -157,74 +242,59 @@ begin
           go looking for it. }
     FillChar(Hdr, SizeOf(Hdr), 0);
     Hdr[0] := $02;
-    Body.Write(Hdr[0], 1);
-    PutU24(Body, 0);                   { reserved }
-    PutU24(Body, Width - 1);
-    PutU24(Body, Height - 1);
-    Out_.Size := 0;
-    { written into Body first so it can be measured, then out as a chunk }
-    Body.Position := 0;
-    PutChunk(Out_, 'VP8X', PByte(Body.Memory), Body.Size);
+    Head.Write(Hdr[0], 1);
+    PutU24(Head, 0);                   { reserved }
+    PutU24(Head, FW - 1);
+    PutU24(Head, FH - 1);
+    PutChunk(Chunks, 'VP8X', PByte(Head.Memory), Head.Size);
 
     { --- ANIM: background and loop count ------------------------------- }
-    Body.Size := 0;
+    Head.Size := 0;
     FillChar(Anim, SizeOf(Anim), 0);   { transparent background }
-    Body.Write(Anim[0], 4);
-    PutU16(Body, Loop);
-    PutChunk(Out_, 'ANIM', PByte(Body.Memory), Body.Size);
+    Head.Write(Anim[0], 4);
+    PutU16(Head, FLoop);
+    PutChunk(Chunks, 'ANIM', PByte(Head.Memory), Head.Size);
 
-    { --- one ANMF per frame -------------------------------------------- }
-    for I := 0 to High(Frames) do
-    begin
-      if Lossless then
-        Ok := WebPEncodeLosslessBGRA(Frames[I].BGRA, Width, Height,
-          Width * 4, Enc, Sz)
-      else
-        Ok := WebPEncodeBGRA(Frames[I].BGRA, Width, Height, Width * 4,
-          Quality, Enc, Sz);
-      if not Ok then Exit;
-      try
-        if not FindImageChunk(Enc, Sz, Tag, Ofs, Len) then Exit;
-        Payload := TMemoryStream.Create;
-        try
-          { the ANMF header, then the picture chunk whole - tag, size and all }
-          FillChar(AnmfHdr, SizeOf(AnmfHdr), 0);
-          Payload.Write(AnmfHdr[0], 0);
-          PutU24(Payload, 0);                  { x, in pairs of pixels }
-          PutU24(Payload, 0);                  { y }
-          PutU24(Payload, Width - 1);
-          PutU24(Payload, Height - 1);
-          PutU24(Payload, Frames[I].Millis);
-          AnmfHdr[0] := 0;                     { blend over, do not dispose }
-          Payload.Write(AnmfHdr[0], 1);
-          PutChunk(Payload, Tag, @Enc[Ofs], Len);
-          PutChunk(Out_, 'ANMF', PByte(Payload.Memory), Payload.Size);
-        finally
-          Payload.Free;
-        end;
-      finally
-        FreeMem(Enc);
-      end;
-    end;
-
-    { --- and the RIFF wrapper round the lot ---------------------------- }
-    Body.Size := 0;
-    PutTag(Body, 'RIFF');
-    PutU32(Body, 4 + Out_.Size);       { 'WEBP' plus everything above }
-    PutTag(Body, 'WEBP');
-    Body.Position := 0;
+    { --- and the RIFF wrapper round the lot, frames and all ------------ }
+    Head.Size := 0;
+    PutTag(Head, 'RIFF');
+    PutU32(Head, 4 + Chunks.Size + FFrames.Size);   { 'WEBP' plus the rest }
+    PutTag(Head, 'WEBP');
+    Head.Position := 0;
     with TFileStream.Create(Path, fmCreate) do
     try
-      CopyFrom(Body, Body.Size);
-      Out_.Position := 0;
-      CopyFrom(Out_, Out_.Size);
+      CopyFrom(Head, Head.Size);
+      Chunks.Position := 0;
+      CopyFrom(Chunks, Chunks.Size);
+      FFrames.Position := 0;
+      CopyFrom(FFrames, FFrames.Size);
     finally
       Free;
     end;
     Result := True;
   finally
-    Out_.Free;
-    Body.Free;
+    Chunks.Free;
+    Head.Free;
+  end;
+end;
+
+{ The whole-array call, which is now the writer with a loop round it. }
+function SaveWebPAnimation(const Frames: array of TWebPFrame;
+  Width, Height: Integer; const Path: string;
+  Lossless: Boolean; Quality: Single; Loop: Integer): Boolean;
+var
+  W: TWebPAnimWriter;
+  I: Integer;
+begin
+  Result := False;
+  if (Length(Frames) = 0) or (Width <= 0) or (Height <= 0) then Exit;
+  W := TWebPAnimWriter.Create(Width, Height, Lossless, Quality, Loop);
+  try
+    for I := 0 to High(Frames) do
+      if not W.AddFrame(Frames[I].BGRA, Frames[I].Millis) then Exit;
+    Result := W.SaveToFile(Path);
+  finally
+    W.Free;
   end;
 end;
 
