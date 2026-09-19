@@ -38,28 +38,47 @@
   cursor:pointer;min-height:32px}
 .themebtn:hover{color:var(--text);border-color:var(--accent)}
 *{box-sizing:border-box}
+/* The scrollbar too.  LazInk draws its own and takes these two from :root,
+   so the bar down the side of the manual in the program is the manual's
+   colours rather than the widget set's.  A browser that reads them does the
+   same; one that does not is no worse off. */
+html{scrollbar-color:var(--accent) var(--panel);scrollbar-width:thin}
 body{margin:0;background:var(--bg);color:var(--text);
      font:15px/1.65 system-ui,'Segoe UI',Ubuntu,sans-serif}
-.wrap{max-width:820px;margin:0 auto;padding:28px 20px 80px}
+.wrap{max-width:820px;margin:0 auto;padding:24px}
 /* The page head: the title, the line under it in the accent rather than the
    panel grey, and the lead.  A hairline the same colour as everything else
    made the top of a page look like the top of a section; this says "this is
    the page" once and lets the sections say the rest. */
 header{border-bottom:2px solid var(--accent);margin-bottom:30px;
        padding-bottom:12px}
-h1{font-size:30px;line-height:1.2;margin:0 0 7px;letter-spacing:-.01em}
+/* Spacing is written as margin-top and margin-bottom rather than the
+   shorthand, everywhere it matters.  When this was written LazInk read only
+   the pair, so `margin: a b c` reached the website and nothing reached the
+   manual inside the program, which fell back to the renderer's defaults and
+   drifted a long way from the page a browser draws.  LazInk reads the
+   shorthand now - 19 September - and the pair still says the same thing to
+   both readers, which is why it stays: nothing here depends on which
+   version of the renderer the program was built against. */
+h1{font-size:30px;line-height:1.2;margin-top:0;margin-bottom:7px;
+   letter-spacing:-.01em}
 /* Sections get a rule above them.  A manual page is a list of questions and
    the reader is usually looking for one of them, so the eye wants somewhere
-   to stop - colour alone was not enough on a long page. */
-h2{font-size:19px;margin:36px 0 12px;padding-top:14px;color:var(--accent);
-   border-top:1px solid var(--line)}
+   to stop - colour alone was not enough on a long page.  The rule is a
+   browser's; in the program the same job is done by the space above. */
+h2{font-size:19px;margin-top:38px;margin-bottom:12px;padding-top:14px;
+   color:var(--accent);border-top:1px solid var(--line)}
 header + h2, .note + h2{border-top:none;padding-top:0;margin-top:26px}
-.lead{color:var(--dim);margin:0;font-size:16.5px;line-height:1.5}
+h3{font-size:15.5px;margin-top:22px;margin-bottom:8px;color:var(--text)}
+.lead{color:var(--dim);margin-top:0;margin-bottom:0;font-size:16.5px;
+      line-height:1.5}
+p{margin-top:0;margin-bottom:14px}
 a{color:var(--accent)}
 a:hover{color:var(--hover)}
-nav.crumbs{font-size:13px;color:var(--dim);margin-bottom:18px}
-ol,ul{padding-left:22px}
-li{margin:7px 0}
+nav.crumbs{font-size:13px;color:var(--dim);margin-top:0;margin-bottom:18px}
+ol,ul{padding-left:22px;margin-top:0;margin-bottom:16px}
+li{margin-top:7px;margin-bottom:7px}
+small{color:var(--dim)}
 kbd{background:var(--hi);border:1px solid var(--line);border-bottom-width:2px;
     border-radius:4px;padding:1px 6px;font:13px ui-monospace,monospace;
     color:var(--text)}
@@ -68,35 +87,43 @@ code{background:var(--panel);border:1px solid var(--line);border-radius:4px;
 /* A picture is the biggest thing on most of these pages, so it gets the
    least furniture: a thin tray to sit in, and a caption that reads as a
    caption rather than as more of the text. */
-figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);
-       border-radius:10px;padding:8px}
+figure{margin-top:24px;margin-bottom:24px;background:var(--panel);
+       border:1px solid var(--line);border-radius:10px;padding:8px}
 figure img{display:block;width:100%;border-radius:6px;background:var(--paper)}
 figcaption{color:var(--dim);font-size:13.5px;line-height:1.55;
-           margin:10px 4px 2px;border-left:2px solid var(--line);
-           padding-left:10px}
+           margin-top:10px;margin-bottom:2px;
+           border-left:2px solid var(--line);padding-left:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
       gap:12px;margin:14px 0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
       padding:13px 15px}
 .card a{font-weight:600;text-decoration:none}
 .card p{margin:4px 0 0;color:var(--dim);font-size:13px}
-footer{margin-top:50px;padding-top:14px;border-top:1px solid var(--line);
-       color:var(--dim);font-size:13px}
-@media (max-width:520px){.wrap{padding:18px 14px 60px}h1{font-size:23px}}
+/* The foot of every page is the way back to the contents, which is the one
+   link a reader wants from the bottom of something they have finished. */
+footer{margin-top:46px;margin-bottom:56px;padding-top:14px;
+       border-top:1px solid var(--line);color:var(--dim);font-size:13px}
+@media (max-width:520px){.wrap{padding:16px}h1{font-size:23px}}
 
-/* The two cheat sheets are tables, because that is what a cheat sheet is. */
-table.sheet{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+/* The two cheat sheets are tables, because that is what a cheat sheet is.
+   A table is also the one place both readers agree about cell padding,
+   backgrounds and per-side borders, which is why the heading band below
+   looks the same in each. */
+table.sheet{width:100%;border-collapse:collapse;margin-top:16px;
+  margin-bottom:16px;font-size:14px}
 table.sheet th{text-align:left;color:var(--accent);font-size:12.5px;
   text-transform:uppercase;letter-spacing:.06em;font-weight:700;
-  border-bottom:2px solid var(--line);padding:4px 10px 8px 0}
-table.sheet td{border-bottom:1px solid var(--line);padding:7px 10px 7px 0;
+  background:var(--hi);border-bottom:2px solid var(--accent);
+  padding:6px 10px 6px 10px}
+table.sheet td{border-bottom:1px solid var(--line);padding:7px 10px 7px 10px;
   vertical-align:top}
 table.sheet tr:last-child td{border-bottom:none}
 table.sheet td:first-child{white-space:nowrap;width:1%}
 table.sheet td.alias{color:var(--dim);font-size:13px}
 .note{background:var(--panel);border:1px solid var(--line);
   border-left:4px solid var(--accent);border-radius:6px;
-  padding:12px 16px;margin:20px 0;font-size:14px;line-height:1.6}
+  padding:14px;margin-top:22px;margin-bottom:22px;font-size:14px;
+  line-height:1.6}
 @media (max-width:600px){
   table.sheet td:first-child{white-space:normal}
   table.sheet{font-size:13px}
@@ -107,6 +134,10 @@ table.sheet td.alias{color:var(--dim);font-size:13px}
    spaced apart and rounded, so they read as cards. */
 table.cards{width:100%;border-collapse:separate;border-spacing:10px;
   margin:4px -10px 10px;table-layout:fixed}
+/* No accent edge on a card, tempting as it was: the program reads one
+   border colour for the whole cell, so a blue left edge came out as fifteen
+   blue boxes.  A rule that only looks right in one of the two readers is
+   not worth having. */
 table.cards td{background:var(--panel);border:1px solid var(--line);
   border-radius:10px;padding:12px 14px;vertical-align:top;width:33%}
 table.cards a{font-weight:600}
@@ -123,3 +154,11 @@ table.cards small{color:var(--dim);font-size:13px;line-height:1.4}
 /* A picture is a link to itself: click it to see it full size - a new tab
    in a browser, a picture window in the program. */
 a.zoom{display:block;cursor:zoom-in}
+
+/* There are no <hr> in these pages, and for a day there was a reason not to
+   add one: a rule left its colour on the canvas brush and the next list
+   item's text was drawn over a solid block of it - what made the What's new
+   window unreadable.  Written up in
+   ../LazInk/bugs/2026-09-19-brush-leak-after-hr/ and fixed the same day, so
+   the caution is history; the space above a heading does the job here
+   anyway. */

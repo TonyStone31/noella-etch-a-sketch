@@ -12,6 +12,13 @@
 
 ## Next release
 
+### New
+
+- **A way back from the bottom of a page.**  Every manual page now ends with
+  a link to the contents, and the pages themselves are laid out the way the
+  website lays them out - the same spacing, and a proper heading band on the
+  key and command sheets.
+
 ### Fixed
 
 - **The manual stays in your colours.**  In a light theme the contents came

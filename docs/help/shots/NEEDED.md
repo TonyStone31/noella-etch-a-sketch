@@ -126,5 +126,6 @@ learning again:
   anybody zooms in, which is what a manual gets zoomed for.  `WEBPQ=n` in
   `tools/shot.sh` drops back to lossy for anything not worth the bytes.
 
-`tools/shot.sh` writes a GIF beside the WebP still, for comparing.  The
-pages point at the WebP.
+`tools/shot.sh` writes the WebP and nothing else.  It wrote a GIF beside it
+for a while so the two could be compared; the comparison is settled and the
+GIFs are gone, from here and from the folder they were kept in.
