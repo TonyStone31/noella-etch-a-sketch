@@ -9,12 +9,20 @@
    and that is where an override has to land to beat them.
 
    Nothing here runs inside the program's own help window: LazInk renders
-   these pages and has no JavaScript at all.  That is deliberate and it is
-   why the button is BUILT here rather than written into the pages - a
-   button in the markup would sit there in the program doing nothing when
-   tapped.  The program has no use for it anyway: its help window already
-   wears whatever theme the program is wearing, handed over as a stylesheet
-   when the page is loaded.  See uHelpView.PageWithMode.
+   these pages and has no JavaScript at all.  The button is therefore
+   written into the pages as an ordinary link - <a class="themebtn"
+   href="#theme"> - and this file finds it and gives it its behaviour.
+
+   Tony, 19 September: "even the local copy should have the light/dark mode
+   button toggles in the help browsers html like we do in the online
+   version".  So the program answers that link too: clicking it there cycles
+   the manual's palette and loads the page again wearing it, and the label
+   is rewritten on the way through.  See uHelpView.PageWithMode and
+   PageLinkClick.  A link in the markup is the one thing both readers can
+   act on; a button built in script was only ever half of them.
+
+   The link still works with no script at all: it goes nowhere, which is
+   what a #theme with nothing to jump to does.
 
    The first half runs while the page is still parsing, on purpose, so the
    colours are right before anything is painted.  Waiting for the document
@@ -59,16 +67,24 @@
     var wrap = document.querySelector('.wrap');
     if (!wrap) return;
 
-    var b = document.createElement('button');
-    b.className = 'themebtn';
-    b.type = 'button';
+    /* The page carries the button; only a page written before it did needs
+       one made here. */
+    var b = document.getElementById('themebtn');
+    var mine = false;
+    if (!b) {
+      b = document.createElement('button');
+      b.className = 'themebtn';
+      b.type = 'button';
+      mine = true;
+    }
 
     function say() {
       b.textContent = LABEL[now];
       b.setAttribute('aria-label', 'Theme: ' + LABEL[now] + '. Tap to change.');
     }
 
-    b.addEventListener('click', function () {
+    b.addEventListener('click', function (e) {
+      e.preventDefault();
       now = ORDER[(ORDER.indexOf(now) + 1) % ORDER.length];
       apply(now);
       write(now);
@@ -76,7 +92,7 @@
     });
 
     say();
-    wrap.insertBefore(b, wrap.firstChild);
+    if (mine) wrap.insertBefore(b, wrap.firstChild);
   }
 
   if (document.readyState === 'loading')

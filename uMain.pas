@@ -1186,7 +1186,7 @@ type
     procedure PopupChoose(Which, I: Integer);
     function PopupItemAt(SX, SY: Integer): Integer;
     function ScrollPopup(Lines, SX, SY: Integer): Boolean;
-    procedure PaintPopup(C: TCanvas);
+    procedure PaintPopup(C: TCanvas; DX: Integer = 0; DY: Integer = 0);
     procedure PaintToolGlyph(C: TCanvas; AX, AY: Integer);
     function PivotAt(SX, SY: Integer): TP3;
     procedure AnchorOrbit(SX, SY: Integer);
@@ -7615,6 +7615,13 @@ begin
     end;
     Inc(Y, RowH);
   end;
+
+  { A list opened from the right of the deck stands over the panel as well
+    as over the drawing, so the part that lands here is painted here.  The
+    list is held in the drawing's coordinates - it is the drawing's list -
+    and this moves it into the panel's. }
+  if FPopup <> POP_NONE then
+    PaintPopup(C, pbScreen.Left - pbInfo.Left, pbScreen.Top - pbInfo.Top);
 end;
 
 { One of the little square buttons beside a figure that can be changed. }
@@ -7657,6 +7664,22 @@ procedure TMainForm.pbInfoMouseMove(Sender: TObject; Shift: TShiftState;
 var
   H: Integer;
 begin
+  { a list standing over the panel is still the list: the row under the
+    pointer lights up here the same as it does over the drawing }
+  if FPopup <> POP_NONE then
+  begin
+    H := PopupItemAt(X + pbInfo.Left - pbScreen.Left,
+                     Y + pbInfo.Top - pbScreen.Top);
+    if (H < 0) and (FPopup = POP_CMDS) then H := FPopupHot;
+    if H <> FPopupHot then
+    begin
+      FPopupHot := H;
+      FScreenDirty := True;
+      pbScreen.Invalidate;
+      pbInfo.Invalidate;
+    end;
+    Exit;
+  end;
   H := InfoHit(X, Y);
   if H <> FInfoHot then
   begin
@@ -7677,10 +7700,23 @@ end;
 procedure TMainForm.pbInfoMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 var
-  H, Row, N, K: Integer;
+  H, Row, N, K, Which: Integer;
   Up: Boolean;
   Picked: TColor;
 begin
+  { and a press on it picks a row, rather than reaching the panel
+    underneath - the same rule the drawing follows }
+  if FPopup <> POP_NONE then
+  begin
+    Which := FPopup;
+    H := -1;
+    if Button = mbLeft then
+      H := PopupItemAt(X + pbInfo.Left - pbScreen.Left,
+                       Y + pbInfo.Top - pbScreen.Top);
+    ClosePopup;
+    if H >= 0 then PopupChoose(Which, H);
+    Exit;
+  end;
   if Button <> mbLeft then Exit;
   H := InfoHit(X, Y);
   if H < 0 then Exit;
@@ -16761,7 +16797,7 @@ end;
 
 procedure TMainForm.OpenPopup(Which: Integer);
 var
-  N, I, W, H, RowH, LeftX, Bottom, TopY: Integer;
+  N, I, W, H, RowH, LeftX, Bottom, TopY, RightMost: Integer;
   B: TRect;
 begin
   N := PopupCount(Which);
@@ -16816,7 +16852,25 @@ begin
   if Which = POP_CMDS then W := Round(430 * FUIScale);
   H := Min(N * RowH + Round(12 * FUIScale), PopupMaxHeight(Which));
   Bottom := pbScreen.Height - Round(6 * FUIScale);
-  LeftX := EnsureRange(LeftX, 4, Max(4, pbScreen.Width - W - 4));
+  { How far right a list may go.
+
+    It used to be the drawing's own right edge, which is right until the
+    entity panel is open: the deck runs the whole width of the window, so
+    with the panel taking the right of the drawing, the HELP button is
+    further right than the drawing goes.  The list was then pushed back to
+    the edge of the paper and stood there, a panel's width away from the
+    button it belongs to.  Tony: "the help menu popup menu is not aligned
+    above the button anymore it is aligning to the edge of the canvas paint
+    area which is annoying".
+
+    So the limit is the deck's right edge - the strip the buttons are
+    actually on - and the part of the list that reaches past the drawing is
+    painted onto the panel.  See PaintPopup and pbInfoPaint. }
+  RightMost := pbScreen.Width;
+  if pbInfo.Visible then
+    RightMost := Max(RightMost,
+      pbDeck.Left + pbDeck.Width - pbScreen.Left - Round(2 * FUIScale));
+  LeftX := EnsureRange(LeftX, 4, Max(4, RightMost - W - 4));
   if TopY >= 0 then
   begin
     TopY := EnsureRange(TopY, 4, Max(4, pbScreen.Height - H - 4));
@@ -16825,6 +16879,7 @@ begin
   else
     FPopupR := Rect(LeftX, Max(4, Bottom - H), LeftX + W, Bottom);
   FScreenDirty := True;
+  if pbInfo.Visible then pbInfo.Invalidate;
 end;
 
 procedure TMainForm.ClosePopup;
@@ -16835,6 +16890,17 @@ begin
   pbScreen.Cursor := FCursorWas;
   FScreenDirty := True;
   pbScreen.Invalidate;
+  { It may have been standing over the panel as well.
+    Painted now rather than when the queue next gets a turn: a row that
+    picks something can put a window up and not come back until it is shut,
+    and an invalidate that has not been served yet leaves the list sitting
+    on the panel for the whole time that window is open. }
+  if pbInfo.Visible then
+  begin
+    pbInfo.Invalidate;
+    pbInfo.Update;
+  end;
+  pbScreen.Update;
 end;
 
 function TMainForm.PopupItemAt(SX, SY: Integer): Integer;
@@ -16898,21 +16964,31 @@ begin
   FGlyph.DrawTo(C, AX, AY);
 end;
 
-procedure TMainForm.PaintPopup(C: TCanvas);
+{ A list, drawn wherever it has to be drawn.
+
+  DX and DY move it out of the screen's coordinates and into the canvas it
+  is being painted on.  They are nought for the screen itself and the
+  distance between the two paint boxes for the entity panel, which is the
+  other canvas a list can land on: with the panel open, a list hanging off a
+  button at the right of the deck reaches past the drawing and over the
+  panel, and the part over the panel is painted there.  See pbInfoPaint. }
+procedure TMainForm.PaintPopup(C: TCanvas; DX: Integer = 0; DY: Integer = 0);
 var
   I, RowH, Y, Cur: Integer;
-  R: TRect;
+  R, PR: TRect;
   Sel: Boolean;
   S: string;
 begin
   if FPopup = POP_NONE then Exit;
   RowH := Round(22 * FUIScale);
+  PR := FPopupR;
+  OffsetRect(PR, DX, DY);
 
   C.Brush.Style := bsSolid;
   C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.15));
   C.Pen.Color := PixToColor(MixPix(Theme.PanelHi, Pix(255, 255, 255), 0.30));
   C.Pen.Width := Max(1, Round(FUIScale));
-  C.Rectangle(FPopupR);
+  C.Rectangle(PR);
 
   case FPopup of
     POP_SCALE: Cur := FD.ScaleIdx;
@@ -16923,10 +16999,10 @@ begin
 
   for I := FPopupTop to FPopupN - 1 do
   begin
-    Y := FPopupR.Top + Round(6 * FUIScale) + (I - FPopupTop) * RowH;
-    if Y + RowH > FPopupR.Bottom then Break;
-    R := Rect(FPopupR.Left + Round(4 * FUIScale), Y,
-      FPopupR.Right - Round(4 * FUIScale), Y + RowH - 1);
+    Y := PR.Top + Round(6 * FUIScale) + (I - FPopupTop) * RowH;
+    if Y + RowH > PR.Bottom then Break;
+    R := Rect(PR.Left + Round(4 * FUIScale), Y,
+      PR.Right - Round(4 * FUIScale), Y + RowH - 1);
     { the one in force is lit, which the combined list never managed }
     Sel := (I = Cur) or
       ((FPopup = POP_COLOR) and (I < Length(PALETTE)) and
@@ -16990,19 +17066,19 @@ begin
   end;
 
   { how far down a long list this is, drawn rather than counted out }
-  if (FPopupN * RowH) > (FPopupR.Bottom - FPopupR.Top - Round(12 * FUIScale)) then
+  if (FPopupN * RowH) > (PR.Bottom - PR.Top - Round(12 * FUIScale)) then
   begin
-    I := (FPopupR.Bottom - FPopupR.Top - Round(12 * FUIScale)) div RowH;
+    I := (PR.Bottom - PR.Top - Round(12 * FUIScale)) div RowH;
     C.Brush.Style := bsSolid;
     C.Brush.Color := PixToColor(MixPix(Theme.Panel, Pix(0, 0, 0), 0.25));
-    C.FillRect(Rect(FPopupR.Right - Round(6 * FUIScale), FPopupR.Top + 4,
-                    FPopupR.Right - Round(2 * FUIScale), FPopupR.Bottom - 4));
+    C.FillRect(Rect(PR.Right - Round(6 * FUIScale), PR.Top + 4,
+                    PR.Right - Round(2 * FUIScale), PR.Bottom - 4));
     C.Brush.Color := PixToColor(Theme.Accent);
-    Y := FPopupR.Top + 4 +
-      Round((FPopupR.Bottom - FPopupR.Top - 8) * FPopupTop / FPopupN);
-    C.FillRect(Rect(FPopupR.Right - Round(6 * FUIScale), Y,
-                    FPopupR.Right - Round(2 * FUIScale),
-                    Y + Max(16, Round((FPopupR.Bottom - FPopupR.Top - 8) *
+    Y := PR.Top + 4 +
+      Round((PR.Bottom - PR.Top - 8) * FPopupTop / FPopupN);
+    C.FillRect(Rect(PR.Right - Round(6 * FUIScale), Y,
+                    PR.Right - Round(2 * FUIScale),
+                    Y + Max(16, Round((PR.Bottom - PR.Top - 8) *
                                       I / FPopupN))));
   end;
   C.Brush.Style := bsClear;

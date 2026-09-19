@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Light or dark in the manual, whichever you are in.**  The switch the
+  website has is in the program's manual now: a tap at the top of any page
+  cycles Auto, Light and Dark, and it stays that way next time you open it.
+  Auto is the program's own theme, as before.
+
+### Fixed
+
+- **The help menu opens above its button again.**  With the entity panel
+  open, the menu from the HELP button was pushed back to the edge of the
+  drawing, a panel's width away from the button it belongs to.  It stands
+  over the panel now, where it was pointed.
+
 ## v2026.09.19
 
 ### New

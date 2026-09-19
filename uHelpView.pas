@@ -26,6 +26,10 @@ uses
   LCLType, LCLIntf, BCPanel, BCButton, InkPage;
 
 type
+  { The three the switch cycles through, the website's own three: Auto
+    follows the program's theme, the other two say so regardless. }
+  THelpTheme = (htAuto, htLight, htDark);
+
   THelpForm = class(TForm)
     btnBack: TBCButton;
     btnForward: TBCButton;
@@ -64,11 +68,17 @@ type
     procedure Dress;
   private
     function PageIsLight: Boolean;
+    function ThemeWord: string;
+    procedure LoadThemeChoice;
+    procedure SaveThemeChoice;
+    procedure CycleTheme;
     function PageWithMode(const HTML: string): string;
     procedure GoToPage(const PathOrURI: string);
   private
     FWanted: string;        { the page asked for, relative to the folder }
     FFetching: Boolean;
+    { what the switch at the top of every page was last set to }
+    FThemeChoice: THelpTheme;
     procedure ShowPages(const Rel: string);
     procedure ShowEmpty(const Why: string);
     procedure Notice(const S: string; Busy: Boolean);
@@ -97,7 +107,8 @@ implementation
 {$R *.lfm}
 
 uses
-  uHelpDocs, uUpdate, uNet, uDlgSkin, uSurface, uHelpImage, URIParser;
+  uHelpDocs, uUpdate, uNet, uDlgSkin, uSurface, uHelpImage, uPaths,
+  IniFiles, URIParser;
 
 procedure OpenHelpWindow(const Rel: string);
 begin
@@ -112,6 +123,7 @@ end;
 
 procedure THelpForm.FormCreate(Sender: TObject);
 begin
+  LoadThemeChoice;
   Dress;
   { a finger scrolls, a mouse selects - LazInk tells them apart }
   Page.DragScroll := True;
@@ -200,11 +212,65 @@ end;
   on :root, which cannot be overridden from outside.  So the mode is put
   where the page itself reads it - a class on the body, which style.css
   answers with the light palette - and the page is handed over as text
-  rather than as a file.  See body.light in docs/help/style.css. }
+  rather than as a file.  See body.light in docs/help/style.css.
+
+  Since 19 September the reader can also say, which is what the switch at
+  the top of every page does - Tony: "even the local copy should have the
+  light/dark mode button toggles in the help browsers html like we do in
+  the online version".  Auto is this rule; Light and Dark are the reader
+  overruling it, and the choice is kept between sessions the way the
+  website keeps its own. }
 function THelpForm.PageIsLight: Boolean;
 begin
-  Result := not DlgTheme.DarkScreen and
-    (DlgTheme.Panel.R + DlgTheme.Panel.G + DlgTheme.Panel.B >= 3 * 128);
+  case FThemeChoice of
+    htLight: Result := True;
+    htDark: Result := False;
+  else
+    Result := not DlgTheme.DarkScreen and
+      (DlgTheme.Panel.R + DlgTheme.Panel.G + DlgTheme.Panel.B >= 3 * 128);
+  end;
+end;
+
+{ What the switch says it will give you if you press it - the state it is
+  in, in the same three words the website uses. }
+function THelpForm.ThemeWord: string;
+begin
+  case FThemeChoice of
+    htLight: Result := 'Light';
+    htDark: Result := 'Dark';
+  else Result := 'Auto';
+  end;
+end;
+
+{ The reader's choice outlives the window, which is thrown away and remade
+  with the program; it lives beside the program's own settings. }
+procedure THelpForm.LoadThemeChoice;
+var
+  Ini: TIniFile;
+begin
+  FThemeChoice := htAuto;
+  if not FileExists(ConfigFile) then Exit;
+  Ini := TIniFile.Create(ConfigFile);
+  try
+    case LowerCase(Ini.ReadString('look', 'helptheme', 'auto')) of
+      'light': FThemeChoice := htLight;
+      'dark': FThemeChoice := htDark;
+    end;
+  finally
+    Ini.Free;
+  end;
+end;
+
+procedure THelpForm.SaveThemeChoice;
+var
+  Ini: TIniFile;
+begin
+  Ini := TIniFile.Create(ConfigFile);
+  try
+    Ini.WriteString('look', 'helptheme', LowerCase(ThemeWord));
+  finally
+    Ini.Free;
+  end;
 end;
 
 { The page, with the light palette linked into it when the program is
@@ -221,15 +287,21 @@ var
   P, Q: Integer;
 begin
   Result := HTML;
+  { The switch says which of the three it is on.  In a browser theme.js
+    writes that word in; here nothing runs, so it is written in on the way
+    past - the same substitution, done by whoever is showing the page. }
+  Result := StringReplace(Result, '#theme" title="Light or dark">Theme</a>',
+    '#theme" title="Light or dark">Theme: ' + ThemeWord + '</a>',
+    [rfReplaceAll, rfIgnoreCase]);
   if not PageIsLight then Exit;
-  Low := LowerCase(HTML);
+  Low := LowerCase(Result);
   P := Pos('style.css"', Low);
   if P <= 0 then Exit;
   { the same folder the page reached style.css through - pages under tools/
     say ../style.css }
   Q := P;
   while (Q > 1) and (Low[Q - 1] <> '"') do Dec(Q);
-  Prefix := Copy(HTML, Q, P - Q);
+  Prefix := Copy(Result, Q, P - Q);
   P := Pos('>', Low, P);
   if P <= 0 then Exit;
   Insert(LineEnding + '<link rel="stylesheet" href="' + Prefix +
@@ -456,10 +528,39 @@ begin
   if not FileExists(Result) then Result := '';
 end;
 
+{ Round the three, and show the page again wearing the new one.
+
+  The page is loaded again rather than restyled in place: the palette is a
+  stylesheet linked into the text as it goes to the renderer, so a different
+  palette is a different page.  It comes back at the top, which the reader
+  will forgive because the switch is at the top. }
+procedure THelpForm.CycleTheme;
+var
+  Rel: string;
+begin
+  case FThemeChoice of
+    htAuto: FThemeChoice := htLight;
+    htLight: FThemeChoice := htDark;
+  else FThemeChoice := htAuto;
+  end;
+  SaveThemeChoice;
+  Rel := PageRelative;
+  if Rel = '' then Rel := 'index.html';
+  ShowPages(Rel);
+end;
+
 procedure THelpForm.PageLinkClick(Sender: TObject; const URL: string);
 var
   Local, Ext: string;
 begin
+  { The switch at the top of every page.  It is an ordinary link so that
+    both readers can act on it - see the note at the top of theme.js - and
+    this is the program acting on it. }
+  if (Length(URL) >= 6) and (LowerCase(Copy(URL, Length(URL) - 5, 6)) = '#theme') then
+  begin
+    CycleTheme;
+    Exit;
+  end;
   { A picture - clicked, or a link straight to one - opens larger in the
     picture window rather than replacing the page being read.
 

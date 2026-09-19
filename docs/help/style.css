@@ -31,11 +31,20 @@
       --line:#3c424a;--text:#e8ecf2;--dim:#8a93a0;--accent:#4ac8f0;
       --paper:#ffffff;--hover:#ffffff}
 /* The theme switch.  Floated so it sits beside the crumbs or the title
-   rather than pushing anything down, and big enough to hit with a thumb. */
+   rather than pushing anything down, and big enough to hit with a thumb.
+
+   It is a link in the markup rather than a button built in script, because
+   a link is the one thing both readers can act on: the website's theme.js
+   catches the click, and the program answers the same #theme href by
+   loading the page again in the other palette.  The program draws no pill -
+   it has no float and no background on a run of text - so there it is
+   simply a small link at the top of the page, which is the right amount of
+   furniture for what it does. */
 .themebtn{float:right;margin:-4px 0 0 12px;background:var(--panel);
   color:var(--dim);border:1px solid var(--line);border-radius:999px;
   padding:6px 14px;font:13px system-ui,'Segoe UI',Ubuntu,sans-serif;
-  cursor:pointer;min-height:32px}
+  cursor:pointer;min-height:32px;display:inline-block;
+  text-decoration:none;font-size:13px}
 .themebtn:hover{color:var(--text);border-color:var(--accent)}
 *{box-sizing:border-box}
 /* The scrollbar too.  LazInk draws its own and takes these two from :root,
