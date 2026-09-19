@@ -74,9 +74,6 @@ figure img{display:block;width:100%;border-radius:6px;background:var(--paper)}
 figcaption{color:var(--dim);font-size:13.5px;line-height:1.55;
            margin:10px 4px 2px;border-left:2px solid var(--line);
            padding-left:10px}
-.shot-missing{display:flex;align-items:center;justify-content:center;
-  min-height:200px;border:2px dashed var(--line);border-radius:6px;
-  color:var(--dim);font-size:13px;text-align:center;padding:20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
       gap:12px;margin:14px 0}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;

@@ -76,6 +76,11 @@ animations replaced it.  **A still that shows the paper, the grid or the
 axes will go stale when those change** - prefer an animation of the tool
 doing its job, framed on the geometry.
 
+*(The "not taken yet" boxes are gone from the pages.  A dashed placeholder
+is a note to whoever is writing the manual, not something a reader should
+find in it - the five pages that still had one now simply have no picture,
+which is honest and tidy.  The list below is still the list.)*
+
 - `tool-select.png` - The Select tool in use.
 - `tool-line.png` - The Line tool in use.  DONE
 - `tool-rect.png` - The Rectangle tool in use.  DONE
