@@ -856,6 +856,26 @@ way in.
 Gathered from the notes further down, so none of them is only findable by
 reading a write-up of something finished.  Roughly smallest first.
 
+* **TlsLib4Pascal: not yet, and here is the trigger.**  Floated three times
+  now, so the answer is written down rather than argued again from nothing.
+  What we do today: Windows talks through WinHTTP, Linux and macOS through
+  fphttpclient with `opensslsockets`, which opens the system libssl at run
+  time.  **We ship no TLS and spawn no program on either** - the dependency
+  is the operating system's own, which is also what patches it and what
+  supplies the list of certificate authorities to trust.
+  Swapping in TlsLib4Pascal (MIT, TLS 1.3 and a hardened 1.2, one dependency
+  in CryptoLib4Pascal, an fcl-net adapter so our call sites do not change)
+  would delete **none** of our code - it is a uses clause and a config - and
+  would take on two things we do not carry today: the trust anchors (OS
+  harvest is opt-in there, otherwise we bundle CA roots that expire, and an
+  expired bundle in a shipped build is an update check that stops working
+  for everybody), and the patching, because a TLS flaw becomes our release
+  rather than their `apt upgrade`.
+  **Do it when** a report says libssl is missing or the wrong version -
+  musl, a minimal container, a distro that names OpenSSL 3 differently.
+  Then it goes in as a *fallback* rather than a replacement: try the system
+  first, fall back to pure Pascal.  `uNet.NetBackend` already returns the
+  name of the backend as a string, so the seam is there.
 * **What's new shows its bullets as solid blocks** - a LazInk fault, not
   ours, and it is written up with a repro and a one-line fix in
   `../LazInk/bugs/2026-09-19-brush-leak-after-hr/`.  Every version heading
