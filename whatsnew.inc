@@ -13,10 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.19.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **Export a film as WebP.**  Beside GIF in the export, and lossless: every' + LineEnding +
+    '  shade the drawing has, where a GIF keeps 256 of them.  Nothing extra is' + LineEnding +
+    '  shipped or installed to make one - the encoder is Pascal, in the program.' + LineEnding +
+    '- **The about box says who built what.**  It is a proper page now, with the' + LineEnding +
+    '  people whose work is inside this program named and linked - including' + LineEnding +
+    '  Xelitan, whose WebP encoder is why the export above needs nothing beside' + LineEnding +
+    '  it.' + LineEnding +
+    '- **A page about the other programs.**  What this is for, what the likes of' + LineEnding +
+    '  SketchUp, FreeCAD and LibreCAD do better, and when you should go and use' + LineEnding +
+    '  one of them instead.  In the manual, under the contents.' + LineEnding +
     '- **Light or dark in the manual, whichever you are in.**  The switch the' + LineEnding +
     '  website has is in the program''s manual now: a tap at the top of any page' + LineEnding +
     '  cycles Auto, Light and Dark, and it stays that way next time you open it.' + LineEnding +
