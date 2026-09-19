@@ -19,19 +19,25 @@
 #
 # Several at once
 # ---------------
-# Each script is a program start, a drawing read and a minute or so of
-# driving, and there are twenty-eight of them: one at a time that is ten
+# Each script is a program start, a drawing read and half a minute or so of
+# driving, and there are thirty-odd of them: one at a time that is ten
 # minutes, which is long enough that the suite stops being run.  They do not
 # share anything - every one gets a display, a copy of the program and a
-# folder of its own - so they go several at a time.  JOBS says how many.
+# folder of its own - so they go several at a time.  JOBS says how many; ten
+# by default, and the whole suite comes back in a little over a minute.
 #
 # The risk is that the scripts wait in wall-clock milliseconds, so a lane
 # starved of processor could miss a wait that would have been long enough.
-# Measured, that is not what is happening here: six lanes use about a minute
-# of processor across two minutes of clock, on a machine with thirty-two
-# cores - they are asleep almost the whole time.  The flakiness this suite
-# has always had predates the lanes.  Still, if a run starts failing in
-# scattered places, JOBS=1 is the first thing to try.
+# Measured, that is not what is happening here: ten lanes use about two
+# minutes of processor across one minute of clock, on a machine with
+# thirty-two cores - they are asleep almost the whole time.  The flakiness
+# this suite has always had predates the lanes.  Still, if a run starts
+# failing in scattered places, JOBS=1 is the first thing to try.
+#
+# Every script says how long it took.  That line is what keeps the suite
+# honest: it used to take three and a half minutes, and the reason was
+# visible the moment the numbers were printed - one chain of seven was
+# nearly three of them while nine lanes sat idle.
 #
 # A failure is retried once, on its own, because that is what a person does
 # with this suite by hand.  The retry says so rather than hiding it, and
@@ -65,22 +71,42 @@
 set -u
 cd "$(dirname "$0")/.."
 
-JOBS="${JOBS:-6}"
+JOBS="${JOBS:-10}"
 SOLO="${SOLO:-}"
 
 # What runs with what.  Grouped by the part of the program they lean on, so
 # that a chain failing says something - "the drawing tools after each other"
 # rather than "scripts 4, 11 and 19".
+#
+# Short chains, and that is a decision rather than an accident.  A chain
+# runs its members one after another, so a chain is as slow as all of it
+# added up while everything else in the suite is running beside it: with
+# four long chains the whole suite waited on the longest one, which was
+# nearly three minutes of the three and a half the run took.  Measured
+# member by member, chaining saves about four seconds of start-up across a
+# whole chain - so the length was buying nothing but time.
+#
+# What the length WAS buying is the thing chains are for: whether the fourth
+# thing you do still works.  Two or three in a row still asks that, of the
+# scripts most likely to tread on each other, and the suite comes back in a
+# third of the time.  If a pair here ever stops being worth running
+# together, split it; if two want joining, join them - but keep an eye on
+# the numbers the run prints, and keep the longest chain near the longest
+# single script.
 chain_members() {
   case "$1" in
-    commands) echo "command-list cmd-example cmd-wheel toy-command whatsnew-drag" ;;
-    views)    echo "plan-slice plan-hidden view-cube cube-corners cube-keys round-corner" ;;
-    tools)    echo "dim-face-edge dim-needs-something tape-finishes guide-picking alt-tools copy-paste" ;;
-    shapes)   echo "round-corners line-length guide-select offset-rounded inference-alt move-edge bulk-color" ;;
+    commands) echo "command-list cmd-example cmd-wheel whatsnew-drag" ;;
+    views)    echo "plan-slice plan-hidden view-cube" ;;
+    cube)     echo "cube-corners cube-keys round-corner" ;;
+    tools)    echo "dim-face-edge dim-needs-something tape-finishes" ;;
+    picking)  echo "guide-picking alt-tools" ;;
+    shapes)   echo "round-corners line-length" ;;
+    offsets)  echo "offset-rounded inference-alt" ;;
+    edits)    echo "move-edge bulk-color" ;;
     *)        echo "" ;;
   esac
 }
-CHAINS="commands views tools shapes"
+CHAINS="offsets shapes edits cube commands tools picking views"
 
 # Between one script and the next: drop whatever tool or dialog the last one
 # left, and start a fresh sheet.  Not a fresh program - the settings, the
@@ -109,25 +135,31 @@ drawing_for() {
   esac
 }
 
+# The ones that are nobody's chain.  Longest first, and so are the chains
+# above: lanes are handed work in the order it is listed, and a long job
+# picked up last is a long job everything else waits on.  Sorting by the
+# times the run prints is most of the difference between three minutes and
+# one.
+SOLOISTS="copy-paste gif-loop entity-panel face-needs-edges close-asks
+          frame-watchdog entity-style guide-select export-dialog help-window
+          ring-hint orbit-snap orbit-grid help-picture revolve-edge
+          glass-revolve dim-resize report-tick upright-outline reverse-face
+          narrow-window held-endpoint blank-start"
+
 if [ $# -gt 0 ]; then
   NAMES="$*"
 else
-  # the ones that run on their own, then the chains
-  NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
-         glass-revolve ring-hint face-needs-edges entity-panel
-         gif-loop frame-watchdog close-asks orbit-grid orbit-snap
-         narrow-window blank-start help-window help-picture
-         $CHAINS"
+  # the chains first, because they are the longest things here
+  NAMES="$CHAINS $SOLOISTS"
   # SOLO=1 takes the chains apart again, for when a chain has failed and the
-  # question is whether any of it was ever broken
+  # question is whether any of it was ever broken.  Written out of the chain
+  # table rather than kept as a second list beside it: the second list went
+  # stale the moment a script was added to a chain and not to it, and five
+  # of them were being skipped in a SOLO run without anybody noticing.
   if [ -n "$SOLO" ]; then
-    NAMES="held-endpoint reverse-face dim-resize upright-outline revolve-edge
-           glass-revolve plan-slice plan-hidden command-list toy-command
-           cmd-example cmd-wheel gif-loop view-cube cube-corners
-           whatsnew-drag dim-face-edge dim-needs-something round-corner ring-hint move-edge
-           face-needs-edges tape-finishes guide-picking frame-watchdog
-           close-asks copy-paste entity-panel orbit-grid orbit-snap
-           round-corners line-length narrow-window blank-start help-window help-picture"
+    NAMES=""
+    for c in $CHAINS; do NAMES="$NAMES $(chain_members "$c")"; done
+    NAMES="$NAMES $SOLOISTS"
   fi
 fi
 
@@ -185,7 +217,8 @@ rundir_for() {
 # One script or one chain, start to finish.  Says how it went as it finishes
 # rather than waiting for the rest, so a run in progress is readable.
 run_one() {
-  local n="$1" d rc script
+  local n="$1" d rc script began took
+  began=$SECONDS
   if [ -n "$(chain_members "$n")" ]; then
     build_chain "$n"
     script="$OUT/$n.txt"
@@ -201,12 +234,17 @@ run_one() {
   rc=$?
   [ -n "$rd" ] && rm -rf "$rd"
   echo "$rc" > "$OUT/$n.rc"
+  # How long it took, beside how it went.  A suite nobody can see the shape
+  # of is a suite that quietly grows another minute every week; this is the
+  # line that says which script to look at.
+  took=$((SECONDS - began))
+  echo "$took" > "$OUT/$n.secs"
   if [ "$rc" = 0 ]; then
-    echo "$n ok"
+    printf '%-16s ok   %3ds\n' "$n" "$took"
   elif [ -n "$(chain_members "$n")" ]; then
-    echo "$n FAILED - stopped at $(died_on "$n")"
+    printf '%-16s FAILED %3ds - stopped at %s\n' "$n" "$took" "$(died_on "$n")"
   else
-    echo "$n FAILED"
+    printf '%-16s FAILED %3ds\n' "$n" "$took"
   fi
   # always nought: how it went is in the .rc file, and a lane reporting a
   # failure to "wait -n" would send this back to one at a time

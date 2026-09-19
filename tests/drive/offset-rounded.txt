@@ -12,15 +12,15 @@
 # loops; hsk-or-ring has the ring between them pulled up; hsk-or-middle has
 # the middle pulled up as well, higher.
 activate
-wait 1000
+wait 650
 key slash
 type plan
 key return
-wait 1000
+wait 650
 key slash
 type clear
 key return
-wait 1000
+wait 650
 
 key r
 wait 300
@@ -28,7 +28,7 @@ at 400 250
 click
 at 800 550 500
 click
-wait 900
+wait 450
 
 # round the bottom-left corner, then double-click the other three
 key a
@@ -43,29 +43,29 @@ click
 wait 300
 at 425 530 300
 at 412 538 300
-wait 600
+wait 450
 click
 click
-wait 1000
+wait 650
 at 797 253 400
 wait 300
 click
 click
-wait 1000
+wait 650
 at 797 547 400
 wait 300
 click
 click
-wait 1000
+wait 650
 at 403 253 400
 wait 300
 click
 click
-wait 1000
+wait 650
 key escape
 wait 300
 at 900 400 300
-wait 500
+wait 400
 shot /tmp/hsk-or-rounded.png
 
 # offset: pick the face, move well inside - further in than the corners are
@@ -79,18 +79,18 @@ wait 400
 click
 wait 300
 at 480 330 500
-wait 600
+wait 450
 click
-wait 1000
+wait 650
 at 900 400 300
-wait 500
+wait 400
 shot /tmp/hsk-or-offset.png
 
 # look at it from the corner, and pull the ring up, then the middle higher
 key slash
 type iso
 key return
-wait 1200
+wait 800
 key p
 wait 300
 at 900 400 300
@@ -102,7 +102,7 @@ at 900 330 400
 wait 300
 type 3"
 key return
-wait 1000
+wait 650
 shot /tmp/hsk-or-ring.png
 at 720 230 300
 wait 400
@@ -112,7 +112,7 @@ at 720 150 400
 wait 300
 type 6"
 key return
-wait 1000
+wait 650
 at 1000 600 300
-wait 500
+wait 400
 shot /tmp/hsk-or-middle.png

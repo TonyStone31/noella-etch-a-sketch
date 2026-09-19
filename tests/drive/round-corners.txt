@@ -14,15 +14,15 @@
 # corner rounded with no square corner left behind it; hsk-rc-repeated has a
 # second corner rounded to the same radius.
 activate
-wait 1000
+wait 650
 key slash
 type plan
 key return
-wait 1000
+wait 650
 key slash
 type clear
 key return
-wait 1000
+wait 650
 
 # a rectangle, well clear of everything
 key r
@@ -31,7 +31,7 @@ at 400 250
 click
 at 800 550 500
 click
-wait 900
+wait 600
 
 # the arc: a point on the bottom edge near the bottom-left corner, then one
 # on the left edge
@@ -54,7 +54,7 @@ shot /tmp/hsk-rc-tangent.png
 # double-click: the arc goes in, then the corner comes off
 click
 click
-wait 1000
+wait 650
 shot /tmp/hsk-rc-trimmed.png
 
 # and the same again at the top-right corner
@@ -62,7 +62,7 @@ at 797 253 400
 wait 300
 click
 click
-wait 1000
+wait 650
 shot /tmp/hsk-rc-repeated.png
 
 # A plain click at the bottom-right corner: the arc goes in tangent, and the
@@ -85,7 +85,7 @@ wait 300
 at 788 538 300
 wait 600
 click
-wait 1000
+wait 650
 at 900 400 300
 wait 600
 shot /tmp/hsk-rc-kept.png
@@ -98,7 +98,7 @@ at 400 253 400
 wait 300
 click
 click
-wait 1000
+wait 650
 at 900 400 300
 wait 600
 shot /tmp/hsk-rc-fourth.png
