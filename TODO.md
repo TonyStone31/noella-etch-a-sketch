@@ -267,6 +267,71 @@ red in one trip through the picker - the shot shows "2 faces painted."
 
 ---
 
+## Replacing the GIFs with WebP - the plan, measured - 18 September
+
+Tony: "i think we may need to make a plan to replace all our gif files soon
+with smaller cleaner crisper animations... maybe there is a converter we can
+use or just record some new ones as i think we kept our recorder scripts?"
+
+We did keep them.  **Twenty-one animations, twenty-one scripts, one to one** -
+every picture in the manual can be made again from `tools/gif-*.txt` without
+anybody driving a window.  That is the fact the whole plan rests on.
+
+### What it is worth
+
+Converted straight across with `ffmpeg -c:v libwebp_anim -q:v 60`:
+
+| | |
+|---|---|
+| the 21 animations | **20.1 MB -> 9.2 MB (45%)** |
+| the whole manual | 23 MB -> about 13 MB |
+
+The worst offender converts best: `tool-orbit-snap` goes 3,340 KB to 735 KB,
+which is 22%.  Quality on one file: lossless 559 KB, q75 525 KB, q60 416 KB,
+q50 365 KB - so q60 is about the knee and lossless is not worth it even on
+flat interface colour.
+
+### Convert or record again?
+
+**Record again**, and the reason is not purity.  A GIF has already been
+crushed to 256 colours with dithering, so converting one gives a smaller file
+**of the damage** - and worse, dither noise is expensive to encode, so we
+would be paying WebP bits to preserve an artefact we never wanted.  A fresh
+recording never quantises at all: the grab is true colour and goes straight
+to WebP.  Expect it to beat the 45% above *and* look better.
+
+Conversion stays the fallback for anything with no script - Tony's own
+exported robot turntable on the README, say.
+
+### What has to happen first
+
+**LazInk has to read WebP in a shipped build.**  The same HTML serves the
+website and the manual inside the program, and there is no `<picture>`
+fallback to lean on - so the day the pages say `.webp`, a program that cannot
+read it shows holes where the pictures were.  So: one commit, all
+twenty-one at once, landing *after* a LazInk release with WebP in it.
+Browsers have read animated WebP for years; the program is the whole
+constraint.
+
+**Reading is not writing**, and it is worth keeping those apart.  LazInk
+reading WebP gives us nothing for making them - that is `ffmpeg`, which is
+already what `tools/gif-shot.sh` pipes its X11 grab through, so the change
+there is the output codec and a `.webp` extension rather than a new
+pipeline.  `tools/turntable.pas` is the exception: it writes through
+BGRABitmap's animated-GIF writer, so it keeps making GIFs until BGRABitmap
+grows a WebP one, and its output gets converted afterwards if it matters.
+
+### The order, when the day comes
+
+1. `gif-shot.sh` learns a WebP output (codec + extension), keeping GIF.
+2. Re-record all twenty-one from the existing scripts, at q60.
+3. Swap the twenty-one `<img src>` in the pages, delete the GIFs, in **one**
+   commit so the manual is never half one thing and half the other.
+4. Check the in-program manual on the drive suite before it ships - that is
+   the reader the website cannot tell us about.
+
+---
+
 ## Sexier pipe, and the frame cost that came with it - 18 September
 
 Tony: "the iso pipe fitters thing should build some sexier pipe too and we
