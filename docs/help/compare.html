@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>This program and the others - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js"></script></head>
+<body><div class="wrap"><a class="themebtn" id="themebtn" href="#theme" title="Light or dark">Theme</a><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; This program and the others</nav>
+<header><h1>This program and the others</h1><p class="lead">What this is for, and when to go and use something else.</p></header>
+
+<p>There is no shortage of drawing programs, and some of them are very good
+at things this one does not attempt.  A manual that pretends otherwise is
+not much use to somebody deciding whether to bother, so here is the honest
+version.  The longer table, with links and dates, is
+<a href="https://github.com/TonyStone31/noella-etch-a-sketch/blob/main/docs/comparison.md">in the repository</a>.</p>
+
+<div class="note"><b>Use something else if</b> you are drawing a building to
+build from - that is <b>Revit</b> or <b>FreeCAD</b>.  If you want a part
+whose dimensions you can go back and change afterwards, that is
+<b>FreeCAD</b> or <b>SolveSpace</b>.  If you want flat 2D drafting that
+behaves like AutoCAD, that is <b>LibreCAD</b> or <b>QCAD</b>.</div>
+
+<h2 id="what-this-is-for">What this is for</h2>
+<p>Roughing something out at a real scale, quickly, and getting a drawing
+or a file out the other end.  A duct transition, a run of pipe, a shed, a
+bracket, the shape of a room.  Pick a scale, put the cursor on a point, type
+the size, and print it at true scale or export a DXF.</p>
+
+<p>Two things make it worth choosing over the program most people would
+reach for.  It <b>runs on Linux</b>, which SketchUp has never done.  And the
+<b>trade work is in the box</b> - fittings from your own measurements, a
+pipe spool leg by leg, and the flat pattern to cut from sheet - rather than
+being an extension somebody sells you.</p>
+
+<h2 id="what-we-do-not-have">What we do not have</h2>
+<table class="sheet">
+<tr><th>Missing</th><th>Where to get it</th></tr>
+<tr><td>Groups and components</td><td>Everything here is loose geometry.  It is the biggest gap and it is being planned - see <a href="parts.html">Parts</a>.</td></tr>
+<tr><td>Parametric history</td><td>Going back and changing a number afterwards: FreeCAD, SolveSpace.</td></tr>
+<tr><td>A plugin language</td><td>SketchUp's Ruby ecosystem is decades of other people's work.</td></tr>
+<tr><td>Photo-real rendering</td><td>Not attempted, and not planned.</td></tr>
+<tr><td>BIM, assemblies, FEA, CAM</td><td>Revit and FreeCAD.</td></tr>
+<tr><td>A macOS build</td><td>The code should build on it; nobody has built it.</td></tr>
+</table>
+
+<h2 id="what-we-do-have">What we do have</h2>
+<table class="sheet">
+<tr><th>Here</th><th>What it means</th></tr>
+<tr><td>One file</td><td>About nine megabytes.  No installer, no runtime, no account, nothing phoning home.  The manual you are reading is inside it.</td></tr>
+<tr><td>Linux, natively</td><td>And Windows.  The same program, the same drawings.</td></tr>
+<tr><td>SketchUp's habits</td><td>The same keys, the same typed measurements, the same push/pull, on purpose - so somebody who knows that program is not starting again.</td></tr>
+<tr><td>The trade tools</td><td><a href="fittings.html">Fittings</a>, the <a href="spool.html">pipe spool</a>, and <a href="unfold.html">unfolding</a>.</td></tr>
+<tr><td>Exports</td><td>PNG, JPEG, GIF, WebP, SVG, DXF (view and model), STL, OpenSCAD.  The animation encoders are inside the program; nothing extra is installed.</td></tr>
+<tr><td>MIT licence</td><td>Fork it, sell it, mount it on a machine.  That is the point.</td></tr>
+</table>
+
+<h2 id="see-also">See also</h2><ul><li><a href="index.html">All the help</a></li></ul>
+<footer><a href="index.html">Back to the contents</a> &middot; Heckers Sketch help</footer>
+</div></body></html>

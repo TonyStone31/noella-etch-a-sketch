@@ -56,6 +56,10 @@ it becomes a face, push a face into a solid, snap to endpoints and midpoints,
 type a length instead of dragging for it.  [`docs/sketchup/`](docs/sketchup/)
 has our notes on their help pages, including where we differ and why.
 
+**How it compares** to SketchUp, FreeCAD, LibreCAD, SolveSpace, Sweet Home 3D
+and Revit - including the things they do that we do not - is laid out in
+[`docs/comparison.md`](docs/comparison.md).
+
 ## What's in it
 
 The manual covers all of this properly.  The short version:
