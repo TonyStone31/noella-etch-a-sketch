@@ -21,6 +21,10 @@ const
     '  a link to the contents, and the pages themselves are laid out the way the' + LineEnding +
     '  website lays them out - the same spacing, and a proper heading band on the' + LineEnding +
     '  key and command sheets.' + LineEnding +
+    '- **What is on this page, at the top of it.**  The longest manual pages -' + LineEnding +
+    '  commands, the keyboard, sheets, units, faces, plan, select and revolve -' + LineEnding +
+    '  open with a list of their own sections, and every heading is a place you' + LineEnding +
+    '  can link to.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +

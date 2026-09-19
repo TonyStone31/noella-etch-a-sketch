@@ -25,6 +25,10 @@
 
 ### Fixed
 
+- **Clicking a picture in the manual shows the picture.**  Every animation
+  in the manual is a link to itself, and since they became WebP, clicking
+  one filled the window with the file read as text.  It opens large, and
+  keeps playing, the way it always should have.
 - **The manual stays in your colours.**  In a light theme the contents came
   up light and every page you clicked through to came up dark.  Now the
   whole manual follows the program's theme, wherever you got to it from.

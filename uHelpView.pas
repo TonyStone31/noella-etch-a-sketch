@@ -461,10 +461,19 @@ var
   Local, Ext: string;
 begin
   { A picture - clicked, or a link straight to one - opens larger in the
-    picture window rather than replacing the page being read. }
+    picture window rather than replacing the page being read.
+
+    The list has to hold every kind the manual actually uses.  It did not
+    hold .webp, and the day the animations became WebP every one of them
+    became a link this did not recognise: it fell through to the page loader
+    below, which handed a binary file to the renderer as if it were text, and
+    what came up was the file itself as gibberish.  A picture window that
+    knows a format the page's link test does not is a trap; if another format
+    is ever added, it is added here as well. }
   Ext := LowerCase(ExtractFileExt(URL));
   if (Page.ClickedLink.Image <> '') or (Ext = '.png') or (Ext = '.gif') or
-     (Ext = '.jpg') or (Ext = '.jpeg') then
+     (Ext = '.jpg') or (Ext = '.jpeg') or (Ext = '.webp') or
+     (Ext = '.bmp') then
   begin
     if Page.ClickedLink.Image <> '' then
       OpenPictureWindow(Page.ClickedLink.Image, lblTitle.Caption)

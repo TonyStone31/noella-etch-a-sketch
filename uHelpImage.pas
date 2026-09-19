@@ -109,7 +109,20 @@ begin
   end;
   if Title <> '' then Caption := 'Heckers Sketch - ' + Title
   else Caption := 'Heckers Sketch - Picture';
-  Page.LoadFromURL(URL);
+  { A page of our own with nothing in it but the picture, rather than
+    pointing the renderer at the file and hoping.
+
+    LoadFromURL on a picture makes that page itself - but only for the
+    formats its list knows, and .webp is not one of them, so the day the
+    manual's animations became WebP, clicking one showed the file read as
+    text: a window full of binary gibberish.  Reported over in LazInk; this
+    does not wait for it, and it is the honest way round anyway.  The window
+    asks for one picture and knows which one, so it can say so rather than
+    leaving the renderer to guess from the extension. }
+  Page.LoadHTML('<html><head></head><body style="margin:0">' +
+    '<img src="' + StringReplace(URL, '"', '&quot;', [rfReplaceAll]) +
+    '" alt="' + StringReplace(Title, '"', '&quot;', [rfReplaceAll]) +
+    '"></body></html>', URL);
   Page.ClearHistory;
   Show;
   BringToFront;
