@@ -6,8 +6,10 @@
 <script src="theme.js"></script></head>
 <body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Sheets and files</nav>
 <header><h1>Sheets and files</h1><p class="lead">Several drawings in one window, and getting them on and off disk.</p></header>
+<nav class="jump"><b>On this page:</b> <a href="#sheets">Sheets</a> &middot; <a href="#moving-work-between-sheets">Moving work between sheets</a> &middot; <a href="#closing-a-sheet">Closing a sheet</a> &middot; <a href="#saving">Saving</a> &middot; <a href="#through-an-update">Through an update</a> &middot; <a href="#the-draft">The draft</a> &middot; <a href="#undo">Undo</a></nav>
 
-<h2>Sheets</h2>
+
+<h2 id="sheets">Sheets</h2>
 <p>A drawing can have several sheets, along the top as tabs.  They share a
 window and a file; each one has its own geometry, its own view and its own
 scale.</p>
@@ -23,7 +25,7 @@ one.</li>
 plan - rather than one file each.  They stay together and they print
 together.</p>
 
-<h2>Moving work between sheets</h2>
+<h2 id="moving-work-between-sheets">Moving work between sheets</h2>
 <p><kbd>Ctrl</kbd>+<kbd>C</kbd> copies what is picked, <kbd>Ctrl</kbd>+<kbd>X</kbd>
 cuts it, <kbd>Ctrl</kbd>+<kbd>V</kbd> pastes.  The paste arrives on the
 cursor and a click puts it down, so you choose where it lands rather than
@@ -32,14 +34,14 @@ finding out.</p>
 sheet, copy it, and put it into the assembly on another.  A pasted solid is
 its own solid - push a face on the copy and the original does not move.</p>
 
-<h2>Closing a sheet</h2>
+<h2 id="closing-a-sheet">Closing a sheet</h2>
 <p>A sheet with work on it asks before it goes: save the drawing, close
 without saving, or keep it open.  A sheet nobody has touched does not ask -
 the example the program starts with arrives with three hundred things on it,
 and that is not your work to lose.</p>
 <p>Closing the window asks the same question if any sheet has work on it.</p>
 
-<h2>Saving</h2>
+<h2 id="saving">Saving</h2>
 <ul>
 <li><kbd>Ctrl</kbd>+<kbd>S</kbd> - save.</li>
 <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> - save under a new
@@ -50,25 +52,25 @@ name.</li>
 feet.  You can read it, diff it, and keep it in version control.  Nothing in
 it is compressed or binary.</p>
 
-<h2>Through an update</h2>
+<h2 id="through-an-update">Through an update</h2>
 <p>When the program updates itself it has to stop and start again, and it
 does not make you deal with that.  Everything open is written out first -
 every sheet, which one you were on, and which of them had unsaved work - and
 put back afterwards exactly as it was, still marked unsaved if it was
 unsaved.  You are told it is going to happen and then it happens.</p>
 
-<h2>The draft</h2>
+<h2 id="the-draft">The draft</h2>
 <p>Work in progress is written beside the program as you go, so a crash or a
 power cut does not lose the afternoon.  It comes back the next time you
 start.  That is not a substitute for saving - it is one file, and it is
 overwritten.</p>
 
-<h2>Undo</h2>
+<h2 id="undo">Undo</h2>
 <p><kbd>Ctrl</kbd>+<kbd>Z</kbd> and <kbd>Ctrl</kbd>+<kbd>Y</kbd>, as far back
 as you like.  Undo covers the geometry, not the view - spinning the model is
 not something to undo.</p>
 
-<h2>See also</h2>
+<h2 id="see-also">See also</h2>
 <ul>
 <li><a href="export.html">Exporting</a> - getting a drawing out to something else</li>
 <li><a href="printing.html">Printing</a></li>

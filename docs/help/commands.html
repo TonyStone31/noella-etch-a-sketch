@@ -6,13 +6,15 @@
 <script src="theme.js"></script></head>
 <body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Commands</nav>
 <header><h1>Commands</h1><p class="lead">Type a slash and the program tells you what it can do.</p></header>
+<nav class="jump"><b>On this page:</b> <a href="#using-the-list">Using the list</a> &middot; <a href="#all-of-them">All of them</a> &middot; <a href="#picking-up-a-tool">Picking up a tool</a> &middot; <a href="#the-view">The view</a> &middot; <a href="#where-a-thing-sits">Where a thing sits</a> &middot; <a href="#settings-for-the-drawing">Settings for the drawing</a> &middot; <a href="#faces-and-solids">Faces and solids</a> &middot; <a href="#sheets-saving-undoing">Sheets, saving, undoing</a> &middot; <a href="#building-something">Building something</a> &middot; <a href="#the-program-itself">The program itself</a> &middot; <a href="#under-the-hood">Under the hood</a> &middot; <a href="#a-few-worth-knowing">A few worth knowing</a></nav>
+
 
 <p>SketchUp has no command line.  This does, and it is the fastest way to
 reach anything here: you do not have to remember where a thing lives in a
 menu, only roughly what it is called.  Everything below is on this one page
 so you can keep it open beside the program.</p>
 
-<h2>Using the list</h2>
+<h2 id="using-the-list">Using the list</h2>
 <ol>
 <li>Type <kbd>/</kbd> in the command bar along the bottom - or press the
 <kbd>/</kbd> button at the left of it - and the whole list comes up with a
@@ -46,12 +48,12 @@ be a worse list - but typing a short name finds its row, and the row says
 which name found it: <code>/tape</code> brings up <code>/measure</code>
 marked <i>/tape</i>.</div>
 
-<h2>All of them</h2>
+<h2 id="all-of-them">All of them</h2>
 <p>Seventy-one commands, grouped by what you would be trying to do.  The
 in-program list is alphabetical; this is not, because when you do not know
 the name, the name is not what you have to go on.</p>
 
-<h2>Picking up a tool</h2>
+<h2 id="picking-up-a-tool">Picking up a tool</h2>
 <p>Every one of these just puts a tool in your hand.  The "Also" column has
 the keyboard shortcut, which does the same thing and is quicker once you know
 it, and any shorter names the command answers to.  See
@@ -76,7 +78,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><a href="tools/text.html"><code>/text</code></a></td><td>a note on the drawing</td><td class="alias">key <kbd>N</kbd>, <code>/note</code>, <code>/n</code></td></tr>
 <tr><td><a href="tools/orbit.html"><code>/orbit</code></a></td><td>the free camera</td><td class="alias">key <kbd>O</kbd>, <code>/spin</code></td></tr>
 </table>
-<h2>The view</h2>
+<h2 id="the-view">The view</h2>
 <p>Where you are looking from.  Every one of these flies the
   camera there rather than jumping, which is what keeps you from losing your
   place.</p>
@@ -96,7 +98,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><a href="plan.html"><code>/cut</code></a></td><td>the plan slice: two heights, or &quot;all&quot;<br><span class="alias">for example <code>/cut 0 9&#x27;</code></span></td><td class="alias"><code>/slice</code></td></tr>
 <tr><td><code>/quick</code></td><td>quick frames while the camera moves</td><td class="alias"></td></tr>
 </table>
-<h2>Where a thing sits</h2>
+<h2 id="where-a-thing-sits">Where a thing sits</h2>
 <p>Moving the whole drawing, or what you have picked,
   to somewhere definite.  <code>/center</code> and <code>/tozero</code> are
   the two a 3D printer cares about.</p>
@@ -110,7 +112,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><a href="tools/move.html"><code>/detach</code></a></td><td>move a line away on its own: on, off<br><span class="alias">for example <code>/detach on</code></span></td><td class="alias"><code>/loose</code></td></tr>
 <tr><td><a href="unfold.html"><code>/unfold</code></a></td><td>lay a piece out flat</td><td class="alias"><code>/layout</code></td></tr>
 </table>
-<h2>Settings for the drawing</h2>
+<h2 id="settings-for-the-drawing">Settings for the drawing</h2>
 <table class="sheet">
 <tr><th>Command</th><th>What it does</th><th>Also</th></tr>
 <tr><td><a href="entity.html"><code>/info</code></a></td><td>the entity panel: on, off<br><span class="alias">for example <code>/info on</code></span></td><td class="alias"><code>/entity</code>, <code>/properties</code></td></tr>
@@ -120,7 +122,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><code>/grid</code></td><td>the ruled paper, on or off</td><td class="alias">key <kbd>G</kbd></td></tr>
 <tr><td><a href="tools/measure.html"><code>/guides</code></a></td><td>clear the guide lines</td><td class="alias"><code>/noguides</code></td></tr>
 </table>
-<h2>Faces and solids</h2>
+<h2 id="faces-and-solids">Faces and solids</h2>
 <p>A face is worked out from the edges that enclose it,
   not drawn; these are the words for when that needs a nudge, or for finding
   out why a shape will not print.  See
@@ -133,7 +135,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><code>/regions</code></td><td>report the flat areas found</td><td class="alias"></td></tr>
 <tr><td><code>/forget</code></td><td>forget the areas seen, and work them out again</td><td class="alias"></td></tr>
 </table>
-<h2>Sheets, saving, undoing</h2>
+<h2 id="sheets-saving-undoing">Sheets, saving, undoing</h2>
 <table class="sheet">
 <tr><th>Command</th><th>What it does</th><th>Also</th></tr>
 <tr><td><a href="sheets.html"><code>/new</code></a></td><td>a new sheet</td><td class="alias">key <kbd>Ctrl+T</kbd>, <code>/tab</code></td></tr>
@@ -145,7 +147,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><a href="sheets.html"><code>/redo</code></a></td><td>put back what was undone</td><td class="alias">key <kbd>Ctrl+Y</kbd></td></tr>
 <tr><td><a href="printing.html"><code>/print</code></a></td><td>this sheet - or &quot;all&quot;, or &quot;full&quot;<br><span class="alias">for example <code>/print all</code></span></td><td class="alias">key <kbd>Ctrl+P</kbd></td></tr>
 </table>
-<h2>Building something</h2>
+<h2 id="building-something">Building something</h2>
 <p>Two wizards that write geometry for you rather
   than making you draw it.</p>
 <table class="sheet">
@@ -153,7 +155,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><a href="fittings.html"><code>/transition</code></a></td><td>build a duct fitting</td><td class="alias"><code>/trans</code>, <code>/fitting</code>, <code>/elbow</code>, <code>/tee</code></td></tr>
 <tr><td><a href="spool.html"><code>/spool</code></a></td><td>the pipe spool scratchpad</td><td class="alias"><code>/pipe</code>, <code>/scratchpad</code></td></tr>
 </table>
-<h2>The program itself</h2>
+<h2 id="the-program-itself">The program itself</h2>
 <table class="sheet">
 <tr><th>Command</th><th>What it does</th><th>Also</th></tr>
 <tr><td><code>/help</code></td><td>about this program</td><td class="alias">key <kbd>F1</kbd></td></tr>
@@ -163,7 +165,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><a href="reporting.html"><code>/report</code></a></td><td>send a bug report, with a picture</td><td class="alias"><code>/bug</code></td></tr>
 <tr><td><a href="toy.html"><code>/toy</code></a></td><td>the etch-a-sketch this program began as</td><td class="alias"><code>/etch</code>, <code>/etchasketch</code></td></tr>
 </table>
-<h2>Under the hood</h2>
+<h2 id="under-the-hood">Under the hood</h2>
 <p>Diagnostics.  Harmless, and mostly of interest when
   something has gone wrong and we have asked you to look.</p>
 <table class="sheet">
@@ -176,7 +178,7 @@ it, and any shorter names the command answers to.  See
 <tr><td><code>/timings</code></td><td>time each step: on, do the slow thing, then again to see them<br><span class="alias">for example <code>/timings show</code></span></td><td class="alias"></td></tr>
 <tr><td><code>/rendertime</code></td><td>time a whole frame, in a box you can copy from</td><td class="alias"></td></tr>
 </table>
-<h2>A few worth knowing</h2>
+<h2 id="a-few-worth-knowing">A few worth knowing</h2>
 <ul>
 <li><code>/holes</code> draws, in red, every edge where a solid is not
 closed - the answer a slicer will not give you.  See
@@ -200,12 +202,12 @@ works but is deliberately not in the list.</li>
 <li><code>/manual</code> opens these pages.</li>
 </ul>
 
-<h2>What it looks like</h2><figure>
+<h2 id="what-it-looks-like">What it looks like</h2><figure>
   <a class="zoom" href="shots/commands.png" target="_blank" title="Open larger"><img src="shots/commands.png" alt="The command list, open and narrowed."></a>
   <figcaption>A slash and two letters.  The ones beginning &quot;re&quot; come first, then the ones that merely contain it, each with a word about what it does.  Seventy of them; two letters is usually enough.</figcaption>
 </figure>
 
-<h2>See also</h2><ul>
+<h2 id="see-also">See also</h2><ul>
 <li><a href="keys.html">The keyboard and the mouse</a></li>
 <li><a href="typing.html">Typing measurements</a></li>
 <li><a href="index.html">All the tools</a></li></ul>

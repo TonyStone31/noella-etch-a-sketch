@@ -6,13 +6,13 @@
 <script src="theme.js"></script></head>
 <body><div class="wrap"><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Solids and 3D printing</nav>
 <header><h1>Solids and 3D printing</h1><p class="lead">Why a shape does or does not print.</p></header>
-<h2>What "closed" means</h2>
+<h2 id="what-closed-means">What "closed" means</h2>
 <p>A shape prints when every edge is shared by exactly two faces.  Then there
 is a definite inside and a definite outside, and a slicer knows which part to
 fill.  One missing face, or one edge with three faces on it, and it has to
 guess - and guesses come out as holes, blobs, or nothing at all.</p>
 
-<h2>Finding out</h2>
+<h2 id="finding-out">Finding out</h2>
 <ol>
 <li>Export STL.  It says <i>closed and ready to slice</i>, or that a slicer
 will have to guess.</li>
@@ -31,7 +31,7 @@ is.</li>
   faces left.</figcaption>
 </figure>
 
-<h2>The usual causes</h2>
+<h2 id="the-usual-causes">The usual causes</h2>
 <ul>
 <li><b>A face missing.</b>  Draw the line that would close it and the face
 comes back - see <a href="tools/line.html">the line tool</a>.</li>
@@ -41,7 +41,7 @@ it and choose <b>Reverse Face</b> on the right button.</li>
 <code>/rebuild</code> works the flat areas out again.</li>
 </ul>
 
-<h2>Where it lands on the bed</h2>
+<h2 id="where-it-lands-on-the-bed">Where it lands on the bed</h2>
 <ul>
 <li><code>/center</code>, or <b>Center on the Origin</b> on the right button
 - middles the selection across X and Y and stands it on Z zero.  Where a
@@ -53,7 +53,7 @@ against zero.  What you want when you are measuring rather than printing.</li>
 <p>STL and OpenSCAD exports do the centering for you, so there is nothing to
 move in the slicer.</p>
 
-<h2>See also</h2><ul>
+<h2 id="see-also">See also</h2><ul>
 <li><a href="faces.html">Faces, front and back</a> - which way a face points, and why the back is blue</li>
 <li><a href="tools/erase.html">The eraser</a> - how a face goes missing in the first place</li>
 <li><a href="export.html">Exporting</a> - STL, and what it says about the shape</li>

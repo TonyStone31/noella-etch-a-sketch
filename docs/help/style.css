@@ -43,8 +43,14 @@
    colours rather than the widget set's.  A browser that reads them does the
    same; one that does not is no worse off. */
 html{scrollbar-color:var(--accent) var(--panel);scrollbar-width:thin}
+/* The line height is written on its own as well as in the font shorthand.
+   LazInk reads `line-height` now and does not read `font:`, so this is the
+   line that gives the manual inside the program the same airy setting the
+   website has had all along - the single biggest difference between the two
+   before it. */
 body{margin:0;background:var(--bg);color:var(--text);
-     font:15px/1.65 system-ui,'Segoe UI',Ubuntu,sans-serif}
+     font:15px/1.65 system-ui,'Segoe UI',Ubuntu,sans-serif;
+     font-size:15px;line-height:1.65}
 .wrap{max-width:820px;margin:0 auto;padding:24px}
 /* The page head: the title, the line under it in the accent rather than the
    panel grey, and the lead.  A hairline the same colour as everything else
@@ -76,6 +82,13 @@ p{margin-top:0;margin-bottom:14px}
 a{color:var(--accent)}
 a:hover{color:var(--hover)}
 nav.crumbs{font-size:13px;color:var(--dim);margin-top:0;margin-bottom:18px}
+/* What is on this page, at the top of the long ones.  A manual page is a
+   list of questions and this is the list; every heading is an anchor, so it
+   works the same in a browser and in the program's window. */
+nav.jump{background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:12px;margin-top:0;margin-bottom:26px;
+  font-size:13.5px;line-height:1.9;color:var(--dim)}
+nav.jump b{color:var(--text)}
 ol,ul{padding-left:22px;margin-top:0;margin-bottom:16px}
 li{margin-top:7px;margin-bottom:7px}
 small{color:var(--dim)}

@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A way back from the bottom of a page.**  Every manual page now ends with' + LineEnding +
+    '  a link to the contents, and the pages themselves are laid out the way the' + LineEnding +
+    '  website lays them out - the same spacing, and a proper heading band on the' + LineEnding +
+    '  key and command sheets.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The manual stays in your colours.**  In a light theme the contents came' + LineEnding +
+    '  up light and every page you clicked through to came up dark.  Now the' + LineEnding +
+    '  whole manual follows the program''s theme, wherever you got to it from.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.8' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

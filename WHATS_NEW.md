@@ -18,6 +18,10 @@
   a link to the contents, and the pages themselves are laid out the way the
   website lays them out - the same spacing, and a proper heading band on the
   key and command sheets.
+- **What is on this page, at the top of it.**  The longest manual pages -
+  commands, the keyboard, sheets, units, faces, plan, select and revolve -
+  open with a list of their own sections, and every heading is a place you
+  can link to.
 
 ### Fixed
 
