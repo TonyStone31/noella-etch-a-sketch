@@ -21,6 +21,9 @@
   people whose work is inside this program named and linked - including
   Xelitan, whose WebP encoder is why the export above needs nothing beside
   it.
+- **A page about the other programs.**  What this is for, what the likes of
+  SketchUp, FreeCAD and LibreCAD do better, and when you should go and use
+  one of them instead.  In the manual, under the contents.
 - **Light or dark in the manual, whichever you are in.**  The switch the
   website has is in the program's manual now: a tap at the top of any page
   cycles Auto, Light and Dark, and it stays that way next time you open it.
