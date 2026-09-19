@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.18.7' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The manual''s pictures are sharp.**  Every animation has been recorded' + LineEnding +
+    '  again at the size it is shown, in lossless WebP - the old ones were' + LineEnding +
+    '  scaled down on the way out, which turned every one-pixel line into a' + LineEnding +
+    '  two-pixel grey smear.  They are bigger pictures and a smaller manual:' + LineEnding +
+    '  20.1 MB of GIF became 14.2 MB of WebP.' + LineEnding +
+    '- **The manual reads better too.**  Sections have a rule above them so a' + LineEnding +
+    '  long page has somewhere for the eye to stop, the page head is underlined' + LineEnding +
+    '  in the accent colour, and captions read as captions.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.18.6' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
