@@ -11,25 +11,25 @@ had again.  Nothing here is built except where it says so.
   whole cost of a frame when zoomed in, and it is also the exact code
   threads will split.
 * **The face fill talks to a painter.**  The face pass in `TWorkDoc.Render`
-  hands its faces - projected polygon, colour, depth plane - to a painter
-  and gets back a surface whose colour and depth arrays are complete.  Two
+  hands its faces - projected polygon, color, depth plane - to a painter
+  and gets back a surface whose color and depth arrays are complete.  Two
   painters: the software one, which is today's `FillLoops`, and one day a
   GL one.  The renderer above never knows which ran and never spawns threads
   itself.
 * **The painter decides how to spread the work.**  The software painter, when
   threaded, splits rows into bands, one per core, and joins.  A GL painter
   ignores bands, draws the lot on the card into an offscreen buffer, reads
-  colour and depth back into the surface's arrays, and returns.  A GL
+  color and depth back into the surface's arrays, and returns.  A GL
   context belongs to one thread, so the painter is always called from one
   thread; that is a law for GL and a choice for software.
-* **The painter returns only when colour and depth are complete.**  One sync
+* **The painter returns only when color and depth are complete.**  One sync
   point either way - threads joined or readback done.  Everything after the
   fill reads those arrays and nothing else.  The depth array is written by
   the painter only; the passes after it only read, which is what lets them
   be threaded too.
 * **GL is an accelerator, not a renderer.**  It paints faces.  We keep
   drawing the lines: profiles, soft creases at the silhouette, the cover
-  tolerance, crisp corners, back-face colour, paper and ink layering,
+  tolerance, crisp corners, back-face color, paper and ink layering,
   printing at the printer's resolution, TOY's neon and dissolve.  None of
   that is rewritten for GL.  Two hundred new lines and ten changed, roughly.
 * **Available and easy to shut off.**  Try a context once at startup; if it

@@ -1,6 +1,6 @@
 # A wine glass off the lathe.
 #
-# Tony's friend showed him a Revolve in another program - draw the profile
+# a friend showed him a Revolve in another program - draw the profile
 # of a glass, spin it round an axis - and he came to ask why we could not do
 # that.  We have been able to since 6 September.  It was called FOLLOW ME,
 # which is SketchUp's name for sweeping along a path and nobody else's name

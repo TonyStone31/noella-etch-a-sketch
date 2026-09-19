@@ -22,7 +22,7 @@ Three closed solids - the body and the two knobs - so nothing shows a blue
 back and it exports to STL as a printable object.
 
 Its near bottom left corner sits **on the origin**, so the whole toy lies in
-the quarter where all three axes are drawn solid rather than dashed.  Centred
+the quarter where all three axes are drawn solid rather than dashed.  Centerd
 on zero was tried first and is tidier in a picture, but it puts half the
 drawing behind the dashed halves - the halves that mean *the other way* - and
 that is a strange place to keep something you are measuring.  This way nine
@@ -123,11 +123,11 @@ A kitchen angle broom, the kind that stands behind a door:
 | bristles | 170 of them, 5 rows of 34, cut on a slant |
 | handle | 46", leaning back 14 degrees out of the head |
 
-**It is here because nothing else in the folder is coloured.**  The toy and
+**It is here because nothing else in the folder is colored.**  The toy and
 the glass are both near-white, which is what a face looks like when nobody
 has painted it, and until the 17th that was the only thing a face could look
 like.  Every face on this one carries a **material** - and not one carries a
-pen colour, which is the distinction the whole change was about.
+pen color, which is the distinction the whole change was about.
 
 Two things in `make-broom.pas` were arrived at by looking rather than by
 reasoning, and both are worth knowing before anybody "tidies" them:
@@ -135,7 +135,7 @@ reasoning, and both are worth knowing before anybody "tidies" them:
 * **The bristles carry no edges at all.**  A bristle is a tenth of an inch
   across and would carry twelve of them.  With edges on, a hundred and
   seventy of them came out as one black wedge at any zoom you would actually
-  use - the ink swallowed the colour completely.  Without them the material
+  use - the ink swallowed the color completely.  Without them the material
   is all there is, which is what a bristle should be, and the model went from
   3,724 things to 1,324.
 * **Every bristle is a little different.**  All the same length and dead
@@ -165,7 +165,7 @@ fpc -Mobjfpc -Sh -Fu.. make-broom.pas
 
 A robot six foot two, standing, with **the etch-a-sketch set in his chest**
 at fifty inches - about where a light switch goes, and about where your
-hands are when you are standing at something.  Tony: "as if someone could
+hands are when you are standing at something.  From a note: "as if someone could
 walk up to the robot and sketch something."
 
 | | |
@@ -207,7 +207,7 @@ fpc -Mobjfpc -Sh -Fu.. make-robot.pas
 
 ## `ball.hsk` - the one that is worked out rather than drawn
 
-A size five football, 8.65 inches across, which is the size it is on the
+A size five soccer ball, 8.65 inches across, which is the size it is on the
 shelf.  Twelve black pentagons and twenty white hexagons - a truncated
 icosahedron.
 

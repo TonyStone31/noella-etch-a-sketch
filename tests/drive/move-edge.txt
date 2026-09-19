@@ -1,6 +1,6 @@
 # Moving one side of a rectangle that sits inside another.
 #
-# Tony, 15 September: "trying to move this line up the face more so it can
+# From a note, 15 September: "trying to move this line up the face more so it can
 # make room for the toys knobs and the issue is that line of the smaller
 # inner rectangle is not staying snapped... sketchup doesnt seem to detach it
 # and move it and look how when we detach it the length of it looks like it
@@ -62,7 +62,7 @@ shot /tmp/hsk-move-done.png
 
 # and the other way: /detach on, after which a move takes the side away on
 # its own and leaves the two it was joined to where they are.  SketchUp has
-# no such thing; Tony asked for both.  hsk-move-loose is the ghost, which
+# no such thing; Both were asked for.  hsk-move-loose is the ghost, which
 # should be amber with no leaning edges behind it, and hsk-move-alone is
 # after the click - the inner rectangle left open and the side loose in it.
 key escape

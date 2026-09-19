@@ -31,7 +31,7 @@ after it close up); the button takes the last one off.  Only lines can be
 drawn, on purpose: a spool is lines and elbows.
 
 The paper is not to scale.  Each leg is drawn as long as it was drawn, and
-labelled with the length that was typed.  That is how the paper version
+labeled with the length that was typed.  That is how the paper version
 works too.
 
 ## Reducers and flanged joints
@@ -76,4 +76,4 @@ drawing on the cursor, with the lengths on it as dimensions.
 * Branches - a tee off the run - are not drawn.  A spool is one run.
 * Rolled 45s that are not on one of the twelve diagonals.
 * Reducers within the run, and fittings other than elbows.
-* Pipe schedule: the OD is right, the wall is not modelled.
+* Pipe schedule: the OD is right, the wall is not modeled.

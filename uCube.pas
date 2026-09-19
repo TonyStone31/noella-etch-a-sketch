@@ -8,7 +8,7 @@ unit uCube;
   three-quarter view most drawings are actually read from.  Dragging it
   orbits, the same as dragging the model.
 
-  Revit has one and it is the right idea, so the behaviour here is theirs:
+  Revit has one and it is the right idea, so the behavior here is theirs:
   twenty-six places to click, hot under the pointer, and the cube always
   showing which way you are facing.  The appearance is not theirs - ours is
   drawn in the program's own theme, and "ViewCube" is Autodesk's name for
@@ -80,7 +80,7 @@ function CubeNearest(const Look: TP3; out Near_: Double): TCubeTarget;
   walk to, so they come back unchanged and the caller turns the camera
   instead.
 
-  Tony: a keyboard walk through the twenty-six "would make it reachable
+  From a note: a keyboard walk through the twenty-six "would make it reachable
   without a mouse" - the TODO's words, 14 September. }
 type
   TCubeStep = (csLeft, csRight, csUp, csDown);
@@ -88,7 +88,7 @@ type
 function CubeStep(const Dir: TP3; Az: Double; Step: TCubeStep): TP3;
 
 { Draw the cube into a surface of its own.  The surface should be square and
-  at least 2 * Half + a few pixels across; the cube is centred in it.  Hot is
+  at least 2 * Half + a few pixels across; the cube is centerd in it.  Hot is
   the target under the pointer, if there is one.
 
   Labels are not drawn here - they want a font, and the caller has a canvas.
@@ -462,7 +462,7 @@ begin
     peeking out of the bottom of the first - and the eye read the lot as one
     strange shape rather than as a cube with dressing on it.  A cube is a
     shape everybody already knows; the job is to draw that shape crisply and
-    let it be recognised, not to decorate round it. }
+    let it be recognized, not to decorate round it. }
 
   for F := 0 to High(FACES) do
   begin
@@ -535,7 +535,7 @@ begin
       you back, and somebody hunting for a corner would be hunting for one
       that is not there.
 
-      Tony, 18 September, after watching the help animation do exactly that:
+      From a note, 18 September, after watching the help animation do exactly that:
       "you need to be able to access the edges still even though you flipped
       it flat to the top ... they should highlight easily to show that you
       can switch back to those views."

@@ -2,7 +2,7 @@
 #
 # At 1100 by 650 the five settings along the bottom ran their words out of
 # their buttons and over each other, and the tool strip ran MORE TOOLS on
-# top of SHOP.  Tony saw both in the help animations.  The six buttons on
+# top of SHOP.  The owner saw both in the help animations.  The six buttons on
 # the right now give up width before the settings do, a label too long for
 # its button is shortened rather than spilled, and the tool column tightens
 # its rows before anything overlaps.

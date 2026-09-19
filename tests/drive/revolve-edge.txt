@@ -1,7 +1,7 @@
-# Two clicks, from the drawing Tony could not make a glass out of.
+# Two clicks, from the drawing the owner could not make a glass out of.
 #
-# His report of 13 September: "yeah im fucking failing to make a wine glass
-# here lol so this tool needs more inference or more clarity or something".
+# The report of 13 September said the wine glass could not be made at all,
+# and that the tool wanted "more inference or more clarity or something".
 # The outline was fine.  The tool asked for the axis as two loose points, and
 # clicking anywhere near the outline meant "sweep along this" instead - so
 # the natural gesture, clicking the straight side that IS the middle of the

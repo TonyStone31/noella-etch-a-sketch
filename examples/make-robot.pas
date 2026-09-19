@@ -2,7 +2,7 @@ program makerobot;
 
 { The robot with the etch-a-sketch in his chest.
 
-  Tony: "draw a robot standing up with arms and the etchasketch toy is in his
+  From a note: "draw a robot standing up with arms and the etchasketch toy is in his
   chest as if someone could walk up to the robot and sketch something."
 
   So he is built to be walked up to: six foot two to the top of his head,
@@ -137,7 +137,7 @@ end;
 
 { A ball, for a joint.
 
-  Tony: "his arms are floating... attch his arms to his uppert chest with
+  From a note: "his arms are floating... attch his arms to his uppert chest with
   like a ball joint."  So there is a ball where the arm meets the chest, big
   enough to bury itself in the torso, and a smaller one at the elbow.  An arm
   that starts inside a ball that is inside the body is an arm that is
@@ -258,8 +258,8 @@ begin
           F := D.Live - 1;
           D.SetFaceGroup(F, G);
           { The toy was drawn before faces could carry a material, so its
-            colours live in the pen.  Painting each face with the colour it
-            was drawn in is what makes it read as a red toy with a grey
+            colors live in the pen.  Painting each face with the color it
+            was drawn in is what makes it read as a red toy with a gray
             screen rather than as a white box. }
           D.SetMaterial(F, Src[I].Ink);
           if Length(Src[I].Holes) > 0 then

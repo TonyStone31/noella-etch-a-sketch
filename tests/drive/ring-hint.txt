@@ -1,6 +1,6 @@
 # Push/pull's stipple has to stop at the window in the face.
 #
-# Tony, 15 September, building the toy's case: "using the push/pull tool and
+# From a note, 15 September, building the toy's case: "using the push/pull tool and
 # when i am hovering over the outer ring face it highlights the face
 # including the smaller rectangle face inside!  it should only be
 # highlighting as much of the face as it can see!"

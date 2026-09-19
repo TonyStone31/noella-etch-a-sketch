@@ -120,7 +120,7 @@ type
     FTape: TTransitionSpec;
     FTapeOn: Boolean;
     { the controls each kind of fitting uses shown, the rest hidden, and the
-      shared ones relabelled }
+      shared ones relabeled }
     procedure ShowKind;
     { the two drawings, at any size: the paint boxes and the pictures for
       an email both come from these }
@@ -229,10 +229,10 @@ begin
           InchesOf(edBW.Text, T.BW) and InchesOf(edBH.Text, T.BH) and
           InchesOf(edBLen.Text, T.BranchLen);
         T.BranchOn := TBranchSide(Max(0, rgBranchOn.ItemIndex));
-        { blank is centred along the run }
+        { blank is centerd along the run }
         if Trim(edBFrom.Text) = '' then T.BranchFrom := (T.Len - T.BW) / 2
         else Result := Result and InchesOf(edBFrom.Text, T.BranchFrom);
-        { blank is centred on the wall }
+        { blank is centerd on the wall }
         if Trim(edBUp.Text) = '' then
         begin
           if T.BranchOn in [bsLeft, bsRight] then T.BranchUp := (T.H0 - T.BH) / 2
@@ -251,7 +251,7 @@ begin
                 InchesOf(edLen.Text, T.Len);
       T.Side := TSideRule(Max(0, rgSide.ItemIndex));
       T.Height := THeightRule(Max(0, rgHeight.ItemIndex));
-      if T.Side <> srCentred then
+      if T.Side <> srCenterd then
         Result := Result and InchesOf(edSideAmount.Text, T.SideAmount);
       if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
         Result := Result and InchesOf(edHeightAmount.Text, T.HeightAmount);
@@ -850,7 +850,7 @@ begin
   case T.Height of
     hrFlatBottom: S := 'FB';
     hrFlatTop:    S := 'FT';
-    hrCentred:    S := 'centered';
+    hrCenterd:    S := 'centered';
     hrTopUp:      S := 'top up ' + FormatLen(T.HeightAmount, FUnits);
     hrTopDown:    S := 'top down ' + FormatLen(T.HeightAmount, FUnits);
     hrBottomUp:   S := 'bottom up ' + FormatLen(T.HeightAmount, FUnits);

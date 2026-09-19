@@ -48,7 +48,7 @@
 # Some scripts run one after another in a single program, on a new sheet
 # each time but with everything else carried over.
 #
-# Tony: "some of the tests we could conduct together in a single test
+# From a note: "some of the tests we could conduct together in a single test
 # instance rather than always starting a new instance as that will also
 # sometimes reveal additional bugs".
 #
@@ -66,7 +66,7 @@
 # chain exists to find, and it is reported in those words.
 #
 # Scripts that put a dialog up, measure frame times, or record for half a
-# minute stay on their own - the first would take its neighbours with it,
+# minute stay on their own - the first would take its neighbors with it,
 # and the other two would be measuring the chain rather than themselves.
 set -u
 cd "$(dirname "$0")/.."

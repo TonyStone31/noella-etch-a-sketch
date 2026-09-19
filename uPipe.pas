@@ -43,8 +43,8 @@ type
 
   { What the pipe is made of.  Black is carbon steel with the mill scale
     still on it - what a fitter means by black pipe, and what most of it is;
-    stainless is the bright cool grey of 304 off the rack.  It changes
-    nothing but the colour, which is the point: the same spool drawn twice
+    stainless is the bright cool gray of 304 off the rack.  It changes
+    nothing but the color, which is the point: the same spool drawn twice
     should be the same spool. }
   TPipeFinish = (pfBlack, pfStainless);
 

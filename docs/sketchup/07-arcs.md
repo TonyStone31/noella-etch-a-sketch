@@ -48,7 +48,7 @@ type the bulge.  It draws the way SketchUp's does now - the ends marked, the
 chord, the pull from the chord's middle in its axis color, the arc live, the
 bulge in the bar - and it is built in the plane the three points are in, so an
 arc drawn up the end of a box stands on the end of the box.  A point resting
-on a face reads ON FACE.  The centre-point arc, the three-point arc and the
+on a face reads ON FACE.  The center-point arc, the three-point arc and the
 pie are not built, and neither is tangency.
 
 Sides: `24s` (or `s24`) typed on the circle or arc tool sets how many
@@ -59,7 +59,7 @@ tunnel drilled through it - is made in.
 
 ## Rounding corners - 16 September 2026
 
-Built after Tony tried to round a rectangle's corners and kept getting "a
+Built after the owner tried to round a rectangle's corners and kept getting "a
 bubbled out corner unless i got the dimension just right", and after reading
 SketchUp's help and forum on it:
 
@@ -72,10 +72,10 @@ SketchUp's help and forum on it:
   the arc out to show magenta before typing the radius").  `2"r` is a radius
   at any time.
 * A click leaves the square corner, cut at the touching points - confirmed
-  by Tony from SketchUp: "you have to erase the sharp left over 90 degree
+  by the owner from SketchUp: "you have to erase the sharp left over 90 degree
   lines after you put the arc there".
 * A double-click trims it - SketchUp's help: "repeats the previous arc
-  parameters and even cleans out the excess waste", and Tony checked it.
+  parameters and even cleans out the excess waste", and the owner checked it.
 * A double-click near another corner repeats the radius there, trimmed.
 
 Alt's tangent lock is **done, 17 September 2026**: start the arc on an edge

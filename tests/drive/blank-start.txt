@@ -1,6 +1,6 @@
 # --blank: the program opens on an empty sheet, with no draft and no example.
 #
-# Tony: "a startup parameter like --blank so it automatically opens with a
+# From a note: "a startup parameter like --blank so it automatically opens with a
 # blank drawing and doesnt load anything not even the initial toy model".
 # run-drive.sh starts this one with BLANK=1.
 #

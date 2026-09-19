@@ -398,7 +398,7 @@ end;
 
 { A divider drawn along an edge the shape already has.
 
-  Tony, 15 September, on a wall he had closed a strip off on: "so once again
+  From a note, 15 September, on a wall he had closed a strip off on: "so once again
   we closed in the a rectangle... i am unable to pull it out as a floor
   because it didnt cut it into its own face in that long narrow rectangle!"
 
@@ -409,7 +409,7 @@ end;
   drawn along, and identical edges have to be welded into one.  They were
   not, if the two arrived written the opposite way round - the hash bucket
   was found from the pair in order but the comparison was against the pair as
-  stored, so 5-2 was never recognised as 2-5.
+  stored, so 5-2 was never recognized as 2-5.
 
   Two parallel edges between one pair of corners are two darts more than the
   walk expects, and it goes out along one and back along the other: a slit.

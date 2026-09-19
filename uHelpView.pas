@@ -8,7 +8,7 @@ unit uHelpView;
   selecting and copying, and a finger to scroll.  It is a page viewer, not a
   browser: a link to anywhere else goes to the real browser.
 
-  Tony, 17 September: "i dont want you to make a browser", and later, "build
+  From a note, 17 September: "i dont want you to make a browser", and later, "build
   the help form with a real lfm!"  So the window is laid out in
   uHelpView.lfm and dressed in the program's theme here.
 
@@ -116,7 +116,7 @@ begin
     Application.CreateForm(THelpForm, HelpForm)
   else
     { the window is kept between opens, so the theme may have changed under
-      it since - dress it again rather than showing last week's colours }
+      it since - dress it again rather than showing last week's colors }
     HelpForm.Dress;
   HelpForm.OpenAt(Rel);
 end;
@@ -164,13 +164,13 @@ begin
   end;
 end;
 
-{ The window in the program's colours: the same theme the dialogs wear, and
+{ The window in the program's colors: the same theme the dialogs wear, and
   the page itself left to the manual's own stylesheet, which is already the
   program's dark look. }
 procedure THelpForm.Dress;
 begin
   uDlgSkin.SkinForm(Self);
-  { the bar in the panel colour, so the buttons - drawn a shade lighter -
+  { the bar in the panel color, so the buttons - drawn a shade lighter -
     stand out from it rather than showing only as their outlines }
   uDlgSkin.SkinPanel(pnlBar, False, 0);
   uDlgSkin.SkinPanel(pnlNotice, False, 0);
@@ -183,7 +183,7 @@ begin
   uDlgSkin.SkinButton(btnWeb, bkQuiet);
   uDlgSkin.SkinButton(btnEmptyGet, bkGo);
   uDlgSkin.SkinButton(btnEmptyWeb, bkPlain);
-  { a rounded button shows its parent's colour in its corners; the bar's is
+  { a rounded button shows its parent's color in its corners; the bar's is
     the one it should show, not the form's }
   btnBack.Color := pnlBar.Color;
   btnForward.Color := pnlBar.Color;
@@ -201,9 +201,9 @@ begin
   Page.Font.Color := PixToColor(DlgTheme.Text);
 end;
 
-{ The manual is written in the program's dark colours, and a reader in a
+{ The manual is written in the program's dark colors, and a reader in a
   browser gets the light ones from a media query the renderer here cannot
-  judge.  The program's own theme is the better answer anyway - Tony, 17
+  judge.  The program's own theme is the better answer anyway - from a note, 17
   September: "there should be a way to pass the etch sketches current mode
   to the help docs so they can render the same way".
 
@@ -215,7 +215,7 @@ end;
   rather than as a file.  See body.light in docs/help/style.css.
 
   Since 19 September the reader can also say, which is what the switch at
-  the top of every page does - Tony: "even the local copy should have the
+  the top of every page does - From a note: "even the local copy should have the
   light/dark mode button toggles in the help browsers html like we do in
   the online version".  Auto is this rule; Light and Dark are the reader
   overruling it, and the choice is kept between sessions the way the
@@ -566,7 +566,7 @@ begin
 
     The list has to hold every kind the manual actually uses.  It did not
     hold .webp, and the day the animations became WebP every one of them
-    became a link this did not recognise: it fell through to the page loader
+    became a link this did not recognize: it fell through to the page loader
     below, which handed a binary file to the renderer as if it were text, and
     what came up was the file itself as gibberish.  A picture window that
     knows a format the page's link test does not is a trap; if another format
@@ -609,7 +609,7 @@ begin
 end;
 
 { A button that cannot do anything right now.  Its words are dimmed rather
-  than the button disabled: BGRA's disabled look is a flat light grey that
+  than the button disabled: BGRA's disabled look is a flat light gray that
   sits on a dark bar like a hole.  The click handlers check for themselves. }
 procedure Available(B: TBCButton; On_: Boolean);
 var

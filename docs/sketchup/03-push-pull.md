@@ -16,7 +16,7 @@ Tips from the page:
   other face first — the inference engine then reports when the two are parallel.
 * **Esc** starts over.
 * Extrusions thinner than about an inch can show edges through the entity; that
-  is a rendering limit, not a modelling one.
+  is a rendering limit, not a modeling one.
 
 ## Repeating an extrusion
 * **Double-click another face** — repeats the same extrusion there.

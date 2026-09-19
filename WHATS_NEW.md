@@ -55,7 +55,7 @@
   in the manual is a link to itself, and since they became WebP, clicking
   one filled the window with the file read as text.  It opens large, and
   keeps playing, the way it always should have.
-- **The manual stays in your colours.**  In a light theme the contents came
+- **The manual stays in your colors.**  In a light theme the contents came
   up light and every page you clicked through to came up dark.  Now the
   whole manual follows the program's theme, wherever you got to it from.
 
@@ -75,11 +75,11 @@
 - **The manual's pictures are sharp.**  Every animation has been recorded
   again at the size it is shown, in lossless WebP - the old ones were
   scaled down on the way out, which turned every one-pixel line into a
-  two-pixel grey smear.  They are bigger pictures and a smaller manual:
+  two-pixel gray smear.  They are bigger pictures and a smaller manual:
   20.1 MB of GIF became 14.2 MB of WebP.
 - **The manual reads better too.**  Sections have a rule above them so a
   long page has somewhere for the eye to stop, the page head is underlined
-  in the accent colour, and captions read as captions.
+  in the accent color, and captions read as captions.
 
 ## v2026.09.18.6
 
@@ -89,7 +89,7 @@
   window inside the program, has replaced the renderer it grew up with -
   so this build carries a manual that lays out through a proper box tree
   and hangs its text on baselines.  It should read the same and draw
-  faster, and there is one fewer licence riding along with the download:
+  faster, and there is one fewer license riding along with the download:
   LazInk is MIT throughout now, where the old renderer was MPL and owed
   its source to anybody who was given a copy of this.
 
@@ -97,7 +97,7 @@
 
 ### New
 
-- **A fifth example: a football.**  Twelve pentagons and twenty hexagons,
+- **A fifth example: a soccer ball.**  Twelve pentagons and twenty hexagons,
   cut off the corners of an icosahedron the way the real one is - and the
   panels stand off a dark inner ball so the seams read as seams.
 
@@ -153,7 +153,7 @@
 ### Fixed
 
 - **A third example drawing: a kitchen broom.**  A hundred and seventy
-  bristles banded in four colours, a blue moulded head and a wooden
+  bristles banded in four colors, a blue moulded head and a wooden
   handle - every face of it painted.  The other two examples are
   near-white, so this is the one that shows what materials are for.  It is
   written out beside the program with the others.
@@ -211,7 +211,7 @@
   picker - and the buttons say how many they will land on.
 - **Paint a face and it is that color.**  Faces have a material of their
   own now, separate from the pen that drew their edges - so red is red
-  instead of the grey-pink it used to come out.  Paint it from the entity
+  instead of the gray-pink it used to come out.  Paint it from the entity
   panel; with several faces picked, all of them are painted at once, and
   **Back to default** returns one to the near-white it started as.
 
@@ -249,7 +249,7 @@
   On the website the pages follow whatever your system asks for.
 - **The manual has pictures where it was thin**: the revolve tool has a ball
   and a wine glass being spun, the move tool shows a side of a rectangle
-  being stretched, and the plan view shows the cut travelling up through a
+  being stretched, and the plan view shows the cut traveling up through a
   model.  The revolve page is rewritten step by step, with a table of what
   to do when it will not spin.
 
@@ -507,7 +507,7 @@
   hovering over a crowded sheet no longer lags behind the mouse.
 - **Orbiting is smoother, and the ground reads as a floor.**  The lattice on
   the ground was being ruled far finer than it could be seen - about two
-  hundred and sixty lines a few pixels apart, which came out as a grey
+  hundred and sixty lines a few pixels apart, which came out as a gray
   crosshatch and cost most of every frame to draw.  It is now spaced so you
   can read it, and tipping the view down near the ground gives you a coarse
   floor instead of none at all.
@@ -756,7 +756,7 @@
 - **A dimension has to measure something.**  You could lay one across blank
   paper and drag it around - a number measuring nothing, which the drawing
   can never drive and which will never update when the drawing changes.  It
-  now wants a corner, a midpoint, a centre, or a point on an edge, and the
+  now wants a corner, a midpoint, a center, or a point on an edge, and the
   cursor says so before you click rather than after.
 
 ## v2026.09.15.3
@@ -775,11 +775,11 @@
 
 ### Fixed
 
-- **A part for printing now arrives standing on the bed.**  "Centre it on
-  the origin" centred all three directions, which buries the bottom half of
+- **A part for printing now arrives standing on the bed.**  "Center it on
+  the origin" centerd all three directions, which buries the bottom half of
   the thing in the build plate; slicers quietly lift it back out, so nothing
   ever looked wrong, but it is the sort of thing you open another program to
-  put right before printing.  It is centred across the bed and standing on it
+  put right before printing.  It is centerd across the bed and standing on it
   now - the STL, the OpenSCAD, and `/center` itself.  `/tozero` is unchanged:
   the near bottom corner on the origin rather than the middle.
 
@@ -917,7 +917,7 @@
   part three and a half inches across arrived in Inkscape, or a print shop,
   or a cutting machine, at some other size entirely, and at a different size
   again if you had zoomed in first.  The file now says `3.430in` (or
-  millimetres, in a metric drawing) and opens at the size of the thing.
+  millimeters, in a metric drawing) and opens at the size of the thing.
   Export from a plan and what comes out is the real thing, full size.
 
 - **Dragging a dialog no longer skips about.**  The windows that draw their
@@ -928,7 +928,7 @@
 
 - **The program stops working while a dialog is up.**  It kept a sixty-a-
   second heartbeat running underneath every dialog, including the system
-  print and colour ones, servicing a pointer that was somewhere else.  On a
+  print and color ones, servicing a pointer that was somewhere else.  On a
   machine with a compositor that is enough to make the dialog you are
   dragging stutter.  Measured with a drawing of twenty-four wine glasses: the
   window behind the export dialog went from 2.2% of a core to 0.2%.
@@ -1035,7 +1035,7 @@
   measuring, because every number read off it is then a distance from
   nothing rather than from half of itself.  It tells you how big the thing
   is from there.  Also **Into the Corner at 0,0,0** on the right button,
-  beside Centre on the Origin.
+  beside Center on the Origin.
 
 ## v2026.09.14.9
 
@@ -1062,7 +1062,7 @@
 - **/print all sends every sheet**, a page each.  /print still does the one on
   screen.
 
-- **Another colour...** at the bottom of the line-colour list, for a pen that
+- **Another color...** at the bottom of the line-color list, for a pen that
   is not one of the twelve.
 
 ### Fixed
@@ -1071,7 +1071,7 @@
   light chrome - it makes 3.7 to one where the dark theme's makes 8.4, and it
   is text as often as it is a fill.  It is a shade deeper now, and whatever
   goes on top of it when it is a fill is chosen to be readable rather than
-  assumed to be dark, which is what put pale grey on mid blue.
+  assumed to be dark, which is what put pale gray on mid blue.
 
 ## v2026.09.14.7
 
@@ -1136,7 +1136,7 @@
 ### New
 
 - **The What's new screen is dressed like the rest of the program.**  It was
-  a stock white box with one weight of one colour and the bold markers of the
+  a stock white box with one weight of one color and the bold markers of the
   file showing as asterisks.  Now the version, the headings and the lead-in
   of each note are told apart, and it scrolls with the wheel.
 
@@ -1325,7 +1325,7 @@
 
 ### Fixed
 
-- **The button on a failed export said "Tell Tony about it".**  It sends a
+- **The button on a failed export said "Tell us about it".**  It sends a
   bug report, so now it says so.
 
 ### New
@@ -1376,23 +1376,23 @@
   mile from zero does not swing out of frame.  Set the zoom you want with the
   wheel first and the move starts from there.
 
-- **Centre on the Origin is on the right button.**  Select something, right
+- **Center on the Origin is on the right button.**  Select something, right
   click, and it moves onto 0,0,0.  Same thing as `/center`.
 
 ## v2026.09.13.22
 
 ### New
 
-- **STL and OpenSCAD come out centred on the origin.**  A part used to open in
+- **STL and OpenSCAD come out centerd on the origin.**  A part used to open in
   the slicer wherever the drawing happened to put it, which for something drawn
-  at building coordinates is a long way off the plate - and then you re-centre
-  it by hand in another program.  It arrives centred now.  There is a tick in
+  at building coordinates is a long way off the plate - and then you re-center
+  it by hand in another program.  It arrives centerd now.  There is a tick in
   the export options if you want it left where it is.
 
 - **`/center` moves things onto the origin.**  Type `/center` and whatever is
   selected moves so the middle of it sits at 0,0,0 - or the whole drawing, if
   nothing is selected.  Worth doing to the drawing itself and not only on the
-  way out: a drawing that is centred is one where the exports, the dimensions
+  way out: a drawing that is centerd is one where the exports, the dimensions
   from the origin and the axis readings all agree.
 
 ## v2026.09.13.21
@@ -1403,7 +1403,7 @@
   with one `polyhedron` per solid in your drawing, each in its own named
   module, a module that unions them all, and a call to it - so a model in
   several pieces stays in several pieces and you can get at them separately.
-  Millimetres, like the STL.
+  Millimeters, like the STL.
 
   Be clear about what it is: the surface of your drawing, written out as
   points and faces.  It is not built from cubes and cylinders and cannot be
@@ -1435,15 +1435,15 @@
 - **The GIF export crash, properly this time - and a correction.**  The last
   release blamed memory and rationed the frames accordingly.  That was wrong.
 
-  It was one missing line.  A GIF holds 256 colours and something has to
+  It was one missing line.  A GIF holds 256 colors and something has to
   choose which 256; in BGRABitmap that chooser is pluggable, and naming its
   unit is not enough - the factory has to be handed over explicitly.  It never
-  was.  So any frame with more than 256 colours in it reached nothing at all
+  was.  So any frame with more than 256 colors in it reached nothing at all
   and the program fell over.
 
   Which is exactly why it looked so strange: a plain line drawing exports
-  fine, because white paper, grey faces and black lines fit inside 256
-  colours easily.  Turn on the axes and three anti-aliased coloured lines put
+  fine, because white paper, gray faces and black lines fit inside 256
+  colors easily.  Turn on the axes and three anti-aliased colored lines put
   it over, every time.  It had nothing to do with how long the film was.
 
   Reproduced here on Linux in the end, tracked to the line, fixed, and there
@@ -1493,7 +1493,7 @@
   have not been able to reproduce it here and I am not going to pretend
   otherwise, so this release makes it tell us instead: when an export fails it
   now says which step it died in and what it was doing, and there is a
-  **Tell Tony about it** button right there in the dialog that sends the whole
+  **Tell us about it** button right there in the dialog that sends the whole
   thing - the format, the size, the settings, the lot.  One press and the next
   release can actually fix it.
 
@@ -1508,7 +1508,7 @@
   instead of only spinning it.
 
 - **Black writing on the dark dialog.**  Windows paints its own drop-down
-  lists and tick boxes and takes no notice of what colour it has been asked
+  lists and tick boxes and takes no notice of what color it has been asked
   for, so some of the export dialog came out black on near-black.  It draws
   its own now.
 
@@ -1561,13 +1561,13 @@
   A shape whose top had been divided - by a line drawn across it, or a piece
   pushed up out of it - was being read as though it had a gap in it, because
   one long edge on a wall no longer matched the two shorter ones that had
-  replaced it on top.  It was watertight all along, and is now recognised as
+  replaced it on top.  It was watertight all along, and is now recognized as
   such, so its far side stops showing through.
 
   And faces worked out from lines were each wound on their own, which meant
   the two slopes of a roof could end up pointing opposite ways - one of them
   into the house.  Looking at it from outside, that one was blue.  They are
-  now settled against their neighbours, so a roof points out of the building
+  now settled against their neighbors, so a roof points out of the building
   rather than into it, and `/rebuild` puts an old drawing right.
 
 ## v2026.09.13.14
@@ -1575,7 +1575,7 @@
 ### New
 
 - **Export to STL, for a 3D printer.**  Export, then "STL - for a 3D
-  printer".  It writes the model as triangles in millimetres, which is what
+  printer".  It writes the model as triangles in millimeters, which is what
   every slicer expects, so a drawing in feet comes out the size you drew it
   rather than three hundred times too small.
 
@@ -1642,7 +1642,7 @@
 
 - **Pale blue faces on a solid that is not inside out.**  A round shape - a
   revolve, or anything pushed out of one - could show patches of the
-  back-face colour on its near side.  Nothing was wrong with it: the far side
+  back-face color on its near side.  Nothing was wrong with it: the far side
   of the object was showing through the near side, and the far side of
   anything is its inside.
 
@@ -1701,7 +1701,7 @@
 
 - **Push/pull, drill and offset can be called off by leaning on the button**,
   the way the drawing tools already could.  They used to happen the instant
-  the button went down, so realising it was wrong meant undo.  Now they wait
+  the button went down, so realizing it was wrong meant undo.  Now they wait
   for it to come up: let go and it happens, keep holding and the face you
   were about to build strains and goes back having built nothing.
 
@@ -1736,7 +1736,7 @@
 
 - **A locked plane shows itself while you draw.**  Lock a plane with the
   arrows and two short lines appear through the point, along the plane's own
-  two directions, in their axis colours.  Red and blue means you are drawing
+  two directions, in their axis colors.  Red and blue means you are drawing
   upright; red and green means flat.  You can see you are still on the plane
   without reading anything.
 
@@ -1840,7 +1840,7 @@
   tool, or the bare strip, closes an open list too.
 
 - **The right-button menu always has the same rows**, with the ones that
-  would do nothing greyed out instead of missing - and **Erase is last**.
+  would do nothing grayed out instead of missing - and **Erase is last**.
   It was built the other way, so on a shape where the click landed on an
   edge rather than a face, Reverse Face was absent, Erase moved up into the
   row Reverse Face is normally in, and the same click in the same place
@@ -1859,7 +1859,7 @@
 
 - **A plan shows what is underneath, dashed.**  A wall beneath a roof, a
   beam over a door, a footing under a slab - anything a plan cannot see is
-  now drawn as a dashed grey line instead of being painted over and lost.
+  now drawn as a dashed gray line instead of being painted over and lost.
   That is what a drawing does and what a photograph from above does not.
 
   Only in PLAN.  In the 3D view a hidden line is round the back of something
@@ -1880,7 +1880,7 @@
   their names on them, where every other program keeps them.  They were in
   the bottom right corner among twelve identical squares.  The Heckers Sketch
   name has moved to the middle of that line to make room, and Undo and Redo
-  grey out when there is nothing to undo.
+  gray out when there is nothing to undo.
 
 ### Changed
 
@@ -1894,7 +1894,7 @@
   arrow as MORE which made two quite different doors look like one thing.
   The duplicate SHOP button along the bottom has gone.
 
-- **The settings say what they are** - PRINT SCALE, SNAP TO, LINE COLOUR,
+- **The settings say what they are** - PRINT SCALE, SNAP TO, LINE COLOR,
   LINE WIDTH, ROUNDED TO.  "PREC" is gone; so is "SET".  The buttons beside
   them have names too: FIT, ORIGIN, GRID, UNITS, THEME, HELP.
 
@@ -1940,7 +1940,7 @@
 
   The bottom of the slice is also the height you draw at - which is what a
   floor plan means.  Set it to 9'-0" and you are drawing on the second
-  storey.
+  story.
 
   It is off until you turn it on, it says how many things it is keeping out
   so nothing goes missing quietly, and `/cut 0 9'`, `/cut all` and `/cut off`
@@ -1948,7 +1948,7 @@
 
 - **A plan is drawn like a drawing.**  No more shading in PLAN: the light
   that makes a 3D view read as a solid object was turning two slopes of a
-  roof into two different greys, which in a drawing means nothing at all.
+  roof into two different grays, which in a drawing means nothing at all.
   Faces fill pale so the lines carry the drawing, which is what lines are
   for.
 
@@ -2006,12 +2006,12 @@
   tool holds every point to that face - which is what drawing on it means.
   It was holding named points too, so aiming at the top of a rafter twelve
   feet up gave you the eave underneath it while the reading said ENDPOINT.
-  Endpoints, midpoints, centres, crossings and the origin now beat the held
+  Endpoints, midpoints, centers, crossings and the origin now beat the held
   face, the way an axis lock already did.  Everything the program is only
   guessing at - on an axis, on a face, on the grid - is still held.
 
 - **Both halves of a roof face the sky.**  A roof built as two slopes off a
-  ridge came out with one slope grey and the other pale blue, because pale
+  ridge came out with one slope gray and the other pale blue, because pale
   blue is the back of a face and one of them really was inside out.  Areas
   the program fills in for you are now turned the same way up as ones you
   draw yourself.
@@ -2177,7 +2177,7 @@
 
 ### Changed
 
-- The duct in the hallway is galvanized grey now.
+- The duct in the hallway is galvanized gray now.
 
 ## v2026.09.09
 
@@ -2597,7 +2597,7 @@
   still to come can be emailed as it stands; the 3D view and Build it wait
   until every leg has its number.  The paper is ruled like iso paper, with
   dots as the other choice.
-- Center, not centre: the wizards' words are American now.
+- Center, not center: the wizards' words are American now.
 
 ## v2026.09.07
 
@@ -2606,7 +2606,7 @@
 - **Pipe spool.**  SHOP > Pipe spool..., or /spool: the pipe fitter's iso
   as a form.  Iso paper you click the run onto, one leg at a time - each
   leg snaps to the three axes, or with Shift to a 45 - and type the
-  centre-to-centre length on.  Pick the pipe size, long or short radius
+  center-to-center length on.  Pick the pipe size, long or short radius
   elbows, and what each end is: bevelled, a weld-neck flange, a cap, or
   threaded.  The ticket writes itself underneath with every leg's cut
   length, the elbows' take-outs already off, and the 3D tab shows the
@@ -2625,7 +2625,7 @@
   Or select the path first and then click the face, SketchUp's own way.  A
   closed path has no caps; an open one keeps the profile as one cap and
   adds the other.  A whole circle clicked as the path still spins the face
-  round its centre.
+  round its center.
 
 ## v2026.09.06.29
 
@@ -2684,7 +2684,7 @@
 ### Fixed
 
 - The outside of an elbow, a tee's walls, and some transition sides were
-  painted in the inside colour.  The builder wound those faces the wrong
+  painted in the inside color.  The builder wound those faces the wrong
   way round; every face a fitting is built from now faces out.  Fittings
   already in a drawing keep the winding they were built with - build them
   again to get the new one.
@@ -2712,9 +2712,9 @@
   at or a second point along its inside edge.  With the throat radius
   chosen it works out the angle and both legs so the elbow lands there,
   shows it, and puts the numbers into the elbow's fields.
-- **A tee's branch centres itself.**  Leave "starts, from the entry" blank
+- **A tee's branch centers itself.**  Leave "starts, from the entry" blank
   and the branch sits in the middle of the run, the way a blank height
-  already centres it on the wall.
+  already centers it on the wall.
 
 ### Fixed
 
@@ -3064,7 +3064,7 @@
 ### Fixed
 
 - Openings in a face now travel with it when it is moved.
-- A move locked to blue drew its travel line grey instead of blue.
+- A move locked to blue drew its travel line gray instead of blue.
 
 ## v2026.09.05.24
 

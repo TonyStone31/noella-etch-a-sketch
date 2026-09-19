@@ -34,7 +34,7 @@ other as they land.
 Faces are derived from the edges that close them, in any plane, including
 sloped ones.  Faces that are not flat are cut into triangles before they are
 drawn, so their depth is exact rather than fitted.  Loose faces are wound
-against their neighbours rather than one at a time.  The program knows whether
+against their neighbors rather than one at a time.  The program knows whether
 a solid is closed, and shows where it is not.
 
 Views: PLAN draws on the ground and can cut a slice through the model at a
@@ -61,7 +61,7 @@ six at a time, some of them chained in one program.
 
 ## Measured: what sub-pixel placement is worth - 17 September
 
-Tony: "i'm just still a little jelous of those crisp looks sketchup gives ...
+From a note: "i'm just still a little jelous of those crisp looks sketchup gives ...
 hard to point at the differences really."  So before changing anything,
 measure one of the candidates.  `tools/crisp.pas` is the instrument (ignored
 like everything in `tools/`; compile it the way `tests/run.sh` compiles
@@ -77,7 +77,7 @@ black on white:
 | 3 | 0.5 | 3 rows | 4 rows |
 
 A weight-1 edge is either a solid black line or two rows of fifty percent
-grey, depending on nothing but where the geometry happened to land.  That is
+gray, depending on nothing but where the geometry happened to land.  That is
 the whole of it - a line that is half as dark and twice as wide reads as
 soft.
 
@@ -112,7 +112,7 @@ paper on purpose, gamma-space blending in `BlendPixel`, or edge weight.
 
 ## Two reports from the etch-a-sketch toy - 17 September, late
 
-Both came in while Tony was drawing the toy itself, and he called them
+Both came in while the toy itself was being drawn, and they were called
 "probably mostly user error".  One of them is not.
 
 ### The pick takes the wall under the rim
@@ -137,7 +137,7 @@ and it needs only the boolean `HiddenAt` already there, so no depth-sign
 convention has to be got right.  Cost is one depth-buffer lookup per
 candidate inside nine pixels, which is a handful.
 
-**Done**, the same night - Tony: "Do the point nearest cursor suggestion."
+**Done**, the same night - From a note: "Do the point nearest cursor suggestion."
 `SegParam` says where along a segment its nearest point to the cursor sits,
 `ArcNearestAt` does the same walk an arc's distance already did and hands
 back the place as well as the distance, and `HitEdge` sorts its candidates
@@ -172,7 +172,7 @@ Not a late-night job.
 **Written up in full: [`docs/groupplan.md`](docs/groupplan.md)** - what
 would have to be touched, in what order, and what each part of it costs.
 Written on 18 September while the reasoning was fresh, and **explicitly not
-the next thing to build**.  Tony: "we really want to make sure we have all
+the next thing to build**.  From a note: "we really want to make sure we have all
 the issues with basic drawing functionality in all the tools sorted out
 before we pile on yet another feature."  Everything in that document sits on
 top of the pick, the move, the eraser, the region finder and the snap - the
@@ -187,7 +187,7 @@ for it because that is what people will type.
 
 ## The ink pass, chased - 17 September
 
-The frame line in Tony's reports had been saying `ink 83` at 507 things and
+The frame line in the reports had been saying `ink 83` at 507 things and
 `ink 61` at 1259, so the ink pass rather than the screen pass was the cost.
 `tools/inkprof.pas` loads the drawing a report carries - the real one, not a
 made-up model - and times `Render` with TWorkDoc's own `ProfMs` breakdown.
@@ -242,7 +242,7 @@ after the wrong pass; fixed.
 
 ---
 
-## Colours on a whole selection - 17 September
+## Colors on a whole selection - 17 September
 
 By report, an hour after the material went in: "would be great if we could
 select the colors for multiple selected faces! and line colors too ... would
@@ -253,11 +253,11 @@ paints all of it, and Entity Info edits what a mixed selection has in common.
 The panel already counted what was picked and offered Reverse; the rule
 against anything else was that **a stepper that acted on nine things at once
 is a way to lose nine things**.  That rule is right about steppers and wrong
-about colour: a colour is one decision, the button can say how many it lands
+about color: a color is one decision, the button can say how many it lands
 on, and undo puts it back.  So with several picked the panel now offers
 `Paint n faces...`, `Back to default`, and `Change n...` for the pens - faces
 excluded from that last one, because they are painted rather than inked, and
-guides excluded because they never took a colour.  Widths and sizes are still
+guides excluded because they never took a color.  Widths and sizes are still
 one at a time.
 
 `PaintSelectedFaces` took a `Shown` of -1 to mean the whole selection;
@@ -281,7 +281,7 @@ assumed - the help window opens the snapping page, shows the WebP, and
 **The plan below said the saving would come from the format.  It did not.**
 It came from a bug the plan had not noticed: the recorder was scaling its
 1100 pixel grab down to 700, and every one pixel line in the manual had
-been a two pixel grey smear since the first recording.  Tony spotted it by
+been a two pixel gray smear since the first recording.  The owner spotted it by
 eye - "it is not nearly as crisp as what i see in the xephyr screen when we
 record" - and fixing it made the pictures both sharper and smaller.  The
 format change on its own was worth little; the pipeline was worth
@@ -293,7 +293,7 @@ lossless WebP at full resolution.
 The style went over at the same time, since every page was being touched:
 sections have a rule above them so a long page has somewhere for the eye
 to stop, the page head is underlined in the accent rather than the same
-grey as everything else, captions read as captions, and the title is
+gray as everything else, captions read as captions, and the title is
 bigger.
 
 ---
@@ -305,7 +305,7 @@ conclusion about recording rather than converting was right; what it missed
 was that the pipeline, not the format, was where the loss was.  `gif-shot.sh`
 below is `tools/shot.sh` now and writes WebP only.)*
 
-Tony: "i think we may need to make a plan to replace all our gif files soon
+From a note: "i think we may need to make a plan to replace all our gif files soon
 with smaller cleaner crisper animations... maybe there is a converter we can
 use or just record some new ones as i think we kept our recorder scripts?"
 
@@ -325,18 +325,18 @@ Converted straight across with `ffmpeg -c:v libwebp_anim -q:v 60`:
 The worst offender converts best: `tool-orbit-snap` goes 3,340 KB to 735 KB,
 which is 22%.  Quality on one file: lossless 559 KB, q75 525 KB, q60 416 KB,
 q50 365 KB - so q60 is about the knee and lossless is not worth it even on
-flat interface colour.
+flat interface color.
 
 ### Convert or record again?
 
 **Record again**, and the reason is not purity.  A GIF has already been
-crushed to 256 colours with dithering, so converting one gives a smaller file
+crushed to 256 colors with dithering, so converting one gives a smaller file
 **of the damage** - and worse, dither noise is expensive to encode, so we
 would be paying WebP bits to preserve an artefact we never wanted.  A fresh
-recording never quantises at all: the grab is true colour and goes straight
+recording never quantizes at all: the grab is true color and goes straight
 to WebP.  Expect it to beat the 45% above *and* look better.
 
-Conversion stays the fallback for anything with no script - Tony's own
+Conversion stays the fallback for anything with no script - the
 exported robot turntable on the README, say.
 
 ### What has to happen first
@@ -370,18 +370,18 @@ grows a WebP one, and its output gets converted afterwards if it matters.
 
 ## Sexier pipe, and the frame cost that came with it - 18 September
 
-Tony: "the iso pipe fitters thing should build some sexier pipe too and we
+From a note: "the iso pipe fitters thing should build some sexier pipe too and we
 now need the option to have it as black pipe or stainless... Probably could
 make them smoother as well if our circles had more points."
 
 * **Material**: `TPipeFinish`, black carbon steel or stainless, a box in the
-  spool dialog, and the colour put on in `Regroup` - which is the one pass
+  spool dialog, and the color put on in `Regroup` - which is the one pass
   that sees every face, including the ones `TWorkDoc.Sweep` makes for
   itself and never tells anybody about.
 * **Rounder**: `PIPE_SIDES` 24 to 36, and `BEND_STEP` from fifteen degrees
   to seven and a half, so a long-radius ninety is twelve steps instead of
   six.  The spool test now counts a ring of facets per step of the
-  centreline rather than a hard number, so it stays true next time.
+  centerline rather than a hard number, so it stays true next time.
 
 **And then the bill arrived**: a two-leg spool went to **70 ms a frame**.
 The profile said 90% of it was painting faces - 1,048 of them taking 64 ms,
@@ -417,8 +417,8 @@ and it is not written down anywhere else, so it is written down here.
 
 ## The fitting dialog will not take a coat of paint - 18 September
 
-Tony: "if we are gonna dabble in that dialog it may be time to transition it
-to the sexy bgra controls so the dialog carries more of our look."
+From a note: the fitting dialog was worth moving over to the BGRA controls
+so that it carries more of the program's own look.
 
 **Tried the cheap way first and it does not work.**  The other dialogs are
 built in code out of BGRA controls and skinned as they are made; this one is
@@ -435,12 +435,12 @@ a designed form, `uTransition.lfm`, with eighty-four controls on it:
 | TPageControl, TTabSheet, TPaintBox | 5 |
 
 So rather than convert them, a pass was written that walks the tree and puts
-the theme on anything that honours `Color` and `Font`.  The form went dark,
+the theme on anything that honors `Color` and `Font`.  The form went dark,
 the edits and combos and labels came with it - **and the captions on all six
 radio groups and both check boxes vanished.**  On GTK3 those captions are
 drawn by the widgetset, which ignores `Font.Color`, so they stayed dark on a
 now-dark background.  Leaving those two kinds alone does not help either:
-they inherit the form's colour, so darkening the form alone is enough to
+they inherit the form's color, so darkening the form alone is enough to
 lose them.
 
 Reverted, and the dialog is native and readable again.  The finding is the
@@ -459,7 +459,7 @@ The job, when it is wanted:
   already written and thrown away - it is in this commit's history if it is
   wanted back.
 
-Worth doing when the shop tools get their next pass, and not before: Tony
+Worth doing when the shop tools get their next pass, and not before: the owner
 has already said the shop tools need more work, and reskinning a dialog that
 is about to change shape is work done twice.
 
@@ -467,7 +467,7 @@ is about to change shape is work done twice.
 
 ## TDF corners in the fitting builder - 18 September
 
-Tony: "in the duct fitting builder we have tdf flanges... except the picture
+From a note: "in the duct fitting builder we have tdf flanges... except the picture
 isn't complete.  I would like to have a tdf option to have it drawn with the
 cornermatic corners installed or like we have it now."
 
@@ -502,7 +502,7 @@ corner cannot stand proud of the flange and foul the next piece of duct.
 
 ## A broom, and it became the third example - 18 September
 
-Tony: "a very elaborate broom like a kitchen broom for sweeping floors with
+From a note: "a very elaborate broom like a kitchen broom for sweeping floors with
 a lot of bristles and I want you to color the faces properly" - then, once
 it was up: "we are going to want it to be one of the example models if it
 comes out good."
@@ -514,7 +514,7 @@ line in `uExamples.pas` lists it.  1,324 things, 1,108 faces, 170 bristles.
 **Why it earns its place** - the toy and the glass are both near-white,
 because until the 17th that was the only thing a face could be.  This is the
 one that shows what a material is for, and it uses nothing else: not a pen
-colour on it anywhere.
+color on it anywhere.
 
 Two things were found by looking at it rather than by reasoning, and both
 are written into the generator and the examples README so nobody tidies them
@@ -522,7 +522,7 @@ away:
 
 * **the bristles carry no edges.**  A bristle is a tenth of an inch across
   and would carry twelve.  With edges on, all hundred and seventy came out
-  as a single black wedge at any usable zoom - the ink swallowed the colour
+  as a single black wedge at any usable zoom - the ink swallowed the color
   completely.  Taking them off dropped the model from 3,724 things to 1,324
   and is the only reason the banding can be seen at all.
 * **every bristle is a little different**, from a hash of where it sits.
@@ -540,7 +540,7 @@ in orbit.
 
 ## The cube has no way out of a face - 18 September
 
-Tony, watching the animation: "you click the top of the cube and it rolls
+From a note, watching the animation: "you click the top of the cube and it rolls
 down so you miscalculate how far down you need to click the cube to get it
 to change the view again."
 
@@ -550,11 +550,11 @@ edges, nothing on it to click.  The cube took you there and cannot bring you
 back; you need Ctrl and an arrow, a drag, or the VIEW button.  Every other
 program's cube keeps a way out at that point: Revit and Fusion put little
 arrows round the edge of it for stepping to the next face, and most keep a
-sliver of the neighbouring faces visible so there is still something to aim
+sliver of the neighboring faces visible so there is still something to aim
 at.
 
 **Built the same evening, and it turned out to need no new targets at all.**
-Tony: "you need to be able to access the edges still even though you flipped
+From a note: "you need to be able to access the edges still even though you flipped
 it flat to the top ... they should highlight easily to show that you can
 switch back to those views."
 
@@ -571,7 +571,7 @@ three-quarter view is unchanged, which was checked on screen rather than
 argued.  Hovering already highlighted the cell and names it in the corner;
 that now has something visible under it.
 
-`TestCubeKeepsItsEdgesWhenFaceOn` holds the behaviour down: looking straight
+`TestCubeKeepsItsEdgesWhenFaceOn` holds the behavior down: looking straight
 down, the middle of the square is the face, the four sides are edges, the
 corners are corners, and the four sides are four *different* places to go -
 a ring that all led to the same view would be decoration.
@@ -592,18 +592,18 @@ carry:
 * **the tape** - pulled off an edge into the face, leaving a dashed guide
   line parallel to that edge.  The page had the rule in a table; now you can
   see the difference between pulling along an edge and pulling off one.
-* **rotate** - picked, centre, reference, then the angle **typed**.  A swung
+* **rotate** - picked, center, reference, then the angle **typed**.  A swung
   angle is a number nobody chose.
 
 **Rotate also needed surgery rather than a picture.**  It had two sections
 about which plane it turns in, one called "Which way it turns" and one
 called "Which plane it turns in", with the missing-picture box wedged
-between them - so the Alt behaviour built yesterday was documented in a
+between them - so the Alt behavior built yesterday was documented in a
 section the reader had already passed.  One section now, in the order the
 question actually arises, and the copy trick has a heading of its own.
 
 **`reporting` was the TLC pick**, because it is the page that serves the
-thing Tony actually wants - real people sending real reports.  It was
+thing the owner actually wants - real people sending real reports.  It was
 already accurate about what goes in a report; what it never said was what
 happens afterwards.  It now says: the postbox is anonymous, nothing says who
 sent it, **so nobody can write back** - if you want an answer rather than a
@@ -628,14 +628,14 @@ listed four; it says four now, and gained the sentence the whole page exists
 to deliver - **snap is the only one of them that moves anything**.  `sheets`
 gained what happens through an update, which was built on the 17th and
 written down nowhere a user would find it.  `toy` got a short "worth
-knowing" and nothing else, as asked: "It's a stupid toy.  They can figure it
-out lol."
+knowing" and nothing else, which is what was asked for: the toy explains
+itself, and a page that says so at length is a page nobody needs.
 
 **Not documented on purpose**, and worth keeping a list of so it does not
 get done by accident:
 
-* **the text tool** - Tony: "I don't think it is quite exactly SketchUp like
-  yet."  Documenting it now would fix the wrong behaviour in writing.
+* **the text tool** - From a note: "I don't think it is quite exactly SketchUp like
+  yet."  Documenting it now would fix the wrong behavior in writing.
 * **the shop tools** - his own, and due for more work.  When they are
   settled they want **one still picture each and no animation** - they are
   not gestures, they are forms.
@@ -651,22 +651,22 @@ when their tools settle: `measure`, `rotate`, `unfold`, `cube`.
 is fine but it seems to be snapping red in multiple positions so something
 may not be right."  The bar in his own screenshot said, at that moment, "the
 points only - no axis, nothing parallel" - Alt had turned the axis
-inferences off.  The rubber band coloured itself by asking `AxisAlong`
+inferences off.  The rubber band colored itself by asking `AxisAlong`
 whether the line happened to lie along an axis, which takes no notice of
 what Alt has switched off.  So it went red whenever the line drifted onto
 red, with nothing holding it there.
 
-The colour **is** the inference: red means "I am holding you on red".
+The color **is** the inference: red means "I am holding you on red".
 Saying it while holding nothing reads exactly as he described - a snap that
-keeps coming and going.  Now the band only takes an axis colour when the
-cursor is allowed to infer one; a lock put on with the arrows still colours
+keeps coming and going.  Now the band only takes an axis color when the
+cursor is allowed to infer one; a lock put on with the arrows still colors
 whatever Alt says, because that one is held.
 
 **The tool.**  `tools/frame.pas`.  Writing an animation used to be: guess a
 CAMERA line, drive a throwaway probe script, look at the shot, guess again -
 three or four rounds a drawing.  It now loads the drawing, fits it to the
 recording window, prints the CAMERA line to paste, and then prints **the
-client coordinates of every corner, midpoint and face centre**, which is
+client coordinates of every corner, midpoint and face center**, which is
 what the script actually needs.
 
 Two things it knows that cost an hour to find out:
@@ -686,7 +686,7 @@ cursor with ENDPOINT showing.
 
 ## The offset page, and a thing the docs found - 18 September
 
-Tony: "The offset tool probably needs a gif and the old image is showing the
+From a note: "The offset tool probably needs a gif and the old image is showing the
 floor grid wrong."  It was - `tool-offset.png` was taken before the grid
 became a floor in the positive quadrant, so it showed a grid stretching over
 the whole world, negative side and all, and dated the page.  Thrown away and
@@ -726,7 +726,7 @@ doing its job, framed on the geometry.  Written into
 picture; these were the four where a still one would not have done the job.
 
 * **snapping** - the cursor walks along a single edge, touching nothing
-  else, and the diamond changes colour and name at every stop.  That is the
+  else, and the diamond changes color and name at every stop.  That is the
   page's whole argument made visible: read the word, do not trust your aim.
 * **planes** - the same rectangle tool twice with nothing changed between,
   landing flat on the top of a box and then upright on its side, with the
@@ -751,7 +751,7 @@ are a good deal less useful for measuring.
 
 ## A theme switch on the manual's website - 18 September
 
-Tony, reading the manual on his phone: "I think we will want a toggle
+From a note, reading the manual on his phone: "I think we will want a toggle
 link/button in the html."
 
 `docs/help/theme.js`, and the thing worth remembering about it is where the
@@ -812,25 +812,25 @@ missing.  It points at `docs/groupplan.md` for the detail.
 
 ## A face is painted, not inked - 17 September
 
-Tony, testing: "when i make colors red for example for a face ... that shit
-is not looking red at all ... its still like grey over red ... are we still
+From a note, testing: "when i make colors red for example for a face ... that shit
+is not looking red at all ... its still like gray over red ... are we still
 drawing the default faces over our chosen colors?"
 
 Nothing was drawn over it.  The fill was
-`MixPix(Col, FACE_MATERIAL, 0.92)` - eight percent of the chosen colour over
+`MixPix(Col, FACE_MATERIAL, 0.92)` - eight percent of the chosen color over
 SketchUp's near-white - so pure red landed on (250, 230, 226), and the
 shading then took a side face down to (200, 184, 181).  Red and green came
-out the same warm grey, which is exactly what he was seeing.  In plan it was
+out the same warm gray, which is exactly what he was seeing.  In plan it was
 worse: a second mix toward white left about three and a half percent.
 
 The eight percent was not cowardice.  **One field, `Ink`, was doing two
-jobs** - the pen colour of edges and the material of faces - so anything
+jobs** - the pen color of edges and the material of faces - so anything
 stronger would have turned every face drawn with a red pen red.  The ratio
 was a symptom; the conflated field was the fault.
 
 So faces got a material of their own: `MatSet` + `Mat` on the entity, apart
-from `Ink`.  A flag rather than a colour standing for "none", because an
-entity is born by being `FillChar`ed to zero and black had to stay a colour
+from `Ink`.  A flag rather than a color standing for "none", because an
+entity is born by being `FillChar`ed to zero and black had to stay a color
 you can paint with.  Unpainted faces render exactly as they always did, so
 no drawing anybody owns changes under them.  It saves as a `MATERIAL` line
 of its own after the `FACE` - the same trick as `TEXTSIZE` and `HOLE`, so an
@@ -839,7 +839,7 @@ the file it was, which is what keeps the examples' checksums still true.
 
 The entity panel paints, and paints **every picked face** when the one it is
 showing is among them - a box is six faces and nobody wants six trips
-through a colour dialog.  A swept surface takes the profile's material, the
+through a color dialog.  A swept surface takes the profile's material, the
 way it already took the profile's pen.  Push/pull's moved cap keeps its
 material because the cap is the same entity moved; the new side walls come
 out default, which is what SketchUp does.  Backs stay pale blue whatever the
@@ -879,13 +879,13 @@ reading a write-up of something finished.  Roughly smallest first.
 * **What's new shows its bullets as solid blocks** - a LazInk fault, not
   ours, and it is written up with a repro and a one-line fix in
   `../LazInk/bugs/2026-09-19-brush-leak-after-hr/`.  Every version heading
-  in the notes is followed by `---`, and a rule leaves its colour on the
+  in the notes is followed by `---`, and a rule leaves its color on the
   canvas brush; the next list item's text is then drawn over an opaque
   background in it.  It happens in every theme - it is simply louder on a
   pale one.  Nothing to do here until that lands; then look again.
 * **More rows in the entity panel**: **radius on a circle**, **the plane an
   arc was drawn in**, and a **name on a solid** (that last one wants a field
-  in the file).  Colour and width went in on 17 September.
+  in the file).  Color and width went in on 17 September.
 * **The pull-while-dragging orbit snap**, as an experiment.  The release
   version is built; the questions are kept with its write-up.
 * **The cursor square wipes canvas drawing under it** for the rubber bands
@@ -979,7 +979,7 @@ document itself while a tool is mid-edit, and the undo stack.
 
 0. **Follow Me is in, both halves** (2026-09-06: TWorkDoc.Revolve and
    TWorkDoc.Sweep).  Left over: the two-circles-make-a-ball offer if still
-   wanted (two circles sharing a centre on two planes, same radius: offer
+   wanted (two circles sharing a center on two planes, same radius: offer
    to spin one about the other's axis); a profile that is not square to
    the path's first leg is carried as drawn rather than squared up; the
    winding heuristic (away from the ring's middle) is right for circles
@@ -1105,7 +1105,7 @@ stronger than when it was written, and the split is still mechanical.
   Pascal has no partial classes, so the honest split is include files - the
   class declaration stays where it is and the bodies move out by the section
   banners the file already carries (`the screen` is 1,996 lines, `mouse on the
-  screen` 2,037, `pro mode: the tools` 1,315).  Mechanical, and no behaviour
+  screen` 2,037, `pro mode: the tools` 1,315).  Mechanical, and no behavior
   changes.
 
 Worth knowing before either is attempted: there is almost no duplication to
@@ -1123,7 +1123,7 @@ That needs reading, and reading is easier in a file that fits on a screen.
 
 ## Python, on the way out
 
-Tony, 17 September: "we do not want python in my public git ... I despise
+From a note, 17 September: "we do not want python in my public git ... I despise
 python."  None is left in this repository or in LazHIDControl or LazInk:
 
 * `build.sh` turns `WHATS_NEW.md` into `whatsnew.inc` with awk now, byte
@@ -1156,7 +1156,7 @@ agreed** - then change the cron line and delete the `.py`.
 
 ## TLS in Pascal, if we want it - TlsLib4Pascal
 
-Tony, 17 September: "no more openssl bull shit! be pure pascal even more!
+From a note, 17 September: "no more openssl bull shit! be pure pascal even more!
 dont integrate yet but we may want to do this soon!"
 <https://github.com/Xor-el/TlsLib4Pascal>
 
@@ -1210,13 +1210,13 @@ Not now.  Written down so it is a decision rather than a discovery.
 
 ## Where this could go - 12 September 2026
 
-Talked through with Tony after the barn reports.  The question was what this
+Talked through with the owner after the barn reports.  The question was what this
 could do that people are already asking FreeCAD and SketchUp for and not
 getting.  Written down so none of it gets re-argued from scratch.
 
 ### What the program is for, said plainly - 13 September 2026
 
-Tony: *"my goal is simply for any idiot to get into the program and be like
+From a note: *"my goal is simply for any idiot to get into the program and be like
 oh shit wow this is so simple to do a scaled drawing - kind of like I felt
 ten years ago when I opened SketchUp and was able to draw a 3D model with no
 experience."*
@@ -1245,7 +1245,7 @@ default - and the roadmap wants pipe spools, duct transitions, flat patterns,
 title blocks, PDF markup, STL and textures on top.  So the rule:
 
 > **The first two minutes must never meet the trade machinery.**  SHOP is the
-> pattern: one door, everything specialist behind it.  Adding a button to the
+> pattern: one door, everything specializt behind it.  Adding a button to the
 > default bar is a cost, and taking one off is a feature.
 
 Two small things that serve the spec directly, neither started:
@@ -1294,7 +1294,7 @@ Two small things that serve the spec directly, neither started:
   The pieces: read the picture with the LCL into a BGRA buffer; keep an
   origin, a U vector and a V vector per face in model space, which is the
   same thing SketchUp's texture pins are; sample inside `FillLoops` instead
-  of writing a flat colour, times the Lambert term already computed there.
+  of writing a flat color, times the Lambert term already computed there.
   Holes, clipping and the four-times supersampling all come free - they are
   already in that routine.  Call it a day or two.
 
@@ -1315,7 +1315,7 @@ Two small things that serve the spec directly, neither started:
   below and this is a deliberate step over one half of it - so the other
   half has to stay put.
 
-* **The drawing sheet - border, title block, revisions.**  Tony: "blue prints
+* **The drawing sheet - border, title block, revisions.**  From a note: "blue prints
   layout designer".  A printed sheet wants a border, the program name, who
   drew it, a description, dates, a revision block and a sheet number.  Most
   useful on a 2D drawing.
@@ -1330,7 +1330,7 @@ Two small things that serve the spec directly, neither started:
   Second, though, not first: it is documentation, and documentation does not
   bring anybody new through the door.
 
-* **PDF import, as lines.**  Tony's own daily problem: almost every drawing
+* **PDF import, as lines.**  the daily problem: almost every drawing
   that arrives at work is a PDF and there is no way to scale it.  Bringing
   one in as our own 2D lines - then setting the scale off a known dimension,
   and adding revision clouds and notes over the top - would be worth a lot to
@@ -1360,16 +1360,16 @@ Two small things that serve the spec directly, neither started:
   the seam a title block lives in - so paper space is a new idea with a
   precedent rather than a new architecture.
 
-### Why the rubber band is not the colour of the plane
+### Why the rubber band is not the color of the plane
 
 Asked for on 13 September, and it has been tried before.  Written down so it
 is not tried a third time.
 
-A line's colour here is **the direction it runs in**.  A plane is named by
+A line's color here is **the direction it runs in**.  A plane is named by
 the axis it *faces* - that is the convention the arrows use, right for red,
 left for green, up for blue - and that is the one axis a line lying in the
-plane can never run along.  Colour an outline on XZ green and every side of
-it is labelled with the one direction it does not go in.  It reads as
+plane can never run along.  Color an outline on XZ green and every side of
+it is labeled with the one direction it does not go in.  It reads as
 information and it is the opposite of true.
 
 What is real is the thing behind the request: while drawing you want to see
@@ -1377,7 +1377,7 @@ that you are still flat.  A single segment cannot say it - one line is one
 direction and a plane takes two, which is exactly why a rectangle already
 reads correctly with its red and blue sides.  So the plane says it itself:
 `PaintHeldPlane` draws two short lines through the point along the plane's
-own two directions, in their own axis colours.  Red and blue is upright, red
+own two directions, in their own axis colors.  Red and blue is upright, red
 and green is flat.
 
 ### The command bar, next time somebody is in there
@@ -1404,7 +1404,7 @@ still not done.
 
 ### The rectangle, on a plane that is not the ground
 
-Tony, 13 September, flagged and deliberately left for later:
+From a note, 13 September, flagged and deliberately left for later:
 
 > "There is a bug in there when I am try to draw it on a different plane I
 > can only get each plane in one flat direction sort of.  It's hard to
@@ -1422,7 +1422,7 @@ the wrong plane - that is a fault.  Ask for the report first.
 
 ### Still to discuss
 
-* **The other two visual worlds - and Tony has already solved this once.**
+* **The other two visual worlds - and the owner has already solved this once.**
   The main window is eight paint boxes and nothing else; `uSpool`,
   `uTransition` and `uUpdateForm` are 48 TLabels, 22 TEdits, 15 TButtons and
   13 TComboBoxes of plain LCL.  A wizard that looks like a system dialog next
@@ -1443,9 +1443,9 @@ the wrong plane - that is a fault.  Ask for the report first.
     TCheckBox and TMemo left native**, which is exactly the gap in
     BGRAControls and evidently not a problem in practice.
 
-  That is what "sexy but official" means: a conventional desktop form, laid
-  out the way a desktop form is laid out, whose buttons happen to be
-  handsome.  It is the right answer for our dialogs and wizards.
+  That is what "handsome but official" means: a conventional desktop form,
+  laid out the way a desktop form is laid out, whose buttons happen to be
+  good looking.  It is the right answer for our dialogs and wizards.
 
   **It is not the answer for the drawing chrome**, and the measurement above
   says why: the hand-drawn window costs 0.4 ms a paint, looks identical on
@@ -1462,7 +1462,7 @@ the wrong plane - that is a fault.  Ask for the report first.
   When the day comes, say it that way in the README rather than deleting the
   claim.
 
-  Licence is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
+  License is fine - `LGPL-3.0-linking-exception` permits linking into an MIT
   program.  Worth doing the next time a wizard needs work rather than as a
   project of its own, and `utheme.pas` is most of the way there already.
 
@@ -1506,9 +1506,9 @@ the wrong plane - that is a fault.  Ask for the report first.
   Reverse Face on the right button is the answer for now, and it is the
   answer SketchUp gives too: when the rule guesses wrong, the person looking
   at it says so.  Doing better without being told means knowing which side is
-  outside, and the only thing that really knows is a closed solid.  Orienting away from the model's centre
+  outside, and the only thing that really knows is a closed solid.  Orienting away from the model's center
   would fix the barn and break a plan drawn on the ground beside a building.
-  Making every face agree with its neighbours across shared edges cannot be
+  Making every face agree with its neighbors across shared edges cannot be
   done at all where three faces meet on one edge - the top of a wall, the
   wall under it, the gable standing on it - which is every house.  Worth
   coming back to when there is a real notion of a solid to hang it on.
@@ -1590,7 +1590,7 @@ program.
 
 ### Importing manufacturers' equipment models
 
-Tony: the heating and cooling makers publish models of their equipment and it
+From a note: the heating and cooling makers publish models of their equipment and it
 would be good to bring those in - an air handler, a fan, a rooftop unit -
 rather than drawing a box the right size and hoping.
 
@@ -1634,17 +1634,17 @@ weighing first: many equipment DXFs are 2D plan and elevation outlines, which
 are lighter, more useful for a coordination drawing, and import as ordinary
 lines with no new concepts at all.
 
-**A DXF importer is wanted.**  Tony, 15 September: it is the first way in.
+**A DXF importer is wanted.**  From a note, 15 September: it is the first way in.
 Not built, and on this list on purpose.
 
 ### Somebody else's converter, as a door rather than a dependency
 
-Tony's idea, and it is a good one: rather than teach this program every
+the idea, and it is a good one: rather than teach this program every
 format, find the free converter that already reads them all, keep it OUT of
 our build, and either hand its output to our importer or simply tell the
 person where to get it and what to do.  Nothing bundled - they install it.
 
-**Nobody has to install Python.**  Tony's objection when this was first
+**Nobody has to install Python.**  the objection when this was first
 written up, and it was a fair reading of how it was put: "runs a Python
 script" sounds exactly like a dependency.  It is not one.  FreeCAD embeds its
 own interpreter - the Linux AppImage carries the Python binary inside it, the
@@ -1725,7 +1725,7 @@ work and none of it decided:
 3. Drive it.  Ship the little Python script the conversion needs and run it
    headless.  Still no bundling - the script is ours and it is twenty lines.
 
-Licence-wise all three are clean: running a program is not linking to it, so
+License-wise all three are clean: running a program is not linking to it, so
 FreeCAD being LGPL and the ODA converter being proprietary freeware are both
 fine as long as we ship neither.
 
@@ -1740,7 +1740,7 @@ a good one, freely given, and still a whole application.
 
 ### Cutting machines, and the Cricut in particular
 
-Tony has a **Cricut Explore 3**.  The question was whether we can cut to it
+The owner has a **Cricut Explore 3**.  The question was whether we can cut to it
 directly.  Today, no, and it is worth writing down why so nobody spends a
 weekend finding out again.
 
@@ -1760,7 +1760,7 @@ weekend finding out again.
 
 So the way out is the file, not the wire, and the file had a defect worth
 fixing on its own account: **the SVG carried no units**.  Fixed 14 September -
-`WriteSVG` writes width and height in inches or millimetres against the
+`WriteSVG` writes width and height in inches or millimeters against the
 viewBox, so the drawing arrives at its real size wherever it goes.
 `TestSvgIsTrueSize` measures the wine glass at two zooms in plan and from the
 front, and an independent renderer agrees: 366 px at 96 dpi for the 3.81 in
@@ -1776,7 +1776,7 @@ cut paths are the same projected polylines WriteSVG already walks.
 
 ### A GIF export that crashed after the fact
 
-Tony, 14 September: exported a GIF on the Windows machine, opened it, and
+From a note, 14 September: exported a GIF on the Windows machine, opened it, and
 thinks the program went down.  A report was promised and has not arrived; the
 one that came in at 07:41 was about /reface and carries no crash file.
 
@@ -1788,7 +1788,7 @@ now, frame by frame.
 
 ### Our own fork of BGRABitmap, for later
 
-Tony, 13 September: he likes the project and wants to keep using and
+From a note, 13 September: he likes the project and wants to keep using and
 supporting it, and to send improvements back when we have any.  So the plan is
 a fork we build against, not a vendored copy we quietly diverge with - the
 point is to be able to contribute, which means staying close enough to upstream
@@ -1808,7 +1808,7 @@ contribution rather than a private patch, so it belongs upstream.
 
 ### The recording workflow needs another pass
 
-Tony, having used it: "the workflow for recording a gif isn't too intuitive but
+From a note, having used it: "the workflow for recording a gif isn't too intuitive but
 it did work."  He is going to send specific notes.  Known already, and fixed on
 14 September: the popup did not pan or zoom the way the drawing area does -
 left-drag turned it, the wheel zoomed to the middle rather than the cursor, and
@@ -1848,7 +1848,7 @@ way: the file and the copy inside the program are the same bytes, every face
 belongs to a solid so `/reface` cannot eat it, the whole thing is a closed
 solid, and it stands on the ground.
 
-What is left of Tony's idea below: more of them - the crown, and a few
+What is left of the idea below: more of them - the crown, and a few
 deliberately wild ones.  **The checksum rule went in on 17 September**
 (`PutExample` in uExamples): the settings keep a checksum of what was
 written, an untouched file gets the newer version, and one that has been
@@ -1856,7 +1856,7 @@ saved over since is left alone.  `TestExamplesKeepEdits`.
 
 
 
-Tony, 13 September.  The program ships as one executable on purpose and that
+From a note, 13 September.  The program ships as one executable on purpose and that
 should not change, so the examples have to come out of it rather than beside
 it: on first run it makes an `examples` folder next to itself and writes them
 out, and it does it again for any that have gone missing or been altered.
@@ -1886,7 +1886,7 @@ that looked obvious and was wrong.
 
 ### Alt cycles the inferences, and the magenta pair that needed building
 
-Tony, 17 September: "we do want you to use the alt key to cycle inference
+From a note, 17 September: "we do want you to use the alt key to cycle inference
 for the line tool and probably others like SketchUp does.  Gotta remember we
 need to try to be as compatible with SketchUp as possible... sort of a
 SketchUp clone but of course better in some ways.  Our goal is to almost be
@@ -1937,7 +1937,7 @@ hang on: Flip is not built.
 
 ### The tape's two guides, and the manual in both modes - 17 September
 
-**The tape.**  Tony, after checking SketchUp: "when i draw a point in from
+**The tape.**  From a note, after checking SketchUp: "when i draw a point in from
 the corner staying in the line it drops a point only... but if i used the
 tape measure from the line and set it up into the face of the rectangle then
 it does the guide line".  `TapeGuide` in uWork decides which, and
@@ -1962,7 +1962,7 @@ on every open, since the theme may have changed while it was hidden.
 
 **Pictures.**  Three pages that had none: revolve (a ball and a wine glass,
 rewritten step by step with a what-went-wrong table), move (a side of a
-rectangle stretched six inches), and the plan view (the cut travelling up
+rectangle stretched six inches), and the plan view (the cut traveling up
 through the toy).  The recordings are `tools/gif-revolve-ball.txt`,
 `gif-revolve-glass.txt`, `gif-move-stretch.txt` and `gif-plan-cut.txt`, with
 two prepared profiles beside them.  Worth knowing for the next one: a
@@ -1976,13 +1976,13 @@ keys page - so it wants a decision rather than a patch.
 
 ### The grid is a floor, and the bar says more - 17 September
 
-**The grid.**  Tony: "i am imagining a grid only being useful as a floor
+**The grid.**  From a note: "i am imagining a grid only being useful as a floor
 reference for viewing... a virtual floor.  not really part of your drawing
 but there as if it is in the drawing until i toggle it off."  So ISO uses
 `PaintGroundGrid` as well as 3D - the isometric lattice was paper, and its
 three families climbed the two walls - and the floor is ruled only where
 both axes are solid, the positive quarter.  Darker (0.45, and 1.0 every
-fifth line, in the theme's own grid colour) because at 0.30 on a light
+fifth line, in the theme's own grid color) because at 0.30 on a light
 screen he pressed the button and thought nothing had happened.  It starts
 off in a fresh copy, which is his call: "it should be off by default".
 
@@ -2016,7 +2016,7 @@ changes.  A full paint with 375 things picked: 24.2 ms to 14.5.
 
 ### An update that stood still, and a report about the etch-a-sketch, 17 September
 
-**The update.**  Tony updated on Windows with a drawing open; the old copy
+**The update.**  The program was updated on Windows with a drawing open; the old copy
 asked whether to save, he did not answer at once, and the new copy - which
 waits fifteen seconds for the old one to let go - gave up and said another
 copy was running.  Nothing was left running.  Now the old copy writes a
@@ -2039,7 +2039,7 @@ question helps the one into it.
   backwards and the corner was a little loop the wrong way round.  Those
   loops closed tiny faces of their own - "6 faces now" where there should be
   2 - which is the "push/pull wasn't detecting faces".  Reversed pieces are
-  now taken out and their neighbours met again, so the corner comes out
+  now taken out and their neighbors met again, so the corner comes out
   square, as in SketchUp.  `TestOffsetRoundedCorners`, `offset-rounded`.
 * *Lines behind faces while orbiting* was mostly pits lined inside out.
   `PushPull` assumed an opening is stored wound against its outline; a ring
@@ -2057,9 +2057,9 @@ question helps the one into it.
   hairline, `TArtSurface.HairLine` (grid 18 ms to 6 here).  Quick frames
   were looked at and left alone: on his drawing they save 4 ms of 18.
 
-### Six small ones and a colour, 17 September
+### Six small ones and a color, 17 September
 
-Tony picked six off the loose-ends list in one go, plus the logo colour.
+Picked six off the loose-ends list in one go, plus the logo color.
 
 * **Aliases in the command list.**  `CMD_LIST` gained `Also`; typing one
   finds the row, the row says which word found it, and using one counts as
@@ -2072,14 +2072,14 @@ Tony picked six off the loose-ends list in one go, plus the logo colour.
   `TestCubeStepsWalkTheCube`.  **And a cube drag let go within eight degrees
   of a view clicks onto it**; Ctrl makes that from anywhere, the same as the
   orbit tool.  `cube-keys` in the drive suite.
-* **Colour and width in the entity panel.**  `TWorkDoc.SetInk` and
+* **Color and width in the entity panel.**  `TWorkDoc.SetInk` and
   `SetWeight`; `entity-style` in the drive suite opens the picker and takes
   a red.
 * **The examples' checksum rule** and **no Python** - see above.
 
 ### The logo letters come up red when they are raised
 
-Tony, 14 September: "i sort of like how i raised the letters and they have
+From a note, 14 September: "i sort of like how i raised the letters and they have
 red lines around the letters however i dont understand why the letters became
 red, probably a bug!"
 
@@ -2091,12 +2091,12 @@ and the top are suddenly red on a body that renders pale, and it looks like
 something went wrong.
 
 The question is what the logo should be, not where the bug is.  Worth asking
-Tony whether he wants the letters the colour of the frame - so raising one
-reads as embossing - or a deliberate contrast colour.  Whatever he says is a
+The open question was whether the letters want the color of the frame - so raising one
+reads as embossing - or a deliberate contrast color.  Whatever he says is a
 one line change in examples/make-etch-a-sketch.pas.
 
-**Done 17 September.**  Tony: "the color needs to be of the frame" - so it
-looks embossed.  The letters already were the frame's colour; what made them
+**Done 17 September.**  From a note: "the color needs to be of the frame" - so it
+looks embossed.  The letters already were the frame's color; what made them
 red was push/pull giving the new edges the *face's* ink, so a raised letter
 came out outlined in red on a body outlined in black.  The new edges take the
 outline's ink now (`TWorkDoc.OutlineInk`), and a raised letter reads as
@@ -2117,7 +2117,7 @@ embossed.  `TestPushedEdgesKeepTheOutlineInk`.
   entity a note is tied to would be the thorough answer and wants a field in
   the file; this is the cheap nine-tenths of it.
 
-* **More in the settings lists - DONE 14 September 2026.**  The colour list
+* **More in the settings lists - DONE 14 September 2026.**  The color list
   has a row past the twelve swatches that opens the platform's own picker,
   which is the thing a row of swatches could never hold.  The palette stays
   twelve: a wall of swatches is a worse list, not a better one.
@@ -2131,7 +2131,7 @@ embossed.  `TestPushedEdgesKeepTheOutlineInk`.
 
   The other half was that text on an accent fill was written down as "dark,
   because the accents here are bright" in six places.  True of five themes
-  and false of the light one, where it put pale grey on mid blue.
+  and false of the light one, where it put pale gray on mid blue.
   `uSurface.OnPix` answers it from the fill's luminance instead, once.
 
 * **A ground plane in the orbit view - DONE 14 September 2026.**  The four
@@ -2174,8 +2174,8 @@ embossed.  `TestPushedEdgesKeepTheOutlineInk`.
   across all of them beats a good model in each.
   `docs/help/` is the skeleton: one
   page per tool, one per thing-you-do, a shared stylesheet in the program's
-  own dark colours, and `shots/NEEDED.md` listing the 25 screenshots wanted
-  and what should be in each.  Tony grabs the pictures.
+  own dark colors, and `shots/NEEDED.md` listing the 25 screenshots wanted
+  and what should be in each.  The pictures get grabbed by hand.
 
   **The way in is done, 14 September**: Help > The manual, and `/manual`,
   open the copy beside the program, and the release zip now carries
@@ -2227,7 +2227,7 @@ embossed.  `TestPushedEdgesKeepTheOutlineInk`.
   the two points it spans; typing a length works out the delta along `A` to
   `B` and performs a move.  The primitive exists: `TWorkDoc.MoveVerts`
   (uWork.pas) shifts a set of vertices and drags what is attached, which is
-  what the move tool and the stretch behaviour already run on.
+  what the move tool and the stretch behavior already run on.
 
   The geometry is not the hard part.  The hard part is the rule for *which
   end moves*, and the honest answer is the one the move tool already uses:
@@ -2239,15 +2239,15 @@ embossed.  `TestPushedEdgesKeepTheOutlineInk`.
 Agreed 13 September, and written out so it is not re-argued once somebody has
 half built it.
 
-**The diagnosis first, because it was wrong to begin with.**  Tony's
+**The diagnosis first, because it was wrong to begin with.**  the
 complaint was that a 3D model looked like rubbish in the flat paper view and
 that orthographic was to blame.  It is not.  Loading the barn and switching
-to PLAN gives four filled slabs in two greys and nothing else - no walls, no
+to PLAN gives four filled slabs in two grays and nothing else - no walls, no
 footprint, the building entirely hidden under its own roof.  Three things
 cause it, and the projection is none of them:
 
 1. **The faces are filled and Lambert-shaded in plan.**  The roof slopes come
-   out different greys because they are tilted differently to a light source
+   out different grays because they are tilted differently to a light source
    that has no business being in a drawing.
 2. **Nothing is hidden or dashed.**  Everything paints in depth order, so the
    roof simply covers the building.  A drawing shows what is beneath; a
@@ -2261,7 +2261,7 @@ like a photograph from above instead of like a drawing.**
 
 #### Half one: the slice, which decides what is in the drawing
 
-Tony arrived at this from scratch and it is the correct answer.  The trade
+The owner arrived at this from scratch and it is the correct answer.  The trade
 name is a **cut plane**; Revit calls the settings **View Range** and gives it
 four numbers (cut plane, top, bottom, view depth).  Ours is **two**: a top
 and a bottom.  Everything between them draws.  Two is the right
@@ -2276,8 +2276,8 @@ simplification - four numbers is the kind of thing that makes Revit hard.
 * **The bottom of the slice is the drawing plane.**  One number does both
   jobs: the floor of what you can see and where the pencil is.  That is what
   a floor plan *means* - you draw on the floor and things go up from it.  Set
-  the bottom to 9'-0" and you are drawing on the second storey, seeing the
-  second storey, with everything below out of the way.
+  the bottom to 9'-0" and you are drawing on the second story, seeing the
+  second story, with everything below out of the way.
 * **The slice filters snapping, not only drawing.**  Non-negotiable.  Hidden
   geometry that still grabs the cursor is the worst failure mode this program
   has ever had - it is the eave report of 12 September and the axis-lock one
@@ -2349,7 +2349,7 @@ the renderer, which is why it is small **once the two halves above are done**.
   * **Poché on a cut wall.**  Faces are included whole when any part of
     them overlaps the slice; clipping them at the cut plane, so a wall the
     plane passes through fills solid, is the version an architect would
-    recognise.
+    recognize.
   * **2D mode** as the thin lens on top - hide push/pull, drill, follow me
     and orbit, lock the view and the plane.  Cheap now that the two halves
     below it exist, and worth doing after somebody has used the slice for a
@@ -2387,7 +2387,7 @@ feature.
   only by knowing `/plan`.
 * Revolve has existed since 6 September.  It was called FOLLOW ME, which is
   SketchUp's name for sweeping along a path and nobody else's name for
-  anything, and it sat behind the MORE door.  Tony went and asked a friend's
+  anything, and it sat behind the MORE door.  The owner went and asked a friend's
   CAD program for a lathe and came back to ask why we did not have one.
 
 Neither was a missing feature.  Both were a name or a door.  So, as a rule
@@ -2465,13 +2465,13 @@ any more:
   `/revolve` at all for a week.  Every check above passed the whole time:
   `/followme` was a name the dispatcher answered to, it was in order, it had
   no argument.  Nothing ties a row to the tool it names, and the only reason
-  it was caught is that Tony remembered what we called it.  Tying TOOL_NAMES
+  it was caught is that the owner remembered what we called it.  Tying TOOL_NAMES
   to the rows that set a tool would catch exactly this and is worth doing if
   another one slips.
 
 ### Snapping has to answer "can I see it?", and half of it did not
 
-Tony, measuring along the straight edges of the etch-a-sketch between the
+From a note, measuring along the straight edges of the etch-a-sketch between the
 curves: it kept taking lines behind the toy, or on the wrong plane.  He asked
 whether it was the tool or the model.  It was the tool, twice, and the model
 made both worse without being wrong itself.
@@ -2498,7 +2498,7 @@ drawing turns out to be a good test drawing.
 
 ### The view, and two things that were quietly bounded
 
-Tony, comparing against SketchUp: it zooms in and out a great deal further
+From a note, comparing against SketchUp: it zooms in and out a great deal further
 than us, and its axes go on for ever while ours end.
 
 **Zoom was a twentieth to forty times** - eight hundred to one, which sounds
@@ -2514,7 +2514,7 @@ worth finding: the percentage printed with no decimals, so anything under a
 fiftieth read "view 0%" - a readout that says nothing while looking like an
 answer - and the scale bar's table of round lengths began at half a foot, so
 past a few hundred percent there was nothing short enough and the bar ran the
-width of the window labelled 0'-6".  The table now runs from a sixteenth of
+width of the window labeled 0'-6".  The table now runs from a sixteenth of
 an inch to a thousand feet, and the short end is exact inch fractions rather
 than round decimals, because a bar of 0.002 feet is a fine length that reads
 0'-0" on its own label.
@@ -2532,7 +2532,7 @@ and reads on screen as the axes simply being switched off.
 
 ### The surface guard fired again, with a number worth keeping
 
-From Tony's report of 15 September, alongside the dimension fault:
+From the report of 15 September, alongside the dimension fault:
 
     surface guard hit: 4616275354042910992 (as a double 4.07615),
     stride untouched
@@ -2557,7 +2557,7 @@ more than one.
 
 ### Every picker needs the same audit, and it is bigger than "is it hidden"
 
-Tony, after the EdgeSnap fix: run these checks over all of the tools and
+From a note, after the EdgeSnap fix: run these checks over all of the tools and
 inspect the code, because snapping a line, snapping a point, and snapping a
 point ON a line are three different questions and there is a lot of inference
 behind each of them.
@@ -2567,7 +2567,7 @@ had been written down and tested in BestSnap for weeks, twenty lines away,
 and nobody had asked whether the line version needed it too.  These grew one
 at a time as tools were built, and nothing has ever gone over them together.
 
-**A third fault, found the same day and the same way.**  Tony could dimension
+**A third fault, found the same day and the same way.**  It was possible to dimension
 the robot and the lettering on the toy and not the case they sit on.  The
 case is ONE FACE of thirty-two corners, longest edge ten and a half inches,
 with no line entities at all; the robot and the letters are drawn with lines.
@@ -2580,7 +2580,7 @@ not nothing, just never the thing you are pointing at.
 Both are fixed, the corners deduplicated against the lines that already cover
 them so a face drawn the ordinary way does not double the snap list.  It is
 the third instance of the same shape of bug in one day: a rule that was
-written down and tested in one picker and never asked of its neighbour.
+written down and tested in one picker and never asked of its neighbor.
 
 **The pickers, none of them checked:**
 
@@ -2613,7 +2613,7 @@ positions out of 2266 - no aimed test would have.
 
 ### Edges that cross have to end there - 15 September 2026
 
-Tony: "this is how i make rounded corners in a rectangle.  i use the circle
+From a note: "this is how i make rounded corners in a rectangle.  i use the circle
 tool and temporary lines.  in sketchup i would be able to remove all of those
 lines individually because the circle would have broke the lines making the
 point."
@@ -2631,7 +2631,7 @@ Only loose drawing takes part - nothing in a solid, no guides, no dimensions
 - and a pair is only looked at when one of the two is newer than FirstNew, so
 nothing already drawn is quietly rewritten around somebody.
 
-**Two things learnt doing it, both worth keeping:**
+**Two things learned doing it, both worth keeping:**
 
 *Arcs are walked as they are drawn, not as circles.*  A crossing is worked
 out against the segments the renderer actually walks, so what counts as
@@ -2641,7 +2641,7 @@ cut landed on a corner - and a tangent always does.
 
 *A tolerance in parameter is not a tolerance.*  The first version threw away
 cuts within 1e-7 *of the parameter* of an end.  On a hundred foot line that
-is ten microns and on a one inch line it is a nanometre, so near-tangents
+is ten microns and on a one inch line it is a nanometer, so near-tangents
 left slivers, and the slivers were themselves crossed by the next pass: three
 passes over the same drawing broke 7, then 2, then 1 edge.  Measured along
 the edge instead, and the hit pulled onto the segment corner it is really at,
@@ -2658,7 +2658,7 @@ needs the two points he picked and where he moved.
 
 ### The frame watchdog is in - 15 September 2026
 
-Tony: "yeah we need the frame watchdogs for bug reports for sure."  Step one
+From a note: "yeah we need the frame watchdogs for bug reports for sure."  Step one
 of the order agreed above, and done.
 
 Every frame is timed in four parts, each accumulated where the work actually
@@ -2688,7 +2688,7 @@ the point of building it before the fixes rather than after.
 
 ### The tape's third stage, which was two bugs wearing one coat - 15 September 2026
 
-Tony: "yeah look at all the weird shit that keeps happening.... the tape
+From a note: "yeah look at all the weird shit that keeps happening.... the tape
 measure leaving phantom lines after a while... switching to the select tool
 and selecting something seems to clear it.  the stupid dimension appearing
 with using a tape measure tool  very buggy bull shit.  hopefully you can
@@ -2732,7 +2732,7 @@ down so the next person does not have to look again.
 
 ### The guides, read against their help rather than remembered - 15 September 2026
 
-Tony: "yeah read the docs so we can behave almost identical to sketchup
+From a note: "yeah read the docs so we can behave almost identical to sketchup
 guides... what we have now is pretty darn good just not perfect and i like
 where we are better such as having the yellowish guide point.  in many ways
 we are better than sketchup but in the critical ways sketchup kicks our ass."
@@ -2755,7 +2755,7 @@ you measure.  Ours does, both every time, and that is ours alone - the thing
 he says he likes better.
 
 **Fixed now:** a guide line takes the point laid with it when it is rubbed
-out, which is what he asked for and what the two being one gesture implies.
+out, which is what was asked for and what the two being one gesture implies.
 
 **Still open, and the real question underneath his confusion:** ours lays
 both every time, theirs lays one or the other from a mode.  The Ctrl cycle
@@ -2772,7 +2772,7 @@ gesture, or a session that catches it.
 
 ### The watchdog earned itself back on its first day - 16 September 2026
 
-Tony: "oh there is a glitching and freezing issue happening and i hope our
+From a note: "oh there is a glitching and freezing issue happening and i hope our
 logs capture it.  look this over please."
 
 They did, and the report answered it without a single question back:
@@ -2825,7 +2825,7 @@ and the question goes away.
 ### Rounded corners, and the arc-bulge report explained - 16 September 2026
 
 The open report "the arc tool kept the arc outside the rectangle" is this.
-Tony, explaining it properly: "i was trying to make a rectangle have rounded
+From a note, explaining it properly: "i was trying to make a rectangle have rounded
 corners using the arc tool in its corners but it seemed like i was always
 getting like a bubbled out corner unless i got the dimension just right.
 sketchup seems to handle it much better... there arc shows up with a hint
@@ -2834,13 +2834,13 @@ about tangent on edge."
 Nothing was broken; nothing helped either.  The bulge was whatever the mouse
 said, and a fillet is one exact bulge out of all of them.  Built to
 SketchUp's behavior, read from their help and forum and then confirmed by
-Tony in SketchUp itself:
+From a note, in SketchUp itself:
 
 * picks on the two edges of a corner, pull towards it, **magenta** and
   TANGENT TO EDGE when it locks - `TWorkDoc.FilletFromEnds`, and the lock is
   "the pull within a finger's width of that arc's middle";
 * a radius typed while magenta, or `2"r` at any time - `FilletAt`;
-* a **click leaves the square corner**, cut at the touching points - Tony:
+* a **click leaves the square corner**, cut at the touching points - From a note:
   "maybe you just want an arc inside the pointed corner... so keep it just
   like sketchup!"  I had Enter-with-a-radius trimming too; that was mine, not
   SketchUp's, and it went;
@@ -2918,7 +2918,7 @@ spaced on the glass - but a tilted view squashes one family by the cosine of
 the tilt.  The pitch is picked in world units for the *paper* grid, which is
 square to the screen, and nobody had ever asked what it came to on the
 ground.  At a working angle it came to about six pixels: **260 faint lines,
-six pixels apart** - not a lattice, a grey wash, and 27 ms a frame to lay it
+six pixels apart** - not a lattice, a gray wash, and 27 ms a frame to lay it
 down.
 
 Each family is now coarsened on its own - by two, five, ten, never by three
@@ -2952,7 +2952,7 @@ question is the ink, not the paper.
 
 ### Orbit that clicks into a squared-up view - DONE 16 September 2026
 
-Tony, the same day he raised it: "since half of the work is there and it
+From a note, the same day he raised it: "since half of the work is there and it
 already sort of does the orbit snapping with the cube give me your best shot
 at something that uses a modifier key with the orbit tool so when you release
 it snaps the closest prefixed destinations that we have already... let it do
@@ -2997,7 +2997,7 @@ does not.  Now that the arithmetic and the preview exist it is a small
 experiment rather than a project.
 
 
-Tony, brainstorming and explicitly not committing: "I think I want to have a
+From a note, brainstorming and explicitly not committing: "I think I want to have a
 modifier key for the orbit tool that makes it snap to one 16 (or whatever
 number of views the view cube has) when it is closest while orbiting.  So if
 I'm orbiting around to a view I like I could release the mouse with a
@@ -3025,7 +3025,7 @@ is a couple of dozen lines.
 * **Which modifier.**  Shift is taken in orbit by the axis constraint, Ctrl
   is taken by the eraser and the move tool's copy.  Alt is probably free
   here.  Whatever it is, it has to be one that can be pressed *during* the
-  drag and released at the end, because that is how Tony described it.
+  drag and released at the end, because that is how the owner described it.
 * **All twenty-six, or only the six faces?**  His second sentence is the
   more modest and possibly the better idea - "at least so one of its planes
   is squared to the view" - which is the six faces, or the six faces plus
@@ -3047,7 +3047,7 @@ so the feel can be compared rather than remembered.
 
 ### The picker audit, done - 16 September 2026
 
-Tony: "improve the picker substantially please and try not to hurt
+From a note: "improve the picker substantially please and try not to hurt
 performance or break existing functionality."
 
 The five questions were asked of every picker.  What they turned up:
@@ -3058,7 +3058,7 @@ renderer.  So with the guides hidden the snap still jumped to a guide point,
 still found guide *crossings*, the cursor still ran along a guide line, and
 the select tool and the eraser both still took guides that were not on the
 screen.  The seventh instance of the same shape: a rule written down in one
-picker and never asked of its neighbour.
+picker and never asked of its neighbor.
 
 A sweep - a grid of cursor positions, every picker asked at each - found
 guides answering at **477 positions**.  Hidden, it must be none, and it is.
@@ -3096,7 +3096,7 @@ are the same question.
 
 Two more found there: a **bore** - the record of a tunnel, never drawn - was
 selectable by a box, and a **guide line** was nearly never selectable by one,
-because an infinite line has no extent to be inside anything.  Tony asked for
+because an infinite line has no extent to be inside anything.  What was asked for was
 the opposite in so many words, so a guide answers the crossing question
 whichever way the box was dragged.
 
@@ -3123,7 +3123,7 @@ and `EdgeUnder` already used them.  Measured on 6400 things:
 Arcs got the other half: `ArcScreenDist` walks twenty-five chords for one
 circle, and a sheet of circles is an ordinary drawing.  It now takes the
 camera ready-made and rejects on the bounding circle first - an orthographic
-projection never moves a point further from the centre than its own distance
+projection never moves a point further from the center than its own distance
 times Ppu - so adding **625 circles cost 3 ms per thousand picks** instead of
 fifteen thousand extra projections.
 
@@ -3136,7 +3136,7 @@ so it inherited all of the above and needed nothing of its own.
 
 ### The drive suite, which had got too slow to run - 16 September 2026
 
-Tony: "These tests take forever.  Anyway we can run like 10 of these tests at
+From a note: "These tests take forever.  Anyway we can run like 10 of these tests at
 once or merge some of them so we aren't restarting the entire thing all the
 time?"
 
@@ -3200,7 +3200,7 @@ suite included.
 
 Two changes, and both were needed.  **In use now means a server answers**
 `xdpyinfo`; a stale lock is reclaimed by the next Xephyr that wants it, which
-is behaviour X has had all along and I had not checked.  And the server is
+is behavior X has had all along and I had not checked.  And the server is
 now asked to go with a TERM and only shot if it will not - a server that
 exits properly takes its own lock and socket with it.  Checked both ways: a
 stale lock *is* reclaimable, and TERM *does* clean up.
@@ -3218,7 +3218,7 @@ said.
 **Chained after all, for a better reason than speed.**  I argued against
 merging scripts into one launch on the grounds that state would leak from
 one into the next and turn a clear failure into "something earlier did
-this".  Tony: "some of the tests we could conduct together in a single test
+this".  From a note: "some of the tests we could conduct together in a single test
 instance rather than always starting a new instance as that will also
 sometimes reveal additional bugs."
 
@@ -3270,7 +3270,7 @@ proving it worked and an `EAccessViolation` sitting on top of them:
     125ms (paper 30, ink 63, over 0, screen 32)
 
 **Screen 1890 down to 32.**  That part is settled.  The exception was
-something else, and Tony gave the steps: "the exception happened after i
+something else, and the owner gave the steps: "the exception happened after i
 exported the gif then click in the canvas".
 
 `TWorkDoc.LastSurf` is the last surface the document rendered into.  It is
@@ -3300,8 +3300,8 @@ rides along in the report's surfaces line, so if this ever shapes up
 differently the report says it happened.
 
 **The shape of it, which is the one that keeps coming back** (this is the
-seventh): *a rule learnt in one place and never asked of its neighbour*.
-Here the neighbour had not been written yet.  The answer each time has been
+seventh): *a rule learned in one place and never asked of its neighbor*.
+Here the neighbor had not been written yet.  The answer each time has been
 to move the rule to where it cannot be forgotten rather than to remember it
 harder.
 
@@ -3368,7 +3368,7 @@ all and the log will say what is.
 
 ### Two asked for on 15 September, both now done
 
-**Closing a modified sheet did not ask to save.**  Tony: "I recently had
+**Closing a modified sheet did not ask to save.**  From a note: "I recently had
 another modified drawing and I closed its tab sheet and was not asked to save
 it.  This was several versions ago so we will want to test that all again in
 the next future."
@@ -3387,7 +3387,7 @@ way.  Note that the draft written beside the program means the work is
 usually recoverable, which is exactly why this could go unnoticed for
 versions.
 
-**Copy and paste.**  Tony: "we need to be able to copy and paste a selection
+**Copy and paste.**  From a note: "we need to be able to copy and paste a selection
 and copy and paste from one sheet to another etc."
 
 Ctrl+C and Ctrl+V are not bound to anything.  What exists already and does
@@ -3399,12 +3399,12 @@ sheet-to-sheet case needs it to survive a `TDrawing` change.
 Shape it as: Ctrl+C takes a deep copy of the selection into a form that does
 not reference the document it came from; Ctrl+V drops it, picked, with the
 move tool live so it can be placed - which is SketchUp's Paste In Place
-behaviour and saves inventing a rule for where it lands.  Across sheets it is
+behavior and saves inventing a rule for where it lands.  Across sheets it is
 the same code, because the copy does not point at the old sheet.
 
 ### Where this is going, agreed 15 September 2026
 
-Tony, after an evening of comparing: "SketchUp is way smoother and crisper
+From a note, after an evening of comparing: "SketchUp is way smoother and crisper
 moving than us when orbiting and the snapping behavior is so much more
 refined than us.... We are sort of close but not good enough.  I'm thinking
 we spend the next week or so working out the details and bugs in tools and
@@ -3420,7 +3420,7 @@ building.  We just need to keep after making little improvements."
 1. **A frame watchdog, first.**  `Took()` and `/timings` already exist; log
    any frame over about 40 ms with its phase breakdown into the session log.
    Then every bug report for the next week carries its own diagnosis instead
-   of "it felt glitchy".  Tony on the symptom: "we some times have clumsy
+   of "it felt glitchy".  From a note on the symptom: "we some times have clumsy
    things when moving around with tools selected at times where it seems the
    program is struggling or stuck in some loop for some reason and then you
    try to orbit and it glitches.... Hard to pinpoint when and why."
@@ -3470,7 +3470,7 @@ September made it slightly heavier, not lighter.
 
 ### OpenGL: the path is intact, and it is not next
 
-Tony: "I really wanted to avoid opengl... I hope we aren't too far off and
+From a note: "I really wanted to avoid opengl... I hope we aren't too far off and
 still have a path to using opengl some day.  It seems like it would be a big
 rewrite but also it seems a lot of our code will be reused... But still I
 don't think that is truly our issue anyway."
@@ -3502,13 +3502,13 @@ thousand things, and a rebuild inside them would cost more than the panel is
 worth; a sixteenth of a second behind is not behind).
 
 Editable in this first cut: **sides** on a circle or an arc, which is the one
-Tony asked for outright and which was previously a before-you-draw-only
+What was asked for was outright and which was previously a before-you-draw-only
 setting; **soften** on a line or an arc; **size** on a note; **reverse** on a
 face or on several.  Deliberately not editable with more than one thing
 picked - a stepper that acted on nine things at once is a way to lose nine
 things.
 
-**What SketchUp's own Entity Info does, checked 16 September**, because Tony
+**What SketchUp's own Entity Info does, checked 16 September**, because the owner
 asked and because guessing at this has cost us twice this week:
 
 * **Length on an edge: yes, editable.**  "You can adjust the length of a line
@@ -3520,7 +3520,7 @@ asked and because guessing at this has cost us twice this week:
   choose - and having chosen, we have to say so in the panel, because a
   length box that moves an end without telling you which is worse than no
   length box.
-* **Colour: yes**, as a *material* - the panel shows and sets the material on
+* **Color: yes**, as a *material* - the panel shows and sets the material on
   an edge or a face.
 * **Per-edge thickness: no.**  SketchUp has no such thing.  Line weight there
   is a **style** applied to the whole model (and a LayOut setting for
@@ -3530,7 +3530,7 @@ asked and because guessing at this has cost us twice this week:
   none of which we have, and only "hidden" is one we have talked about
   wanting (see the eraser's Shift, in Smaller things).
 
-**On the LINE COLOR button along the bottom.**  Tony: "that may be one more
+**On the LINE COLOR button along the bottom.**  From a note: "that may be one more
 button we could get rid of... But maybe not.  Those are sort of the default
 settings and I like it for the most part."
 
@@ -3538,20 +3538,20 @@ Keep it.  The two controls do different jobs: the bottom row sets **what the
 next thing you draw will be**, and the entity panel changes **what is already
 there**.  That is the same split as SNAP TO and ROUNDED TO, which nobody
 would want to reach into an entity to set.  Losing the button would mean
-drawing something in the wrong colour and then editing it, every time.
+drawing something in the wrong color and then editing it, every time.
 
 **Worth adding to the panel next, in about this order.**  Each is a row and a
 setter, and the setters mostly exist:
 
 * **Length on a line.**  The one that turns the panel from a readout into a
-  modelling tool, and the one that needs a decision rather than typing: which
+  modeling tool, and the one that needs a decision rather than typing: which
   end moves, and does what is joined to it come along?  It should - MoveVerts
   already does exactly that for a drag, and a length typed into a box ought
   to behave like a drag that landed exactly. Suggest: the end furthest from
   the last point you clicked moves, and the panel says which as you hover the
   box.
-* **Colour and pen width** on whatever is picked.  `SetInk` does not exist
-  yet; it is two lines.  Colour brings us level with their material field;
+* **Color and pen width** on whatever is picked.  `SetInk` does not exist
+  yet; it is two lines.  Color brings us level with their material field;
   width is ours alone.
 * **Radius on a circle**, same shape of problem as length.
 * **The plane an arc was drawn in**, which would let a circle be stood up
@@ -3561,7 +3561,7 @@ setter, and the setters mostly exist:
 
 ### The entity window - what it was going to take
 
-Tony: "SketchUp has entities... And I think like for an arch you can get into
+From a note: "SketchUp has entities... And I think like for an arch you can get into
 it and edit the number of segments.  I think we were trying to avoid having
 all these various properties but I think it's a direction we may need to
 head... I also think the entity window should be docked to the right."
@@ -3577,7 +3577,7 @@ watching the properties change as you pick different things.
 
 ### One edge written backwards, and a wall that would not divide - 15 September 2026
 
-Tony: "so once again we closed in the a rectangle... i am unable to pull it
+From a note: "so once again we closed in the a rectangle... i am unable to pull it
 out as a floor because it didnt cut it into its own face in that long narrow
 rectangle!"
 
@@ -3593,7 +3593,7 @@ and identical edges have to be welded into one.
 `EdgeSeen` found its hash bucket from the pair **in order** - so both ways
 round landed in the same bucket, which is right - and then compared against
 `EA`/`EB` as **stored**, which keep the direction the edge arrived in.  An
-edge put in as 5-2 was never recognised when it came back as 2-5.  The
+edge put in as 5-2 was never recognized when it came back as 2-5.  The
 duplicate went in.
 
 Two parallel edges between one pair of corners are two more darts than the
@@ -3603,7 +3603,7 @@ traced up one side and down the other, instead of a band of 750 and a strip
 of 47.5.  Nothing to push, and no way to see why.
 
 **Worth remembering as a shape of bug**: a hash whose *bucket* is computed
-from a normalised key and whose *comparison* is against the raw one.  The
+from a normalized key and whose *comparison* is against the raw one.  The
 bucket makes it look right - the two do collide, so the code path is
 exercised - and the answer is wrong only for the half of the cases where the
 raw form differs.  Grep for others: anywhere a key is sorted or canonicalised
@@ -3615,13 +3615,13 @@ cheaper thing to check than the areas.
 
 ### The eraser and faces, checked against the live page
 
-Tony: "yes the eraser does allow you to erase faces in SketchUp and we do
+From a note: "yes the eraser does allow you to erase faces in SketchUp and we do
 want that just to be clear... you need to always be verifying how SketchUp
 does something when we are uncertain."
 
 Fetched it rather than relying on the note.  SketchUp's help says "The Eraser
 tool doesn't allow you to erase faces", and puts erasing one on the Erase
-context command.  Reported that back with the quote, and Tony went and looked
+context command.  Reported that back with the quote, and the owner went and looked
 himself: "Ok I just checked and you are right the eraser will not erase a
 face in SketchUp so let's follow SketchUp convention here."
 
@@ -3641,7 +3641,7 @@ checked against the real thing.
 
 ### A face is not a thing, it is what edges enclose - 15 September 2026
 
-Tony: "in SketchUp I don't think you can even have a filled face unless it is
+From a note: "in SketchUp I don't think you can even have a filled face unless it is
 enclosed by lines.  So when I am erasing lines on a cube it will leave behind
 faces and I think that is wrong... I think also when I delete a face in
 SketchUp let's say in a cube there is a way to put it back if I remember
@@ -3680,12 +3680,12 @@ the lettering and the robot, written straight in as faces.
 
 That is why the fix is asked of the edges being erased and not of every face
 in the drawing: an audit-everything rule would have deleted five sixths of
-the example the first time anybody rubbed anything out.  It is also why Tony
+the example the first time anybody rubbed anything out.  It is also why the owner
 is rebuilding the toy by hand and finding fault after fault in it - the model
 the help pages all use is not geometry that the program itself could have
 produced.  **Take his model when he offers it.**
 
-### Two reports from Tony, 16 and 17 September - both fixed
+### Two reports, 16 and 17 September - both fixed
 
 **Guides taken with the drawing, and no crossing on the far side.**  Two
 faults in one report.  The triple-click flood walks shared corners, and a
@@ -3710,7 +3710,7 @@ redraws - now `ViewMoved` marks it and `FlushView` draws once per tick (100
 wheel steps: 10 paper paints, was 100).  And the blue wash over the face
 under the pointer was painted straight onto the window canvas every paint,
 25 ms at that size; it is now drawn into a surface kept for the purpose
-(slow frames on the zoomed hover test: 14 to 0).  Worth Tony trying on the
+(slow frames on the zoomed hover test: 14 to 0).  Worth trying on the
 same machine - the numbers above are from this Linux box.
 
 ### Two reports, read the same afternoon
@@ -3724,7 +3724,7 @@ worse than a refusal: `6-8-15` on its own **parses**, so nothing objected,
 and then RectTarget found no separator, gave up quietly, and took the corner
 from the cursor.  A rectangle of the wrong size and not a word said.  It now
 says what it wanted.  And the notation is in the manual, which was the other
-half of what he asked for.
+half of what was asked for.
 
 **Guides made no crossings.**  "THIS SHOULD BE SNAPPING TO THAT GUIDE I SET
 AT THE OTHER END OF THE RECTANGLE AT 1"!!!"  The snap cache's crossing pass
@@ -3740,7 +3740,7 @@ guide one of them?*
 
 ### The manual, and taking its pictures without taking them - 15 September 2026
 
-Tony: "our documentation really needs some help.  we probably need a document
+From a note: "our documentation really needs some help.  we probably need a document
 just for the slash commands and keyboard shortcut cheat sheet would be great.
 what's the key word shortcut for the select tool?  I tried s.  didn't work."
 
@@ -3779,11 +3779,11 @@ path be tested end to end rather than up to the dialog.
 
 ### Two more of the same fault, both found in one hour - 15 September 2026
 
-The rule that a picker learns and its neighbour never does, twice more, and
+The rule that a picker learns and its neighbor never does, twice more, and
 this time neither was in a picker: both were in what the picture said.
 
 **Push/pull's stipple did not know about holes, or about what is in front.**
-Tony: "using the push/pull tool and when i am hovering over the outer ring
+From a note: "using the push/pull tool and when i am hovering over the outer ring
 face it highlights the face including the smaller rectangle face inside!  it
 should only be highlighting as much of the face as it can see!"
 
@@ -3796,7 +3796,7 @@ lines away, did none of the three.  It now does all of them, the depth taken
 affinely across the face - the view is orthographic and the face is flat, so
 two multiplies a dot instead of a ray cast.
 
-**The move ghost lied about what was coming with it.**  Tony, straight
+**The move ghost lied about what was coming with it.**  From a note, straight
 after: "trying to move this line up the face more... the issue is that line
 of the smaller inner rectangle is not staying snapped".
 
@@ -3815,7 +3815,7 @@ is a sixth for anything that paints a hint, and it is the same list -
 can it see it, what does it stop at, what does it say it will do - asked of
 the paint rather than the pick.
 
-**The move now has two ways, which Tony asked for.**  The stretching one is
+**The move now has two ways, which What was asked for was.**  The stretching one is
 SketchUp's and is what happens by default; `/detach on` takes what is picked
 away on its own.  It is a command and not a held key because a move has no
 key left: Ctrl leaves a copy, Shift holds the axis, Alt holds the working
@@ -3824,7 +3824,7 @@ ever frees up - a held key is the better shape for it.
 
 ### The frame, measured rather than guessed - 15 September 2026
 
-Tony: "the display and moving has gotten really poor performing... in the
+From a note: "the display and moving has gotten really poor performing... in the
 past dozen revisions we introduced something that is hurting the
 performance."
 
@@ -3851,10 +3851,10 @@ a section heading, a bullet - and `Run` measures or draws them, including the
 one bold span a bullet may start with.  That is the whole of the markdown it
 understands, and it is why the thing themes perfectly.
 
-The consequence is that it has no behaviour it was not given.  The wheel
+The consequence is that it has no behavior it was not given.  The wheel
 works because a wheel handler was written.  The keyboard works because a key
 handler was written.  A finger did nothing at all, because nothing had been
-written for it - which on Tony's Windows touch laptop meant a window you
+written for it - which on the Windows touch laptop meant a window you
 could read and not move.  Dragging the page scrolls it now, which costs a
 mouse the same gesture for free.
 
@@ -3865,7 +3865,7 @@ somebody touches it rather than clicks it.
 **And a second consequence, found the hard way on 16 September.**  It paints
 words, not markup - so `<kbd>Ctrl</kbd>` written into WHATS_NEW.md out of
 habit from editing the help pages reached a user with the tags showing.
-Tony saw it in the release.  The notes now go through a `Plain` that strips
+The owner saw it in the release.  The notes now go through a `Plain` that strips
 the handful of inline tags that could plausibly turn up, **by name** - not
 "anything in angle brackets", because the notes already contain
 `/tiles <folder>` where the brackets are how a placeholder is written and
@@ -3873,7 +3873,7 @@ eating those would be the worse bug.
 
 ### LazInk, and what it could take over - 16 September 2026
 
-Tony: "is this what's new decorated text panel a ton of work because I think
+From a note: "is this what's new decorated text panel a ton of work because I think
 we actually have already built an html component... I'm not saying to use our
 html render as it needs a lot of work yet but we should consider using it in
 the future as it could also be used for the help documentation!  And it would
@@ -3889,7 +3889,7 @@ help**", which is this job exactly.
 
 *What it would take over, easily.*  The release notes window is 599 lines of
 hand-rolled parse-and-paint for three kinds of line and one bold span.
-TInkMemo does all of that and more - `<b> <i> <u>`, colours, `<hr>`, `<p>`,
+TInkMemo does all of that and more - `<b> <i> <u>`, colors, `<hr>`, `<p>`,
 links with `OnLinkClick`, images - and the tags bug above could not have
 happened, because the tags would have rendered.  That swap is a small job and
 it deletes more than it adds.
@@ -3914,7 +3914,7 @@ way or the other.  Nothing here is urgent.
 
 ### The manual inside the program - 17 September 2026
 
-Tony: "i want them stored on github like it is... i dont want you to make a
+From a note: "i want them stored on github like it is... i dont want you to make a
 browser... we will going forward need to have a zip archive of the help
 docs in the releases and then we can have heckers sketch fetch it and unzip
 it and keep a copy locally next to the executable.  that way if you run off
@@ -3976,7 +3976,7 @@ Checked with `--updated-from=v2026.09.16.7`: .9 and .8 shown, nothing older.
 
 ### Pictures you can open larger - 17 September 2026
 
-Tony: "for the gif files... be able to click them and see a larger
+From a note: "for the gif files... be able to click them and see a larger
 image... I prefer not to get that package any bulkier."  LazInk's P7 made
 a picture inside a link clickable, told the host it was a picture
 (`ClickedLink.Image`), and added `ImageFit`.
@@ -3992,18 +3992,18 @@ a picture inside a link clickable, told the host it was a picture
 * The three animations are re-recorded at 1100 wide instead of 700, so the
   big view needs no enlarging: push/pull 0.77 -> 1.49 MB, rounding corners
   1.08 -> 1.67 MB, orbit snap 1.71 -> 3.42 MB (at 6 frames a second and 48
-  colours - at 8 and 64 it was 5.0 MB).  The help zip grows by about 3 MB.
+  colors - at 8 and 64 it was 5.0 MB).  The help zip grows by about 3 MB.
   `tools/gif-push.txt` needed the Push/Pull button's new position.
 * `help-picture` in the drive suite: open the manual, go to Push/Pull, click
   the animation, see it in its own window, Esc back to the page.
 
 The index's cards now look the same in the program as in a browser -
-LazInk's P7 table work (equal columns, padding, spacing, cell colours,
+LazInk's P7 table work (equal columns, padding, spacing, cell colors,
 rounded cells, `<small>`).
 
 ### Our tests used up the house's GitHub allowance - 16 September 2026
 
-Tony: "my v2026.09.15.7 is not updating on my wife's computer it gets a 403
+From a note: "my v2026.09.15.7 is not updating on my wife's computer it gets a 403
 unexpected response error... That means it probably happens on all my
 machines."  Linux Mint, same network as this machine; a few minutes later
 it "just worked after trying again".
@@ -4045,7 +4045,7 @@ help folder there: 38 pages, 12 images, 2,205 text fragments, all present.
 
 `uWhatsNew.pas` keeps the part only this program knows - which releases to
 show - and hands the notes to a `TInkPage` as a small HTML page in the
-dialog's colours.  The hand-written layout, wrapping, drawn scrollbar and
+dialog's colors.  The hand-written layout, wrapping, drawn scrollbar and
 page dragging went: 599 lines to 510, and the 89 is net of the hundred lines
 that turn the notes into HTML.  The larger saving is that the renderer is
 now tested and maintained in one place.
@@ -4057,8 +4057,8 @@ swap rather than kept here, with a dead zone wide enough for a fingertip
 that rolls as it taps, and a drag that ends on a link not counting as a
 click.  Tested in LazInk; `whatsnew-drag` still drags it here.
 
-**What got worse:** the scrollbar is LazInk's stock one, light grey, where
-the old window drew its own in the theme's colours.  Noted in LazInk's
+**What got worse:** the scrollbar is LazInk's stock one, light gray, where
+the old window drew its own in the theme's colors.  Noted in LazInk's
 roadmap as a themed scrollbar; not worth a workaround here.
 
 The project finds LazInk at `../LazInk/lazink.lpk`, and the Windows cross
@@ -4071,7 +4071,7 @@ window with Back, and `/manual` opening that instead of the browser - with
 the browser kept for anybody who prefers it.
 
 **The full list now lives in LazInk itself** (16 September): 
-`/media/tony/storpart/synced/GIT/LazInk/ROADMAP.md`.  Tony wants LazInk kept
+`/media/tony/storpart/synced/GIT/LazInk/ROADMAP.md`.  The owner wants LazInk kept
 as its own project, built over there, with this program as one of its users -
 so what it needs to grow belongs in its tree, not here.  In short: headings,
 lists, `<code>` and `<kbd>` are all the What's New window needs, and once
@@ -4083,7 +4083,7 @@ uncommitted work staged in it.
 
 ### The view cube
 
-Built 14 September, at Tony's friend's asking - he uses Revit and thinks a
+Built 14 September, at a friend's asking - he uses Revit and thinks a
 drop-down is a poor way to change a view.  The argument both of them were
 having was about space; the answer is that it is not the same instrument.
 The VIEW button can put you in a named view and cannot tell you where you are
@@ -4125,7 +4125,7 @@ position through a roll: held to a tenth of a pixel.
 **Three bugs in the glide, and the last one is the lesson.**
 
 * It counted ticks instead of reading the clock, so a third of a second of
-  animation took a second and a half.  The recorder learnt this first.
+  animation took a second and a half.  The recorder learned this first.
 * It never repainted the paper, so the axes and the ground grid stayed
   exactly where they were while the model turned under them.  A middle-drag
   orbit has always called RepaintPaper every move; this did not.
@@ -4202,12 +4202,12 @@ whatever the clip happened to take, which is the same thing as its speed.
 
 ### Getting a part to a printer, and the step that was being done by hand
 
-Tony's uncle prints from this program on a three hundred dollar machine and
+the uncle prints from this program on a three hundred dollar machine and
 the workflow works - but he opens every part in OpenSCAD on the way, to
-"modify some properties and centre it".  Tony wanted that step gone, which
+"modify some properties and center it".  What was wanted was that step gone, which
 meant working out what it was for.
 
-At least part of it was ours.  **"Centre it on the origin" centred all three
+At least part of it was ours.  **"Center it on the origin" centerd all three
 axes**, so the bottom half of every part sat under the build plate.  Slicers
 lift it back out without comment, which is why nothing ever looked wrong -
 but centring a thing for printing means centring it ON the bed, and a model
@@ -4215,7 +4215,7 @@ half underground is exactly what somebody opens another program to put right.
 Fixed in the STL, the OpenSCAD and /center: across X and Y, standing on Z.
 Measured on the wine glass, 0.00 to 215.90 mm.
 
-Two tests asserted "centred in z" and had to change with it.  They were
+Two tests asserted "centerd in z" and had to change with it.  They were
 asserting the bug - written when the convention was assumed rather than
 checked.
 
@@ -4226,7 +4226,7 @@ decides whether anything more is wanted:
   for strength or to avoid supports.  We have nothing for this and it is the
   most likely remaining answer.
 * **scale** - if a part ever arrives the wrong size that is a units fault and
-  worth knowing about; the STL is always written in millimetres.
+  worth knowing about; the STL is always written in millimeters.
 * **which file he opens** - if it is the .scad rather than the .stl he may be
   editing the polyhedron or wrapping it in a transform, which is a different
   workflow and would explain "properties" better than an STL can.
@@ -4250,7 +4250,7 @@ kept ones, so a pass means something.
 
 ### Closing without saving - DONE 16 September 2026
 
-Tony, 14 September: closed the drawings, chose not to save, opened the program
+From a note, 14 September: closed the drawings, chose not to save, opened the program
 again and the drawing he had declined to save came back.  And 15 September:
 "I closed its tab sheet and was not asked to save it."
 
@@ -4269,7 +4269,7 @@ to the quit prompt does not drop it, and nobody has asked for that.
 **Why it was needed.**  A face is a polygon and the depth of it was worked
 out as a flat function of screen position - exact for a flat face, a fiction
 for one that is not.  Spinning a sloped piece of an outline sweeps a warped
-quad; 48 of Tony's crown's 336 faces were out of flat, the worst by five
+quad; 48 of the crown's 336 faces were out of flat, the worst by five
 feet.  Fitting through three corners was out by 542 feet in depth; least
 squares over every corner brought it to 12; the closed-solid cull hid the
 rest of the symptom.  None of that was a *fix* - it was three layers of
@@ -4363,7 +4363,7 @@ triangle turns the same way then the sum of their sizes IS the size of the
 face, which leaves no room for two to overlap.  One pass, and the only
 question is the sign.
 
-*STL export - done, 13 September.*  Binary, in millimetres, built straight on
+*STL export - done, 13 September.*  Binary, in millimeters, built straight on
 `FaceCut` - which is what that cache is for, model space being what an STL is
 in.  Export > "STL - for a 3D printer".  It reports how many triangles went
 out and whether every solid was closed, because a slicer will happily guess at
@@ -4376,7 +4376,7 @@ its volume, positive, which is only true if they cover all of it and every one
 of them faces outwards.  A 10x4x3 box: 12 triangles, 164 square feet, 120
 cubic feet, and every stated normal agreeing with the corners written beside
 it.  That last one caught a real bug - the normal was going through the
-millimetre scaling with the vertices, and a normal 304.8 long is not a normal.
+millimeter scaling with the vertices, and a normal 304.8 long is not a normal.
 
 *Screen-space cutting and self-intersection.*  A warped face can in principle
 project to an outline that crosses itself, which ear clipping has no answer
@@ -4386,7 +4386,7 @@ worst area error 1.1e-14 relative.  Not a problem in practice.
 
 ### Done 13 September: the blue faces, and they were never about depth
 
-Tony resent the robot-and-house drawing from v2026.09.13.13 saying the blue
+The owner resent the robot-and-house drawing from v2026.09.13.13 saying the blue
 survived a `/rebuild`.  It did.  **That drawing has 115 faces of four or more
 corners and not one of them is warped**, so the fitted plane was already exact
 on it and two days of triangulation could not have touched it.  Two entirely
@@ -4414,7 +4414,7 @@ can do and in company it is wrong about half the time.  On this drawing the
 house's two roof slopes both came out pointing the same way in y, when out for
 one of them is the opposite of out for the other, and both gable ends pointed
 `+x`.  Two of the four faces pointed **into the house**, so what you saw from
-outside - where people stand - was the back-face colour.
+outside - where people stand - was the back-face color.
 
 `TWorkDoc.OrientLooseShells` settles it: faces sharing an edge and disagreeing
 about which way along it they run agree about which way is out, and that
@@ -4432,7 +4432,7 @@ a time.**  The house: 2 of 4 faces pointing inward, now 0 of 4.  Group 6: 13
 faces now culled.  Faces with nothing protecting their backs: 20, now 7.
 
 **What did NOT change, and should not.**  Counted over a full sweep of 96
-views the total back-face colour on that drawing is the same as before, and
+views the total back-face color on that drawing is the same as before, and
 that is right.  A loose face has two sides and one of them is its back; you
 can always walk round and look at it, and it is drawn blue on purpose, because
 that is the only way to see that a face is there at all rather than a hole.
@@ -4440,14 +4440,14 @@ What was wrong was never that blue existed - it was that it faced the wrong
 way.
 
 **Still worth doing.**  Seven faces on that drawing are single loose faces
-with no neighbour to agree with, and nothing here can help them: with no sheet
+with no neighbor to agree with, and nothing here can help them: with no sheet
 to belong to there is no "out".  If they turn out to matter, the answer is
 probably to notice that they close a solid together with faces that already
 exist and adopt them into it, which is a bigger idea than this one.
 
 ### Settled: a 3D engine, and whether the renderer should be one
 
-Tony asked whether all this is wasted effort next to Castle Game Engine or
+The owner asked whether all this is wasted effort next to Castle Game Engine or
 raw OpenGL, and it is a fair question.  Written down so it is answered once.
 
 **What a GPU would genuinely give.**  Both of 13 September's faults, free:
@@ -4475,12 +4475,12 @@ model, the tools and the window.  An engine renders geometry it is handed; it
 does not decide that a closed loop of lines is a face, how push/pull cuts a
 tunnel through another tunnel, what the cursor should snap to, or where a
 plan is cut.  SketchUp's own renderer is plain OpenGL - the decade everybody
-admires went into the inference engine and the modelling, which is precisely
+admires went into the inference engine and the modeling, which is precisely
 the part nobody can be bought out of.
 
 **So: no engine.**  Castle in particular is the wrong shape - a scene graph,
 X3D, materials, physics, none of which a drafting program wants - though its
-licence would not stop us (GPL-2+/LGPL-2+ with static linking permission and
+license would not stop us (GPL-2+/LGPL-2+ with static linking permission and
 proprietary use explicitly allowed).  If the day comes that fifteen thousand
 faces has to be interactive, the door is **raw OpenGL behind the existing
 TArtSurface interface**, keeping the software path for printing and for
@@ -4490,7 +4490,7 @@ way.
 
 ### Done 13 September: an export dialog, and a GIF that turns
 
-Tony pressed Export expecting to be asked something and got a save dialog
+The owner pressed Export expecting to be asked something and got a save dialog
 with a list of file types in it.  Fair.  That is not an export dialog, it is
 a file picker with the settings hidden inside a combo box, and it has nowhere
 to ask how big, how good, or which way round.
@@ -4538,9 +4538,9 @@ anything was drawn.
 
 **Still to do.**  Sweeping the plan-view cut height instead of the camera -
 the building filling up floor by floor - which is nearly free now the frame
-machinery exists.  Tony said camera only for this round.
+machinery exists.  A note said camera only for this round.
 
-### Done 14 September: the GIF export crash - a missing colour quantizer
+### Done 14 September: the GIF export crash - a missing color quantizer
 
 Reported 13 September from Windows on v2026.09.13.16: pressing Export gives an
 access violation and writes nothing.  **Not reproduced here** - Linux exports
@@ -4551,7 +4551,7 @@ dialog.
 So the release after it does three things rather than guess.  The export
 carries a `FStage` string through every step and a failure now reads
 "EAccessViolation while drawing the picture at 2101x979" instead of nothing.
-There is a **Tell Tony about it** button in the dialog itself, which hands the
+There is a **Tell us about it** button in the dialog itself, which hands the
 whole state - format, size asked for, screen size, gif settings, the message -
 to the existing `ReportFromDialog`.  And the things that were genuinely risky
 were hardened: one surface for a whole film instead of one per frame (eighty
@@ -4597,20 +4597,20 @@ drawing, the packing AND the writing.  It now names the frame and the step.
 
 **And all of that was the wrong diagnosis.**  Reproduced on Linux in the end,
 with a stack trace: `bgragifformat.pas`, inside `GIFSaveToStream`.  A GIF
-holds 256 colours and something has to choose which; BGRABitmap keeps that
+holds 256 colors and something has to choose which; BGRABitmap keeps that
 chooser pluggable and **naming the unit in `uses` is not enough** - the
 library's own error text spells it out, `BGRAColorQuantizerFactory :=
-TBGRAColorQuantizer`.  It was never assigned, so any frame over 256 colours
+TBGRAColorQuantizer`.  It was never assigned, so any frame over 256 colors
 reached a nil quantizer and faulted.
 
-That is why it looked like nonsense: white paper, grey faces and black lines
+That is why it looked like nonsense: white paper, gray faces and black lines
 fit inside 256 easily, so a plain drawing exported; three anti-aliased
-coloured axes over the top do not, so every export with axes on - the default
+colored axes over the top do not, so every export with axes on - the default
 - died, whatever the length.  One line in an initialization section.
 
 The frame budget stays, but for the honest reason rather than the panicked
 one: measured, a four second spin of the crown is 410 KB at 320x240 and
-1.35 MB at 800x600, and Tony's 15.9 second recording is 0.70 MB at 104 frames
+1.35 MB at 800x600, and the 15.9 second recording is 0.70 MB at 104 frames
 with a 217 MB peak.  Fifty million pixel-frames is about 2.5 MB of file and
 200 MB held while it builds.  Both livable; neither was ever the crash.
 
@@ -4643,12 +4643,12 @@ What the window wants, in his words and order:
 * a **start view** with the usual choices - top, front, back, left, iso
   corners - rather than only wherever the camera happens to be.
 * **canned walks** as an alternative to following the mouse.  His sketch: up,
-  down, back to centre, round, and maybe up and down again at the back.  How
+  down, back to center, round, and maybe up and down again at the back.  How
   far it gets through that is set by how long the clip is meant to be.
 * orbiting **around the middle of the selection**, with a **starting zoom**
   you can set - and possibly the wheel setting the zoom of a canned walk
   rather than driving it live.
-* centre on the selection **from the moment Export is pressed**.
+* center on the selection **from the moment Export is pressed**.
 
 Two decisions taken rather than asked, and both stood up: a canned walk orbits
 the middle of the SELECTION, falling back to the whole drawing when nothing is
@@ -4664,7 +4664,7 @@ canned walks are written against that, so they all orbit what you are looking
 at.
 
 **The four walks** are in `uShoot`, as `TWalk`: turntable, rise, the full look
-(Tony's sketch - over the top, under, level, round), and push in.  Length
+(the sketch that came with it - over the top, under, level, round), and push in.  Length
 chooses the frame rate rather than the other way round, as asked.
 
 Left as is, on purpose: no trimming on the filmstrip.  For a clip of five
@@ -4673,13 +4673,13 @@ handles to drag would be a worse answer than a Clear button.
 
 ### Done 13 September: OpenSCAD export
 
-Tony's uncle asked for it, having printed the crown off the STL.
+the uncle asked for it, having printed the crown off the STL.
 
 `TWorkDoc.WriteSCAD`, on the same `FaceCut` / `FaceCorners` pair the STL uses.
 One `polyhedron` per group, each in its own module, so a drawing in ten pieces
 arrives as ten modules and a union rather than one undifferentiated lump -
 which is the difference between a file somebody can work with and a file
-somebody has to re-cut.  Loose faces go out too, in `hs_loose`, labelled as
+somebody has to re-cut.  Loose faces go out too, in `hs_loose`, labeled as
 not closed, because dropping geometry silently is worse than shipping
 something OpenSCAD may grumble at.
 

@@ -15,7 +15,7 @@ begin
       for X := 0 to W - 1 do
       begin
         P := (Y * W + X) * 4;
-        { a block that marches across, on flat colour with a grid }
+        { a block that marches across, on flat color with a grid }
         if (X mod 30 = 0) or (Y mod 30 = 0) then
         begin Fr[I].BGRA[P] := 0; Fr[I].BGRA[P+1] := 0; Fr[I].BGRA[P+2] := 0; end
         else if (X >= 20 + I * 40) and (X < 60 + I * 40) and (Y > 40) and (Y < 120) then

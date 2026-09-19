@@ -1,6 +1,6 @@
 # Guides stay out of what a double, triple or box pick takes.
 #
-# Tony, 16 September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS! guides
+# From a note, 16 September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS! guides
 # are not part of a drawing!"  A guide laid from a corner shares that corner,
 # and a triple-click walked through it and took every guide in the drawing.
 #

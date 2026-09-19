@@ -13,7 +13,7 @@ unit uWebPAnim;
 
       RIFF .... WEBP
         VP8X    what the canvas is, and that this is an animation
-        ANIM    the background colour and how many times to loop
+        ANIM    the background color and how many times to loop
         ANMF    a frame: where, how big, how long, how to blend
           VP8L    ...the still picture, exactly as WebPEnc made it
         ANMF    the next frame

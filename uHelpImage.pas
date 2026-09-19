@@ -2,7 +2,7 @@ unit uHelpImage;
 
 { One picture from the manual, as large as the window lets it be.
 
-  Tony, 17 September: "for the gif files... be able to click them and see a
+  From a note, 17 September: "for the gif files... be able to click them and see a
   larger image... maybe we need to support open in new window hrefs and
   then we have a larger zoomable window for image or something."
 

@@ -3,7 +3,7 @@ program makeetchasketch;
 { The house model.
 
   A toy etch-a-sketch, near enough to the real thing's size: twelve inches by
-  nine by an inch and a quarter, a recessed grey screen, two white knobs in
+  nine by an inch and a quarter, a recessed gray screen, two white knobs in
   the bottom corners, and a block robot drawn on the screen in stylus lines.
 
   It exists to be the drawing in every help picture.  One model across all of
@@ -55,7 +55,7 @@ const
 
   { TColor is $00BBGGRR }
   RED   = $002030C8;    { the toy's red }
-  GREY  = $00B8B4AE;    { the screen }
+  GRAY  = $00B8B4AE;    { the screen }
   WHITE = $00E8ECEE;    { the knobs }
   INK   = $00201C1A;    { the stylus line }
 
@@ -75,7 +75,7 @@ end;
 { The near bottom left corner sits on the origin, so the whole toy lies in the
   quarter where all three axes are solid rather than dashed.
 
-  Centred on zero was tried first and looks tidier in a picture, but it puts
+  Centerd on zero was tried first and looks tidier in a picture, but it puts
   half the drawing behind the dashed halves of the axes - the halves that mean
   "the other way" - and that is a strange place to keep a thing you are
   measuring.  Everything here reads positive: nine inches along is nine
@@ -320,7 +320,7 @@ begin
   end;
 end;
 
-{ A word, centred on CX. }
+{ A word, centerd on CX. }
 procedure Word_(const W: string; CX, OY, S, Z: Double);
 var
   I: Integer;
@@ -416,7 +416,7 @@ begin
 
   Skirt(Outer, 0, BT, RED);                    { the outside, walling out }
   Skirt(Reversed(Screen), ZF, BT, RED);        { the pocket, walling in }
-  D.AddFaceRaw(RoundRect(SX0, SY0, SX1, SY1, SR, ZF), GREY, True);
+  D.AddFaceRaw(RoundRect(SX0, SY0, SX1, SY1, SR, ZF), GRAY, True);
   D.SetFaceGroup(D.Live - 1, Grp);
   ScrFace := D.Live - 1;
 
@@ -487,7 +487,7 @@ begin
 
   { The letters themselves, RAISED off the face they sit in.
 
-    Tony: "we want the hecker sketch logo on the toy to be embossed or
+    From a note: "we want the hecker sketch logo on the toy to be embossed or
     raised."  Quite right - it is moulded into the plastic on the real one,
     and a name printed flat on a model reads as a sticker.
 
@@ -524,7 +524,7 @@ begin
 
   for I := 0 to High(Robot) do
   begin
-    D.AddFaceRaw(Robot[I], GREY, True);
+    D.AddFaceRaw(Robot[I], GRAY, True);
     D.SetFaceGroup(D.Live - 1, BODY);
     { and whatever was drawn inside it is cut out of it }
     SetLength(Holes, 0);

@@ -11,7 +11,7 @@ unit uDlgSkin;
 
   Everything is applied at runtime.  Nothing here is designed in the form
   editor and nothing here is a second palette to keep in step with the first:
-  there is one set of colours, in uSkin, and this reads it.
+  there is one set of colors, in uSkin, and this reads it.
 
   Copyright (c) 2021-2026 Noella Stone - MIT, see LICENSE.
 }
@@ -70,8 +70,8 @@ var
 { Take the program's current theme.  Call this before building a dialog. }
 procedure UseTheme(const T: TTheme);
 
-{ A shade of a colour - Amount above 0 lightens, below 0 darkens.
-  PixToColor, for turning a TPix into an LCL colour, comes from uSurface. }
+{ A shade of a color - Amount above 0 lightens, below 0 darkens.
+  PixToColor, for turning a TPix into an LCL color, comes from uSurface. }
 function Shade(C: TColor; Amount: Double): TColor;
 
 procedure SkinForm(F: TForm);
@@ -156,11 +156,11 @@ begin
   else Base := PixToColor(DlgTheme.Panel);
   P.Background.Style := bbsColor;
   P.Background.Color := Base;
-  { and the plain LCL colour with it.  A BCPanel paints its own background
+  { and the plain LCL color with it.  A BCPanel paints its own background
     and leaves Color alone, but a child with ParentColor set - which a
     BCLabel has by default - reads Color, not what was painted.  So a label
     on a skinned panel was filling its own rectangle with the form's default
-    grey and printing the title inside a pale box. }
+    gray and printing the title inside a pale box. }
   P.Color := Base;
   P.Border.Style := bboSolid;
   P.Border.Color := PixToColor(DlgTheme.Bezel1);
@@ -193,7 +193,7 @@ begin
         { the one you came for: the theme's own accent, with whichever of
           black or white can be read on it.  It used to take the theme's
           Shell2 on the reasoning that the accents are all bright - true of
-          five themes, and in the light one it put pale grey on mid blue. }
+          five themes, and in the light one it put pale gray on mid blue. }
         Fill := PixToColor(DlgTheme.Accent);
         Edge := Shade(Fill, -0.25);
         Txt := PixToColor(OnPix(DlgTheme.Accent));

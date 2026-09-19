@@ -1,6 +1,6 @@
 # The entity panel, docked down the right.
 #
-# Tony: "SketchUp has entities... And I think like for an arch you can get
+# From a note: "SketchUp has entities... And I think like for an arch you can get
 # into it and edit the number of segments.  I think we were trying to avoid
 # having all these various properties but I think it's a direction we may
 # need to head... I also think the entity window should be docked to the
@@ -13,7 +13,7 @@
 # in.
 #
 # What to look for: hsk-ep-circle has a circle picked and the panel reading
-# CIRCLE with its radius, centre, sides, plane and a Soften button;
+# CIRCLE with its radius, center, sides, plane and a Soften button;
 # hsk-ep-more is after pressing + on Sides eight times, which the panel and
 # the drawing should agree about; hsk-ep-face is a face
 # picked, reading its area and corners with a Reverse button; hsk-ep-none is

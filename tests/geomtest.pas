@@ -807,7 +807,7 @@ begin
       { Closed is not the same as right way out: every edge can be shared
         properly by a solid that is inside out.  The lining has to face the
         opening, or the pit's walls are taken for backs and the edges behind
-        them show through - Tony's report of 17 September. }
+        them show through - the report of 17 September. }
       Ok(LiningFacesIn, 'the lining faces into the opening, not into the wall');
     finally
       D.Free;
@@ -988,7 +988,7 @@ end;
 
   Every face belongs to a solid.  That is what keeps /reface off them: a face
   pulled out of another face has no loop of lines under it to be worked out
-  from again, so throwing it away loses it for good.  Tony ran /reface on a
+  from again, so throwing it away loses it for good.  Somebody ran /reface on a
   drawing of duct fittings and lost all six hundred faces on it.
 
   Every one is a closed solid.  An example that will not print is an example
@@ -1100,7 +1100,7 @@ end;
 { Moving one side of a rectangle keeps the rectangle, and the picture has to
   say so while the mouse is still down.
 
-  Tony, 15 September, on a rectangle drawn inside another: "the issue is that
+  From a note, 15 September, on a rectangle drawn inside another: "the issue is that
   line of the smaller inner rectangle is not staying snapped... sketchup
   doesnt seem to detach it and move it".  It was staying snapped - the two
   sides it joins shrink to follow.  What was missing was any sign of that in
@@ -1175,7 +1175,7 @@ begin
     Ok(HasLine(P3(0, 0, 0), P3(20, 0, 0)), 'the outer one never moved');
 
     { a corner of the outer rectangle is not shared with the inner one, so
-      moving a side of the outer stretches only its own neighbours }
+      moving a side of the outer stretches only its own neighbors }
     D.VertsOf([0], Pts);
     D.StretchPreview(Pts, P3(0, -3, 0), [0], Segs);
     EqI(Length(Segs) div 2, 2, 'and the outer side takes two of its own');
@@ -1187,7 +1187,7 @@ end;
 { A face is what a closed run of edges encloses, so rubbing out an edge has
   to take the faces it was holding up.
 
-  Tony, 15 September: "in SketchUp I don't think you can even have a filled
+  From a note, 15 September: "in SketchUp I don't think you can even have a filled
   face unless it is enclosed by lines.  So when I am erasing lines on a cube
   it will leave behind faces and I think that is wrong."
 
@@ -1277,7 +1277,7 @@ end;
 
 { Truss notation, which a shop writes as feet-inches-sixteenths.
 
-  Tony, 15 September: "wtf happened to being able to enter dimensions like
+  From a note, 15 September: "wtf happened to being able to enter dimensions like
   the truss guys do!?  that should have worked for my rectangle!  we need to
   make sure the truss notation is documented as a valid input in our online
   docs and it needs to be accepted everywhere and in every tool that takes a
@@ -1454,7 +1454,7 @@ end;
 
 { Where a guide crosses an edge is the point the guide exists to make.
 
-  Tony, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE I
+  From a note, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE I
   SET AT THE OTHER END OF THE RECTANGLE AT 1"!!!"
 
   You lay a guide an inch in from the end so that you can put something an
@@ -1463,7 +1463,7 @@ end;
   and a guide is not one - so the one point a guide is laid to create was
   the one point the cursor could not find.  Same shape of fault as the
   others this week: a rule taught to lines and never asked of its
-  neighbour. }
+  neighbor. }
 procedure TestGuidesMakeCrossings;
 var
   D: TWorkDoc;
@@ -1516,7 +1516,7 @@ end;
 { The tape lays a guide as a foot-long stub - where it was laid and which
   way it runs - and the guide stands for the whole line.  The test above used
   a guide ten feet long, and missed that crossings were only found along the
-  stub.  Tony, 16 September: a guide an inch up from the left of a square
+  stub.  From a note, 16 September: a guide an inch up from the left of a square
   gave nothing to snap to on the right. }
 procedure TestShortGuidesCrossFarAway;
 var
@@ -1592,7 +1592,7 @@ end;
 
 { Undo has to put back the openings as well as the outlines.
 
-  Tony, 15 September: "notice i moved the heckers sketch block words and then
+  From a note, 15 September: "notice i moved the heckers sketch block words and then
   hit undo and it left behind something where i had moved it to before
   undoing.  it is like it brought faces with it and left them behind."
 
@@ -1656,7 +1656,7 @@ end;
 
 { The tape lays a guide line and a guide point together, so they go together.
 
-  Tony, 15 September: "i was erasing the dashed guidlines and it would leave
+  From a note, 15 September: "i was erasing the dashed guidlines and it would leave
   behind the yellow guide points... those yellow guide points should have
   erased with their related guidelines anyway." }
 procedure TestGuidePointGoesWithItsLine;
@@ -1691,7 +1691,7 @@ end;
 
 { A guide point has to be easy to get hold of.
 
-  Tony, 15 September, after trying the same thing in SketchUp: "I have to
+  From a note, 15 September, after trying the same thing in SketchUp: "I have to
   admit trying to click it and select it to delete was very difficult and it
   took me 20 times to get it so that is a SketchUp problem... Don't let it be
   our problem.  Ours should make sure the select tool is what manages and
@@ -1755,7 +1755,7 @@ end;
 
 { Copy and paste, including from one sheet to another.
 
-  Tony: "we need to be able to copy and paste a selection and copy and paste
+  From a note: "we need to be able to copy and paste a selection and copy and paste
   from one sheet to another etc."
 
   The sheet-to-sheet half is the whole design constraint: what comes out of
@@ -1895,7 +1895,7 @@ end;
 
 { A borrowed depth buffer must not outlive the surface it belongs to.
 
-  Tony, 16 September: "everything seemed to be going great until the
+  From a note, 16 September: "everything seemed to be going great until the
   exception happened after i exported the gif then click in the canvas i got
   the exception."
 
@@ -2236,7 +2236,7 @@ end;
 
 { The nearest of the cube's twenty-six, which is what an orbit clicks into.
 
-  Tony: "let it do the animation like the cube does because it looks nice and
+  From a note: "let it do the animation like the cube does because it looks nice and
   you don't lose track of what you're looking at when it animates."
 
   The animation is the form's business; this is the arithmetic under it -
@@ -2306,7 +2306,7 @@ begin
 end;
 
 { A raised letter of the toy's logo came out outlined in red: the new edges
-  took the face's colour, not the colour of the outline they rose from. }
+  took the face's color, not the color of the outline they rose from. }
 procedure TestPushedEdgesKeepTheOutlineInk;
 const
   DARK = $00201C1A;
@@ -2316,7 +2316,7 @@ var
   I, Face, Wrong, New_: Integer;
   Was: Integer;
 begin
-  WriteLn('-- the edges a push makes are drawn in the outline''s colour');
+  WriteLn('-- the edges a push makes are drawn in the outline''s color');
   D := TWorkDoc.Create;
   try
     D.AddLine(P3(0, 0, 0), P3(2, 0, 0), DARK, 1, False);
@@ -2344,12 +2344,12 @@ end;
 
 { Rounding a corner, SketchUp's way.
 
-  Tony: "i was trying to make a rectangle have rounded corners using the arc
+  From a note: "i was trying to make a rectangle have rounded corners using the arc
   tool in its corners but it seemed like i was always getting like a bubbled
   out corner unless i got the dimension just right."
 
   A fillet is right when the arc runs TANGENT into both lines - the radius
-  from the centre to each touching point stands square to the line there.
+  from the center to each touching point stands square to the line there.
   That is the property every check below comes back to, in a square corner,
   a sharp one, on a wall and on a slope. }
 procedure TestFilletRoundsACorner;
@@ -2382,7 +2382,7 @@ begin
     MakeRect(D, 0, 0, 10, 6);
     Ok(D.FilletAt(P3(0, 0, 0), 2, F), '  a square corner has a fillet');
     Ok(SamePt(F.ArcC, P3(2, 2, 0), 1E-6),
-      Format('  its centre is two in from both sides (%.3f %.3f)', [F.ArcC.X, F.ArcC.Y]));
+      Format('  its center is two in from both sides (%.3f %.3f)', [F.ArcC.X, F.ArcC.Y]));
     Ok(Abs(F.T - 2) < 1E-9, '  and it touches each line two from the corner');
     Ok(Abs(Abs(F.Sweep) - Pi / 2) < 1E-6, '  a quarter turn, for a square corner');
     P0 := ArcPoint(F.ArcC, 2, F.A0, F.Pl);
@@ -2657,8 +2657,8 @@ end;
 { An example somebody changed and saved stays theirs; an untouched one gets
   the newer version. }
 { The complaint that started this: "i make colors red for example for a face
-  ... that shit is not looking red at all ... its still like grey over red".
-  It was true.  A face took eight percent of the pen colour over a near-white
+  ... that shit is not looking red at all ... its still like gray over red".
+  It was true.  A face took eight percent of the pen color over a near-white
   default, so pure red fetched up at (250, 230, 226) before the shading had
   even had a go at it.  A material of its own fixes it, and the only proof
   that counts is the pixel that lands on the screen. }
@@ -2702,9 +2702,9 @@ begin
     S.Clear(Pix(255, 255, 255));
     D.Render(S, V, usImperial, nil, Pix(0, 0, 0), 1);
     Was := Middle;
-    { red, and not a rumour of red: at least three times as much red as
+    { red, and not a rumor of red: at least three times as much red as
       either of the others.  The old eight percent mix gave 250/230/226,
-      which is a ratio of 1.09 and is why it read as grey. }
+      which is a ratio of 1.09 and is why it read as gray. }
     Ok((Was.R > 200) and (Was.G < 70) and (Was.B < 70),
       Format('painted red, it renders red (%d,%d,%d)', [Was.R, Was.G, Was.B]));
 
@@ -2713,7 +2713,7 @@ begin
     D.Render(S, V, usImperial, nil, Pix(0, 0, 0), 1);
     Was := Middle;
     Ok((Was.G > Was.R + 40) and (Was.G > Was.B + 40),
-      Format('and green renders green, not the same grey (%d,%d,%d)',
+      Format('and green renders green, not the same gray (%d,%d,%d)',
         [Was.R, Was.G, Was.B]));
 
     { and back to where it started }
@@ -2736,7 +2736,7 @@ end;
   of the list altogether because it can never be crossed; and a shape whose
   loops start at different heights, which is what the taking-in and the
   dropping are for. }
-{ Tony, by report, drawing the knobs on the etch-a-sketch toy: "trying to
+{ From a note, by report, drawing the knobs on the etch-a-sketch toy: "trying to
   erase the black ring on the top of the knobs... but it ends up selecting
   some of its walls underneath it sometimes."
 
@@ -2755,7 +2755,7 @@ end;
   the answer to "can I get back out of a face view using the cube" has to be
   yes, and it is not visible from the picture.
 
-  Tony, 18 September: "you need to be able to access the edges still even
+  From a note, 18 September: "you need to be able to access the edges still even
   though you flipped it flat to the top." }
 { A TDF flange leaves a square gap at each of the four corners, because each
   side's flange stops its own width short so the next one can fold.  On a job
@@ -2763,7 +2763,7 @@ end;
   names after the press that fits it.  The builder now draws them, or leaves
   them open the way the flange comes off the machine.
 
-  Tony, 18 September: "I would like to have a tdf option to have it drawn
+  From a note, 18 September: "I would like to have a tdf option to have it drawn
   with the cornermatic corners installed or like we have it now." }
 procedure TestTDFCornersGoInTheGaps;
 var
@@ -3013,10 +3013,10 @@ begin
     Ok(not D.Material(Plain, C), 'the face beside it is untouched');
     Ok(D[Painted].Ink = clRed, 'and the pen it was drawn with is unchanged');
 
-    { black is a colour you can paint with - which is why there is a flag
-      saying whether it has one, rather than a colour standing for none }
+    { black is a color you can paint with - which is why there is a flag
+      saying whether it has one, rather than a color standing for none }
     D.SetMaterial(Painted, clBlack);
-    Ok(D.Material(Painted, C) and (C = clBlack), 'black paints like any other colour');
+    Ok(D.Material(Painted, C) and (C = clBlack), 'black paints like any other color');
     D.SetMaterial(Painted, clRed);
 
     D.SaveTo(L);
@@ -3109,7 +3109,7 @@ end;
 
 { The manual beside the program: unpacking a release's help zip.
 
-  Tony: "have heckers sketch fetch it and unzip it and keep a copy locally
+  From a note: "have heckers sketch fetch it and unzip it and keep a copy locally
   next to the executable."  The download is checked against the release's
   sums; what is tested here is the part that writes files - that a good zip
   lands whole, and that a bad one lands nowhere and leaves what was there. }
@@ -3461,7 +3461,7 @@ begin
     Head := '';
     for I := 0 to L.Count - 1 do
       if Pos('<svg ', L[I]) > 0 then Head := L[I];
-    Ok(Pos('mm"', Head) > 0, 'a metric drawing is written in millimetres');
+    Ok(Pos('mm"', Head) > 0, 'a metric drawing is written in millimeters');
   finally
     Src.Free;
     L.Free;
@@ -3476,7 +3476,7 @@ end;
   pointer should be the direction you aimed at - and looking from there
   should put the cube back where you found it.
 
-  Worth testing rather than eyeballing: the maths is a ray cast through an
+  Worth testing rather than eyeballing: the math is a ray cast through an
   orthographic camera into a box, and every sign in it is a chance to get a
   cube that answers LEFT when you click RIGHT.  A picture would not tell you
   which, because a cube looks the same either way round. }
@@ -3668,7 +3668,7 @@ end;
 
 { The cursor runs along the edge of a face, not only along a drawn line.
 
-  Tony could dimension the robot and the lettering on the etch-a-sketch and
+  The owner could dimension the robot and the lettering on the etch-a-sketch and
   could not dimension the case they sit on.  The reason is that the case is
   ONE FACE of thirty-two corners - its longest edge is ten and a half inches
   - and it has no line entities at all, while the robot and the letters are
@@ -3764,7 +3764,7 @@ begin
     D.LoadFrom(Src, I);
     Ok(D.Live > 100, Format('the toy loaded - %d things', [D.Live]));
 
-    { The longest edge of any face in it, which is the run Tony was after.
+    { The longest edge of any face in it, which is the run the owner was after.
 
       Called on its own line.  Written inside the Ok(...) call it was
       evaluated AFTER the Format that reads what it sets - FPC pushes
@@ -3793,7 +3793,7 @@ begin
     { And the whole edge, which is what the dimension tool takes when you
       click the body of one.
 
-      Tony's second report on this: the cursor said ON EDGE and nothing lit
+      the second report on this: the cursor said ON EDGE and nothing lit
       up, because the hover and the click went through HitEdge - which looks
       at lines, arcs, dimensions and guides and never at the outline of a
       face - and then read the entity's own A and B, which a face has not
@@ -4450,7 +4450,7 @@ end;
 
 { A rounded rectangle taken in further than its corners' radius.  Every
   piece of each rounded corner used to turn round and come out as a little
-  loop the wrong way about - Tony, 17 September.  The rounding is used up
+  loop the wrong way about - From a note, 17 September.  The rounding is used up
   instead, and the corner is sharp, the way SketchUp does it. }
 procedure TestOffsetRoundedCorners;
 const
@@ -4769,7 +4769,7 @@ begin
       V.OY := 500;
       V.Az := 0;
       V.El := 0;
-      { dead centre is the island }
+      { dead center is the island }
       EqI(D.HitFace(V, 100 + 5 * 20, 500 - 3 * 20), Isle,
           'clicking the middle takes the island');
       { half a foot in from the left edge is the wall band }
@@ -4824,11 +4824,11 @@ end;
   nobody found it. }
 { Two tunnels through a block, the second crossing the first.
 
-  Tony, 13 September: "welp we broke the drill tool... i drilled through the
+  From a note, 13 September: "welp we broke the drill tool... i drilled through the
   other tunnel in the block and it built a magic wall".
 
   The magic wall is what a drill leaves when Bore cannot find the face the
-  tunnel comes out of.  It only recognises that face if the push lands
+  tunnel comes out of.  It only recognizes that face if the push lands
   exactly on its plane, to a millionth, and nobody drags to a millionth - so
   the bore quietly became an ordinary extrusion, a solid plug pushed into the
   block.  ThroughDistance works the distance out instead. }
@@ -5408,7 +5408,7 @@ begin
   Later('V2026.09.04',    'v2026.09.03',    True);
 end;
 
-{ Tony's house.
+{ the house.
 
   A rectangle, pulled up eight feet.  A gable post straight up from the
   middle of each end wall's top edge.  A ridge joining their tops.  Then a
@@ -5531,7 +5531,7 @@ begin
       The walker has no opinion about that: it runs each area whichever way
       it came to it, so the two slopes either side of a ridge both ran the
       ridge the same way and one of them came out inside out.  On screen that
-      is one grey slope and one pale blue one, and a report came in asking
+      is one gray slope and one pale blue one, and a report came in asking
       why.  The regions themselves show it above - the two slopes print with
       the same normal but for the sign of Z.
 
@@ -6520,7 +6520,7 @@ begin
       end;
     Ok(Wrong = 0, 'a transition''s walls all face out');
     { the elbow: both cheeks face along the height, the heel away from the
-      centre of the bend }
+      center of the bend }
     T := Default(TTransitionSpec);
     T.Kind := fkElbow; T.W0 := 20 / 12; T.H0 := 20 / 12; T.Inch := 1 / 12;
     T.Angle := Pi / 2; T.Throat := 4 / 12; T.Leg0 := 0; T.Leg1 := 0;
@@ -6540,7 +6540,7 @@ begin
         begin
           Mid := P3(0, 0, 0);
           for J := 0 to 3 do Mid := P3(Mid.X + D[I].Poly[J].X / 4, Mid.Y + D[I].Poly[J].Y / 4, 0);
-          { the throat is within the throat radius of the centre, the heel
+          { the throat is within the throat radius of the center, the heel
             beyond it }
           Cen := P3(24 / 12, 0, 0);
           if Dist(Mid, Cen) < 10 / 12 then
@@ -6777,7 +6777,7 @@ begin
   Ok(Abs(CutLength(S, 0) - 21 / 12) < 1E-9, 'the first leg cuts at 21"');
   Ok(Abs(CutLength(S, 1) - 21 / 12) < 1E-9, 'and so does the second');
   SpoolPath(S, Pts);
-  Ok(Length(Pts) = 15, 'the centreline: two straights and a 90 walked in twelve');
+  Ok(Length(Pts) = 15, 'the centerline: two straights and a 90 walked in twelve');
   Ok(Dist(Pts[High(Pts)], P3(2, 2, 0)) < 1E-9, 'ending where the fitter said');
   Ok(Abs(Pts[1].Y - 21 / 12) < 1E-9, 'the bend starting 3" back from the corner');
   D := TWorkDoc.Create;
@@ -6785,7 +6785,7 @@ begin
     First := BuildSpool(D, S, 0, 1);
     Faces := 0;
     for I := 0 to D.Live - 1 do if D[I].Kind = ekFace then Inc(Faces);
-    { a ring of facets for every step of the centreline - said that way
+    { a ring of facets for every step of the centerline - said that way
       round so it stays true when the pipe is made smoother again }
     Ok(Faces = (Length(Pts) - 1) * PIPE_SIDES,
       Format('the pipe: a ring of %d for each of the %d steps, open at both ends',
@@ -7382,7 +7382,7 @@ begin
         it is wrong somewhere by a quarter of the warp; each triangle is
         right everywhere, because a triangle cannot be anything else.
 
-        This is the fault Tony reported on 13 September as faces showing
+        This is the fault It was reported on 13 September as faces showing
         blue through the near side of a solid - the far side of it winning
         the depth test - and this is the check that says it cannot come
         back. }
@@ -7475,7 +7475,7 @@ begin
       Ok(M.Size = 84 + Int64(Cnt) * 50,
         Format('the file is exactly as long as %d triangles make it', [Cnt]));
 
-      { millimetres: ten feet is 3048 of them }
+      { millimeters: ten feet is 3048 of them }
       Sc := 304.8;
       Area := 0;
       Vol := 0;
@@ -7515,13 +7515,13 @@ begin
       end;
       { The same placing the SCAD gets - the uncle's actual complaint.
 
-        Centred across the bed and STANDING ON IT.  Centred in Z as well, as
+        Centerd across the bed and STANDING ON IT.  Centerd in Z as well, as
         this used to assert, buries the bottom half of the part in the build
         plate - which is one of the things he was opening another program to
         put right. }
       Ok((Abs(MinX + MaxX) < 1E-2) and (Abs(MinY + MaxY) < 1E-2) and
          (Abs(MinZ) < 1E-2),
-        Format('the STL is centred on the bed and sits on it (x %.1f..%.1f, z %.1f)',
+        Format('the STL is centerd on the bed and sits on it (x %.1f..%.1f, z %.1f)',
           [MinX, MaxX, MinZ]));
       Ok(NT = Integer(Cnt),
         Format('every triangle''s stated normal matches its corners (%d of %d)',
@@ -7538,7 +7538,7 @@ begin
       M.Free;
     end;
 
-    { metric drawings are in metres, so the multiplier is a thousand }
+    { metric drawings are in meters, so the multiplier is a thousand }
     M := TMemoryStream.Create;
     try
       D.WriteSTL(M, usMetric, Closed);
@@ -7559,7 +7559,7 @@ end;
 
 { --- a seam divided unevenly, and a sheet that disagrees with itself -----
 
-  Two faults from Tony's robot-and-house drawing of 13 September, both of
+  Two faults from the robot-and-house drawing of 13 September, both of
   which reached him as blue patches and neither of which was a depth problem
   at all. }
 procedure TestShells;
@@ -7629,7 +7629,7 @@ begin
           GroupClosed says yes or no.  When a slicer has just refused a model
           that is not much help, so OpenEdges hands back the edges themselves,
           in pairs, ready to be drawn on the screen.  Nothing draws them yet -
-          this is the analysis, saved because it is the hard half. }
+          this is the analyzis, saved because it is the hard half. }
     Gap := D.OpenEdges(Grp);
     Ok(Length(Gap) = 8,
       Format('and it names the four edges of the missing end (%d points = ' +
@@ -7648,7 +7648,7 @@ begin
   { --- a sheet that disagrees with itself -----------------------------
         A roof: two slopes meeting at a ridge, and a gable at each end.
         Wound one face at a time, half of them come out pointing into the
-        house, and what you see from outside is the back-face colour. }
+        house, and what you see from outside is the back-face color. }
   D := TWorkDoc.Create;
   try
     { y 0..8, ridge at y 4 and z 6, eaves at z 3, x 0..10 }
@@ -7719,7 +7719,7 @@ var
   Path: TCamPath;
   F: TFont;
 
-  { the width, height and colour type out of a PNG's IHDR }
+  { the width, height and color type out of a PNG's IHDR }
   function PngIs(const Fn: string; out W, H, ColorType: Integer): Boolean;
   var
     S: TFileStream;
@@ -7855,13 +7855,13 @@ begin
     Ok((W = 240) and (H = 180), Format('at the size asked for (%dx%d)', [W, H]));
 
     { --- the axes over a film, which is what actually crashed --------
-          A GIF holds 256 colours and something has to choose which.  That
+          A GIF holds 256 colors and something has to choose which.  That
           chooser is pluggable in BGRABitmap and naming its unit is not
           enough - the factory has to be handed over.  Until it was, a frame
-          of more than 256 colours reached a nil quantizer and the writer
+          of more than 256 colors reached a nil quantizer and the writer
           faulted, which is why a plain line drawing exported and the same
-          drawing with three anti-aliased coloured axes over it did not.
-          Tony's Windows crash of 13 September was this and nothing else.
+          drawing with three anti-aliased colored axes over it did not.
+          the Windows crash of 13 September was this and nothing else.
 
           So: a film WITH the axes on, which is the case that broke. }
     N := SavePathGif(D, Path, 900, 700, 200, 150, usImperial, F,
@@ -7873,7 +7873,7 @@ begin
     { --- how big a film is allowed to get ---------------------------
           The whole thing is held in memory at once and the packing pass
           duplicates it, so the number of frames comes from the area as well
-          as the length.  Tony's Windows machine fell over on 300 frames of
+          as the length.  the Windows machine fell over on 300 frames of
           800 by 600 - 576 MB of frames before packing - so this is the sum
           that has to keep coming out small enough. }
     FilmPlan(15.9, 20, 800, 600, N, W);
@@ -7911,7 +7911,7 @@ begin
         else
           Inc(Moved);
       end;
-    Ok(Moved = 0, Format('every walk keeps the pivot dead centre (%d of %d ' +
+    Ok(Moved = 0, Format('every walk keeps the pivot dead center (%d of %d ' +
       'frames held it)', [Held, Held + Moved]));
 
     { and they are not all the same walk }
@@ -8138,7 +8138,7 @@ begin
        and (Abs(CMid.Z) < 1E-9), 'and after moving it, the middle is on zero');
 
     { --- and /corner, which is the other half of the same want -------
-          Centred is what a slicer wants.  The corner is what somebody
+          Centerd is what a slicer wants.  The corner is what somebody
           measuring wants: the thing on the floor with its near edges against
           zero, so every number read off it is a distance from nothing rather
           than from half of itself.  The box is now -5..5, -2..2, -1.5..1.5,
@@ -8163,16 +8163,16 @@ begin
     { and putting it back where it was leaves the check after this alone }
     D.TranslateEnts(CIdx, P3(-5, -2, -1.5));
 
-    { --- centred on the bed, which is what a slicer wants ------------
-          Tony's uncle: a part opens in the next program wherever the drawing
+    { --- centerd on the bed, which is what a slicer wants ------------
+          the uncle: a part opens in the next program wherever the drawing
           put it, and for something drawn at building coordinates that is a
           long way off the plate.  The box above sits at 0..10, 0..4, 0..3, so
           placed for printing it runs -5..5, -2..2 and 0..3 in feet - across
           the bed in X and Y, and standing on it in Z. }
     Ok(Abs(MinOf3(Pts, NP, 0) + MaxOf3(Pts, NP, 0)) < 1E-3,
-      Format('centred in x (%.1f to %.1f mm)',
+      Format('centerd in x (%.1f to %.1f mm)',
         [MinOf3(Pts, NP, 0), MaxOf3(Pts, NP, 0)]));
-    Ok(Abs(MinOf3(Pts, NP, 1) + MaxOf3(Pts, NP, 1)) < 1E-3, 'centred in y');
+    Ok(Abs(MinOf3(Pts, NP, 1) + MaxOf3(Pts, NP, 1)) < 1E-3, 'centerd in y');
     Ok(Abs(MinOf3(Pts, NP, 2)) < 1E-3,
       Format('and standing on the bed, not half under it (z starts at %.1f mm)',
         [MinOf3(Pts, NP, 2)]));

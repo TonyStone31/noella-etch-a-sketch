@@ -1,6 +1,6 @@
 # Ctrl held through an orbit: let go and it clicks into the nearest view.
 #
-# Tony: "a modifier key for the orbit tool that makes it snap to... the
+# From a note: "a modifier key for the orbit tool that makes it snap to... the
 # closest preprogrammed views we have.... let it do the animation like the
 # cube does because it looks nice and you don't lose track of what you're
 # looking at when it animates."

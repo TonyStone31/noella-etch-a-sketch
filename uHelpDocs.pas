@@ -8,7 +8,7 @@ unit uHelpDocs;
   the release's SHA256SUMS, unpacks it into a folder called help beside the
   program, and says what version the pages in that folder are.
 
-  Tony, 17 September: "i want them stored on github like it is... i dont
+  From a note, 17 September: "i want them stored on github like it is... i dont
   want you to make a browser... we will going forward need to have a zip
   archive of the help docs in the releases and then we can have heckers
   sketch fetch it and unzip it and keep a copy locally next to the

@@ -14,8 +14,8 @@ unit uUnfold;
   out which triangle touches which.  Choose a spanning tree of that - the
   edges kept in the tree stay joined and become bends, the ones left out
   become cuts, so picking the tree is picking where the seam goes.  Then lay
-  the first triangle down and unfold each of its neighbours about the edge
-  they share, and their neighbours after them.  Every edge keeps its length,
+  the first triangle down and unfold each of its neighbors about the edge
+  they share, and their neighbors after them.  Every edge keeps its length,
   which is the whole trick and the reason the pattern fits.
 
   What this does not do is the half that decides whether it fits in the shop:
@@ -89,7 +89,7 @@ function Unfold(const Doc: TWorkDoc; const Faces: array of Integer;
 function SolidFaces(const Doc: TWorkDoc; Index: Integer): TIntArray;
 
 { The pattern as a DXF a table can cut: CUT, BEND and NOTCH on layers of
-  their own, in inches or millimetres according to the drawing's units. }
+  their own, in inches or millimeters according to the drawing's units. }
 procedure PatternToDxf(const Pat: TFlatPattern; U: TUnitSystem; L: TStrings);
 
 implementation
@@ -146,7 +146,7 @@ var
   K: Double;
   Lay: string;
 begin
-  { feet to inches, or metres to millimetres - a table wants shop units }
+  { feet to inches, or meters to millimeters - a table wants shop units }
   if U = usImperial then K := 12 else K := 1000;
   W := TDxfWriter.Create;
   try

@@ -1,7 +1,7 @@
 # Rounding a corner off: the whole reason edges have to break where they
 # cross.
 #
-# Tony, 15 September: "this is how i make rounded corners in a rectangle.  i
+# From a note, 15 September: "this is how i make rounded corners in a rectangle.  i
 # use the circle tool and temporary lines.  in sketchup i would be able to
 # remove all of those lines individually because the circle would have broke
 # the lines making the point in sketchup... then i would have been able to

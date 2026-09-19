@@ -220,7 +220,7 @@ const
      'The lines of this view, as vectors, for a drawing program.',
      'This view, flat, as entities somebody can measure in their own CAD.',
      'The model itself, in three dimensions, faces and all.',
-     'Triangles in millimetres, which is what a 3D printer wants.',
+     'Triangles in millimeters, which is what a 3D printer wants.',
      'A polyhedron per solid, to cut and union in OpenSCAD.');
 
 { ------------------------------------------------------------------------ }
@@ -277,7 +277,7 @@ procedure TExportDlg.BuildChrome;
     uDlgSkin.SkinLabel(Result, Dim, FH, Bold);
   end;
 
-  { A paragraph rather than a caption.  The drawn label centres one line and
+  { A paragraph rather than a caption.  The drawn label centers one line and
     lets it run off both ends - which is how the STL note lost its first
     letter and its last - so anything that is a sentence gets a plain label
     that wraps inside the width it was given. }
@@ -457,7 +457,7 @@ begin
   FMid := MkBtn(Opt, '', 14, 116, 232, 26, bkPlain);
   FMid.Tag := 4;
   FMid.OnClick := @Ticked;
-  ShowTick(FMid, True, 'Centre it on the origin');
+  ShowTick(FMid, True, 'Center it on the origin');
 
   FAxesOn := True;
   FAxes := MkBtn(Opt, '', 14, 180, 232, 26, bkPlain);
@@ -739,7 +739,7 @@ begin
 end;
 
 { A tick that is a button, for the same reason the combo draws itself: a
-  themed check box writes its own caption in the system's text colour and
+  themed check box writes its own caption in the system's text color and
   will not be told otherwise. }
 procedure TExportDlg.ShowTick(B: TBCButton; On_: Boolean; const Cap: string);
 begin
@@ -774,7 +774,7 @@ begin
        end;
     4: begin
          FMidOn := not FMidOn;
-         ShowTick(FMid, FMidOn, 'Centre it on the origin');
+         ShowTick(FMid, FMidOn, 'Center it on the origin');
        end;
     5: begin
          FBounceOn := not FBounceOn;
@@ -1208,13 +1208,13 @@ begin
         else if not Shut then
         begin
           FOpenSolid := True;
-          FMsg := Format('%d triangles in %d %s, in millimetres - but this ' +
+          FMsg := Format('%d triangles in %d %s, in millimeters - but this ' +
             'is not a closed solid, and a printer will not take it.  The ' +
             'edges where it is open are marked in red on the drawing.',
             [N, NTri, specialize IfThen<string>(NTri = 1, 'piece', 'pieces')]);
         end
         else
-          FMsg := Format('%d triangles in %d %s, in millimetres.',
+          FMsg := Format('%d triangles in %d %s, in millimeters.',
             [N, NTri, specialize IfThen<string>(NTri = 1, 'piece', 'pieces')]);
       end;
 
@@ -1233,13 +1233,13 @@ begin
         else if not Shut then
         begin
           FOpenSolid := True;
-          FMsg := Format('%d triangles, in millimetres - but this is not a ' +
+          FMsg := Format('%d triangles, in millimeters - but this is not a ' +
             'closed solid, so a slicer will have to guess at the inside.  ' +
             'The edges where it is open are marked in red on the drawing.',
             [NTri]);
         end
         else
-          FMsg := Format('%d triangles, in millimetres, closed and ready to ' +
+          FMsg := Format('%d triangles, in millimeters, closed and ready to ' +
             'slice.', [NTri]);
       end;
 

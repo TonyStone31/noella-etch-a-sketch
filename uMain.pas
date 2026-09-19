@@ -11,7 +11,7 @@ unit uMain;
   2026.  Same program, two personalities:
 
     TOY  - the original.  Two dials, five kinds of pen, a kaleidoscope, and a
-           shake that dissolves the drawing into aluminium powder.
+           shake that dissolves the drawing into aluminum powder.
 
     PRO  - a small drawing board for quick, honest sketches.  Pick a scale,
            put the cursor on a point, and draw by typing: 12'6" and Enter.
@@ -75,7 +75,7 @@ type
 
   { One pro-mode sheet.  Everything that belongs to a drawing rather than to
     the program lives here, so tabs are just a list of these. }
-  { Enough of a flat area to recognise it again at the next rebuild.
+  { Enough of a flat area to recognize it again at the next rebuild.
 
     Plane and area rather than the corners, because the corners are not a
     property of the shape: standing a post on a wall splits that wall's top
@@ -99,7 +99,7 @@ type
     it is something that can be changed - the two little steppers that change
     it.  The painter is dumb and reads this; the mouse looks in the same
     place for what it hit. }
-  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColour,
+  TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColor,
     iaMaterial, iaUnpaint);
   TInfoRow = record
     Caption: string;
@@ -153,7 +153,7 @@ type
       count as your work - and that marked every OTHER sheet saved as well.
 
       So: draw something, make a second sheet, close the first, and it went
-      without a word.  Tony, 15 September: "I recently had another modified
+      without a word.  From a note, 15 September: "I recently had another modified
       drawing and I closed its tab sheet and was not asked to save it."
 
       One flag per sheet, set where every edit already funnels through. }
@@ -235,9 +235,9 @@ type
     procedure KeepHelpCurrent;
     procedure HelpFetchProgress(BytesReceived, TotalBytes: Int64);
     procedure HelpFetchDone(Sender: TObject);
-    { the system colour picker, for a pen that is not on the palette }
-    procedure PickAnyColour;
-    function AskColour(Was: TColor; out C: TColor): Boolean;
+    { the system color picker, for a pen that is not on the palette }
+    procedure PickAnyColor;
+    function AskColor(Was: TColor; out C: TColor): Boolean;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -481,7 +481,7 @@ type
     { The entity panel down the right-hand side: what is picked, and the few
       things about it that can be changed from there.
 
-      Tony: "SketchUp has entities... And I think like for an arch you can
+      From a note: "SketchUp has entities... And I think like for an arch you can
       get into it and edit the number of segments.  I think we were trying to
       avoid having all these various properties but I think it's a direction
       we may need to head... I also think the entity window should be docked
@@ -508,7 +508,7 @@ type
       writes one line into the session log, which is what every bug report
       carries - so "it felt glitchy" arrives with its own diagnosis.
 
-      Tony: "we some times have clumsy things when moving around with tools
+      From a note: "we some times have clumsy things when moving around with tools
       selected at times where it seems the program is struggling or stuck in
       some loop for some reason and then you try to orbit and it glitches....
       Hard to pinpoint when and why." }
@@ -522,7 +522,7 @@ type
       is SketchUp's key for the same choice - theirs toggles between guide
       line and guide point and the cursor icon says which.
 
-      Both is the default and stays the default.  Tony: "I would like to be
+      Both is the default and stays the default.  From a note: "I would like to be
       able to select our points with the select tool and right click to
       delete them and for our dashed lines as well... So I guess we want the
       control key back with both the dot and dash being dropped as default
@@ -541,13 +541,13 @@ type
       out again does not hand it back.  Tracing one of its edges says they
       do want it after all, and this is how that reaches the region loop.
 
-      Tony, 15 September: "when I delete a face in SketchUp let's say in a
+      From a note, 15 September: "when I delete a face in SketchUp let's say in a
       cube there is a way to put it back if I remember correctly but it was
       a pain in the ass... We need to be able to do the same thing." }
     FHealOn: Boolean;
     FHealA, FHealB: TP3;
     { /detach: a move takes what is selected away on its own instead of
-      stretching what it is joined to.  Tony asked for both ways; the
+      stretching what it is joined to.  Both were asked for ways; the
       stretching one is what SketchUp does and stays what you get by
       default.  It is a command rather than a held key because a move has
       no key left - Ctrl leaves a copy, Shift holds the axis, Alt holds the
@@ -679,7 +679,7 @@ type
       "line up with that point" nudges wait for the hand to slow down: a
       cursor swept across a cube crosses an alignment with one of its
       corners every few pixels, and taking each one as it passed made the
-      cursor hunt sideways all the way over - what Tony called the mouse
+      cursor hunt sideways all the way over - what the owner called the mouse
       losing track of the rectangle. }
     FMoveSpeed: Double;
     FLastMoveTick: QWord;
@@ -840,7 +840,7 @@ type
       the wash on the face under the pointer.  None of those change between
       one paint and the next unless something says so, and rebuilding it
       every paint cost a full-window composite and a full-window copy each
-      time - 44 to 84 ms a frame on Tony's report of 17 September, with
+      time - 44 to 84 ms a frame on the report of 17 September, with
       nothing else happening at all. }
     FShotOK: Boolean;
     FShotHadSel: Boolean;
@@ -860,7 +860,7 @@ type
     FCubeCorner: Integer;
     { whether a click brings what is picked into the middle and sizes it.
       With nothing picked it never does, whatever this says - there is
-      nothing to centre on, and re-fitting the whole drawing every time
+      nothing to center on, and re-fitting the whole drawing every time
       somebody looks at it from another side throws away the zoom they set. }
     FCubeFitSel: Boolean;
     FCubeSkin: TArtSurface;
@@ -887,7 +887,7 @@ type
       timer keeps up and it does not: every step of the move redraws the
       model, so on a drawing of any size the ticks come slower than the
       sixteen milliseconds they are asked for and a third of a second of
-      animation takes a second and a half.  The recorder learnt this the
+      animation takes a second and a half.  The recorder learned this the
       same way - see the note on FClock in uRecord. }
     FGlideAt: QWord;
     { the two places the camera stands, which is what the move interpolates }
@@ -1011,13 +1011,13 @@ type
     procedure RightClickAt(X, Y: Integer);
     procedure FillCanvasMenu;
     procedure CanvasMenuClick(Sender: TObject);
-    procedure CentreSelection;
+    procedure CenterSelection;
     function ReverseSelectedFaces: Integer;
     { the material on a face, or on every picked face when the one being
       shown is one of them }
     function PaintSelectedFaces(Shown: Integer; C: TColor;
       Painting: Boolean): Integer;
-    { the pen colour of every picked line, arc, note and dimension }
+    { the pen color of every picked line, arc, note and dimension }
     function InkSelectedThings(C: TColor): Integer;
     function SelectedDim: Integer;
     function SelectedLine: Integer;
@@ -1453,7 +1453,7 @@ const
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
-    (Name: 'center';     Hint: 'center it on the floor at 0,0';         Arg: False; Eg: ''; Also: 'centre'),
+    (Name: 'center';     Hint: 'center it on the floor at 0,0';         Arg: False; Eg: ''; Also: 'middle'),
     (Name: 'circle';     Hint: 'the circle tool';                       Arg: False; Eg: ''; Also: 'c'),
     (Name: 'clear';      Hint: 'empty this sheet';                      Arg: False),
     (Name: 'close';      Hint: 'close this sheet';                      Arg: False),
@@ -1737,9 +1737,9 @@ const
   MAIN_BREAKS: array[0..4] of Integer = (1, 5, 7, 9, 13);
   { The three that are neither common nor obvious.  Two have come back out of
     here already.  Measure and the protractor went on the first day the strip
-    existed - measuring is not a specialist act, it is most of why somebody
+    existed - measuring is not a specializt act, it is most of why somebody
     opened the program.  Revolve went on the second, and for a worse reason:
-    a friend showed Tony a lathe in another program and he came to ask why we
+    a friend showed the owner a lathe in another program and he came to ask why we
     did not have one.  We have had one since the sixth of September.  It was
     called FOLLOW ME, which is SketchUp's name for sweeping along a path and
     nobody else's name for anything, and it was behind this door.  Beside
@@ -1860,11 +1860,11 @@ begin
     to where the cursor has wandered to.
 
     The offset of the working plane came from FCur, which is the last point
-    the cursor resolved to - so the plane travelled with the cursor.  Draw
+    the cursor resolved to - so the plane traveled with the cursor.  Draw
     three sides of an outline, have one inference put a point a foot off the
     plane, and the plane goes with it: every corner after that is on a
     different plane, the outline never closes, and no face is ever made.
-    That is what defeated Tony trying to draw a wine glass upright on
+    That is what defeated the owner trying to draw a wine glass upright on
     13 September, and it is why he ended up drawing it flat on the floor
     where there is nothing to drift onto.
 
@@ -1876,7 +1876,7 @@ begin
     One number doing both jobs, and that is not a shortcut - it is what a
     floor plan means.  The floor of what you can see is the floor you are
     drawing on, and things go up from it.  Set the bottom to 9'-0" and you
-    are on the second storey: seeing it, and drawing on it. }
+    are on the second story: seeing it, and drawing on it. }
   if (FD.View = vkPlan) and FD.SliceOn then Base.Z := FD.SliceLo;
   Result := Unproject(Proj, SX, SY, FD.Plane, Base);
 end;
@@ -2210,7 +2210,7 @@ begin
 
     Coming onto a point is a decision.  Sliding two pixels off it is not, and
     letting go that easily makes a snap something you fight rather than
-    something you use - which is what Tony noticed against SketchUp, where a
+    something you use - which is what It was noticed against SketchUp, where a
     point holds until you clearly mean to leave.  So it is taken from close
     in and released from much further out, and the gap between the two is the
     whole feel of it.
@@ -2289,7 +2289,7 @@ begin
       its middle is two additions and a comparison - no cache, no cost when
       the cursor is not near one.
 
-      This is why the tape measure would not find the centre of a line on
+      This is why the tape measure would not find the center of a line on
       anything built of faces. }
     MidP := P3((EdgeA.X + EdgeB.X) / 2, (EdgeA.Y + EdgeB.Y) / 2,
                (EdgeA.Z + EdgeB.Z) / 2);
@@ -2961,7 +2961,7 @@ begin
     end;
   { --blank: start on an empty sheet - no draft, no example.
 
-    Tony: "we should also have a startup parameter like --blank so it
+    From a note: "we should also have a startup parameter like --blank so it
     automatically opens with a blank drawing and doesnt load anything not
     even the initial toy model... it will make some of our testing and
     scripts shorter so we dont have to clear them all the time."
@@ -3379,7 +3379,7 @@ end;
   Clipped to the face, which is not the same thing as clipped to its outline,
   and this got that wrong for as long as it existed.
 
-  Tony, 15 September, building the toy's case: "using the push/pull tool and
+  From a note, 15 September, building the toy's case: "using the push/pull tool and
   when i am hovering over the outer ring face it highlights the face
   including the smaller rectangle face inside!  it should only be
   highlighting as much of the face as it can see!"  A rectangle drawn inside
@@ -3387,7 +3387,7 @@ end;
   belongs to the face inside, not to this one.  The push itself has always
   known that; only the picture said otherwise.
 
-  The second half of what he said is the other rule: a dot goes down only
+  The second half of the report is the other rule: a dot goes down only
   where the face is really in front, asked of the depth buffer the render
   left behind.  Otherwise the wash spills over whatever stands between the
   eye and the face, and the picture says that is coming up too.
@@ -3395,7 +3395,7 @@ end;
   Both rules were already written down and tested twenty lines away in
   WashFace, where the eraser uses them.  Neither had ever been asked of this
   one.  That is the third or fourth time the same shape of fault has turned
-  up: a rule learnt in one picker and never carried to its neighbour. }
+  up: a rule learned in one picker and never carried to its neighbor. }
 { With S given, the same wash drawn into that surface instead of onto the
   canvas, S's corner being at OX, OY on the screen, and only the part that
   falls inside it.  That is how the wash gets into the cursor's square - see
@@ -3504,12 +3504,12 @@ begin
     unmistakable rather than a hint.
 
     Filled a row at a time rather than a dot at a time, and that is not a
-    micro-optimisation.  Asking "is this dot inside" runs the crossing count
+    micro-optimization.  Asking "is this dot inside" runs the crossing count
     over the whole outline, with a divide per edge - and the outline of the
     toy's case has thirty-two corners.  On a face covering most of a screen
     that is a hundred and twenty thousand dots times thirty-eight edges, four
     million divides, for EVERY MOUSE MOVE while push/pull or the drill is in
-    hand.  Which is exactly the shape of Tony's "it seems the program is
+    hand.  Which is exactly the shape of the "it seems the program is
     struggling or stuck in some loop for some reason".
 
     A scanline asks the same question once per row instead: where does this
@@ -3774,9 +3774,9 @@ end;
 { Paint, and what gets painted.
 
   The panel is showing one face, but a face is rarely painted on its own -
-  a box is six of them and nobody wants six trips through a colour dialog.
+  a box is six of them and nobody wants six trips through a color dialog.
   So: if the face the panel is showing is part of what is picked, every
-  picked face takes the colour, which is what SketchUp's bucket does with a
+  picked face takes the color, which is what SketchUp's bucket does with a
   selection.  If it is not part of the selection - the panel can show what
   the mouse is over - then it is the only one that changes.
 
@@ -3812,7 +3812,7 @@ begin
   Invalidate;
 end;
 
-{ The colour of everything picked that is drawn with a pen.  Faces are not:
+{ The color of everything picked that is drawn with a pen.  Faces are not:
   they are painted, and PaintSelectedFaces does those.  Nor are guides -
   they are not part of the drawing and the panel has never offered it. }
 function TMainForm.InkSelectedThings(C: TColor): Integer;
@@ -3986,7 +3986,7 @@ begin
     if FD.Doc[FSel[I]].Kind = ekFace then Inc(Faces);
 
   { The same rows every time, in the same order, and the ones that would do
-    nothing greyed rather than missing.
+    nothing grayed rather than missing.
 
     It was built the other way - only the rows that applied - and that is how
     a menu becomes a hazard.  On a tessellated cylinder the right button
@@ -4008,7 +4008,7 @@ begin
   Add('Plan From Here', 4);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Faces = 1;
 
-  { Asked for by Tony: having centred a selection is what makes an export
+  { Asked for by From a note: having centerd a selection is what makes an export
     arrive where a slicer expects it, and the right button is where you
     already are when you have just selected the thing. }
   Add('Center on the Origin', 5);
@@ -4020,7 +4020,7 @@ begin
   Add('Into the Corner at 0,0,0', 6);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
 
-  { The guides.  Always both rows, greyed when the drawing has none, for the
+  { The guides.  Always both rows, grayed when the drawing has none, for the
     reason written at the top of this routine: a menu whose shape depends on
     what is in the drawing puts a destructive row under a hand aiming at a
     harmless one. }
@@ -4097,7 +4097,7 @@ begin
         FScreenDirty := True;
         InvalidateStatus;
       end;
-    5: CentreSelection;
+    5: CenterSelection;
     6: CornerSelection;
   end;
 end;
@@ -4106,12 +4106,12 @@ end;
   middle of it sits on the origin.
 
   Worth having on the drawing and not only on the way out to an STL: a
-  drawing that is centred is one where the exports, the dimensions taken from
+  drawing that is centerd is one where the exports, the dimensions taken from
   the origin and the three axis readings all agree with each other. }
-{ Centre it on the bed - across X and Y, and standing on Z.
+{ Center it on the bed - across X and Y, and standing on Z.
 
-  It used to centre all three axes, which puts the bottom half of the thing
-  under the floor.  That is a reasonable reading of "centre" and the wrong
+  It used to center all three axes, which puts the bottom half of the thing
+  under the floor.  That is a reasonable reading of "center" and the wrong
   one here: this command exists because a 3D print has to arrive where the
   slicer expects it, and every slicer expects the bed at Z nought.  A model
   half underground is the sort of thing somebody opens another program to put
@@ -4119,7 +4119,7 @@ end;
 
   /tozero is still the other one: not the middle over the origin, but the
   near bottom corner ON it. }
-procedure TMainForm.CentreSelection;
+procedure TMainForm.CenterSelection;
 var
   Mid, Lo, Hi: TP3;
   Idx: array of Integer;
@@ -4422,7 +4422,7 @@ begin
   end;
 end;
 
-{ Into the corner at the origin, rather than centred on it.
+{ Into the corner at the origin, rather than centerd on it.
 
   Centring is what a slicer wants - it puts the middle of the thing on the
   middle of the bed.  This is what a person wants when they are measuring:
@@ -4726,7 +4726,7 @@ end;
   was which - and PLAN in particular is where you first put something down. }
 { The ground, ruled, under a free camera.
 
-  The three coloured axes tell you which way is up and nothing else - there
+  The three colored axes tell you which way is up and nothing else - there
   is no sense of the floor a model is standing on, and no way to read how far
   across it something sits.  A lattice on Z = 0 gives both, the way a
   horizon does.
@@ -4806,7 +4806,7 @@ begin
   end;
 
   { Only the quarter the drawing belongs in - where both axes are drawn
-    solid.  Tony, 17 September: "that grid should only be visible between the
+    solid.  From a note, 17 September: "that grid should only be visible between the
     green and red in the default view... not the dashed negative side".  The
     dashes mean the other way along an axis, and floor out there is floor
     nobody is drawing on. }
@@ -4827,7 +4827,7 @@ begin
     The pitch is chosen in world units for the paper grid, which is square to
     the screen, so nobody had asked what it came to on the ground: at a
     working angle it came to about six pixels, and two hundred and sixty
-    faint lines six pixels apart are not a lattice, they are a grey wash that
+    faint lines six pixels apart are not a lattice, they are a gray wash that
     costs twenty-seven milliseconds a frame to lay down.
 
     So each family is coarsened on its own until its lines are far enough
@@ -4861,7 +4861,7 @@ begin
     It used to stop after MAX_LINES and leave the rest of the ground bare:
     the lines are laid from the low corner of the box the window casts onto
     the ground, so what ran out was the near half - the half the drawing is
-    usually standing in.  Tony, 17 September: "i clicked the grid button and
+    usually standing in.  From a note, 17 September: "i clicked the grid button and
     it didnt turn on.  i am not seeing it while i orbit."  It was on, and it
     was behind him.  Now the pitch is coarsened until the count fits, which
     is a wider lattice on a wide view rather than half a one. }
@@ -4876,14 +4876,14 @@ begin
   Col := Theme.Grid;
   { As strong as the ruled paper in the flat views, and every fifth line
     heavier, so the floor reads as squared paper laid on the ground rather
-    than a haze you have to look for.  Tony, 17 September: "i clicked the
+    than a haze you have to look for.  From a note, 17 September: "i clicked the
     grid button and it didnt turn on" - it had, at a third of the weight the
     plan view uses, on a light screen. }
   Fade := 0.45;
   Heavy := 1.00;
   { Hairlines, not the general line.  The general one measures its distance
     from every pixel near it, which on a hundred and ninety faint lines was
-    most of every orbiting frame on Tony's machine - 17 September, "zooming
+    most of every orbiting frame on the machine - 17 September, "zooming
     and moving around is not as smooth as it used to be".  These are one
     pixel wide and faint, and the cheap antialiasing looks the same. }
 
@@ -5086,7 +5086,7 @@ begin
     { The fill does not move with the camera, so it is made once and copied.
       It was made fresh on every paint - a shaded fill of every pixel, and on
       a light theme a scatter of grain - which was five or six milliseconds
-      of each orbiting frame at Tony's window size, for the same picture
+      of each orbiting frame at the window size, for the same picture
       every time.  Copied, the grain also stays where it was laid rather than
       crawling as the camera turns, which the note above already promised. }
     Key := Format('%d %d %d', [FThemeIdx, FPaper.Width, FPaper.Height]);
@@ -5122,7 +5122,7 @@ begin
         { The flat paper view is ruled like paper - it is a plan, and the
           paper is the ground seen square on.  Both views that show the model
           in three dimensions get the floor itself: squares lying in the red
-          and green plane, turning with the camera.  Tony, 17 September: "in
+          and green plane, turning with the camera.  From a note, 17 September: "in
           any 3d view that grid should only be visible between the green and
           red" - the isometric lattice climbed the two walls as well, which
           is paper, not a floor. }
@@ -5312,7 +5312,7 @@ end;
 
 { The camera has moved: say so, and draw it once, on the next frame.
 
-  Tony, 17 September, on Windows: "seems to be sluggish responding to my
+  From a note, 17 September, on Windows: "seems to be sluggish responding to my
   zoom in and zoom out and moving".  His report had frames of 400 to 600 ms
   with thirteen things in the drawing, nearly all of it "paper".  The paper
   is cheap - 3 to 16 ms here with his drawing - but a wheel zoom redrew it,
@@ -5368,7 +5368,7 @@ end;
 { Frame the drawing.
 
   It moves there rather than arriving there, when there is a window up to
-  watch it happen and the change is worth watching.  Tony's rule, and it is
+  watch it happen and the change is worth watching.  the rule, and it is
   the right one for every view change and not only the cube's: a drawing that
   jumps from one framing to another makes you work out what happened, and one
   that travels lets you keep hold of where things are.
@@ -5967,7 +5967,7 @@ begin
 
       There used to be two more here the moment a drawing had a guide in it -
       hide them, and clear them - and making room for them squeezed the five
-      settings until their words ran off the ends and over each other.  Tony:
+      settings until their words ran off the ends and over each other.  From a note:
       "those buttons scrunch the buttons up and make their text run off all
       the other buttons.  Looks like shit."
 
@@ -5982,7 +5982,7 @@ begin
       narrow window lost came out of the five settings - and at 1100 wide
       they were ninety pixels apiece for "PRINT SCALE 1\"", which needs a
       hundred and thirty.  The words ran out of the buttons and over each
-      other; Tony saw it in the help animations.
+      other; the owner saw it in the help animations.
 
       The settings say what is set, so they keep the room they need first,
       and the six - one short word each - shrink towards a floor that still
@@ -6840,7 +6840,7 @@ end;
 
 { "Plan from here" - the front door, for people who are not going to type two
   numbers.  The floor you clicked becomes the bottom of the slice and the top
-  goes a storey above it. }
+  goes a story above it. }
 procedure TMainForm.PlanFromFace(Face: Integer);
 var
   Lo, Hi: Double;
@@ -6852,7 +6852,7 @@ begin
   if Length(Poly) = 0 then Exit;
   Lo := Poly[0].Z;
   for K := 1 to High(Poly) do Lo := Min(Lo, Poly[K].Z);
-  { Eight feet, or two and a half metres - a storey.  Not the four feet a
+  { Eight feet, or two and a half meters - a story.  Not the four feet a
     real cut plane uses, because this is also the drawing plane and drawing
     on a floor you can only see four feet of is worse than seeing the lot. }
   if FD.Units = usImperial then Hi := Lo + 8 else Hi := Lo + 2.5;
@@ -6959,7 +6959,7 @@ end;
   They were in the bottom right corner among twelve identical squares, which
   is nowhere: the corner furthest from where anybody looks for them, in a
   cluster where Save and Units and Origin were the same size and the same
-  colour and told apart only by a sixteen pixel pictogram.  Putting them
+  color and told apart only by a sixteen pixel pictogram.  Putting them
   where the muscle memory already goes costs nothing and saves everybody one
   hunt per session.
 
@@ -7048,7 +7048,7 @@ begin
   for I := 0 to High(FQuick) do
   begin
     R := FQuick[I].Bounds;
-    { greyed out when it would do nothing, so the row reports the state of
+    { grayed out when it would do nothing, so the row reports the state of
       the drawing as well as offering to change it }
     Ena := True;
     if FQuick[I].Value = ACT_UNDO then Ena := FD.UndoTop > 0
@@ -7200,7 +7200,7 @@ begin
   { Rows as tall as they like to be, unless the window is too short for the
     column - and then tighter, down to a floor, rather than the list running
     on underneath MORE and SHOP.  It did, at 650 tall: MORE TOOLS, SHOP and
-    COLLAPSE drawn over each other, which Tony saw in the help animations.
+    COLLAPSE drawn over each other, which the owner saw in the help animations.
     Everything in the column scales together, so it still reads as one list. }
   Brk := 0;
   for I := 0 to High(MAIN_TOOLS) do
@@ -7389,7 +7389,7 @@ begin
     { Changing all of them at once.  The rule the panel had - nothing to
       edit with several picked, because a stepper that moved nine things at
       once is a way to lose nine things - holds for steppers and not for a
-      colour: a colour is one decision, it says on the button how many it
+      color: a color is one decision, it says on the button how many it
       lands on, and undo puts it back.  SketchUp paints a whole selection
       this way too. }
     if (NF > 0) or (NL + NA + NT + ND > 0) then Head('');
@@ -7400,7 +7400,7 @@ begin
       Row('', 'Back to default', iaUnpaint, -1);
     end;
     if NL + NA + NT + ND > 0 then
-      Row('Color', Format('Change %d...', [NL + NA + NT + ND]), iaColour, -1);
+      Row('Color', Format('Change %d...', [NL + NA + NT + ND]), iaColor, -1);
     if NF > 0 then
     begin
       Head('');
@@ -7418,7 +7418,7 @@ begin
       begin
         Head(IfThen(E.Dim, 'DIMENSION', 'LINE'));
         Row('Length', FormatLen(Dist(E.A, E.B), FD.Units));
-        { SketchUp greys the field when both ends are joined; this says it
+        { SketchUp grays the field when both ends are joined; this says it
           in words, and says how to change it when it can be }
         if not E.Dim then
           if FD.Doc.LineLengthEnd(I, InfoMoveB) then
@@ -7428,7 +7428,7 @@ begin
         Row('From', Place(E.A));
         Row('To', Place(E.B));
         Row('Width', Format('%d px', [Round(Max(1, E.Weight))]), iaWidth, I);
-        Row('Color', 'Change...', iaColour, I);
+        Row('Color', 'Change...', iaColor, I);
         Row('Crease', IfThen(E.Soft, 'Bring back', 'Soften'), iaSoft, I);
         if E.Grp <> 0 then Row('Part of', Format('solid %d', [E.Grp]))
         else Row('Part of', 'nothing - a loose edge');
@@ -7440,12 +7440,12 @@ begin
         Row('Center', Place(E.C));
         if Abs(Abs(E.Sweep) - 2 * Pi) > 1E-9 then
           Row('Sweep', FormatAngle(RadToDeg(Abs(E.Sweep))));
-        { The one Tony asked for outright: get into a circle and change how
+        { The one What was asked for was outright: get into a circle and change how
           many sides it is drawn with, after it has been drawn. }
         Row('Sides', IntToStr(ArcSteps(E)), iaSides, I);
         Row('Plane', PlaneWord(E.Plane));
         Row('Width', Format('%d px', [Round(Max(1, E.Weight))]), iaWidth, I);
-        Row('Color', 'Change...', iaColour, I);
+        Row('Color', 'Change...', iaColor, I);
         Row('Crease', IfThen(E.Soft, 'Bring back', 'Soften'), iaSoft, I);
       end;
     ekFace:
@@ -7459,7 +7459,7 @@ begin
         else Row('Part of', 'nothing - a loose face');
         { A face is painted, not inked.  The material is its own thing and
           the row says which it has: the near-white everything starts as,
-          or the colour somebody chose. }
+          or the color somebody chose. }
         if FD.Doc.Material(I, MatCol) then
         begin
           Row('Material', 'Change...', iaMaterial, I);
@@ -7477,7 +7477,7 @@ begin
         Row('At', Place(E.A));
         Row('Size', Format('%d%%', [Round(FD.Doc.NoteSize(I) * 100)]),
           iaNoteSize, I);
-        Row('Color', 'Change...', iaColour, I);
+        Row('Color', 'Change...', iaColor, I);
       end;
     ekDim:
       begin
@@ -7486,7 +7486,7 @@ begin
         if E.Txt <> '' then Row('Written', E.Txt);
         Row('From', Place(E.A));
         Row('To', Place(E.B));
-        Row('Color', 'Change...', iaColour, I);
+        Row('Color', 'Change...', iaColor, I);
       end;
     ekGuide:
       begin
@@ -7583,8 +7583,8 @@ begin
         Y + Round(2 * FUIScale), W - Pad, Y + RowH - Round(2 * FUIScale));
       FInfoRows[I].Minus := Rect(0, 0, 0, 0);
       PaintInfoStep(C, FInfoRows[I].Plus, S, FInfoHot = I * 2 + 1);
-      { the colour it has now, as a swatch where the value would go }
-      if (FInfoRows[I].Act in [iaColour, iaMaterial]) and
+      { the color it has now, as a swatch where the value would go }
+      if (FInfoRows[I].Act in [iaColor, iaMaterial]) and
          (FInfoRows[I].Ent >= 0) and (FInfoRows[I].Ent < FD.Doc.Live) then
       begin
         C.Brush.Style := bsSolid;
@@ -7776,13 +7776,13 @@ begin
         FD.Doc.SetWeight(FInfoRows[Row].Ent, PEN_SIZES[K]);
         FCmdMsg := Format('%d px.', [PEN_SIZES[K]]);
       end;
-    iaColour:
+    iaColor:
       begin
         { with several picked the row is for all of them, and there is no one
-          colour to start the dialog from - so it opens on the current pen }
+          color to start the dialog from - so it opens on the current pen }
         if FInfoRows[Row].Ent < 0 then
         begin
-          if not AskColour(FInkColor, Picked) then Exit;
+          if not AskColor(FInkColor, Picked) then Exit;
           PushUndo;
           K := InkSelectedThings(Picked);
           FCmdMsg := Format('%d thing%s recolored.',
@@ -7796,7 +7796,7 @@ begin
           Exit;
         end;
         if FInfoRows[Row].Ent >= FD.Doc.Live then Exit;
-        if not AskColour(FD.Doc[FInfoRows[Row].Ent].Ink, Picked) then Exit;
+        if not AskColor(FD.Doc[FInfoRows[Row].Ent].Ink, Picked) then Exit;
         PushUndo;
         FD.Doc.SetInk(FInfoRows[Row].Ent, Picked);
         FCmdMsg := 'Color changed.  The LINE COLOR button still sets what you draw next.';
@@ -7804,13 +7804,13 @@ begin
     iaMaterial:
       begin
         if FInfoRows[Row].Ent >= FD.Doc.Live then Exit;
-        { the colour it has now to start from, or the default it looks like.
+        { the color it has now to start from, or the default it looks like.
           With several picked there is no one material, so it opens on the
           default. }
         if (FInfoRows[Row].Ent < 0) or
            not FD.Doc.Material(FInfoRows[Row].Ent, Picked) then
           Picked := PixToColor(Pix($FA, $FA, $F6));
-        if not AskColour(Picked, Picked) then Exit;
+        if not AskColor(Picked, Picked) then Exit;
         PushUndo;
         K := PaintSelectedFaces(FInfoRows[Row].Ent, Picked, True);
         if K > 1 then
@@ -8266,7 +8266,7 @@ begin
     is a slice through the model now, it draws like a drawing, and it is
     where the cut fields live.  Leaving it off meant the only way into the
     one genuinely new thing in the program was to know that /plan existed -
-    and Tony, who owns it, clicked every row on this menu and never found
+    and the owner clicked every row on this menu and never found
     it.  If the person who commissioned a feature cannot reach it with a
     mouse, nobody can.
 
@@ -8904,8 +8904,8 @@ end;
 
   Drawn small and pale, because they are an offer rather than a
   confirmation - the cursor marker still says what actually got snapped.
-  The middle of a face is the one Tony asked for by name: a circle struck
-  from the centre of a panel is most of what this program gets used for. }
+  The middle of a face is the one What was asked for was by name: a circle struck
+  from the center of a panel is most of what this program gets used for. }
 { The rubber band, leaned on until it breaks.
 
   A line under your hand is elastic - it follows you about, and letting go of
@@ -8929,7 +8929,7 @@ end;
 
 { Shaking the mouse to say which way you meant it.
 
-  Tony, drawing a rectangle in the 3D view that kept standing up when he
+  The owner, drawing a rectangle in the 3D view that kept standing up when he
   wanted it flat: "I was getting frustrated and did a sideways jerk back and
   forth with the mouse and I thought, hey, that should have said I want the
   left-right axis."
@@ -9341,7 +9341,7 @@ begin
   { Said before it happens, not after.  An axis through the middle of the
     outline sweeps the two halves of it into each other, and what comes out
     is a knot with no outside - which is not a thing anybody has ever wanted
-    and is very hard to recognise once it is drawn. }
+    and is very hard to recognize once it is drawn. }
   Split := AxisSplitsProfile(AxisP, AxisDir, RLo, RHi);
   if Split then
   begin
@@ -9566,7 +9566,7 @@ end;
 
 { Copy, cut and paste.
 
-  Tony: "we need to be able to copy and paste a selection and copy and paste
+  From a note: "we need to be able to copy and paste a selection and copy and paste
   from one sheet to another etc."
 
   The sheet-to-sheet half is why the clipboard holds a deep copy rather than
@@ -9727,7 +9727,7 @@ begin
   try
     if UpdateForm.Run(Info, Tmp) then
     begin
-      { No question on the way out.  Tony, 17 September: the save question
+      { No question on the way out.  From a note, 17 September: the save question
         came up, he did not answer it straight away, and the new copy - which
         waits for this one to let go - gave up and said another copy was
         running.  Everything is in the handoff; asking only adds a way for
@@ -9749,7 +9749,7 @@ end;
 
   The draft would bring the work back, but the way a crash recovery does:
   not knowing which file it came from, and with nothing marked unsaved.  An
-  update is not a crash.  Tony: "bring back the unsaved flags ... keep your
+  update is not a crash.  From a note: "bring back the unsaved flags ... keep your
   drawings just as [they are] and restart."  So this carries what the draft
   leaves out, in comment lines the reader skips - the file, the sheet in
   front, and which sheets have work that is not saved. }
@@ -10301,7 +10301,7 @@ begin
       somebody's work they are about to send, so it says that.
 
       And with nothing drawn there is nothing to decide: the box goes off and
-      greys out rather than offering to send an empty sheet. }
+      grays out rather than offering to send an empty sheet. }
     NThings := DocThings(DocFile);
     if NThings = 0 then
       WithDoc.Caption := 'Send the drawing too - nothing drawn yet'
@@ -10309,7 +10309,7 @@ begin
       WithDoc.Caption := Format('Send the drawing too - %d %s drawn so far',
         [NThings, specialize IfThen<string>(NThings = 1, 'thing', 'things')]);
 
-    { On by default.  Tony's, and he is right: it is the single most useful
+    { On by default.  the, and he is right: it is the single most useful
       thing in a report and it was going unticked simply because it was
       unticked.  It stays a tick box, and it stays easy to see, because it is
       somebody's work and they get to say.
@@ -10430,7 +10430,7 @@ begin
 
   if Res <> mrOK then
   begin
-    FCmdMsg := 'Report cancelled.';
+    FCmdMsg := 'Report canceled.';
     Exit;
   end;
 
@@ -10500,7 +10500,7 @@ begin
   pbCmd.Invalidate;
   { Shown going out, stage by stage, the way an update is shown coming in -
     what is being sent and how big it is, with a moment on each so it can be
-    read.  Tony's ask: a report that vanishes in a blink is a report you
+    read.  the ask: a report that vanishes in a blink is a report you
     cannot vouch for. }
   Sending := TSendForm.CreateSending(Self, 'Sending your report');
   try
@@ -10688,7 +10688,7 @@ begin
           already taken - so the second crash found heckers-sketch-crash.txt
           .sent already sitting there, the rename quietly failed, the report
           stayed where it was, and every start after that asked about the
-          same crash again.  Which is exactly what Tony saw, and only ever on
+          same crash again.  Which is exactly what the owner saw, and only ever on
           Windows. }
         if ReportBug(L.Text, Fn + '.png', Fn + '.hsk') then
         begin
@@ -10798,7 +10798,7 @@ end;
   line tool, where the thing in progress *is* one strand.  On a rectangle it
   strained a single diagonal from the first corner to the cursor - which is
   not any part of the rectangle, and read as though something else entirely
-  had appeared to be destroyed.  Tony's note: a rectangle should come under
+  had appeared to be destroyed.  the note: a rectangle should come under
   tension as a rectangle.  So each tool says what its outline is and the
   strain is laid along all of it. }
 function TMainForm.StrainOutline(out Pts: TPointFArray): Boolean;
@@ -10940,7 +10940,7 @@ begin
   NX := -DY / L;
   NY := DX / L;
   { away from the middle, so the whole shape swells rather than each side
-    bowing whichever way its own maths happened to point }
+    bowing whichever way its own math happened to point }
   if Outward and
      (NX * ((A.X + B.X) / 2 - CX) + NY * ((A.Y + B.Y) / 2 - CY) < 0) then
   begin
@@ -11196,7 +11196,7 @@ begin
   C.Pen.Width := 1;
 end;
 
-{ Wash a face in a colour without hiding what is on it.
+{ Wash a face in a color without hiding what is on it.
 
   A solid fill over a panel would cover the lines and the notes that live on
   it, which is the opposite of helpful when the question being asked is "am I
@@ -11360,12 +11360,12 @@ end;
 
 { The plane you locked, drawn where you are working.
 
-  Tony asked for the rubber band to take the colour of the plane so you can
+  What was asked for was the rubber band to take the color of the plane so you can
   see you are still drawing flat.  We tried that once and it is written down
   in Rubber why it came out: a plane is named by the axis it **faces**, and
   that is the one axis a line lying in it can never run along.  Stood up on
   XZ, an outline would be drawn green, when every side of it runs red or
-  blue.  It is not a near miss, it is the one colour the line has no claim
+  blue.  It is not a near miss, it is the one color the line has no claim
   to.
 
   But the thing he actually needs to see is real, and a single line cannot
@@ -11374,8 +11374,8 @@ end;
   out red and blue and you know at a glance you are on XZ.
 
   So the plane says it itself.  Two short lines through the point, along the
-  plane's own two directions, in their own axis colours.  Red and blue means
-  upright; red and green means flat.  The same colour language as everything
+  plane's own two directions, in their own axis colors.  Red and blue means
+  upright; red and green means flat.  The same color language as everything
   else, saying the thing the rubber band cannot. }
 procedure TMainForm.PaintHeldPlane(C: TCanvas);
 const
@@ -11576,7 +11576,7 @@ begin
     traced that, so picking a guide drew a blue line one foot long, starting
     nowhere anybody could see and stopping nowhere either.
 
-    Tony, 15 September, on a picture of two of them: "those lines are not
+    From a note, 15 September, on a picture of two of them: "those lines are not
     actually there in this drawing... the 2 blue lines sticking out of the
     rectangle.. wtf."  They were there - they were the guides he had picked,
     highlighted at the length they are stored at rather than the length they
@@ -11721,22 +11721,22 @@ var
       to.  An edge that runs off on its own gets no axis color, the same way
       it gets none once it is drawn. }
     { Only while an axis is something the cursor is actually allowed to
-      infer.  Tony, by report, 18 September: "this red line seems to snap on
+      infer.  From a note, by report, 18 September: "this red line seems to snap on
       the red axis which is fine but it seems to be snapping red in multiple
       positions so something may not be right" - and the bar in his picture
       said, at the same moment, "the points only - no axis, nothing
       parallel".  Alt had turned the axis inferences off and the band was
       still going red whenever the line happened to lie along red.
 
-      The colour IS the inference: red means "I am holding you on red".
+      The color IS the inference: red means "I am holding you on red".
       Saying it while holding nothing is a lie, and a convincing one - it
       reads as a snap that keeps coming and going.  An axis the arrows have
       locked is different; that one is held whatever Alt says. }
     if FAxisLock in [0..2] then Ax := FAxisLock
     else if FInferMode = imAll then Ax := AxisAlong(A, B)
     else Ax := -1;
-    { Parallel or square to an edge is magenta, which is the colour SketchUp
-      gives that pair - and it is not an axis colour, so it cannot be read
+    { Parallel or square to an edge is magenta, which is the color SketchUp
+      gives that pair - and it is not an axis color, so it cannot be read
       as one. }
     if FParPerp > 0 then
       C.Pen.Color := PixToColor(Pix($C8, $3C, $C8))
@@ -11758,7 +11758,7 @@ begin
   { --- live preview ---------------------------------------------------- }
 
   { Leaning on the button to throw away what is being drawn works for every
-    tool that has something in progress, not only for a run of lines.  Tony's
+    tool that has something in progress, not only for a run of lines.  the
     observation, and it is the right one: you know you have made a mess the
     instant the button goes down, and the fix should be to keep leaning on it
     rather than to finish the shape, find the eraser, and pick it off again.
@@ -11784,7 +11784,7 @@ begin
       begin
         { Before the first corner as well as after it.  Flipping between the
           planes and not being sure which one you were about to get is what
-          Tony reported; the two coloured lines say it while there is still
+          It was reported; the two colored lines say it while there is still
           nothing drawn. }
         PaintHeldPlane(C);
         if FStage = 1 then
@@ -12005,7 +12005,7 @@ begin
     Format('%s   (view %s)', [S1, ZoomReading]));
 
   { --- where a solid is not closed ------------------------------------- }
-  { Laid over everything, in the colour of a warning, because the question
+  { Laid over everything, in the color of a warning, because the question
     somebody has when a slicer refuses their model is not "is it open" - the
     export already answers that - but "where".  Dropped the moment the
     drawing changes: an answer about geometry that has been edited since is
@@ -12059,7 +12059,7 @@ begin
   if (FTool in [ptSelect, ptMove, ptRotate]) and (FHoverEnt >= 0) and
      not IsSelected(FHoverEnt) then
   begin
-    { A guide says so by changing colour, not by being outlined.  Tony, 17
+    { A guide says so by changing color, not by being outlined.  The owner, 17
       September: "it just changes the color of the dash line to blue... not a
       thick blue highlight like we do".  It is construction, and a band of
       blue laid over the drawing to say the cursor is near a dashed line is
@@ -12291,7 +12291,7 @@ end;
 
 { A note beside the button the pointer is on.
 
-  There have never been tooltips, and it took Tony hovering over the new tool
+  There have never been tooltips, and it took the owner hovering over the new tool
   strip to notice why: the hover text goes to `FHint`, which is painted in
   the **title bar**.  Seven hundred pixels from the pointer, in the smallest
   dim type on the window, and only when the form happens to repaint - so
@@ -12390,7 +12390,7 @@ begin
     if HaveSel then
       { The selection comes from its cached layer, composited over the
         picture - see EnsureSelLayer.  Every selection, not only a huge one:
-        drawing it on the canvas instead cost Tony nearly two seconds a frame
+        drawing it on the canvas instead cost the owner nearly two seconds a frame
         at twelve hundred things picked. }
       FSelShot.CompositeOver(FArt, FSelLayer, Rect(0, 0, FArt.Width, FArt.Height))
     else
@@ -12406,7 +12406,7 @@ begin
 
     It was written onto the canvas a dot at a time, and a dot on a canvas is
     a call into the platform each.  Zoomed in, the face is the whole window:
-    measured at 25 ms a frame on a 919 x 471 window here, and Tony's report
+    measured at 25 ms a frame on a 919 x 471 window here, and the report
     from a 1694 x 769 Windows screen had frames of 60 to 94 ms standing
     still with the arc tool over a face.  Into a copy of the picture it is a
     row fill in memory, and the copy goes to the screen in the one blit it
@@ -12611,7 +12611,7 @@ begin
     is red, left is green, up is blue.  Left and right are the two upright
     planes; up is the ground.
 
-    Down used to let go again, and Tony read the set as not quite intuitive.
+    Down used to let go again, and the owner read the set as not quite intuitive.
     He is right about the shape of it: up and down are one gesture and they
     should mean one thing, which is flat - the way up and down mean flat on
     a table.  Esc has always let go as well, and says so in every message
@@ -12758,7 +12758,7 @@ begin
   case Pl of
     plXZ: Result := AxisPix(1);      { faces along Y, green }
     plYZ: Result := AxisPix(0);      { faces along X, red }
-    { A sloped face points along no axis, so it gets no axis colour.  Saying
+    { A sloped face points along no axis, so it gets no axis color.  Saying
       "some of red and some of blue" with a blend would read as a third axis
       that does not exist. }
     plFree: Result := Theme.Accent;
@@ -12950,7 +12950,7 @@ begin
 end;
 
 { The keys that do something right now, for the tool in hand and where it
-  is up to.  Tony, 17 September: "there is some status helpers that pop up
+  is up to.  From a note, 17 September: "there is some status helpers that pop up
   telling you to use alt or ctrl keys and why... SketchUp does it in the
   bottom of their status bar.  It gives lots of good info in their tools."
 
@@ -13444,10 +13444,10 @@ begin
       begin
         { Double-click lets go of the run.
 
-          SketchUp does *not* do this - Tony checked, and there a second
+          SketchUp does *not* do this - the owner checked, and there a second
           click just drops another point; you press Esc.  This is one of the
-          few places worth being deliberately unlike it, because he asked for
-          a way to let go with the mouse and the keyboard was the only one.
+          few places worth being deliberately unlike it: what was wanted was
+          a way to let go with the mouse, and the keyboard was the only one.
 
           The second click must not also place a point.  It lands in the same
           spot as the first, so committing it would leave a line of zero
@@ -13559,7 +13559,7 @@ begin
           end;
         1:
           begin
-            { a circle under the cursor is a turn about its centre - which is
+            { a circle under the cursor is a turn about its center - which is
               what following round it comes to; a line or an open arc is the
               start of a path }
             I := FD.Doc.HitEdge(Proj, FMouseSX, FMouseSY, 9 * FUIScale);
@@ -13577,7 +13577,7 @@ begin
               is what anybody does when asked for the axis.  It used to mean
               "sweep the outline along this", which is meaningless: you
               cannot sweep a face along its own edge, and what came out was
-              nothing at all.  Tony tried it repeatedly on 13 September and
+              nothing at all.  The owner tried it repeatedly on 13 September and
               got nothing repeatedly.
 
               So it means what it looks like it means.  Sweeping along a
@@ -13695,7 +13695,7 @@ begin
             { A corner is always on an edge, so "near an edge" alone made a
               point-to-point dimension impossible from any corner: the
               click took the whole edge every time.  A point the cursor has
-              snapped to - a corner, a midpoint, a centre - is the point
+              snapped to - a corner, a midpoint, a center - is the point
               meant; only a free cursor on the body of an edge takes the
               edge. }
             { What the hover lit up is what the click takes - worked out
@@ -13721,7 +13721,7 @@ begin
                 stale number that looks authoritative is worse than no
                 number.  Their documentation lists exactly what a dimension
                 may start and end on: end points, midpoints, on-edge points,
-                intersections, and arc and circle centres. }
+                intersections, and arc and circle centers. }
               FCmdMsg := 'A dimension has to measure something - a corner, ' +
                          'a midpoint, a center, or a point on an edge.';
               InvalidateStatus;
@@ -13827,7 +13827,7 @@ begin
     comes from the cursor.  A rectangle of the wrong size and not a word
     said about why.
 
-    Tony, 15 September: "uhm dude wtf happened to being able to enter
+    From a note, 15 September: "uhm dude wtf happened to being able to enter
     dimensions like the truss guys do!?  that should have worked for my
     rectangle!"  The truss form works - 6-8-15x4-0-0 makes a rectangle six
     foot eight and fifteen sixteenths by four foot - and one on its own did
@@ -14086,7 +14086,7 @@ begin
         { A corner being rounded: its own geometry, and the square corner
           left where it is.
 
-          Tony: "in sketchup you have to erase the sharp left over 90 degree
+          From a note: "in sketchup you have to erase the sharp left over 90 degree
           lines after you put the arc there... because in some situations...
           who knows maybe you just want an arc inside the pointed corner...
           so keep it just like sketchup!"
@@ -14205,7 +14205,7 @@ begin
           begin
             { Alt: take it away on its own and leave what it was joined to
               where it is.  SketchUp has no such thing - it always stretches -
-              but Tony asked for both and there is a reason to want it: a
+              but Both were asked for and there is a reason to want it: a
               line drawn as a guide to something else should not drag the
               something else along when it goes. }
             FD.Doc.TranslateEnts(FSel, T);
@@ -14386,7 +14386,7 @@ begin
         end;
         { And that is the whole of the tape.  There used to be a third stage
           it sat in afterwards, where another Enter turned the run into a
-          dimension - and sitting in it is what made both of the faults Tony
+          dimension - and sitting in it is what made both of the faults the owner
           reported in one go.
 
           "the tape measure leaving phantom lines after a while... switching
@@ -14755,8 +14755,8 @@ begin
     RecomposeAll;
     FCmdMsg := Format('Forgot what was seen and worked the faces out again: %d.', [I]);
   end
-  else if (W = 'center') or (W = 'centre') then
-    CentreSelection
+  else if (W = 'center') or (W = 'middle') then
+    CenterSelection
   { The other half of it: not the middle on the origin but the near bottom
     corner, so the thing stands on the floor with its edges against zero.
 
@@ -14781,7 +14781,7 @@ begin
     "fitselection" decides whether a click brings what is picked into the
     middle and sizes it on the way round. }
   { Moving one side of a rectangle stretches the two it joins, which is what
-    SketchUp does and what anybody drawing expects.  Tony wanted the other
+    SketchUp does and what anybody drawing expects.  What was wanted was the other
     way as well - take the line away and leave the rest where it is - and a
     move has no key left to hold for it: Ctrl leaves a copy, Shift holds the
     axis, Alt holds the working plane, and every letter is a tool.  So it is
@@ -14942,7 +14942,7 @@ begin
       The walls of a duct, a fitting, a spool piece, the body of the example
       toy - none of them have a loop of lines under them to be worked out
       from again, because they were pulled out of a face rather than drawn.
-      So they went, and nothing came back: 606 faces on Tony's fittings
+      So they went, and nothing came back: 606 faces on the fittings
       drawing, all of them, and undo the only way home.  What cannot be
       remade is not thrown away. }
     PushUndo;
@@ -15354,7 +15354,7 @@ begin
       button comes up, or until it has been held long enough to break. }
     { The same for push/pull, drill and offset.
 
-      Tony: "I committed to a push pull with mouse down and realized I fucked
+      From a note: "I committed to a push pull with mouse down and realized I fucked
       up before releasing the mouse button".  Those three commit on the press
       going down, so by the time you know it was wrong it is already done and
       the only way out is undo.  They wait for the button to come up now,
@@ -15772,7 +15772,7 @@ end;
 
 { Everything else the program knows about how it was being used.
 
-  Tony, 17 September, after a report about sluggishness that did not say the
+  From a note, 17 September, after a report about sluggishness that did not say the
   grid was off: "the reports need to include as much info as possible ...
   it could mean 10 hours tracing a bug or 10 minutes."  So this is the long
   list - how it was started, the window and the screen it is on, the view
@@ -16381,7 +16381,7 @@ begin
     begin
       HN := FD.Doc.FaceNormal(HF);
       { A face square to an axis gets the matching flat plane, because those
-        have their own quick arithmetic and their own colour.  Anything else -
+        have their own quick arithmetic and their own color.  Anything else -
         a roof, a hopper side, a transition - gets a plane of its own, taken
         from the face itself.  Without that last line a circle could only be
         put on something square to an axis, and every slope in the trade was
@@ -16534,7 +16534,7 @@ end;
   fine looking down at it and meaningless looking along it, because there is
   no crossing point to find.
 
-  That is the crash Tony reported: orbiting an empty drawing swings the
+  That is the crash It was reported: orbiting an empty drawing swings the
   camera through level, the pivot came back a billion feet away, and
   everything drawn afterwards was drawn relative to it.  An empty sheet turns
   about the origin instead, which is the only point on it that means
@@ -16558,11 +16558,11 @@ end;
   Tried against SketchUp on 5 September 2026 and kept.  SketchUp does it a
   different way underneath - its camera has a target, orbit swings the eye
   about that target, and the target sits at the middle of the canvas, so
-  what stays put there is the canvas centre rather than the thing you
+  what stays put there is the canvas center rather than the thing you
   grabbed.  The two only disagree once the drawing has been panned off
-  centre.  Pinning what you grabbed felt right in use and it is the smaller
+  center.  Pinning what you grabbed felt right in use and it is the smaller
   idea, so it stands; do not quietly convert this to a camera target because
-  it is what SketchUp does internally.  If the canvas centre is ever seen to
+  it is what SketchUp does internally.  If the canvas center is ever seen to
   drift, that is the change to make, and it replaces this rather than being
   added to it. }
 procedure TMainForm.AnchorOrbit(SX, SY: Integer);
@@ -16661,8 +16661,8 @@ begin
   case Which of
     POP_SCALE: Result := SCALE_COUNT;
     POP_SNAP: Result := SNAP_COUNT;
-    { one row past the palette, for a colour that is not on it.  A list can
-      hold more than a row of swatches ever could, and twelve colours with
+    { one row past the palette, for a color that is not on it.  A list can
+      hold more than a row of swatches ever could, and twelve colors with
       no way to ask for a thirteenth is the row's limit brought along by
       accident. }
     POP_COLOR: Result := Length(PALETTE) + 1;
@@ -16733,7 +16733,7 @@ begin
         FCmdMsg := 'Snap: ' + SnapName(FD.Units, FD.SnapIdx);
       end;
     POP_COLOR:
-      if I = Length(PALETTE) then PickAnyColour
+      if I = Length(PALETTE) then PickAnyColor
       else SetInk(PALETTE[I], False);
     POP_WIDTH: SetPenSize(PEN_SIZES[I]);
     POP_SHOP:
@@ -16860,7 +16860,7 @@ begin
     with the panel taking the right of the drawing, the HELP button is
     further right than the drawing goes.  The list was then pushed back to
     the edge of the paper and stood there, a panel's width away from the
-    button it belongs to.  Tony: "the help menu popup menu is not aligned
+    button it belongs to.  From a note: "the help menu popup menu is not aligned
     above the button anymore it is aligning to the edge of the canvas paint
     area which is annoying".
 
@@ -17137,7 +17137,7 @@ begin
     buffer measure ten milliseconds.  It was the canvas calls - thousands of
     them, each one a trip through gtk3 and cairo.
 
-    Tony, 16 September, with everything in a revolved dome selected: "there
+    From a note, 16 September, with everything in a revolved dome selected: "there
     is a glitching and freezing issue happening and i hope our logs capture
     it".  They did, and this is the first time they have:
 
@@ -17520,7 +17520,7 @@ var
     if (E < 0) or Have[E] then Exit;
     { A guide laid from a corner shares that corner, and the flood used to
       walk straight through it and bring every guide in the drawing along.
-      Tony, 16 September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS!
+      From a note, 16 September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS!
       guides are not part of a drawing!" }
     if FD.Doc[E].Kind = ekGuide then Exit;
     Have[E] := True;
@@ -17689,7 +17689,7 @@ begin
   RecomposeAll;
 end;
 
-{ How far the move has travelled.  A typed value wins over the pointer: a
+{ How far the move has traveled.  A typed value wins over the pointer: a
   bare length runs along whichever direction is in force, [x,y,z] names a
   point in the drawing outright, and <x,y,z> is an offset from the grab. }
 function TMainForm.MoveDelta: TP3;
@@ -17997,7 +17997,7 @@ begin
     too, so the edges joined on stretch to follow - which is what the click
     has always done and what the picture never said.
 
-    Tony, 15 September, moving one side of a rectangle drawn inside another:
+    From a note, 15 September, moving one side of a rectangle drawn inside another:
     "the issue is that line of the smaller inner rectangle is not staying
     snapped".  It was; the ghost showed the side flying off alone and said
     nothing about the two sides leaning over after it, so the tool read as
@@ -18281,7 +18281,7 @@ begin
     a ray at every face in it whether or not the cursor was sitting on an
     edge.  HitFace is the expensive one of the three and it is the one that
     was never needed when the answer was an edge. }
-  { A guide has to be under the cursor, not merely near it.  Tony, 17
+  { A guide has to be under the cursor, not merely near it.  The owner, 17
     September: "the select tool shouldnt easily snap to guides... sketchup
     makes it so the select tool needs to be right over it".  Nine pixels of
     reach on a line that runs the width of the drawing is how a guide ended
@@ -18319,7 +18319,7 @@ begin
     Technically, faces are erased when you erase their bounding edges."
 
     Ours used to take a bare face when the cursor was over one and not over
-    an edge, and the difference was written down as deliberate.  Tony looked
+    an edge, and the difference was written down as deliberate.  The owner looked
     it up: "Ok I just checked and you are right the eraser will not erase a
     face in SketchUp so let's follow SketchUp convention here."  Erasing a
     face on its own is the right button's Erase, or picking it and pressing
@@ -18657,7 +18657,7 @@ var
 begin
   Result.Nm := Norm3(R.Normal);
   { one of the two normals, chosen the same way every time, so a loop wound
-    the other way is still recognised as the same area }
+    the other way is still recognized as the same area }
   if (Result.Nm.X < -1E-9) or
      ((Abs(Result.Nm.X) <= 1E-9) and (Result.Nm.Y < -1E-9)) or
      ((Abs(Result.Nm.X) <= 1E-9) and (Abs(Result.Nm.Y) <= 1E-9) and
@@ -18861,10 +18861,10 @@ var
     RegionLists[Ix][High(RegionLists[Ix])] := RI;
   end;
 
-  { the regions on the plane through P with normal N, neighbours of the
+  { the regions on the plane through P with normal N, neighbors of the
     coarse offset included }
   { the same shape of index for anything filed by plane: a list per plane
-    key, the entries of the three neighbouring offsets returned together }
+    key, the entries of the three neighboring offsets returned together }
   procedure NoteInto(H: TFPHashList; var Lists: TIntListsW; const Key: shortstring; Ix: Integer);
   var
     At: Integer;
@@ -18949,7 +18949,7 @@ var
   end;
 
   { the solids on the plane through P with normal N - the key is coarse, so
-    a plane a hair off lands on a neighbouring key: the offset's neighbours
+    a plane a hair off lands on a neighboring key: the offset's neighbors
     are asked too }
   function SolidsOnPlane(const N, P: TP3): TIntArrayW;
   var
@@ -19352,7 +19352,7 @@ begin
         side of a solid does not cut that side in two, because the rectangle
         is wholly inside it and crosses nothing.  The region finder sees the
         side as a shape with a hole in it, and that answer used to be thrown
-        away in favour of the solid's own face - which had no hole, and so
+        away in favor of the solid's own face - which had no hole, and so
         went on covering the window.  Handing the holes over keeps the
         solid's face and gives it the opening. }
       if DupAt >= 0 then FD.Doc.SetFaceHoles(DupAt, R[I].Holes);
@@ -19464,13 +19464,13 @@ begin
     a single face can do, and in company it is wrong about half the time: the
     two slopes of a roof both come out pointing the same way, when out for
     one of them is the opposite of out for the other.  A face pointing into
-    the shape it belongs to is drawn in the back-face colour, and that is
+    the shape it belongs to is drawn in the back-face color, and that is
     what reaches somebody - blue patches on a house, from the outside, where
     people stand.
 
     It belongs here rather than in the region finder because it is not a
-    question any one region can answer; it needs the neighbours, and the
-    neighbours only all exist once the loop above has finished. }
+    question any one region can answer; it needs the neighbors, and the
+    neighbors only all exist once the loop above has finished. }
   FTurned := FD.Doc.OrientLooseShells;
   Took('  turning loose faces the right way out', Tk);
 
@@ -19698,7 +19698,7 @@ begin
 
   { A press on a run of lines that never became a hold.  Two clicks in quick
     succession let go of the run without placing anything more - the point
-    from the first click stays where it landed, which is the bit Tony wanted
+    from the first click stays where it landed, which is the bit What was wanted was
     kept.  One click carries the line on as always. }
   if FHoldOn and (Button = mbLeft) then
   begin
@@ -19838,7 +19838,7 @@ end;
 { Is the cursor on something a dimension may be anchored to?
 
   SketchUp's list, from their own documentation: end points, midpoints,
-  on-edge points, intersections, and arc and circle centres.  Ours adds the
+  on-edge points, intersections, and arc and circle centers.  Ours adds the
   origin, which is a landmark of the model rather than a place the cursor
   happened to be, and a point on an axis for the same reason.
 
@@ -20606,7 +20606,7 @@ begin
     one of the two reasons why.
 
     ModalLevel counts the stock dialogs too, because TCommonDialog.Execute
-    raises it: the print and colour dialogs are somebody else's window and
+    raises it: the print and color dialogs are somebody else's window and
     exactly the ones where this program has no business being busy.
 
     Nothing here is missed by waiting.  The hints, the draft, the settle
@@ -20999,7 +20999,7 @@ begin
         end;
         Exit;
       end;
-      { it never travelled, so it was a click after all }
+      { it never traveled, so it was a click after all }
       if not FCubeMoved and
          CubeAt(Proj, (R.Left + R.Right) / 2, (R.Top + R.Bottom) / 2,
                 Half, X, Y, T) then
@@ -21009,7 +21009,7 @@ begin
         FViewPreset := -1;
         { With something picked, the move brings it to the middle and sizes
           it on the way round - one movement, not a turn and then a jump.
-          With nothing picked there is nothing to centre on, so it turns
+          With nothing picked there is nothing to center on, so it turns
           about what is already in front of you and leaves the framing
           alone: re-fitting the whole drawing every time somebody looks at
           it from another side would throw away the zoom they set. }
@@ -21022,7 +21022,7 @@ begin
       end;
       Exit;
     end;
-    { A press only becomes a drag once it has actually travelled.
+    { A press only becomes a drag once it has actually traveled.
 
       It used to count a single pixel, and a hand never presses a button
       without moving one - so a click on a face was read as a drag, nudged
@@ -21192,7 +21192,7 @@ end;
   This is what "bring it into the middle and fit it, with the animation" asks
   for.  A turn on its own holds a pivot still; this one drives the pan and the
   zoom to a place worked out in advance, so the thing being looked at arrives
-  centred and sized without a jump at either end. }
+  centerd and sized without a jump at either end. }
 procedure TMainForm.GlideCamera(Az, El, Zoom, OX, OY: Double);
 begin
   if FD = nil then Exit;
@@ -21220,7 +21220,7 @@ end;
 { Start a camera move.  Instant when there is nowhere to go. }
 { The view the camera would click into, if it let go now.
 
-  Tony, having watched the cube do it: "I think I want to have a modifier key
+  From a note, having watched the cube do it: "I think I want to have a modifier key
   for the orbit tool that makes it snap to... the closest preprogrammed views
   we have.... I think it will be nice to do an orbit around and get it to
   snap itself at least so one of its planes are squared to the view."
@@ -21251,7 +21251,7 @@ begin
 end;
 
 { Let go, and click into it.  The animation is the point as much as the
-  destination: Tony asked for the cube's glide by name - "let it do the
+  destination: What was asked for was the cube's glide by name - "let it do the
   animation like the cube does because it looks nice and you don't lose track
   of what you're looking at when it animates." }
 procedure TMainForm.SnapOrbitToNearest;
@@ -22587,23 +22587,23 @@ begin
   pbCmd.Invalidate;
 end;
 
-{ A colour that is not one of the twelve.
+{ A color that is not one of the twelve.
 
   The palette is the twelve that get used, and it stays twelve - a wall of
   swatches is a worse list, not a better one.  This is the way past it when
-  somebody wants a particular colour, and it is the platform's own picker
-  because that is the one with the eyedropper and the recent colours in it. }
-procedure TMainForm.PickAnyColour;
+  somebody wants a particular color, and it is the platform's own picker
+  because that is the one with the eyedropper and the recent colors in it. }
+procedure TMainForm.PickAnyColor;
 var
   C: TColor;
 begin
-  if not AskColour(FInkColor, C) then Exit;
+  if not AskColor(FInkColor, C) then Exit;
   SetInk(C, False);
   FCmdMsg := 'Pen color set.';
 end;
 
-{ The platform's own colour picker, started on Was. }
-function TMainForm.AskColour(Was: TColor; out C: TColor): Boolean;
+{ The platform's own color picker, started on Was. }
+function TMainForm.AskColor(Was: TColor; out C: TColor): Boolean;
 var
   D: TColorDialog;
 begin
@@ -22921,7 +22921,7 @@ begin
   end;
 
   { 1:1.  Paper is paper inches per foot, so twelve of them is full size;
-    metric measures paper metres per metre, so one is. }
+    metric measures paper meters per meter, so one is. }
   if FD.Units = usImperial then
   begin
     Full.Name := 'full size';
@@ -23667,7 +23667,7 @@ end;
   moment there are two.  Windows numbers a monitor placed above or to the
   left of the primary one with negative coordinates, so a window docked on
   the left-hand screen saved a perfectly good position that failed this test
-  on the way back in and got recentred every single time.  On a work laptop
+  on the way back in and got recenterd every single time.  On a work laptop
   that lives in a docking station that is the normal case, not the odd one.
 
   So: ask every monitor, and accept the position if a usable piece of the
@@ -23720,7 +23720,7 @@ begin
         came through the new postbox, and right: this is a program for
         measuring things, and a measured grid is how a drawing says how big
         it is before anything has been drawn on it. }
-      { Off until somebody asks for it.  Tony, 17 September: "sketchup
+      { Off until somebody asks for it.  From a note, 17 September: "sketchup
         doesnt do grid paper like we do at all... it should be off by
         default".  A setting already saved is untouched - this is only what
         a fresh copy starts with. }
@@ -23882,8 +23882,7 @@ type
     much of a credit, and a link is not a thing TextOut can offer.
 
     So the inside is LazInk drawing HTML, dressed in the program's own
-    theme, and the frame round it is the same painted shell as before.
-    Tony: "our about window can use lazink to make it sexy as fuck". }
+    theme, and the frame round it is the same painted shell as before. }
   TAboutBox = class(TForm)
   private
     FSkin: TArtSurface;
@@ -24002,7 +24001,7 @@ begin
 
     '<p><b>Noella Stone was seven years old</b> when she decided she wanted ' +
     'to write a program.  She drew the screen, the two dials and the shake ' +
-    'button on paper, picked the colours, and told her dad what each part ' +
+    'button on paper, picked the colors, and told her dad what each part ' +
     'was supposed to do.  He typed while she directed.  19 October 2021.</p>' +
 
     '<h2>Toy</h2>' +

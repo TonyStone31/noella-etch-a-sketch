@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, Math, Types, Graphics, FPImage, FPWriteJPEG,
   BGRABitmap, BGRABitmapTypes, BGRAAnimatedGif,
-  { the colour reducer the GIF writer needs - see the initialization }
+  { the color reducer the GIF writer needs - see the initialization }
   BGRAPalette, BGRAColorQuantization,
   uSurface, uWork, uSkin, uWebPAnim;
 
@@ -36,7 +36,7 @@ const
   GIF_FPS = 20;
   { And a ceiling on the whole film, not just the number of frames.
 
-    Not because it crashes - that was a missing colour quantizer and is fixed
+    Not because it crashes - that was a missing color quantizer and is fixed
     in the initialization below - but because a GIF is assembled whole in
     memory before any of it is written, and because the point of a GIF is
     that you can send it.
@@ -376,7 +376,7 @@ begin
     PB := Project(V, B);
     Len := Sqrt(Sqr(PB.X - PO.X) + Sqr(PB.Y - PO.Y));
     { an axis pointing straight at the camera has no length on the glass, and
-      drawing it puts a dot of colour on the origin that means nothing }
+      drawing it puts a dot of color on the origin that means nothing }
     if Len < 1 then Continue;
     S.Line(PO.X, PO.Y, PB.X, PB.Y, 1.8, Col, 0.55);
     DX := (PO.X - PB.X) / Len;
@@ -502,7 +502,7 @@ begin
 
     wkLookAll:
       begin
-        { Tony's sketch: up, down, back to level, then round, and a dip at
+        { the sketch that came with it: up, down, back to level, then round, and a dip at
           the far side.  Two turns of azimuth with the elevation doing its
           own thing over the top, so nothing repeats and every face comes
           past the camera at some point. }
@@ -692,7 +692,7 @@ end;
   write.
 
   The two formats differ only at the moment a frame is handed over.  A GIF
-  is assembled whole in memory and squeezed to 256 colours at the end; a
+  is assembled whole in memory and squeezed to 256 colors at the end; a
   WebP frame is encoded as it is drawn - losslessly, which for flat fills
   and one pixel lines is both smaller and exact - and only the encoded
   bytes are kept, so the memory a film needs stops depending on how long it
@@ -701,7 +701,7 @@ end;
   Lossless, and not offered as a choice.  We learned this the expensive way
   on the manual: WebP does both, and lossy is visibly grainy the moment
   anybody zooms in on a drawing, which is exactly what a drawing is for.
-  Tony: "we probably want to export lossless webp!" }
+  From a note: "we probably want to export lossless webp!" }
 function WriteFilm(Doc: TWorkDoc; SrcW, SrcH, W, H: Integer;
   U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
   Frames: Integer; Seconds: Double; Loop, Axes: Boolean; const Path: string;
@@ -834,16 +834,16 @@ end;
 
 
 initialization
-  { A GIF holds 256 colours and a drawing does not, so something has to choose
+  { A GIF holds 256 colors and a drawing does not, so something has to choose
     which 256.  BGRABitmap keeps that choice pluggable and ships the plug in a
     separate unit, and it is NOT enough to name that unit in the uses clause -
     the factory has to be handed over, which is what this line does.
 
-    Without it, a frame of more than 256 colours reaches a nil quantizer and
+    Without it, a frame of more than 256 colors reaches a nil quantizer and
     the writer faults.  That is why exporting a plain line drawing worked and
-    exporting the same drawing with the axes on did not: white paper, grey
+    exporting the same drawing with the axes on did not: white paper, gray
     faces and black lines fit inside 256 easily, and the moment three
-    anti-aliased coloured axes are drawn over them they do not.  Tony's
+    anti-aliased colored axes are drawn over them they do not.  the
     Windows crash on 13 September was this and nothing else - it was reported
     as "access violation while drawing the frames", and the frames were fine.
 

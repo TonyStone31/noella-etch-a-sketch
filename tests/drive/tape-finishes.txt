@@ -1,6 +1,6 @@
 # The tape measure finishes when it has measured.
 #
-# Tony, 15 September: "the tape measure leaving phantom lines after a while...
+# From a note, 15 September: "the tape measure leaving phantom lines after a while...
 # switching to the select tool and selecting something seems to clear it.  the
 # stupid dimension appearing with using a tape measure tool  very buggy bull
 # shit."

@@ -58,7 +58,7 @@ const
     '  in the manual is a link to itself, and since they became WebP, clicking' + LineEnding +
     '  one filled the window with the file read as text.  It opens large, and' + LineEnding +
     '  keeps playing, the way it always should have.' + LineEnding +
-    '- **The manual stays in your colours.**  In a light theme the contents came' + LineEnding +
+    '- **The manual stays in your colors.**  In a light theme the contents came' + LineEnding +
     '  up light and every page you clicked through to came up dark.  Now the' + LineEnding +
     '  whole manual follows the program''s theme, wherever you got to it from.' + LineEnding +
     '' + LineEnding +
@@ -78,11 +78,11 @@ const
     '- **The manual''s pictures are sharp.**  Every animation has been recorded' + LineEnding +
     '  again at the size it is shown, in lossless WebP - the old ones were' + LineEnding +
     '  scaled down on the way out, which turned every one-pixel line into a' + LineEnding +
-    '  two-pixel grey smear.  They are bigger pictures and a smaller manual:' + LineEnding +
+    '  two-pixel gray smear.  They are bigger pictures and a smaller manual:' + LineEnding +
     '  20.1 MB of GIF became 14.2 MB of WebP.' + LineEnding +
     '- **The manual reads better too.**  Sections have a rule above them so a' + LineEnding +
     '  long page has somewhere for the eye to stop, the page head is underlined' + LineEnding +
-    '  in the accent colour, and captions read as captions.' + LineEnding +
+    '  in the accent color, and captions read as captions.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.18.6' + LineEnding +
     '' + LineEnding +
@@ -92,7 +92,7 @@ const
     '  window inside the program, has replaced the renderer it grew up with -' + LineEnding +
     '  so this build carries a manual that lays out through a proper box tree' + LineEnding +
     '  and hangs its text on baselines.  It should read the same and draw' + LineEnding +
-    '  faster, and there is one fewer licence riding along with the download:' + LineEnding +
+    '  faster, and there is one fewer license riding along with the download:' + LineEnding +
     '  LazInk is MIT throughout now, where the old renderer was MPL and owed' + LineEnding +
     '  its source to anybody who was given a copy of this.' + LineEnding +
     '' + LineEnding +
@@ -100,7 +100,7 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
-    '- **A fifth example: a football.**  Twelve pentagons and twenty hexagons,' + LineEnding +
+    '- **A fifth example: a soccer ball.**  Twelve pentagons and twenty hexagons,' + LineEnding +
     '  cut off the corners of an icosahedron the way the real one is - and the' + LineEnding +
     '  panels stand off a dark inner ball so the seams read as seams.' + LineEnding +
     '' + LineEnding +
@@ -156,7 +156,7 @@ const
     '### Fixed' + LineEnding +
     '' + LineEnding +
     '- **A third example drawing: a kitchen broom.**  A hundred and seventy' + LineEnding +
-    '  bristles banded in four colours, a blue moulded head and a wooden' + LineEnding +
+    '  bristles banded in four colors, a blue moulded head and a wooden' + LineEnding +
     '  handle - every face of it painted.  The other two examples are' + LineEnding +
     '  near-white, so this is the one that shows what materials are for.  It is' + LineEnding +
     '  written out beside the program with the others.' + LineEnding +
@@ -214,7 +214,7 @@ const
     '  picker - and the buttons say how many they will land on.' + LineEnding +
     '- **Paint a face and it is that color.**  Faces have a material of their' + LineEnding +
     '  own now, separate from the pen that drew their edges - so red is red' + LineEnding +
-    '  instead of the grey-pink it used to come out.  Paint it from the entity' + LineEnding +
+    '  instead of the gray-pink it used to come out.  Paint it from the entity' + LineEnding +
     '  panel; with several faces picked, all of them are painted at once, and' + LineEnding +
     '  **Back to default** returns one to the near-white it started as.' + LineEnding +
     '' + LineEnding +
@@ -252,7 +252,7 @@ const
     '  On the website the pages follow whatever your system asks for.' + LineEnding +
     '- **The manual has pictures where it was thin**: the revolve tool has a ball' + LineEnding +
     '  and a wine glass being spun, the move tool shows a side of a rectangle' + LineEnding +
-    '  being stretched, and the plan view shows the cut travelling up through a' + LineEnding +
+    '  being stretched, and the plan view shows the cut traveling up through a' + LineEnding +
     '  model.  The revolve page is rewritten step by step, with a table of what' + LineEnding +
     '  to do when it will not spin.' + LineEnding +
     '' + LineEnding +
@@ -510,7 +510,7 @@ const
     '  hovering over a crowded sheet no longer lags behind the mouse.' + LineEnding +
     '- **Orbiting is smoother, and the ground reads as a floor.**  The lattice on' + LineEnding +
     '  the ground was being ruled far finer than it could be seen - about two' + LineEnding +
-    '  hundred and sixty lines a few pixels apart, which came out as a grey' + LineEnding +
+    '  hundred and sixty lines a few pixels apart, which came out as a gray' + LineEnding +
     '  crosshatch and cost most of every frame to draw.  It is now spaced so you' + LineEnding +
     '  can read it, and tipping the view down near the ground gives you a coarse' + LineEnding +
     '  floor instead of none at all.' + LineEnding +
@@ -759,7 +759,7 @@ const
     '- **A dimension has to measure something.**  You could lay one across blank' + LineEnding +
     '  paper and drag it around - a number measuring nothing, which the drawing' + LineEnding +
     '  can never drive and which will never update when the drawing changes.  It' + LineEnding +
-    '  now wants a corner, a midpoint, a centre, or a point on an edge, and the' + LineEnding +
+    '  now wants a corner, a midpoint, a center, or a point on an edge, and the' + LineEnding +
     '  cursor says so before you click rather than after.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.15.3' + LineEnding +
@@ -778,11 +778,11 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
-    '- **A part for printing now arrives standing on the bed.**  "Centre it on' + LineEnding +
-    '  the origin" centred all three directions, which buries the bottom half of' + LineEnding +
+    '- **A part for printing now arrives standing on the bed.**  "Center it on' + LineEnding +
+    '  the origin" centerd all three directions, which buries the bottom half of' + LineEnding +
     '  the thing in the build plate; slicers quietly lift it back out, so nothing' + LineEnding +
     '  ever looked wrong, but it is the sort of thing you open another program to' + LineEnding +
-    '  put right before printing.  It is centred across the bed and standing on it' + LineEnding +
+    '  put right before printing.  It is centerd across the bed and standing on it' + LineEnding +
     '  now - the STL, the OpenSCAD, and `/center` itself.  `/tozero` is unchanged:' + LineEnding +
     '  the near bottom corner on the origin rather than the middle.' + LineEnding +
     '' + LineEnding +
@@ -920,7 +920,7 @@ const
     '  part three and a half inches across arrived in Inkscape, or a print shop,' + LineEnding +
     '  or a cutting machine, at some other size entirely, and at a different size' + LineEnding +
     '  again if you had zoomed in first.  The file now says `3.430in` (or' + LineEnding +
-    '  millimetres, in a metric drawing) and opens at the size of the thing.' + LineEnding +
+    '  millimeters, in a metric drawing) and opens at the size of the thing.' + LineEnding +
     '  Export from a plan and what comes out is the real thing, full size.' + LineEnding +
     '' + LineEnding +
     '- **Dragging a dialog no longer skips about.**  The windows that draw their' + LineEnding +
@@ -931,7 +931,7 @@ const
     '' + LineEnding +
     '- **The program stops working while a dialog is up.**  It kept a sixty-a-' + LineEnding +
     '  second heartbeat running underneath every dialog, including the system' + LineEnding +
-    '  print and colour ones, servicing a pointer that was somewhere else.  On a' + LineEnding +
+    '  print and color ones, servicing a pointer that was somewhere else.  On a' + LineEnding +
     '  machine with a compositor that is enough to make the dialog you are' + LineEnding +
     '  dragging stutter.  Measured with a drawing of twenty-four wine glasses: the' + LineEnding +
     '  window behind the export dialog went from 2.2% of a core to 0.2%.' + LineEnding +
@@ -1038,7 +1038,7 @@ const
     '  measuring, because every number read off it is then a distance from' + LineEnding +
     '  nothing rather than from half of itself.  It tells you how big the thing' + LineEnding +
     '  is from there.  Also **Into the Corner at 0,0,0** on the right button,' + LineEnding +
-    '  beside Centre on the Origin.' + LineEnding +
+    '  beside Center on the Origin.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.14.9' + LineEnding +
     '' + LineEnding +
@@ -1065,7 +1065,7 @@ const
     '- **/print all sends every sheet**, a page each.  /print still does the one on' + LineEnding +
     '  screen.' + LineEnding +
     '' + LineEnding +
-    '- **Another colour...** at the bottom of the line-colour list, for a pen that' + LineEnding +
+    '- **Another color...** at the bottom of the line-color list, for a pen that' + LineEnding +
     '  is not one of the twelve.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
@@ -1074,7 +1074,7 @@ const
     '  light chrome - it makes 3.7 to one where the dark theme''s makes 8.4, and it' + LineEnding +
     '  is text as often as it is a fill.  It is a shade deeper now, and whatever' + LineEnding +
     '  goes on top of it when it is a fill is chosen to be readable rather than' + LineEnding +
-    '  assumed to be dark, which is what put pale grey on mid blue.' + LineEnding +
+    '  assumed to be dark, which is what put pale gray on mid blue.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.14.7' + LineEnding +
     '' + LineEnding +
@@ -1139,7 +1139,7 @@ const
     '### New' + LineEnding +
     '' + LineEnding +
     '- **The What''s new screen is dressed like the rest of the program.**  It was' + LineEnding +
-    '  a stock white box with one weight of one colour and the bold markers of the' + LineEnding +
+    '  a stock white box with one weight of one color and the bold markers of the' + LineEnding +
     '  file showing as asterisks.  Now the version, the headings and the lead-in' + LineEnding +
     '  of each note are told apart, and it scrolls with the wheel.' + LineEnding +
     '' + LineEnding +
@@ -1328,7 +1328,7 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
-    '- **The button on a failed export said "Tell Tony about it".**  It sends a' + LineEnding +
+    '- **The button on a failed export said "Tell us about it".**  It sends a' + LineEnding +
     '  bug report, so now it says so.' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
@@ -1379,23 +1379,23 @@ const
     '  mile from zero does not swing out of frame.  Set the zoom you want with the' + LineEnding +
     '  wheel first and the move starts from there.' + LineEnding +
     '' + LineEnding +
-    '- **Centre on the Origin is on the right button.**  Select something, right' + LineEnding +
+    '- **Center on the Origin is on the right button.**  Select something, right' + LineEnding +
     '  click, and it moves onto 0,0,0.  Same thing as `/center`.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.13.22' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
-    '- **STL and OpenSCAD come out centred on the origin.**  A part used to open in' + LineEnding +
+    '- **STL and OpenSCAD come out centerd on the origin.**  A part used to open in' + LineEnding +
     '  the slicer wherever the drawing happened to put it, which for something drawn' + LineEnding +
-    '  at building coordinates is a long way off the plate - and then you re-centre' + LineEnding +
-    '  it by hand in another program.  It arrives centred now.  There is a tick in' + LineEnding +
+    '  at building coordinates is a long way off the plate - and then you re-center' + LineEnding +
+    '  it by hand in another program.  It arrives centerd now.  There is a tick in' + LineEnding +
     '  the export options if you want it left where it is.' + LineEnding +
     '' + LineEnding +
     '- **`/center` moves things onto the origin.**  Type `/center` and whatever is' + LineEnding +
     '  selected moves so the middle of it sits at 0,0,0 - or the whole drawing, if' + LineEnding +
     '  nothing is selected.  Worth doing to the drawing itself and not only on the' + LineEnding +
-    '  way out: a drawing that is centred is one where the exports, the dimensions' + LineEnding +
+    '  way out: a drawing that is centerd is one where the exports, the dimensions' + LineEnding +
     '  from the origin and the axis readings all agree.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.13.21' + LineEnding +
@@ -1406,7 +1406,7 @@ const
     '  with one `polyhedron` per solid in your drawing, each in its own named' + LineEnding +
     '  module, a module that unions them all, and a call to it - so a model in' + LineEnding +
     '  several pieces stays in several pieces and you can get at them separately.' + LineEnding +
-    '  Millimetres, like the STL.' + LineEnding +
+    '  Millimeters, like the STL.' + LineEnding +
     '' + LineEnding +
     '  Be clear about what it is: the surface of your drawing, written out as' + LineEnding +
     '  points and faces.  It is not built from cubes and cylinders and cannot be' + LineEnding +
@@ -1438,15 +1438,15 @@ const
     '- **The GIF export crash, properly this time - and a correction.**  The last' + LineEnding +
     '  release blamed memory and rationed the frames accordingly.  That was wrong.' + LineEnding +
     '' + LineEnding +
-    '  It was one missing line.  A GIF holds 256 colours and something has to' + LineEnding +
+    '  It was one missing line.  A GIF holds 256 colors and something has to' + LineEnding +
     '  choose which 256; in BGRABitmap that chooser is pluggable, and naming its' + LineEnding +
     '  unit is not enough - the factory has to be handed over explicitly.  It never' + LineEnding +
-    '  was.  So any frame with more than 256 colours in it reached nothing at all' + LineEnding +
+    '  was.  So any frame with more than 256 colors in it reached nothing at all' + LineEnding +
     '  and the program fell over.' + LineEnding +
     '' + LineEnding +
     '  Which is exactly why it looked so strange: a plain line drawing exports' + LineEnding +
-    '  fine, because white paper, grey faces and black lines fit inside 256' + LineEnding +
-    '  colours easily.  Turn on the axes and three anti-aliased coloured lines put' + LineEnding +
+    '  fine, because white paper, gray faces and black lines fit inside 256' + LineEnding +
+    '  colors easily.  Turn on the axes and three anti-aliased colored lines put' + LineEnding +
     '  it over, every time.  It had nothing to do with how long the film was.' + LineEnding +
     '' + LineEnding +
     '  Reproduced here on Linux in the end, tracked to the line, fixed, and there' + LineEnding +
@@ -1496,7 +1496,7 @@ const
     '  have not been able to reproduce it here and I am not going to pretend' + LineEnding +
     '  otherwise, so this release makes it tell us instead: when an export fails it' + LineEnding +
     '  now says which step it died in and what it was doing, and there is a' + LineEnding +
-    '  **Tell Tony about it** button right there in the dialog that sends the whole' + LineEnding +
+    '  **Tell us about it** button right there in the dialog that sends the whole' + LineEnding +
     '  thing - the format, the size, the settings, the lot.  One press and the next' + LineEnding +
     '  release can actually fix it.' + LineEnding +
     '' + LineEnding +
@@ -1511,7 +1511,7 @@ const
     '  instead of only spinning it.' + LineEnding +
     '' + LineEnding +
     '- **Black writing on the dark dialog.**  Windows paints its own drop-down' + LineEnding +
-    '  lists and tick boxes and takes no notice of what colour it has been asked' + LineEnding +
+    '  lists and tick boxes and takes no notice of what color it has been asked' + LineEnding +
     '  for, so some of the export dialog came out black on near-black.  It draws' + LineEnding +
     '  its own now.' + LineEnding +
     '' + LineEnding +
@@ -1564,13 +1564,13 @@ const
     '  A shape whose top had been divided - by a line drawn across it, or a piece' + LineEnding +
     '  pushed up out of it - was being read as though it had a gap in it, because' + LineEnding +
     '  one long edge on a wall no longer matched the two shorter ones that had' + LineEnding +
-    '  replaced it on top.  It was watertight all along, and is now recognised as' + LineEnding +
+    '  replaced it on top.  It was watertight all along, and is now recognized as' + LineEnding +
     '  such, so its far side stops showing through.' + LineEnding +
     '' + LineEnding +
     '  And faces worked out from lines were each wound on their own, which meant' + LineEnding +
     '  the two slopes of a roof could end up pointing opposite ways - one of them' + LineEnding +
     '  into the house.  Looking at it from outside, that one was blue.  They are' + LineEnding +
-    '  now settled against their neighbours, so a roof points out of the building' + LineEnding +
+    '  now settled against their neighbors, so a roof points out of the building' + LineEnding +
     '  rather than into it, and `/rebuild` puts an old drawing right.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.13.14' + LineEnding +
@@ -1578,7 +1578,7 @@ const
     '### New' + LineEnding +
     '' + LineEnding +
     '- **Export to STL, for a 3D printer.**  Export, then "STL - for a 3D' + LineEnding +
-    '  printer".  It writes the model as triangles in millimetres, which is what' + LineEnding +
+    '  printer".  It writes the model as triangles in millimeters, which is what' + LineEnding +
     '  every slicer expects, so a drawing in feet comes out the size you drew it' + LineEnding +
     '  rather than three hundred times too small.' + LineEnding +
     '' + LineEnding +
@@ -1645,7 +1645,7 @@ const
     '' + LineEnding +
     '- **Pale blue faces on a solid that is not inside out.**  A round shape - a' + LineEnding +
     '  revolve, or anything pushed out of one - could show patches of the' + LineEnding +
-    '  back-face colour on its near side.  Nothing was wrong with it: the far side' + LineEnding +
+    '  back-face color on its near side.  Nothing was wrong with it: the far side' + LineEnding +
     '  of the object was showing through the near side, and the far side of' + LineEnding +
     '  anything is its inside.' + LineEnding +
     '' + LineEnding +
@@ -1704,7 +1704,7 @@ const
     '' + LineEnding +
     '- **Push/pull, drill and offset can be called off by leaning on the button**,' + LineEnding +
     '  the way the drawing tools already could.  They used to happen the instant' + LineEnding +
-    '  the button went down, so realising it was wrong meant undo.  Now they wait' + LineEnding +
+    '  the button went down, so realizing it was wrong meant undo.  Now they wait' + LineEnding +
     '  for it to come up: let go and it happens, keep holding and the face you' + LineEnding +
     '  were about to build strains and goes back having built nothing.' + LineEnding +
     '' + LineEnding +
@@ -1739,7 +1739,7 @@ const
     '' + LineEnding +
     '- **A locked plane shows itself while you draw.**  Lock a plane with the' + LineEnding +
     '  arrows and two short lines appear through the point, along the plane''s own' + LineEnding +
-    '  two directions, in their axis colours.  Red and blue means you are drawing' + LineEnding +
+    '  two directions, in their axis colors.  Red and blue means you are drawing' + LineEnding +
     '  upright; red and green means flat.  You can see you are still on the plane' + LineEnding +
     '  without reading anything.' + LineEnding +
     '' + LineEnding +
@@ -1843,7 +1843,7 @@ const
     '  tool, or the bare strip, closes an open list too.' + LineEnding +
     '' + LineEnding +
     '- **The right-button menu always has the same rows**, with the ones that' + LineEnding +
-    '  would do nothing greyed out instead of missing - and **Erase is last**.' + LineEnding +
+    '  would do nothing grayed out instead of missing - and **Erase is last**.' + LineEnding +
     '  It was built the other way, so on a shape where the click landed on an' + LineEnding +
     '  edge rather than a face, Reverse Face was absent, Erase moved up into the' + LineEnding +
     '  row Reverse Face is normally in, and the same click in the same place' + LineEnding +
@@ -1862,7 +1862,7 @@ const
     '' + LineEnding +
     '- **A plan shows what is underneath, dashed.**  A wall beneath a roof, a' + LineEnding +
     '  beam over a door, a footing under a slab - anything a plan cannot see is' + LineEnding +
-    '  now drawn as a dashed grey line instead of being painted over and lost.' + LineEnding +
+    '  now drawn as a dashed gray line instead of being painted over and lost.' + LineEnding +
     '  That is what a drawing does and what a photograph from above does not.' + LineEnding +
     '' + LineEnding +
     '  Only in PLAN.  In the 3D view a hidden line is round the back of something' + LineEnding +
@@ -1883,7 +1883,7 @@ const
     '  their names on them, where every other program keeps them.  They were in' + LineEnding +
     '  the bottom right corner among twelve identical squares.  The Heckers Sketch' + LineEnding +
     '  name has moved to the middle of that line to make room, and Undo and Redo' + LineEnding +
-    '  grey out when there is nothing to undo.' + LineEnding +
+    '  gray out when there is nothing to undo.' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
     '' + LineEnding +
@@ -1897,7 +1897,7 @@ const
     '  arrow as MORE which made two quite different doors look like one thing.' + LineEnding +
     '  The duplicate SHOP button along the bottom has gone.' + LineEnding +
     '' + LineEnding +
-    '- **The settings say what they are** - PRINT SCALE, SNAP TO, LINE COLOUR,' + LineEnding +
+    '- **The settings say what they are** - PRINT SCALE, SNAP TO, LINE COLOR,' + LineEnding +
     '  LINE WIDTH, ROUNDED TO.  "PREC" is gone; so is "SET".  The buttons beside' + LineEnding +
     '  them have names too: FIT, ORIGIN, GRID, UNITS, THEME, HELP.' + LineEnding +
     '' + LineEnding +
@@ -1943,7 +1943,7 @@ const
     '' + LineEnding +
     '  The bottom of the slice is also the height you draw at - which is what a' + LineEnding +
     '  floor plan means.  Set it to 9''-0" and you are drawing on the second' + LineEnding +
-    '  storey.' + LineEnding +
+    '  story.' + LineEnding +
     '' + LineEnding +
     '  It is off until you turn it on, it says how many things it is keeping out' + LineEnding +
     '  so nothing goes missing quietly, and `/cut 0 9''`, `/cut all` and `/cut off`' + LineEnding +
@@ -1951,7 +1951,7 @@ const
     '' + LineEnding +
     '- **A plan is drawn like a drawing.**  No more shading in PLAN: the light' + LineEnding +
     '  that makes a 3D view read as a solid object was turning two slopes of a' + LineEnding +
-    '  roof into two different greys, which in a drawing means nothing at all.' + LineEnding +
+    '  roof into two different grays, which in a drawing means nothing at all.' + LineEnding +
     '  Faces fill pale so the lines carry the drawing, which is what lines are' + LineEnding +
     '  for.' + LineEnding +
     '' + LineEnding +
@@ -2009,12 +2009,12 @@ const
     '  tool holds every point to that face - which is what drawing on it means.' + LineEnding +
     '  It was holding named points too, so aiming at the top of a rafter twelve' + LineEnding +
     '  feet up gave you the eave underneath it while the reading said ENDPOINT.' + LineEnding +
-    '  Endpoints, midpoints, centres, crossings and the origin now beat the held' + LineEnding +
+    '  Endpoints, midpoints, centers, crossings and the origin now beat the held' + LineEnding +
     '  face, the way an axis lock already did.  Everything the program is only' + LineEnding +
     '  guessing at - on an axis, on a face, on the grid - is still held.' + LineEnding +
     '' + LineEnding +
     '- **Both halves of a roof face the sky.**  A roof built as two slopes off a' + LineEnding +
-    '  ridge came out with one slope grey and the other pale blue, because pale' + LineEnding +
+    '  ridge came out with one slope gray and the other pale blue, because pale' + LineEnding +
     '  blue is the back of a face and one of them really was inside out.  Areas' + LineEnding +
     '  the program fills in for you are now turned the same way up as ones you' + LineEnding +
     '  draw yourself.' + LineEnding +
@@ -2180,7 +2180,7 @@ const
     '' + LineEnding +
     '### Changed' + LineEnding +
     '' + LineEnding +
-    '- The duct in the hallway is galvanized grey now.' + LineEnding +
+    '- The duct in the hallway is galvanized gray now.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.09' + LineEnding +
     '' + LineEnding +
@@ -2600,7 +2600,7 @@ const
     '  still to come can be emailed as it stands; the 3D view and Build it wait' + LineEnding +
     '  until every leg has its number.  The paper is ruled like iso paper, with' + LineEnding +
     '  dots as the other choice.' + LineEnding +
-    '- Center, not centre: the wizards'' words are American now.' + LineEnding +
+    '- Center, not center: the wizards'' words are American now.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.07' + LineEnding +
     '' + LineEnding +
@@ -2609,7 +2609,7 @@ const
     '- **Pipe spool.**  SHOP > Pipe spool..., or /spool: the pipe fitter''s iso' + LineEnding +
     '  as a form.  Iso paper you click the run onto, one leg at a time - each' + LineEnding +
     '  leg snaps to the three axes, or with Shift to a 45 - and type the' + LineEnding +
-    '  centre-to-centre length on.  Pick the pipe size, long or short radius' + LineEnding +
+    '  center-to-center length on.  Pick the pipe size, long or short radius' + LineEnding +
     '  elbows, and what each end is: bevelled, a weld-neck flange, a cap, or' + LineEnding +
     '  threaded.  The ticket writes itself underneath with every leg''s cut' + LineEnding +
     '  length, the elbows'' take-outs already off, and the 3D tab shows the' + LineEnding +
@@ -2628,7 +2628,7 @@ const
     '  Or select the path first and then click the face, SketchUp''s own way.  A' + LineEnding +
     '  closed path has no caps; an open one keeps the profile as one cap and' + LineEnding +
     '  adds the other.  A whole circle clicked as the path still spins the face' + LineEnding +
-    '  round its centre.' + LineEnding +
+    '  round its center.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.06.29' + LineEnding +
     '' + LineEnding +
@@ -2687,7 +2687,7 @@ const
     '### Fixed' + LineEnding +
     '' + LineEnding +
     '- The outside of an elbow, a tee''s walls, and some transition sides were' + LineEnding +
-    '  painted in the inside colour.  The builder wound those faces the wrong' + LineEnding +
+    '  painted in the inside color.  The builder wound those faces the wrong' + LineEnding +
     '  way round; every face a fitting is built from now faces out.  Fittings' + LineEnding +
     '  already in a drawing keep the winding they were built with - build them' + LineEnding +
     '  again to get the new one.' + LineEnding +
@@ -2715,9 +2715,9 @@ const
     '  at or a second point along its inside edge.  With the throat radius' + LineEnding +
     '  chosen it works out the angle and both legs so the elbow lands there,' + LineEnding +
     '  shows it, and puts the numbers into the elbow''s fields.' + LineEnding +
-    '- **A tee''s branch centres itself.**  Leave "starts, from the entry" blank' + LineEnding +
+    '- **A tee''s branch centers itself.**  Leave "starts, from the entry" blank' + LineEnding +
     '  and the branch sits in the middle of the run, the way a blank height' + LineEnding +
-    '  already centres it on the wall.' + LineEnding +
+    '  already centers it on the wall.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
@@ -3067,7 +3067,7 @@ const
     '### Fixed' + LineEnding +
     '' + LineEnding +
     '- Openings in a face now travel with it when it is moved.' + LineEnding +
-    '- A move locked to blue drew its travel line grey instead of blue.' + LineEnding +
+    '- A move locked to blue drew its travel line gray instead of blue.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.05.24' + LineEnding +
     '' + LineEnding +

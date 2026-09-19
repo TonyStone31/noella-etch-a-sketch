@@ -1,6 +1,6 @@
 # Drawing a closed outline standing up, in the 3D view.
 #
-# Tony, 13 September: "the reason I drew it laying down is because I had to
+# From a note, 13 September: "the reason I drew it laying down is because I had to
 # draw all those lines on the same axis so they became a face.  And the
 # problem with trying to draw that shape while it was in 3D view is the
 # stupid cursor kept trying to go to the other axes."

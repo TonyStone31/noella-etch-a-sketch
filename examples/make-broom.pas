@@ -3,8 +3,8 @@ program makebroom;
 { The kitchen broom.
 
   The third example, and the one that explains materials - a hundred and
-  seventy bristles in four colours, a blue moulded head, a wooden handle,
-  and not a pen colour anywhere.  Every face carries a material, which is
+  seventy bristles in four colors, a blue moulded head, a wooden handle,
+  and not a pen color anywhere.  Every face carries a material, which is
   the thing that went in on 17 September and the thing a drawing full of
   white faces cannot show you.
 
@@ -19,7 +19,7 @@ program makebroom;
   * **The bristles carry no edges.**  A bristle is a tenth of an inch across
     and would carry twelve of them.  With edges on, a hundred and seventy of
     them came out as one black wedge at any zoom you would actually use -
-    the ink swallowed the colour entirely.  Without them the material is all
+    the ink swallowed the color entirely.  Without them the material is all
     there is, which is what a bristle should be, and the model is a third of
     the size.
   * **Every bristle is a little different.**  All the same length and dead
@@ -77,7 +77,7 @@ const
 var
   D: TWorkDoc;
 
-  { the colours, once }
+  { the colors, once }
   CWood, CFerrule, CHead, CCap, CBand: TColor;
   CBris: array[0..3] of TColor;
 
@@ -87,7 +87,7 @@ begin
 end;
 
 { Add one face of a solid, wound so its front looks away from Mid - which is
-  what keeps the pale blue back-face colour off the outside of the model. }
+  what keeps the pale blue back-face color off the outside of the model. }
 procedure FaceOut(const Pts: array of TP3; const Mid: TP3; Mat: TColor;
   G: Integer);
 var
@@ -143,7 +143,7 @@ begin
     FaceOut(Side, Mid, Mat, G);
     { EdgeW of nought means no edges at all.  A bristle is a tenth of an inch
       across and carries twelve of them; at any zoom you would actually look
-      at this from, the ink swallows the colour and the whole block comes out
+      at this from, the ink swallows the color and the whole block comes out
       as one black wedge.  Without them the material is all there is, which
       is what a bristle should be. }
     if EdgeW > 0 then

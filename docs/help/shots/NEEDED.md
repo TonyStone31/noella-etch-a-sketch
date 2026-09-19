@@ -19,7 +19,7 @@ straight into this folder under the names below:
 
 **On a clean sheet.**  These used to open the example toy and draw over it,
 which put a robot and a pair of knobs behind a picture whose subject was a
-circle.  Tony: "the screen shots you did in some previous help files are
+circle.  From a note: "the screen shots you did in some previous help files are
 stupid because you did in fact use the toy model and drew a circle over it.
 The help files don't need the toy model."  `tools/blank.hsk` is an empty
 sheet and every picture starts from it.  A page about one tool wants the
@@ -117,10 +117,10 @@ was grabbed at.  Two things that took a while to learn and are worth not
 learning again:
 
 * **Do not scale the capture.**  It used to grab at 1100 and scale to 700,
-  which is a factor of 0.64, and every one pixel line became a two pixel grey
+  which is a factor of 0.64, and every one pixel line became a two pixel gray
   smear before either encoder saw a frame.  Not scaling is also *smaller* for
   lossless - 617 KB against 805 - because resampling turns solid black and
-  flat fill into thousands of in-between greys, and flat colour is what
+  flat fill into thousands of in-between grays, and flat color is what
   lossless compression lives on.
 * **Lossless, not q60.**  WebP is both, and lossy is visibly grainy the moment
   anybody zooms in, which is what a manual gets zoomed for.  `WEBPQ=n` in

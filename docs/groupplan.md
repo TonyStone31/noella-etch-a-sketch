@@ -6,15 +6,15 @@ that the size of the job is known before anybody starts it.*
 
 ## Read this first
 
-**This is not the next thing to build.**  Tony, the same night: "we really
+**This is not the next thing to build.**  From a note, the same night: "we really
 want to make sure we have all the issues with basic drawing functionality in
 all the tools sorted out before we pile on yet another feature."
 
 That is the right call and it is worth saying why, because it is not
 impatience talking.  Everything below sits **on top of** the pick, the move,
 the eraser, the region finder and the snap.  Every one of those is a thing
-Tony is finding bugs in right now.  A part that moves as one is a layer over
-moving; a part that does not join onto its neighbour is a layer over the
+The owner is finding bugs in right now.  A part that moves as one is a layer over
+moving; a part that does not join onto its neighbor is a layer over the
 region finder.  Build the layer first and every bug underneath it has to be
 fixed twice - once in the tool and once in how the tool behaves inside a
 part - and worse, some of them will be *hidden* by the layer and found much
@@ -25,7 +25,7 @@ written now because the reasoning is fresh, not because the work is next.
 
 ## What it is for
 
-Tony, by report, laying the letters of a word onto the face of the
+The owner, by report, laying the letters of a word onto the face of the
 etch-a-sketch toy he was drawing:
 
 > "i think this is why we will need to make things groups and stuff that can
@@ -48,7 +48,7 @@ is comparatively easy.
 
 ## What to call it
 
-Tony: "not certain we should call it groups... But I guess that is such a
+From a note: "not certain we should call it groups... But I guess that is such a
 universal term.  I just am trying not to copy SketchUp verbatim."
 
 The honest position: **the word is not SketchUp's to own.**  Illustrator,
@@ -156,8 +156,8 @@ This is the item that makes the estimate.  Everything else is small beside it.
 * inside an opened part, picking works exactly as it does now, and things
   outside the part are not pickable at all;
 * a locked part is not pickable, full stop - which is precisely the thing
-  Tony wanted when he said he would have locked the toy and then dropped the
-  letters on it.
+  wanted by the note about locking the toy and then dropping the letters
+  onto it.
 
 `BoxPick` needs the same rule, and the selection (`FSel`, a flat array of
 entity indices) needs to be able to hold a part.  The cheapest honest way is
@@ -174,7 +174,7 @@ everywhere:
 * **Escape** closes the innermost open part, which is one more job for a key
   that already has several;
 * everything outside the open part draws dimmed, the way SketchUp does it,
-  which is a colour decision in `Render` and nothing more;
+  which is a color decision in `Render` and nothing more;
 * saving while a part is open must save the drawing, not the part.
 
 Double-click with the select tool opens a part.  That gesture is already

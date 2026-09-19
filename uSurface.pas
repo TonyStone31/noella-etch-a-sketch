@@ -82,7 +82,7 @@ type
       Nine times in one session a surface was found carrying a stride that
       was not a stride but the bit pattern of a double around 0.14 - a zoom,
       by the look of it - while the bits pointer beside it was untouched.  An
-      eight byte store landing on one field and not its neighbour is not a
+      eight byte store landing on one field and not its neighbor is not a
       buffer running over; it is something writing through a pointer of the
       wrong type, and at this object's offset 40 sat FStride while at a
       TDrawing's offset 40 sits Zoom.
@@ -243,7 +243,7 @@ function Pix(R, G, B: Byte; A: Byte = 255): TPix; inline;
 function ColorToPix(C: TColor): TPix; inline;
 function PixToColor(const P: TPix): TColor; inline;
 function MixPix(const A, B: TPix; T: Single): TPix;
-{ Near-black or near-white, whichever reads on this colour. }
+{ Near-black or near-white, whichever reads on this color. }
 function OnPix(const C: TPix): TPix;
 function ShadePix(const C: TPix; F: Single): TPix;
 function HSVPix(H, S, V: Single): TPix;
@@ -314,13 +314,13 @@ begin
   Result.A := Round(A.A + (B.A - A.A) * T);
 end;
 
-{ Near-black or near-white, whichever can be read on this colour.
+{ Near-black or near-white, whichever can be read on this color.
 
   A theme puts text on its accent in half a dozen places - the lit row of a
   list, the tool in hand, the button you came for - and every one of them had
   the answer written into it as "dark, because the accents here are bright".
   Which is true of five themes and false of the light one, where the accent
-  is a mid blue: dark text on it managed 4.2 to one and light grey text on it
+  is a mid blue: dark text on it managed 4.2 to one and light gray text on it
   rather less.  So it is asked rather than assumed, once, here.
 
   The measure is the sRGB relative luminance the contrast standards use, and
@@ -465,7 +465,7 @@ end;
   but a borrowed pointer outlives the thing it points at unless something
   says otherwise, and on 16 September something did not:
 
-    Tony: "everything seemed to be going great until the exception happened
+    From a note: "everything seemed to be going great until the exception happened
     after i exported the gif then click in the canvas i got the exception."
 
   The GIF export makes its own surface, renders every frame into it, and
@@ -508,7 +508,7 @@ end;
 
   Both are written once, in Allocate, and nothing here ever touches them
   again - so finding one of them changed means something outside this object
-  wrote through it, and a report from Tony's machine says exactly that: three
+  wrote through it, and a report from the machine says exactly that: three
   surfaces carrying a stride of 7440, and the fourth carrying the bit pattern
   of the drawing's zoom.  A stride is what turns a row number into an
   address, so a wrong one is not a wrong picture, it is a wild pointer, and
@@ -1165,7 +1165,7 @@ begin
   DY := Y1 - Y0;
   if DX < 1E-9 then Grad := 0 else Grad := DY / DX;
 
-  { pixel centres sit at .5; step every whole column the line spans }
+  { pixel centers sit at .5; step every whole column the line spans }
   IA := Round(X0);
   IB := Round(X1);
   Inter := Y0 + Grad * (IA + 0.5 - X0) - 0.5;
@@ -1205,10 +1205,10 @@ begin
     end;
   end;
   { How far round the line a pixel can be and still be touched: coverage
-    ends half a pixel past the edge, and a pixel's centre is half a pixel
+    ends half a pixel past the edge, and a pixel's center is half a pixel
     from its corner.  It was three pixels, which on a one pixel line walked
     and measured three times as many pixels as could ever be lit - the ground
-    grid in the 3D view was most of every orbiting frame on Tony's machine,
+    grid in the 3D view was most of every orbiting frame on the machine,
     17 September, and almost all of that was pixels coming out blank. }
   Pad := HW + 1;
   IX0 := LoBound(Min(X0, X1) - Pad, FWidth);
@@ -1463,7 +1463,7 @@ var
 
     This was most of the ink pass.  A face with rounded corners is eighty
     edges and a hole is thirty more; the row loop asked all of them, four
-    times a row, for every row of the face's box.  On the drawing Tony sent
+    times a row, for every row of the face's box.  On the drawing the owner sent
     at 23:19 - an etch-a-sketch toy, 409 faces - that came to eleven
     milliseconds a frame, half of it in here.  At any one row a closed
     outline is crossed by a handful of edges and no more. }
@@ -1774,7 +1774,7 @@ end;
 
 
 
-{ Sprinkle bright/dark specks - the aluminium powder look while erasing. }
+{ Sprinkle bright/dark specks - the aluminum powder look while erasing. }
 procedure TArtSurface.Grain(Amount, Density: Single);
 var
   I, N, X, Y, D: Integer;

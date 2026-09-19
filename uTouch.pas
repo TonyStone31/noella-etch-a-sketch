@@ -10,7 +10,7 @@ unit uTouch;
   handle touch themselves, worked.
 
   This connects to the form's touch-event signal and hands each finger to
-  the program as it is: a sequence that begins, moves, ends or is cancelled,
+  the program as it is: a sequence that begins, moves, ends or is canceled,
   with where it is on the screen.  What the fingers mean - a tap, a drag,
   two fingers panning, a pinch - is the program's business, in uMain.
   Nothing here on any other platform yet; the hook says so by returning

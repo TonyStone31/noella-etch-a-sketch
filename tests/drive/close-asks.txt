@@ -1,6 +1,6 @@
 # Closing a sheet with work on it asks about it.
 #
-# Tony, 15 September: "I recently had another modified drawing and I closed
+# From a note, 15 September: "I recently had another modified drawing and I closed
 # its tab sheet and was not asked to save it."
 #
 # It did ask - of the wrong thing.  The test was FEditSeq against FSavedSeq,

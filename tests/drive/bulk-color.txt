@@ -1,12 +1,12 @@
 # Several things picked, and one decision changing all of them.
 #
-# Tony, by report: "would be great if we could select the colors for multiple
+# From a note, by report: "would be great if we could select the colors for multiple
 # selected faces! and line colors too ... would have to show grouped things
 # in the selection info window to bulk apply."
 #
 # The panel used to show counts and a Reverse button with several picked and
 # nothing else, on the rule that a stepper acting on nine things at once is a
-# way to lose nine things.  A colour is not a stepper: it is one decision, the
+# way to lose nine things.  A color is not a stepper: it is one decision, the
 # button says how many it lands on, and undo puts it back.
 #
 # What to look for: hsk-bulk-picked has two rectangles and their edges picked,

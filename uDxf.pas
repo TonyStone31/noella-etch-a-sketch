@@ -10,7 +10,7 @@ unit uDxf;
   file that will not open rather than one that opens and lies.
 
   Units: a DXF has none of its own.  Imperial drawings are written in inches
-  and metric ones in millimetres, which is what a table expects to be handed,
+  and metric ones in millimeters, which is what a table expects to be handed,
   and the file says so twice - once as a comment a person can read, once as
   $INSUNITS for the programs that look. }
 
@@ -163,7 +163,7 @@ begin
   L.Clear;
   L.Add('999');
   if Inches then L.Add('Heckers Sketch - units are inches')
-  else L.Add('Heckers Sketch - units are millimetres');
+  else L.Add('Heckers Sketch - units are millimeters');
 
   { --- header --- }
   L.Add('  0'); L.Add('SECTION');

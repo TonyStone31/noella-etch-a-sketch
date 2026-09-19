@@ -6,7 +6,7 @@
 # has to - which is what the menu on the select tool is for.
 #
 # What this proves: right-clicking picks the face under the cursor, the menu
-# offers Reverse Face, and taking it turns the panel from blue to grey.
+# offers Reverse Face, and taking it turns the panel from blue to gray.
 
 geometry 0 0 1500 850
 activate

@@ -12,11 +12,11 @@ every tool, command and key.  The same pages open inside the program
 
 <p align="center">
   <img src="docs/media/robot.gif" width="480" alt="A robot with an etch-a-sketch set in his chest, turning on the spot.">
-  <img src="docs/media/ball.gif" width="300" alt="A football of twelve pentagons and twenty hexagons, turning on the spot.">
+  <img src="docs/media/ball.gif" width="300" alt="A soccer ball of twelve pentagons and twenty hexagons, turning on the spot.">
 </p>
 
 <p align="center"><i>Two of the drawings that come with it, turning.  Both are
-built by a program in <a href="examples/">examples/</a> rather than modelled by
+built by a program in <a href="examples/">examples/</a> rather than modeled by
 hand - the robot's chest panel is the etch-a-sketch example itself, stood on
 end.</i></p>
 

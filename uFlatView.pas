@@ -98,7 +98,7 @@ begin
       end
       else if Pat.Edges[I].Kind = fkNotch then
       begin
-        { the brake marks.  Solid and in the cut colour, because they are
+        { the brake marks.  Solid and in the cut color, because they are
           cuts; heavier than the outline so they can be found at a glance at
           the end of a fold, which is the whole point of them. }
         Canvas.Pen.Color := $00202020;

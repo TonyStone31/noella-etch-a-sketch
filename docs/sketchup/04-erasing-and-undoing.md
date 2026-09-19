@@ -29,7 +29,7 @@ all.
   an edge.~~  **No longer — 15 September 2026.**  It used to, and the
   difference was written down here as deliberate.  Checked against the live
   page when it came up: "The Eraser tool doesn't allow you to erase faces",
-  and the way to erase one there is the Erase context command.  Tony looked
+  and the way to erase one there is the Erase context command.  The owner looked
   it up himself and settled it: "Ok I just checked and you are right the
   eraser will not erase a face in SketchUp so let's follow SketchUp
   convention here."

@@ -86,3 +86,7 @@ reports/
 /exports/
 # the folder a drawing saves into by default when it is run from here 
 /drawings/
+
+# the word checker and the two scripts that do the fixing - operator's side
+# of the arrangement, like the report collector, and nothing a reader of the
+# program needs.  (/tools/ above already covers them; this says why.)

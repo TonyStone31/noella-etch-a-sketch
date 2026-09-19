@@ -22,12 +22,12 @@ uses
 
 type
   { which edge is called out on the width, and on the height }
-  TSideRule = (srCentred, srLeftIn, srRightIn);
+  TSideRule = (srCenterd, srLeftIn, srRightIn);
   { the tape's other end: the floor or the ceiling for height, the left or
     the right wall for width }
   TRefHeight = (rhFloor, rhCeiling);
   TRefWidth = (rwLeft, rwRight);
-  THeightRule = (hrFlatBottom, hrFlatTop, hrCentred, hrTopUp, hrTopDown,
+  THeightRule = (hrFlatBottom, hrFlatTop, hrCenterd, hrTopUp, hrTopDown,
     hrBottomUp, hrBottomDown);
 
   { How an end is finished.  Raw is the sheet cut square.  Notched is the
@@ -127,7 +127,7 @@ const
     reach from one end.  Three eighths of a bolt wants a shade over three
     eighths of hole. }
   CORNER_BOLT_SQ_IN = 0.44;
-  { Galvanised sheet: a cool grey, a little blue in it, and light - a new
+  { Galvanised sheet: a cool gray, a little blue in it, and light - a new
     sheet off the pile is brighter than people remember and darker than
     white.  Every face the fitting builder makes is sheet metal, so every
     face it makes gets this, and anything else is a decision somebody makes
@@ -408,7 +408,7 @@ begin
   if T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown] then
     Result := Result + ' ' + Ins(T.HeightAmount);
   Result := Result + ',  ';
-  if T.Side = srCentred then Result := Result + 'Centered'
+  if T.Side = srCenterd then Result := Result + 'Centered'
   else if T.SideAmount < -1E-9 then
     Result := Result + StringReplace(SideWords[T.Side], ' in by', ' out by', []) + ' ' + Ins(-T.SideAmount)
   else if Abs(T.SideAmount) < 1E-9 then
@@ -426,7 +426,7 @@ begin
   E[2] := P3(T.W0, 0, T.H0);
   E[3] := P3(0, 0, T.H0);
   { the width: the named side moves in by the amount, the other follows
-    from the exit width; centred splits the difference }
+    from the exit width; centerd splits the difference }
   case T.Side of
     srLeftIn:  XL := T.SideAmount;
     srRightIn: XL := (T.W0 - T.SideAmount) - T.W1;
@@ -628,7 +628,7 @@ begin
         'Entry opening: ' + Ins(T.W0) + ' x ' + Ins(T.H0) + ' (width x height)' + LineEnding +
         'Exit opening: ' + Ins(T.W1) + ' x ' + Ins(T.H1) + LineEnding +
         'Length, entry to exit: ' + Ins(T.Len) + LineEnding +
-        'Width: ' + OutBy(SideWords[T.Side], T.Side <> srCentred, T.SideAmount) + LineEnding +
+        'Width: ' + OutBy(SideWords[T.Side], T.Side <> srCenterd, T.SideAmount) + LineEnding +
         'Height: ' + OutBy(HeightWords[T.Height],
           T.Height in [hrTopUp, hrTopDown, hrBottomUp, hrBottomDown], T.HeightAmount) + LineEnding;
       if T.FromRef and T.Vertical then
@@ -725,8 +725,8 @@ begin
 end;
 
 { The same, wound so its normal points the way Out does.  The renderer
-  colours the back of a face differently from its front, so a duct wall
-  whose winding happened to face inwards showed the inside colour from
+  colors the back of a face differently from its front, so a duct wall
+  whose winding happened to face inwards showed the inside color from
   outside.  Every face built here says which way is out. }
 procedure BFaceOut(const B: TBuild; const P: array of TP3; const Out: TP3);
 var
@@ -763,7 +763,7 @@ procedure BuildRun(const B: TBuild; const E, X: TP3x4;
 var
   C: array[0..1] of TP3x4;
   K, EndIx: Integer;
-  Centre: TP3;
+  Center: TP3;
   Poly: array of TP3;
   P0, P1: array[0..5] of TP3;
   N0, N1, I: Integer;
@@ -783,7 +783,7 @@ var
     Mid := P3((C[0][K].X + C[0][J].X + C[1][K].X + C[1][J].X) / 4,
               (C[0][K].Y + C[0][J].Y + C[1][K].Y + C[1][J].Y) / 4,
               (C[0][K].Z + C[0][J].Z + C[1][K].Z + C[1][J].Z) / 4);
-    if Dot3(Result, P3(Mid.X - Centre.X, Mid.Y - Centre.Y, Mid.Z - Centre.Z)) < 0 then
+    if Dot3(Result, P3(Mid.X - Center.X, Mid.Y - Center.Y, Mid.Z - Center.Z)) < 0 then
       Result := P3(-Result.X, -Result.Y, -Result.Z);
   end;
 
@@ -1110,13 +1110,13 @@ var
 
 begin
   C[0] := E; C[1] := X;
-  Centre := P3(0, 0, 0);
+  Center := P3(0, 0, 0);
   for K := 0 to 3 do
   begin
-    Centre := Add(Centre, C[0][K], 1);
-    Centre := Add(Centre, C[1][K], 1);
+    Center := Add(Center, C[0][K], 1);
+    Center := Add(Center, C[1][K], 1);
   end;
-  Centre := P3(Centre.X / 8, Centre.Y / 8, Centre.Z / 8);
+  Center := P3(Center.X / 8, Center.Y / 8, Center.Z / 8);
   { the four walls, each wound so its normal points out of the duct: up the
     seam at the first corner, along the exit, down the seam at the second,
     back along the entry - stepping round the corner cut-outs where an end
@@ -1405,8 +1405,8 @@ var
   end;
 
   { which way is out of the duct at a point on the throat or the heel: the
-    bend's centre of curvature is inside the throat and outside the heel }
-  function AwayFromCentre(const P, Q: TP3): TP3;
+    bend's center of curvature is inside the throat and outside the heel }
+  function AwayFromCenter(const P, Q: TP3): TP3;
   var
     Mid: TP3;
   begin
@@ -1464,7 +1464,7 @@ begin
     if Dist(Throat[I], Throat[I + 1]) < 1E-9 then Continue;
     Lift(Throat[I], Lo, Hi);
     Lift(Throat[I + 1], Lo2, Hi2);
-    Out := AwayFromCentre(Throat[I], Throat[I + 1]);
+    Out := AwayFromCenter(Throat[I], Throat[I + 1]);
     BFaceOut(B, [Lo, Lo2, Hi2, Hi], P3(-Out.X, -Out.Y, -Out.Z));
     BLine(B, Lo, Lo2); BLine(B, Hi, Hi2);
     if I > 0 then BLine(B, Lo, Hi);
@@ -1474,7 +1474,7 @@ begin
   begin
     Lift(Heel[I], Lo, Hi);
     Lift(Heel[I + 1], Lo2, Hi2);
-    BFaceOut(B, [Lo, Lo2, Hi2, Hi], AwayFromCentre(Heel[I], Heel[I + 1]));
+    BFaceOut(B, [Lo, Lo2, Hi2, Hi], AwayFromCenter(Heel[I], Heel[I + 1]));
     BLine(B, Lo, Lo2); BLine(B, Hi, Hi2);
     if I > 0 then BLine(B, Lo, Hi);
   end;

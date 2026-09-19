@@ -52,7 +52,7 @@ var
     folder, so the six-hourly throttle never applied and every start asked
     GitHub's API what the newest release was.  GitHub allows sixty of those
     an hour per address without an account, and after an evening of test
-    runs Tony's wife's computer, behind the same router, was refused: "403
+    runs another machine on the same network, behind the same router, was refused: "403
     unexpected response". }
   NetOffline: Boolean = False;
 

@@ -1,6 +1,6 @@
 # The dimension tool takes the long edge of the toy's case.
 #
-# Tony's report: the cursor says ON EDGE but nothing lights up and the click
+# the report: the cursor says ON EDGE but nothing lights up and the click
 # falls through to a point-to-point.  The case is one face with no lines in
 # it, and the hover went through HitEdge, which never looks at a face.
 #

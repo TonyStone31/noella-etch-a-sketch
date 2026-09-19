@@ -10,7 +10,7 @@ unit uWhatsNew;
   than the version an update replaced, or every section when asked from the
   menu.
 
-  It used to put the lot in a memo, which meant one weight of one colour, the
+  It used to put the lot in a memo, which meant one weight of one color, the
   asterisks of the bold markers showing as asterisks, and a stock dialog
   round it.  So the notes are set rather than dumped: the version, the two
   headings and the lead-in of each bullet are all told apart, and the window
@@ -20,7 +20,7 @@ unit uWhatsNew;
   unit used to lay the words out itself - measuring, wrapping, a scrollbar
   drawn by hand, and dragging the page for a finger - three hundred lines of
   a text renderer that belonged in a package.  It moved there: the notes are
-  turned into a small page of HTML in the dialog's own colours and handed to
+  turned into a small page of HTML in the dialog's own colors and handed to
   a TInkPage, which wraps, scrolls by wheel, keys and drag, and is tested on
   its own.  What stays here is the part only this program knows - which
   releases to show.
@@ -45,8 +45,8 @@ type
 
     FHead, FBody, FFoot: TBCPanel;
     { Plain labels, transparent, rather than the drawn ones.  A drawn label
-      fills its own rectangle with a colour it inherited from the parent -
-      which on a skinned panel is not the colour the panel actually painted -
+      fills its own rectangle with a color it inherited from the parent -
+      which on a skinned panel is not the color the panel actually painted -
       so the title came out sitting in a pale box. }
     FTitle, FWhich: TLabel;
     FPage: TInkPage;
@@ -77,7 +77,7 @@ type
   them when Since is empty.  A section headed "Next release" is the build
   being run and is listed under its own version.  '' when nothing is newer. }
 function ReleaseNotesMarkdown(const Since: string): string;
-{ The style sheet the window gives the page, in the dialog theme's colours. }
+{ The style sheet the window gives the page, in the dialog theme's colors. }
 function ReleaseNotesStyle(const T: TTheme): string;
 
 implementation
@@ -163,7 +163,7 @@ begin
   end;
 end;
 
-{ The window's look, as the page's style sheet: the dialog theme's colours,
+{ The window's look, as the page's style sheet: the dialog theme's colors,
   headings in the accent, and the scrollbar in the theme too. }
 function ReleaseNotesStyle(const T: TTheme): string;
 

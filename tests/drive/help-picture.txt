@@ -1,6 +1,6 @@
 # A picture in the manual, clicked, opens larger in a window of its own.
 #
-# Tony: "for the gif files... be able to click them and see a larger image".
+# From a note: "for the gif files... be able to click them and see a larger image".
 # Every picture is a link to itself; in the program a click opens the
 # picture window, fitted to its size, and Esc closes it again.
 #

@@ -11,9 +11,9 @@
    Nothing here runs inside the program's own help window: LazInk renders
    these pages and has no JavaScript at all.  The button is therefore
    written into the pages as an ordinary link - <a class="themebtn"
-   href="#theme"> - and this file finds it and gives it its behaviour.
+   href="#theme"> - and this file finds it and gives it its behavior.
 
-   Tony, 19 September: "even the local copy should have the light/dark mode
+   From a note, 19 September: "even the local copy should have the light/dark mode
    button toggles in the help browsers html like we do in the online
    version".  So the program answers that link too: clicking it there cycles
    the manual's palette and loads the page again wearing it, and the label
@@ -25,7 +25,7 @@
    what a #theme with nothing to jump to does.
 
    The first half runs while the page is still parsing, on purpose, so the
-   colours are right before anything is painted.  Waiting for the document
+   colors are right before anything is painted.  Waiting for the document
    would show a flash of the wrong theme on every page turn. */
 (function () {
   'use strict';

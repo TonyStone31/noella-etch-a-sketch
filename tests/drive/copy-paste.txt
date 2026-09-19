@@ -1,6 +1,6 @@
 # Copy and paste, and from one sheet to another.
 #
-# Tony: "we need to be able to copy and paste a selection and copy and paste
+# From a note: "we need to be able to copy and paste a selection and copy and paste
 # from one sheet to another etc."
 #
 # Ctrl+C, Ctrl+X, Ctrl+V.  A paste arrives on the cursor and a click puts it

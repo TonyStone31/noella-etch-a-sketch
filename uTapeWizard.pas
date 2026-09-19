@@ -665,7 +665,7 @@ begin
   TapeRules(T);
   TransitionCorners(T, E, X);
   { the room, in feet: the furnace a foot and a half off the reference
-    wall, the collar centred on it, the trunk above with its opening off
+    wall, the collar centerd on it, the trunk above with its opening off
     the collar by what the readings come to }
   Tall := FURN_H + COLLAR_H + GAP + TRUNK_H + 0.8;
   if Side then begin FW := FURN_D; DA := FSpec.H0; DB := FSpec.H1; end

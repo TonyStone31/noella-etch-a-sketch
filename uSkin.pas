@@ -779,7 +779,7 @@ begin
   end;
 end;
 
-{ A fresh sheet of aluminium powder.
+{ A fresh sheet of aluminum powder.
 
   RefW/RefH let the caller anchor the gradient and the grid to a different
   size than the surface.  After a window resize the old drawing is pasted back
@@ -848,7 +848,7 @@ begin
 end;
 
 { A grid in real units, anchored to the drawing origin so the lines land on
-  whole feet (or metres) no matter where the paper has been panned to. }
+  whole feet (or meters) no matter where the paper has been panned to. }
 procedure PaintMeasuredGrid(S: TArtSurface; const T: TTheme;
   Ppu, OX, OY: Double; MajorEvery: Integer);
 var

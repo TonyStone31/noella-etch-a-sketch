@@ -53,7 +53,7 @@ const
   ART_H = 720;
 
   { TColor is $00BBGGRR }
-  GLASS = $00E0D8C8;       { a pale cold grey, which is what glass reads as }
+  GLASS = $00E0D8C8;       { a pale cold gray, which is what glass reads as }
 
 var
   D: TWorkDoc;

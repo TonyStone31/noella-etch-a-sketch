@@ -121,7 +121,7 @@ end;
   The API is the tidy way - it gives the tag, the files and their sizes in
   one answer - but it is rate limited: sixty requests an hour per network
   address without an account, shared by every machine behind the same
-  router.  On 16 September an evening of test runs used that up and Tony's
+  router.  On 16 September an evening of test runs used that up and the
   wife's computer was refused with a bare "403".
 
   The feed is the release page as Atom, served like any web page, and it

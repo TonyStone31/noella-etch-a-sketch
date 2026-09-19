@@ -1,6 +1,6 @@
 # Our ISO view is not a field isometric
 
-Decided 3 September 2026, after Tony asked whether iso drawings in the field
+Decided 3 September 2026, after the owner asked whether iso drawings in the field
 are scaled at all.  Written down so neither of us re-argues it later.
 
 ## They are not
@@ -30,7 +30,7 @@ for.
 
 A **scaled 3D model seen at 30 degrees**.  It is a camera angle on the same
 document that PLAN and 3D show, not a separate kind of drawing.  Lengths are
-true, dimensions are labelled at true length, and what you measure is what you
+true, dimensions are labeled at true length, and what you measure is what you
 built.
 
 That is worth keeping.  It is what lets you rough something out in 3D and then
@@ -50,13 +50,13 @@ hangs the dimensions off it.  So if we ever want it, the right shape is an
 export - take a run from the scaled model and emit an iso sheet with callouts
 - and not a mode that changes how drawing works.
 
-**It is not the daily job.**  Tony's coworkers do the isos; he does duct
+**It is not the daily job.**  the coworkers do the isos; he does duct
 transitions and pulls measurements.  The handful of features that have to be
 excellent are the ones he touches every day.
 
 ## The part that actually matters for a pipe fitter
 
-Tony's refinement, and it is the useful one: if a welder does use the ISO
+the refinement, and it is the useful one: if a welder does use the ISO
 view to lay a pipe line out, **he will not care what scale it is**.  He will
 snap the run to the paper grid, annotate every leg, and read the numbers.
 The scale being true underneath is harmless - it is simply ignored, exactly
@@ -96,7 +96,7 @@ dimension tool is really ISO work.
 
 # Open question, 3 September 2026: what should ISO mode actually be?
 
-Tony, after pushing and pulling a rectangle in the ISO view: *"for an iso it
+From a note, after pushing and pulling a rectangle in the ISO view: *"for an iso it
 doesn't seem quite proper... maybe the iso mode is just dumb as fuck but I
 think pipe fitters would want it... this deserves further discussion."*
 
@@ -124,7 +124,7 @@ command's Isocircle option, because a circle on iso paper is an ellipse.
 
 There is **no 3D underneath any of it**.  It is a flat drawing that looks
 three-dimensional by convention.  Push/pull is meaningless there because
-there is nothing to push - which is exactly the friction Tony felt.
+there is nothing to push - which is exactly the friction the owner felt.
 
 This is the one pipe fitters know.  Our `K` and arrow-key plane switching is
 already a close cousin of ISODRAFT's isoplanes; the difference is that ours
@@ -134,7 +134,7 @@ axes the cursor follows.
 ## 3. A sheet generated from a model - Plant 3D, Isogen
 
 In the big piping packages nobody draws the iso at all.  The 3D route is
-modelled, and the isometric sheet is *generated* from it, with the dimensions
+modeled, and the isometric sheet is *generated* from it, with the dimensions
 and callouts hung on automatically.  Designers then touch the result up using
 ISODRAFT, which is why they are fluent in it.
 
@@ -171,7 +171,7 @@ SketchUp viewing a model - https://help.sketchup.com/en/sketchup/viewing-model
 
 # Resolved, 4 September 2026: three views, one model, and what each view is for
 
-Tony, on the workflow: *"the user should not be required to start in plan view
+From a note, on the workflow: *"the user should not be required to start in plan view
 then be able to use iso.  that's not a quick work flow."*  And on the friction
 he kept hitting: *"I can draw on the iso paper grid sort of now as it stands
 but then I can also push and pull shit that to me doesn't appear to be drawn
@@ -218,7 +218,7 @@ it did.
 **PLAN** - straight down, the working plane locked to the ground and kept
 there.  For laying out a footprint: duct runs, equipment, a room.  No push and
 pull, no drawing out of the ground plane.  A view mode with drawing in it, not
-a modelling mode.
+a modeling mode.
 
 **ISO** - the fixed 30 degree camera, and the cursor locked to the two paper
 axes of the current isoplane.  No plane guessing from mouse direction; the
@@ -228,7 +228,7 @@ on paper - and because the strokes are axis-locked and chained, what comes out
 is a real route.
 
 **3D** - the free camera, and the only place where anything can be drawn off
-the three axes.  Everything is available here.  This is the modelling mode.
+the three axes.  Everything is available here.  This is the modeling mode.
 
 Switching views is switching cameras.  It is not a workflow gate: any of the
 three is a place to start, and the model is the same model from all of them.
@@ -280,7 +280,7 @@ most to the people receiving the drawings.
 
 **Push and pull in ISO.**  The visibility rule permits it: an extrusion at 30
 degrees is plainly visible, and once everything drawn there is grid-locked, an
-extrusion along one of the three axes is on the grid too.  Tony's original
+extrusion along one of the three axes is on the grid too.  the original
 complaint may have been about the rectangle not being on the grid rather than
 about the push.  Ban it in ISO for coherence, or allow it as honest - not yet
 decided.
@@ -301,7 +301,7 @@ is what makes ISO stop feeling wrong.
 
 ## Which corner ISO is seen from
 
-Decided 5 September 2026, after Tony sent a photo of a new SketchUp document
+Decided 5 September 2026, after the owner sent a photo of a new SketchUp document
 and said our axes deviated from it.
 
 SketchUp opens on the corner **(+X, -Y, +Z)**.  From there:
@@ -338,7 +338,7 @@ which.
 
 ### Why this is worth being fussy about
 
-It is the shared vocabulary.  When Tony says "the green one" or "pull it
+It is the shared vocabulary.  When the owner says "the green one" or "pull it
 along the red", that has to mean one thing in every view and the same thing
 SketchUp means, or every future description of a tool has to be re-checked
 against which view he was looking at.  Getting the underlying frame right is
@@ -347,7 +347,7 @@ cheaper than translating forever.
 
 ## Where this landed, 6 September 2026
 
-The three-way PLAN / ISO / 3D switch is gone.  Tony's reading, and it is the
+The three-way PLAN / ISO / 3D switch is gone.  the reading, and it is the
 right one: PLAN and ISO were built as *drawing modes* when they are two
 different things - a **camera preset** and a **document type**.
 

@@ -104,8 +104,8 @@ function PointInLoop(const P: TP3; const Loop: TP3Array; const Normal: TP3;
 function InnerPoint(const Loop: TP3Array; const Normal: TP3): TP3;
 
 { The same for a region with openings: a point inside the outline and not
-  inside any hole.  A ring's centre is in its hole, and a point in the hole
-  is not a point of the ring - asking the ring's centre whether the ring had
+  inside any hole.  A ring's center is in its hole, and a point in the hole
+  is not a point of the ring - asking the ring's center whether the ring had
   a face said no, and the ring was not given one back. }
 function InnerPointOf(const Outer: TP3Array; const Holes: array of TP3Array;
   const Normal: TP3): TP3;
@@ -548,7 +548,7 @@ function PlanesOf(const Segs: TSegArray; Tol: Double): TPlaneArray;
 { Both lookups here used to be linear scans, and on a drawing of two hundred
   thousand things that was sixteen seconds before a single region existed.
   The ends and the planes go in hash grids instead: a cell well wider than
-  the tolerance, the neighbouring cells looked at too, and the entries in a
+  the tolerance, the neighboring cells looked at too, and the entries in a
   cell chained through Next.  Nothing else about the answer changes. }
 const
   CELL = 1E-4;       { ends: the grid cell; the tolerance is far inside it }
@@ -851,7 +851,7 @@ var
     The bucket is found from the pair in order, so both ways round land in
     the same one - but what is stored in EA and EB is the edge as it arrived,
     and the comparison used to be against the ordered pair only.  So an edge
-    put in as 5-2 was never recognised when it came back as 2-5, and the
+    put in as 5-2 was never recognized when it came back as 2-5, and the
     duplicate went in.
 
     Two parallel edges between the same pair of corners are two more darts
@@ -859,7 +859,7 @@ var
     along the other: a slit.  That is what a face divided by a line drawn
     along an edge it already has came out as - one loop with the divider
     traced up one side and down the other, no area cut off, and nothing to
-    push.  Tony, 15 September: "so once again we closed in the a rectangle...
+    push.  From a note, 15 September: "so once again we closed in the a rectangle...
     i am unable to pull it out as a floor because it didnt cut it into its
     own face in that long narrow rectangle!"
 

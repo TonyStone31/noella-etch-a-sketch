@@ -124,7 +124,7 @@ size.  Now the command bar says what is wrong and keeps what you typed so you
 can fix it, and it names the forms - which is also the one moment the dashed
 truss form gets explained to somebody who has never met it.
 
-The two worth recognising:
+The two worth recognizing:
 
 * *The last number counts in 1/16 of an inch, so it has to be under 16 - you
   typed 20.*  The dashed form with a fraction field the drawing's precision

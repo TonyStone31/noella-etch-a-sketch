@@ -1,7 +1,7 @@
 # Alt steps through what the cursor may infer, the way SketchUp's line tool
 # does - and the parallel and perpendicular offers it needs.
 #
-# Tony, 17 September: "we do want you to use the alt key to cycle inference
+# From a note, 17 September: "we do want you to use the alt key to cycle inference
 # for the line tool... we need to try to be as compatible with SketchUp as
 # possible."  Their help: after the first click, Alt cycles all inferences
 # on, all linear inferences off, parallel and perpendicular only.

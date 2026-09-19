@@ -3,7 +3,7 @@
 # You could put one across blank paper and drag it about: a number that
 # measures nothing, cannot be driven by the drawing, and never updates.
 # SketchUp's own rule is that a dimension starts and ends on end points,
-# midpoints, on-edge points, intersections and arc or circle centres.
+# midpoints, on-edge points, intersections and arc or circle centers.
 #
 # What to look for: hsk-dns-air has the status bar saying there is nothing
 # here to measure, and hsk-dns-after shows no dimension was made.

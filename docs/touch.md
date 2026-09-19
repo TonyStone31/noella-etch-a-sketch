@@ -16,7 +16,7 @@ Ctrl and the wheel for old-style programs, which is why it half works there.
 ## What is done
 
 `uTouch.pas` connects to the form's touch-event signal on GTK3 and hands
-each finger to `TMainForm.OnTouch` as it is: begins, moves, ends, cancelled,
+each finger to `TMainForm.OnTouch` as it is: begins, moves, ends, canceled,
 with where it is on the screen.  The gesture layer in uMain decides:
 
 * **one finger is the mouse**, but the press waits until the finger moves,

@@ -70,10 +70,10 @@ const
     'A wine glass, off the lathe: an outline spun about the blue axis.  ' +
     'Hollow bowl, solid stem, and closed enough to print.',
     'A kitchen broom, banded the way a shop one is: a hundred and seventy ' +
-    'bristles, every face painted, and not a pen colour anywhere.',
+    'bristles, every face painted, and not a pen color anywhere.',
     'A robot six foot two, with the etch-a-sketch set in his chest at the ' +
     'height your hands are - and the toy is the toy, not a copy of it.',
-    'A football: twelve pentagons and twenty hexagons, cut off the corners ' +
+    'A soccer ball: twelve pentagons and twenty hexagons, cut off the corners ' +
     'of an icosahedron the way the real one is.');
 
 function ExampleCount: Integer;

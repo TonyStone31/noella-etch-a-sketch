@@ -14,7 +14,7 @@ unpickable because the two coplanar faces' depths differed by rounding.
 
 ## The standing visual test — the grid
 
-Tony's scenario, and the one that has found the most.  Do it in the GUI:
+The standing scenario, and the one that has found the most.  Do it in the GUI:
 
 1. **A square with the rectangle tool.**
 2. **Fill it in at the midpoints** to make a 6 x 6 grid — lines from the middle

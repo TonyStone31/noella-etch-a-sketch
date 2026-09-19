@@ -1,6 +1,6 @@
 # The frame watchdog, and a picked guide drawn where the guide is.
 #
-# Tony: "we need the frame watchdogs for bug reports for sure."  And, on a
+# From a note: "we need the frame watchdogs for bug reports for sure."  And, on a
 # picture of two blue lines running off a rectangle: "those lines are not
 # actually there in this drawing... the 2 blue lines sticking out of the
 # rectangle.. wtf."

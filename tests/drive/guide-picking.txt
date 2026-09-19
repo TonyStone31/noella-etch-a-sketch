@@ -1,6 +1,6 @@
 # Guides are things you can pick, and Ctrl says what the tape leaves.
 #
-# Tony, 15 September: "SketchUp is definitely leaving a tiny little black plus
+# From a note, 15 September: "SketchUp is definitely leaving a tiny little black plus
 # sign or a cross on the line when you use the tape measure on a line and
 # follow the line in and type 1 inch... the eraser tool does not get rid of it.
 # The select tool cannot select it either.  For ours I would like to be able

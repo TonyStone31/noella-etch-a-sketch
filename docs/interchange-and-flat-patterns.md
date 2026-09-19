@@ -1,6 +1,6 @@
 # Getting work out of the program
 
-Written 4 September 2026, after Tony asked what could be imported and
+Written 4 September 2026, after the owner asked what could be imported and
 whether a piece of duct could be unfolded for a cutting table.  Nothing here
 is built.  It is written down so the order is decided once.
 
@@ -11,9 +11,9 @@ view rather than geometry.  Everything below is about that gap.
 
 | Format | Read | Write | Verdict |
 |---|---|---|---|
-| DXF, the ASCII flavour | a subset is feasible | straightforward | the right target |
+| DXF, the ASCII flavor | a subset is feasible | straightforward | the right target |
 | DWG | no | no | proprietary; needs a licensed library |
-| SKP | no | no | SketchUp's own, C++ SDK with licence terms |
+| SKP | no | no | SketchUp's own, C++ SDK with license terms |
 | STL | trivial | trivial | for anything cut or printed |
 | OBJ | trivial | trivial | cheap, but nothing here consumes it |
 | STEP, IGES | no | no | wants B-rep and NURBS; a different program |
@@ -58,7 +58,7 @@ So: last, and only when there is a particular file that has to come in.
 ## Flat patterns - the one that is actually the trade
 
 For duct work the valuable output is not a model, it is the sheet it gets cut
-from.  This is the piece nobody gives away and the piece Tony would use.
+from.  This is the piece nobody gives away and the piece the owner would use.
 
 ### It only works because duct is developable
 
@@ -100,7 +100,7 @@ Geometry is the easy half.
   differ by enough to matter over several bends.
 * **Grain and nesting.**  Several parts on one sheet, and which way round.
 
-None of that is hard arithmetic.  All of it is knowledge Tony has and the
+None of that is hard arithmetic.  All of it is knowledge The owner has and the
 program does not, so it belongs in settings with sensible defaults rather
 than being guessed at.
 

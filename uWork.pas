@@ -95,7 +95,7 @@ var
 
 type
 
-  { One thing on the drawing.  World coordinates, Y up, in feet or metres.
+  { One thing on the drawing.  World coordinates, Y up, in feet or meters.
 
     ekLine  uses A and B.
     ekArc   uses C (center), R, A0 (start angle) and Sweep; a circle is just
@@ -139,15 +139,15 @@ type
     Txt: string;
     Ink: TColor;
     { ekFace: the material painted on the front of it.  MatSet is what says
-      whether it has one, because a colour has no spare value to mean "none"
-      and an entity is born by being zeroed - so black had to stay a colour
+      whether it has one, because a color has no spare value to mean "none"
+      and an entity is born by being zeroed - so black had to stay a color
       you can paint with.
 
       This is kept apart from Ink, and the two used to be one field.  That is
-      what made a face painted red come out grey: the pen colour and the
+      what made a face painted red come out gray: the pen color and the
       material were the same thing, so a face had to take a mere eight
       percent of it or every face drawn with a red pen would have been red.
-      SketchUp keeps them apart - an edge has a colour, a face has a material
+      SketchUp keeps them apart - an edge has a color, a face has a material
       - and a face painted red is red. }
     MatSet: Boolean;
     Mat: TColor;
@@ -370,9 +370,9 @@ type
       first, so a seam that is merely divided unevenly is not reported as a
       hole - it is not one.
 
-      Nothing draws these yet.  It is here because the analysis is the hard
+      Nothing draws these yet.  It is here because the analyzis is the hard
       part and it already existed, scattered across a scratch program used to
-      find what was wrong with Tony's robot; putting it where it belongs cost
+      find what was wrong with the robot; putting it where it belongs cost
       nothing and means the day somebody wants it highlighted on screen, the
       work is a paint routine and not an investigation. }
     function OpenEdges(G: Integer): TP3Array;
@@ -405,7 +405,7 @@ type
       word on which way a face points, for when the rule that wound it
       guessed wrong. }
     function ReverseFace(Index: Integer): Boolean;
-    { Make loose faces agree with their neighbours about which way is out.
+    { Make loose faces agree with their neighbors about which way is out.
 
       A face worked out from lines is wound by OrientFace, which looks at that
       face and nothing else and points it along whichever axis it faces most.
@@ -413,7 +413,7 @@ type
       time in company: the two slopes of a roof both come out pointing the
       same way in y, when out for one of them is the opposite of out for the
       other, and so do the two ends of a gable in x.  A face pointing inwards
-      is drawn in the back-face colour, which is how this reaches anybody -
+      is drawn in the back-face color, which is how this reaches anybody -
       as blue patches on a house that has nothing wrong with it.
 
       Faces that share an edge and disagree about which way along it they run
@@ -444,7 +444,7 @@ type
     function NewGroup: Integer;
     procedure SetSoft(Index: Integer; Soft: Boolean);
     { What an entity is drawn with, changed after the fact - the entity
-      panel's colour and width rows. }
+      panel's color and width rows. }
     procedure SetInk(Index: Integer; Ink: TColor);
     procedure SetWeight(Index: Integer; Weight: Single);
     { The material on the front of a face.  Painting is per face, so a box
@@ -525,11 +525,11 @@ type
       put down, which must not drag the corner it happened to be built on. }
     procedure TranslateEnts(const Idx: array of Integer; const D: TP3);
     { The middle of a few things, or of everything if none are named.  What
-      "centre this on the origin" has to know before it can do it. }
+      "center this on the origin" has to know before it can do it. }
     function MiddleOf(const Idx: array of Integer; out Mid: TP3): Boolean;
     { The box these things sit in - the same walk MiddleOf does, and the
       middle is only the halfway point of it.  Wanted whole for putting a
-      selection into the corner at the origin rather than centred on it. }
+      selection into the corner at the origin rather than centerd on it. }
     function SpanOf(const Idx: array of Integer; out Lo, Hi: TP3): Boolean;
     { SketchUp's arrays.  N copies of Src along D - at D, 2D, 3D when
       Divide is off (3x), at D/N, 2D/N ... D when it is on (/3) - or turned
@@ -633,7 +633,7 @@ type
       there is not one.  A solid's new edges copy it, so everything drawn
       from the same pen looks like it. }
     function EdgeWeight(const A, B: TP3): Single;
-    { The colour of the pen that drew this face's outline, or Default when no
+    { The color of the pen that drew this face's outline, or Default when no
       edge of it can be found.  A solid's new edges are drawn with it. }
     function OutlineInk(Face: Integer; Default: TColor): TColor;
     { The nearest point lying *on* a line or an arc, within TolPx of the
@@ -708,9 +708,9 @@ type
       the screen's.  Binary, because ASCII STL is five times the size for the
       same triangles and every slicer reads both.
 
-      In millimetres.  STL carries no units and every slicer in the world
-      assumes millimetres, so a drawing in feet is multiplied by 304.8 and one
-      in metres by 1000 - which is the difference between a part that prints
+      In millimeters.  STL carries no units and every slicer in the world
+      assumes millimeters, so a drawing in feet is multiplied by 304.8 and one
+      in meters by 1000 - which is the difference between a part that prints
       and a part that is three hundred times too small.
 
       Returns how many triangles went out, and says through Closed whether
@@ -736,7 +736,7 @@ type
       something else.
 
       One module per closed solid, so the parts stay separable, plus a module
-      that unions them and a call to it.  Millimetres, like the STL.
+      that unions them and a call to it.  Millimeters, like the STL.
 
       Note the winding.  OpenSCAD wants each face's points listed CLOCKWISE
       seen from outside, which is the opposite of STL's rule, and getting it
@@ -840,7 +840,7 @@ const
 
   SNAP_COUNT = 10;
 
-  { snap increments, in world units (feet / metres); 0 means no snapping }
+  { snap increments, in world units (feet / meters); 0 means no snapping }
   { in feet: a sixteenth is 1/192 of one }
   IMPERIAL_SNAPS: array[0..SNAP_COUNT - 1] of Double =
     (0, 1 / 192, 1 / 96, 1 / 48, 1 / 24, 1 / 12, 1 / 6, 0.25, 0.5, 1.0);
@@ -989,7 +989,7 @@ function DimGeometry(const V: TProjector; const A, B, Off: TP3;
   the point it lands on is the *middle* of the text: half the figure is still
   back over the line, and on an isometric - where the line runs at 30 degrees
   and the lettering does not - that half is exactly the half you are trying
-  to read.  So the box has to be cleared rather than the centre moved: the
+  to read.  So the box has to be cleared rather than the center moved: the
   run from the middle of a W x H box out to its edge along (nx, ny) is
   (|nx|W + |ny|H) / 2. }
 function DimTextTopLeft(const G: TDimGeom; TW, TH: Integer;
@@ -1038,7 +1038,7 @@ function Norm3(const A: TP3): TP3;
   overshoots simply comes back as smaller regions. }
 { What the tape leaves behind, which depends on where it was pulled from.
 
-  SketchUp's rule, and the one Tony asked for on 17 September: "when i draw a
+  SketchUp's rule, and the one What was asked for was on 17 September: "when i draw a
   point in from the corner staying in the line it drops a point only... but
   if i used the tape measure from the line and set it up into the face of the
   rectangle then it does the guide line".
@@ -1107,7 +1107,7 @@ const
   { The back of a face, in SketchUp's pale blue.  A face has a front and a
     back, and which you are looking at is not otherwise visible - so a solid
     built inside out looks perfectly ordinary until something behaves oddly
-    much later.  Colouring the back is how that is caught on sight, and it is
+    much later.  Coloring the back is how that is caught on sight, and it is
     why their models read better than a drawing where every face is the same
     white. }
   FACE_BACK: TPix = (B: $DC; G: $C4; R: $A8; A: 255);
@@ -1152,7 +1152,7 @@ begin
     { Sc.Paper is paper inches per foot, DPI is pixels per paper inch }
     Result := Sc.Paper * DPI
   else
-    { Sc.Paper is paper metres per metre }
+    { Sc.Paper is paper meters per meter }
     Result := Sc.Paper * (DPI / 0.0254);
   if Result < 0.5 then Result := 0.5;
 end;
@@ -1303,7 +1303,7 @@ end;
 
   Imperial:  12'6"   12' 6   12-6   12'   6"   150"   12   6 1/2"
              a bare number is feet; anything after a ' or ending in " is inches
-  Metric:    3.5   3.5m   350cm   3500mm   (bare number is metres) }
+  Metric:    3.5   3.5m   350cm   3500mm   (bare number is meters) }
 function ParseLen(const S: string; U: TUnitSystem; out V: Double): Boolean;
 var
   T, FtPart, InPart: string;
@@ -2226,7 +2226,7 @@ begin
     if L < EPS then
     begin
       { a repeated point: the edge has no direction, so leave it flat and let
-        its neighbours span the gap }
+        its neighbors span the gap }
       DU[I] := 0; DV[I] := 0; NU[I] := 0; NV[I] := 0;
       Continue;
     end;
@@ -2238,7 +2238,7 @@ begin
   end;
 
   { The edges still in the answer.  One with no length has no direction to
-    offset along, so it is left out from the start and its neighbours meet
+    offset along, so it is left out from the start and its neighbors meet
     across it. }
   SetLength(Act, Cnt);
   M := 0;
@@ -2251,12 +2251,12 @@ begin
 
   { Corners, then the edges that came out backwards, then again without them.
 
-    Each corner is where the offsets of two neighbouring edges meet.  That is
+    Each corner is where the offsets of two neighboring edges meet.  That is
     exact for a corner - but an edge shorter than the offset can come out
     pointing the wrong way, its two corners having crossed over.  An arc is a
     run of exactly such edges: taken in further than its radius, every piece
     of a rounded corner turned round, and the corner came out as a little
-    loop the wrong way about.  Tony, 17 September: "if i tried to offset it
+    loop the wrong way about.  From a note, 17 September: "if i tried to offset it
     inside it looked like it was flipping the inner rounded corners the wrong
     way".  SketchUp's answer is the one geometry gives: the rounding is used
     up and the corner is sharp.  So a piece that has turned round is taken
@@ -2516,7 +2516,7 @@ begin
 
   { Back out of the plane into model space.
 
-    The two in-plane axes put the centre on a plane through the origin, so it
+    The two in-plane axes put the center on a plane through the origin, so it
     has to be moved out to the one the chord is actually on - which is what
     the third coordinate did for the axis-square planes: pin Z for a flat
     one, Y for XZ, X for YZ.
@@ -2524,7 +2524,7 @@ begin
     Said once instead of three times, because there is a fourth.  A free
     plane - a roof, the sloping side of a transition - has no third
     coordinate to pin, and it was falling through the case with none of them
-    applied: the centre came out on a plane through the origin parallel to
+    applied: the center came out on a plane through the origin parallel to
     the one the arc was drawn on, so an arc on a slope had its middle
     somewhere under the ground.  Sliding along the normal by however far the
     chord is along it is the same answer for all four, and it cannot miss one
@@ -2975,7 +2975,7 @@ begin
     through the undo snapshot into the past: the outline went back where it
     came from and the window stayed where it had been dragged to.
 
-    Tony, 15 September: "notice i moved the heckers sketch block words and
+    From a note, 15 September: "notice i moved the heckers sketch block words and
     then hit undo and it left behind something where i had moved it to before
     undoing.  it is like it brought faces with it and left them behind."  The
     block words are exactly the faces with windows in them - the counters
@@ -3504,7 +3504,7 @@ begin
           left every hole edge used once by that wall and never by the face,
           so a frame with a hole in it read as open however well it was
           built, and the STL said a slicer would have to guess.  Found
-          modelling the example etch-a-sketch, whose screen surround is
+          modeling the example etch-a-sketch, whose screen surround is
           exactly that shape. }
         SetLength(Loops, 1 + Length(FEnts[I].Holes));
         Loops[0] := FEnts[I].Poly;
@@ -3563,7 +3563,7 @@ begin
         against whole edges sees four strangers rather than a seam.  A
         T-junction, and the shape is every bit as watertight as it looks.
 
-        Tony's robot, 13 September: thirteen faces, and fourteen edges the
+        the robot, 13 September: thirteen faces, and fourteen edges the
         plain count could not pair off - every one of them a long edge on a
         side wall against the two or three pieces of it on the top.  The
         solid was closed and had always been closed; being told it was not is
@@ -3741,15 +3741,15 @@ end;
   took a report to notice.  They were added exactly as walked, and for
   two areas either side of one line the walker runs the shared line the same
   way round for both - so a barn roof built as two slopes off a ridge came
-  out with one slope facing the sky and the other facing the ground.  Grey on
+  out with one slope facing the sky and the other facing the ground.  Gray on
   one side, pale blue on the other, which is the drawing saying it is inside
   out, and it was right.
 
-  The tidy answer would be to make every face agree with its neighbours
+  The tidy answer would be to make every face agree with its neighbors
   across shared edges, and that answer is wrong here: a house has edges where
   three faces meet - the top of a wall, the end wall under it and the gable
   standing on it - and no winding of the lot can make all three agree.  This
-  rule needs no neighbours and gives the same answer every time.  Its limit
+  rule needs no neighbors and gives the same answer every time.  Its limit
   is worth knowing: two slopes of a roof steeper than 45 degrees are squarest
   to the ground axes rather than to blue, and then it is back to picking one
   of each. }
@@ -3759,7 +3759,7 @@ end;
   Rounded to a millionth of a unit, which is far finer than anything anybody
   draws and coarse enough that two points meant to be the same one always
   key alike. }
-{ One point, quantised, as a key.  A millionth of a unit, the same grid
+{ One point, quantized, as a key.  A millionth of a unit, the same grid
   EdgeKeyOf uses, so two corners that arrived at the same place by different
   arithmetic name the same key. }
 function PointKeyOf(const P: TP3): string;
@@ -3989,7 +3989,7 @@ begin
           else Other := UseA[E].Face;
           if Other = K then Continue;
           if Comp[Other] >= 0 then Continue;
-          { neighbours agree about out when they run the shared edge
+          { neighbors agree about out when they run the shared edge
             opposite ways }
           if UseA[E].Face = K then
             Flip[Other] := (DirOf(UseA[E]) = UseB[E].Dir)
@@ -5056,7 +5056,7 @@ end;
 { rounding a corner                                                       }
 { ---------------------------------------------------------------------- }
 
-{ Tony, 16 September: "i was trying to make a rectangle have rounded corners
+{ From a note, 16 September: "i was trying to make a rectangle have rounded corners
   using the arc tool in its corners but it seemed like i was always getting
   like a bubbled out corner unless i got the dimension just right.  sketchup
   seems to handle it much better... there arc shows up with a hint about
@@ -5069,7 +5069,7 @@ end;
   and a double-click near any other corner repeats the same fillet there.
 
   A plain click leaves the square corner in place, cut at the touching
-  points.  Tony, from using SketchUp: "you have to erase the sharp left over
+  points.  From a note, from using SketchUp: "you have to erase the sharp left over
   90 degree lines after you put the arc there... maybe you just want an arc
   inside the pointed corner... so keep it just like sketchup!"  So the trim
   is only ever the double-click's, never the click's or the Enter's.
@@ -5299,7 +5299,7 @@ end;
     edge is connected to an edge at each of its ends, the length cannot be
     edited."
 
-  Tony, 16 September, on which end should move: "maybe the user could
+  From a note, 16 September, on which end should move: "maybe the user could
   indicate which way they want it to move some how... with an extra key.
   idk... i dont want to stray from sketchup too much."  SketchUp's rule
   needs no key, because in every case it allows there is only one end that
@@ -5920,7 +5920,7 @@ begin
     if Abs(Dot3(Nm, FEnts[I].Poly[0]) - PlaneD) > TOL then Continue;
     { Sharing an edge with it?
 
-      The neighbour's openings count.  A letter sitting in a hole cut out of
+      The neighbor's openings count.  A letter sitting in a hole cut out of
       the panel under it touches that panel along the hole and nowhere else,
       never along the panel's outline - so reading outlines only made an
       island look like the whole flat side of a solid, and pushing one slid
@@ -5929,7 +5929,7 @@ begin
       This face's own openings do not count, though, and that is the other
       half of it: a patch is a piece of somebody else's surface.  What has
       been cut out of this one belongs to it, and the plugs filling those
-      cutouts are its tenants rather than its neighbours.  The screen of the
+      cutouts are its tenants rather than its neighbors.  The screen of the
       toy has the whole robot cut into it and is still the entire floor of
       its recess. }
     A := FEnts[Index].Poly;
@@ -6128,7 +6128,7 @@ end;
   an edge off a box left the box's six sides standing with nothing holding
   one of them up.
 
-  Tony, 15 September: "in SketchUp I don't think you can even have a filled
+  From a note, 15 September: "in SketchUp I don't think you can even have a filled
   face unless it is enclosed by lines.  So when I am erasing lines on a cube
   it will leave behind faces and I think that is wrong."
 
@@ -6174,7 +6174,7 @@ end;
   along it the measurement actually landed.  Rubbing out the line and leaving
   the point behind leaves a mark nobody can read.
 
-  Tony, 15 September: "i was erasing the dashed guidlines and it would leave
+  From a note, 15 September: "i was erasing the dashed guidlines and it would leave
   behind the yellow guide points... those yellow guide points should have
   erased with their related guidelines anyway."
 
@@ -6386,7 +6386,7 @@ end;
   move itself works them out: a corner that sits where a moving corner sits
   is a moving corner.
 
-  Tony, 15 September, moving one side of a rectangle drawn inside another:
+  From a note, 15 September, moving one side of a rectangle drawn inside another:
   "the issue is that line of the smaller inner rectangle is not staying
   snapped".  It was staying snapped - the two sides it joins shrank to
   follow, which is what SketchUp does and what MoveVerts has always done.
@@ -6578,7 +6578,7 @@ end;
   A solid of revolution is an outline spun about a line **beside** it.  Put
   the line through the middle of the outline and the two halves sweep into
   each other, and what comes out is a knot with no outside.  That is what
-  went wrong for Tony on 13 September: his outline ran from Y 2094 to Y 2249
+  went wrong for the owner on 13 September: his outline ran from Y 2094 to Y 2249
   and he put the axis at Y 2206, seventy per cent of the way up it, and the
   only way to find out was to do it and look at the result.
 
@@ -6639,7 +6639,7 @@ end;
   Nothing can end up over-constrained because nothing is constrained; nothing
   can go stale because nothing is stored; the same rule works on a drawing
   read out of a file that has never been seen before.  It gives up the part
-  of parametric modelling that keeps a shape correct while you change
+  of parametric modeling that keeps a shape correct while you change
   something else, and keeps the part people actually asked for, which is
   typing a number and having the size be that number.
 
@@ -6650,7 +6650,7 @@ end;
   stays where it is, which is what you want for a window in a wall and is
   worth knowing before you resize something with a lot in the middle.
 
-  An arc whose centre and both ends are all past the plane travels whole.
+  An arc whose center and both ends are all past the plane travels whole.
   One with only some of its points past it will come out wrong - the same
   limit the move tool has always had when a selection cuts an arc in half. }
 function TWorkDoc.ResizeDim(Index: Integer; NewLen: Double;
@@ -6743,7 +6743,7 @@ begin
   end;
   { a dimension's C is the offset from what it measures to where its line
     sits - a direction, not a place - so it turns with the dimension but is
-    not swung round the centre }
+    not swung round the center }
   if (FEnts[I].Kind = ekDim) and (OnSet(FEnts[I].A) or OnSet(FEnts[I].B)) then
     FEnts[I].C := RotV(FEnts[I].C, Axis, Ang);
   Turn(FEnts[I].A);
@@ -6884,7 +6884,7 @@ begin
     if (I < 0) or (I >= FLive) then Continue;
     FEnts[I].A := Sh(FEnts[I].A);
     FEnts[I].B := Sh(FEnts[I].B);
-    { an arc's C is its centre, a point; a dimension's C is the offset from
+    { an arc's C is its center, a point; a dimension's C is the offset from
       what it measures to where its line sits, a vector, which a move must
       leave alone or the line runs off by the whole distance moved }
     if FEnts[I].Kind = ekArc then FEnts[I].C := Sh(FEnts[I].C);
@@ -7149,7 +7149,7 @@ end;
 
 { Guides come along only when the box caught nothing else.  A box dragged
   round a shape is after the shape, and a guide is not part of the drawing -
-  but one runs through almost any box, so it was taken every time.  Tony, 16
+  but one runs through almost any box, so it was taken every time.  The owner, 16
   September: "THE GUIDES SHOULD NEVER BE SELECTED LIKE THIS! guides are not
   part of a drawing!"  A box round nothing but guides is plainly after them,
   so that still works. }
@@ -7203,7 +7203,7 @@ end;
   is actually drawn with, and for a face, its inside as well.
 
   Guides are infinite, so "wholly inside" can never be true of one and a
-  containing box would never take a guide at all.  Tony asked for the
+  containing box would never take a guide at all.  What was asked for was the
   opposite - "our guide points are easy to see so should be easy to select"
   - so a guide line answers the crossing question either way round.
 
@@ -7371,11 +7371,11 @@ begin
         Exit(FEnts[I].Weight);
 end;
 
-{ Tony, 14 September, raising a letter of the toy's logo: "they have red
+{ From a note, 14 September, raising a letter of the toy's logo: "they have red
   lines around the letters however i dont understand why the letters became
   red".  The letter's face carries the toy's red - a face only shows a hint
   of its ink - but its outline is drawn in the dark stylus ink, and the new
-  edges were given the face's colour.  So a raised letter came out outlined
+  edges were given the face's color.  So a raised letter came out outlined
   in red on a body outlined in black.  The edges follow the edges now, the
   same way EdgeWeight already made them follow the pen's width.
 
@@ -7659,9 +7659,9 @@ end;
 
   A drill has to land its far end exactly on the plane of the face it is
   coming out of.  Not nearly on it - exactly, to a millionth - because that
-  is how Bore recognises which face gets the hole, and if it recognises none
+  is how Bore recognizes which face gets the hole, and if it recognizes none
   the whole thing silently becomes an ordinary extrusion instead: a solid
-  plug pushed into the block rather than a tunnel through it, which is Tony's
+  plug pushed into the block rather than a tunnel through it, which is the
   "it built a magic wall".
 
   Nobody can drag to a millionth.  Reported 13 September, along with the
@@ -7869,19 +7869,19 @@ begin
   SetLength(Rev, N);
   if Dist >= 0 then
   begin
-    { travelling along the face's own normal: the moved face already faces
+    { traveling along the face's own normal: the moved face already faces
       out of the new solid, and the copy left behind is reversed }
     for I := 0 to N - 1 do FEnts[Index].Poly[I] := Top[I];
     for I := 0 to N - 1 do Rev[I] := Base[N - 1 - I];
   end
   else
   begin
-    { travelling against it, so the two swap round }
+    { traveling against it, so the two swap round }
     for I := 0 to N - 1 do FEnts[Index].Poly[I] := Top[N - 1 - I];
     for I := 0 to N - 1 do Rev[I] := Base[I];
   end;
   FEnts[Index].Solid := True;
-  { the face that travelled takes its openings with it }
+  { the face that traveled takes its openings with it }
   for H := 0 to High(HTop) do
   begin
     M := Length(HTop[H]);
@@ -7970,7 +7970,7 @@ begin
     opening wound the same way as its outline.  Its lining then came out
     inside out, every wall of the pit facing into the material - so the pit's
     walls were taken for backs and not drawn, and the edges under the ring
-    showed through them.  Tony, 17 September: "i see many more lines behind
+    showed through them.  From a note, 17 September: "i see many more lines behind
     faces while orbiting that used to be hidden".  So the winding is measured
     rather than assumed - see where HBase is filled - and an opening that turns
     the same way as the outline is turned round before anything is built on
@@ -8268,7 +8268,7 @@ begin
     one point the guide existed to create was the one point the cursor could
     not find.
 
-    Tony, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE
+    From a note, 15 September, in capitals: "THIS SHOULD BE SNAPPING TO THAT GUIDE
     I SET AT THE OTHER END OF THE RECTANGLE AT 1"!!!"
 
     The crossing only, and no cuts: a guide is construction, and it does not
@@ -8291,7 +8291,7 @@ begin
     infinite line.  This used the stub as it was, so it found crossings
     within a foot of where the guide was laid and nothing further along.
 
-    Tony, 16 September, with a guide laid an inch up from the left-hand
+    From a note, 16 September, with a guide laid an inch up from the left-hand
     side of a rectangle: "i should have been able to easily snap to the
     guide on the right hand side of this square at the 1 inch up mark...
     that guide line should have let me snap anywhere it intersected other
@@ -8367,7 +8367,7 @@ begin
   end;
 
   { Circles and arcs.  A circle's quadrant points - where it crosses the two
-    axes of its own plane through its centre - are where the next circle is
+    axes of its own plane through its center - are where the next circle is
     started from when a ball or a pipe crossing is built up out of circles,
     so they are points.  Where two arcs cross, in one plane or across two,
     the crossing is a point and the pieces either side of it get middles,
@@ -8695,7 +8695,7 @@ end;
 { A surface is going: any document still pointing at it as the last one it
   rendered into must let go, or the next "is this hidden" reads freed memory.
 
-  Tony, 16 September: "the exception happened after i exported the gif then
+  From a note, 16 September: "the exception happened after i exported the gif then
   click in the canvas".  The GIF export makes its own surface, renders every
   frame into it and frees it; LastSurf was left pointing into that.  The
   export could clear it on the way out instead, and that would work until
@@ -8825,7 +8825,7 @@ end;
   Taking the camera ready-made matters more here than anywhere: this walks
   twenty-five points for one arc, and a sheet of circles is a common enough
   drawing.  The bounding circle is asked first - an orthographic projection
-  never moves a point further from the centre than its own distance times
+  never moves a point further from the center than its own distance times
   Ppu, so a cursor outside that cannot be near the arc - which drops every
   circle but the one being pointed at before any of the chords are walked. }
 function ArcNearestAt(const PC: TProjCache; const E: TWorkEnt;
@@ -9167,7 +9167,7 @@ end;
 { A guide point is put down to be come back to, so it has to be easy to get
   hold of again.
 
-  Tony, 15 September, after trying it in SketchUp: "I have to admit trying to
+  From a note, 15 September, after trying it in SketchUp: "I have to admit trying to
   click it and select it to delete was very difficult and it took me 20 times
   to get it so that is a SketchUp problem... Don't let it be our problem.
   Ours should make sure the select tool is what manages and deletes guide
@@ -9313,7 +9313,7 @@ begin
 
     { --- what is in front, where you are pointing ----------------------
 
-      Tony, by report: "trying to erase the black ring on the top of the
+      From a note, by report: "trying to erase the black ring on the top of the
       knobs... but it ends up selecting some of its walls underneath it."
 
       This kept whichever edge came nearest the cursor on the screen, and
@@ -9850,7 +9850,7 @@ const
   { snOnEdge never comes out of this list - the cursor finds it separately -
     so its bias is only here to keep the array the right length }
   { The origin sits just under an endpoint.  It is a landmark and it should
-    beat a midpoint or a centre, but a corner somebody actually drew is more
+    beat a midpoint or a center, but a corner somebody actually drew is more
     likely to be the thing being aimed at than the place the model happens to
     start - and near the origin is exactly where people draw corners. }
   BIAS: array[TSnapKind] of Double =
@@ -10335,7 +10335,7 @@ begin
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';
   if U = usMetric then Scale := 1000 else Scale := 304.8;
-  { Centred across the bed and standing ON it - not centred in Z, which
+  { Centerd across the bed and standing ON it - not centerd in Z, which
     buries the bottom half of the thing in the build plate.  See WriteSTL. }
   Mid := P3(0, 0, 0);
   if AtOrigin and Bounds(BLo, BHi) then
@@ -10517,7 +10517,7 @@ var
   Attr: Word;
   Lbl: AnsiString;
 
-  { a corner, in millimetres, measured from the middle of the model }
+  { a corner, in millimeters, measured from the middle of the model }
   procedure PutP(const P: TP3);
   var
     F: array[0..2] of Single;
@@ -10544,12 +10544,12 @@ begin
   Result := 0;
   Closed := True;
   if U = usMetric then Scale := 1000 else Scale := 304.8;
-  { Where a slicer expects to find it: centred across the bed, and STANDING
+  { Where a slicer expects to find it: centerd across the bed, and STANDING
     ON it.
 
-    This used to centre all three axes, which puts the bottom half of the
+    This used to center all three axes, which puts the bottom half of the
     thing under the build plate.  Most slicers quietly lift it back out, so
-    nothing ever looked broken - but "centre it" means centre it on the bed,
+    nothing ever looked broken - but "center it" means center it on the bed,
     and a model half underground is exactly the sort of thing somebody opens
     another program to put right before printing.  Which is what was
     happening: the step this option exists to remove was being done by hand
@@ -10819,7 +10819,7 @@ begin
   end
   else
   begin
-    PW := (MaxX - MinX) / WUnit * 304.8;   { feet to millimetres }
+    PW := (MaxX - MinX) / WUnit * 304.8;   { feet to millimeters }
     PH := (MaxY - MinY) / WUnit * 304.8;
     Un := 'mm';
   end;
@@ -10904,10 +10904,10 @@ end;
 
 { A name for an edge that both ends agree on.
 
-  Quantised, so two corners that arrived at the same place by different
+  Quantized, so two corners that arrived at the same place by different
   arithmetic still name the same edge, and put in a fixed order so an edge
-  walked one way round one face and the other way round its neighbour is
-  recognised as the one edge it is. }
+  walked one way round one face and the other way round its neighbor is
+  recognized as the one edge it is. }
 function EdgeKey(const A, B: TP3): string;
 { The two ends to a millionth, packed as six whole numbers in a string, the
   smaller end first so either way round is the same key.  It used to be
@@ -11096,13 +11096,13 @@ var
 
     { How much depth changes across one pixel here.
 
-      The buffer is sampled at pixel centres and the point being asked about
+      The buffer is sampled at pixel centers and the point being asked about
       is not at one, so the two disagree by up to half a step of whatever the
       depth is doing locally.  Seen edge-on that step is large, and a line
       lying exactly on the surface it belongs to then loses to its own face by
-      a hair and comes out dashed.  Measuring the step from the neighbours
+      a hair and comes out dashed.  Measuring the step from the neighbors
       makes the tolerance follow the angle instead of being a guess. }
-    { The slope is read from a neighbour; at the edge of a face the one
+    { The slope is read from a neighbor; at the edge of a face the one
       side may be off the face - a loose face is not in the buffer at all -
       and then the other side is asked, and failing both, a 45 degree slope
       is assumed rather than none.  Assuming none is what drew the rear top
@@ -11112,14 +11112,14 @@ var
     Zy := S.DepthAt(Round(SP.X), Round(SP.Y) + 1);
     if Zy < -1E29 then Zy := S.DepthAt(Round(SP.X), Round(SP.Y) - 1);
     { half a step in each direction, since the point can be half a pixel
-      from the centre both ways at once }
+      from the center both ways at once }
     Grad := 0;
     if Zx > -1E29 then Grad := Grad + 0.5 * Abs(Zx - Zb) else Grad := Grad + 0.5 / Max(1E-9, V.Ppu);
     if Zy > -1E29 then Grad := Grad + 0.5 * Abs(Zy - Zb) else Grad := Grad + 0.5 / Max(1E-9, V.Ppu);
 
     { Half a step, not a whole one: the point is within half a pixel of the
 
-      centre the buffer was sampled at, so half the local slope is all the
+      center the buffer was sampled at, so half the local slope is all the
 
       disagreement a line on its own face can have.  A whole step let a line
 
@@ -11258,7 +11258,7 @@ var
     end;
   end;
 
-  { A dimension line parallel to the projected segment, always labelled with
+  { A dimension line parallel to the projected segment, always labeled with
     the true 3D length - which is what makes an isometric readable. }
   procedure Dimension(const A, B, Off: TP3; const Note: string);
   var
@@ -11540,7 +11540,7 @@ begin
         wins and paints its inside over the near side in pale blue.  Fitting
         every corner instead of three got the error down from five hundred
         feet to twelve, and twelve is still enough for a sliver of it in the
-        crevices, which is what Tony photographed off his monitor.
+        crevices, which is what the owner photographed off his monitor.
 
         The two cases can be told apart, so tell them apart.  A closed solid
         cannot show you the back of any of its faces - to see one you would
@@ -11661,10 +11661,10 @@ begin
         gradients solved by dividing by it are nonsense.  A face with a
         nonsense depth plane hides things it is behind and fails to hide
         things it is in front of, so the far side of a closed solid shows
-        through the near side - in the back-face colour, because the far
+        through the near side - in the back-face color, because the far
         side of anything is its inside.
 
-        Tony's crown, 13 September: the geometry was perfect - closed,
+        the crown, 13 September: the geometry was perfect - closed,
         every edge shared once each way, and a positive volume - and only
         two of its hundred and sixty-eight back faces were genuinely
         visible.  All the rest of the blue was this.
@@ -11695,7 +11695,7 @@ begin
         Three corners is only right if the face is flat, and a good many are
         not.  A revolve turns a sloped piece of the outline into a warped
         quad - four corners off a curved surface, which no plane passes
-        through - and so does anything pushed out of one.  On Tony's crown,
+        through - and so does anything pushed out of one.  On the crown,
         48 of its 336 faces were out of flat, the worst by five feet, and
         fitting a plane through three corners of one of those left the other
         corner up to five hundred feet out in depth on a model two hundred
@@ -11710,7 +11710,7 @@ begin
 
         Least squares over every corner instead.  A warped face still has no
         true plane - nothing can give it one - but the error is spread thin
-        and centred rather than being zero at three corners and anything at
+        and centerd rather than being zero at three corners and anything at
         all everywhere else.  The widest-triangle corners above are kept as
         the starting point and the fallback.
 
@@ -11781,13 +11781,13 @@ begin
 
       The shading is what makes a 3D view read as a solid object, and in a
       plan it is noise with an opinion: two slopes of a roof come out
-      different greys because they are tilted differently to a lamp that has
+      different grays because they are tilted differently to a lamp that has
       no business being in a drawing at all, and a report came in asking what
-      the greys meant.  Nothing.  Flat fill in plan, and the drawing is made
+      the grays meant.  Nothing.  Flat fill in plan, and the drawing is made
       of its lines again, which is what a drawing is made of. }
     if V.Kind = vkPlan then Sh := 1;
     { Which side of it are we looking at?  The back of a face gets its own
-      colour rather than the material.  A closed solid never shows one - its
+      color rather than the material.  A closed solid never shows one - its
       backs are culled - so this only ever appears on loose geometry, which is
       exactly where being inside out matters and cannot otherwise be seen.
 
@@ -11813,7 +11813,7 @@ begin
           the face is flat and a guess if it is not.  A good many are not: a
           revolve sweeps a sloped piece of an outline into a warped quad -
           four corners off a curved surface, which no plane passes through -
-          and so does anything pushed or pulled out of one.  On Tony's crown,
+          and so does anything pushed or pulled out of one.  On the crown,
           48 of its 336 faces were out of flat, the worst corner five feet
           off its own face's plane, and the best fit that could be had for
           one of those was still out by hundreds of feet in depth.  That is
@@ -11947,11 +11947,11 @@ begin
       { Paler in plan than in the 3D view.  A fill is there to say "this is
         material, not a hole"; in a drawing it must not compete with the
         lines, which are the part that carries the information.  Front and
-        back are the same colour here on purpose - looking straight down, one
+        back are the same color here on purpose - looking straight down, one
         of them is the underside of a floor, and a plan has nothing to say
         about that. }
       { A painted face is shown as painted even here: somebody chose that
-        colour on purpose, and washing it out would be second-guessing them.
+        color on purpose, and washing it out would be second-guessing them.
         An unpainted one stays pale, so it cannot compete with the lines. }
       if FEnts[K].MatSet then
         S.FillLoops(Loops, Face, 1.0)

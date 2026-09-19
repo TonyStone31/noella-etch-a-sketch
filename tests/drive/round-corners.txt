@@ -1,6 +1,6 @@
 # Rounding the corners of a rectangle with the arc tool, SketchUp's way.
 #
-# Tony: "i was trying to make a rectangle have rounded corners using the arc
+# From a note: "i was trying to make a rectangle have rounded corners using the arc
 # tool in its corners but it seemed like i was always getting like a bubbled
 # out corner unless i got the dimension just right."
 #
@@ -67,7 +67,7 @@ shot /tmp/hsk-rc-repeated.png
 
 # A plain click at the bottom-right corner: the arc goes in tangent, and the
 # square corner stays - cut at the touching points, to erase or keep.
-# Tony: "in sketchup you have to erase the sharp left over 90 degree lines
+# From a note: "in sketchup you have to erase the sharp left over 90 degree lines
 # after you put the arc there".  hsk-rc-kept shows the arc with the corner
 # still behind it.
 key escape

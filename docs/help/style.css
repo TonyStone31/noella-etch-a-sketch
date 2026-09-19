@@ -49,7 +49,7 @@
 *{box-sizing:border-box}
 /* The scrollbar too.  LazInk draws its own and takes these two from :root,
    so the bar down the side of the manual in the program is the manual's
-   colours rather than the widget set's.  A browser that reads them does the
+   colors rather than the widget set's.  A browser that reads them does the
    same; one that does not is no worse off. */
 html{scrollbar-color:var(--accent) var(--panel);scrollbar-width:thin}
 /* The line height is written on its own as well as in the font shorthand.
@@ -62,7 +62,7 @@ body{margin:0;background:var(--bg);color:var(--text);
      font-size:15px;line-height:1.65}
 .wrap{max-width:820px;margin:0 auto;padding:24px}
 /* The page head: the title, the line under it in the accent rather than the
-   panel grey, and the lead.  A hairline the same colour as everything else
+   panel gray, and the lead.  A hairline the same color as everything else
    made the top of a page look like the top of a section; this says "this is
    the page" once and lets the sections say the rest. */
 header{border-bottom:2px solid var(--accent);margin-bottom:30px;
@@ -79,7 +79,7 @@ h1{font-size:30px;line-height:1.2;margin-top:0;margin-bottom:7px;
    letter-spacing:-.01em}
 /* Sections get a rule above them.  A manual page is a list of questions and
    the reader is usually looking for one of them, so the eye wants somewhere
-   to stop - colour alone was not enough on a long page.  The rule is a
+   to stop - color alone was not enough on a long page.  The rule is a
    browser's; in the program the same job is done by the space above. */
 h2{font-size:19px;margin-top:38px;margin-bottom:12px;padding-top:14px;
    color:var(--accent);border-top:1px solid var(--line)}
@@ -157,7 +157,7 @@ table.sheet td.alias{color:var(--dim);font-size:13px}
 table.cards{width:100%;border-collapse:separate;border-spacing:10px;
   margin:4px -10px 10px;table-layout:fixed}
 /* No accent edge on a card, tempting as it was: the program reads one
-   border colour for the whole cell, so a blue left edge came out as fifteen
+   border color for the whole cell, so a blue left edge came out as fifteen
    blue boxes.  A rule that only looks right in one of the two readers is
    not worth having. */
 table.cards td{background:var(--panel);border:1px solid var(--line);
@@ -178,7 +178,7 @@ table.cards small{color:var(--dim);font-size:13px;line-height:1.4}
 a.zoom{display:block;cursor:zoom-in}
 
 /* There are no <hr> in these pages, and for a day there was a reason not to
-   add one: a rule left its colour on the canvas brush and the next list
+   add one: a rule left its color on the canvas brush and the next list
    item's text was drawn over a solid block of it - what made the What's new
    window unreadable.  Written up in
    ../LazInk/bugs/2026-09-19-brush-leak-after-hr/ and fixed the same day, so

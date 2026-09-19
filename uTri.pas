@@ -22,7 +22,7 @@ unit uTri;
   the third one is for.
 
   Ear clipping, which is the simplest thing that is correct.  Walk the ring
-  looking for a corner whose two neighbours can see each other with nothing
+  looking for a corner whose two neighbors can see each other with nothing
   else of the polygon in between; snip it off; repeat.  Holes are bridged
   into the outline first, which turns a polygon-with-holes into a plain ring
   that happens to double back on itself, and ear clipping does not mind.

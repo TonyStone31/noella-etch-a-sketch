@@ -1,6 +1,6 @@
 # A face is what a closed run of edges encloses.
 #
-# Tony, 15 September: "in SketchUp I don't think you can even have a filled
+# From a note, 15 September: "in SketchUp I don't think you can even have a filled
 # face unless it is enclosed by lines.  So when I am erasing lines on a cube
 # it will leave behind faces and I think that is wrong.  I think also when I
 # delete a face in SketchUp let's say in a cube there is a way to put it back
@@ -82,7 +82,7 @@ shot /tmp/hsk-fne-healed.png
 
 # And the eraser will not take a face on its own, which is SketchUp's
 # arrangement: "The Eraser tool doesn't allow you to erase faces.  Technically,
-# faces are erased when you erase their bounding edges."  Tony checked it:
+# faces are erased when you erase their bounding edges."  The owner checked it:
 # "Ok I just checked and you are right the eraser will not erase a face in
 # SketchUp so let's follow SketchUp convention here."
 #

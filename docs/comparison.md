@@ -33,10 +33,10 @@ the program most people would reach for does not.
 | **Native Linux build** | yes | **no** | yes | yes | yes | yes | **no** |
 | Windows / macOS | Windows; macOS unbuilt | yes | yes | yes | yes | yes | Windows only |
 | **Price** | free | $129-$859 a year | free | free | free | free | subscription, thousands a year |
-| **Licence** | MIT | proprietary | open source | GPLv2 | GPLv3 | GPL | proprietary |
+| **License** | MIT | proprietary | open source | GPLv2 | GPLv3 | GPL | proprietary |
 | Works with no account, no internet | yes | sign-in, it is a subscription | yes | yes | yes | yes | account required |
 | Install size (rough) | one file, ~9 MB | hundreds of MB | hundreds of MB | tens of MB | tens of MB | needs Java | gigabytes |
-| **3D by push/pull** | yes | yes | via workbenches | **2D only** | parametric extrude | furniture, not modelling | yes |
+| **3D by push/pull** | yes | yes | via workbenches | **2D only** | parametric extrude | furniture, not modeling | yes |
 | Parametric history | **no** | no (groups/components) | yes | no | yes | no | yes |
 | Type an exact measurement while drawing | yes | yes | yes | yes | yes | partly | yes |
 | Prints at true scale | yes | yes | yes | yes | yes | yes | yes |
@@ -64,7 +64,7 @@ Two more worth knowing about, both close to us in spirit:
 * **[ZCAD](https://github.com/zamtmn/zcad)** - a CAD program written in Free
   Pascal, like this one, open source and alive.  If you want Pascal CAD with
   a drafting shape rather than a sketching one, look there.
-* **[OpenSCAD](https://openscad.org/)** - modelling by writing code.  The
+* **[OpenSCAD](https://openscad.org/)** - modeling by writing code.  The
   opposite approach to ours on purpose, and we export to it, so a shape
   roughed out here can be taken there and made parametric.
 

@@ -36,7 +36,7 @@ measure only, guide line, guide point.
 The Protractor lays a guide at an angle:
 
 1. Hover over the model, or use the arrow keys, to choose the plane - its
-   colour says which.
+   color says which.
 2. Hold **Shift** to lock that plane.
 3. Click to set the vertex of the angle.
 4. **Alt** (Windows) or **Command** (macOS) frees the protractor from the
@@ -73,7 +73,7 @@ A guide can be **selected and erased** individually like anything else, and
 * **The tape lays both by default**, a dashed line and a point, and **Ctrl
   cycles** through both, the point alone, the line alone, and neither.  Same
   key as theirs for the same choice; ours has the both-at-once mode theirs
-  does not, and that is the default because it is the one Tony wants most of
+  does not, and that is the default because it is the one the owner wants most of
   the time.  Re-added 15 September after being taken out - the reason it was
   taken out was that choosing did not seem the useful part, and the reason it
   came back is a 1" mark in from the end of a line, which does not want a
@@ -85,7 +85,7 @@ A guide can be **selected and erased** individually like anything else, and
   measured along and that line would otherwise win on distance from a pixel
   away.  The reach matches what is drawn, so the target is the size it looks.
 
-  Tony checked theirs: a guide point can be selected and deleted in SketchUp
+  The owner checked theirs: a guide point can be selected and deleted in SketchUp
   after all - "you absolutely can't click the plus point... it turns blue and
   you can delete it with the delete key" - but "trying to click it and select
   it to delete was very difficult and it took me 20 times to get it so that
@@ -120,7 +120,7 @@ A guide can be **selected and erased** individually like anything else, and
   geometry rather than under it.  SketchUp's are nearly invisible, which is
   not a thing to copy.
 * **Hide and clear are on the right button**, with the count on the hide row,
-  greyed when there are no guides rather than missing - a menu whose shape
+  grayed when there are no guides rather than missing - a menu whose shape
   changes puts a destructive row under a hand aiming at a harmless one.  They
   were two more buttons along the bottom of the window until 15 September,
   and making room for them squeezed the settings until their words ran into

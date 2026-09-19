@@ -1,6 +1,6 @@
 # How a transition gets called out
 
-Tony's description, 4 September 2026, written down before anything is built
+the description, 4 September 2026, written down before anything is built
 so the tool matches how his shop already writes a ticket rather than a
 dialect nobody uses.  **The questions at the end need answering before this
 is built.**
@@ -32,7 +32,7 @@ arrows on the sides, and everything about height as words.
 | Length | along the run |
 | Left offset | inches the left side comes in |
 | Right offset | inches the right side comes in |
-| Height treatment | flat bottom, flat top, centred, or an amount up or down |
+| Height treatment | flat bottom, flat top, centerd, or an amount up or down |
 
 Width and the two side offsets are the same fact twice over - the small width
 plus the two offsets is the big width - so the tool should take any two and
@@ -108,20 +108,20 @@ per-edge choice with the shop's own numbers behind each name.
    with no change of size, so it is the same tool.
 3. **Ninety, and forty-five, with offsets.**  Square elbows are the next
    family and they are asked for.
-4. **Square to round.**  Tony has never made one, so there is no house style
+4. **Square to round.**  The owner has never made one, so there is no house style
    to follow: use the standard triangulation development the layout books
    give, and expect to iterate on it.
 
 ## What is not yet settled
 
 
-1. **Which side does the arrow name?**  Tony: "the left side with an arrow
+1. **Which side does the arrow name?**  From a note: "the left side with an arrow
    pointing right with the number 3 means that the right side would be set in
    3 inches to the right."  Read strictly that names one side and moves the
    other; read by the rule above it names the side it sits against.  Taken as
    the second, since the rule is stated plainly everywhere else - but this is
    the one to check first on a real ticket.
-2. **Which way round is the page?**  Big end at the bottom.  Tony's view is
+2. **Which way round is the page?**  Big end at the bottom.  the view is
    that it should not matter once the two opening sizes are typed in, and he
    is right - the page is how it gets written, not what it means.
 3. **What each end treatment is worth in material.**  TDF, flange out half an
@@ -177,7 +177,7 @@ If the shop says it the other way, the two names swap in one place.
 
 ### Height
 
-Flat bottom, flat top, centred, and the named edge moved by an amount:
+Flat bottom, flat top, centerd, and the named edge moved by an amount:
 top up, top down, bottom up, bottom down - whichever one could be measured
 in the space, with the other edge following from the exit height.
 
@@ -220,7 +220,7 @@ needs a leg at least that long, because it is cut from straight metal.
 A **tee** is a run, W x H by its length, and a branch: its opening, given
 along the run by across the wall, the wall it comes off, where it starts
 from the entry, how far up from the bottom (or in from the left, for the
-top and the bottom) with blank meaning centred, and how long the branch
+top and the bottom) with blank meaning centerd, and how long the branch
 collar is.  The opening is a hole in the run's wall and the branch stands
 on it.  Three ends: entry, exit, branch.
 
@@ -252,11 +252,11 @@ typed, so ends, tag, email and building are the same as any elbow.
 
 ### Which way a face faces
 
-The renderer paints the back of a face in its own colour, so a duct wall
-wound the wrong way shows the inside colour from outside.  Every face a
+The renderer paints the back of a face in its own color, so a duct wall
+wound the wrong way shows the inside color from outside.  Every face a
 builder makes goes through `BFaceOut` with the direction that is out: run
 walls away from the run's middle, an elbow's cheeks along its height, the
-throat wrap towards the centre of the bend and the heel wrap away from it,
+throat wrap towards the center of the bend and the heel wrap away from it,
 a tee's holed wall outward, flanges towards the open end and a TDF's fold
 back out of the duct.  A flange lies in the plane of the end - the wall's
 outward direction with its along-the-run part removed - so on a slanted
