@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The manual stays in your colours.**  In a light theme the contents came
+  up light and every page you clicked through to came up dark.  Now the
+  whole manual follows the program's theme, wherever you got to it from.
+
 ## v2026.09.18.8
 
 ### Fixed

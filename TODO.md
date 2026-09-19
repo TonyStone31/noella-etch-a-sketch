@@ -856,6 +856,13 @@ way in.
 Gathered from the notes further down, so none of them is only findable by
 reading a write-up of something finished.  Roughly smallest first.
 
+* **What's new shows its bullets as solid blocks** - a LazInk fault, not
+  ours, and it is written up with a repro and a one-line fix in
+  `../LazInk/bugs/2026-09-19-brush-leak-after-hr/`.  Every version heading
+  in the notes is followed by `---`, and a rule leaves its colour on the
+  canvas brush; the next list item's text is then drawn over an opaque
+  background in it.  It happens in every theme - it is simply louder on a
+  pale one.  Nothing to do here until that lands; then look again.
 * **More rows in the entity panel**: **radius on a circle**, **the plane an
   arc was drawn in**, and a **name on a solid** (that last one wants a field
   in the file).  Colour and width went in on 17 September.

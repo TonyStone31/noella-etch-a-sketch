@@ -241,7 +241,7 @@ end;
   replay what was loaded rather than reading the file again. }
 procedure THelpForm.GoToPage(const PathOrURI: string);
 var
-  Path, Anchor, Src: string;
+  Path, Anchor, Src, Local: string;
 
   L: TStringList;
   P: Integer;
@@ -254,8 +254,14 @@ begin
     Anchor := Copy(Path, P + 1, MaxInt);
     Delete(Path, P, MaxInt);
   end;
+  { Two variables, and they have to be two.  URIToFilename's second
+    parameter is an "out", which FPC clears on the way in - so handing it
+    the same string twice wipes the URI before it is read, the call fails,
+    and every page reached by a link took the branch below instead: loaded
+    raw, without the light palette this window links in.  That is what made
+    the manual dark in a light theme once you clicked anything. }
   if LowerCase(Copy(Path, 1, 7)) = 'file://' then
-    if not URIToFilename(Path, Path) then Path := '';
+    if URIToFilename(Path, Local) then Path := Local else Path := '';
   if (Path = '') or not FileExists(Path) or
      (LowerCase(ExtractFileExt(Path)) <> '.html') then
   begin
