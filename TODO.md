@@ -300,6 +300,11 @@ bigger.
 
 ## The plan it replaced, kept for the measurements - 18 September
 
+*(Written before any of it was tried.  Its numbers are honest and its
+conclusion about recording rather than converting was right; what it missed
+was that the pipeline, not the format, was where the loss was.  `gif-shot.sh`
+below is `tools/shot.sh` now and writes WebP only.)*
+
 Tony: "i think we may need to make a plan to replace all our gif files soon
 with smaller cleaner crisper animations... maybe there is a converter we can
 use or just record some new ones as i think we kept our recorder scripts?"

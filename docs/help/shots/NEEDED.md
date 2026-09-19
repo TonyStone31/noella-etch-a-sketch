@@ -33,11 +33,11 @@ front of.
 
 ## Moving pictures
 
-`tools/gif-shot.sh` records one.  It starts the same nested X server, waits
+`tools/shot.sh` records one.  It starts the same nested X server, waits
 for the program to come up, and points ffmpeg at the display while the script
 plays:
 
-    tools/gif-shot.sh tools/gif-push.txt docs/help/shots/tool-push.gif \
+    tools/shot.sh tools/gif-push.txt docs/help/shots/tool-push.webp \
                       tools/gif-circle.hsk
 
 The drawing it opens is already set up - `tools/gif-circle.hsk` has the
@@ -53,7 +53,7 @@ Two things worth knowing if you write another:
   `TMouseInput.Move`, which hidctl passes through.
 * **It plays back a little faster than it records.**  hidctl settles after
   every step, so a script that reads as nine seconds records as twelve.
-  `SPEED` in `gif-shot.sh` puts that back; `WIDE`, `FPS` and `COLORS` keep
+  `SPEED` in `shot.sh` puts that back; `WIDE` and `FPS` keep
   the file small enough to sit on a page.
 
 Keep them short.  Nine seconds is plenty for one tool, and a help animation
@@ -81,11 +81,11 @@ doing its job, framed on the geometry.
 - `tool-rect.png` - The Rectangle tool in use.  DONE
 - `tool-circle.png` - The Circle tool in use.  DONE
 - `tool-push.png` - The Push/Pull tool in use.  DONE
-- `tool-push.gif` - Picking the tool and raising a circle.  DONE
+- `tool-push.webp` - Picking the tool and raising a circle.  DONE
 - `tool-revolve.png` - The Revolve tool in use.
 - `tool-move.png` - The Move tool in use.
 - `tool-rotate.png` - The Rotate tool in use.
-- `tool-offset.gif`, `tool-offset-rim.gif` - offset then push, both ways.  DONE
+- `tool-offset.webp`, `tool-offset-rim.webp` - offset then push, both ways.  DONE
 - `tool-drill.png` - The Drill tool in use.
 - `tool-erase.png` - The Erase tool in use.
 - `tool-measure.png` - The Measure tool in use.
@@ -119,7 +119,7 @@ learning again:
   lossless compression lives on.
 * **Lossless, not q60.**  WebP is both, and lossy is visibly grainy the moment
   anybody zooms in, which is what a manual gets zoomed for.  `WEBPQ=n` in
-  `tools/gif-shot.sh` drops back to lossy for anything not worth the bytes.
+  `tools/shot.sh` drops back to lossy for anything not worth the bytes.
 
-`tools/gif-shot.sh` writes a GIF beside the WebP still, for comparing.  The
+`tools/shot.sh` writes a GIF beside the WebP still, for comparing.  The
 pages point at the WebP.
