@@ -10347,7 +10347,56 @@ var
   Shot: TMemoryStream;
   L: TStringList;
   HasDrawing: Boolean;
-  SheetName_, Inside: string;
+  SheetName_, MachineIs: string;
+  FileRep, FilePic, NSent: Integer;
+  Total: Int64;
+
+  { a line of the report, by the word it starts with - "version", "when" }
+  function LineOf(const Text, Key: string): string;
+  var
+    LL: TStringList;
+    K: Integer;
+  begin
+    Result := '';
+    LL := TStringList.Create;
+    try
+      LL.Text := Text;
+      for K := 0 to LL.Count - 1 do
+        if Copy(LL[K], 1, Length(Key) + 1) = Key + ':' then
+        begin
+          Result := Trim(Copy(LL[K], Length(Key) + 2, MaxInt));
+          Exit;
+        end;
+    finally
+      LL.Free;
+    end;
+  end;
+
+  { one key=value out of the report's state lines - "mode=", "theme=" }
+  function Tok(const Key: string): string;
+  var
+    K: Integer;
+  begin
+    Result := '';
+    K := Pos(Key, Body);
+    if K = 0 then Exit('-');
+    Inc(K, Length(Key));
+    while (K <= Length(Body)) and not (Body[K] in [' ', #10, #13]) do
+    begin
+      Result := Result + Body[K];
+      Inc(K);
+    end;
+  end;
+
+  function BodyLine(const Key: string): string;
+  begin
+    Result := LineOf(Body, Key);
+  end;
+
+  function MachineLine(const Key: string): string;
+  begin
+    Result := LineOf(MachineIs, Key);
+  end;
 
   function KB(Bytes: Int64): string;
   begin
@@ -10673,94 +10722,137 @@ begin
     read.  the ask: a report that vanishes in a blink is a report you
     cannot vouch for. }
   HasDrawing := Pos('the drawing, sent on purpose', Body) > 0;
+  { the machine's lines are the ones after "machine:" in the report, so a
+    "machine: Dell..." line there is not mistaken for the heading }
+  MachineIs := Body;
+  if Pos(LineEnding + 'machine:' + LineEnding, MachineIs) > 0 then
+    Delete(MachineIs, 1, Pos(LineEnding + 'machine:' + LineEnding, MachineIs) +
+      Length(LineEnding + 'machine:' + LineEnding) - 1);
+  if Pos(LineEnding + 'the drawing, sent on purpose', MachineIs) > 0 then
+    SetLength(MachineIs, Pos(LineEnding + 'the drawing, sent on purpose', MachineIs));
   if FD <> nil then SheetName_ := FD.Name else SheetName_ := '-';
-  { what was in it, as a second table under the first - the same on a
-    report that went and one that did not }
-  Inside := '### What was in it' + LineEnding + LineEnding +
-    '| Part | What it was |' + LineEnding + '|---|---|' + LineEnding +
-    Format('| **Your words** | %d characters |', [Length(Note)]) + LineEnding +
-    '| **The drawing** | ' + IfThen(HasDrawing,
-      Format('included - %d things, sheet "%s"', [NThings, SheetName_]),
-      'not included - you unticked it, or there was none') + ' |' + LineEnding +
-    '| **The picture** | ' + IfThen(WantShot,
-      'a screenshot of the program window, ' + KB(Shot.Size),
-      'none') + ' |' + LineEnding +
-    '| **Added automatically** | the tool, the view, the last few dozen ' +
-      'things that happened, and the machine: RAM, processor, graphics, ' +
-      'operating system.  Nothing about you. |' + LineEnding +
-    '| **Version** | ' + CurrentVersion + ' |' + LineEnding + LineEnding;
   Sending := TSendForm.CreateSending(Self, 'Sending your report');
   try
+    { Everything the summary says is put on the page before anything goes,
+      and the files are listed as waiting - so the page is whole from the
+      start and what changes is each file's row as it is encrypted, sent
+      and arrives.  The facts are the report's own: they are read back out
+      of the text that is about to be sent, so the summary cannot say
+      something the report does not. }
+    FileRep := Sending.AddFile(IfThen(HasDrawing, 'Report and drawing', 'Report'),
+      Name_, KB(Length(Body)));
+    if WantShot then
+      FilePic := Sending.AddFile('Picture', ChangeFileExt(Name_, '.png'), KB(Shot.Size))
+    else
+      FilePic := Sending.AddFile('Picture', 'none', '-', ssNone);
+
+    { the machine and the program first and side by side: on a bench of
+      test machines that is the part looked for }
+    Sending.Fact('This machine', 'System', MachineLine('os'));
+    Sending.Fact('This machine', 'Computer', MachineLine('machine'));
+    Sending.Fact('This machine', 'Processor', MachineLine('cpu'));
+    Sending.Fact('This machine', 'Memory', MachineLine('ram'));
+    Sending.Fact('This machine', 'Graphics', MachineLine('graphics'));
+    Sending.Fact('This machine', 'Display', MachineLine('display'));
+    Sending.Fact('This machine', 'Locale', MachineLine('locale'));
+
+    Sending.Fact('The program', 'Version', BodyLine('version'));
+    Sending.Fact('The program', 'Toolkit', MachineLine('toolkit'));
+    Sending.Fact('The program', 'Memory', MachineLine('program memory'));
+    Sending.Fact('The program', 'Running', MachineLine('program'));
+    Sending.Fact('The program', 'Working in', Tok('mode=') + ' mode, ' +
+      Tok('view=') + ' view, ' + Tok('units=') + ', ' + Tok('theme=') + ' theme');
+    Sending.Fact('The program', 'Drawing area', Tok('screen=') +
+      ' at scaling ' + Tok('scaling='));
+    Sending.Fact('The program', 'Network', Tok('net='));
+
+    Sending.Fact('The report', 'Your words', IfThen(Note = '', 'nothing written',
+      Format('%d characters', [Length(Note)])));
+    Sending.Fact('The report', 'The drawing', IfThen(HasDrawing,
+      Format('included - %d things', [NThings]), 'not included'));
+    Sending.Fact('The report', 'Sheet', SheetName_);
+    Sending.Fact('The report', 'The picture', IfThen(WantShot,
+      'the program window, ' + KB(Shot.Size), 'none'));
+    Sending.Fact('The report', 'Also in it', 'the tool, the view, the last ' +
+      'few dozen things that happened, and this machine.  Nothing about you.');
+    Sending.Fact('The report', 'When', BodyLine('when'));
+
     Sending.Stage('Preparing the report',
       Format('%s of text: what you wrote, the state of the program%s.',
         [KB(Length(Body)),
          IfThen(HasDrawing, ', and the drawing', '')]), 15);
     { the pause on each stage is on purpose - see above - and this one is
       the stage nobody could see: the encrypting happens inside SendReport }
+    Sending.FileState(FileRep, ssEncrypting);
     Sending.Stage('Encrypting the report',
       Format('Encrypting %s to a key only we hold - nothing in it can be ' +
         'read on the way, whatever happens to the postbox it travels through.',
         [KB(Length(Body))]), 28, 1600);
+    Sending.FileState(FileRep, ssSending);
     Sending.Stage('Sending the report', Name_, 40);
     if SendReport(Name_, Body, Err) then
     begin
       Result := True;
-      Sending.Note(IfThen(HasDrawing, 'Report and drawing', 'Report'), Name_,
-        KB(Length(Body)), 'yes, ' + KB(LastSealedBytes), 'sent');
+      Sending.FileState(FileRep, ssSent, KB(LastSealedBytes));
+      Total := LastSealedBytes;
+      NSent := 1;
       FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
       { The picture goes as its own file beside the report, sharing its name,
         so the two are obviously a pair.  If it will not go, the report has
         already gone and that is the part that mattered. }
       if WantShot then
         try
+          Sending.FileState(FilePic, ssEncrypting);
           Sending.Stage('Encrypting and sending the picture',
             Format('%s of screenshot, as %s', [KB(Shot.Size),
               ChangeFileExt(Name_, '.png')]), 75);
+          Sending.FileState(FilePic, ssSending);
           Shot.Position := 0;
           if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
                ShotErr) then
           begin
             FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
-            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), KB(Shot.Size),
-              '-', 'did not go: ' + ShotErr);
+            Sending.FileState(FilePic, ssFailed, '', ShotErr);
           end
           else
-            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), KB(Shot.Size),
-              'yes, ' + KB(LastSealedBytes), 'sent');
+          begin
+            Sending.FileState(FilePic, ssSent, KB(LastSealedBytes));
+            Total := Total + LastSealedBytes;
+            Inc(NSent);
+          end;
         except
           on Ex: Exception do
           begin
             FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
-            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), '-', '-',
-              'did not go: ' + Ex.ClassName);
+            Sending.FileState(FilePic, ssFailed, '', Ex.ClassName);
           end;
-        end
-      else
-        Sending.Note('Picture', 'none', '-', '-', 'not included');
-      Sending.Finish('Sent - thank you', 'This is what went, and how.',
-        Inside + '### How it traveled' + LineEnding + LineEnding +
-        '- **Encrypted on this computer**, before anything left it, to a ' +
-        'key only the project holds.' + LineEnding +
-        '- The postbox it passes through sees a name and a size, and ' +
-        'nothing that can be read.' + LineEnding +
-        '- **A copy of what you sent** is kept on this computer, not ' +
-        'encrypted, so you can see exactly what went: `' + AppDataDir +
-        'reports-sent`', True);
+        end;
+      Sending.Finish('Sent - thank you',
+        Format('%d %s, %s, encrypted before leaving this computer.',
+          [NSent, IfThen(NSent = 1, 'file', 'files'), KB(Total)]),
+        '<h3>How it traveled</h3><ul>' +
+        '<li><b>Encrypted on this computer</b>, before anything left it, to ' +
+        'a key only the project holds.</li>' +
+        '<li>The postbox it passes through sees a name and a size, and ' +
+        'nothing that can be read.</li>' +
+        '<li><b>A copy of what you sent</b> is kept on this computer, not ' +
+        'encrypted, so you can see exactly what went:<br><code>' +
+        Esc(AppDataDir + 'reports-sent') + '</code></li></ul>', True);
     end
     else
     begin
       FCmdMsg := 'The report could not be sent - ' + Err;
-      Sending.Note(IfThen(HasDrawing, 'Report and drawing', 'Report'), Name_,
-        KB(Length(Body)), '-', 'did not go');
+      Sending.FileState(FileRep, ssFailed, '', Err);
+      if WantShot then Sending.FileState(FilePic, ssFailed, '', 'not tried');
       Sending.Finish('The report did not go', Err,
-        Inside + '### What happened' + LineEnding + LineEnding +
-        '- ' + Err + LineEnding +
-        '- **Nothing is lost and nothing is broken** - it just did not send.' +
-        LineEnding +
-        '- A copy of the report is kept on this computer: `' + AppDataDir +
-        'reports-sent`' + LineEnding +
-        '- The help button has the project page if you would rather say ' +
-        'it there.', False);
+        '<h3>What happened</h3><ul>' +
+        '<li>' + Esc(Err) + '</li>' +
+        '<li><b>Nothing is lost and nothing is broken</b> - it just did not ' +
+        'send.</li>' +
+        '<li>A copy of the report is kept on this computer:<br><code>' +
+        Esc(AppDataDir + 'reports-sent') + '</code></li>' +
+        '<li>The help button has the project page if you would rather say ' +
+        'it there.</li></ul>', False);
     end;
   finally
     Sending.Free;

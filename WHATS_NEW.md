@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The send window's summary, in color and with the machine in it.**  The
+  files are listed before anything goes and each row changes as it is
+  encrypted, sent and arrives - amber, blue, then green, or red with the
+  reason.  Under them: this machine (system, processor, memory, graphics,
+  display) beside the program (version and build, toolkit, memory, mode
+  and theme), then what was in the report, under a banner that says how it
+  went.  Long file names are in a smaller face so they fit.
+
 ## v2026.09.20.12
 
 ### New

@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The send window''s summary, in color and with the machine in it.**  The' + LineEnding +
+    '  files are listed before anything goes and each row changes as it is' + LineEnding +
+    '  encrypted, sent and arrives - amber, blue, then green, or red with the' + LineEnding +
+    '  reason.  Under them: this machine (system, processor, memory, graphics,' + LineEnding +
+    '  display) beside the program (version and build, toolkit, memory, mode' + LineEnding +
+    '  and theme), then what was in the report, under a banner that says how it' + LineEnding +
+    '  went.  Long file names are in a smaller face so they fit.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.12' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
