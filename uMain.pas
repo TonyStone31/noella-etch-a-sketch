@@ -10346,6 +10346,15 @@ var
   NThings, LblW, Grow: Integer;
   Shot: TMemoryStream;
   L: TStringList;
+  HasDrawing: Boolean;
+  SheetName_, Inside: string;
+
+  function KB(Bytes: Int64): string;
+  begin
+    if Bytes < 10 * 1024 then Result := FormatFloat('0.0', Bytes / 1024) + ' KB'
+    else Result := FormatFloat('0', Bytes / 1024) + ' KB';
+  end;
+
 begin
   Result := False;
 
@@ -10663,69 +10672,95 @@ begin
     what is being sent and how big it is, with a moment on each so it can be
     read.  the ask: a report that vanishes in a blink is a report you
     cannot vouch for. }
+  HasDrawing := Pos('the drawing, sent on purpose', Body) > 0;
+  if FD <> nil then SheetName_ := FD.Name else SheetName_ := '-';
+  { what was in it, as a second table under the first - the same on a
+    report that went and one that did not }
+  Inside := '### What was in it' + LineEnding + LineEnding +
+    '| Part | What it was |' + LineEnding + '|---|---|' + LineEnding +
+    Format('| **Your words** | %d characters |', [Length(Note)]) + LineEnding +
+    '| **The drawing** | ' + IfThen(HasDrawing,
+      Format('included - %d things, sheet "%s"', [NThings, SheetName_]),
+      'not included - you unticked it, or there was none') + ' |' + LineEnding +
+    '| **The picture** | ' + IfThen(WantShot,
+      'a screenshot of the program window, ' + KB(Shot.Size),
+      'none') + ' |' + LineEnding +
+    '| **Added automatically** | the tool, the view, the last few dozen ' +
+      'things that happened, and the machine: RAM, processor, graphics, ' +
+      'operating system.  Nothing about you. |' + LineEnding +
+    '| **Version** | ' + CurrentVersion + ' |' + LineEnding + LineEnding;
   Sending := TSendForm.CreateSending(Self, 'Sending your report');
   try
     Sending.Stage('Preparing the report',
       Format('%s of text: what you wrote, the state of the program%s.',
-        [FormatFloat('0.0', Length(Body) / 1024) + ' KB',
-         IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', and the drawing', '')]), 15);
+        [KB(Length(Body)),
+         IfThen(HasDrawing, ', and the drawing', '')]), 15);
     { the pause on each stage is on purpose - see above - and this one is
-      the stage nobody could see: the sealing happens inside SendReport }
-    Sending.Stage('Sealing the report',
-      Format('Encrypting %s KB to a key only we hold - nothing in it can be ' +
+      the stage nobody could see: the encrypting happens inside SendReport }
+    Sending.Stage('Encrypting the report',
+      Format('Encrypting %s to a key only we hold - nothing in it can be ' +
         'read on the way, whatever happens to the postbox it travels through.',
-        [FormatFloat('0.0', Length(Body) / 1024)]), 28, 1600);
+        [KB(Length(Body))]), 28, 1600);
     Sending.Stage('Sending the report', Name_, 40);
     if SendReport(Name_, Body, Err) then
     begin
       Result := True;
-      Sending.Note('Report', Format('%s, %s KB of text%s', [Name_,
-        FormatFloat('0.0', Length(Body) / 1024),
-        IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', with the drawing', '')]), 'sent');
-      Sending.Note('Sealed', Format('%s KB became %s KB that only we can open',
-        [FormatFloat('0.0', Length(Body) / 1024), FormatFloat('0.0', LastSealedBytes / 1024)]), 'yes');
+      Sending.Note(IfThen(HasDrawing, 'Report and drawing', 'Report'), Name_,
+        KB(Length(Body)), 'yes, ' + KB(LastSealedBytes), 'sent');
       FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
       { The picture goes as its own file beside the report, sharing its name,
         so the two are obviously a pair.  If it will not go, the report has
         already gone and that is the part that mattered. }
       if WantShot then
         try
-          Sending.Stage('Sending the picture',
-            Format('%s KB of screenshot, as %s', [FormatFloat('0', Shot.Size / 1024),
+          Sending.Stage('Encrypting and sending the picture',
+            Format('%s of screenshot, as %s', [KB(Shot.Size),
               ChangeFileExt(Name_, '.png')]), 75);
           Shot.Position := 0;
           if not SendBinary(ChangeFileExt(Name_, '.png'), Shot, 'image/png',
                ShotErr) then
           begin
             FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
-            Sending.Note('Picture', Format('%s, %s KB',
-              [ChangeFileExt(Name_, '.png'), FormatFloat('0', Shot.Size / 1024)]),
-              'did not go: ' + ShotErr);
+            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), KB(Shot.Size),
+              '-', 'did not go: ' + ShotErr);
           end
           else
-            Sending.Note('Picture', Format('%s, %s KB, sealed',
-              [ChangeFileExt(Name_, '.png'), FormatFloat('0', Shot.Size / 1024)]), 'sent');
+            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), KB(Shot.Size),
+              'yes, ' + KB(LastSealedBytes), 'sent');
         except
           on Ex: Exception do
           begin
             FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
-            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), 'did not go: ' + Ex.ClassName);
+            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), '-', '-',
+              'did not go: ' + Ex.ClassName);
           end;
         end
       else
-        Sending.Note('Picture', 'none', 'not included');
-      Sending.Finish('Sent - thank you', 'This is what went, and how.', True);
+        Sending.Note('Picture', 'none', '-', '-', 'not included');
+      Sending.Finish('Sent - thank you', 'This is what went, and how.',
+        Inside + '### How it traveled' + LineEnding + LineEnding +
+        '- **Encrypted on this computer**, before anything left it, to a ' +
+        'key only the project holds.' + LineEnding +
+        '- The postbox it passes through sees a name and a size, and ' +
+        'nothing that can be read.' + LineEnding +
+        '- **A copy of what you sent** is kept on this computer, not ' +
+        'encrypted, so you can see exactly what went: `' + AppDataDir +
+        'reports-sent`', True);
     end
     else
     begin
       FCmdMsg := 'The report could not be sent - ' + Err;
-      Sending.Note('Report', Format('%s, %s KB of text%s', [Name_,
-        FormatFloat('0.0', Length(Body) / 1024),
-        IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', with the drawing', '')]),
-        'did not go: ' + Err);
-      Sending.Finish('The report did not go',
-        Err + LineEnding + 'Nothing is lost and nothing is broken - it just did not ' +
-        'send.  The help button has the project page if you would rather say it there.', False);
+      Sending.Note(IfThen(HasDrawing, 'Report and drawing', 'Report'), Name_,
+        KB(Length(Body)), '-', 'did not go');
+      Sending.Finish('The report did not go', Err,
+        Inside + '### What happened' + LineEnding + LineEnding +
+        '- ' + Err + LineEnding +
+        '- **Nothing is lost and nothing is broken** - it just did not send.' +
+        LineEnding +
+        '- A copy of the report is kept on this computer: `' + AppDataDir +
+        'reports-sent`' + LineEnding +
+        '- The help button has the project page if you would rather say ' +
+        'it there.', False);
     end;
   finally
     Sending.Free;

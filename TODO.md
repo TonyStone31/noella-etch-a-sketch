@@ -114,6 +114,15 @@ pixel by pixel.  What the pictures said:
 
 ### Small
 
+* **Windows built in code, to become real forms.**  The rule, 20
+  September: every window is a form with an `.lfm`, so it can be laid out
+  in Lazarus rather than by editing numbers.  The send window was the
+  first over (`uSendForm.lfm`).  Still built with `CreateNew`: the report
+  dialog itself and the long-text box (`ReportBug` and one more in
+  uMain), `TAboutBox`, `TFactsBox`, `TWhatsNewForm`, `TExportDlg`,
+  `TTapeWizard`, `TSplashForm`, `TFlatForm`, `TRecordWin`.  One at a
+  time, the report dialog first since it sits next to the one that moved.
+
 * **A trim tool** - one click on a corner takes the stubs past it.  Asked
   for 18 September.  A trim that *extends* two lines to meet is a bigger
   tool and a different one.

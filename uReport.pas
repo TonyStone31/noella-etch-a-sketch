@@ -212,7 +212,7 @@ begin
   begin
     { encryption failing is exactly as sendable as a network failing - see
       the note at the top of this unit }
-    Err := 'the report could not be sealed for sending';
+    Err := 'the report could not be encrypted for sending';
     Exit;
   end;
   Sent := TMemoryStream.Create;

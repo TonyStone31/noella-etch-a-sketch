@@ -17,108 +17,102 @@ uses
   InkPage, InkMarkdown;
 
 type
+  { TSendForm }
+
   TSendForm = class(TForm)
-  private
+    { laid out in uSendForm.lfm, so the window can be rearranged in Lazarus
+      rather than by editing numbers here }
     lblStage: TLabel;
     lblDetail: TLabel;
     pbProgress: TProgressBar;
+    Page: TInkPage;
     btnClose: TButton;
-    FPage: TInkPage;
+    procedure btnCloseClick(Sender: TObject);
+  private
     FFailed: Boolean;
-    FNotes: TStringList;
-    procedure CloseClick(Sender: TObject);
+    FRows: TStringList;
     procedure PauseFor(Milliseconds: QWord);
+    procedure ShowRows(const Closing: string);
   public
     constructor CreateSending(AOwner: TComponent; const Title: string);
     destructor Destroy; override;
     { the next step, shown for at least a moment - longer where there is
-      something worth reading, such as the sealing }
+      something worth reading, such as the encrypting }
     procedure Stage(const AStage, ADetail: string; Percent: Integer;
       Hold: Integer = 450);
-    { a row of the summary at the end: what it was, what it was made of,
-      and whether it went - drawn by LazInk from a line of Markdown each }
-    procedure Note(const What, Detail, Went: string);
+    { a row of the table: what it was, the name it went under, how big it
+      was before and after encrypting, and whether it went.  The table is
+      on the page from the start and grows a row as each thing goes. }
+    procedure Note(const What, Name_, Size, Encrypted, Went: string);
     { The end.  It used to close itself after a beat on success, which read
       as the window vanishing before anybody could see what had gone.  Now
-      it stays, with the notes as a summary, until Close - success or not. }
-    procedure Finish(const Msg, Detail: string; OK: Boolean);
+      it stays, with the table and a few lines under it, until Close -
+      success or not. }
+    procedure Finish(const Msg, Detail, Closing: string; OK: Boolean);
   end;
 
 implementation
 
+{$R *.lfm}
+
 constructor TSendForm.CreateSending(AOwner: TComponent; const Title: string);
 begin
-  inherited CreateNew(AOwner);
+  inherited Create(AOwner);
   Caption := Title;
-  Width := 520;
-  Height := 210;
-  BorderStyle := bsDialog;
-  Position := poMainFormCenter;
   FFailed := False;
-
-  lblStage := TLabel.Create(Self);
-  lblStage.Parent := Self;
-  lblStage.SetBounds(28, 24, 464, 24);
-  lblStage.Font.Height := -17;
-  lblStage.Font.Style := [fsBold];
-  lblStage.Caption := 'Getting ready';
-
-  lblDetail := TLabel.Create(Self);
-  lblDetail.Parent := Self;
-  lblDetail.SetBounds(28, 56, 464, 66);
-  { a label sizes itself to one long line unless told not to, and the line
-    ran off the right of the window }
-  lblDetail.AutoSize := False;
-  lblDetail.WordWrap := True;
-  lblDetail.Caption := '';
-
-  pbProgress := TProgressBar.Create(Self);
-  pbProgress.Parent := Self;
-  pbProgress.SetBounds(28, 128, 464, 22);
-  pbProgress.Min := 0;
-  pbProgress.Max := 100;
-
-  btnClose := TButton.Create(Self);
-  btnClose.Parent := Self;
-  btnClose.SetBounds(392, 166, 100, 32);
-  btnClose.Anchors := [akRight, akBottom];
-  btnClose.Caption := 'Close';
-  btnClose.Visible := False;
-  btnClose.OnClick := @CloseClick;
-
-  FNotes := TStringList.Create;
-  { the summary is a page, so it can be a table with the words that matter
-    in bold - the same renderer and the same dress as the release notes }
-  FPage := TInkPage.Create(Self);
-  FPage.Parent := Self;
-  FPage.SetBounds(28, 162, 464, 124);
+  FRows := TStringList.Create;
   { this is a plain window in the platform's own dress, not the dark chrome
     the release notes wear - so the page is dressed to match it }
-  FPage.Color := clWindow;
-  FPage.Font.Color := clWindowText;
-  FPage.StyleSheet.Text := 'body { background: #ffffff; color: #202020 } ' +
-    'li { margin-bottom: 6px }';
-  FPage.TextFormat := itfMarkdown;
-  FPage.Visible := False;
-
+  Page.Color := clWindow;
+  Page.Font.Color := clWindowText;
+  Page.StyleSheet.Text := 'body { background: #ffffff; color: #202020 } ' +
+    'table { width: 100% } ' +
+    'th { text-align: left; background: #eef1f4; padding: 6px 10px } ' +
+    'td { padding: 6px 10px } ' +
+    'li { margin-bottom: 4px }';
+  Page.TextFormat := itfMarkdown;
+  ShowRows('');
   Show;
   Application.ProcessMessages;
 end;
 
 destructor TSendForm.Destroy;
 begin
-  FNotes.Free;
+  FRows.Free;
   inherited Destroy;
 end;
 
-procedure TSendForm.Note(const What, Detail, Went: string);
+procedure TSendForm.ShowRows(const Closing: string);
+var
+  Src: string;
 begin
-  { one bullet each, the label and the verdict in bold, so a long file name
-    wraps under its own line rather than fighting a column for room }
-  if Went = '' then
-    FNotes.Add(Format('- **%s** - %s', [What, Detail]))
+  Src := '### This report' + LineEnding + LineEnding +
+    '| | File | Size | Encrypted | Result |' + LineEnding +
+    '|---|---|---|---|---|' + LineEnding;
+  if FRows.Count = 0 then
+    Src := Src + '| *nothing yet* | | | | |' + LineEnding
   else
-    FNotes.Add(Format('- **%s** - %s - **%s**', [What, Detail, Went]));
+    Src := Src + FRows.Text;
+  if Closing <> '' then Src := Src + LineEnding + Closing + LineEnding;
+  Page.Source := Src;
+  Page.ScrollTo(0);
+end;
+
+procedure TSendForm.Note(const What, Name_, Size, Encrypted, Went: string);
+
+  { a short cell stays on one line: the file name is the long one, and
+    left to itself the table gives it the room by folding "85 KB" in two }
+  function Whole(const S: string): string;
+  begin
+    if Length(S) > 28 then Result := S
+    else Result := StringReplace(S, ' ', #$C2#$A0, [rfReplaceAll]);
+  end;
+
+begin
+  FRows.Add(Format('| **%s** | `%s` | %s | %s | **%s** |',
+    [Whole(What), Name_, Whole(Size), Whole(Encrypted), Whole(Went)]));
+  ShowRows('');
+  Application.ProcessMessages;
 end;
 
 procedure TSendForm.PauseFor(Milliseconds: QWord);
@@ -142,20 +136,14 @@ begin
   PauseFor(Hold);
 end;
 
-procedure TSendForm.Finish(const Msg, Detail: string; OK: Boolean);
+procedure TSendForm.Finish(const Msg, Detail, Closing: string; OK: Boolean);
 begin
   lblStage.Caption := Msg;
   lblDetail.Caption := Detail;
   FFailed := not OK;
   if OK then pbProgress.Position := 100 else pbProgress.Position := 0;
-  { the summary: what went, how big, and whether - read at the person's
-    own pace, success or failure alike }
-  Height := 344;
-  FPage.Source := FNotes.Text;
-  FPage.ScrollTo(0);
-  FPage.Visible := True;
-  btnClose.Top := Height - 44;
-  btnClose.Visible := True;
+  ShowRows(Closing);
+  btnClose.Enabled := True;
   btnClose.SetFocus;
   Application.ProcessMessages;
   while Visible do
@@ -165,7 +153,7 @@ begin
   end;
 end;
 
-procedure TSendForm.CloseClick(Sender: TObject);
+procedure TSendForm.btnCloseClick(Sender: TObject);
 begin
   Close;
 end;
