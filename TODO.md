@@ -109,6 +109,8 @@ pixel by pixel.  What the pictures said:
   September.
 * **Back faces.**  Theirs a flat pale blue (185, 199, 208), lit like any
   other face.  Ours already does this.
+* `/light off` puts the old fixed lamp back, `/light on` (the default) is
+  the one on the camera; remembered between runs (`CameraLamp`).
 
 ### Small
 
@@ -137,6 +139,15 @@ pixel by pixel.  What the pictures said:
 * **The README's two GIFs** could be WebP like the manual's.
 
 ### Big
+
+* **Shadows, the way SketchUp has them.**  Asked for 20 September, for
+  some day - not the same thing as the lamp, which is shading only.
+  Theirs: a sun placed by time of day, date and where on the earth the
+  model is, shadows cast on faces and on the ground, Light and Dark
+  sliders, and "use sun for shading" so the lamp becomes that sun when it
+  is on.  For us it means a second depth pass from the sun's side (the
+  depth buffer in `TArtSurface` is the machinery), a shadow test per
+  painted pixel, and a ground to cast on, which the paper is not yet.
 
 * **Half resolution while the camera moves** - built 20 September, and
   adaptive: the faces at half size with their depth blown up two to one,

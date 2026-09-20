@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **`/light` turns the new lighting off and on.**  `/light off` puts the
+  lamp back where it used to hang, with the same grays from every angle;
+  `/light on` has it follow the camera again.  The choice is remembered.
+
 ## v2026.09.20.10
 
 ### New

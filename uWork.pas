@@ -98,6 +98,10 @@ var
   { what a new document's Threads starts as; off, so that the tests and the
     command line tools never start a thread.  The program turns it on. }
   DefaultThreads: Boolean = False;
+  { the lamp rides on the camera, SketchUp's way; off puts it back where it
+    hung before 20 September, fixed in the world, with a narrow spread.
+    /light turns it. }
+  CameraLamp: Boolean = True;
 
 type
 
@@ -12132,6 +12136,9 @@ begin
     isometric exactly the same tone, since all three are turned the same
     amount from the eye.  The offset is what keeps top, left and right
     apart there. }
+  if not CameraLamp then
+    Lamp := Norm3(P3(0.35, -0.55, 0.75))
+  else
   Lamp := Norm3(P3(
     Look.X + ViewUp(V).X * LAMP_UP - ViewRight(V).X * LAMP_LEFT,
     Look.Y + ViewUp(V).Y * LAMP_UP - ViewRight(V).Y * LAMP_LEFT,
@@ -12399,7 +12406,9 @@ begin
       to the full material - white, for an unpainted one - and ShadePix
       clips it there.  The normal is taken on the side the eye is on, so a
       face seen from behind is lit as the surface being looked at. }
-    if Dot3(Nm, Look) < 0 then
+    if not CameraLamp then
+      Sh := Min(1, 0.62 + 0.50 * Abs(Dot3(Nm, Lamp)))
+    else if Dot3(Nm, Look) < 0 then
       Sh := LAMP_AMBIENT + LAMP_DIFFUSE * Max(0, -Dot3(Nm, Lamp))
     else
       Sh := LAMP_AMBIENT + LAMP_DIFFUSE * Max(0, Dot3(Nm, Lamp));

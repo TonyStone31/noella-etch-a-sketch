@@ -1486,7 +1486,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..78] of TCmdItem = (
+  CMD_LIST: array[0..79] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1524,6 +1524,9 @@ const
     (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False; Eg: ''; Also: 'keepdim'),
     (Name: 'leave';      Hint: 'close the open group';                  Arg: False; Eg: ''; Also: 'closegroup'),
     (Name: 'left';       Hint: 'look from the left';                    Arg: False),
+    (Name: 'light';      Hint: 'light that follows the camera: on, off';  Arg: False;
+                         Eg:   '/light off';
+                         Also: 'lamp'),
     (Name: 'line';       Hint: 'the line tool';                         Arg: False; Eg: ''; Also: 'l'),
     (Name: 'lock';       Hint: 'lock the picked group';                 Arg: False),
     (Name: 'manual';     Hint: 'open the manual';                       Arg: False; Eg: ''; Also: 'docs'),
@@ -15128,6 +15131,25 @@ begin
       FCmdMsg := 'A move stretches what it is joined to again, which is how ' +
         'SketchUp does it.';
   end
+  else if (W = 'light') or (W = 'lamp') then
+  begin
+    if (Rest = 'on') or (Rest = 'off') then CameraLamp := Rest = 'on'
+    else if Rest = '' then CameraLamp := not CameraLamp
+    else FCmdMsg := 'The light takes on or off.';
+    if FCmdMsg = '' then
+    begin
+      if CameraLamp then
+        FCmdMsg := 'The light follows the camera: the face turned towards ' +
+                   'you is the bright one.  /light off for the old fixed lamp.'
+      else
+        FCmdMsg := 'The light is fixed, as it used to be: the same grays ' +
+                   'from every angle.  /light on has it follow the camera.';
+    end;
+    RenderPro;
+    RecomposeAll;
+    FScreenDirty := True;
+    pbScreen.Invalidate;
+  end
   else if (W = 'cube') or (W = 'viewcube') then
   begin
     FCubeHasHot := False;
@@ -24606,6 +24628,7 @@ begin
       FExportDirs.Clear;
       Ini.ReadSectionValues('exportpaths', FExportDirs);
       FCubeOn := Ini.ReadBool('look', 'cube', False);
+      CameraLamp := Ini.ReadBool('look', 'cameralamp', True);
       FInfoOn := Ini.ReadBool('look', 'info', False);
       FCubeCorner := EnsureRange(Ini.ReadInteger('look', 'cubecorner', 1), 0, 3);
       FCubeFitSel := Ini.ReadBool('look', 'cubefit', True);
@@ -24709,6 +24732,7 @@ begin
     Ini := TIniFile.Create(ConfigFile);
     try
       Ini.WriteBool('look', 'cube', FCubeOn);
+      Ini.WriteBool('look', 'cameralamp', CameraLamp);
       Ini.WriteBool('look', 'info', FInfoOn);
       Ini.WriteInteger('look', 'cubecorner', FCubeCorner);
       Ini.WriteBool('look', 'cubefit', FCubeFitSel);
