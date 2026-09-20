@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.12' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The send window is twice the size and says more.**  A table of what' + LineEnding +
+    '  went - the file, its size, its size once encrypted, and whether it' + LineEnding +
+    '  arrived - fills in as each part goes, with a second table of what was in' + LineEnding +
+    '  the report and where the copy on your computer is.  It says' + LineEnding +
+    '  "encrypting" now, which is the word for it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.11' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
