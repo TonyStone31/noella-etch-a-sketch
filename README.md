@@ -144,6 +144,13 @@ Needs Lazarus, plus these packages:
 * **[LazInk](https://github.com/TonyStone31/LazInk)** - clone it next to this
   folder (`../LazInk`), and the project finds it there.  It draws the
   release notes window.
+* **[CryptoLib4Pascal](https://github.com/Xor-el/CryptoLib4Pascal)**,
+  **[HashLib4Pascal](https://github.com/Xor-el/HashLib4Pascal)** and
+  **[SimpleBaseLib4Pascal](https://github.com/Xor-el/SimpleBaseLib4Pascal)** -
+  clone all three next to this folder the same way.  A bug report is
+  encrypted before it leaves the machine (see `crypto/README.md`); this is
+  what does it.  Nothing is shipped - like LazInk, these compile straight
+  into the one executable.
 * `Printer4Lazarus` ships with Lazarus.
 
 ```sh

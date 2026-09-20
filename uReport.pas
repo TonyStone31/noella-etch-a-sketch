@@ -10,6 +10,15 @@
   Never hardcode a bin.  That is the whole design: the one fixed address is
   the config on GitHub, and everything else is looked up.
 
+  The bin has no login.  Anyone who has its address - and the address is
+  necessarily public, for the reason above - can read whatever is sitting
+  in it.  So what actually goes on the wire is not the report: PostTo and
+  PostStream both hand their bytes to uReportCrypto.EncryptReportBytes
+  first, sealed to a public key only the collector can open.  Every caller
+  of SendReport and SendBinary gets this for free and nothing here changes
+  their signature - see crypto/README.md for the whole arrangement, and
+  what it does and does not buy.
+
   Nothing in here may take the program down or get in its way.  A report
   that cannot be sent is a report that cannot be sent; it is not an error
   worth interrupting somebody's work over, and it is certainly not worth a
@@ -68,7 +77,7 @@ function UniqueReportName(const Prefix, Version: string): string;
 implementation
 
 uses
-  uNet, fpjson, jsonparser, IniFiles, uPaths;
+  uNet, fpjson, jsonparser, IniFiles, uPaths, uReportCrypto;
 
 function HttpGet(const URL: string; out Body, Err: string): Boolean;
 begin
@@ -175,12 +184,42 @@ begin
   end;
 end;
 
+{ Every byte that goes to the postbox goes through here first.  What comes
+  back is opaque, so the content type sent with it says nothing about what
+  is inside - 'application/octet-stream' either way, whether this began as
+  the report's own text or a screenshot. }
 function PostStream(const Base, FileName: string; Data: TStream;
   const ContentType: string; out Status: Integer; out Err: string): Boolean;
+var
+  Plain, Sealed: TBytes;
+  Sent: TMemoryStream;
 begin
-  Result := NetPost(Base + '/' + FileName, Data, ContentType, Status, Err);
-  if (not Result) and (Status > 0) then
-    Err := 'the postbox answered ' + IntToStr(Status);
+  Result := False;
+  SetLength(Plain, Data.Size);
+  if Data.Size > 0 then
+  begin
+    Data.Position := 0;
+    Data.ReadBuffer(Plain[0], Data.Size);
+  end;
+  Sealed := EncryptReportBytes(Plain);
+  if Sealed = nil then
+  begin
+    { encryption failing is exactly as sendable as a network failing - see
+      the note at the top of this unit }
+    Err := 'the report could not be sealed for sending';
+    Exit;
+  end;
+  Sent := TMemoryStream.Create;
+  try
+    if Length(Sealed) > 0 then Sent.WriteBuffer(Sealed[0], Length(Sealed));
+    Sent.Position := 0;
+    Result := NetPost(Base + '/' + FileName, Sent, 'application/octet-stream',
+      Status, Err);
+    if (not Result) and (Status > 0) then
+      Err := 'the postbox answered ' + IntToStr(Status);
+  finally
+    Sent.Free;
+  end;
 end;
 
 function PostTo(const Base, FileName, Body: string;
@@ -188,6 +227,8 @@ function PostTo(const Base, FileName, Body: string;
 var
   Src: TStringStream;
 begin
+  { sealed on the way out by PostStream above - the content type given here
+    does not survive past it }
   Src := TStringStream.Create(Body);
   try
     Result := PostStream(Base, FileName, Src, 'text/plain; charset=utf-8',

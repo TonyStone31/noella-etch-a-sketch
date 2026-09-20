@@ -4700,3 +4700,57 @@ of one corner leave a seam CGAL will not close.  A box comes out with exactly
 Not done, and deliberately: reconstructing primitives.  A drawing made of
 push/pull and revolves is not a stack of `cube()` and `cylinder()` calls and
 guessing at which ones would be a lie in a file somebody then has to trust.
+
+## A report is sealed before it leaves the machine - 19 September
+
+Followed straight on from the TlsLib4Pascal note above.  Looking at what
+`docs/bug-report-endpoint.json` actually is turned up the real finding: the
+Filebin bin a report goes to has no login, its address is necessarily
+public (the program has no server of its own to ask first), and that
+address - every one it has ever had, seven rotations of it - sits in git
+history forever.  For as long as any one of those bins lived, anyone who
+found it could read what a stranger had written about their drawing, or
+the screenshot that came with it.  "We do not collect info or track users"
+was true and beside the point: nothing was being collected on purpose, but
+it was sitting somewhere public regardless.
+
+Encryption was the right answer once it was named, and CryptoLib4Pascal
+already had the whole thing built: ECIES, tested against known vectors, the
+sealed-box pattern this needed - a fresh ephemeral key per message agreed
+with one long-lived public key, AES-256 and HMAC-SHA-256 for the body.
+Nothing to design, only to wire up.
+
+Two things worth remembering if this is ever touched again:
+
+* **This is confidentiality, not authentication.**  The public key ships in
+  every binary and is trivial to read out of one, so a deliberate abuser
+  can seal garbage exactly as easily as a real report - it decrypts fine
+  and meets the collector's existing content checks exactly as it always
+  did.  What this buys is narrower and still worth having: nobody but the
+  collector can read a *legitimate* report while it sits in a bin whose
+  address is, and always will be, public.
+* **CryptoLib4Pascal is really three libraries** - it pulls in
+  HashLib4Pascal and SimpleBaseLib4Pascal - and building any of them on
+  Linux hits one real upstream bug: `ClpECC.pas` asks for a unit called
+  `ClpIPreCompCallback` and the file answering to that name is spelled
+  `ClpIPreCompCallBack.pas`.  Same unit to the compiler, two different
+  files to a case-sensitive filesystem.  Fixed with one corrected-case copy
+  in `crypto/vendor-fixes/`, listed ahead of the real one in
+  `etchasketch.lpi`'s search path - see `crypto/README.md`.  Worth
+  reporting upstream; not done yet.
+
+Verified three ways before any of it was trusted: `crypto/selftest.pas`
+round-trips a corrupted-tamper check and byte-exact payloads up to 300 KB
+with the real production key; the exact `TryOpenSeal` function now living
+in the (unpublished) collector was proven, offline, to open exactly what
+the real shipped `EncryptReportBytes` produces, and to correctly leave
+plain, never-encrypted text alone; and the collector was run for real
+against the real live bin and correctly filed ten legacy plaintext reports
+with nothing falsely flagged as sealed.  The full test suite - geomtest
+1206, region 91, commands, drive 31 - stayed green throughout, since none
+of it touches `uReport.pas`.
+
+Two things live outside this repository entirely, on purpose: the private
+key (`~/.config/heckers-sketch/report-key.hex`, never in a working tree
+`git add -A` can reach) and `tools/fetch-reports.pas`'s own `--key` value,
+which only that gitignored script ever sees.

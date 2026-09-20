@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A bug report is encrypted before it leaves your machine.**  Reports go
+  to a public postbox with no lock on it - that was always true, it had to
+  be, since the program has no server of its own to ask first.  What was
+  not true is that a report sitting in it was readable by anyone who found
+  the address.  Now it is sealed to a key only we hold before it is sent;
+  what a screenshot or a drawing says is between you and us, whatever
+  happens to the box it travels in.
+
 ## v2026.09.19.1
 
 ### New
