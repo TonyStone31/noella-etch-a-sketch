@@ -10652,16 +10652,15 @@ begin
       Format('Encrypting %s KB to a key only we hold - nothing in it can be ' +
         'read on the way, whatever happens to the postbox it travels through.',
         [FormatFloat('0.0', Length(Body) / 1024)]), 28, 1600);
-    Sending.Note(Format('Report    %s  -  %s KB of text%s', [Name_,
-      FormatFloat('0.0', Length(Body) / 1024),
-      IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', with the drawing', '')]));
     Sending.Stage('Sending the report', Name_, 40);
     if SendReport(Name_, Body, Err) then
     begin
       Result := True;
-      Sending.Note(Format('Sealed    %s KB became %s KB that only we can open',
-        [FormatFloat('0.0', Length(Body) / 1024), FormatFloat('0.0', LastSealedBytes / 1024)]));
-      Sending.Note('Sent      yes');
+      Sending.Note('Report', Format('%s, %s KB of text%s', [Name_,
+        FormatFloat('0.0', Length(Body) / 1024),
+        IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', with the drawing', '')]), 'sent');
+      Sending.Note('Sealed', Format('%s KB became %s KB that only we can open',
+        [FormatFloat('0.0', Length(Body) / 1024), FormatFloat('0.0', LastSealedBytes / 1024)]), 'yes');
       FCmdMsg := 'Report sent - thank you.  (' + Name_ + ')';
       { The picture goes as its own file beside the report, sharing its name,
         so the two are obviously a pair.  If it will not go, the report has
@@ -10676,26 +10675,31 @@ begin
                ShotErr) then
           begin
             FCmdMsg := FCmdMsg + '  (the picture did not go: ' + ShotErr + ')';
-            Sending.Note('Picture   did not go: ' + ShotErr);
+            Sending.Note('Picture', Format('%s, %s KB',
+              [ChangeFileExt(Name_, '.png'), FormatFloat('0', Shot.Size / 1024)]),
+              'did not go: ' + ShotErr);
           end
           else
-            Sending.Note(Format('Picture   %s  -  %s KB, sealed and sent',
-              [ChangeFileExt(Name_, '.png'), FormatFloat('0', Shot.Size / 1024)]));
+            Sending.Note('Picture', Format('%s, %s KB, sealed',
+              [ChangeFileExt(Name_, '.png'), FormatFloat('0', Shot.Size / 1024)]), 'sent');
         except
           on Ex: Exception do
           begin
             FCmdMsg := FCmdMsg + '  (no picture: ' + Ex.ClassName + ')';
-            Sending.Note('Picture   did not go: ' + Ex.ClassName);
+            Sending.Note('Picture', ChangeFileExt(Name_, '.png'), 'did not go: ' + Ex.ClassName);
           end;
         end
       else
-        Sending.Note('Picture   not included');
+        Sending.Note('Picture', 'none', 'not included');
       Sending.Finish('Sent - thank you', 'This is what went, and how.', True);
     end
     else
     begin
       FCmdMsg := 'The report could not be sent - ' + Err;
-      Sending.Note('Sent      NO - ' + Err);
+      Sending.Note('Report', Format('%s, %s KB of text%s', [Name_,
+        FormatFloat('0.0', Length(Body) / 1024),
+        IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', with the drawing', '')]),
+        'did not go: ' + Err);
       Sending.Finish('The report did not go',
         Err + LineEnding + 'Nothing is lost and nothing is broken - it just did not ' +
         'send.  The help button has the project page if you would rather say it there.', False);

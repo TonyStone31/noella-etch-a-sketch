@@ -17,7 +17,8 @@
 - **The report window stays until you close it, and says what went.**  A
   line for the report and its size, whether the drawing was in it, how big
   it became once sealed, the picture, and whether each of them arrived - or
-  why not.  It used to close itself the moment the report had gone.  The
+  why not - a small page of its own, drawn by LazInk, so the words that
+  matter are bold.  It used to close itself the moment the report had gone.  The
   sealing stage also holds long enough to read: the report is encrypted to
   a key only we hold before it leaves your machine, and that is worth a
   moment on the screen.
