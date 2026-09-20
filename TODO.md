@@ -74,6 +74,40 @@ when something is done.  Bugs first, then the small things, then the big.
   just-built part only.  A product call: SketchUp keeps the selection live
   for a follow-up move; the reporter was not sure either.
 
+### Next, agreed 20 September: the SketchUp look
+
+Before anything else on the list.  From a note: "I did want to have better
+lighting effect like SketchUp seems to have... I don't think I'm
+necessarily looking for shadows... I think part of why their models look
+better is they 'cast a light' which gives better definition to see
+distance and stuff... They also still have finer crisper lines."  He is
+right on both, and it is two things, neither of them shadows.  The step
+before either is to look: he is bringing SketchUp screenshots to set
+beside ours, and the list below is what to check them against - it may be
+missing something, and that is what the pictures are for.
+
+* **Sun shading.**  SketchUp shades every face by its angle to the sun
+  ("Use sun for shading", which works with shadows off) over a wide range -
+  their Light and Dark sliders default to 80 and 45.  Ours is a fixed lamp
+  and a narrow spread: top, front and side land at about 1.0, 0.90 and
+  0.80 of the material (`ShadePix`, and `Lamp` in Render).  Widening that
+  spread is most of what reads as depth.  A sun position rather than a
+  fixed lamp, so that turning the model changes which faces are lit, is
+  the other half.
+* **Profiles.**  Their default style draws silhouette edges - between a
+  front-facing face and a back-facing one, and where the model meets the
+  background - about twice as thick as interior edges, which are
+  hairlines.  Ours draws every edge the same weight.  Thinner interior
+  edges, a heavier outline: this is "finer crisper lines".  The edge index
+  Render already builds (`EdgeIx`, how many visible faces along each edge)
+  knows which edges are outlines.
+* **Anti-aliasing.**  Theirs is OpenGL multisampled; ours draws lines
+  anti-aliased already and fills at four samples a row.  Worth confirming
+  on the pictures rather than assuming.
+* **Edge color.**  SketchUp's default edges are pure black on faces a
+  little off white; ours carry a hint of the pen.  Small, and easy to
+  compare.
+
 ### Small
 
 * **A trim tool** - one click on a corner takes the stubs past it.  Asked
