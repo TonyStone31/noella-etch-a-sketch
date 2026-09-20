@@ -13,10 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.19.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **The rectangle and line tools no longer blink out their own corner.**  A' + LineEnding +
+    '  small square rides with the cursor so it can be drawn crisp against the' + LineEnding +
+    '  drawing under it; pasting it back used to erase whatever the tool itself' + LineEnding +
+    '  was drawing right there, which for a rectangle or a line is exactly its' + LineEnding +
+    '  near corner - so it flickered out every time the pointer crossed it.' + LineEnding +
+    '  Fixed at the source: the corner is drawn into the square now, not wiped' + LineEnding +
+    '  by it.' + LineEnding +
     '- **A bug report is encrypted before it leaves your machine.**  Reports go' + LineEnding +
     '  to a public postbox with no lock on it - that was always true, it had to' + LineEnding +
     '  be, since the program has no server of its own to ask first.  What was' + LineEnding +
