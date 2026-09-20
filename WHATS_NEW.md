@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The send window is twice the size and says more.**  A table of what
+  went - the file, its size, its size once encrypted, and whether it
+  arrived - fills in as each part goes, with a second table of what was in
+  the report and where the copy on your computer is.  It says
+  "encrypting" now, which is the word for it.
+
 ## v2026.09.20.11
 
 ### New
@@ -17,11 +27,6 @@
 - **`/light` turns the new lighting off and on.**  `/light off` puts the
   lamp back where it used to hang, with the same grays from every angle;
   `/light on` has it follow the camera again.  The choice is remembered.
-- **The send window is twice the size and says more.**  A table of what
-  went - the file, its size, its size once encrypted, and whether it
-  arrived - fills in as each part goes, with a second table of what was in
-  the report and where the copy on your computer is.  It says
-  "encrypting" now, which is the word for it.
 
 ## v2026.09.20.10
 
