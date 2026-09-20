@@ -541,9 +541,9 @@ type
       out again does not hand it back.  Tracing one of its edges says they
       do want it after all, and this is how that reaches the region loop.
 
-      From a note, 15 September: "when I delete a face in SketchUp let's say in a
-      cube there is a way to put it back if I remember correctly but it was
-      a pain in the ass... We need to be able to do the same thing." }
+      From a note, 15 September: deleting a face in SketchUp - in a cube,
+      say - can be undone by drawing an edge back, awkwardly, and we need
+      to be able to do the same thing. }
     FHealOn: Boolean;
     FHealA, FHealB: TP3;
     { /detach: a move takes what is selected away on its own instead of
@@ -5969,7 +5969,7 @@ begin
       hide them, and clear them - and making room for them squeezed the five
       settings until their words ran off the ends and over each other.  From a note:
       "those buttons scrunch the buttons up and make their text run off all
-      the other buttons.  Looks like shit."
+      the other buttons" - and it looked it.
 
       A row that changes width depending on what is in the drawing was the
       mistake.  Both are on the right button now, where SketchUp keeps them
@@ -15354,8 +15354,8 @@ begin
       button comes up, or until it has been held long enough to break. }
     { The same for push/pull, drill and offset.
 
-      From a note: "I committed to a push pull with mouse down and realized I fucked
-      up before releasing the mouse button".  Those three commit on the press
+      From a note: somebody committed to a push/pull on the way down and knew
+      it was wrong before letting the button go.  Those three commit on the press
       going down, so by the time you know it was wrong it is already done and
       the only way out is undo.  They wait for the button to come up now,
       like the drawing tools do: let go and it happens, keep leaning on it

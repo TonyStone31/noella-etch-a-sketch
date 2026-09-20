@@ -812,9 +812,9 @@ missing.  It points at `docs/groupplan.md` for the detail.
 
 ## A face is painted, not inked - 17 September
 
-From a note, testing: "when i make colors red for example for a face ... that shit
-is not looking red at all ... its still like gray over red ... are we still
-drawing the default faces over our chosen colors?"
+From a note, testing: a face set to red was "not looking red at all ...
+its still like gray over red", and asking whether the default face was still
+being drawn over the chosen color.
 
 Nothing was drawn over it.  The fill was
 `MixPix(Col, FACE_MATERIAL, 0.92)` - eight percent of the chosen color over
@@ -1156,8 +1156,8 @@ agreed** - then change the cron line and delete the `.py`.
 
 ## TLS in Pascal, if we want it - TlsLib4Pascal
 
-From a note, 17 September: "no more openssl bull shit! be pure pascal even more!
-dont integrate yet but we may want to do this soon!"
+From a note, 17 September: a pure Pascal TLS would mean no OpenSSL at all -
+worth watching, not worth integrating yet.
 <https://github.com/Xor-el/TlsLib4Pascal>
 
 **What it is.**  TLS 1.2 and 1.3 written in Object Pascal, MIT, by the
@@ -1216,10 +1216,9 @@ getting.  Written down so none of it gets re-argued from scratch.
 
 ### What the program is for, said plainly - 13 September 2026
 
-From a note: *"my goal is simply for any idiot to get into the program and be like
-oh shit wow this is so simple to do a scaled drawing - kind of like I felt
-ten years ago when I opened SketchUp and was able to draw a 3D model with no
-experience."*
+From a note: *"my goal is simply for any idiot to get into the program"* and
+find that a scaled drawing is astonishingly simple - the way opening SketchUp
+felt ten years ago, drawing a 3D model with no experience at all.
 
 That is the spec, and it has a testable form: **how long to the first thing
 somebody is proud of, and how many things must they learn to get there.**
@@ -1352,7 +1351,7 @@ Two small things that serve the spec directly, neither started:
   and the reason visible in the extension.
 
 * **The title block ranks higher than first written.**  For a regular Joe the
-  *oh shit* is not drawing the box - it is **printing something that looks
+  moment is not drawing the box - it is **printing something that looks
   professional with his name in the corner**.  That is the artifact he shows
   somebody and the screenshot that gets posted.  Drawing the box is the
   setup; the sheet is the punchline.  It also has a home now: `PrintTileMarks`
@@ -2272,7 +2271,7 @@ simplification - four numbers is the kind of thing that makes Revit hard.
   SketchUp makes you place a section-plane object in 3D, which is not a plan
   tool at all.  Nobody lets you travel up through a building by scrolling a
   plan.  This is a real differentiator and it is the part that would make
-  somebody say *oh shit*.
+  somebody sit up.
 * **The bottom of the slice is the drawing plane.**  One number does both
   jobs: the floor of what you can see and where the pencil is.  That is what
   a floor plan *means* - you draw on the floor and things go up from it.  Set
@@ -2688,11 +2687,10 @@ the point of building it before the fixes rather than after.
 
 ### The tape's third stage, which was two bugs wearing one coat - 15 September 2026
 
-From a note: "yeah look at all the weird shit that keeps happening.... the tape
-measure leaving phantom lines after a while... switching to the select tool
-and selecting something seems to clear it.  the stupid dimension appearing
-with using a tape measure tool  very buggy bull shit.  hopefully you can
-track the last 30 things i did in this bug report and find some issues."
+From a note: the tape measure was "leaving phantom lines after a while",
+switching to the select tool and picking something cleared them, and a
+dimension appeared that nobody asked for - with the hope that the last
+thirty actions in the report would be enough to find it.
 
 The session log did it, and the two complaints were one cause.
 
@@ -2735,7 +2733,8 @@ down so the next person does not have to look again.
 From a note: "yeah read the docs so we can behave almost identical to sketchup
 guides... what we have now is pretty darn good just not perfect and i like
 where we are better such as having the yellowish guide point.  in many ways
-we are better than sketchup but in the critical ways sketchup kicks our ass."
+we are better than sketchup but in the critical ways sketchup is still
+ahead."
 
 Fetched https://help.sketchup.com/en/using-guides again, and it answers the
 two things he could not make sense of:
@@ -3411,9 +3410,9 @@ we spend the next week or so working out the details and bugs in tools and
 then we will end up doing some performance evaluations."
 
 And, worth keeping because it is the actual brief: "I open SketchUp to
-compare and honestly I mess with theirs after using heckers sketch and I get
-the feeling of wow ours is a piece of shit!  I actually love what we are
-building.  We just need to keep after making little improvements."
+compare - and going back to theirs after using this one is not the
+comfortable feeling it ought to be.  What is being built here is worth
+liking; it wants a run of small improvements."
 
 ### The order, and why
 
@@ -3645,7 +3644,7 @@ From a note: "in SketchUp I don't think you can even have a filled face unless i
 enclosed by lines.  So when I am erasing lines on a cube it will leave behind
 faces and I think that is wrong... I think also when I delete a face in
 SketchUp let's say in a cube there is a way to put it back if I remember
-correctly but it was a pain in the ass... Verify my explanations here and
+correctly but it was awkward... Verify my explanations here and
 make sure I am not wrong then fix our program."
 
 **He is right on both counts**, and `docs/sketchup/` - our own spec, fetched

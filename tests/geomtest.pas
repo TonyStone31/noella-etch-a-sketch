@@ -2656,8 +2656,8 @@ end;
 
 { An example somebody changed and saved stays theirs; an untouched one gets
   the newer version. }
-{ The complaint that started this: "i make colors red for example for a face
-  ... that shit is not looking red at all ... its still like gray over red".
+{ The complaint that started this: a face set to red was "not looking red
+  at all ... its still like gray over red".
   It was true.  A face took eight percent of the pen color over a near-white
   default, so pure red fetched up at (250, 230, 226) before the shading had
   even had a go at it.  A material of its own fixes it, and the only proof

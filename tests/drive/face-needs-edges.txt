@@ -4,7 +4,7 @@
 # face unless it is enclosed by lines.  So when I am erasing lines on a cube
 # it will leave behind faces and I think that is wrong.  I think also when I
 # delete a face in SketchUp let's say in a cube there is a way to put it back
-# if I remember correctly but it was a pain in the ass."
+# if I remember correctly but it was awkward."
 #
 # He is right on both counts and SketchUp says so in as many words - "faces
 # are erased when you erase their bounding edges", and "Undo, or redraw the

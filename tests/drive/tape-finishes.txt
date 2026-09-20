@@ -2,8 +2,8 @@
 #
 # From a note, 15 September: "the tape measure leaving phantom lines after a while...
 # switching to the select tool and selecting something seems to clear it.  the
-# stupid dimension appearing with using a tape measure tool  very buggy bull
-# shit."
+# stupid dimension appearing with using a tape measure tool" - two complaints
+# in one report.
 #
 # Both were the same thing.  The tape used to sit in a third stage after the
 # second click: that stage drew the run it had just measured and went on

@@ -96,9 +96,10 @@ dimension tool is really ISO work.
 
 # Open question, 3 September 2026: what should ISO mode actually be?
 
-From a note, after pushing and pulling a rectangle in the ISO view: *"for an iso it
-doesn't seem quite proper... maybe the iso mode is just dumb as fuck but I
-think pipe fitters would want it... this deserves further discussion."*
+From a note, after pushing and pulling a rectangle in the ISO view: *"for an
+iso it doesn't seem quite proper"* - perhaps the iso mode is simply the
+wrong place for it, *"but I think pipe fitters would want it... this
+deserves further discussion."*
 
 He is right that something is off, and the reason is that **there are three
 different things called an isometric drawing in this trade**, and we have
@@ -174,7 +175,7 @@ SketchUp viewing a model - https://help.sketchup.com/en/sketchup/viewing-model
 From a note, on the workflow: *"the user should not be required to start in plan view
 then be able to use iso.  that's not a quick work flow."*  And on the friction
 he kept hitting: *"I can draw on the iso paper grid sort of now as it stands
-but then I can also push and pull shit that to me doesn't appear to be drawn
+but then I can also push and pull things that to me don't appear to be drawn
 on the grid."*
 
 This settles the open question above.
