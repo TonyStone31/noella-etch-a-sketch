@@ -8193,6 +8193,125 @@ begin
 end;
 
 
+{ Groups, at the document level.  A group is an ekPart record; its members
+  are the entities whose Part is its id.  What is checked here is the part
+  of the rule that lives in uWork: membership, the open context, the two
+  ways geometry in different groups must leave each other alone, the file
+  round trip, and copying. }
+procedure TestGroups;
+var
+  D, B: TWorkDoc;
+  L: TStringList;
+  G, H, I, Idx, N, NIn: Integer;
+  M: TIntArrayW;
+  Pts: TP3Array;
+  Lo, Hi: TP3;
+begin
+  WriteLn('groups');
+  D := TWorkDoc.Create;
+  B := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    { --- a group of a square, and a loose line across it ---------------- }
+    MakeRect(D, 0, 0, 10, 6);                 { 0..3 lines, 4 the face }
+    G := D.NewPart('Left knob', 0);
+    for I := 0 to 4 do D.SetPart(I, G);
+    EqI(D.PartEnt(G), 5, 'the record is an entity of its own');
+    Ok(D.PartName(G) = 'Left knob', 'and carries the name');
+    Ok(not D.PartLocked(G), 'unlocked to begin with');
+    M := D.PartMembers(G, False);
+    EqI(Length(M), 5, 'five members: four edges and the face');
+    M := D.PartMembers(G, True);
+    EqI(Length(M), 6, 'six with its record');
+    EqI(D.TopPartIn(0), G, 'a member is picked as its group');
+    EqI(D.TopPartIn(5), G, 'and so is the record');
+    Ok(D.PartBounds(G, Lo, Hi), 'it has bounds');
+    EqF(Hi.X - Lo.X, 10, 'ten wide');
+    EqF(Hi.Y - Lo.Y, 6, 'six deep');
+
+    { a line drawn from outside, across the square: it must not be cut by
+      the square's edges, nor cut them.  The stamp is the drawing itself. }
+    N := D.Live;
+    D.AddLineSplit(P3(-2, 3, 0), P3(12, 3, 0), 0, 1);
+    EqI(D.Live, N + 1, 'a line across a group goes in as one line, uncut');
+    EqI(D[N].Part, 0, 'and is loose');
+    EqI(CountKind(D, ekLine), 5, 'and cut none of the group''s four edges');
+    D.SplitCrossings(N);
+    EqI(CountKind(D, ekLine), 5, 'the crossing pass leaves them be too');
+
+    { --- the open context ------------------------------------------------ }
+    D.Context := G;
+    EqI(D.Stamp, G, 'inside it, new geometry is born into it');
+    D.AddLine(P3(1, 1, 0), P3(2, 2, 0), 0, 1, False);
+    EqI(D[D.Live - 1].Part, G, 'a line drawn inside belongs to the group');
+    Ok(D.InsideContext(0), 'a member is inside');
+    Ok(not D.InsideContext(N), 'the loose line across is not');
+    EqI(D.TopPartIn(N), -1, 'and is not there to be picked');
+    EqI(D.TopPartIn(0), 0, 'while a member is loose within the context');
+    D.Context := 0;
+    EqI(D.Stamp, 0, 'closed again');
+    D.Context := 99;
+    EqI(D.Context, 0, 'a context that is no group is refused');
+
+    { --- nesting and locks ----------------------------------------------- }
+    H := D.NewPart('Toy', 0);
+    D.SetPartParent(G, H);
+    EqI(D.PartParent(G), H, 'the knob sits inside the toy');
+    EqI(D.TopPartIn(0), H, 'from outside, a member of the knob picks the toy');
+    D.Context := H;
+    EqI(D.TopPartIn(0), G, 'inside the toy, it picks the knob');
+    D.Context := 0;
+    D.SetPartLocked(H, True);
+    Ok(D.PartLockedUp(G), 'a lock on the toy locks the knob inside it');
+    D.SetPartLocked(H, False);
+    Ok(not D.PartLockedUp(G), 'and off again');
+
+    { --- moving: nothing in another group stretches ----------------------- }
+    { the loose line across shares no corner, so add a loose line that ends
+      exactly on the square's corner, then move that corner - the loose line
+      must stay put, because the corner is the group's, not the drawing's }
+    D.AddLine(P3(0, 0, 0), P3(-5, -5, 0), 0, 1, False);
+    I := D.Live - 1;
+    SetLength(Pts, 1);
+    Pts[0] := P3(0, 0, 0);
+    D.MoveVerts(Pts, P3(1, 0, 0));
+    EqF(D[I].A.X, 1, 'a loose corner at the same place moves with the drawing');
+    EqF(D[0].A.X, 0, 'the group''s corner did not move with it');
+
+    { --- the file --------------------------------------------------------- }
+    D.SaveTo(L);
+    Ok(L.IndexOf('PARTOF ' + IntToStr(G)) >= 0, 'PARTOF written');
+    N := 0;
+    for I := 0 to L.Count - 1 do
+      if Copy(L[I], 1, 6) = 'GROUP ' then Inc(N);
+    EqI(N, 2, 'two GROUP lines');
+    Idx := 0;
+    B.LoadFrom(L, Idx);
+    EqI(B.Live, D.Live, 'everything came back');
+    Ok(B.PartEnt(G) >= 0, 'the knob came back');
+    Ok(B.PartName(G) = 'Left knob', 'with its name');
+    EqI(B.PartParent(G), H, 'inside the toy');
+    EqI(Length(B.PartMembers(G, False)), Length(D.PartMembers(G, False)), 'with its members');
+    EqI(B.Context, 0, 'and nothing open');
+    EqI(B.NextPart, 2, 'the numbering carried on from the highest id');
+
+    { --- copying: a copy of a group is a group of its own ------------------ }
+    M := D.PartMembers(G, True);
+    N := D.Live;
+    D.Duplicate(M, P3(20, 0, 0));
+    EqI(D.Live, N + Length(M), 'as many things again');
+    NIn := 0;
+    for I := N to D.Live - 1 do
+      if (D[I].Kind <> ekPart) and (D[I].Part <> G) and (D[I].Part <> 0) then Inc(NIn);
+    EqI(NIn, Length(M) - 1, 'the copies are in a group that is not the original');
+    EqI(D.NextPart, 3, 'a new id was taken for it');
+  finally
+    L.Free;
+    B.Free;
+    D.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -8299,6 +8418,7 @@ begin
   TestShells;       WriteLn;
   TestExport;       WriteLn;
   TestScad;         WriteLn;
+  TestGroups;       WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

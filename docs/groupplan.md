@@ -1,8 +1,11 @@
 # Parts: making a piece of a drawing a thing of its own
 
-*Written 18 September 2026, the night the need was agreed.  Nothing here is
-built.  This is what would have to be touched, and roughly in what order, so
-that the size of the job is known before anybody starts it.*
+*Written 18 September 2026, the night the need was agreed, as the plan for a
+thing not yet built.  **Built on 20 September 2026**, under the name
+*group*; what shipped, and where it differs from this plan, is in
+`docs/sketchup/15-groups.md` and the note in TODO.md.  Kept as written:
+the reasoning still holds, and the `Of_` link is still the room left for
+components.*
 
 ## Read this first
 

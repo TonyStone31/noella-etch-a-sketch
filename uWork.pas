@@ -78,7 +78,13 @@ type
     out the far side, Grp the solid.  It is kept so that the next tunnel
     through the same solid knows what it is crossing.  An entity rather than
     a list of its own so that undo, save and load carry it for nothing. }
-  TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace, ekGuide, ekBore);
+  { ekPart is a group - what SketchUp calls a group and this program calls
+    one too.  Not a thing on the screen: it is the record of a group, kept
+    as an entity for the reason ekBore is, so that undo, save, load and copy
+    carry it for nothing.  Grp holds its id, Txt its name, Solid whether it
+    is locked, and Part the group it sits inside.  Its members are every
+    entity whose Part is its id. }
+  TEntKind = (ekLine, ekArc, ekText, ekDim, ekFace, ekGuide, ekBore, ekPart);
 
   TIntArrayW = array of Integer;
   TIntArrayWArray = array of TIntArrayW;
@@ -136,6 +142,13 @@ type
       anything that merely touched - a box beside another one deformed its
       neighbor through the corner they shared. }
     Grp: Integer;
+    { Which group this belongs to, or 0 for the drawing itself.  Not the
+      same question as Grp: a group can hold six solids, and a solid cut in
+      half becomes two.  Geometry in different groups does not join, does
+      not split each other, and does not stretch each other - SketchUp's
+      rule, "objects don't stick to other entities", and the whole reason
+      groups exist. }
+    Part: Integer;
     Txt: string;
     Ink: TColor;
     { ekFace: the material painted on the front of it.  MatSet is what says
@@ -240,6 +253,13 @@ type
     FFaceMemoLo, FFaceMemoHi: Double;
     FGuidesHidden: Boolean;
     FNextGrp: Integer;
+    { Groups.  FNextPart numbers them; FContext is the group open for
+      editing, or 0 for the drawing itself; FStamp is the group new geometry
+      is born into - the context, except while a rebuild is working out one
+      group's faces or a file is being read.  See the ekPart note. }
+    FNextPart: Integer;
+    FContext: Integer;
+    FStamp: Integer;
     { The slice a plan view is cut out of - see SetSlice. }
     FSliceOn: Boolean;
     { which solids are closed, and the edit it was worked out at }
@@ -429,7 +449,9 @@ type
       consistent answer, so nothing is carried across it.
 
       Returns how many faces it turned over. }
-    function OrientLooseShells: Integer;
+    { the loose faces of one group at a time: faces in different groups are
+      not neighbors, whatever edges they happen to share }
+    function OrientLooseShells(Part: Integer = 0): Integer;
     { The record of a tunnel: its opening, where the first corner of that
       opening comes out, and whose solid it is. }
     procedure AddBore(const Loop: TP3Array; const FarOfFirst: TP3; G: Integer);
@@ -542,6 +564,42 @@ type
     { The points Outline projects, before projection - for drawing a ghost
       of the thing somewhere other than where it is. }
     function OutlineWorld(I: Integer): TP3Array;
+    { --- groups -----------------------------------------------------------
+      A group is an ekPart entity; its members are the entities whose Part is
+      its id.  Context is the group open for editing (0: the drawing), and
+      everything drawn while it is open belongs to it. }
+    function NewPart(const Name: string; Parent: Integer): Integer;
+    { the ekPart entity carrying this id, or -1 }
+    function PartEnt(Id: Integer): Integer;
+    function PartName(Id: Integer): string;
+    function PartLocked(Id: Integer): Boolean;
+    function PartParent(Id: Integer): Integer;
+    procedure SetPartName(Id: Integer; const Name: string);
+    procedure SetPartLocked(Id: Integer; Locked: Boolean);
+    procedure SetPartParent(Id, Parent: Integer);
+    { which group an entity is in, and putting it in one }
+    procedure SetPart(Index, Id: Integer);
+    { Is this entity inside the open context - in it, or in a group inside
+      it, however deep?  With nothing open, everything is. }
+    function InsideContext(I: Integer): Boolean;
+    { The group you would take hold of by clicking this entity: the outermost
+      group between it and the open context.  0 when the entity lies loose
+      in the context; -1 when it is outside the context altogether. }
+    function TopPartIn(I: Integer): Integer;
+    { Is that group, or any group between it and the context, locked? }
+    function PartLockedUp(Id: Integer): Boolean;
+    { every entity in the group, groups inside it and all, and its own
+      record last if asked for }
+    function PartMembers(Id: Integer; WithRecord: Boolean): TIntArrayW;
+    function PartBounds(Id: Integer; out Lo, Hi: TP3): Boolean;
+    { walk the ids again after a load or an undo, so the next one is new }
+    procedure RecountParts;
+    procedure SetContext(Id: Integer);
+    function DimIf(I: Integer; const C: TPix): TPix;
+    function InkPix(I: Integer): TPix;
+    property Context: Integer read FContext write SetContext;
+    property Stamp: Integer read FStamp write FStamp;
+    property NextPart: Integer read FNextPart;
     { Copy these entities, offset.  A copy stretches nothing. }
     procedure Duplicate(const Idx: array of Integer; const D: TP3);
     { Copy a selection out of the document, deep and with nothing pointing
@@ -2675,7 +2733,7 @@ begin
   for I := 0 to FLive - 1 do
   begin
     if FEnts[I].Kind <> ekLine then Continue;
-    if FEnts[I].Dim or (FEnts[I].Grp <> 0) then Continue;
+    if FEnts[I].Dim or (FEnts[I].Grp <> 0) or (FEnts[I].Part <> FStamp) then Continue;
     T0 := Along(FEnts[I].A, Mid);
     if Mid > TOL then Continue;
     T1 := Along(FEnts[I].B, Mid);
@@ -2748,6 +2806,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekLine;
+  FEnts[FLive].Part := FStamp;
   FEnts[FLive].A := A;
   FEnts[FLive].B := B;
   FEnts[FLive].Ink := Ink;
@@ -2766,6 +2825,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekArc;
+  FEnts[FLive].Part := FStamp;
   FEnts[FLive].C := C;
   FEnts[FLive].R := R;
   FEnts[FLive].A0 := A0;
@@ -2794,6 +2854,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekText;
+  FEnts[FLive].Part := FStamp;
   FEnts[FLive].A := A;
   FEnts[FLive].B := Target;
   FEnts[FLive].Txt := S;
@@ -2817,6 +2878,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekBore;
+  FEnts[FLive].Part := FStamp;
   FEnts[FLive].Poly := Own;
   FEnts[FLive].A := Own[0];
   FEnts[FLive].B := Far;
@@ -2831,6 +2893,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekGuide;
+  FEnts[FLive].Part := FStamp;
   FEnts[FLive].A := A;
   FEnts[FLive].B := B;
   FEnts[FLive].Weight := 1;
@@ -2892,6 +2955,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekDim;
+  FEnts[FLive].Part := FStamp;
   FEnts[FLive].A := A;
   FEnts[FLive].B := B;
   FEnts[FLive].C := Off;
@@ -2949,6 +3013,9 @@ procedure TWorkDoc.Clear;
 begin
   SetLength(FEnts, 0);
   FLive := 0;
+  FNextPart := 0;
+  FContext := 0;
+  FStamp := 0;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
@@ -3010,6 +3077,10 @@ begin
   for I := 0 to High(A) do
     FEnts[I] := CopyEnt(A[I]);
   FLive := Length(A);
+  { the groups came back with the entities; the numbering has to catch up,
+    and a context that was undone out of existence is nobody's to keep }
+  RecountParts;
+  if (FContext <> 0) and (PartEnt(FContext) < 0) then SetContext(0);
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
@@ -3831,7 +3902,7 @@ end;
   The holes go round with the outline.  Nothing reads their winding - every
   fill in the program is even-odd, and so is the one in the SVG - but a face
   turned over should be turned over, not turned over in part. }
-function TWorkDoc.OrientLooseShells: Integer;
+function TWorkDoc.OrientLooseShells(Part: Integer): Integer;
 type
   TUse = record
     Face: Integer;   { slot in Cand, not an entity index }
@@ -3904,6 +3975,7 @@ begin
   begin
     if FEnts[I].Kind <> ekFace then Continue;
     if FEnts[I].Solid then Continue;          { a made solid winds itself }
+    if FEnts[I].Part <> Part then Continue;   { another group's faces are not neighbors }
     if Length(FEnts[I].Poly) < 3 then Continue;
     if NC >= Length(Cand) then SetLength(Cand, Max(32, NC * 2));
     Cand[NC] := I;
@@ -4088,6 +4160,7 @@ begin
   Finalize(FEnts[FLive]);
   FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
   FEnts[FLive].Kind := ekFace;
+  FEnts[FLive].Part := FStamp;
   SetLength(FEnts[FLive].Poly, Length(Pts));
   for I := 0 to High(Pts) do
     FEnts[FLive].Poly[I] := Pts[I];
@@ -4746,6 +4819,281 @@ begin
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
+{ --- groups ------------------------------------------------------------- }
+
+procedure TWorkDoc.SetContext(Id: Integer);
+begin
+  if (Id <> 0) and (PartEnt(Id) < 0) then Id := 0;
+  FContext := Id;
+  FStamp := Id;
+  FOnFaceOK := False;
+  Inc(FEditSeq);
+end;
+
+function TWorkDoc.NewPart(const Name: string; Parent: Integer): Integer;
+begin
+  Inc(FNextPart);
+  Result := FNextPart;
+  Room;
+  Finalize(FEnts[FLive]);
+  FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+  FEnts[FLive].Kind := ekPart;
+  FEnts[FLive].Grp := Result;
+  FEnts[FLive].Txt := Name;
+  FEnts[FLive].Solid := False;
+  FEnts[FLive].Part := Parent;
+  Inc(FLive);
+  Inc(FEditSeq);
+end;
+
+function TWorkDoc.PartEnt(Id: Integer): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  if Id <= 0 then Exit;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekPart) and (FEnts[I].Grp = Id) then Exit(I);
+end;
+
+function TWorkDoc.PartName(Id: Integer): string;
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if E < 0 then Result := '' else Result := FEnts[E].Txt;
+  if Result = '' then Result := 'Group ' + IntToStr(Id);
+end;
+
+function TWorkDoc.PartLocked(Id: Integer): Boolean;
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  Result := (E >= 0) and FEnts[E].Solid;
+end;
+
+function TWorkDoc.PartParent(Id: Integer): Integer;
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if E < 0 then Result := 0 else Result := FEnts[E].Part;
+end;
+
+procedure TWorkDoc.SetPartName(Id: Integer; const Name: string);
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if E < 0 then Exit;
+  FEnts[E].Txt := Name;
+  Inc(FEditSeq);
+end;
+
+procedure TWorkDoc.SetPartLocked(Id: Integer; Locked: Boolean);
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if E < 0 then Exit;
+  FEnts[E].Solid := Locked;
+  Inc(FEditSeq);
+end;
+
+procedure TWorkDoc.SetPartParent(Id, Parent: Integer);
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if (E < 0) or (Id = Parent) then Exit;
+  FEnts[E].Part := Parent;
+  Inc(FEditSeq);
+end;
+
+procedure TWorkDoc.SetPart(Index, Id: Integer);
+begin
+  if (Index < 0) or (Index >= FLive) then Exit;
+  if FEnts[Index].Kind = ekPart then Exit;      { a record moves by SetPartParent }
+  FEnts[Index].Part := Id;
+  FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
+end;
+
+function TWorkDoc.InsideContext(I: Integer): Boolean;
+var
+  P, Guard: Integer;
+begin
+  Result := True;
+  if FContext = 0 then Exit;
+  if (I < 0) or (I >= FLive) then Exit(False);
+  { a group's own record stands for the group }
+  if FEnts[I].Kind = ekPart then P := FEnts[I].Grp else P := FEnts[I].Part;
+  Guard := 0;
+  while (P <> 0) and (Guard < 1000) do
+  begin
+    if P = FContext then Exit(True);
+    P := PartParent(P);
+    Inc(Guard);
+  end;
+  Result := False;
+end;
+
+function TWorkDoc.TopPartIn(I: Integer): Integer;
+var
+  P, Up, Guard: Integer;
+begin
+  if (I < 0) or (I >= FLive) then Exit(-1);
+  { a group's own record stands for the group, so a selection holding the
+    record and every member reads as one group and not as one thing more }
+  if FEnts[I].Kind = ekPart then P := FEnts[I].Grp else P := FEnts[I].Part;
+  if P = FContext then Exit(0);
+  Guard := 0;
+  while (P <> 0) and (Guard < 1000) do
+  begin
+    Up := PartParent(P);
+    if Up = FContext then Exit(P);
+    P := Up;
+    Inc(Guard);
+  end;
+  Result := -1;
+end;
+
+function TWorkDoc.PartLockedUp(Id: Integer): Boolean;
+var
+  Guard: Integer;
+begin
+  Result := False;
+  Guard := 0;
+  while (Id <> 0) and (Id <> FContext) and (Guard < 1000) do
+  begin
+    if PartLocked(Id) then Exit(True);
+    Id := PartParent(Id);
+    Inc(Guard);
+  end;
+end;
+
+function TWorkDoc.PartMembers(Id: Integer; WithRecord: Boolean): TIntArrayW;
+var
+  I, N, P, Guard: Integer;
+  In_: Boolean;
+begin
+  Result := nil;
+  N := 0;
+  if Id <= 0 then Exit;
+  for I := 0 to FLive - 1 do
+  begin
+    if (FEnts[I].Kind = ekPart) and (FEnts[I].Grp = Id) then Continue;
+    { in it, or in a group inside it }
+    P := FEnts[I].Part;
+    In_ := False;
+    Guard := 0;
+    while (P <> 0) and (Guard < 1000) do
+    begin
+      if P = Id then begin In_ := True; Break; end;
+      P := PartParent(P);
+      Inc(Guard);
+    end;
+    if not In_ then Continue;
+    if N >= Length(Result) then SetLength(Result, Max(16, N * 2));
+    Result[N] := I;
+    Inc(N);
+  end;
+  if WithRecord then
+  begin
+    I := PartEnt(Id);
+    if I >= 0 then
+    begin
+      if N >= Length(Result) then SetLength(Result, Max(16, N * 2));
+      Result[N] := I;
+      Inc(N);
+    end;
+  end;
+  SetLength(Result, N);
+end;
+
+function TWorkDoc.PartBounds(Id: Integer; out Lo, Hi: TP3): Boolean;
+var
+  M: TIntArrayW;
+  J, I, K, H: Integer;
+  Steps: Integer;
+  P: TP3;
+
+  procedure Take(const Q: TP3);
+  begin
+    if not Result then
+    begin
+      Lo := Q; Hi := Q; Result := True;
+      Exit;
+    end;
+    Lo := P3(Min(Lo.X, Q.X), Min(Lo.Y, Q.Y), Min(Lo.Z, Q.Z));
+    Hi := P3(Max(Hi.X, Q.X), Max(Hi.Y, Q.Y), Max(Hi.Z, Q.Z));
+  end;
+
+begin
+  Result := False;
+  Lo := P3(0, 0, 0);
+  Hi := Lo;
+  M := PartMembers(Id, False);
+  for J := 0 to High(M) do
+  begin
+    I := M[J];
+    case FEnts[I].Kind of
+      ekLine, ekGuide:
+        begin
+          Take(FEnts[I].A);
+          Take(FEnts[I].B);
+        end;
+      ekArc:
+        begin
+          Steps := ArcSteps(FEnts[I]);
+          for K := 0 to Steps do
+          begin
+            P := ArcPoint(FEnts[I].C, FEnts[I].R,
+              FEnts[I].A0 + FEnts[I].Sweep * K / Steps, FEnts[I].Plane, FEnts[I].Nm);
+            Take(P);
+          end;
+        end;
+      ekFace:
+        begin
+          for K := 0 to High(FEnts[I].Poly) do Take(FEnts[I].Poly[K]);
+          for H := 0 to High(FEnts[I].Holes) do
+            for K := 0 to High(FEnts[I].Holes[H]) do Take(FEnts[I].Holes[H][K]);
+        end;
+      ekText, ekDim:
+        begin
+          Take(FEnts[I].A);
+          if FEnts[I].Kind = ekDim then Take(FEnts[I].B);
+        end;
+    end;
+  end;
+end;
+
+procedure TWorkDoc.RecountParts;
+var
+  I: Integer;
+begin
+  FNextPart := 0;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekPart) and (FEnts[I].Grp > FNextPart) then
+      FNextPart := FEnts[I].Grp;
+end;
+
+{ A pen or a fill, faded when it lies outside the group that is open.
+  SketchUp greys the rest of the model while you are inside an object, so
+  what you can change and what you cannot is one look apart. }
+function TWorkDoc.DimIf(I: Integer; const C: TPix): TPix;
+begin
+  if (FContext <> 0) and not InsideContext(I) then
+    Result := MixPix(C, Pix(255, 255, 255), 0.62)
+  else
+    Result := C;
+end;
+
+function TWorkDoc.InkPix(I: Integer): TPix;
+begin
+  Result := DimIf(I, ColorToPix(FEnts[I].Ink));
+end;
+
 function TWorkDoc.NewGroup: Integer;
 begin
   Inc(FNextGrp);
@@ -5100,7 +5448,7 @@ begin
   for I := 0 to FLive - 1 do
   begin
     if FEnts[I].Kind <> ekLine then Continue;
-    if FEnts[I].Dim or (FEnts[I].Grp <> 0) then Continue;
+    if FEnts[I].Dim or (FEnts[I].Grp <> 0) or (FEnts[I].Part <> FStamp) then Continue;
     if not (SamePt(FEnts[I].A, Corner, TOL) or SamePt(FEnts[I].B, Corner, TOL)) then
       Continue;
     if Dist(FEnts[I].A, FEnts[I].B) < TOL then Continue;
@@ -5230,7 +5578,7 @@ begin
   FillChar(F, SizeOf(F), 0);
   for I := 0 to FLive - 1 do
   begin
-    if (FEnts[I].Kind <> ekLine) or FEnts[I].Dim or (FEnts[I].Grp <> 0) then
+    if (FEnts[I].Kind <> ekLine) or FEnts[I].Dim or (FEnts[I].Grp <> 0) or (FEnts[I].Part <> FStamp) then
       Continue;
     if not OnLine(I, S) then Continue;
     Ends[0] := FEnts[I].A;
@@ -5369,7 +5717,7 @@ begin
   for K := 0 to FLive - 1 do
   begin
     Doomed[K] := False;
-    if (FEnts[K].Kind <> ekLine) or FEnts[K].Dim or (FEnts[K].Grp <> 0) then
+    if (FEnts[K].Kind <> ekLine) or FEnts[K].Dim or (FEnts[K].Grp <> 0) or (FEnts[K].Part <> FStamp) then
       Continue;
     if (SamePt(FEnts[K].A, F.Corner, TOL) and
         (SamePt(FEnts[K].B, F.S, TOL) or SamePt(FEnts[K].B, F.E, TOL))) or
@@ -5417,7 +5765,7 @@ begin
   BeginProject(V, PC);
   for I := 0 to FLive - 1 do
   begin
-    if (FEnts[I].Kind <> ekLine) or FEnts[I].Dim or (FEnts[I].Grp <> 0) then
+    if (FEnts[I].Kind <> ekLine) or FEnts[I].Dim or (FEnts[I].Grp <> 0) or (FEnts[I].Part <> FStamp) then
       Continue;
     if not InSlice(I) then Continue;
     for K := 0 to 1 do
@@ -5638,7 +5986,7 @@ begin
   for I := 0 to FLive - 1 do
   begin
     if not (FEnts[I].Kind in [ekLine, ekArc]) then Continue;
-    if FEnts[I].Dim or (FEnts[I].Grp <> 0) then Continue;
+    if FEnts[I].Dim or (FEnts[I].Grp <> 0) or (FEnts[I].Part <> FStamp) then Continue;
     W[NW].Ent := I;
     W[NW].Fresh := I >= FirstNew;
     W[NW].Cut := nil;
@@ -6499,12 +6847,14 @@ begin
   SetLength(RideA, 0);
   for I := 0 to FLive - 1 do
   begin
+    if FEnts[I].Part <> FContext then Continue;
     if FEnts[I].Kind <> ekText then Continue;
     if Moving.Has(FEnts[I].B, TOL) then Continue;      { going anyway }
     if Dist(FEnts[I].A, FEnts[I].B) < 1E-9 then Continue;  { no leader }
     for J := 0 to FLive - 1 do
     begin
       if not (FEnts[J].Kind in [ekLine, ekArc]) then Continue;
+      if FEnts[J].Part <> FContext then Continue;
       if not (Moving.Has(FEnts[J].A, TOL) and
               Moving.Has(FEnts[J].B, TOL)) then Continue;
       if OnSeg(FEnts[I].B, FEnts[J].A, FEnts[J].B) then
@@ -6523,6 +6873,7 @@ begin
 
   for I := 0 to FLive - 1 do
   begin
+    if FEnts[I].Part <> FContext then Continue;
     Shift(FEnts[I].A);
     Shift(FEnts[I].B);
     if FEnts[I].Kind = ekArc then Shift(FEnts[I].C);
@@ -6761,7 +7112,8 @@ var
 begin
   if (Length(Pts) = 0) or (Abs(Ang) < 1E-12) then Exit;
   for I := 0 to FLive - 1 do
-    RotateEnt(I, Pts, C, Axis, Ang, False);
+    if FEnts[I].Part = FContext then       { another group's corners stay put }
+      RotateEnt(I, Pts, C, Axis, Ang, False);
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
 end;
 
@@ -6945,6 +7297,7 @@ procedure TWorkDoc.Duplicate(const Idx: array of Integer; const D: TP3);
 var
   J, I, K, H, Base, G: Integer;
   Src, Dst: array of Integer;    { old group id -> the new one it becomes }
+  PSrc, PDst, Copied: array of Integer;   { the same for groups }
 
   { Solids are told apart by their group id.  Carrying the original's id over
     to the copy would leave push/pull unable to tell them apart, and pulling a
@@ -6964,10 +7317,43 @@ var
     Result := FNextGrp;
   end;
 
+  { And the groups, the same way and for the same reason: a copy of a group
+    is a group of its own.  Only groups whose record is among what is being
+    copied get a new id - a member copied without its record stays in the
+    group it was in, beside the original. }
+  function RemapPart(Old: Integer): Integer;
+  var
+    N: Integer;
+    Known: Boolean;
+  begin
+    if Old = 0 then Exit(0);
+    for N := 0 to High(PSrc) do
+      if PSrc[N] = Old then Exit(PDst[N]);
+    Known := False;
+    for N := 0 to High(Copied) do
+      if Copied[N] = Old then Known := True;
+    if not Known then Exit(Old);
+    Inc(FNextPart);
+    SetLength(PSrc, Length(PSrc) + 1);
+    SetLength(PDst, Length(PDst) + 1);
+    PSrc[High(PSrc)] := Old;
+    PDst[High(PDst)] := FNextPart;
+    Result := FNextPart;
+  end;
+
 begin
   Src := nil;
   Dst := nil;
+  PSrc := nil;
+  PDst := nil;
+  Copied := nil;
   Base := FLive;
+  for J := 0 to High(Idx) do
+    if (Idx[J] >= 0) and (Idx[J] < Base) and (FEnts[Idx[J]].Kind = ekPart) then
+    begin
+      SetLength(Copied, Length(Copied) + 1);
+      Copied[High(Copied)] := FEnts[Idx[J]].Grp;
+    end;
   for J := 0 to High(Idx) do
   begin
     I := Idx[J];
@@ -6996,8 +7382,11 @@ begin
     FEnts[FLive].A := P3(FEnts[I].A.X + D.X, FEnts[I].A.Y + D.Y, FEnts[I].A.Z + D.Z);
     FEnts[FLive].B := P3(FEnts[I].B.X + D.X, FEnts[I].B.Y + D.Y, FEnts[I].B.Z + D.Z);
     FEnts[FLive].C := P3(FEnts[I].C.X + D.X, FEnts[I].C.Y + D.Y, FEnts[I].C.Z + D.Z);
-    G := Remap(FEnts[I].Grp);
+    { a record's Grp is its group id, not a solid's }
+    if FEnts[I].Kind = ekPart then G := RemapPart(FEnts[I].Grp)
+    else G := Remap(FEnts[I].Grp);
     FEnts[FLive].Grp := G;
+    FEnts[FLive].Part := RemapPart(FEnts[I].Part);
     Inc(FLive);
   end;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
@@ -7043,6 +7432,7 @@ function TWorkDoc.PasteIn(const Ents: TWorkEntArray; const D: TP3;
 var
   J, K, H: Integer;
   Src, Dst: array of Integer;
+  PSrc, PDst, Copied: array of Integer;   { the same for groups - see Duplicate }
 
   function Remap(Old: Integer): Integer;
   var
@@ -7059,6 +7449,28 @@ var
     Result := FNextGrp;
   end;
 
+  function RemapPart(Old: Integer): Integer;
+  var
+    N: Integer;
+    Known: Boolean;
+  begin
+    if Old = 0 then Exit(0);
+    for N := 0 to High(PSrc) do
+      if PSrc[N] = Old then Exit(PDst[N]);
+    Known := False;
+    for N := 0 to High(Copied) do
+      if Copied[N] = Old then Known := True;
+    { pasted into a sheet that has no such group, a member goes in loose }
+    if not Known then
+      if PartEnt(Old) >= 0 then Exit(Old) else Exit(0);
+    Inc(FNextPart);
+    SetLength(PSrc, Length(PSrc) + 1);
+    SetLength(PDst, Length(PDst) + 1);
+    PSrc[High(PSrc)] := Old;
+    PDst[High(PDst)] := FNextPart;
+    Result := FNextPart;
+  end;
+
   procedure Shift(var P: TP3);
   begin
     P := P3(P.X + D.X, P.Y + D.Y, P.Z + D.Z);
@@ -7070,6 +7482,15 @@ begin
   Last := FLive - 1;
   Src := nil;
   Dst := nil;
+  PSrc := nil;
+  PDst := nil;
+  Copied := nil;
+  for J := 0 to High(Ents) do
+    if Ents[J].Kind = ekPart then
+    begin
+      SetLength(Copied, Length(Copied) + 1);
+      Copied[High(Copied)] := Ents[J].Grp;
+    end;
   for J := 0 to High(Ents) do
   begin
     if Ents[J].Kind = ekBore then Continue;
@@ -7083,7 +7504,11 @@ begin
     for K := 0 to High(FEnts[FLive].Poly) do Shift(FEnts[FLive].Poly[K]);
     for H := 0 to High(FEnts[FLive].Holes) do
       for K := 0 to High(FEnts[FLive].Holes[H]) do Shift(FEnts[FLive].Holes[H][K]);
-    FEnts[FLive].Grp := Remap(Ents[J].Grp);
+    if Ents[J].Kind = ekPart then FEnts[FLive].Grp := RemapPart(Ents[J].Grp)
+    else FEnts[FLive].Grp := Remap(Ents[J].Grp);
+    { into the open group here, unless it came with a group of its own }
+    if Ents[J].Part = 0 then FEnts[FLive].Part := FStamp
+    else FEnts[FLive].Part := RemapPart(Ents[J].Part);
     Last := FLive;
     Inc(FLive);
     Inc(Result);
@@ -10009,11 +10434,28 @@ end;
 
 procedure TWorkDoc.SaveTo(L: TStrings);
 var
-  I, J, K: Integer;
+  I, J, K, Cur: Integer;
   Line: string;
 begin
+  { Groups.  A record is a GROUP line - id, locked, the group it sits in,
+    then its name, which can have spaces and so goes last.  Membership is a
+    PARTOF line written whenever it changes from one entity to the next,
+    and it applies to everything after it: far fewer lines than one field
+    more on every entity, and - the same trick as MATERIAL and HOLE - a
+    reader that has never heard of either skips them and gets the drawing
+    flattened, which is exactly what it should get. }
+  Cur := 0;
   for I := 0 to FLive - 1 do
+  begin
+    if (FEnts[I].Kind <> ekPart) and (FEnts[I].Part <> Cur) then
+    begin
+      Cur := FEnts[I].Part;
+      L.Add(Format('PARTOF %d', [Cur]));
+    end;
     case FEnts[I].Kind of
+      ekPart:
+        L.Add(TrimRight(Format('GROUP %d %d %d %s',
+          [FEnts[I].Grp, Ord(FEnts[I].Solid), FEnts[I].Part, EscapeNote(FEnts[I].Txt)])));
       ekLine:
         L.Add(Format('LINE %s %s %d %.3f %d %d %d',
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].Weight,
@@ -10088,6 +10530,7 @@ begin
             end;
         end;
     end;
+  end;
 end;
 
 { Everything from token N onwards, put back together with single spaces.
@@ -10254,6 +10697,22 @@ begin
           AddBore(Pts, P3(RdF(T[2]), RdF(T[3]), RdF(T[4])), StrToIntDef(T[1], 0));
         end;
       end
+      else if (Kind = 'PARTOF') and (T.Count >= 2) then
+        { everything from here on belongs to this group - the creators stamp
+          it, so nothing per kind has to know }
+        FStamp := StrToIntDef(T[1], 0)
+      else if (Kind = 'GROUP') and (T.Count >= 4) then
+      begin
+        Room;
+        Finalize(FEnts[FLive]);
+        FillChar(FEnts[FLive], SizeOf(TWorkEnt), 0);
+        FEnts[FLive].Kind := ekPart;
+        FEnts[FLive].Grp := StrToIntDef(T[1], 0);
+        FEnts[FLive].Solid := T[2] = '1';
+        FEnts[FLive].Part := StrToIntDef(T[3], 0);
+        FEnts[FLive].Txt := UnescapeNote(JoinFrom(T, 4));
+        Inc(FLive);
+      end
       else if (Kind = 'FACE') and (T.Count >= 4) then
       begin
         N := StrToIntDef(T[3], 0);
@@ -10273,6 +10732,10 @@ begin
   finally
     T.Free;
   end;
+  { the file is read; new geometry goes back to the drawing itself }
+  FStamp := 0;
+  FContext := 0;
+  RecountParts;
 end;
 
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the
@@ -11432,7 +11895,7 @@ begin
     { Out of the slice is out of the drawing.  Said in every pass, because
       each of them walks the entities for itself. }
     if not InSlice(I) then Continue;
-    Col := ColorToPix(FEnts[I].Ink);
+    Col := InkPix(I);
     case FEnts[I].Kind of
       ekFace: ;   // already painted
       ekLine:
@@ -11618,7 +12081,7 @@ begin
     for J := 0 to High(FEnts[K].Poly) do
       Flat[J] := Project(V, FEnts[K].Poly[J]);
     Nm := FaceNormal(K);
-    Col := ColorToPix(FEnts[K].Ink);
+    Col := InkPix(K);
     { What this face is made of.  A face that has been painted shows the
       material it was painted with, at full strength - SketchUp's way, and
       the whole point of keeping a material apart from the pen.  One that
@@ -11942,7 +12405,7 @@ begin
     end;
 
     if (Dot3(Nm, ViewDir(V)) < 0) and (V.Kind <> vkPlan) then
-      S.FillLoops(Loops, ShadePix(FACE_BACK, Sh), 1.0)
+      S.FillLoops(Loops, DimIf(K, ShadePix(FACE_BACK, Sh)), 1.0)
     else if V.Kind = vkPlan then
       { Paler in plan than in the 3D view.  A fill is there to say "this is
         material, not a hole"; in a drawing it must not compete with the
@@ -11954,11 +12417,11 @@ begin
         color on purpose, and washing it out would be second-guessing them.
         An unpainted one stays pale, so it cannot compete with the lines. }
       if FEnts[K].MatSet then
-        S.FillLoops(Loops, Face, 1.0)
+        S.FillLoops(Loops, DimIf(K, Face), 1.0)
       else
-        S.FillLoops(Loops, MixPix(Face, Pix(255, 255, 255), 0.55), 1.0)
+        S.FillLoops(Loops, DimIf(K, MixPix(Face, Pix(255, 255, 255), 0.55)), 1.0)
     else
-      S.FillLoops(Loops, ShadePix(Face, Sh), 1.0);
+      S.FillLoops(Loops, DimIf(K, ShadePix(Face, Sh)), 1.0);
     { No outline.  Every boundary of a face is a real edge and gets drawn as
       one, so stroking the polygon as well laid a second line over the first -
       which is most of why the edges of a solid looked heavier than the lines
@@ -12001,7 +12464,7 @@ begin
       end
       else if (Abs(Dot3(Nm, FEnts[I].A) - Sh) >= 1E-6) or
               (Abs(Dot3(Nm, FEnts[I].B) - Sh) >= 1E-6) then Continue;
-      Col := ColorToPix(FEnts[I].Ink);
+      Col := InkPix(I);
       case FEnts[I].Kind of
         ekLine:
           if Hidden(I) then
@@ -12149,7 +12612,7 @@ begin
             PB := Project(V, FEnts[I].B);
             S.DepthAlong(PA.X, PA.Y, Dot3(FEnts[I].A, Look),
                          PB.X, PB.Y, Dot3(FEnts[I].B, Look));
-            S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), ColorToPix(FEnts[I].Ink));
+            S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), InkPix(I));
           end;
         ekArc:
           if not FEnts[I].Soft then
@@ -12168,7 +12631,7 @@ begin
               PB := Project(V, DB);
               S.DepthAlong(PA.X, PA.Y, Dot3(DA, Look),
                            PB.X, PB.Y, Dot3(DB, Look));
-              S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), ColorToPix(FEnts[I].Ink));
+              S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I), InkPix(I));
               PA := PB;
               DA := DB;
             end;
@@ -12212,7 +12675,7 @@ begin
             S.DepthAlong(PA.X, PA.Y, Dot3(FEnts[I].A, Look),
                          PB.X, PB.Y, Dot3(FEnts[I].B, Look));
             S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I),
-                   MixPix(ColorToPix(FEnts[I].Ink), Pix(255, 255, 255), 0.45));
+                   MixPix(InkPix(I), Pix(255, 255, 255), 0.45));
           end;
         ekArc:
           begin
@@ -12232,7 +12695,7 @@ begin
               S.DepthAlong(PA.X, PA.Y, Dot3(DA, Look),
                            PB.X, PB.Y, Dot3(DB, Look));
               S.Line(PA.X, PA.Y, PB.X, PB.Y, LineW(I),
-                     MixPix(ColorToPix(FEnts[I].Ink), Pix(255, 255, 255), 0.45));
+                     MixPix(InkPix(I), Pix(255, 255, 255), 0.45));
               PA := PB;
               DA := DB;
             end;

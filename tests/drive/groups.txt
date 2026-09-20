@@ -1,0 +1,96 @@
+# Groups: a rectangle made into a group keeps to itself.
+#
+# Draw a rectangle, pick its face, /group it.  Then draw a second rectangle
+# over the corner of the first from outside: the two must not join - the
+# second gets a whole four-cornered face of its own and the group's face is
+# untouched, where without groups the overlap would cut both into pieces.
+# Then /edit the group, draw a line inside it, leave with Escape; /lock it
+# and try to move it; /unlock; /explode.
+#
+# What to look for: hsk-groups-made has one rectangle with a thin blue box
+# round it and the bar saying Grouped as "Group 1"; hsk-groups-inside has
+# the second rectangle faded, a dotted box round the first, and the bar
+# saying in "Group 1"; hsk-groups-locked has a red box.  The file the
+# session leaves behind is what geomtest's TestGroups checks the rules on;
+# this is the same thing done through the window.
+activate
+wait 1500
+key escape
+wait 300
+key r
+at 500 400
+click
+at 700 550
+click
+wait 600
+key slash
+type select
+key return
+wait 300
+at 600 470
+click
+wait 400
+key slash
+type group
+key return
+wait 1200
+shot /tmp/hsk-groups-made.png
+key r
+at 650 500
+click
+at 900 650
+click
+wait 800
+key slash
+type select
+key return
+wait 300
+at 560 430
+click
+wait 300
+key slash
+type edit
+key return
+wait 1200
+shot /tmp/hsk-groups-inside.png
+key l
+at 540 420
+click
+at 620 480
+click
+key escape
+wait 300
+key escape
+wait 300
+key escape
+wait 600
+at 560 430
+click
+wait 300
+key slash
+type lock
+key return
+wait 600
+shot /tmp/hsk-groups-locked.png
+key m
+at 560 430
+click
+at 660 330
+click
+wait 600
+key escape
+wait 300
+key slash
+type select
+key return
+at 560 430
+click
+key slash
+type unlock
+key return
+wait 400
+key slash
+type explode
+key return
+wait 1000
+shot /tmp/hsk-groups-exploded.png

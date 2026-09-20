@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Groups.**  Pick something and press Ctrl+G (or `/group`, or the right
+  button's Make Group) and it becomes a thing of its own: nothing outside
+  it joins onto it, cuts it, or stretches it when it moves, and a click on
+  any part of it takes all of it.  Double-click to work inside one - the
+  rest of the drawing fades and stays out of reach until Escape or a click
+  on nothing brings you back out.  Groups nest, `/name` names them, `/lock`
+  keeps one from being changed at all while still letting you snap to it,
+  and `/explode` takes one apart.  It is SketchUp's group, and behaves the
+  way theirs does, from their own help pages.  There is a page in the
+  manual.
+
 ## v2026.09.20
 
 ### Fixed

@@ -100,7 +100,7 @@ type
     it.  The painter is dumb and reads this; the mouse looks in the same
     place for what it hit. }
   TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColor,
-    iaMaterial, iaUnpaint);
+    iaMaterial, iaUnpaint, iaPartOpen, iaPartLock, iaPartExplode, iaPartRename);
   TInfoRow = record
     Caption: string;
     Value: string;
@@ -115,6 +115,14 @@ type
     D: Double;
     Area: Double;
     Mid: TP3;
+    Part: Integer;      { the group the area was found in }
+  end;
+
+  { the region finder's cache, one per group - a plane shared by two groups
+    must not hand one group's areas to the other }
+  TPartCache = record
+    Part: Integer;
+    Cache: TRegionCache;
   end;
 
   { Everything the paper is a picture of.  If none of it has moved, neither
@@ -477,6 +485,9 @@ type
     { the move in progress: where it was grabbed, and every corner that will
       travel - gathered once at the grab so the drag stays cheap }
     FMoveVerts: TP3Array;
+    { whole groups being moved or turned: they go rigidly, and nothing
+      loose that touches them is stretched after them }
+    FMoveGroupEnts: TIntArrayW;
     FMoveCopy: Boolean;
     { The entity panel down the right-hand side: what is picked, and the few
       things about it that can be changed from there.
@@ -563,7 +574,7 @@ type
       plane with the same edges in it. }
     { how many faces the last rebuild had to turn the right way out }
     FTurned: Integer;
-    FRegionCache: TRegionCache;
+    FRegionCaches: array of TPartCache;
 
     { how many clicks have landed in the same spot in quick succession: two
       takes what is attached, three takes everything joined on }
@@ -1126,7 +1137,9 @@ type
     { Every drawn edge as a plain segment, which is what the region engine
       eats.  Guides, dimensions and notes are not geometry and stay out; a
       solid's own faces are its boundary and are not derived either. }
-    function EdgeSegments: TSegArray;
+    function EdgeSegments(Part: Integer): TSegArray;
+    function CacheFor(Part: Integer): Integer;
+    function AllPartIds: TIntArrayW;
     procedure ReportRegions;
     { The one call that keeps the drawn faces right.  Everything that changes
       an edge ends with this. }
@@ -1157,6 +1170,23 @@ type
     procedure FinishSelect(X, Y: Integer; Shift: TShiftState);
     function EntHasPoint(I: Integer; const P: TP3): Boolean;
     procedure SelectAttached(I: Integer);
+    { --- groups --- }
+    procedure SelectAddOne(I: Integer);
+    procedure SelectRemoveOne(I: Integer);
+    function PickAtRaw(SX, SY: Integer): Integer;
+    function SelectedGroups: TIntArrayW;
+    function SoleGroup: Integer;
+    procedure MakeGroup;
+    procedure ExplodeGroups;
+    procedure OpenGroup(Id: Integer);
+    procedure CloseGroup;
+    procedure LockGroups(Locked: Boolean);
+    procedure RenameGroup(const NewName: string);
+    function SplitMoveSelection: Boolean;
+    function InContextFace(F: Integer): Integer;
+    procedure PaintPartBox(C: TCanvas; Id: Integer; const Col: TPix;
+      Dashed: Boolean; const Shift: TP3);
+    function PromptForTool: string;
     procedure SelectConnected(I: Integer);
     procedure SelectInBox(X0, Y0, X1, Y1: Integer; Crossing, Add: Boolean);
     procedure DeleteSelection;
@@ -1449,7 +1479,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..71] of TCmdItem = (
+  CMD_LIST: array[0..78] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1469,11 +1499,14 @@ const
                          Also: 'loose'),
     (Name: 'dimension';  Hint: 'the dimension tool';                    Arg: False; Eg: ''; Also: 'dim'),
     (Name: 'drill';      Hint: 'push a shape right through';            Arg: False; Eg: ''; Also: 'bore punch'),
+    (Name: 'edit';       Hint: 'work inside the picked group';          Arg: False; Eg: ''; Also: 'opengroup'),
     (Name: 'erase';      Hint: 'the eraser';                            Arg: False; Eg: ''; Also: 'e del'),
+    (Name: 'explode';    Hint: 'take the picked group apart';           Arg: False; Eg: ''; Also: 'ungroup'),
     (Name: 'fit';        Hint: 'zoom until it all shows';               Arg: False; Eg: ''; Also: 'zoom'),
     (Name: 'forget';     Hint: 'forget the areas seen, and work them out again'; Arg: False),
     (Name: 'front';      Hint: 'look from the front';                   Arg: False),
     (Name: 'grid';       Hint: 'the ruled paper, on or off';            Arg: False),
+    (Name: 'group';      Hint: 'make what is picked a group';           Arg: False; Eg: ''; Also: 'makegroup'),
     (Name: 'guides';     Hint: 'clear the guide lines';                 Arg: False; Eg: ''; Also: 'noguides'),
     (Name: 'help';       Hint: 'about this program';                    Arg: False; Eg: ''; Also: '?'),
     (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False; Eg: ''; Also: 'openedges notclosed'),
@@ -1482,11 +1515,16 @@ const
                          Also: 'entity properties'),
     (Name: 'iso';        Hint: 'the isometric view';                    Arg: False),
     (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False; Eg: ''; Also: 'keepdim'),
+    (Name: 'leave';      Hint: 'close the open group';                  Arg: False; Eg: ''; Also: 'closegroup'),
     (Name: 'left';       Hint: 'look from the left';                    Arg: False),
     (Name: 'line';       Hint: 'the line tool';                         Arg: False; Eg: ''; Also: 'l'),
+    (Name: 'lock';       Hint: 'lock the picked group';                 Arg: False),
     (Name: 'manual';     Hint: 'open the manual';                       Arg: False; Eg: ''; Also: 'docs'),
     (Name: 'measure';    Hint: 'the tape measure';                      Arg: False; Eg: ''; Also: 'm tape'),
     (Name: 'move';       Hint: 'the move tool';                         Arg: False; Eg: ''; Also: 'mv'),
+    (Name: 'name';       Hint: 'call the picked group something';      Arg: True;
+                         Eg:   '/name Left knob';
+                         Also: 'rename'),
     (Name: 'new';        Hint: 'a new sheet';                           Arg: False; Eg: ''; Also: 'tab'),
     (Name: 'offset';     Hint: 'a parallel copy of a face''s edge';     Arg: False; Eg: ''; Also: 'f'),
     (Name: 'orbit';      Hint: 'the free camera';                       Arg: False; Eg: ''; Also: 'spin'),
@@ -1537,6 +1575,7 @@ const
     (Name: 'undo';       Hint: 'undo the last thing';                   Arg: False; Eg: ''; Also: 'u'),
     (Name: 'unfold';     Hint: 'lay a piece out flat';                  Arg: False; Eg: ''; Also: 'layout'),
     (Name: 'units';      Hint: 'feet and inches, or millimeters';       Arg: False),
+    (Name: 'unlock';     Hint: 'unlock the picked group';               Arg: False),
     (Name: 'update';     Hint: 'look for a newer build';                Arg: False;
                          Eg:   '/update never';
                          Also: 'upgrade'),
@@ -3999,6 +4038,22 @@ begin
 
     And Erase goes last, under a line, the way every context menu in every
     program puts delete last. }
+  { Groups - the same five rows every time, for the reason above. }
+  Add('Make Group', 10);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(FSel) > 0;
+  Add('Open Group', 11);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := SoleGroup > 0;
+  Add('Close Group', 12);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := FD.Doc.Context <> 0;
+  if (SoleGroup > 0) and FD.Doc.PartLocked(SoleGroup) then Add('Unlock Group', 13)
+  else Add('Lock Group', 13);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(SelectedGroups) > 0;
+  Add('Explode Group', 14);
+  pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(SelectedGroups) > 0;
+  M := TMenuItem.Create(pmCanvas);
+  M.Caption := '-';
+  pmCanvas.Items.Add(M);
+
   if Faces > 1 then Add(Format('Reverse %d Faces', [Faces]), 1)
   else Add('Reverse Face', 1);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Faces > 0;
@@ -4067,6 +4122,11 @@ begin
         InvalidateStatus;
       end;
     2: DeleteSelection;
+    10: MakeGroup;
+    11: OpenGroup(SoleGroup);
+    12: CloseGroup;
+    13: LockGroups(not ((SoleGroup > 0) and FD.Doc.PartLocked(SoleGroup)));
+    14: ExplodeGroups;
     7:
       begin
         FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
@@ -4620,7 +4680,7 @@ begin
     out.  SketchUp infers to whatever is under the cursor; this is the part
     of that which earns its keep on a fabrication drawing, where things being
     flush matters and being nearly flush is a fault. }
-  HF := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+  HF := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
   if (HF >= 0) and (HF <> FPushFace) and (Length(FD.Doc[HF].Poly) > 0) and
      (Length(FD.Doc[FPushFace].Poly) > 0) then
   begin
@@ -7280,7 +7340,8 @@ end;
 procedure TMainForm.RebuildInfo;
 var
   InfoMoveB: Boolean;
-  I, K, NL, NA, NF, NT, ND, NG: Integer;
+  I, K, NL, NA, NF, NT, ND, NG, G: Integer;
+  M: TIntArrayW;
   E: TWorkEnt;
   TotL, TotA: Double;
   MatCol: TColor;
@@ -7354,6 +7415,25 @@ begin
     if NG > 0 then Row('Guides', IntToStr(NG));
     Head('');
     Row('Pick something', 'to see and change it');
+    Exit;
+  end;
+
+  { A group picked: its name, what it holds, and what can be done to it.
+    Before the count of things, because its members are all in the
+    selection and would otherwise read as forty lines and six faces. }
+  G := SoleGroup;
+  if G > 0 then
+  begin
+    Head('GROUP');
+    Row('Name', FD.Doc.PartName(G), iaPartRename, G);
+    M := FD.Doc.PartMembers(G, False);
+    Row('Holds', Format('%d thing%s', [Length(M), IfThen(Length(M) = 1, '', 's')]));
+    if FD.Doc.PartParent(G) <> 0 then
+      Row('Inside', FD.Doc.PartName(FD.Doc.PartParent(G)));
+    Head('');
+    Row('Locked', IfThen(FD.Doc.PartLocked(G), 'Unlock', 'Lock'), iaPartLock, G);
+    Row('Work inside it', 'Open', iaPartOpen, G);
+    Row('Take it apart', 'Explode', iaPartExplode, G);
     Exit;
   end;
 
@@ -7827,6 +7907,22 @@ begin
           FCmdMsg := Format('%d faces back to the default material.', [K])
         else
           FCmdMsg := 'Back to the default material.';
+      end;
+    { the group rows carry the group's id in Ent, not an entity }
+    iaPartOpen: OpenGroup(FInfoRows[Row].Ent);
+    iaPartLock:
+      begin
+        PushUndo;
+        FD.Doc.SetPartLocked(FInfoRows[Row].Ent, not FD.Doc.PartLocked(FInfoRows[Row].Ent));
+        if FD.Doc.PartLocked(FInfoRows[Row].Ent) then FCmdMsg := 'Locked.' else FCmdMsg := 'Unlocked.';
+      end;
+    iaPartExplode: ExplodeGroups;
+    iaPartRename:
+      begin
+        { the command bar, with the name ready to be typed over }
+        FInput := '/name ' + FD.Doc.PartName(FInfoRows[Row].Ent);
+        SyncCmdList;
+        FCmdMsg := 'Type the name and press Enter.';
       end;
     iaReverse:
       begin
@@ -11679,6 +11775,8 @@ var
   S1, S2, S3: string;
   W1, W2, W3, BoxW, BoxH, LnH: Integer;
   StrainPts: TPointFArray;
+  GrpBoxes: TIntArrayW;
+  GI, GrpId: Integer;
 
   { When the cursor is locked to an axis the band is drawn in that axis's
     color, so the direction you are committing to is readable without
@@ -11977,7 +12075,7 @@ begin
       with where the cursor is, and the result was a face that lit up only
       sometimes.  A point-in-polygon test over a handful of faces costs
       nothing at paint time. }
-    HintFace := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+    HintFace := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
     if HintFace >= 0 then
     begin
       PaintFaceHint(C, HintFace, HINT_BLUE);
@@ -12066,9 +12164,29 @@ begin
       louder than the thing it is pointing at. }
     if FD.Doc[FHoverEnt].Kind = ekGuide then
       PaintGuideHover(C, FHoverEnt)
+    else if FD.Doc.TopPartIn(FHoverEnt) > 0 then
+    begin
+      { a group is its box - red when it is locked, SketchUp's cue for it }
+      GrpId := FD.Doc.TopPartIn(FHoverEnt);
+      if FD.Doc.PartLockedUp(GrpId) then
+        PaintPartBox(C, GrpId, Pix(230, 80, 80), False, P3(0, 0, 0))
+      else
+        PaintPartBox(C, GrpId, Pix(150, 185, 245), False, P3(0, 0, 0));
+    end
     else
       TraceOutlineVisible(C, FHoverEnt, Pix(150, 185, 245), Max(2, Round(2 * FUIScale)));
   end;
+
+  { the groups picked, each as its box, and the one that is open as a dotted
+    box round everything you are working inside }
+  GrpBoxes := SelectedGroups;
+  for GI := 0 to High(GrpBoxes) do
+    if FD.Doc.PartLockedUp(GrpBoxes[GI]) then
+      PaintPartBox(C, GrpBoxes[GI], Pix(230, 80, 80), False, P3(0, 0, 0))
+    else
+      PaintPartBox(C, GrpBoxes[GI], Pix(70, 130, 240), False, P3(0, 0, 0));
+  if FD.Doc.Context <> 0 then
+    PaintPartBox(C, FD.Doc.Context, Pix(130, 130, 140), True, P3(0, 0, 0));
 
   { the box itself.  Dashed for a crossing box, solid for a containing one,
     which is the only cue telling you which rule is in force. }
@@ -12749,6 +12867,7 @@ begin
   FMoveRigid := False;
   FDimMove := -1;
   SetLength(FMoveVerts, 0);
+  SetLength(FMoveGroupEnts, 0);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
 end;
@@ -13040,7 +13159,15 @@ begin
   end;
 end;
 
+{ the tool's prompt, with where you are in front of it when a group is open }
 function TMainForm.Prompt: string;
+begin
+  Result := PromptForTool;
+  if (FD <> nil) and (FD.Doc.Context <> 0) then
+    Result := 'in "' + FD.Doc.PartName(FD.Doc.Context) + '" (Esc leaves)   ' + Result;
+end;
+
+function TMainForm.PromptForTool: string;
 var
   PromptAlong: Double;
   PMoveB: Boolean;
@@ -13314,7 +13441,7 @@ begin
           Exit;
         end;
         FP1 := FCur;
-        FD.Doc.VertsOf(FSel, FMoveVerts);
+        if not SplitMoveSelection then Exit;
         FStage := 1;
         FDirLock := -1;
         FInput := '';
@@ -13344,9 +13471,9 @@ begin
                   anything means that.  Pick first to turn a part on its
                   own: a click for one thing, double for a face and its
                   edges, triple for all that is joined. }
-                SelectConnected(I);
+                if FD.Doc.TopPartIn(I) > 0 then SelectOnly(I) else SelectConnected(I);
               end;
-              FD.Doc.VertsOf(FSel, FMoveVerts);
+              if not SplitMoveSelection then Exit;
             end;
             FP1 := FCur;
             { the plane: an arrow key's, else the face under the cursor's,
@@ -13514,7 +13641,7 @@ begin
           panel is half the reason to draw one. }
         if FClickN >= 2 then
         begin
-          I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+          I := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
           if I >= 0 then
           begin
             PushUndo;
@@ -13537,7 +13664,7 @@ begin
       case FStage of
         0:
           begin
-            I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+            I := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
             if I < 0 then
             begin
               FCmdMsg := 'Click the face to follow - that is the profile.';
@@ -13616,7 +13743,7 @@ begin
           SketchUp does a row of identical extrusions. }
         if (FClickN >= 2) and (Abs(FLastPush) > 1E-9) then
         begin
-          I := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+          I := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
           if I >= 0 then
           begin
             PushUndo;
@@ -13629,7 +13756,7 @@ begin
             Exit;
           end;
         end;
-        FPushFace := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+        FPushFace := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
         { A face too small or too crowded to click can be picked with the
           arrow first and pushed afterwards, which the docs recommend. }
         if (FPushFace < 0) and (Length(FSel) = 1) and
@@ -13656,7 +13783,7 @@ begin
     ptOffset:
       if FStage = 0 then
       begin
-        FOffFace := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+        FOffFace := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
         { as with push/pull, a face too crowded to click can be selected
           first and then worked on }
         if (FOffFace < 0) and (Length(FSel) = 1) and
@@ -13933,6 +14060,7 @@ begin
         end
         else
         begin
+          FD.Doc.RotateEnts(FMoveGroupEnts, FP1, FRotAxis, Ang);
           FD.Doc.RotateVerts(FMoveVerts, FP1, FRotAxis, Ang);
           FCmdMsg := 'Turned ' + FormatAngle(RadToDeg(Ang));
         end;
@@ -14218,6 +14346,8 @@ begin
             { every corner that sits where a moving one sat travels too, so
               whatever was joined on stretches to follow }
             Tk := GetTickCount64;
+            { whole groups first, as one piece each; then the loose corners }
+            FD.Doc.TranslateEnts(FMoveGroupEnts, T);
             FD.Doc.MoveVerts(FMoveVerts, T);
             Took('move the corners', Tk);
             FCmdMsg := 'Moved ' + FormatLen(
@@ -14547,6 +14677,24 @@ begin
       else FCmdMsg := Format('%d faces turned over.', [N]);
     end;
   end
+  else if (W = 'group') or (W = 'makegroup') then MakeGroup
+  else if (W = 'explode') or (W = 'ungroup') then ExplodeGroups
+  else if (W = 'edit') or (W = 'opengroup') then
+  begin
+    if SoleGroup > 0 then OpenGroup(SoleGroup)
+    else FCmdMsg := 'Pick one group first - or double-click it.';
+  end
+  else if (W = 'leave') or (W = 'closegroup') then
+  begin
+    if FD.Doc.Context <> 0 then CloseGroup
+    else FCmdMsg := 'No group is open.';
+  end
+  else if W = 'lock' then LockGroups(True)
+  else if W = 'unlock' then LockGroups(False)
+  else if (W = 'name') or (W = 'rename') then
+    { the name as typed, not lowercased with the rest of the command }
+    if Rest = '' then RenameGroup('')
+    else RenameGroup(Copy(Trim(S), Pos(' ', Trim(S)) + 1, MaxInt))
   else if (W = 'rect') or (W = 'rectangle') or (W = 'r') then SetTool(ptRect)
   else if (W = 'measure') or (W = 'm') or (W = 'tape') then SetTool(ptMeasure)
   else if (W = 'dimension') or (W = 'dim') then SetTool(ptDim)
@@ -15616,7 +15764,7 @@ end;
 function TMainForm.KindCounts: string;
 const
   NAMES: array[TEntKind] of string =
-    ('lines', 'arcs', 'notes', 'dims', 'faces', 'guides', 'bore');
+    ('lines', 'arcs', 'notes', 'dims', 'faces', 'guides', 'bore', 'groups');
 var
   N: array[TEntKind] of Integer;
   K: TEntKind;
@@ -15795,7 +15943,7 @@ const
   TAPE_NAMES: array[0..3] of string =
     ('line and point', 'point', 'line', 'nothing');
   KIND_NAMES: array[TEntKind] of string =
-    ('line', 'arc', 'note', 'dim', 'face', 'guide', 'bore');
+    ('line', 'arc', 'note', 'dim', 'face', 'guide', 'bore', 'group');
 var
   R: string;
 
@@ -15982,11 +16130,11 @@ begin
         one named "Sheet 1", and the first hour of reading it was spent on
         the wrong drawing.  The name is what the person sees on the tab, so
         it is what they mean when they say which sheet they were on. }
-      Add(Format('  sheet %d%s "%s": things=%d solids=%d modified=%s view=%s ' +
+      Add(Format('  sheet %d%s "%s": things=%d solids=%d open group=%d modified=%s view=%s ' +
         'plane=%s units=%s scale=%s snap=%s zoom=%.3f az=%.1f el=%.1f ' +
         'cut=%s (%s to %s) guides=%s undo=%d redo=%d',
         [I + 1, specialize IfThen<string>(I = FTabIdx, ' (showing)', ''),
-         D.Name, D.Doc.Live, Groups, YN(D.Dirty), VIEW_NAMES[D.View], PLANE_NAMES[D.Plane],
+         D.Name, D.Doc.Live, Groups, D.Doc.Context, YN(D.Dirty), VIEW_NAMES[D.View], PLANE_NAMES[D.Plane],
          uWork.UnitName(D.Units), ScaleTable(D.Units, D.ScaleIdx).Name,
          SnapName(D.Units, D.SnapIdx), D.Zoom, RadToDeg(D.Az),
          RadToDeg(D.El), YN(D.SliceOn), FormatLen(D.SliceLo, D.Units),
@@ -17157,6 +17305,8 @@ begin
   for AY := 0 to High(FSel) do
   begin
     if (FSel[AY] < 0) or (FSel[AY] >= FD.Doc.Live) then Continue;
+    { a group picked shows as its box, not as every edge in it lit up }
+    if FD.Doc.TopPartIn(FSel[AY]) > 0 then Continue;
     if Length(FSel) > SEL_TRACE_MAX then
     begin
       { Past a few thousand the depth test is dropped and the edges are
@@ -17395,6 +17545,26 @@ begin
 end;
 
 procedure TMainForm.SelectAdd(I: Integer);
+var
+  T, K: Integer;
+  M: TIntArrayW;
+begin
+  if (I < 0) or (I >= FD.Doc.Live) then Exit;
+  if FD.Doc[I].Kind = ekPart then Exit;        { a record comes with its group }
+  T := FD.Doc.TopPartIn(I);
+  if T < 0 then Exit;                            { outside the open group }
+  if T = 0 then
+  begin
+    SelectAddOne(I);
+    Exit;
+  end;
+  { the whole group, its record included, so that moving, copying and
+    deleting the selection carry the group along as one thing }
+  M := FD.Doc.PartMembers(T, True);
+  for K := 0 to High(M) do SelectAddOne(M[K]);
+end;
+
+procedure TMainForm.SelectAddOne(I: Integer);
 begin
   if I < 0 then Exit;
   if FSelBulkOn and (I < Length(FSelBulk)) then
@@ -17409,6 +17579,22 @@ begin
 end;
 
 procedure TMainForm.SelectRemove(I: Integer);
+var
+  T, K: Integer;
+  M: TIntArrayW;
+begin
+  if (I < 0) or (I >= FD.Doc.Live) then Exit;
+  T := FD.Doc.TopPartIn(I);
+  if T <= 0 then
+  begin
+    SelectRemoveOne(I);
+    Exit;
+  end;
+  M := FD.Doc.PartMembers(T, True);
+  for K := 0 to High(M) do SelectRemoveOne(M[K]);
+end;
+
+procedure TMainForm.SelectRemoveOne(I: Integer);
 var
   K, J: Integer;
 begin
@@ -17474,6 +17660,7 @@ var
 begin
   SelectOnly(I);
   if I < 0 then Exit;
+  if FD.Doc.TopPartIn(I) > 0 then Exit;    { a group is the whole of itself }
   { a guide is not part of the drawing, so it has nothing attached to it -
     and nothing attached has it; see SelectConnected }
   if FD.Doc[I].Kind = ekGuide then Exit;
@@ -17617,7 +17804,22 @@ begin
     I := PickAt(X, Y);
     if I < 0 then
     begin
-      if not (Add or Tog) then SelectNone;
+      { SketchUp: a click on nothing while a group is open is what closes it }
+      if not (Add or Tog) then
+        if FD.Doc.Context <> 0 then CloseGroup else SelectNone;
+    end
+    else if FD.Doc.TopPartIn(I) > 0 then
+    begin
+      { a group: double-click opens it, otherwise the whole of it is taken.
+        Two or more, not two: GTK hands the second press of a double-click
+        over twice, once plain and once as the double-click, so the count
+        reads three by the time the button comes up - which is why every
+        double-click test in this file reads >= 2 and the triple >= 3. }
+      if FClickN >= 2 then OpenGroup(FD.Doc.TopPartIn(I))
+      else if Sub then SelectRemove(I)
+      else if Tog then SelectToggle(I)
+      else if Add then SelectAdd(I)
+      else SelectOnly(I);
     end
     else if FClickN >= 3 then SelectConnected(I)
     else if FClickN = 2 then SelectAttached(I)
@@ -17627,7 +17829,14 @@ begin
     else SelectOnly(I);
   end;
 
-  if Length(FSel) = 0 then FCmdMsg := 'Nothing selected.'
+  if Length(FSel) = 0 then
+  begin
+    if FCmdMsg = '' then FCmdMsg := 'Nothing selected.';
+  end
+  else if SoleGroup > 0 then
+    FCmdMsg := Format('Group "%s"%s - double-click to work inside it.',
+      [FD.Doc.PartName(SoleGroup),
+       specialize IfThen<string>(FD.Doc.PartLocked(SoleGroup), ' (locked)', '')])
   { A dimension picked on its own is the one selection that can be told what
     to say, so it says so - nobody would guess otherwise. }
   else if SelectedDim >= 0 then
@@ -17679,7 +17888,8 @@ begin
   SetLength(Doomed, FD.Doc.Live);
   for I := 0 to High(Doomed) do Doomed[I] := False;
   for I := 0 to N - 1 do
-    if (FSel[I] >= 0) and (FSel[I] < Length(Doomed)) then Doomed[FSel[I]] := True;
+    if (FSel[I] >= 0) and (FSel[I] < Length(Doomed)) and
+       not FD.Doc.PartLockedUp(FD.Doc.TopPartIn(FSel[I])) then Doomed[FSel[I]] := True;
   { and the faces those edges were holding up - see FacesOnEdges }
   FD.Doc.FacesOnEdges(FSel, Held);
   for I := 0 to High(Held) do Doomed[Held[I]] := True;
@@ -17821,7 +18031,7 @@ begin
       if FStage = 0 then Result := FHoverFace else Result := FFollowFace;
     ptLine, ptRect, ptCircle, ptArc:
       if (FStage = 0) and not FPlaneHeld then
-        Result := FD.Doc.HitFace(Proj, FMouseSX, FMouseSY);
+        Result := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
   end;
 end;
 
@@ -18299,7 +18509,354 @@ begin
   Result := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
 end;
 
+{ --- groups ----------------------------------------------------------------
+  The rules are SketchUp's, from its help pages (docs/sketchup/15-groups.md):
+  a click on anything in a group takes the whole group; double-click opens
+  it, and inside it the rest of the drawing fades and cannot be picked; a
+  click on nothing, or Escape, leaves it; a locked group can be picked and
+  snapped to but not moved, edited or taken apart. }
+
+{ every distinct group in the selection, by the entity you would click }
+function TMainForm.SelectedGroups: TIntArrayW;
+var
+  K, T, J, N: Integer;
+  Known: Boolean;
+begin
+  Result := nil;
+  N := 0;
+  for K := 0 to High(FSel) do
+  begin
+    T := FD.Doc.TopPartIn(FSel[K]);
+    if T <= 0 then Continue;
+    Known := False;
+    for J := 0 to N - 1 do
+      if Result[J] = T then Known := True;
+    if Known then Continue;
+    if N >= Length(Result) then SetLength(Result, Max(4, N * 2));
+    Result[N] := T;
+    Inc(N);
+  end;
+  SetLength(Result, N);
+end;
+
+{ the one group the selection is, or 0 when it is several, or loose things,
+  or a mix }
+function TMainForm.SoleGroup: Integer;
+var
+  Gs: TIntArrayW;
+  K: Integer;
+begin
+  Result := 0;
+  Gs := SelectedGroups;
+  if Length(Gs) <> 1 then Exit;
+  for K := 0 to High(FSel) do
+    if FD.Doc.TopPartIn(FSel[K]) <> Gs[0] then Exit;
+  Result := Gs[0];
+end;
+
+procedure TMainForm.MakeGroup;
+var
+  Id, K, T, I, J, First: Integer;
+  Sel: TIntArrayW;
+begin
+  if Length(FSel) = 0 then
+  begin
+    FCmdMsg := 'Pick something first - a group is made of what is selected.';
+    InvalidateStatus;
+    Exit;
+  end;
+  for K := 0 to High(FSel) do
+  begin
+    T := FD.Doc.TopPartIn(FSel[K]);
+    if (T > 0) and FD.Doc.PartLockedUp(T) then
+    begin
+      FCmdMsg := Format('"%s" is locked - unlock it before grouping it with anything.',
+        [FD.Doc.PartName(T)]);
+      InvalidateStatus;
+      Exit;
+    end;
+  end;
+  PushUndo;
+  SetLength(Sel, Length(FSel));
+  for K := 0 to High(FSel) do Sel[K] := FSel[K];
+  Id := FD.Doc.NewPart('', FD.Doc.Context);
+  First := -1;
+  for K := 0 to High(Sel) do
+  begin
+    I := Sel[K];
+    if (I < 0) or (I >= FD.Doc.Live) or (FD.Doc[I].Kind = ekPart) then Continue;
+    T := FD.Doc.TopPartIn(I);
+    { a group picked goes in whole and stays a group inside the new one }
+    if T > 0 then FD.Doc.SetPartParent(T, Id)
+    else if T = 0 then
+    begin
+      FD.Doc.SetPart(I, Id);
+      { A face is what its edges enclose, and is worked out again from them
+        on every rebuild - so a face taken into a group without its edges
+        would be found loose again a moment later and the group left empty.
+        Its edges come with it, the way SketchUp's Make Group takes a face's
+        bounding edges along. }
+      if FD.Doc[I].Kind = ekFace then
+        for J := 0 to FD.Doc.Live - 1 do
+          if (FD.Doc[J].Kind in [ekLine, ekArc]) and (FD.Doc[J].Part = FD.Doc.Context) and
+             EntHasPoint(I, FD.Doc[J].A) and EntHasPoint(I, FD.Doc[J].B) then
+            FD.Doc.SetPart(J, Id);
+    end;
+    if First < 0 then First := I;
+  end;
+  SetLength(FSel, 0);
+  if First >= 0 then SelectAdd(First);
+  { the faces are worked out again, group by group - which is where what was
+    joined on to the outside comes apart from it }
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  InfoChanged;
+  FCmdMsg := Format('Grouped as "%s".  Double-click it to work inside it; ' +
+    '/name calls it something.', [FD.Doc.PartName(Id)]);
+  InvalidateStatus;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.ExplodeGroups;
+var
+  Gs: TIntArrayW;
+  Doom: array of Boolean;
+  K, G, Up, I, N: Integer;
+begin
+  Gs := SelectedGroups;
+  if Length(Gs) = 0 then
+  begin
+    FCmdMsg := 'Pick a group first.';
+    InvalidateStatus;
+    Exit;
+  end;
+  for K := 0 to High(Gs) do
+    if FD.Doc.PartLockedUp(Gs[K]) then
+    begin
+      FCmdMsg := Format('"%s" is locked - unlock it first.', [FD.Doc.PartName(Gs[K])]);
+      InvalidateStatus;
+      Exit;
+    end;
+  PushUndo;
+  SetLength(Doom, FD.Doc.Live);
+  for I := 0 to High(Doom) do Doom[I] := False;
+  N := 0;
+  for K := 0 to High(Gs) do
+  begin
+    G := Gs[K];
+    Up := FD.Doc.PartParent(G);
+    for I := 0 to FD.Doc.Live - 1 do
+    begin
+      if (FD.Doc[I].Kind = ekPart) and (FD.Doc[I].Grp = G) then Doom[I] := True
+      else if FD.Doc[I].Part = G then
+      begin
+        { its members go up a level; a group inside it stays a group }
+        if FD.Doc[I].Kind = ekPart then FD.Doc.SetPartParent(FD.Doc[I].Grp, Up)
+        else FD.Doc.SetPart(I, Up);
+        Inc(N);
+      end;
+    end;
+  end;
+  FD.Doc.DeleteMarked(Doom);
+  SetLength(FSel, 0);
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  InfoChanged;
+  if Length(Gs) = 1 then
+    FCmdMsg := Format('Group taken apart - %d things are loose again.', [N])
+  else
+    FCmdMsg := Format('%d groups taken apart.', [Length(Gs)]);
+  InvalidateStatus;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.OpenGroup(Id: Integer);
+begin
+  if Id <= 0 then Exit;
+  if FD.Doc.PartLockedUp(Id) then
+  begin
+    FCmdMsg := Format('"%s" is locked - unlock it to work inside it.', [FD.Doc.PartName(Id)]);
+    InvalidateStatus;
+    Exit;
+  end;
+  SetLength(FSel, 0);
+  FD.Doc.Context := Id;
+  FShotOK := False;
+  RenderPro;
+  RecomposeAll;
+  InfoChanged;
+  FCmdMsg := Format('Inside "%s".  What you draw now belongs to it; ' +
+    'Esc or a click on nothing leaves it.', [FD.Doc.PartName(Id)]);
+  InvalidateStatus;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.CloseGroup;
+var
+  Was: Integer;
+begin
+  if FD.Doc.Context = 0 then Exit;
+  Was := FD.Doc.Context;
+  SetLength(FSel, 0);
+  FD.Doc.Context := FD.Doc.PartParent(Was);
+  FShotOK := False;
+  RenderPro;
+  RecomposeAll;
+  InfoChanged;
+  if FD.Doc.Context = 0 then FCmdMsg := Format('Left "%s".', [FD.Doc.PartName(Was)])
+  else FCmdMsg := Format('Left "%s" - inside "%s" now.',
+    [FD.Doc.PartName(Was), FD.Doc.PartName(FD.Doc.Context)]);
+  InvalidateStatus;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.LockGroups(Locked: Boolean);
+var
+  Gs: TIntArrayW;
+  K: Integer;
+begin
+  Gs := SelectedGroups;
+  if Length(Gs) = 0 then
+  begin
+    FCmdMsg := 'Pick a group first.';
+    InvalidateStatus;
+    Exit;
+  end;
+  PushUndo;
+  for K := 0 to High(Gs) do FD.Doc.SetPartLocked(Gs[K], Locked);
+  InfoChanged;
+  if Locked then
+    FCmdMsg := 'Locked.  It can still be snapped to, and picked - but not moved, ' +
+      'changed or opened until it is unlocked.'
+  else
+    FCmdMsg := 'Unlocked.';
+  InvalidateStatus;
+  pbScreen.Invalidate;
+end;
+
+procedure TMainForm.RenameGroup(const NewName: string);
+var
+  G: Integer;
+begin
+  G := SoleGroup;
+  if G = 0 then
+  begin
+    FCmdMsg := 'Pick one group, then /name what to call it.';
+    InvalidateStatus;
+    Exit;
+  end;
+  if Trim(NewName) = '' then
+  begin
+    FCmdMsg := Format('It is called "%s".  /name Left knob calls it that.', [FD.Doc.PartName(G)]);
+    InvalidateStatus;
+    Exit;
+  end;
+  PushUndo;
+  FD.Doc.SetPartName(G, Trim(NewName));
+  InfoChanged;
+  FCmdMsg := Format('Called "%s".', [FD.Doc.PartName(G)]);
+  InvalidateStatus;
+end;
+
+{ What a move or a turn takes hold of.  Whole groups go rigidly, as one
+  piece each, and nothing loose that happens to touch them is stretched
+  after them - that is the point of a group.  The loose things picked move
+  the way they always have, corners and all.  A locked group stays put. }
+function TMainForm.SplitMoveSelection: Boolean;
+var
+  Gs, M, Loose: TIntArrayW;
+  K, J, I, N, NL, Skipped: Integer;
+begin
+  Result := True;
+  SetLength(FMoveGroupEnts, 0);
+  N := 0;
+  Skipped := 0;
+  Gs := SelectedGroups;
+  for K := 0 to High(Gs) do
+  begin
+    if FD.Doc.PartLockedUp(Gs[K]) then begin Inc(Skipped); Continue; end;
+    M := FD.Doc.PartMembers(Gs[K], True);
+    SetLength(FMoveGroupEnts, N + Length(M));
+    for J := 0 to High(M) do FMoveGroupEnts[N + J] := M[J];
+    N := N + Length(M);
+  end;
+  Loose := nil;
+  NL := 0;
+  for K := 0 to High(FSel) do
+  begin
+    I := FSel[K];
+    if (I < 0) or (I >= FD.Doc.Live) or (FD.Doc[I].Kind = ekPart) then Continue;
+    if FD.Doc.TopPartIn(I) <> 0 then Continue;
+    if NL >= Length(Loose) then SetLength(Loose, Max(16, NL * 2));
+    Loose[NL] := I;
+    Inc(NL);
+  end;
+  SetLength(Loose, NL);
+  FD.Doc.VertsOf(Loose, FMoveVerts);
+  { nothing movable at all: say so and do not start, rather than a move
+    that reports a distance and shifts nothing }
+  if (Skipped > 0) and (N = 0) and (NL = 0) then
+  begin
+    FCmdMsg := 'That group is locked - unlock it to move it.';
+    Result := False;
+  end
+  else if Skipped > 0 then
+    FCmdMsg := 'A locked group stays where it is - unlock it to move it.';
+end;
+
+{ A face a tool may act on: one in the open context.  A face inside a closed
+  group is not - SketchUp will not push a group's face from outside either;
+  you open the group first.  Drawing ON such a face is another matter and
+  goes through FaceUnder, which is not filtered. }
+function TMainForm.InContextFace(F: Integer): Integer;
+begin
+  Result := F;
+  if (F >= 0) and (FD.Doc.TopPartIn(F) <> 0) then Result := -1;
+end;
+
+{ The box round a group, the way SketchUp draws one round an object: twelve
+  edges of its bounds, projected.  Shift moves it, for a ghost. }
+procedure TMainForm.PaintPartBox(C: TCanvas; Id: Integer; const Col: TPix;
+  Dashed: Boolean; const Shift: TP3);
+const
+  E: array[0..11, 0..1] of Integer = ((0, 1), (1, 2), (2, 3), (3, 0),
+    (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7));
+var
+  Lo, Hi: TP3;
+  P: array[0..7] of TPointF;
+  K: Integer;
+begin
+  if not FD.Doc.PartBounds(Id, Lo, Hi) then Exit;
+  Lo := P3(Lo.X + Shift.X, Lo.Y + Shift.Y, Lo.Z + Shift.Z);
+  Hi := P3(Hi.X + Shift.X, Hi.Y + Shift.Y, Hi.Z + Shift.Z);
+  P[0] := ScreenOf(P3(Lo.X, Lo.Y, Lo.Z)); P[1] := ScreenOf(P3(Hi.X, Lo.Y, Lo.Z));
+  P[2] := ScreenOf(P3(Hi.X, Hi.Y, Lo.Z)); P[3] := ScreenOf(P3(Lo.X, Hi.Y, Lo.Z));
+  P[4] := ScreenOf(P3(Lo.X, Lo.Y, Hi.Z)); P[5] := ScreenOf(P3(Hi.X, Lo.Y, Hi.Z));
+  P[6] := ScreenOf(P3(Hi.X, Hi.Y, Hi.Z)); P[7] := ScreenOf(P3(Lo.X, Hi.Y, Hi.Z));
+  C.Brush.Style := bsClear;
+  if Dashed then C.Pen.Style := psDash else C.Pen.Style := psSolid;
+  C.Pen.Width := Max(1, Round(FUIScale));
+  C.Pen.Color := PixToColor(Col);
+  for K := 0 to 11 do
+  begin
+    C.MoveTo(Round(P[E[K, 0]].X), Round(P[E[K, 0]].Y));
+    C.LineTo(Round(P[E[K, 1]].X), Round(P[E[K, 1]].Y));
+  end;
+  C.Pen.Style := psSolid;
+end;
+
+{ What a click takes, with the group rules on top of the plain hit.  Inside
+  an open group the rest of the drawing is not there to be picked - and the
+  click on it is what closes the group, in FinishSelect. }
 function TMainForm.PickAt(SX, SY: Integer): Integer;
+begin
+  Result := PickAtRaw(SX, SY);
+  if (Result >= 0) and (FD.Doc.TopPartIn(Result) < 0) then Result := -1;
+end;
+
+function TMainForm.PickAtRaw(SX, SY: Integer): Integer;
 begin
   { A note is drawn over the top of everything, so it is picked before
     everything - otherwise a note sitting on a panel could not be got at,
@@ -18334,7 +18891,8 @@ end;
 { Add whatever is under the cursor to the list the eraser is holding. }
 procedure TMainForm.DoomAt(SX, SY: Integer);
 var
-  I: Integer;
+  I, T, K: Integer;
+  M: TIntArrayW;
 begin
   { Softening is about edges and nothing else - a face has no crease to
     hide.  So a soften stroke only ever looks for an edge, rather than
@@ -18345,6 +18903,7 @@ begin
     I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
     if I < 0 then Exit;
     if IsDoomed(I) then Exit;
+    if FD.Doc.TopPartIn(I) <> 0 then Exit;    { softening stays in the open group }
     if not (FD.Doc[I].Kind in [ekLine, ekArc]) then Exit;
     SetLength(FDoomed, Length(FDoomed) + 1);
     FDoomed[High(FDoomed)] := I;
@@ -18378,6 +18937,28 @@ begin
       FCmdMsg := 'The eraser takes edges - rub out the edges round a face ' +
         'and the face goes with them.  For the face on its own: right-click ' +
         'it, or pick it and press Delete.';
+    Exit;
+  end;
+  { A group is rubbed out whole, the way SketchUp's eraser takes an object;
+    a locked one is not rubbed out at all, and outside the open group there
+    is nothing to rub. }
+  T := FD.Doc.TopPartIn(I);
+  if T < 0 then Exit;
+  if T > 0 then
+  begin
+    if FD.Doc.PartLockedUp(T) then
+    begin
+      FCmdMsg := Format('"%s" is locked.', [FD.Doc.PartName(T)]);
+      Exit;
+    end;
+    M := FD.Doc.PartMembers(T, True);
+    for K := 0 to High(M) do
+      if not IsDoomed(M[K]) then
+      begin
+        SetLength(FDoomed, Length(FDoomed) + 1);
+        FDoomed[High(FDoomed)] := M[K];
+      end;
+    FScreenDirty := True;
     Exit;
   end;
   if IsDoomed(I) then Exit;
@@ -18592,7 +19173,7 @@ begin
   RecomposeAll;
 end;
 
-function TMainForm.EdgeSegments: TSegArray;
+function TMainForm.EdgeSegments(Part: Integer): TSegArray;
 var
   I, K, N, Steps: Integer;
   A: TP3;
@@ -18601,6 +19182,8 @@ begin
   SetLength(Result, 64);
   for I := 0 to FD.Doc.Live - 1 do
   begin
+    { one group at a time - see the note on Part in uWork }
+    if FD.Doc[I].Part <> Part then Continue;
     { A solid's own edges used to be left out entirely, so that every face of
       every box was not found twice - once as itself and once as a region.
 
@@ -18710,7 +19293,7 @@ end;
 
 function SameRegion(const A, B: TRegionSig): Boolean;
 begin
-  Result := (Abs(A.Nm.X - B.Nm.X) < 1E-6) and (Abs(A.Nm.Y - B.Nm.Y) < 1E-6) and
+  Result := (A.Part = B.Part) and (Abs(A.Nm.X - B.Nm.X) < 1E-6) and (Abs(A.Nm.Y - B.Nm.Y) < 1E-6) and
             (Abs(A.Nm.Z - B.Nm.Z) < 1E-6) and (Abs(A.D - B.D) < 1E-4) and
             (Abs(A.Area - B.Area) < 1E-3) and (Dist(A.Mid, B.Mid) < 1E-4);
 end;
@@ -18724,16 +19307,61 @@ end;
 procedure TMainForm.SeedRegions;
 var
   R: TRegionArray;
+  Parts: TIntArrayW;
+  I, P, Base, CI: Integer;
+begin
+  SetLength(FD.Seen, 0);
+  Parts := AllPartIds;
+  for P := 0 to High(Parts) do
+  begin
+    { the slot first, on its own: taking the element and growing the array
+      in one expression let the address be worked out before the growth }
+    CI := CacheFor(Parts[P]);
+    R := BuildRegionsCached(EdgeSegments(Parts[P]), FRegionCaches[CI].Cache);
+    Base := Length(FD.Seen);
+    SetLength(FD.Seen, Base + Length(R));
+    for I := 0 to High(R) do
+    begin
+      if ((I and 63) = 0) and (Length(R) > 500) then
+        if not OnProgress('Working out the faces', I / Length(R)) then Break;
+      FD.Seen[Base + I] := RegionSig(R[I]);
+      FD.Seen[Base + I].Part := Parts[P];
+    end;
+  end;
+end;
+
+{ Every group's id, with 0 - the drawing itself - first.  The rebuild works
+  each one out on its own: that is the whole of what a group is. }
+function TMainForm.AllPartIds: TIntArrayW;
+var
+  I, N: Integer;
+begin
+  SetLength(Result, 1);
+  Result[0] := 0;
+  N := 1;
+  for I := 0 to FD.Doc.Live - 1 do
+    if FD.Doc[I].Kind = ekPart then
+    begin
+      if N >= Length(Result) then SetLength(Result, N * 2);
+      Result[N] := FD.Doc[I].Grp;
+      Inc(N);
+    end;
+  SetLength(Result, N);
+end;
+
+{ the slot of this group's region cache, made if it has none yet }
+function TMainForm.CacheFor(Part: Integer): Integer;
+var
   I: Integer;
 begin
-  R := BuildRegionsCached(EdgeSegments, FRegionCache);
-  SetLength(FD.Seen, Length(R));
-  for I := 0 to High(R) do
-  begin
-    if ((I and 63) = 0) and (Length(R) > 500) then
-      if not OnProgress('Working out the faces', I / Length(R)) then Break;
-    FD.Seen[I] := RegionSig(R[I]);
-  end;
+  for I := 0 to High(FRegionCaches) do
+    if FRegionCaches[I].Part = Part then Exit(I);
+  SetLength(FRegionCaches, Length(FRegionCaches) + 1);
+  Result := High(FRegionCaches);
+  FRegionCaches[Result].Part := Part;
+  FRegionCaches[Result].Cache.Keys := nil;
+  FRegionCaches[Result].Cache.Sig := nil;
+  FRegionCaches[Result].Cache.Found := nil;
 end;
 
 function TMainForm.RebuildFlatFaces: Integer;
@@ -18744,6 +19372,7 @@ type
     Holes: array of TP3Array;
     Nm: TP3;
     Ink: TColor;
+    Part: Integer;
   end;
 var
   R: TRegionArray;
@@ -18776,6 +19405,10 @@ var
   Cands, RCands: TIntArrayW;
   CI, RC: Integer;
   Tk: QWord;
+  { which group each area was found in, side by side with R }
+  RPart, Parts: TIntArrayW;
+  RP: TRegionArray;
+  PP, RBase, CurPart: Integer;
 
   { is P on the segment AB, within a hair }
   function OnSegment(const P, A, B: TP3): Boolean;
@@ -18793,25 +19426,28 @@ var
 
   { every edge round the region belongs to a solid: the run of lines that
     covers each side of the outline all carry a group, and one group }
-  function EndKey(const P: TP3): shortstring;
+  { an end, and the group it is in: a solid's line in another group is not
+    an edge of anything found in this one }
+  function EndKey(const P: TP3; Part: Integer): shortstring;
   var
-    Q: array[0..2] of Int64;
+    Q: array[0..3] of Int64;
   begin
     Q[0] := Round(P.X * 1E6); Q[1] := Round(P.Y * 1E6); Q[2] := Round(P.Z * 1E6);
-    SetLength(Result, 24);
-    Move(Q[0], Result[1], 24);
+    Q[3] := Part;
+    SetLength(Result, 32);
+    Move(Q[0], Result[1], 32);
   end;
 
   procedure NoteLine(const P: TP3; L: Integer);
   var
     Ix: Integer;
   begin
-    Ix := LineIx.FindIndexOf(EndKey(P));
+    Ix := LineIx.FindIndexOf(EndKey(P, FD.Doc[L].Part));
     if Ix < 0 then
     begin
       SetLength(LineLists, Length(LineLists) + 1);
       Ix := High(LineLists);
-      LineIx.Add(EndKey(P), Pointer(PtrInt(Ix + 1)));
+      LineIx.Add(EndKey(P, FD.Doc[L].Part), Pointer(PtrInt(Ix + 1)));
     end
     else
       Ix := PtrInt(LineIx.Items[Ix]) - 1;
@@ -18830,7 +19466,7 @@ var
     Result := -1;
     for Pass := 0 to 1 do
     begin
-      if Pass = 0 then Key := EndKey(P) else Key := EndKey(Q);
+      if Pass = 0 then Key := EndKey(P, CurPart) else Key := EndKey(Q, CurPart);
       Ix := LineIx.FindIndexOf(Key);
       if Ix < 0 then Continue;
       Ix := PtrInt(LineIx.Items[Ix]) - 1;
@@ -18846,16 +19482,18 @@ var
   { a plane as a key: the normal made to point one way, both it and the
     offset rounded coarsely, so faces on one plane land on one key.  The
     fine test still runs on what comes back; this only says who to ask. }
-  function PlaneKey(const N, P: TP3): shortstring;
+  function PlaneKey(const N, P: TP3; Part: Integer): shortstring;
   var
     Nm: TP3;
-    Q: array[0..3] of Int64;
+    Q: array[0..4] of Int64;
   begin
     Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
     Q[3] := Round(Dot3(Nm, P) * 1000);
-    SetLength(Result, 32);
-    Move(Q[0], Result[1], 32);
+    { and the group: the same plane in two groups is two planes here }
+    Q[4] := Part;
+    SetLength(Result, 40);
+    Move(Q[0], Result[1], 40);
   end;
 
   procedure NotePlane(const Key: shortstring; SI: Integer);
@@ -18913,22 +19551,23 @@ var
     Lists[At][High(Lists[At])] := Ix;
   end;
 
-  function OnPlaneIn(H: TFPHashList; const Lists: TIntListsW; const N, P: TP3): TIntArrayW;
+  function OnPlaneIn(H: TFPHashList; const Lists: TIntListsW; const N, P: TP3; Part: Integer): TIntArrayW;
   var
     Nm: TP3;
     Ix, K, D, Have: Integer;
     Key: shortstring;
-    Q: array[0..3] of Int64;
+    Q: array[0..4] of Int64;
   begin
     Result := nil;
     Have := 0;
     Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    Q[4] := Part;
     for D := -1 to 1 do
     begin
       Q[3] := Round(Dot3(Nm, P) * 1000) + D;
-      SetLength(Key, 32);
-      Move(Q[0], Key[1], 32);
+      SetLength(Key, 40);
+      Move(Q[0], Key[1], 40);
       Ix := H.FindIndexOf(Key);
       if Ix < 0 then Continue;
       Ix := PtrInt(H.Items[Ix]) - 1;
@@ -18947,21 +19586,22 @@ var
     TL := GetTickCount64;
   end;
 
-  function RegionsOnPlane(const N, P: TP3): TIntArrayW;
+  function RegionsOnPlane(const N, P: TP3; Part: Integer): TIntArrayW;
   var
     Nm: TP3;
     Ix, K, D: Integer;
     Key: shortstring;
-    Q: array[0..3] of Int64;
+    Q: array[0..4] of Int64;
   begin
     Result := nil;
     Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    Q[4] := Part;
     for D := -1 to 1 do
     begin
       Q[3] := Round(Dot3(Nm, P) * 1000) + D;
-      SetLength(Key, 32);
-      Move(Q[0], Key[1], 32);
+      SetLength(Key, 40);
+      Move(Q[0], Key[1], 40);
       Ix := RegionIx.FindIndexOf(Key);
       if Ix < 0 then Continue;
       Ix := PtrInt(RegionIx.Items[Ix]) - 1;
@@ -18976,21 +19616,22 @@ var
   { the solids on the plane through P with normal N - the key is coarse, so
     a plane a hair off lands on a neighboring key: the offset's neighbors
     are asked too }
-  function SolidsOnPlane(const N, P: TP3): TIntArrayW;
+  function SolidsOnPlane(const N, P: TP3; Part: Integer): TIntArrayW;
   var
     Nm: TP3;
     Ix, K, D: Integer;
     Key: shortstring;
-    Q: array[0..3] of Int64;
+    Q: array[0..4] of Int64;
   begin
     Result := nil;
     Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
+    Q[4] := Part;
     for D := -1 to 1 do
     begin
       Q[3] := Round(Dot3(Nm, P) * 1000) + D;
-      SetLength(Key, 32);
-      Move(Q[0], Key[1], 32);
+      SetLength(Key, 40);
+      Move(Q[0], Key[1], 40);
       Ix := PlaneIx.FindIndexOf(Key);
       if Ix < 0 then Continue;
       Ix := PtrInt(PlaneIx.Items[Ix]) - 1;
@@ -19088,7 +19729,26 @@ var
 
 begin
   Tk := GetTickCount64;
-  R := BuildRegionsCached(EdgeSegments, FRegionCache);
+  { One pass of the finder per group, each with only its own edges, and the
+    areas put side by side with a note of which group each came from.  This
+    is the line that makes a group a group: geometry in one does not close
+    an area with geometry in another. }
+  R := nil;
+  RPart := nil;
+  Parts := AllPartIds;
+  for PP := 0 to High(Parts) do
+  begin
+    CI := CacheFor(Parts[PP]);      { the slot first - see SeedRegions }
+    RP := BuildRegionsCached(EdgeSegments(Parts[PP]), FRegionCaches[CI].Cache);
+    RBase := Length(R);
+    SetLength(R, RBase + Length(RP));
+    SetLength(RPart, RBase + Length(RP));
+    for I := 0 to High(RP) do
+    begin
+      R[RBase + I] := RP[I];
+      RPart[RBase + I] := Parts[PP];
+    end;
+  end;
   Took('  regions', Tk);
   Tk := GetTickCount64;
   Made := 0;
@@ -19098,7 +19758,7 @@ begin
   SetLength(RegionLists, 0);
   for I := 0 to High(R) do
     if Length(R[I].Outer) >= 3 then
-      NoteRegion(PlaneKey(R[I].Normal, R[I].Outer[0]), I);
+      NoteRegion(PlaneKey(R[I].Normal, R[I].Outer[0], RPart[I]), I);
 
   { A solid's face divided by what has been drawn on it.
 
@@ -19140,7 +19800,7 @@ begin
     SetLength(Pieces, 0);
     PiecesArea := 0;
     Shares := False;
-    RCands := RegionsOnPlane(FN, FE.Poly[0]);
+    RCands := RegionsOnPlane(FN, FE.Poly[0], FE.Part);
     for RC := 0 to High(RCands) do
     begin
       I := RCands[RC];
@@ -19191,6 +19851,7 @@ begin
     G := FD.Doc[J].Grp;
     Ink := FD.Doc[J].Ink;
     Doomed[J] := True;
+    FD.Doc.Stamp := FE.Part;       { the pieces are born into the solid's group }
     for I := 0 to High(Pieces) do
     begin
       FD.Doc.AddFaceRaw(R[Pieces[I]].Outer, Ink, True);
@@ -19203,6 +19864,7 @@ begin
     end;
   end;
 
+  FD.Doc.Stamp := FD.Doc.Context;
   { the faces that were divided go now, in one pass - one at a time each
     shifted everything after it }
   FD.Doc.DeleteMarked(Doomed);
@@ -19221,6 +19883,7 @@ begin
         Was[NWas].Holes[J] := Copy(FD.Doc[I].Holes[J], 0, Length(FD.Doc[I].Holes[J]));
       Was[NWas].Nm := FD.Doc.FaceNormal(I);
       Was[NWas].Ink := FD.Doc[I].Ink;
+      Was[NWas].Part := FD.Doc[I].Part;
       Mid := P3(0, 0, 0);
       for K := 0 to High(Was[NWas].Poly) do
         Mid := P3(Mid.X + Was[NWas].Poly[K].X, Mid.Y + Was[NWas].Poly[K].Y,
@@ -19235,12 +19898,12 @@ begin
   WasIx := TFPHashList.Create;
   SetLength(WasLists, 0);
   for J := 0 to NWas - 1 do
-    NoteInto(WasIx, WasLists, PlaneKey(Was[J].Nm, Was[J].Mid), J);
+    NoteInto(WasIx, WasLists, PlaneKey(Was[J].Nm, Was[J].Mid, Was[J].Part), J);
   { and what the sheet had seen, the same way }
   SeenIx := TFPHashList.Create;
   SetLength(SeenLists, 0);
   for J := 0 to High(FD.Seen) do
-    NoteInto(SeenIx, SeenLists, PlaneKey(FD.Seen[J].Nm, FD.Seen[J].Mid), J);
+    NoteInto(SeenIx, SeenLists, PlaneKey(FD.Seen[J].Nm, FD.Seen[J].Mid, FD.Seen[J].Part), J);
 
   { out with the old, in one pass; one at a time each shifted everything
     after it, which on a big drawing was most of a minute }
@@ -19287,7 +19950,7 @@ begin
     SolidArea[J] := Abs(LoopArea(FD.Doc[SolidIx[J]].Poly, SolidN[J]));
     { by plane, so a region meets only the solids lying in its own plane
       rather than every solid in the drawing }
-    NotePlane(PlaneKey(SolidN[J], FD.Doc[SolidIx[J]].Poly[0]), J);
+    NotePlane(PlaneKey(SolidN[J], FD.Doc[SolidIx[J]].Poly[0], FD.Doc[SolidIx[J]].Part), J);
   end;
   { and the solids' lines by their ends, for the opening test }
   LineIx := TFPHashList.Create;
@@ -19309,6 +19972,10 @@ begin
       if not OnProgress('Working out the faces', I / Length(R)) then Break;
     if Length(R[I].Outer) < 3 then Continue;
     TL := GetTickCount64;
+    { this area's group: the tables answer for it alone, and the face it
+      may become is born into it }
+    CurPart := RPart[I];
+    FD.Doc.Stamp := CurPart;
     Mid := InnerPointOf(R[I].Outer, R[I].Holes, R[I].Normal);
     Lap(0);
 
@@ -19327,7 +19994,7 @@ begin
     Dup := False;
     DupAt := -1;
     RegArea := -1;
-    Cands := SolidsOnPlane(R[I].Normal, R[I].Outer[0]);
+    Cands := SolidsOnPlane(R[I].Normal, R[I].Outer[0], RPart[I]);
     for CI := 0 to High(Cands) do
       begin
         SI := Cands[CI];
@@ -19399,7 +20066,7 @@ begin
       - the two ends are parallel - and an arc erased off one end was handed
       straight back because its twin on the other end was still there. }
     HadFace := False;
-    WasOn := OnPlaneIn(WasIx, WasLists, R[I].Normal, Mid);
+    WasOn := OnPlaneIn(WasIx, WasLists, R[I].Normal, Mid, RPart[I]);
     for J := 0 to High(WasOn) do
       if WasCovering(WasOn[J]) then
       begin
@@ -19418,8 +20085,9 @@ begin
       if OpeningOfSolid(R[I], HealGrp) then begin Lap(3); Continue; end;
       Lap(3);
       Sig := RegionSig(R[I]);
+      Sig.Part := RPart[I];
       Known := False;
-      SeenOn := OnPlaneIn(SeenIx, SeenLists, Sig.Nm, Sig.Mid);
+      SeenOn := OnPlaneIn(SeenIx, SeenLists, Sig.Nm, Sig.Mid, RPart[I]);
       for J := 0 to High(SeenOn) do
         if SameRegion(Sig, FD.Seen[SeenOn[J]]) then
         begin
@@ -19470,13 +20138,17 @@ begin
   WasIx.Free;
   SeenIx.Free;
   if not FLoading then EndBusy;
+  FD.Doc.Stamp := FD.Doc.Context;
   Took('  the region loop', Tk);
   Tk := GetTickCount64;
   { and this is what the sheet has seen, for the next rebuild to compare
     against }
   SetLength(FD.Seen, Length(R));
   for I := 0 to High(R) do
+  begin
     FD.Seen[I] := RegionSig(R[I]);
+    FD.Seen[I].Part := RPart[I];
+  end;
   Took('  seen signatures', Tk);
 
   { Then make the loose faces agree with each other about which way is out.
@@ -19493,7 +20165,9 @@ begin
     It belongs here rather than in the region finder because it is not a
     question any one region can answer; it needs the neighbors, and the
     neighbors only all exist once the loop above has finished. }
-  FTurned := FD.Doc.OrientLooseShells;
+  FTurned := 0;
+  for PP := 0 to High(Parts) do
+    FTurned := FTurned + FD.Doc.OrientLooseShells(Parts[PP]);
   Took('  turning loose faces the right way out', Tk);
 
   Result := Made;
@@ -19506,12 +20180,13 @@ procedure TMainForm.ReportRegions;
 var
   R: TRegionArray;
   Segs: TSegArray;
-  I, Stored, Holes: Integer;
+  I, Stored, Holes, CI: Integer;
   Area, StoredArea, T0: Double;
 begin
-  Segs := EdgeSegments;
+  Segs := EdgeSegments(FD.Doc.Context);
   T0 := Now;
-  R := BuildRegionsCached(Segs, FRegionCache);
+  CI := CacheFor(FD.Doc.Context);
+  R := BuildRegionsCached(Segs, FRegionCaches[CI].Cache);
   T0 := (Now - T0) * 24 * 60 * 60 * 1000;
 
   Stored := 0;
@@ -21755,6 +22430,7 @@ begin
     case Key of
       VK_Z: DoUndo;
       VK_Y: DoRedo;
+      VK_G: if FMode = mdPro then MakeGroup;     { SketchUp's Ctrl+G }
       VK_C: CopySelection(False);
       VK_X: CopySelection(True);
       VK_V: PasteClip;
@@ -22092,6 +22768,8 @@ begin
             ResetTool
           else if Length(FSel) > 0 then
             SelectNone
+          else if FD.Doc.Context <> 0 then
+            CloseGroup
           else
             SetTool(ptSelect);
           FCmdMsg := '';

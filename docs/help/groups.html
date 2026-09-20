@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groups - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js"></script></head>
+<body><div class="wrap"><a class="themebtn" id="themebtn" href="#theme" title="Light or dark">Theme</a><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Groups</nav>
+<header><h1>Groups</h1><p class="lead">Making a piece of the drawing a thing
+of its own, so nothing else sticks to it.</p></header>
+
+<h2 id="the-problem-it-solves">The problem it solves</h2>
+<p>Everything you draw joins onto everything else it touches.  That is
+usually what you want - it is why a rectangle drawn against a wall shares
+that wall's edge, and why a face appears the moment a loop closes.</p>
+<p>It is emphatically <i>not</i> what you want when you lay lettering onto
+the front of a cabinet.  The letters land in the same flat plane as the
+cabinet door, so their edges join the door's edges: the hollow of an
+<b>R</b> becomes a hole in the door rather than a hole in the R, and rubbing
+the R out takes a piece of the door with it.</p>
+<p>A group is the answer, and it is SketchUp's answer too: <b>two pieces of
+geometry can be in the same place without being the same object.</b>
+Geometry in a group does not join, split or stretch geometry outside it.</p>
+
+<h2 id="making-one">Making one</h2>
+<p>Pick what should be in it - a click, a double-click for a face and its
+edges, three clicks for everything joined on, or a box - and then any of:</p>
+<ul>
+<li><b>Ctrl+G</b></li>
+<li><code>/group</code></li>
+<li>the right button, <b>Make Group</b></li>
+</ul>
+<p>A face taken into a group brings its edges with it, because a face here
+is what its edges enclose.  A group you pick and group again goes in whole
+and stays a group inside the new one: a drawer is a group, and a chest of
+drawers is a group made of drawers.</p>
+
+<h2 id="picking-and-moving">Picking and moving</h2>
+<p>Click any part of a group and you have all of it, shown as a blue box
+round it rather than as every edge lit up.  Move it and it goes as one
+piece; nothing loose that happens to touch it is stretched after it.  Copy
+it - Ctrl with the move, or copy and paste - and the copy is a group of its
+own.  Erase it and the whole of it goes.</p>
+<p>Snapping still finds every point of a group from outside, so you can
+line something up with its corner without opening it.  You can draw on a
+group's face from outside, too: what you draw lies on it without joining
+it.  What you cannot do from outside is push, pull, drill, offset or turn
+over one of its faces - for that you go in.</p>
+
+<h2 id="working-inside">Working inside one</h2>
+<p><b>Double-click</b> a group with the select tool, or pick it and use
+<code>/edit</code>, or the right button's <b>Open Group</b>.  Everything
+outside it fades and is out of reach; a dotted box shows what you are
+inside; the bar says <i>in "Group 1"</i>.  What you draw now belongs to the
+group, and a group inside it is picked as a group of its own.</p>
+<p>To come back out: <b>Escape</b> with nothing else pending, a click on
+nothing, <code>/leave</code>, or the right button's <b>Close Group</b>.  From
+a group inside a group, that goes up one level at a time.</p>
+
+<h2 id="naming">Naming</h2>
+<p>A new group is <i>Group 1</i>, <i>Group 2</i> and so on.  Pick it and
+<code>/name Left knob</code> calls it that; the entity panel shows the name
+and has a button for it.  The name is what the bar and the messages use.</p>
+
+<h2 id="locking">Locking</h2>
+<p>Pick a group and <code>/lock</code>, or the right button's <b>Lock
+Group</b>.  A locked group can still be picked - it shows as a red box - and
+snapped to, but it cannot be moved, opened, changed, erased or grouped
+with anything until it is unlocked.  That is what makes it safe to draw
+against: you cannot draw <i>into</i> it by accident, and moving something
+that touches it leaves it exactly where it was.  <code>/unlock</code>, or
+the same menu row, undoes it.</p>
+
+<h2 id="taking-one-apart">Taking one apart</h2>
+<p><code>/explode</code>, or the right button's <b>Explode Group</b>, lets
+the contents go back to being ordinary geometry - which then joins onto
+whatever it touches, the way it would have all along.  A group inside an
+exploded group stays a group.</p>
+
+<h2 id="in-the-file">In the file</h2>
+<p>Groups are saved with the drawing.  A file with groups in it still opens
+in an older build of the program; it simply arrives flattened, with nothing
+grouped.</p>
+
+<h2 id="where-we-differ">Where this differs from SketchUp</h2>
+<p>SketchUp has two of these, a <i>group</i> and a <i>component</i>; a
+component is a definition with copies, so editing one fence post changes
+all forty.  This program has the one.  A copy of a group is a group of its
+own, and changing one changes only that one.</p>
+
+<h2 id="see-also">See also</h2><ul>
+<li><a href="faces.html">Faces, front and back</a> - why edges joining up makes faces in the first place</li>
+<li><a href="tools/select.html">Select</a> - clicks, double-clicks and boxes</li>
+<li><a href="tools/move.html">Move</a> - what stretches and what does not</li>
+<li><a href="entity.html">The entity panel</a> - the group's name, its lock, and the buttons</li>
+<li><a href="commands.html">Commands</a> - <code>/group</code>, <code>/edit</code>, <code>/leave</code>, <code>/name</code>, <code>/lock</code>, <code>/unlock</code>, <code>/explode</code></li>
+</ul>
+<footer><a href="index.html">Back to the contents</a> &middot; Heckers Sketch help</footer>
+</div></body></html>

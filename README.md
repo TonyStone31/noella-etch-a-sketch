@@ -86,6 +86,9 @@ The manual covers all of this properly.  The short version:
   STL and OpenSCAD.
   [Printing](https://tonystone31.github.io/noella-etch-a-sketch/printing.html) ·
   [Export](https://tonystone31.github.io/noella-etch-a-sketch/export.html)
+* **Groups** - make a piece of the drawing a thing of its own, so nothing
+  else sticks to it; open it to work inside, lock it, name it, nest them.
+  [Groups](https://tonystone31.github.io/noella-etch-a-sketch/groups.html)
 * **Sheets** - several drawings in tabs, saved together in one `.hsk` file.
   Your work is also saved to a draft every few seconds.
   [Sheets](https://tonystone31.github.io/noella-etch-a-sketch/sheets.html)

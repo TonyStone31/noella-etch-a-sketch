@@ -4983,3 +4983,89 @@ Fifteen, read against this file:
   (fixed that night) and "I can't get that face to heal over the top to
   keep the knob enclosed", which was never looked at, and may well be the
   stacks above.
+
+## Groups - built, 20 September
+
+"It is time to get it done."  The plan of the 18th (`docs/groupplan.md`)
+said it would wait until the drawing tools underneath were solid; the
+stacked-faces fault above was the last of that list, and the reason the
+plan gave - a layer over the pick, the move, the eraser and the region
+finder hides the faults in them - is met by building the layer with its
+own rules and testing each rule where it lives.  The spec is SketchUp's own
+help pages, read that morning: `docs/sketchup/15-groups.md`.  The manual
+page is `docs/help/groups.html`; the one written ahead of time as
+`parts.html` points there now.
+
+**The word is group.**  The plan argued for *part*; the program's owner asked for
+group, SketchUp says group, and it is what people type.  In the source the
+field is `Part`, because `Grp` was already taken by "which solid" - a
+different question, and the plan's warning about not overloading it stands.
+
+**What a group is, in the code.**  An `ekPart` entity is the record: `Grp`
+its id, `Txt` its name, `Solid` whether it is locked, `Part` the group it
+sits inside.  Members are every entity whose `Part` is its id.  A record
+as an entity, for the reason `ekBore` is one: undo, save, load, copy and
+delete carry it without anybody writing a line for it.  `TWorkDoc.Context`
+is the group open for editing and `Stamp` the group new geometry is born
+into - the same thing except while a rebuild is working one group's faces
+out or a file is being read.  Every creator stamps it; nothing per kind has
+to know.
+
+**The rule that makes it a group, and the three places it lives:**
+
+* **The region finder runs once per group** - `EdgeSegments(Part)`,
+  `RebuildFlatFaces` concatenating one pass per group with `RPart` beside
+  `R`, every table (solids, old faces, seen areas, solid lines) keyed by
+  group as well as by plane, and one region cache per group.  A face is
+  born into the group its area was found in.  `OrientLooseShells` runs per
+  group too: faces in different groups are not neighbors.
+* **Splitting and welding stay inside the group being drawn in** -
+  `AddLineSplit`, `SplitCrossings` and the two corner walks compare `Part`
+  against `Stamp`, so a line drawn across a group from outside goes in as
+  one line and cuts nothing.
+* **Nothing in another group stretches** - `MoveVerts` and `RotateVerts`
+  touch only the open context; whole groups go rigidly through
+  `TranslateEnts`/`RotateEnts` (`SplitMoveSelection` sorts a selection
+  into the two).
+
+**Picking.**  `TopPartIn` is the one question: the outermost group between
+an entity and the open context, 0 for loose in the context, -1 for outside
+it altogether.  `PickAt` refuses -1, so inside a group the rest of the
+drawing is not there to be picked, and the click on it closes the group
+(SketchUp's rule).  `SelectAdd` on a member takes every member and the
+record; the selection layer skips them and the overlay draws the box.
+Locked groups can be picked and snapped to and nothing else -
+`PartLockedUp` walks the parents, so a lock on the toy locks the knob
+inside it.  A face inside a closed group is refused to push, pull, drill,
+offset and revolve (`InContextFace`); drawing *on* it from outside is
+allowed and does not join it.
+
+**Three things found by doing it, worth knowing next time:**
+
+* `FRegionCaches[CacheFor(P)].Cache` as a `var` argument crashed on start:
+  FPC took the array's base address before `CacheFor` grew the array, and
+  on an empty array the base was nil.  The slot goes into a variable
+  first.  Every drive test that opened a drawing failed the same way.
+* A face grouped on its own was found loose again a moment later, because
+  faces are worked out from edges on every rebuild.  `MakeGroup` takes a
+  face's bounding edges with it.
+* GTK hands the second press of a double-click over twice, once plain and
+  once as the double-click, so `FClickN` reads three by the time the button
+  comes up.  Every double-click test in uMain reads `>= 2`; the first draft
+  of this one read `= 2` and never fired.  Found with a trace line that
+  had to be flushed, because `StdErr` to a file is buffered and the
+  harness kills the program before it flushes.
+
+**Checked how.**  `TestGroups` in geomtest: membership, the context, a line
+across a group uncut, a corner shared with a group not stretched, nesting
+and locks, the file round trip (`GROUP` and `PARTOF` lines, which an older
+build skips and gets the drawing flattened), and a copy being a group of
+its own - 41 checks.  `groups` in the drive suite does the same through the
+window, and the session's file was read back with a probe: the rectangle
+drawn over the group kept a whole four-cornered face, the group's face was
+untouched, a line drawn inside landed in the group, and explode gave back
+the three merged faces a loose overlap makes.
+
+**Not built, and said so in the spec note:** components (a copy that
+follows its original), the Outliner, hiding a group, scaling one.  The
+`Of_` link the plan left room for is still the room.

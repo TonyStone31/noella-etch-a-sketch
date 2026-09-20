@@ -47,7 +47,7 @@ the program most people would reach for does not.
 | **Duct fittings from measurements** | **yes, built in** | extension | no | no | no | no | families |
 | **Pipe spool from legs** | **yes, built in** | extension | workbench | no | no | no | yes |
 | Animation export (GIF / WebP) | **yes, built in** | scenes to video | - | no | no | video | - |
-| Groups / components / blocks | **not yet** | yes | yes | yes | yes | yes | yes |
+| Groups / components / blocks | **groups** | yes | yes | yes | yes | yes | yes |
 | Plugin or scripting API | **no** | Ruby, large ecosystem | Python, large | scripting | Python | huge | Dynamo, huge |
 | Photo-real rendering | no | via extensions | workbench | no | no | yes | yes |
 | Touch and pen | yes | yes | - | - | - | - | - |
@@ -73,21 +73,12 @@ Two more worth knowing about, both close to us in spirit:
 Not hedged, because the list is short enough to say plainly and long enough
 to matter.
 
-* **Groups and components.**  Everything in a drawing here is loose
-  geometry.  Every other program on that table lets you name a thing, reuse
-  it, and edit every copy at once.  This is the biggest gap and it has a
-  plan of its own - `docs/groupplan.md`.
-* **Parametric history.**  FreeCAD, SolveSpace and Revit remember how a
-  shape was made and let you go back and change a number.  We remember the
-  shape.
-* **A plugin API.**  SketchUp's Ruby ecosystem is thirty years of other
-  people's work, and it is the honest reason SketchUp is hard to leave.
-* **Photo-real rendering**, **BIM**, **assemblies and constraints**, **FEA
-  and CAM** - none of it, and none of it planned.
-* **macOS.**  The code should build; nobody has built it.
-* **Age.**  They have all been shipping for years and have had their corners
-  knocked off by thousands of people.  This program is not yet a year old
-  in its PRO form and the bug reports are still finding real faults.
+* **Groups and components.**  Groups are built (20 September): a piece of
+  the drawing that nothing else joins onto, opened to work inside, locked,
+  named, nested.  What is not built is the *component* - a definition with
+  copies that all change together.  A copy of a group here is a group of its
+  own.  The plan, and the room left for a "copy of" link if it is ever
+  wanted, is in `docs/groupplan.md`.
 
 ## Where we beat them, and why it is not an accident
 
