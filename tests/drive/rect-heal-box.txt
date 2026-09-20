@@ -1,0 +1,8 @@
+tool RECT
+press 0 0 0
+press 8 8 0
+tool PUSH/PULL
+press 4 4 0
+input 3'
+enter
+tool SELECT

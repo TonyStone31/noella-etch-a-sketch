@@ -1,0 +1,38 @@
+# A face rubbed out of a box comes back when a rectangle is traced over the
+# opening - the same healing the line tool does, and the report of 19
+# September: "i cant get this thing to heel the face by drawing a new
+# rectangle inside".  Only the line tool set the healing hint; now a
+# rectangle side drawn over an edge already there sets it too.
+#
+# Built by replay so the box is the same every time: an 8' square pulled up
+# 3', its top picked and deleted, then a rectangle over the top's corners.
+#
+# What to look for: hsk-rect-heal-open looks into an open box, blue inside;
+# hsk-rect-heal-healed has the top back and PALE - it faces out.  It came
+# back blue once, facing into the box, because the healing path pointed it
+# away from the solid's middle using an inner point that was never worked
+# out for an opening.  Both fixed 20 September.
+geometry 0 0 1400 850
+activate
+wait 2500
+key escape
+wait 300
+key slash
+type replay tests/drive/rect-heal-box.txt
+key return
+wait 1500
+key slash
+type fit
+key return
+wait 1000
+at 766 350
+click
+wait 400
+key delete
+wait 1000
+shot /tmp/hsk-rect-heal-open.png
+key slash
+type replay tests/drive/rect-heal-top.txt
+key return
+wait 1500
+shot /tmp/hsk-rect-heal-healed.png

@@ -21,6 +21,89 @@ finished, its note moves down there and anything left over goes into
 
 ---
 
+## Open, 20 September 2026
+
+Everything still to do, in one place, one line each.  The write-ups the
+lines point at stay where they are, below; this list is what gets edited
+when something is done.  Bugs first, then the small things, then the big.
+
+### Bugs
+
+* **The surface guard canary** - something writes over a `TArtSurface`
+  (Windows, three sightings, twice the same value, always just after
+  "opened the example").  Three traced runs of that on Linux, 20
+  September: nothing.  Notes in `uSurface.Verify` and under *The surface
+  guard fired again* below.
+* **Two solids' faces lying on each other**, three of them one solid
+  holding the same face twice (grp 3, faces 748 and 37 in the 19
+  September sheet) - a push/pull or rigid-move fault, worth `/holes` on
+  that sheet.  See *Faces piling up in stacks*.
+* **The eraser once drew a dimension off a guide point** (15 September),
+  and "a couple times while trying to erase the yellow guide" (17
+  September) - unexplained, needs a session that catches it.
+* **Typed resize by a dimension**: an arc only partly past the moving
+  plane comes out wrong, nothing between the ends stretches, and there is
+  no handle to drag.
+* **The move tool stays loaded after a placement** - the next click moves
+  it again.  There is a comment in `ProCommit` fixing this for a
+  just-built part only.  A product call: SketchUp keeps the selection live
+  for a follow-up move; the reporter was not sure either.
+
+### Small
+
+* **A trim tool** - one click on a corner takes the stubs past it.  Asked
+  for 18 September.  A trim that *extends* two lines to meet is a bigger
+  tool and a different one.
+* **A rectangle inferring its plane from two picked corners**, the way
+  SketchUp's does when it starts on a face - two points alone do not name
+  a plane, so the first point's face has to.  Asked for 19 September.
+* **Guide-point mode**: Ctrl to lay a point *or* a line rather than both.
+  It was in once and was taken out; `LayGuide` has the note; there is a
+  reason now.  See *The guides, read against their help*.
+* **Arcs**: an arc tangent off the end of a single line.
+* **Shift on the eraser hides an edge** (SketchUp) - wants a `Hidden` flag,
+  a place in the file and a show-hidden switch, so it is a feature.
+* **The cube**: snap on release near a target; a keyboard walk through the
+  twenty-six.
+* **Entity panel rows**: radius on a circle, an arc's plane, a name on a
+  solid.
+* **`/state` wrapped** in the long-text box.
+* **The cursor's square** still wipes the offset, protractor and dimension
+  previews within reach of the pointer; rectangle, line, wash and fillet
+  are drawn into it.  The general fix is compositing the cursor with alpha.
+* **Neon on a light screen** is muted.
+* **The manual's words against the tools as they are now** - one pass,
+  page by page.
+* **Drive scripts that compare their screenshots** against kept ones.
+* **Tie `TOOL_NAMES` to the command rows** that set a tool.
+* **Report the CryptoLib4Pascal case-mismatch upstream** (`crypto/README.md`).
+* **The README's two GIFs** could be WebP like the manual's.
+
+### Big
+
+* **Half resolution while the camera moves**, full again when it settles -
+  the answer to "shaking while zoomed" on a big drawing.  Measured, not
+  built; it touches the four surfaces that have come apart before.
+* **Components** - a copy of a group that follows its original.  Groups
+  are built; `docs/groupplan.md` keeps the room.
+* **Threads**, the remaining stages behind a toggle - `docs/render-acceleration.md`.
+* **`TWorkDoc.Render` at 591 lines and `uMain.pas` at 24,700** - both
+  worth breaking up before they get worse.
+* **Touch**, untested on real glass.
+* **DXF import**, deliberately last.
+
+### Done since the lists below were written
+
+The lists further down were the open lists before this one existed and
+have not been pruned; these are the items on them that are finished:
+Reverse (it was the stacks), the arc "kept outside the rectangle" (the
+fillet lock, 16 September), Alt cycling the inferences (17 September,
+`inference-alt`), the cursor square for rectangle and line, groups, a face
+healed by a rectangle (20 September), a healed top coming back facing in
+(20 September).
+
+---
+
 ## Where it stands, 17 September 2026
 
 Drawing: lines, rectangles, circles, arcs, offset, push/pull, revolve, drill,
@@ -888,10 +971,10 @@ reading a write-up of something finished.  Roughly smallest first.
   in the file).  Color and width went in on 17 September.
 * **The pull-while-dragging orbit snap**, as an experiment.  The release
   version is built; the questions are kept with its write-up.
-* **The cursor square wipes canvas drawing under it** for the rubber bands
-  and canvas text of the tools that still paint straight onto the window.
-  The face wash and the fillet arc are handled.  The general fix is
-  compositing the cursor with alpha.
+* **The cursor square wipes canvas drawing under it** for the offset,
+  protractor and dimension previews.  The face wash, the fillet arc, the
+  rectangle and the line are drawn into it (20 September).  The general fix
+  is compositing the cursor with alpha.
 * **Arcs: SketchUp's Alt tangent lock**, and an arc tangent off the end of a
   single line.
 * **Typed resize by a dimension**: an arc only partly past the moving plane
@@ -1969,9 +2052,9 @@ script's coordinates are the window's, the recording films the whole screen
 including the title bar, and the two differ by about 26 px - which is how a
 click meant for an edge landed on the face twice.
 
-**Not done, and asked for**: Alt to cycle inferences the way SketchUp's line
-tool does.  Ours is taken - Alt holds the working plane, which is in the
-keys page - so it wants a decision rather than a patch.
+**Done the same day** - see *Alt cycles the inferences, and the magenta pair
+that needed building* above: after the first click Alt is SketchUp's, all
+three stops; before it, ours.
 
 ### The grid is a floor, and the bar says more - 17 September
 
@@ -2648,7 +2731,9 @@ it is 7, then 0, then 0.  **Idempotence is the test that found this** - run
 the pass twice and the second one must do nothing - and it is worth having
 for any geometry that rewrites itself.
 
-**Still open, from the same message.**  "i should be able to use the arc tool
+**Explained on 16 September** (*Rounded corners, and the arc-bulge report
+explained*): nothing was broken, a fillet is one exact bulge and the tool
+now locks onto it.  "i should be able to use the arc tool
 but when i did it kept the arc out side the rectangle."  `ArcPicks` takes the
 bulge as the third pick's offset from the chord, signed, so it should follow
 the cursor to either side; `Bulge := Ln / 8` when the cursor lands exactly on
@@ -4837,6 +4922,9 @@ guessed at:
 geomtest 1206, region 91, commands, drive 31 - green before this shipped.
 
 ## Reverse will not turn two faces over - 19 September, not chased
+
+**Resolved 20 September** - it was the stacked faces; see *Faces piling up
+in stacks*.  Kept for the three candidates, two of which were wrong.
 
 The first report to arrive sealed, and it carries a real fault rather than a
 test: "I am unable to reverse these 2 faces i just tried.  still a bad bug

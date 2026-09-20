@@ -2706,6 +2706,13 @@ end;
 procedure SurfaceRepaired(const What: string);
 begin
   if MainForm <> nil then MainForm.Trail(What);
+  { and out loud, for a hunt run under the harness - the trail is only ever
+    read from a report }
+  if GetEnvironmentVariable('HSK_TRACE') <> '' then
+  begin
+    WriteLn(StdErr, 'TRACE ', What);
+    Flush(StdErr);
+  end;
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -14169,13 +14176,28 @@ begin
           Loop := RectCorners(FP1, T, FD.Plane);
           { An edge that lands exactly on one already there is the same edge.
             Adding it again left two lines in the same place and two
-            dimension labels on top of each other. }
+            dimension labels on top of each other.
+
+            And a side drawn over an edge already there says the area it
+            bounds is wanted - the same healing the line tool does, see
+            FHealOn.  Without this a rectangle traced round an opening in a
+            box put four lines nowhere and no face came back, which is the
+            report of 19 September: "i cant get this thing to heel the face
+            by drawing a new rectangle inside".  One side is enough for the
+            rebuild to know. }
           for I := 0 to 3 do
             if not FD.Doc.HasLine(Loop[I], Loop[(I + 1) mod 4]) then
               FD.Doc.AddLine(Loop[I], Loop[(I + 1) mod 4],
-                FInkColor, FPenSize, False);
+                FInkColor, FPenSize, False)
+            else if not FHealOn then
+            begin
+              FHealOn := True;
+              FHealA := Loop[I];
+              FHealB := Loop[(I + 1) mod 4];
+            end;
           FD.Doc.SplitCrossings(NWas);
           RebuildFlatFaces;
+          FHealOn := False;
           RenderPro;
           RecomposeAll;
           Trail('rect made, ' + IntToStr(FaceCount) + ' faces now');
@@ -20121,6 +20143,16 @@ begin
       FD.Doc.SetFaceGroup(FD.Doc.Live - 1, HealGrp);
       { facing out, like every other side of the solid: away from the middle
         of the thing it has just closed }
+      { The area's own middle is worked out in the tiling pass above, and
+        only for areas that pass has reason to look at - an opening being
+        healed has no solid face on its plane, so it never was, and the
+        test below read (0,0,0) for it.  A top traced back onto a box came
+        back facing into the box, blue.  Worked out here when it is not. }
+      if not RMidOK[I] then
+      begin
+        RMid[I] := InnerPoint(R[I].Outer, R[I].Normal);
+        RMidOK[I] := True;
+      end;
       Mid := SolidMidOf(HealGrp);
       if Dot3(FD.Doc.FaceNormal(FD.Doc.Live - 1),
               P3(RMid[I].X - Mid.X, RMid[I].Y - Mid.Y, RMid[I].Z - Mid.Z)) < 0 then

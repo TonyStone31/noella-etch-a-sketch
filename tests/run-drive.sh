@@ -140,7 +140,7 @@ drawing_for() {
 # picked up last is a long job everything else waits on.  Sorting by the
 # times the run prints is most of the difference between three minutes and
 # one.
-SOLOISTS="groups copy-paste gif-loop entity-panel face-needs-edges close-asks
+SOLOISTS="groups rect-heal copy-paste gif-loop entity-panel face-needs-edges close-asks
           frame-watchdog entity-style guide-select export-dialog help-window
           ring-hint orbit-snap orbit-grid help-picture revolve-edge
           glass-revolve dim-resize report-tick upright-outline reverse-face
@@ -198,6 +198,7 @@ blank_for() {
   case "$1" in
     blank-start) echo 1 ;;
     groups)      echo 1 ;;
+    rect-heal)   echo 1 ;;
     *)           echo "" ;;
   esac
 }

@@ -1,0 +1,4 @@
+tool RECT
+press 0 0 3
+press 8 8 3
+tool SELECT
