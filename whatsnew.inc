@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.6' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The report window''s summary is a page of its own** - drawn by LazInk' + LineEnding +
+    '  from a line of Markdown for each thing that went, the label and the' + LineEnding +
+    '  verdict in bold, so a long file name wraps instead of running off.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
@@ -20,7 +28,8 @@ const
     '- **The report window stays until you close it, and says what went.**  A' + LineEnding +
     '  line for the report and its size, whether the drawing was in it, how big' + LineEnding +
     '  it became once sealed, the picture, and whether each of them arrived - or' + LineEnding +
-    '  why not.  It used to close itself the moment the report had gone.  The' + LineEnding +
+    '  why not - a small page of its own, drawn by LazInk, so the words that' + LineEnding +
+    '  matter are bold.  It used to close itself the moment the report had gone.  The' + LineEnding +
     '  sealing stage also holds long enough to read: the report is encrypted to' + LineEnding +
     '  a key only we hold before it leaves your machine, and that is worth a' + LineEnding +
     '  moment on the screen.' + LineEnding +
