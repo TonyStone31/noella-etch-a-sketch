@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Drill stops where you say.**  Type a depth and the drill makes a hole
+  exactly that deep and no deeper - through any passage already in the
+  block on the way, which push/pull will not do, since push/pull stops at
+  the first passage it meets.  Say nothing and it goes through, as before.
+
 ## v2026.09.20.6
 
 ### Fixed

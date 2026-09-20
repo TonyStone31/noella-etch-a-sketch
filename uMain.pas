@@ -12397,7 +12397,7 @@ begin
       ptCircle: S2 := Format('click the center - %d sides: + - or type 24s', [FSidesCircle]);
       ptArc:    S2 := Format('click one end - %d segments: + - or type 12s', [FSidesArc]);
       ptPush:   S2 := 'click a face - then type how far, or rest on an edge';
-      ptDrill:  S2 := 'click a face - it goes through whatever it crosses';
+      ptDrill:  S2 := 'click a face - it goes through whatever it crosses; type a depth to stop short';
       ptFollow: S2 := 'click the outline to spin - the half of the shape, seen edge on';
       ptErase:  S2 := 'click an edge to delete it - or hold and drag across ' +
                       'several.  Ctrl softens instead, Ctrl+Shift brings back';
@@ -14099,7 +14099,7 @@ var
   Base: Integer;
   Copies: array of Integer;
   ArcPl: TPlane;
-  Stopped: Boolean;
+  Stopped, DrillTyped: Boolean;
   Tk: QWord;
   WasRigid: Boolean;
 begin
@@ -14484,9 +14484,29 @@ begin
         FCmdMsg := '';
         { A drill goes through.  See TWorkDoc.ThroughDistance: the far end
           has to land exactly on the plane of the wall it comes out of or
-          there is no tunnel, only a plug, and nobody can drag to that. }
-        if (FTool = ptDrill) and (Abs(R) > 1E-9) then
+          there is no tunnel, only a plug, and nobody can drag to that.
+
+          Unless a depth was typed.  Then it is a blind hole exactly that
+          deep - through any passage already in the block on the way, which
+          is the one thing push/pull will not do, since push/pull stops at
+          the first passage it meets and is right to.  From a note, 20
+          September: "think about if you drilled into a 6 inch thick block
+          through other passages... maybe I don't want to come all the way
+          out the other side."  A passage the blind hole crosses is not cut
+          open into it yet; that wants the crossing-cut a through-tunnel
+          gets, done for a hole with a floor. }
+        DrillTyped := (FTool = ptDrill) and (FInput <> '') and ParseLen(FInput, FD.Units, L);
+        if (FTool = ptDrill) and (Abs(R) > 1E-9) and not DrillTyped then
           R := FD.Doc.ThroughDistance(FPushFace, R);
+        { A drill goes in, never out, whichever way the mouse happened to
+          drift before the number was typed: the way the block's far wall
+          lies is the way in.  ThroughDistance hands back what it was given
+          when there is no wall that way. }
+        if DrillTyped and (Abs(R) > 1E-9) then
+        begin
+          if Abs(FD.Doc.ThroughDistance(FPushFace, -1E-3) + 1E-3) > 1E-9 then R := -Abs(R)
+          else if Abs(FD.Doc.ThroughDistance(FPushFace, 1E-3) - 1E-3) > 1E-9 then R := Abs(R);
+        end;
         { Push/pull stops where it would run into a tunnel already through
           the solid, the way SketchUp's does, and says so.  Drill is the tool
           that goes on through: where the new hole crosses the old one both
@@ -14522,7 +14542,10 @@ begin
                 ' in.  Drill (B) goes on through.'
             else if FCmdMsg = '' then
             begin
-              if FTool = ptDrill then
+              if (FTool = ptDrill) and DrillTyped then
+                FCmdMsg := 'Drilled ' + FormatLen(Abs(R), FD.Units) +
+                  ' in, and stopped there.'
+              else if FTool = ptDrill then
                 FCmdMsg := 'Drilled through, ' + FormatLen(Abs(R), FD.Units)
               else
                 FCmdMsg := 'Pulled ' + FormatLen(Abs(R), FD.Units);
@@ -18164,6 +18187,19 @@ begin
     begin
       PA := ScreenOf(RectPts[K]);
       PB := ScreenOf(RectPts[(K + 1) mod 4]);
+      S.Line(PA.X - OX, PA.Y - OY, PB.X - OX, PB.Y - OY,
+        Max(3, Round(3 * FUIScale)), Theme.Accent, 1);
+    end;
+  end
+  else if (FTool = ptOffset) and (FStage = 1) then
+  begin
+    { the offset's loop, for the same reason: the corner nearest the cursor
+      is the one it is being dragged by }
+    RectPts := OffsetPreview;
+    for K := 0 to High(RectPts) do
+    begin
+      PA := ScreenOf(RectPts[K]);
+      PB := ScreenOf(RectPts[(K + 1) mod Length(RectPts)]);
       S.Line(PA.X - OX, PA.Y - OY, PB.X - OX, PB.Y - OY,
         Max(3, Round(3 * FUIScale)), Theme.Accent, 1);
     end;

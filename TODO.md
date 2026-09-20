@@ -23,7 +23,10 @@ finished, its note moves down there and anything left over goes into
 
 ## Open, 20 September 2026
 
-Everything still to do, in one place, one line each.  (Three reports of
+Everything still to do, in one place, one line each.
+(20 September, later: the drill takes a typed depth and stops there - a
+blind hole through any passage on the way; the guide-point mode and the
+panel's radius and plane rows were already built and are struck off.)  (Three reports of
 19-20 September answered the same day: the invisible drawing, the eraser
 taking guide points, the sealing stage - see the release notes.)  The write-ups the
 lines point at stay where they are, below; this list is what gets edited
@@ -60,6 +63,9 @@ when something is done.  Bugs first, then the small things, then the big.
   `BoreLimit` stops a push where it would run into a tunnel already through
   the solid; at that moment there was none in the file.  Not reproduced;
   wants the drawing and the press at (0'-1 5/16", 0'-5 3/4", 3'-10 3/8").
+  `BoreLimit` counts only tunnels (ekBore) of the same solid, nothing
+  else, so either a bore was there and gone by the time the file was sent,
+  or the inch came from somewhere else - the snap rounding the drag, say.
 * **Typed resize by a dimension**: an arc only partly past the moving
   plane comes out wrong, nothing between the ends stretches, and there is
   no handle to drag.
@@ -76,16 +82,12 @@ when something is done.  Bugs first, then the small things, then the big.
 * **A rectangle inferring its plane from two picked corners**, the way
   SketchUp's does when it starts on a face - two points alone do not name
   a plane, so the first point's face has to.  Asked for 19 September.
-* **Guide-point mode**: Ctrl to lay a point *or* a line rather than both.
-  It was in once and was taken out; `LayGuide` has the note; there is a
-  reason now.  See *The guides, read against their help*.
 * **Arcs**: an arc tangent off the end of a single line.
 * **Shift on the eraser hides an edge** (SketchUp) - wants a `Hidden` flag,
   a place in the file and a show-hidden switch, so it is a feature.
 * **The cube**: snap on release near a target; a keyboard walk through the
   twenty-six.
-* **Entity panel rows**: radius on a circle, an arc's plane, a name on a
-  solid.
+* **Entity panel**: a name on a solid (radius and plane are there).
 * **`/state` wrapped** in the long-text box.
 * **The cursor's square** still wipes the offset, protractor and dimension
   previews within reach of the pointer; rectangle, line, wash and fillet
