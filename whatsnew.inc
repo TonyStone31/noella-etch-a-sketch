@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.2' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A rectangle traced round an opening heals it.**  Rub the top off a box' + LineEnding +
+    '  and draw a rectangle over where it was, and the top is back - the way' + LineEnding +
+    '  redrawing an edge with the line tool has put a face back since' + LineEnding +
+    '  September 15.  Only the line tool knew the trick; the rectangle drew four' + LineEnding +
+    '  lines onto edges that were already there and no face came.  From the' + LineEnding +
+    '  report of 19 September.' + LineEnding +
+    '- **A face healed back onto a box faced into it**, and showed blue.  It' + LineEnding +
+    '  faces out now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
