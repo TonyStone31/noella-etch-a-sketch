@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.1' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Groups.**  Pick something and press Ctrl+G (or `/group`, or the right' + LineEnding +
+    '  button''s Make Group) and it becomes a thing of its own: nothing outside' + LineEnding +
+    '  it joins onto it, cuts it, or stretches it when it moves, and a click on' + LineEnding +
+    '  any part of it takes all of it.  Double-click to work inside one - the' + LineEnding +
+    '  rest of the drawing fades and stays out of reach until Escape or a click' + LineEnding +
+    '  on nothing brings you back out.  Groups nest, `/name` names them, `/lock`' + LineEnding +
+    '  keeps one from being changed at all while still letting you snap to it,' + LineEnding +
+    '  and `/explode` takes one apart.  It is SketchUp''s group, and behaves the' + LineEnding +
+    '  way theirs does, from their own help pages.  There is a page in the' + LineEnding +
+    '  manual.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
