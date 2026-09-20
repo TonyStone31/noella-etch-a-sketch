@@ -73,6 +73,15 @@ type
     Found: array of TRegionArray;
   end;
 
+{ One of a plane's two normals, unit length, chosen the same way every time -
+  so two descriptions of one plane compare equal whichever way round each
+  was worked out.  See the note on it below. }
+function CanonicalNormal(const N: TP3): TP3;
+
+{ A loop found more than once is kept once.  Both finders run this before
+  handing back; it is here on its own so a test can ask it directly. }
+procedure DropTwinRegions(var R: TRegionArray; Tol: Double = REGION_TOL);
+
 { The whole pipeline.  Segments in, regions out. }
 function BuildRegions(const Segs: TSegArray; Tol: Double = REGION_TOL): TRegionArray;
 
@@ -172,23 +181,188 @@ end;
 
 { Make a plane comparable: flip it so the first part of the normal that is not
   zero is positive, which gives one key per plane rather than two. }
-function MakePlane(const N: TP3; const Through: TP3): TPlaneKey;
+{ The rule used to be "the first part that is not nought is positive", with
+  not-nought meaning beyond 1E-9 (here) or 1E-6 (in the plane finder) - five
+  copies of it, in two units.  A normal that comes out of a cross product
+  carries about 1E-8 of noise in the parts that ought to be nought, so a face
+  standing square on Y had a normal of (+1E-8, 1, 0) one time and (-1E-8, 1,
+  0) the next; the rule flipped the second, keyed it as (0, -1, 0), and the
+  two never met.  That is how a rebuild lost track of faces a solid already
+  had and laid loose copies over them - see TODO, 20 September.
+
+  Any rule that reads the sign of one part has a boundary where that part is
+  nought, and nought is exactly where drawn faces sit: square to an axis, or
+  at forty-five degrees where two parts tie.  So the sign is read off the
+  normal's shadow on a direction no drawn face is ever square to - one built
+  from the golden ratio, which no grid of sixteenths lands on.  Noise flips
+  the answer only for a normal within 1E-8 of being square to that, and
+  nothing anybody draws is. }
+function CanonicalNormal(const N: TP3): TP3;
+const
+  PHI = 0.6180339887498949;
 var
-  U: TP3;
   L: Double;
 begin
   L := Len3(N);
-  if L < 1E-12 then
+  if L < 1E-12 then Exit(P3(0, 0, 1));
+  Result := Mul3(N, 1 / L);
+  if Result.X + Result.Y * PHI + Result.Z * PHI * PHI < 0 then
+    Result := Mul3(Result, -1);
+end;
+
+{ A loop found twice is kept once.
+
+  From a report of 19 September.  A strip a third of an inch wide, two of
+  its corners the ends of an arc worked out by trig and two the ends of
+  lines snapped to a sixteenth, is flat to within a millionth of a foot and
+  no flatter.  The plane finder builds a plane from each pair of edges
+  meeting at a corner, and two of those planes differed by more than the
+  millionth it uses to call two planes the same - so both were kept, every
+  corner was within tolerance of both, and the same four-sided loop was
+  found in each.  On his sheet that was every face round a filleted notch,
+  found up to four times over, and the rebuild laid a fresh copy of each on
+  every edit: ninety-nine surplus faces by the time he reported "I am
+  unable to reverse these 2 faces" - he was turning over the top of a
+  stack.
+
+  Fixed here rather than by loosening what "the same plane" means, because
+  that tolerance is also what keeps two real planes apart across a big
+  drawing.  Two loops are the same when they have the same corners, each
+  within ten tolerances of its twin; the middles go in a grid so a drawing
+  of ten thousand same-sized squares does not compare each with all the
+  others. }
+procedure DropTwinRegions(var R: TRegionArray; Tol: Double);
+const
+  CELL = 1E-3;
+var
+  Mid: TP3Array;
+  Keep: array of Boolean;
+  Next: TIntArray;
+  Head: TFPHashList;
+  I, N, Kept: Integer;
+
+  function CellKey(CX, CY, CZ: Int64; Corners: Int64): shortstring;
   begin
-    Result.N := P3(0, 0, 1);
-    Result.D := 0;
-    Exit;
+    SetLength(Result, 32);
+    Move(CX, Result[1], 8);
+    Move(CY, Result[9], 8);
+    Move(CZ, Result[17], 8);
+    Move(Corners, Result[25], 8);
   end;
-  U := Mul3(N, 1 / L);
-  if (U.X < -REGION_TOL) or
-     ((Abs(U.X) <= REGION_TOL) and (U.Y < -REGION_TOL)) or
-     ((Abs(U.X) <= REGION_TOL) and (Abs(U.Y) <= REGION_TOL) and (U.Z < 0)) then
-    U := Mul3(U, -1);
+
+  { every corner of A has a corner of B within reach - same count, so that
+    is the same set }
+  function SameLoop(A, B: Integer): Boolean;
+  var
+    P, Q: Integer;
+    Found: Boolean;
+  begin
+    Result := False;
+    if Length(R[A].Outer) <> Length(R[B].Outer) then Exit;
+    for P := 0 to High(R[A].Outer) do
+    begin
+      Found := False;
+      for Q := 0 to High(R[B].Outer) do
+        if Len3(Sub3(R[A].Outer[P], R[B].Outer[Q])) <= 10 * Tol then
+        begin
+          Found := True;
+          Break;
+        end;
+      if not Found then Exit;
+    end;
+    Result := True;
+  end;
+
+  function TwinOf(I: Integer): Integer;
+  var
+    CX, CY, CZ, DX, DY, DZ: Int64;
+    Q: Integer;
+  begin
+    Result := -1;
+    CX := Floor(Mid[I].X / CELL);
+    CY := Floor(Mid[I].Y / CELL);
+    CZ := Floor(Mid[I].Z / CELL);
+    for DX := -1 to 1 do
+      for DY := -1 to 1 do
+        for DZ := -1 to 1 do
+        begin
+          Q := PtrInt(Head.Find(CellKey(CX + DX, CY + DY, CZ + DZ,
+            Length(R[I].Outer)))) - 1;
+          while Q >= 0 do
+          begin
+            if SameLoop(I, Q) then Exit(Q);
+            Q := Next[Q];
+          end;
+        end;
+  end;
+
+  procedure Note(I: Integer);
+  var
+    Key: shortstring;
+    At: Integer;
+  begin
+    Key := CellKey(Floor(Mid[I].X / CELL), Floor(Mid[I].Y / CELL),
+      Floor(Mid[I].Z / CELL), Length(R[I].Outer));
+    At := Head.FindIndexOf(Key);
+    if At < 0 then
+    begin
+      Next[I] := -1;
+      Head.Add(Key, Pointer(PtrInt(I + 1)));
+    end
+    else
+    begin
+      Next[I] := PtrInt(Head.Items[At]) - 1;
+      Head.Items[At] := Pointer(PtrInt(I + 1));
+    end;
+  end;
+
+var
+  K: Integer;
+begin
+  N := Length(R);
+  if N < 2 then Exit;
+  SetLength(Mid, N);
+  SetLength(Keep, N);
+  SetLength(Next, N);
+  for I := 0 to N - 1 do
+  begin
+    Mid[I] := P3(0, 0, 0);
+    for K := 0 to High(R[I].Outer) do
+      Mid[I] := Add3(Mid[I], R[I].Outer[K]);
+    if Length(R[I].Outer) > 0 then
+      Mid[I] := Mul3(Mid[I], 1 / Length(R[I].Outer));
+  end;
+  Head := TFPHashList.Create;
+  try
+    Kept := 0;
+    for I := 0 to N - 1 do
+    begin
+      Keep[I] := (Length(R[I].Outer) < 3) or (TwinOf(I) < 0);
+      if Keep[I] then
+      begin
+        if Length(R[I].Outer) >= 3 then Note(I);
+        Inc(Kept);
+      end;
+    end;
+  finally
+    Head.Free;
+  end;
+  if Kept = N then Exit;
+  Kept := 0;
+  for I := 0 to N - 1 do
+    if Keep[I] then
+    begin
+      if Kept <> I then R[Kept] := R[I];
+      Inc(Kept);
+    end;
+  SetLength(R, Kept);
+end;
+
+function MakePlane(const N: TP3; const Through: TP3): TPlaneKey;
+var
+  U: TP3;
+begin
+  U := CanonicalNormal(N);
   Result.N := U;
   Result.D := U.X * Through.X + U.Y * Through.Y + U.Z * Through.Z;
 end;
@@ -817,6 +991,12 @@ begin
       Result[Count] := Fresh.Found[I][J];
       Inc(Count);
     end;
+  { Two keys for what is one plane to every segment in it each find the
+    same loops, and here they are simply put end to end.  Not skipped
+    plane by plane: the cache keeps what each key found, and if the order
+    the keys come in ever changed between two calls, the one skipped last
+    time would be the one trusted this time, with nothing in it. }
+  DropTwinRegions(Result, Tol);
 end;
 
 function BuildRegions(const Segs: TSegArray; Tol: Double): TRegionArray;
@@ -1200,6 +1380,7 @@ begin
     Inc(Count);
   end;
   SetLength(Result, Count);
+  DropTwinRegions(Result, Tol);
 end;
 
 end.

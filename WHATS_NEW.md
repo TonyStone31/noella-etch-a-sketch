@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Faces were quietly piling up in stacks, and Reverse looked broken
+  because of it.**  Around a rounded corner - a fillet, or a notch with
+  arcs in it - the program could find the same flat area twice, and then
+  lay a fresh face over it on every edit.  One sheet reported on 19
+  September had ninety-nine surplus faces, some five deep, and a face that
+  "would not reverse" was the top of a stack: it turned over, and the copy
+  underneath still showed its back.  It also made every edit on that sheet
+  a little slower than the last.  Both causes are fixed; a drawing that
+  already has stacks in it is cleaned up by its next edit, or by
+  `/reface`.
+- **A report now names the sheet it was sent from**, not just its number -
+  a drawing with tabs called "Broom" and "Sheet 1" in that order was read
+  on the wrong sheet for an hour.
+
 ## v2026.09.19.2
 
 ### Fixed

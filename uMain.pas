@@ -15977,11 +15977,16 @@ begin
           Inc(Groups);
         end;
       end;
-      Add(Format('  sheet %d%s: things=%d solids=%d modified=%s view=%s ' +
+      { The name as well as the number.  A report came in with tabs called
+        "Broom" and "Sheet 1", in that order - so "sheet 2 (showing)" was the
+        one named "Sheet 1", and the first hour of reading it was spent on
+        the wrong drawing.  The name is what the person sees on the tab, so
+        it is what they mean when they say which sheet they were on. }
+      Add(Format('  sheet %d%s "%s": things=%d solids=%d modified=%s view=%s ' +
         'plane=%s units=%s scale=%s snap=%s zoom=%.3f az=%.1f el=%.1f ' +
         'cut=%s (%s to %s) guides=%s undo=%d redo=%d',
         [I + 1, specialize IfThen<string>(I = FTabIdx, ' (showing)', ''),
-         D.Doc.Live, Groups, YN(D.Dirty), VIEW_NAMES[D.View], PLANE_NAMES[D.Plane],
+         D.Name, D.Doc.Live, Groups, YN(D.Dirty), VIEW_NAMES[D.View], PLANE_NAMES[D.Plane],
          uWork.UnitName(D.Units), ScaleTable(D.Units, D.ScaleIdx).Name,
          SnapName(D.Units, D.SnapIdx), D.Zoom, RadToDeg(D.Az),
          RadToDeg(D.El), YN(D.SliceOn), FormatLen(D.SliceLo, D.Units),
@@ -18688,14 +18693,10 @@ function RegionSig(const R: TRegion): TRegionSig;
 var
   K, N: Integer;
 begin
-  Result.Nm := Norm3(R.Normal);
   { one of the two normals, chosen the same way every time, so a loop wound
-    the other way is still recognized as the same area }
-  if (Result.Nm.X < -1E-9) or
-     ((Abs(Result.Nm.X) <= 1E-9) and (Result.Nm.Y < -1E-9)) or
-     ((Abs(Result.Nm.X) <= 1E-9) and (Abs(Result.Nm.Y) <= 1E-9) and
-      (Result.Nm.Z < 0)) then
-    Result.Nm := P3(-Result.Nm.X, -Result.Nm.Y, -Result.Nm.Z);
+    the other way is still recognized as the same area - and chosen by the
+    one rule every plane key in the program now shares, see uRegion }
+  Result.Nm := CanonicalNormal(R.Normal);
   N := Length(R.Outer);
   Result.Mid := P3(0, 0, 0);
   for K := 0 to N - 1 do
@@ -18850,10 +18851,7 @@ var
     Nm: TP3;
     Q: array[0..3] of Int64;
   begin
-    Nm := Norm3(N);
-    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
-       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
-      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
     Q[3] := Round(Dot3(Nm, P) * 1000);
     SetLength(Result, 32);
@@ -18924,10 +18922,7 @@ var
   begin
     Result := nil;
     Have := 0;
-    Nm := Norm3(N);
-    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
-       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
-      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
     for D := -1 to 1 do
     begin
@@ -18960,10 +18955,7 @@ var
     Q: array[0..3] of Int64;
   begin
     Result := nil;
-    Nm := Norm3(N);
-    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
-       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
-      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
     for D := -1 to 1 do
     begin
@@ -18992,10 +18984,7 @@ var
     Q: array[0..3] of Int64;
   begin
     Result := nil;
-    Nm := Norm3(N);
-    if (Nm.X < -1E-9) or ((Abs(Nm.X) <= 1E-9) and (Nm.Y < -1E-9)) or
-       ((Abs(Nm.X) <= 1E-9) and (Abs(Nm.Y) <= 1E-9) and (Nm.Z < 0)) then
-      Nm := P3(-Nm.X, -Nm.Y, -Nm.Z);
+    Nm := CanonicalNormal(N);
     Q[0] := Round(Nm.X * 1000); Q[1] := Round(Nm.Y * 1000); Q[2] := Round(Nm.Z * 1000);
     for D := -1 to 1 do
     begin

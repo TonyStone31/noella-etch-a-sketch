@@ -719,6 +719,63 @@ end;
 
 { The cache must give the same answer as a full rebuild, and must actually
   save the work when only one plane moved. }
+{ From a report of 19 September, the four segments exactly as the program
+  handed them to the finder: a strip a third of an inch wide whose corners
+  are off one plane by a millionth of a foot - two of them the ends of an
+  arc worked out by trig, two the ends of lines snapped to a sixteenth.
+  The plane finder saw two planes through them and found the same loop in
+  each.  On his sheet that was every face round a filleted notch, found up
+  to four times over, and a rebuild that laid a fresh copy on every edit:
+  ninety-nine surplus faces by the time it was reported as "I am unable to
+  reverse these 2 faces" - he was turning over the top copy of a stack. }
+procedure TestNearPlanarQuad;
+var
+  R: TRegionArray;
+  Cache: TRegionCache;
+begin
+  Say('a quad flat to within the tolerance, and no flatter');
+  Clear;
+  Seg(P3(0.479167, 1.345784, 5.408805), P3(0.479167, 1.296875, 5.375000));
+  Seg(P3(0.479167, 1.296875, 5.375000), P3(2.479167, 1.296875, 5.375000));
+  Seg(P3(2.479167, 1.296875, 5.375000), P3(2.479167, 1.345785, 5.408805));
+  Seg(P3(0.479167, 1.345785, 5.408805), P3(2.479167, 1.345785, 5.408805));
+  R := Built;
+  EqI(Length(R), 1, 'one region, not one for each plane it nearly lies in');
+  Cache.Keys := nil; Cache.Sig := nil; Cache.Found := nil;
+  R := BuildRegionsCached(Segs, Cache);
+  EqI(Length(R), 1, 'the cached finder agrees, cold');
+  R := BuildRegionsCached(Segs, Cache);
+  EqI(Length(R), 1, 'and warm');
+end;
+
+{ The rule every plane key shares.  It used to read the sign of the first
+  part that was not nought, and a normal from a cross product has a
+  hundred-millionth of noise in the parts that should be - so a face square
+  on Y was keyed one way or the other depending on which way the noise
+  fell, and a rebuild could not find the face a solid already had there. }
+procedure TestCanonicalNormal;
+var
+  A, B: TP3;
+
+  function Same(const A, B: TP3): Boolean;
+  begin
+    Result := (Abs(A.X - B.X) < 1E-6) and (Abs(A.Y - B.Y) < 1E-6) and
+              (Abs(A.Z - B.Z) < 1E-6);
+  end;
+
+begin
+  Say('one normal for a plane, whichever way round it came');
+  A := CanonicalNormal(P3(1E-8, -1, 0.09));
+  B := CanonicalNormal(P3(-1E-8, 1, -0.09));
+  Ok(Same(A, B), 'noise in a part that should be nought does not flip it');
+  A := CanonicalNormal(P3(0.70710678, -0.70710678, 0));
+  B := CanonicalNormal(P3(-0.70710678, 0.70710678, 1E-9));
+  Ok(Same(A, B), 'nor a tie between two parts, at forty-five degrees');
+  A := CanonicalNormal(P3(0, 0, -3));
+  Ok(Same(A, P3(0, 0, 1)), 'straight down comes out as straight up');
+  EqF(Sqrt(Dot3(A, A)), 1, 'and unit length');
+end;
+
 procedure TestCache;
 var
   Cache: TRegionCache;
@@ -823,6 +880,8 @@ begin
   TestSize;             WriteLn;
   TestScale;            WriteLn;
   TestCache;            WriteLn;
+  TestNearPlanarQuad;   WriteLn;
+  TestCanonicalNormal;  WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

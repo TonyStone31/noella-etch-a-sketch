@@ -4882,3 +4882,104 @@ So the three things worth checking, in this order, none of them confirmed:
 The reproduction is unusually well-equipped - the `.hsk`, the screenshot
 showing which two faces, and a `/replay` script - so this should be chased
 from the drawing rather than from first principles.  Next session.
+
+## Faces piling up in stacks - 20 September, found and fixed
+
+The Reverse report was the tip of it.  Loaded the sheet that came with it
+and counted: **333 faces, 99 of them exact copies of another** - 56 stacks,
+up to five deep, and the count had grown from 52 to 99 across the evening's
+four reports.  The Broom sheet beside it, built by a program, had none.
+Reverse "not working" was a stack: the top copy turned over, and the copy
+beneath still showed its back.  Every edit on the sheet was also a little
+slower than the one before, since every rebuild added ten more faces.
+
+Reproduced without drawing anything: one `/reface` on the sheet took it
+from 820 things to 831.  Then chased headlessly, with probes against the
+real segments - `tools/` has nothing to keep from it, the probes were
+throwaway - down to **four segments** that the finder returned as two
+regions, and two faults that stacked on each other:
+
+**One: the plane finder saw two planes through one flat quad.**  A strip a
+third of an inch wide round a filleted notch - two corners the ends of an
+arc worked out by trig, two the ends of lines snapped to a sixteenth - is
+flat to within a millionth of a foot, which is the welding tolerance, and
+no flatter.  `PlanesOf` builds a plane from each pair of edges meeting at a
+corner; two of those differed by more than the millionth `SamePlane` uses,
+so both were kept, every corner was within tolerance of both, and the same
+loop was found in each.  Lines only: 100 regions, no twins.  Lines and
+arcs: 409, with 107 twin sets - and the cached finder, which works each
+plane's segments on their own, 706.  Not fixed by loosening what "the same
+plane" means, because that tolerance is also what keeps two real planes
+apart across a big drawing: `DropTwinRegions` in uRegion runs at the end of
+both finders and keeps one of any loop with the same corners.  Not skipped
+plane by plane in the cached one, on purpose - the cache keeps what each
+key found, and if the keys' order ever changed between calls, the key
+skipped last time would be the one trusted this time, with nothing in it.
+The note by the procedure says so.
+
+**Two: the rebuild could not see that a solid already had the face.**
+Every copy of that region passed all four of the rebuild's "the solid has
+this already" tests when I ran them by hand - same plane, inside its
+reach, same area, middle inside the outline.  Traced the real rebuild
+instead (an env-guarded stderr line, taken out again) and the answer was
+`cands=0`: the plane hash found no solid faces on that plane at all.  The
+key chose one of a normal's two signs by "the first part that is not
+nought is positive", not-nought meaning beyond 1E-9 - five copies of that
+rule, in two units.  A normal from a cross product has about 1E-8 of noise
+in the parts that should be nought, so the region's normal was
+(+1E-8, 1, -0.09) and the solid's exactly (0, -1, 0.09): the rule flipped
+one and not the other, and they hashed apart.  So did the was-there-a-face
+lookup and the seen-before lookup, which share the rule - every defense
+missed, for the same reason.  Now one `CanonicalNormal` in uRegion, used
+by all five: the sign is read off the normal's shadow on a direction built
+from the golden ratio, which no drawn face is ever square to.  Any rule
+that reads one part's sign has its boundary exactly where drawn faces
+live - square to an axis, or at forty-five degrees where two parts tie.
+
+After both: one `/reface` on the reported sheet, 820 things to 774, and
+**no loose stacks at all**.  `TestNearPlanarQuad` is those four segments,
+plain and cached; `TestCanonicalNormal` is the noise and the tie.  Region
+98, geomtest 1206, drive 31.
+
+**What is left in that sheet, and is a different thing:** 42 stacks that
+are two *solids'* faces on top of each other - a box pulled up off the top
+of another box keeps its bottom while the lower one keeps its top, with
+opposite normals.  SketchUp merges those; we do not, and never have.  Three
+of them are one solid holding the same face twice (748/37 in grp 3, and two
+more), which is a fault in whatever built it - push/pull, or the rigid
+move - and worth its own look with `/holes`.  Not chased tonight.
+
+**The other reports from that evening, in this light.**  "The last two
+lines I deleted should not have erased the faces" and "I can't get this to
+heal the face" were both on this same sheet, with the same stacks in it,
+and a rebuild that was adding and missing faces on every edit.  Neither is
+proven to be this, and both are worth trying again on the fixed build
+before anything else is done about them.
+
+### The report survey, 17 to 19 September
+
+Asked for: which of the recent reports were never actually addressed.
+Fifteen, read against this file:
+
+* **Answered and shipped:** sluggish zoom (the ink pass), push/pull not
+  seeing faces (offset's rounded corners), the select tool and guides,
+  face colors (painted, not inked), colors on a whole selection, the pick
+  taking the wall under the rim, the red band lying, the cursor square, and
+  now Reverse.
+* **Explained, not a fault:** "why isn't the face being turned red" on 18
+  September was sent from v2026.09.17.10, built at 21:13; the material fix
+  went in at 21:53.  An old build.
+* **Asked for and written up, not built:** groups (`docs/groupplan.md`),
+  the move tool letting go after a placement (a product call), a rectangle
+  inferring its plane from two picked corners.
+* **Asked for and never written down until now:** *"a trim tool so I can
+  click two intersecting lines and it creates an angle and cuts off the
+  excess lines."*  SketchUp has no such tool either - its answer is to erase
+  the stubs, and ours already cuts crossing edges where they meet, so the
+  stubs are separate edges and two clicks of the eraser take them.  A trim
+  that does that in one click on the corner is small and worth doing; a
+  real trim that *extends* two lines to meet is a different tool.
+* **Half-answered:** the 17 September knob report was two things - the pick
+  (fixed that night) and "I can't get that face to heal over the top to
+  keep the knob enclosed", which was never looked at, and may well be the
+  stacks above.
