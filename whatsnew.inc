@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.11' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`/light` turns the new lighting off and on.**  `/light off` puts the' + LineEnding +
+    '  lamp back where it used to hang, with the same grays from every angle;' + LineEnding +
+    '  `/light on` has it follow the camera again.  The choice is remembered.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.10' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
