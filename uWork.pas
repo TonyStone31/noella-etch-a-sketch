@@ -862,6 +862,13 @@ type
       picture is complete, only rougher at the ends of hidden runs; the
       full frame comes when the camera stops. }
     Quick: Boolean;
+    { the lines-on-faces pass in a quick frame: samples along each line, and
+      how many halvings refine each run's ends.  8 and 1 from the day quick
+      frames went in - and lines bled through face edges while orbiting;
+      LINE_STEPS and 6, the full pass, since 20 September, at a measured
+      +3 ms on 712 faces.  tools/inkprof sweeps the choices. }
+    QuickSteps: Integer;
+    QuickBisect: Integer;
     procedure EnsureOnFace;
     procedure OnFaceArrived;
     { the cache is there and current }
@@ -9211,6 +9218,12 @@ constructor TWorkDoc.Create;
 begin
   inherited Create;
   Threads := DefaultThreads;
+  { a quick frame keeps the lines-on-faces pass at full quality: measured
+    on a 712-face drawing at +3 ms a frame, constant in zoom, and it is
+    where the lines bled through face edges while orbiting.  The fill is
+    what a quick frame still gives up, until half resolution takes over. }
+  QuickSteps := LINE_STEPS;
+  QuickBisect := 6;
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
   NoteDoc(Self);
 end;
@@ -11935,7 +11948,11 @@ begin
   S.BlendMode := bmNormal;
   GuideCol := MixPix(LabelCol, Pix(120, 90, 190), 0.55);
 
-  if Quick then begin LSteps := 8; Bisect := 1; end
+  if Quick then
+  begin
+    LSteps := QuickSteps; if LSteps < 2 then LSteps := 8;
+    Bisect := QuickBisect; if Bisect < 0 then Bisect := 1;
+  end
   else begin LSteps := LINE_STEPS; Bisect := 6; end;
   PT := GetTickCount64;
   { the edge index, once, before anything asks it a question }

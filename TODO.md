@@ -104,7 +104,12 @@ when something is done.  Bugs first, then the small things, then the big.
 
 * **Half resolution while the camera moves**, full again when it settles -
   the answer to "shaking while zoomed" on a big drawing.  Measured, not
-  built; it touches the four surfaces that have come apart before.
+  built; it touches the four surfaces that have come apart before.  Step
+  one done 20 September: a quick frame's lines-on-faces pass is at full
+  quality (the bleed through face edges while orbiting was its coarse
+  sampling; +3 ms on 712 faces, constant in zoom).  What a quick frame
+  still gives up is the fill's one sample a row - `QuickFill` - and that is
+  the part half resolution replaces.  `tools/inkprof` sweeps the knobs.
 * **Components** - a copy of a group that follows its original.  Groups
   are built; `docs/groupplan.md` keeps the room.
 * **Threads**, the remaining stages behind a toggle - `docs/render-acceleration.md`.

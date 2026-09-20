@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Crisper while orbiting.**  While the camera moves the program draws
+  quick frames, and the quick frames used to sample the lines lying on
+  faces coarsely - which is why lines behind a face could bleed through its
+  edges as you turned the model.  Those lines are drawn at full quality
+  now, moving or still; measured at three milliseconds a frame on a
+  700-face drawing.  The faces' edges are still drawn quick while moving;
+  that is the next step.
+
 ## v2026.09.20.7
 
 ### New
