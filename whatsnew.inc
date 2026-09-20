@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A group''s crate snaps.**  The box round a group - its corners, the' + LineEnding +
+    '  middles of its edges, the centers of its sides and its center - are snap' + LineEnding +
+    '  points from outside, the same points SketchUp puts grips on, so a guide' + LineEnding +
+    '  or a line can be set to a locked group''s crate.  A locked group shows its' + LineEnding +
+    '  crate faintly all the time.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The move tool grabbed a guide point instead of the corner it marked.**' + LineEnding +
+    '  It takes the drawing first now, and a guide only when it is on its own.' + LineEnding +
+    '  A guide on its own still moves, as in SketchUp.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

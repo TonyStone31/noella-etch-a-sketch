@@ -1174,6 +1174,7 @@ type
     procedure SelectAddOne(I: Integer);
     procedure SelectRemoveOne(I: Integer);
     function PickAtRaw(SX, SY: Integer): Integer;
+    function PickToGrab(SX, SY: Integer): Integer;
     function SelectedGroups: TIntArrayW;
     function SoleGroup: Integer;
     procedure MakeGroup;
@@ -12232,6 +12233,13 @@ begin
       PaintPartBox(C, GrpBoxes[GI], Pix(70, 130, 240), False, P3(0, 0, 0));
   if FD.Doc.Context <> 0 then
     PaintPartBox(C, FD.Doc.Context, Pix(130, 130, 140), True, P3(0, 0, 0));
+  { and every locked group in reach shows its crate faintly all the time: a
+    locked group is what you draw against, and the crate is what you snap
+    to - its corners, edge middles and centers are in the snap points }
+  for GI := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[GI].Kind = ekPart) and (FD.Doc[GI].Part = FD.Doc.Context) and
+       FD.Doc[GI].Solid and (FD.Doc.TopPartIn(GI) > 0) then
+      PaintPartBox(C, FD.Doc[GI].Grp, Pix(240, 190, 190), True, P3(0, 0, 0));
 
   { the box itself.  Dashed for a crossing box, solid for a containing one,
     which is the only cue telling you which rule is in force. }
@@ -13461,7 +13469,7 @@ begin
         PruneSelection;
         if Length(FSel) = 0 then
         begin
-          I := PickAt(FMouseSX, FMouseSY);
+          I := PickToGrab(FMouseSX, FMouseSY);
           if I < 0 then
           begin
             FCmdMsg := 'Nothing there to move.';
@@ -13504,7 +13512,7 @@ begin
             begin
               if Length(FSel) = 0 then
               begin
-                I := PickAt(FMouseSX, FMouseSY);
+                I := PickToGrab(FMouseSX, FMouseSY);
                 if I < 0 then
                 begin
                   FCmdMsg := 'Nothing there to rotate - pick something first.';
@@ -18907,6 +18915,25 @@ begin
     C.LineTo(Round(P[E[K, 1]].X), Round(P[E[K, 1]].Y));
   end;
   C.Pen.Style := psSolid;
+end;
+
+{ What the move and rotate tools take hold of when nothing is picked yet.
+  PickAt asks the guide point first, and rightly - it sits on the line it
+  measured along, and the select tool and the eraser want the point.  Move
+  is the other way about: a guide point laid on a corner is a mark on that
+  corner, and grabbing the mark instead of the corner is a surprise every
+  time.  So the drawing first, and the point only when it is on its own.
+  A guide on its own still moves - SketchUp: "they can be moved or rotated
+  with the ordinary tools, like anything else". }
+function TMainForm.PickToGrab(SX, SY: Integer): Integer;
+begin
+  Result := FD.Doc.HitNote(SX, SY);
+  if Result < 0 then
+    Result := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale, GUIDE_PICK_PX * FUIScale);
+  if Result < 0 then Result := FD.Doc.HitFace(Proj, SX, SY);
+  if Result < 0 then Result := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
+  if Result < 0 then Result := FD.Doc.HitGuidePoint(Proj, SX, SY, 10 * FUIScale);
+  if (Result >= 0) and (FD.Doc.TopPartIn(Result) < 0) then Result := -1;
 end;
 
 { What a click takes, with the group rules on top of the plain hit.  Inside

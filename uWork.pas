@@ -594,6 +594,8 @@ type
     function PartBounds(Id: Integer; out Lo, Hi: TP3): Boolean;
     { walk the ids again after a load or an undo, so the next one is new }
     procedure RecountParts;
+    { the group's box as snap points - see the body }
+    procedure CrateSnaps(var N: Integer);
     procedure SetContext(Id: Integer);
     function DimIf(I: Integer; const C: TPix): TPix;
     function InkPix(I: Integer): TPix;
@@ -4826,6 +4828,8 @@ begin
   if (Id <> 0) and (PartEnt(Id) < 0) then Id := 0;
   FContext := Id;
   FStamp := Id;
+  { which crates are offered to snap to depends on where you are }
+  FSnapDirty := True;
   FOnFaceOK := False;
   Inc(FEditSeq);
 end;
@@ -8799,8 +8803,74 @@ begin
     as the pieces of a cut line do.  An open arc that nothing crosses has a
     middle of its own. }
   ArcSnaps(N);
+  CrateSnaps(N);
   SetLength(FSnapCache, N);
   FSnapDirty := False;
+end;
+
+{ A group's crate - the box round it - as things to snap to: its eight
+  corners, the middles of its twelve edges, the centers of its six sides
+  and the center of the whole.  SketchUp puts inference grips on exactly
+  those when a group is hovered or picked, and cycles them with Alt; ours
+  are simply there.  Only the groups you could take hold of from where you
+  are - the ones sitting directly in the open context - and locked ones
+  most of all, since a locked group is what you draw against.  From a
+  note, 20 September: "I should be able to set guides to its constraining
+  crate surface and snap to its virtual crate... the centers of the crate
+  should be the snap points." }
+procedure TWorkDoc.CrateSnaps(var N: Integer);
+var
+  I: Integer;
+  Lo, Hi, C: TP3;
+  X: array[0..2] of Double;
+  Y: array[0..2] of Double;
+  Z: array[0..2] of Double;
+  IX, IY, IZ, NX, NY, NZ, Odd: Integer;
+
+  procedure Put(const Q: TP3; Kind: TSnapKind);
+  begin
+    if FSliceOn and ((Q.Z < FSliceLo - 1E-7) or (Q.Z > FSliceHi + 1E-7)) then
+      Exit;
+    if N >= Length(FSnapCache) then SetLength(FSnapCache, Max(32, N * 2));
+    FSnapCache[N].P := Q;
+    FSnapCache[N].Kind := Kind;
+    Inc(N);
+  end;
+
+begin
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind <> ekPart then Continue;
+    if FEnts[I].Part <> FContext then Continue;
+    if not PartBounds(FEnts[I].Grp, Lo, Hi) then Continue;
+    { a flat group has a box with no height; its points are still its
+      points, so nothing below minds }
+    X[0] := Lo.X; X[1] := (Lo.X + Hi.X) / 2; X[2] := Hi.X;
+    Y[0] := Lo.Y; Y[1] := (Lo.Y + Hi.Y) / 2; Y[2] := Hi.Y;
+    Z[0] := Lo.Z; Z[1] := (Lo.Z + Hi.Z) / 2; Z[2] := Hi.Z;
+    { an axis the box has no extent along - a flat group - has one
+      coordinate, not three: walked once, and its middle is not a middle }
+    NX := 2; NY := 2; NZ := 2;
+    if Hi.X - Lo.X < 1E-7 then NX := 0;
+    if Hi.Y - Lo.Y < 1E-7 then NY := 0;
+    if Hi.Z - Lo.Z < 1E-7 then NZ := 0;
+    { the 27 lattice points of the box: how many middle coordinates a point
+      has says what it is - none is a corner, one an edge's middle, two a
+      side's center, three the center }
+    for IX := 0 to NX do
+      for IY := 0 to NY do
+        for IZ := 0 to NZ do
+        begin
+          Odd := Ord(IX = 1) + Ord(IY = 1) + Ord(IZ = 1);
+          C := P3(X[IX], Y[IY], Z[IZ]);
+          case Odd of
+            0: Put(C, snEndpoint);
+            1: Put(C, snMidpoint);
+          else
+            Put(C, snCenter);
+          end;
+        end;
+  end;
 end;
 
 { Everything about an arc's own geometry that the snap cache wants: its

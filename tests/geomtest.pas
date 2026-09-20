@@ -8198,6 +8198,15 @@ end;
   of the rule that lives in uWork: membership, the open context, the two
   ways geometry in different groups must leave each other alone, the file
   round trip, and copying. }
+{ does the snap find P, from a cursor put right on it }
+function SnapsTo(D: TWorkDoc; const V: TProjector; const P: TP3; out Hit: TSnapHit): Boolean;
+var
+  Q: TPointF;
+begin
+  Q := Project(V, P);
+  Result := D.BestSnap(V, Q.X, Q.Y, 6, Hit) and (Dist(Hit.P, P) < 1E-6);
+end;
+
 procedure TestGroups;
 var
   D, B: TWorkDoc;
@@ -8206,6 +8215,8 @@ var
   M: TIntArrayW;
   Pts: TP3Array;
   Lo, Hi: TP3;
+  V: TProjector;
+  Hit: TSnapHit;
 begin
   WriteLn('groups');
   D := TWorkDoc.Create;
@@ -8308,6 +8319,27 @@ begin
   finally
     L.Free;
     B.Free;
+    D.Free;
+  end;
+
+  { --- the crate: a group's box is something to snap to -------------------
+        Two squares apart, grouped, so the box round them has a center and
+        an edge middle where there is no geometry at all. }
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 4, 4);
+    MakeRect(D, 10, 0, 14, 4);
+    G := D.NewPart('Two', 0);
+    for I := 0 to D.Live - 2 do D.SetPart(I, G);
+    V.Kind := vkPlan; V.Ppu := 20; V.OX := 400; V.OY := 300; V.Az := 0; V.El := 0;
+    Ok(SnapsTo(D, V, P3(7, 2, 0), Hit) and (Hit.Kind = snCenter),
+      'the crate''s center snaps, as a center');
+    Ok(SnapsTo(D, V, P3(7, 0, 0), Hit) and (Hit.Kind = snMidpoint),
+      'the middle of a crate edge snaps, as a middle');
+    Ok(SnapsTo(D, V, P3(7, 4, 4), Hit) = False, 'a flat group''s crate has no height to snap above');
+    D.Context := G;
+    Ok(not SnapsTo(D, V, P3(7, 2, 0), Hit), 'inside the group, its own crate is not offered');
+  finally
     D.Free;
   end;
 end;

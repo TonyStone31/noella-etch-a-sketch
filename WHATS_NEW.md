@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A group's crate snaps.**  The box round a group - its corners, the
+  middles of its edges, the centers of its sides and its center - are snap
+  points from outside, the same points SketchUp puts grips on, so a guide
+  or a line can be set to a locked group's crate.  A locked group shows its
+  crate faintly all the time.
+
+### Fixed
+
+- **The move tool grabbed a guide point instead of the corner it marked.**
+  It takes the drawing first now, and a guide only when it is on its own.
+  A guide on its own still moves, as in SketchUp.
+
 ## v2026.09.20.3
 
 ### Fixed

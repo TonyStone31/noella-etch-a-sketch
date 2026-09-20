@@ -99,5 +99,12 @@ right button's *Make Group*):
   closed group is refused from outside, as in SketchUp; a dimension across
   a group's edge from outside is allowed.
 
+* the crate's grips (*Moving Entities*: "inference icons at the corners of
+  the component/group's bounding box", Alt cycling "corners, midpoints,
+  side centers, or the center") are snap points here, all of them at
+  once, for every group directly in the open context; a locked group's
+  crate is drawn faintly all the time.
+
 **Not built:** the Outliner; hiding a group; SketchUp's inference
-"On Face in Group" wording (ours says On Face); scaling a group as a whole.
+"On Face in Group" wording (ours says On Face); scaling a group as a whole;
+Alt cycling which grips show - all of them are offered.
