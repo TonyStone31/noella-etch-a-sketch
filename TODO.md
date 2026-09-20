@@ -23,7 +23,9 @@ finished, its note moves down there and anything left over goes into
 
 ## Open, 20 September 2026
 
-Everything still to do, in one place, one line each.  The write-ups the
+Everything still to do, in one place, one line each.  (Three reports of
+19-20 September answered the same day: the invisible drawing, the eraser
+taking guide points, the sealing stage - see the release notes.)  The write-ups the
 lines point at stay where they are, below; this list is what gets edited
 when something is done.  Bugs first, then the small things, then the big.
 
@@ -38,6 +40,11 @@ when something is done.  Bugs first, then the small things, then the big.
   holding the same face twice (grp 3, faces 748 and 37 in the 19
   September sheet) - a push/pull or rigid-move fault, worth `/holes` on
   that sheet.  See *Faces piling up in stacks*.
+* **Why a handed-over camera was zoomed out to nothing** (20 September, the
+  all-in-one, a touchscreen: `touch seen=on`).  The restore now frames a
+  camera that shows nothing, so it cannot strand anyone again, but what
+  drove the zoom to 0.002 in the version before is not known.  The glide is
+  clamped now; the pinch is the next suspect.
 * **The eraser once drew a dimension off a guide point** (15 September),
   and "a couple times while trying to erase the yellow guide" (17
   September) - unexplained, needs a session that catches it.

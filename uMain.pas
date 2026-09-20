@@ -1278,6 +1278,7 @@ type
     function InkUnder(const R: TRect): Integer;
     function TipSpot(SX, SY, BoxW, BoxH: Integer): TRect;
     procedure SetOriginHere;
+    function CameraShowsSomething: Boolean;
     procedure ZoomAt(Factor: Double; AnchorSX, AnchorSY: Double);
     procedure SetScaleIdx(I: Integer);
     procedure PanBy(DX, DY: Double);
@@ -5322,6 +5323,39 @@ end;
 { ======================================================================== }
 { view: zoom, pan, origin                                                   }
 { ======================================================================== }
+
+{ Would the camera as it stands show any of the drawing?  Asked of a camera
+  read back from a file or a handoff before it is trusted: the drawing's
+  bounds, projected, have to land somewhere near the paper and be more than
+  a few pixels across.  An empty sheet shows everything there is. }
+function TMainForm.CameraShowsSomething: Boolean;
+var
+  Lo, Hi, C: TP3;
+  P: TPointF;
+  K: Integer;
+  MinX, MinY, MaxX, MaxY, Margin: Double;
+begin
+  Result := True;
+  if FD.Zoom <= ZOOM_MIN * 1.01 then Exit(False);
+  if not FD.Doc.Bounds(Lo, Hi) then Exit;
+  MinX := 1E30; MinY := 1E30; MaxX := -1E30; MaxY := -1E30;
+  for K := 0 to 7 do
+  begin
+    C := P3(IfThen(K and 1 = 0, Lo.X, Hi.X), IfThen(K and 2 = 0, Lo.Y, Hi.Y),
+            IfThen(K and 4 = 0, Lo.Z, Hi.Z));
+    P := Project(Proj, C);
+    if IsNan(P.X) or IsNan(P.Y) or IsInfinite(P.X) or IsInfinite(P.Y) then Exit(False);
+    MinX := Min(MinX, P.X); MaxX := Max(MaxX, P.X);
+    MinY := Min(MinY, P.Y); MaxY := Max(MaxY, P.Y);
+  end;
+  { smaller than a fingertip: zoomed out to nothing }
+  if Max(MaxX - MinX, MaxY - MinY) < 6 then Exit(False);
+  { or panned right off - a few screens away is still findable by hand,
+    further than that is not }
+  Margin := 3 * Max(FArt.Width, FArt.Height);
+  if (MaxX < -Margin) or (MaxY < -Margin) or
+     (MinX > FArt.Width + Margin) or (MinY > FArt.Height + Margin) then Exit(False);
+end;
 
 procedure TMainForm.ZoomAt(Factor: Double; AnchorSX, AnchorSY: Double);
 var
@@ -10611,6 +10645,10 @@ begin
       Format('%s of text: what you wrote, the state of the program%s.',
         [FormatFloat('0.0', Length(Body) / 1024) + ' KB',
          IfThen(Pos('the drawing, sent on purpose', Body) > 0, ', and the drawing', '')]), 15);
+    { the pause on each stage is on purpose - see above - and this one is
+      the stage nobody could see: the sealing happens inside SendReport }
+    Sending.Stage('Sealing the report',
+      'Encrypted before it leaves, to a key only we hold.', 28);
     Sending.Stage('Sending the report', Name_, 40);
     if SendReport(Name_, Body, Err) then
     begin
@@ -16635,6 +16673,8 @@ begin
       if FHoverEnt < 0 then
         { the eraser keeps its full reach on a guide: rubbing one out is
           what the eraser is for, and nothing else is lost by taking it }
+        FHoverEnt := FD.Doc.HitGuidePoint(Proj, X, Y, 10 * FUIScale);
+      if FHoverEnt < 0 then
         FHoverEnt := FD.Doc.HitEdge(Proj, X, Y, 9 * FUIScale);
       if FHoverEnt < 0 then
         FHoverEnt := FD.Doc.HitTest(Proj, X, Y, 9 * FUIScale);
@@ -18951,6 +18991,12 @@ begin
     drawn over the top, so it is what the cursor is on.  Rubbing out a note
     used to take the panel behind it instead, which is a poor trade. }
   I := FD.Doc.HitNote(SX, SY);
+  { A guide point before the edges, the way PickAt asks: a point nearly
+    always sits on the guide line it was measured along, and asking the
+    line first took the line - and with it, by the rule in PointsOnGuides,
+    every point on it.  From a note, 19 September: "i placed three guide
+    points... erased the first one.  it erased the second and third one." }
+  if I < 0 then I := FD.Doc.HitGuidePoint(Proj, SX, SY, 10 * FUIScale);
   if I < 0 then I := FD.Doc.HitEdge(Proj, SX, SY, 9 * FUIScale);
   if I < 0 then I := FD.Doc.HitTest(Proj, SX, SY, 9 * FUIScale);
   if I < 0 then
@@ -22169,6 +22215,10 @@ begin
       NewOX := FGlideOX1;
       NewOY := FGlideOY1;
     end;
+    { through a local and clamped by hand - see the notes on FitView and
+      ServiceMotion about this field and -O3 }
+    if NewZ < ZOOM_MIN then NewZ := ZOOM_MIN;
+    if NewZ > ZOOM_MAX then NewZ := ZOOM_MAX;
     FD.Zoom := NewZ;
     FD.ViewX := NewOX;
     FD.ViewY := NewOY;
@@ -23233,7 +23283,7 @@ begin
       was left, and the next save wrote the fit back as though that had been
       the view all along.  Older files carry no CAMERA line and still get
       framed, which is the right thing for them. }
-    if FD.CamKnown then
+    if FD.CamKnown and CameraShowsSomething then
     begin
       { the drawing still has to be put on the paper - framing it was doing
         that as a side effect, and skipping the framing skipped the render }
@@ -23244,8 +23294,18 @@ begin
       Invalidate;
     end
     else
-      { another sheet is another drawing - nothing to keep your place in }
+    begin
+      { another sheet is another drawing - nothing to keep your place in.
+        And a saved camera that shows none of the drawing is not a place
+        worth keeping either: a report of 20 September opened on a sheet
+        handed over from the last version zoomed out to the smallest the
+        program allows - "nothing was visible in this drawing until i
+        switched the view" - and rebuilding, refacing and everything short
+        of changing the view left it that way. }
+      if FD.CamKnown then
+        Trail('the saved camera showed none of the drawing - framed instead');
       FitView(False);
+    end;
     LayoutTabs;
     RefreshChrome;
     if FLoadSkipped then

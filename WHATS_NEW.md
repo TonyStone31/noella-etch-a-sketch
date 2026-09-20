@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A drawing that opened showing nothing.**  A sheet handed over from the
+  last version came back with its camera zoomed out to the smallest the
+  program allows, so there was nothing on the paper until the view was
+  changed.  A saved view that shows none of the drawing is framed instead
+  now, and says so in a report.
+- **Erasing a guide point took the points beside it.**  The eraser asked
+  the guide line first, the point sits on its line, and rubbing out the
+  line takes every point on it.  It asks the point first now, the way the
+  select tool does.
+- **The report window says the report is being sealed** - the pause was
+  there, the words were not.
+
 ## v2026.09.20.2
 
 ### Fixed
