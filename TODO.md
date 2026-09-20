@@ -4835,3 +4835,50 @@ guessed at:
   possible from it, just not attempted in this pass.
 
 geomtest 1206, region 91, commands, drive 31 - green before this shipped.
+
+## Reverse will not turn two faces over - 19 September, not chased
+
+The first report to arrive sealed, and it carries a real fault rather than a
+test: "I am unable to reverse these 2 faces i just tried.  still a bad bug
+there."  v2026.09.19.2, the broom sheet, 820 things / 333 faces / 16 solids,
+`selected: face=1` at the moment it was sent, `repairs=0`.  The drawing, the
+screenshot and the replay script all came with it.
+
+"Still" says this is not its first sighting, which makes it worse than it
+looks: **Reverse is the documented escape hatch for the whole
+which-way-does-a-loose-face-point problem** - see the note above on the barn
+ends and the roof steeper than 45 degrees, and the offset/ring-lining fixes
+that end "walls already in a drawing stay as they are: Reverse fixes them."
+If Reverse itself does not work, every one of those has no answer at all.
+
+What the code says, read but not yet run:
+
+* `ReverseSelectedFaces` does loop the whole selection, so this is **not**
+  the obvious "it only does the first one" - it walks `FSel`, takes every
+  `ekFace`, and counts what it turned.  The `/reverse` path pushes undo
+  first and reports the count back.
+* `TWorkDoc.ReverseFace` flips the outline and every hole with it, resets
+  `A`/`B`, clears `FOnFaceOK` and bumps `FEditSeq`.  That looks right.
+* `/reverse` does **not** call `RebuildFlatFaces`, so the flip is not undone
+  on the spot.
+
+So the three things worth checking, in this order, none of them confirmed:
+
+1. **Does the next rebuild put it back?**  `RebuildFlatFaces` ends with
+   `OrientLooseShells`, which re-guesses the winding of *loose* faces from
+   their neighbors.  A manual Reverse carries no mark saying a person chose
+   this, so the next edit that triggers a rebuild is free to overturn it.
+   That would read exactly as "I cannot reverse it" - it turns, then turns
+   back the moment anything else is drawn.  Faces owned by a built solid are
+   kept as made and would be immune, which is testable: this sheet has both.
+2. **Was anything actually selected?**  The report says one face picked,
+   while the note says two.  If the second face could not be picked, the
+   fault is in selection, not in Reverse, and `N` came back 1 or 0 with the
+   message saying so.
+3. **Did it turn and not look turned?**  Every fill in the program is
+   even-odd and nothing reads hole winding, so a face whose front and back
+   colors resolve the same way would flip invisibly.
+
+The reproduction is unusually well-equipped - the `.hsk`, the screenshot
+showing which two faces, and a `/replay` script - so this should be chased
+from the drawing rather than from first principles.  Next session.
