@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A drawing that opened showing nothing.**  A sheet handed over from the' + LineEnding +
+    '  last version came back with its camera zoomed out to the smallest the' + LineEnding +
+    '  program allows, so there was nothing on the paper until the view was' + LineEnding +
+    '  changed.  A saved view that shows none of the drawing is framed instead' + LineEnding +
+    '  now, and says so in a report.' + LineEnding +
+    '- **Erasing a guide point took the points beside it.**  The eraser asked' + LineEnding +
+    '  the guide line first, the point sits on its line, and rubbing out the' + LineEnding +
+    '  line takes every point on it.  It asks the point first now, the way the' + LineEnding +
+    '  select tool does.' + LineEnding +
+    '- **The report window says the report is being sealed** - the pause was' + LineEnding +
+    '  there, the words were not.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
