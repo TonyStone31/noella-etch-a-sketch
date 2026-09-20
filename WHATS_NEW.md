@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The report window's summary is a page of its own** - drawn by LazInk
+  from a line of Markdown for each thing that went, the label and the
+  verdict in bold, so a long file name wraps instead of running off.
+
 ## v2026.09.20.5
 
 ### New
