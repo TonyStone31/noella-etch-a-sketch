@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.8' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Crisper while orbiting.**  While the camera moves the program draws' + LineEnding +
+    '  quick frames, and the quick frames used to sample the lines lying on' + LineEnding +
+    '  faces coarsely - which is why lines behind a face could bleed through its' + LineEnding +
+    '  edges as you turned the model.  Those lines are drawn at full quality' + LineEnding +
+    '  now, moving or still; measured at three milliseconds a frame on a' + LineEnding +
+    '  700-face drawing.  The faces'' edges are still drawn quick while moving;' + LineEnding +
+    '  that is the next step.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
