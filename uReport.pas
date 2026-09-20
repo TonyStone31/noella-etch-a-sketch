@@ -65,6 +65,11 @@ procedure RememberEndpoint(const E: TEndpoint);
   expired, locked, full, never existed - is worth exactly one more attempt
   after asking GitHub again, because that is precisely the case the whole
   arrangement exists to handle.  Anything else is taken at its word. }
+{ how many bytes the last report became once sealed - for the summary the
+  send window shows, so the sealing can be seen to have happened }
+var
+  LastSealedBytes: Integer = 0;
+
 function SendReport(const FileName, Body: string; out Err: string): Boolean;
 
 { The same, for something that is not text - a picture of the screen. }
@@ -202,6 +207,7 @@ begin
     Data.ReadBuffer(Plain[0], Data.Size);
   end;
   Sealed := EncryptReportBytes(Plain);
+  LastSealedBytes := Length(Sealed);
   if Sealed = nil then
   begin
     { encryption failing is exactly as sendable as a network failing - see

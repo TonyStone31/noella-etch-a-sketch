@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The report window stays until you close it, and says what went.**  A
+  line for the report and its size, whether the drawing was in it, how big
+  it became once sealed, the picture, and whether each of them arrived - or
+  why not.  It used to close itself the moment the report had gone.  The
+  sealing stage also holds long enough to read: the report is encrypted to
+  a key only we hold before it leaves your machine, and that is worth a
+  moment on the screen.
+
 ## v2026.09.20.4
 
 ### New

@@ -48,6 +48,18 @@ when something is done.  Bugs first, then the small things, then the big.
 * **The eraser once drew a dimension off a guide point** (15 September),
   and "a couple times while trying to erase the yellow guide" (17
   September) - unexplained, needs a session that catches it.
+* **A drill undone leaves its hole** (20 September, the robot).  The body's
+  back face still carries the tunnel's opening as a hole, and a loose face
+  lies over the opening, after the drill that made it was undone and the
+  bore record is gone; the mouth report's "left over faces sticking out" is
+  the same session and very likely the same thing.  Both drawings are in
+  `reports/2026-09-20/` (120857 and 121237, sheet "Robot").  Undo restores
+  the entities; what is not coming back is whatever the rebuild does with a
+  face whose hole outlives its tunnel.
+* **Push/pull into the robot's back stopped at an inch** (same report).
+  `BoreLimit` stops a push where it would run into a tunnel already through
+  the solid; at that moment there was none in the file.  Not reproduced;
+  wants the drawing and the press at (0'-1 5/16", 0'-5 3/4", 3'-10 3/8").
 * **Typed resize by a dimension**: an arc only partly past the moving
   plane comes out wrong, nothing between the ends stretches, and there is
   no handle to drag.
