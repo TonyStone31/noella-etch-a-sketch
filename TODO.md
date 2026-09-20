@@ -74,39 +74,41 @@ when something is done.  Bugs first, then the small things, then the big.
   just-built part only.  A product call: SketchUp keeps the selection live
   for a follow-up move; the reporter was not sure either.
 
-### Next, agreed 20 September: the SketchUp look
+### The SketchUp look - lighting done 20 September, the rest measured
 
-Before anything else on the list.  From a note: "I did want to have better
-lighting effect like SketchUp seems to have... I don't think I'm
-necessarily looking for shadows... I think part of why their models look
-better is they 'cast a light' which gives better definition to see
-distance and stuff... They also still have finer crisper lines."  He is
-right on both, and it is two things, neither of them shadows.  The step
-before either is to look: he is bringing SketchUp screenshots to set
-beside ours, and the list below is what to check them against - it may be
-missing something, and that is what the pictures are for.
+Set side by side on one screen, the same two towers in each, and measured
+pixel by pixel.  What the pictures said:
 
-* **Sun shading.**  SketchUp shades every face by its angle to the sun
-  ("Use sun for shading", which works with shadows off) over a wide range -
-  their Light and Dark sliders default to 80 and 45.  Ours is a fixed lamp
-  and a narrow spread: top, front and side land at about 1.0, 0.90 and
-  0.80 of the material (`ShadePix`, and `Lamp` in Render).  Widening that
-  spread is most of what reads as depth.  A sun position rather than a
-  fixed lamp, so that turning the model changes which faces are lit, is
-  the other half.
-* **Profiles.**  Their default style draws silhouette edges - between a
-  front-facing face and a back-facing one, and where the model meets the
-  background - about twice as thick as interior edges, which are
-  hairlines.  Ours draws every edge the same weight.  Thinner interior
-  edges, a heavier outline: this is "finer crisper lines".  The edge index
-  Render already builds (`EdgeIx`, how many visible faces along each edge)
-  knows which edges are outlines.
-* **Anti-aliasing.**  Theirs is OpenGL multisampled; ours draws lines
-  anti-aliased already and fills at four samples a row.  Worth confirming
-  on the pictures rather than assuming.
-* **Edge color.**  SketchUp's default edges are pure black on faces a
-  little off white; ours carry a hint of the pen.  Small, and easy to
-  compare.
+* **The lamp (done).**  Theirs rides on the camera: the same top face read
+  154, 177 and 182 in three of their views, so it is not a sun.  The face
+  turned to the eye is pure white (255), faces turned away about 72
+  percent (182-185), against a ground of 204.  Ours was a lamp fixed in
+  the world with top, front and side at 231, 208 and 185 from every angle.
+  Now: the lamp is on the camera, a little up and to the left
+  (`LAMP_UP`, `LAMP_LEFT`, so the standard isometric still gets three
+  tones), ambient 0.45 and diffuse 0.80 - their own Dark and Light
+  defaults - and the sum is allowed past one so a face turned to the lamp
+  burns out to the full material.  Isometric now reads 243 / 213 / 163.
+* **The ground.**  Theirs is mid gray (204, 204, 201), so a lit face is
+  the brightest thing on the screen and a shaded one is darker than the
+  ground: the model stands off it both ways.  Our paper is 248, brighter
+  than every face but a burned-out one.  Not changed - the paper is a theme
+  matter - but it is the other half of why theirs pops, and a gray-ground
+  theme would be the way to try it.
+* **Profiles.**  Already here, as it turns out: our outline edges are two
+  pixels and interior ones are one, as theirs are.  The difference is the
+  ink.  Their outline is two pixels of pure black with no fringe
+  (203, 0, 0, 255 across the edge); ours is 217, 28, 42, 207 - a soft
+  pixel beside it and not quite black.  Their interior edge is a soft
+  hairline (64 then 139); ours is 178 then 49.  Black ink for the default
+  pen and a harder outline would close it.
+* **The hovered face.**  Theirs is single blue dots (0, 5, 248) on a
+  four-pixel grid over the untouched face, and only the face - its edges
+  are left alone.  Ours is a wash (`PaintFaceHint`, `HINT_BLUE`) and the
+  edges are traced as well (`TraceOutlineVisible`).  Asked for 20
+  September.
+* **Back faces.**  Theirs a flat pale blue (185, 199, 208), lit like any
+  other face.  Ours already does this.
 
 ### Small
 

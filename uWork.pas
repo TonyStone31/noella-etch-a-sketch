@@ -1184,6 +1184,15 @@ const
     why their models read better than a drawing where every face is the same
     white. }
   FACE_BACK: TPix = (B: $DC; G: $C4; R: $A8; A: 255);
+  { The lamp.  Ambient and diffuse are SketchUp's own default dark and light
+    settings, 45 and 80, and they agree with what was measured off its
+    screen: a face turned well away from the eye comes out near 72 percent,
+    and one turned within about 45 degrees of the lamp is the full material -
+    white, for a face nobody has painted. }
+  LAMP_AMBIENT = 0.45;
+  LAMP_DIFFUSE = 0.80;
+  LAMP_UP      = 0.25;
+  LAMP_LEFT    = 0.20;
   { A guide point, in amber.  Deliberately placed and deliberately findable. }
   GUIDE_POINT: TPix = (B: $10; G: $B0; R: $F0; A: 255);
   { how finely a line lying on a face is chopped up when working out which
@@ -12109,7 +12118,24 @@ begin
   SetLength(Depth, FLive);
   SetLength(Area, FLive);
   Look := ViewDir(V);
-  Lamp := Norm3(P3(0.35, -0.55, 0.75));
+  { The lamp rides on the camera, a little above it and to its left.
+
+    It used to hang at a fixed point in the world, and measured against
+    SketchUp on 20 September that was the whole difference in how solid a
+    thing looks.  Theirs gave two towers a white front and sides at 72
+    percent of it; ours gave 0.90 and 0.80, the same from every angle, so a
+    face never brightened as it was turned towards the eye.  A lamp that
+    moves with the camera means the face being looked at is the lit one,
+    whatever it is, and turning the model is what shows its shape.
+
+    Dead on the camera would give the three faces of a box in the standard
+    isometric exactly the same tone, since all three are turned the same
+    amount from the eye.  The offset is what keeps top, left and right
+    apart there. }
+  Lamp := Norm3(P3(
+    Look.X + ViewUp(V).X * LAMP_UP - ViewRight(V).X * LAMP_LEFT,
+    Look.Y + ViewUp(V).Y * LAMP_UP - ViewRight(V).Y * LAMP_LEFT,
+    Look.Z + ViewUp(V).Z * LAMP_UP - ViewRight(V).Z * LAMP_LEFT));
   for I := 0 to FLive - 1 do
     if (FEnts[I].Kind = ekFace) and (Length(FEnts[I].Poly) >= 3) and
        InSlice(I) and
@@ -12236,8 +12262,8 @@ begin
       side of a box from another and keeps its edges to a hairline; ours had
       the faces within a few percent of each other and made the edges do all
       the work, which is why a box looked like it had been outlined in marker.
-      Top, front and side now land near 1.0, 0.90 and 0.80 of the material -
-      close to SketchUp's own default style. }
+      That was a fixed lamp at 1.0, 0.90 and 0.80 of the material; the lamp
+      has since moved onto the camera - see where Lamp is set. }
     { The plane this face lies in, in screen terms: depth as a flat function
       of x and y, which is all a parallel projection ever gives.  Three
       projected corners and their depths solve it. }
@@ -12368,7 +12394,15 @@ begin
     if ZOK then S.DepthPlane(ZA, ZB, ZC)
     else S.DepthPlane(0, 0, -1E30);
 
-    Sh := Min(1, 0.62 + 0.50 * Abs(Dot3(Nm, Lamp)));
+    { Ambient plus what the lamp adds, and the two together come to more
+      than one on purpose: a face turned nearly square to the lamp burns out
+      to the full material - white, for an unpainted one - and ShadePix
+      clips it there.  The normal is taken on the side the eye is on, so a
+      face seen from behind is lit as the surface being looked at. }
+    if Dot3(Nm, Look) < 0 then
+      Sh := LAMP_AMBIENT + LAMP_DIFFUSE * Max(0, -Dot3(Nm, Lamp))
+    else
+      Sh := LAMP_AMBIENT + LAMP_DIFFUSE * Max(0, Dot3(Nm, Lamp));
     { A plan is a drawing, not a photograph taken from above, so the light
       goes out.
 

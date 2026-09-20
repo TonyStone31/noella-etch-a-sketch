@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Light that follows your eye.**  The lamp used to hang in one place, so
+  the top, front and side of a box were the same three grays from every
+  angle.  It now rides with the camera, the way SketchUp's does: the face
+  you turn towards you brightens to white, the ones turned away fall off
+  to a proper gray, and orbiting a model is what shows its shape.  Plans
+  stay flat, as before.
+
 ## v2026.09.20.9
 
 ### New

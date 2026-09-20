@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Light that follows your eye.**  The lamp used to hang in one place, so' + LineEnding +
+    '  the top, front and side of a box were the same three grays from every' + LineEnding +
+    '  angle.  It now rides with the camera, the way SketchUp''s does: the face' + LineEnding +
+    '  you turn towards you brightens to white, the ones turned away fall off' + LineEnding +
+    '  to a proper gray, and orbiting a model is what shows its shape.  Plans' + LineEnding +
+    '  stay flat, as before.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.9' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
