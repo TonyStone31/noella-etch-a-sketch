@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A rectangle traced round an opening heals it.**  Rub the top off a box
+  and draw a rectangle over where it was, and the top is back - the way
+  redrawing an edge with the line tool has put a face back since
+  September 15.  Only the line tool knew the trick; the rectangle drew four
+  lines onto edges that were already there and no face came.  From the
+  report of 19 September.
+- **A face healed back onto a box faced into it**, and showed blue.  It
+  faces out now.
+
 ## v2026.09.20.1
 
 ### New
