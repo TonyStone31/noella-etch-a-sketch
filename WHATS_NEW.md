@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Half resolution while the camera moves, when it pays.**  Zoomed in on
+  a big drawing, most of a frame goes into painting the faces, pixel by
+  pixel.  While you orbit, pan or zoom, the faces are now painted at half
+  size and blown up - the lines on them still drawn at full size and
+  crisp - whenever the first moving frame came in slow; the moment the
+  camera settles the frame is drawn in full.  Measured at twice the speed
+  zoomed in, and it stays out of the way when the drawing is small.
+
 ## v2026.09.20.8
 
 ### Fixed

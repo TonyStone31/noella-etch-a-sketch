@@ -195,6 +195,11 @@ type
     sheet snaps to nothing at all, the tape cannot be started off the red
     line, and the one point in the model everybody knows the coordinates of
     cannot be landed on. }
+  { Which half of a frame Render is drawing - see the note at the top of
+    its body.  rpAll is a whole frame; the other two are the halves of a
+    half-resolution frame, and nothing outside Render asks for them. }
+  TRenderPhase = (rpAll, rpFaces, rpLines);
+
   TSnapKind = (snNone, snGrid, snEndpoint, snMidpoint, snCenter, snCross,
     snSubMid, snOnEdge, snOnAxis, snOrigin, snOnFace, snQuadrant);
 
@@ -746,7 +751,8 @@ type
       class of mismatch: geometry made by push/pull no longer has to guess
       what pen the outline it grew from was drawn with. }
     procedure Render(S: TArtSurface; const V: TProjector;
-      U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
+      U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
+      Half: TArtSurface = nil; Phase: TRenderPhase = rpAll);
 
     { the document, as plain text - one line per entity }
     procedure SaveTo(L: TStrings);
@@ -11562,8 +11568,10 @@ begin
 end;
 
 procedure TWorkDoc.Render(S: TArtSurface; const V: TProjector;
-  U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single);
+  U: TUnitSystem; AFont: TFont; const LabelCol: TPix; EdgeW: Single;
+  Half: TArtSurface; Phase: TRenderPhase);
 var
+  VH: TProjector;
   LSteps, Bisect: Integer;
   DG: TDimGeom;
   DA, DB: TP3;
@@ -11945,6 +11953,35 @@ var
   end;
 
 begin
+  { A half-resolution frame, while the camera moves.
+
+    What costs while zoomed in is the fill - every face painted into the
+    depth buffer, pixel by pixel - and it scales with the pixels.  The
+    lines do not: they are sampled per line, and drawing them at half
+    resolution would only make them soft.  So a quick frame is drawn in two
+    halves: the edges and the faces into a surface half the size, with a
+    camera at half the scale; that picture and its depth buffer blown up
+    two to one into the real surface; then the lines that lie on faces,
+    the dashed ones, the guides and the notes drawn on top at full size,
+    against the blown-up depth.  Faces come out soft-edged for as long as
+    the camera moves, and the lines stay crisp.
+
+    Measured on the 712-face robot: a quick frame 12 ms with the fill at
+    one sample a row, and see tools/inkprof for what this one costs. }
+  if (Half <> nil) and Quick and (Phase = rpAll) then
+  begin
+    Half.SetSize((S.Width + 1) div 2, (S.Height + 1) div 2);
+    Half.ClearTransparent;
+    Half.QuickFill := S.QuickFill;
+    VH := V;
+    VH.Ppu := V.Ppu / 2;
+    VH.OX := V.OX / 2;
+    VH.OY := V.OY / 2;
+    Render(Half, VH, U, AFont, LabelCol, EdgeW, nil, rpFaces);
+    S.ScaleUp2From(Half);
+    Phase := rpLines;
+  end;
+
   S.BlendMode := bmNormal;
   GuideCol := MixPix(LabelCol, Pix(120, 90, 190), 0.55);
 
@@ -11977,6 +12014,9 @@ begin
       end;
     end;
 
+  { the second half of a half-resolution frame has the edges already, blown
+    up from the first half; it draws only what lies on faces }
+  if Phase <> rpLines then
   for I := 0 to FLive - 1 do
   begin
     { Out of the slice is out of the drawing.  Said in every pass, because
@@ -12160,7 +12200,10 @@ begin
     for I := 0 to NFace - 1 do AllFaces[I] := Order[I];
     Inc(OnFaceFallbacks);
   end;
-  S.DepthBegin;
+  { and the faces likewise: painted in the first half, their depth blown
+    up with them, so the second half must not begin a fresh depth pass }
+  if Phase <> rpLines then S.DepthBegin;
+  if Phase <> rpLines then
   for I := 0 to NFace - 1 do
   begin
     K := Order[I];
@@ -12515,6 +12558,9 @@ begin
       they were made of. }
   end;
 
+  { the first half of a half-resolution frame stops here; the rest is
+    drawn at full size on the other surface }
+  if Phase = rpFaces then Exit;
 
   Mark(2);
   { --- lines that live on a visible face -------------------------------

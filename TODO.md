@@ -102,14 +102,17 @@ when something is done.  Bugs first, then the small things, then the big.
 
 ### Big
 
-* **Half resolution while the camera moves**, full again when it settles -
-  the answer to "shaking while zoomed" on a big drawing.  Measured, not
-  built; it touches the four surfaces that have come apart before.  Step
-  one done 20 September: a quick frame's lines-on-faces pass is at full
-  quality (the bleed through face edges while orbiting was its coarse
-  sampling; +3 ms on 712 faces, constant in zoom).  What a quick frame
-  still gives up is the fill's one sample a row - `QuickFill` - and that is
-  the part half resolution replaces.  `tools/inkprof` sweeps the knobs.
+* **Half resolution while the camera moves** - built 20 September, and
+  adaptive: the faces at half size with their depth blown up two to one,
+  the lines on them at full size (TWorkDoc.Render's two phases,
+  TArtSurface.ScaleUp2From); switched on by a moving frame over 25 ms,
+  off when the camera settles.  Measured on the 712-face robot zoomed in
+  four times: still 13 ms, quick 9, half 6; at the whole-model framing
+  half loses a millisecond, which is why it is adaptive.  Left: the
+  edges drawn whole (loose lines, silhouettes seen against the paper) are
+  in the half-size half and come up soft while moving; drawing those at
+  full size wants a depth test on the line, which the lines-on-faces pass
+  has and the edges pass does not.
 * **Components** - a copy of a group that follows its original.  Groups
   are built; `docs/groupplan.md` keeps the room.
 * **Threads**, the remaining stages behind a toggle - `docs/render-acceleration.md`.

@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Half resolution while the camera moves, when it pays.**  Zoomed in on' + LineEnding +
+    '  a big drawing, most of a frame goes into painting the faces, pixel by' + LineEnding +
+    '  pixel.  While you orbit, pan or zoom, the faces are now painted at half' + LineEnding +
+    '  size and blown up - the lines on them still drawn at full size and' + LineEnding +
+    '  crisp - whenever the first moving frame came in slow; the moment the' + LineEnding +
+    '  camera settles the frame is drawn in full.  Measured at twice the speed' + LineEnding +
+    '  zoomed in, and it stays out of the way when the drawing is small.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.8' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

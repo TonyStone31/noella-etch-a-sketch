@@ -217,6 +217,10 @@ type
     { --- transfer -------------------------------------------------------- }
     procedure CopyFrom(Src: TArtSurface; DX, DY: Integer);
     procedure CopyRegion(Src: TArtSurface; SrcX, SrcY, DX, DY, W, H: Integer);
+    { this surface filled from one half its size, each of its pixels four
+      of ours, and the depth buffer with it - a half-resolution frame's
+      first half blown up for its second.  See TWorkDoc.Render. }
+    procedure ScaleUp2From(H: TArtSurface);
     procedure Snapshot(out Buf: TBytes);
     procedure Restore(const Buf: TBytes);
     procedure DrawTo(ACanvas: TCanvas; X, Y: Integer);
@@ -1842,6 +1846,55 @@ begin
       Inc(S);
       Inc(D);
     end;
+  end;
+  MarkAllDirty;
+  Invalidate;
+end;
+
+procedure TArtSurface.ScaleUp2From(H: TArtSurface);
+var
+  X, Y, HW, HH: Integer;
+  Src, Dst: PPix;
+  ZRow: Integer;
+begin
+  if H = nil then Exit;
+  Verify;
+  H.Verify;
+  HW := H.Width;
+  HH := H.Height;
+  if (HW <= 0) or (HH <= 0) or (FWidth <= 0) or (FHeight <= 0) then Exit;
+  { two pixels a step, the odd last column on its own; a row of the small
+    picture serves two rows here }
+  for Y := 0 to FHeight - 1 do
+  begin
+    Src := H.ScanLine(Min(HH - 1, Y div 2));
+    Dst := ScanLine(Y);
+    for X := 0 to HW - 2 do
+    begin
+      Dst[2 * X] := Src[X];
+      Dst[2 * X + 1] := Src[X];
+    end;
+    for X := 2 * (HW - 1) to FWidth - 1 do Dst[X] := Src[HW - 1];
+  end;
+  { the depth with it, so what is drawn on top can still ask what is in
+    front: a pixel's depth is its quarter's }
+  if Length(H.FZ) = HW * HH then
+  begin
+    if Length(FZ) <> FWidth * FHeight then SetLength(FZ, FWidth * FHeight);
+    for Y := 0 to FHeight - 1 do
+    begin
+      ZRow := Min(HH - 1, Y div 2) * HW;
+      for X := 0 to HW - 2 do
+      begin
+        FZ[Y * FWidth + 2 * X] := H.FZ[ZRow + X];
+        FZ[Y * FWidth + 2 * X + 1] := H.FZ[ZRow + X];
+      end;
+      for X := 2 * (HW - 1) to FWidth - 1 do FZ[Y * FWidth + X] := H.FZ[ZRow + HW - 1];
+    end;
+    FZOn := True;
+    FZTest := False;
+    FZBehind := False;
+    FZa := 0; FZb := 0; FZc := -1E30;
   end;
   MarkAllDirty;
   Invalidate;

@@ -361,6 +361,7 @@ type
     FPaperPaints, FPaperSkips: Integer;
     FInkToy: TArtSurface;        // toy ink, keeps its own alpha
     FInkPro: TArtSurface;        // pro ink, rendered from the document
+    FInkHalf: TArtSurface;       // half its size, for a frame while the camera moves
     FArt: TArtSurface;           // paper + active ink; what you see and save
     FShell: TArtSurface;
     FDeckSkin: TArtSurface;
@@ -787,6 +788,10 @@ type
       frame is drawn when it stops.  FQuickFrames turns the whole idea off. }
     FCameraMoving: Boolean;
     FQuickFrames: Boolean;
+    { half resolution for the faces while the camera moves - switched on by
+      a moving frame that came in slow, off again when the camera settles.
+      See RenderPro and the note at the top of TWorkDoc.Render. }
+    FMoveHalf: Boolean;
     { Long work in progress on the main thread: what and how far, shown on
       the command bar, and the input handlers stand down until it is over.
       FBusyAt is when it last reported; the tick clears a stale flag. }
@@ -2764,6 +2769,7 @@ begin
   FArt := TArtSurface.Create(16, 16);
   FInkToy := TArtSurface.Create(16, 16);
   FInkPro := TArtSurface.Create(16, 16);
+  FInkHalf := TArtSurface.Create(16, 16);
   FInkToy.PreserveAlpha := True;
   FInkPro.PreserveAlpha := True;
   FShell := TArtSurface.Create(16, 16);
@@ -2975,6 +2981,7 @@ begin
   FDeckSkin.Free;
   FShell.Free;
   FInkPro.Free;
+  FInkHalf.Free;
   FInkToy.Free;
   FArt.Free;
   FPaper.Free;
@@ -5254,10 +5261,21 @@ end;
 procedure TMainForm.RenderPro;
 var
   T0: QWord;
+  Half: TArtSurface;
 begin
   T0 := GetTickCount64;
   try
   FD.Doc.Quick := FCameraMoving and FQuickFrames;
+  { Half resolution pays only when the fill is what costs - zoomed in on a
+    big drawing - and loses a millisecond or two to the blow-up when it is
+    not.  Measured (tools/inkprof, the 712-face robot): whole model in the
+    window, quick frame 9 ms, half 12; zoomed in four times, quick 9, half
+    6, a still frame 13.  So it is not a setting: the first moving frame is
+    drawn at full size, and if that came in slow the rest of the move is
+    drawn at half.  A still frame puts it back. }
+  if not FD.Doc.Quick then FMoveHalf := False;
+  Half := nil;
+  if FMoveHalf then Half := FInkHalf;
   FInkPro.QuickFill := FD.Doc.Quick;
   FInkPro.ClearTransparent;
   { A fault while drawing used to take the program down, and since the
@@ -5269,7 +5287,9 @@ begin
   if FRenderBroken then Exit;
   try
     if FD.Doc.Live > 0 then
-      FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW);
+      FD.Doc.Render(FInkPro, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW, Half);
+      if FD.Doc.Quick and not FMoveHalf and (GetTickCount64 - T0 > 25) then
+        FMoveHalf := True;
   except
     on E: Exception do
     begin
