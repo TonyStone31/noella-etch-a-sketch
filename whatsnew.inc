@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A bug report is encrypted before it leaves your machine.**  Reports go' + LineEnding +
+    '  to a public postbox with no lock on it - that was always true, it had to' + LineEnding +
+    '  be, since the program has no server of its own to ask first.  What was' + LineEnding +
+    '  not true is that a report sitting in it was readable by anyone who found' + LineEnding +
+    '  the address.  Now it is sealed to a key only we hold before it is sent;' + LineEnding +
+    '  what a screenshot or a drawing says is between you and us, whatever' + LineEnding +
+    '  happens to the box it travels in.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.19.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

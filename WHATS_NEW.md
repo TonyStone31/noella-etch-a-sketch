@@ -14,6 +14,13 @@
 
 ### Fixed
 
+- **The rectangle and line tools no longer blink out their own corner.**  A
+  small square rides with the cursor so it can be drawn crisp against the
+  drawing under it; pasting it back used to erase whatever the tool itself
+  was drawing right there, which for a rectangle or a line is exactly its
+  near corner - so it flickered out every time the pointer crossed it.
+  Fixed at the source: the corner is drawn into the square now, not wiped
+  by it.
 - **A bug report is encrypted before it leaves your machine.**  Reports go
   to a public postbox with no lock on it - that was always true, it had to
   be, since the program has no server of its own to ask first.  What was

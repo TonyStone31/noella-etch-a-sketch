@@ -17826,7 +17826,40 @@ var
   Typed: Boolean;
   K, HF: Integer;
   PA, PB: TPointF;
+  RectPts: TP3Array;
 begin
+  { The line or rectangle being dragged, same as the fillet arc below and
+    for the same reason: the square pasted back over the cursor is a patch
+    of the finished drawing, with no preview in it, and the preview's
+    nearest corner is always sitting right where the cursor is.  Reported
+    from the field: "the white square behind the cursor is cutting off the
+    drawing behind it" - drawing a rectangle, the near corner blinked out
+    every time the pointer crossed it.
+
+    Not the full axis-color inference PaintProOverlay's Rubber does - this
+    patch is a handful of pixels around the cursor, and Theme.Accent is
+    close enough there that nobody will see the difference between it and
+    whichever color the real preview line is using a few pixels further
+    out, where the square does not reach. }
+  if (FTool = ptLine) and (FStage = 1) then
+  begin
+    PA := ScreenOf(FP1);
+    PB := ScreenOf(PreviewTarget);
+    S.Line(PA.X - OX, PA.Y - OY, PB.X - OX, PB.Y - OY,
+      Max(3, Round(3 * FUIScale)), Theme.Accent, 1);
+  end
+  else if (FTool = ptRect) and (FStage = 1) then
+  begin
+    RectPts := RectCorners(FP1, RectTarget, FD.Plane);
+    for K := 0 to 3 do
+    begin
+      PA := ScreenOf(RectPts[K]);
+      PB := ScreenOf(RectPts[(K + 1) mod 4]);
+      S.Line(PA.X - OX, PA.Y - OY, PB.X - OX, PB.Y - OY,
+        Max(3, Round(3 * FUIScale)), Theme.Accent, 1);
+    end;
+  end;
+
   { The blue wash over the face being pointed at.  Painted on the canvas, so
     the pasted square cut a clean hole of paper out of it right where the
     pointer was - on every face, with every tool that washes one.  Drawn

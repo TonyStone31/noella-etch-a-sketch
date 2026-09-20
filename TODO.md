@@ -4754,3 +4754,84 @@ Two things live outside this repository entirely, on purpose: the private
 key (`~/.config/heckers-sketch/report-key.hex`, never in a working tree
 `git add -A` can reach) and `tools/fetch-reports.pas`'s own `--key` value,
 which only that gitignored script ever sees.
+
+## Four reports from one long session, 19-20 September
+
+All from the same person, one sitting, the day this repository's own
+history became readable to me for the first time - the encryption above
+shipped between the first two reports and the last two, so this was also
+the first real proof the collector still works once it does.
+
+**Fixed - the cursor's square was cutting the tool's own corner off.**
+"the white square behind the cursor is cutting off the drawing behind it."
+Right: the crosshair rides in a small square of its own so it can be drawn
+anti-aliased against whatever is under it, and the square is a patch of the
+*finished* drawing, with no tool preview in it - see the standing comment on
+`PaintUnderCursor`.  Pasting it back over the cursor therefore erases
+whatever preview the tool had just drawn there, and for the rectangle and
+line tools that is always their near corner, because that corner is by
+definition wherever the cursor is.  The face wash and the fillet arc were
+already special-cased into the square for the same reason; the rectangle
+and line rubber bands were not.  Fixed the same way - drawn into the square
+now, not wiped by it - checked by screenshot: the two edges meet cleanly at
+the crosshair with nothing missing.  Not the full axis-color inference
+`PaintProOverlay`'s `Rubber` does when it draws these normally - a flat
+accent color, since the patch is a handful of pixels and nobody will see
+the seam where the real, correctly-colored line takes over a few pixels
+further out.  Other tools that paint a live preview straight onto the
+window - offset, the protractor's arm, dimension - share the same
+mechanism and were not touched; if one of them turns up with the same
+symptom, this is where to look.
+
+**Investigated, not a new bug - the shake while zoomed.**  Clarified: not
+the toy's dissolve animation, and not toy mode at all - the rendering
+itself stuttering while zooming, noticed around a delete.  Traced what
+Erase actually does: gathering what is under the cursor while dragging is
+cheap (one hit test, one flag), and the expensive part - deleting, working
+the flat areas out again, a full render - happens once, on commit, not
+every frame.  The stutter in the session log is continuous through
+ordinary SELECT and MOVE too, always at high zoom, which is the fill-rate
+finding from three days ago: cost scales with pixels covered, not with
+face count, and at 700%+ zoom on a several-hundred-face drawing a handful
+of faces can fill the whole window.  That is the same problem the
+drag-time-resolution idea was for, discussed and deliberately not built
+then because it touches how `FArt`, `FPaper`, `FInkToy` and `FInkPro` stay
+in sync - four surfaces that have come apart before and have their own
+scar tissue in `ResizeSurfaces`'s comments.  Not attempted here either, for
+the same reason and because a release was wanted today: rushing a change
+to that pipeline right before cutting one is how the four surfaces come
+apart a second time.  Next real step, when there is room for it properly:
+half resolution while `FCameraMoving`, upscaled to the window, full
+resolution again the moment it settles.
+
+**Not chased further - the surface guard, the move tool, and the healed
+face.**  Three things looked at and set aside on purpose rather than
+guessed at:
+
+* The **surface guard** (`uSurface.Verify`, open since 15 September) fired
+  twice more in this same session, both times the identical value
+  (4618423807647057041, reading as the double 5.98436), both times right
+  after "opened the example."  That is new and worth having - the previous
+  sighting was a different value and only loosely tied to a resize - but a
+  heap-corruption hunt is not a same-pass fix, and chasing it properly
+  wants a dedicated session with `heaptrc` and a real repro attempt, not
+  the tail end of one already covering four other things.
+* The **move tool** staying selected and "loaded" after a commit, so the
+  next click moves it again rather than releasing it.  There is already a
+  comment in `ProCommit` describing exactly this failure and fixing it for
+  one case - a just-built rigid part - and never extending the fix to an
+  ordinary move.  Genuinely unclear whether that is an oversight or the
+  ordinary case is supposed to stay loaded on purpose, the way SketchUp's
+  own Move keeps a selection live for a follow-up move; the reporter
+  themselves was not sure it disagreed with SketchUp.  A product call, not
+  a bug fixed by reading the code harder.
+* The **healed face** - erasing two lines removed a face the report says
+  was still closed off by others.  Erasing a face's own boundary removing
+  it is correct in every tool including this one; the question is whether
+  a *different*, still-intact loop should have kept it alive, which needs
+  the actual drawing at that exact moment, not the session log.  The
+  report carries both the `.hsk` and a full `/replay` script that
+  reconstructs the whole session step by step - a real reproduction is
+  possible from it, just not attempted in this pass.
+
+geomtest 1206, region 91, commands, drive 31 - green before this shipped.
