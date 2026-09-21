@@ -37,6 +37,7 @@ type
     FOpens, FCloses, FDone: Boolean;   { this line opens a block / is "end" }
     FListOpens, FListCloses: Boolean;  { "key = (" and the ")" that ends it }
     FSeenEquals: Boolean;
+    FAxisNext: THskToken;              { the number after "x" is red, and so on }
     function LineLen_: Integer;
     function WordAt(P: Integer; out Len: Integer): string;
     function AxisOf(const W: string): THskToken;
@@ -69,8 +70,8 @@ const
 implementation
 
 const
-  KEYWORDS = ' heckerssketch sheet group solid box points face hole line arc circle ' +
-    'edge bore dim note guide end no yes none ';
+  KEYWORDS = ' heckerssketch sheet group solid points face hole line arc circle ' +
+    'bore dim note guide end to true false none ';
   NAMES: array[THskToken] of string = ('Space', 'Note', 'Keyword', 'Property',
     'Name', 'Text', 'Symbol', 'East-west', 'North-south', 'Up-down', 'Number', 'Color');
 
@@ -163,9 +164,9 @@ end;
 
 function TSynHsk2Syn.AxisOf(const W: string): THskToken;
 begin
-  if (W = 'east') or (W = 'west') then Result := htEast
-  else if (W = 'north') or (W = 'south') then Result := htNorth
-  else if (W = 'up') or (W = 'down') then Result := htUp
+  if W = 'x' then Result := htEast
+  else if W = 'y' then Result := htNorth
+  else if (W = 'z') or (W = 'up') or (W = 'down') then Result := htUp
   else Result := htNumber;
 end;
 
@@ -216,6 +217,7 @@ begin
             (not FListCloses) and (PtrUInt(TopCodeFoldBlockType) <> 2);
   FDone := False;
   FSeenEquals := False;
+  FAxisNext := htNumber;
   Run := 0;
   Next;
 end;
@@ -264,8 +266,9 @@ begin
         Inc(Run);
         while (Run < N) and (L[Run] in ['0'..'9', 'A'..'F', 'a'..'f']) do Inc(Run);
       end;
-    '0'..'9', '.':
+    '0'..'9', '.', '-':
       begin
+        if L[Run] = '-' then Inc(Run);
         { a length - 5' 10 5/8" is one - and it takes the color of the
           direction word after it, if there is one }
         while Run < N do
@@ -275,10 +278,8 @@ begin
           else if (L[Run] = #$C2) and (Run + 1 < N) and (L[Run + 1] = #$B0) then Inc(Run, 2)
           else Break;
         end;
-        P := Run;
-        while (P < N) and (L[P] = ' ') do Inc(P);
-        W := WordAt(P, WLen);
-        FTok := AxisOf(W);
+        FTok := FAxisNext;
+        FAxisNext := htNumber;
       end;
   else
     if (L[Run] = '/') and (Run + 1 < N) and (L[Run + 1] = '/') then
@@ -291,6 +292,15 @@ begin
       W := WordAt(Run, WLen);
       Inc(Run, WLen);
       FTok := AxisOf(W);
+      { "x", "y" and "z" are the axes only in front of a number; anywhere
+        else a single letter is somebody's point }
+      if (FTok <> htNumber) and (Length(W) = 1) then
+      begin
+        P := Run;
+        while (P < N) and (L[P] = ' ') do Inc(P);
+        if (P < N) and (L[P] in ['0'..'9', '.', '-']) then FAxisNext := FTok
+        else FTok := htNumber;
+      end;
       if FTok = htNumber then
       begin
         if Pos(' ' + W + ' ', KEYWORDS) > 0 then FTok := htKey

@@ -39,8 +39,11 @@ const
 { L gets the text.  LineThing says, for each line of it, which entity that
   line is about, or -1; First and Last give an entity's lines, First > Last
   for one that has none of its own (an edge a solid's faces imply). }
+{ Hints, when given, gets a line for each line of L: where a point written
+  as a step from another actually is, for the source window to say when
+  the pointer rests on its name; empty for every other line. }
 procedure WriteFormat2(D: TWorkDoc; const SheetName: string; U: TUnitSystem;
-  L: TStrings; out First, Last, LineThing: TIntArrayW);
+  L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil);
 
 { one length, the way the file writes it; always positive - the direction
   word carries the sign }
@@ -111,25 +114,24 @@ begin
   Result := S;
 end;
 
-{ "2' east, 3' north, 18" above the floor" - or an offset, which says up
-  and down instead }
-function Place2(const P: TP3; U: TUnitSystem; Offset: Boolean): string;
-
-  procedure Part(V: Double; const Plus, Minus: string);
-  begin
-    if Abs(V) < FRIENDLY_TOL then Exit;
-    if Result <> '' then Result := Result + ', ';
-    if V > 0 then Result := Result + Len2(V, U) + ' ' + Plus
-    else Result := Result + Len2(V, U) + ' ' + Minus;
-  end;
-
+{ A place is "x 1" y 1" z 0" - all three, always, so that "z 0" is there
+  to be seen: it is on the floor.  A step says only the parts that change,
+  "x 4'" or "z -1"", and a number carries its own sign. }
+function Len2Signed(V: Double; U: TUnitSystem): string;
 begin
+  if V < -FRIENDLY_TOL then Result := '-' + Len2(V, U) else Result := Len2(V, U);
+end;
+
+function Place2(const P: TP3; U: TUnitSystem; Offset: Boolean): string;
+begin
+  if not Offset then
+    Exit('x ' + Len2Signed(P.X, U) + ' y ' + Len2Signed(P.Y, U) + ' z ' + Len2Signed(P.Z, U));
   Result := '';
-  Part(P.X, 'east', 'west');
-  Part(P.Y, 'north', 'south');
-  Part(P.Z, 'up', 'down');
-  if Result = '' then Result := '0';
-  if Offset then ;
+  if Abs(P.X) >= FRIENDLY_TOL then Result := Result + ' x ' + Len2Signed(P.X, U);
+  if Abs(P.Y) >= FRIENDLY_TOL then Result := Result + ' y ' + Len2Signed(P.Y, U);
+  if Abs(P.Z) >= FRIENDLY_TOL then Result := Result + ' z ' + Len2Signed(P.Z, U);
+  Result := Trim(Result);
+  if Result = '' then Result := 'x 0';
 end;
 
 function Sub3(const A, B: TP3): TP3;
@@ -153,8 +155,8 @@ function FacingWord(const N: TP3): string;
 begin
   Result := '';
   if AxesUsed(N) <> 1 then Exit;
-  if N.X > 0.5 then Result := 'east' else if N.X < -0.5 then Result := 'west'
-  else if N.Y > 0.5 then Result := 'north' else if N.Y < -0.5 then Result := 'south'
+  if N.X > 0.5 then Result := '+x' else if N.X < -0.5 then Result := '-x'
+  else if N.Y > 0.5 then Result := '+y' else if N.Y < -0.5 then Result := '-y'
   else if N.Z > 0.5 then Result := 'up' else Result := 'down';
 end;
 
@@ -179,8 +181,9 @@ begin
 end;
 
 procedure WriteFormat2(D: TWorkDoc; const SheetName: string; U: TUnitSystem;
-  L: TStrings; out First, Last, LineThing: TIntArrayW);
+  L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil);
 var
+  NextHint: string;
   DefInk: TColor;
   DefWidth: Single;
   NLine: Integer;
@@ -199,6 +202,8 @@ var
   procedure Put(Depth: Integer; const S: string; Thing: Integer);
   begin
     L.Add(StringOfChar(' ', Depth * 2) + S);
+    if Hints <> nil then Hints.Add(NextHint);
+    NextHint := '';
     if NLine >= Length(LineThing) then SetLength(LineThing, NLine * 2 + 64);
     LineThing[NLine] := Thing;
     if Thing >= 0 then
@@ -234,7 +239,7 @@ var
 
   function PointName(Index, Count: Integer): string;
   begin
-    if Count <= 26 then Result := Chr(Ord('a') + Index)
+    if Count <= 23 then Result := Chr(Ord('a') + Index)
     else Result := 'p' + IntToStr(Index + 1);
   end;
 
@@ -279,9 +284,12 @@ var
   end;
 
   function Named(const It: TStringArray): Boolean;
+  var
+    K: Integer;
   begin
-    Result := (Length(It) > 0) and (Pos(' ', It[0]) = 0) and
-              ((Length(It) < 2) or (It[1][1] <> '+'));
+    Result := Length(It) > 0;
+    for K := 0 to High(It) do
+      if Pos(' ', It[K]) > 0 then Exit(False);
   end;
 
   function Joined(const It: TStringArray): string;
@@ -292,7 +300,7 @@ var
     for K := 0 to High(It) do
     begin
       if K > 0 then
-        if Named(It) then Result := Result + ' ' else Result := Result + '; ';
+        if Named(It) then Result := Result + ' ' else Result := Result + ' to ';
       Result := Result + It[K];
     end;
   end;
@@ -312,7 +320,7 @@ var
       Put(Depth, Key + ' = ' + Joined(It) + Note, Thing);
       Exit;
     end;
-    if Named(It) then Sep := ' ' else Sep := '; ';
+    if Named(It) then Sep := ' ' else Sep := ' to ';
     Put(Depth, Key + ' = (' + Note, Thing);
     Row := '';
     for K := 0 to High(It) do
@@ -392,6 +400,7 @@ var
         if (V.X > 0) or (V.Y > 0) or (V.Z > 0) then begin From := J; Break; end;
         if From < 0 then From := J;
       end;
+      if From >= 0 then NextHint := Place2(Pts[I].P, U, False);
       if From >= 0 then
         Put(Depth + 1, Format('%s = %s + %s', [Pts[I].Name, Pts[From].Name,
           Place2(Sub3(Pts[I].P, Pts[From].P), U, True)]), -1)
@@ -436,29 +445,24 @@ var
     Put(Depth, 'end', I);
   end;
 
+  { A line is two points.  Which is first does not matter, and nothing
+    about it says a direction - the two places do. }
   procedure PutLine(Depth, I: Integer; const Pts: TPts);
   var
-    V: TP3;
-    Two: array[0..1] of TP3;
+    Ends: string;
   begin
+    Ends := Ref(Pts, D[I].A) + ' to ' + Ref(Pts, D[I].B);
     if (D[I].Ink = DefInk) and (Abs(D[I].Weight - DefWidth) <= 1E-3) and
        (not D[I].Soft) and (not D[I].Dim) then
     begin
-      Two[0] := D[I].A;
-      Two[1] := D[I].B;
-      PutList(Depth, 'line', Items(Pts, Two), I);
+      Put(Depth, 'line = ' + Ends, I);
       Exit;
     end;
     Put(Depth, 'line', I);
-    Put(Depth + 1, 'from = ' + Ref(Pts, D[I].A), I);
-    V := Sub3(D[I].B, D[I].A);
-    if (AxesUsed(V) = 1) and (FindPt(Pts, D[I].B) < 0) then
-      Put(Depth + 1, 'goes = ' + Place2(V, U, True), I)
-    else
-      Put(Depth + 1, 'to = ' + Ref(Pts, D[I].B), I);
+    Put(Depth + 1, 'points = ' + Ends, I);
     PutInk(Depth + 1, I);
-    if D[I].Soft then Put(Depth + 1, 'soft = yes', I);
-    if D[I].Dim then Put(Depth + 1, 'ref = yes', I);
+    if D[I].Soft then Put(Depth + 1, 'soft = true', I);
+    if D[I].Dim then Put(Depth + 1, 'ref = true', I);
     Put(Depth, 'end', I);
   end;
 
@@ -478,14 +482,14 @@ var
           Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
           case D[I].Plane of
             plXY: W := 'up';
-            plXZ: W := 'north';
-            plYZ: W := 'east';
+            plXZ: W := '+y';
+            plYZ: W := '+x';
           else
             begin
               Nm := D[I].Nm;
               W := FacingWord(Nm);
               if W = '' then
-                W := Format('%.6g east, %.6g north, %.6g up', [Nm.X, Nm.Y, Nm.Z], FS);
+                W := Format('x %.6g y %.6g z %.6g', [Nm.X, Nm.Y, Nm.Z], FS);
             end;
           end;
           Put(Depth + 1, 'facing = ' + W, I);
@@ -511,7 +515,7 @@ var
         if SameP(D[I].A, D[I].B) then
           Put(Depth, 'guide = ' + Place2(D[I].A, U, False), I)
         else
-          Put(Depth, 'guide = ' + Place2(D[I].A, U, False) + '; ' +
+          Put(Depth, 'guide = ' + Place2(D[I].A, U, False) + ' to ' +
             Place2(D[I].B, U, False), I);
       ekText:
         begin
@@ -541,27 +545,8 @@ var
   var
     Pts: TPts;
     I, J, K, N, Header, Best: Integer;
-    HasMat, Plain, BoxMat: Boolean;
-    BoxPaint: TColor;
-    Lo, Hi: TP3;
+    HasMat: Boolean;
     SMat: TColor;
-    Side: array of Boolean;      { is line I the side of one of the faces? }
-
-    function IsSide(const A, B: TP3): Boolean;
-    var
-      F, Q, M: Integer;
-    begin
-      Result := False;
-      for F := 0 to D.Live - 1 do
-        if (D[F].Kind = ekFace) and (D[F].Grp = G) and (D[F].Part = Part_) then
-        begin
-          M := Length(D[F].Poly);
-          for Q := 0 to M - 1 do
-            if (SameP(D[F].Poly[Q], A) and SameP(D[F].Poly[(Q + 1) mod M], B)) or
-               (SameP(D[F].Poly[Q], B) and SameP(D[F].Poly[(Q + 1) mod M], A)) then
-              Exit(True);
-        end;
-    end;
 
   begin
     SetLength(Pts, 0);
@@ -572,69 +557,6 @@ var
         Inc(N);
         for K := 0 to High(D[I].Poly) do AddPt(Pts, D[I].Poly[K]);
       end;
-    { A plain box is said as one: where its low corner is and how big it
-      is.  Only when that is the whole truth - eight corners, six faces
-      square to the axes and whole, every edge ordinary, one paint or none -
-      so that reading "box" back gives exactly this solid. }
-    if (N = 6) and (Length(Pts) = 8) then
-    begin
-      Plain := True;
-      Lo := Pts[0].P;
-      Hi := Pts[0].P;
-      for I := 1 to 7 do
-      begin
-        Lo := P3(Min(Lo.X, Pts[I].P.X), Min(Lo.Y, Pts[I].P.Y), Min(Lo.Z, Pts[I].P.Z));
-        Hi := P3(Max(Hi.X, Pts[I].P.X), Max(Hi.Y, Pts[I].P.Y), Max(Hi.Z, Pts[I].P.Z));
-      end;
-      for I := 0 to 7 do
-        if not ((SameP(P3(Pts[I].P.X, 0, 0), P3(Lo.X, 0, 0)) or SameP(P3(Pts[I].P.X, 0, 0), P3(Hi.X, 0, 0))) and
-                (SameP(P3(Pts[I].P.Y, 0, 0), P3(Lo.Y, 0, 0)) or SameP(P3(Pts[I].P.Y, 0, 0), P3(Hi.Y, 0, 0))) and
-                (SameP(P3(Pts[I].P.Z, 0, 0), P3(Lo.Z, 0, 0)) or SameP(P3(Pts[I].P.Z, 0, 0), P3(Hi.Z, 0, 0)))) then
-          Plain := False;
-      BoxMat := False;
-      BoxPaint := 0;
-      K := 0;
-      for I := 0 to D.Live - 1 do
-        if (D[I].Grp = G) and (D[I].Part = Part_) then
-          case D[I].Kind of
-            ekFace:
-              begin
-                if (Length(D[I].Poly) <> 4) or (Length(D[I].Holes) > 0) or
-                   (D[I].Ink <> DefInk) or (FacingWord(D.FaceNormal(I)) = '') then Plain := False;
-                if K = 0 then begin BoxMat := D[I].MatSet; BoxPaint := D[I].Mat; end
-                else if (D[I].MatSet <> BoxMat) or (BoxMat and (D[I].Mat <> BoxPaint)) then Plain := False;
-                Inc(K);
-              end;
-            ekLine:
-              if D[I].Soft or D[I].Dim or (D[I].Ink <> DefInk) or
-                 (Abs(D[I].Weight - DefWidth) > 1E-3) or (AxesUsed(Sub3(D[I].B, D[I].A)) <> 1) then
-                Plain := False;
-            ekBore: Plain := False;
-          end;
-      if Plain then
-      begin
-        Header := NLine;
-        if not BoxMat then
-          Put(Depth, 'box = ' + Place2(Lo, U, False) + '; ' + Place2(Sub3(Hi, Lo), U, True), -1)
-        else
-        begin
-          Put(Depth, 'box', -1);
-          Put(Depth + 1, 'at = ' + Place2(Lo, U, False), -1);
-          Put(Depth + 1, 'size = ' + Place2(Sub3(Hi, Lo), U, True), -1);
-          Put(Depth + 1, 'paint = ' + Color2(BoxPaint), -1);
-          Put(Depth, 'end', -1);
-        end;
-        { every face and edge of it is that one statement }
-        for I := 0 to D.Live - 1 do
-          if (D[I].Grp = G) and (D[I].Part = Part_) and (D[I].Kind in [ekFace, ekLine]) then
-          begin
-            First[I] := Header;
-            Last[I] := NLine - 1;
-          end;
-        Exit;
-      end;
-    end;
-
     { what most of its faces are made of is said once, for the solid }
     HasMat := False;
     SMat := 0;
@@ -657,30 +579,10 @@ var
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
         PutFace(Depth + 1, I, Pts, HasMat, SMat);
-    SetLength(Side, D.Live);
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekLine) and (D[I].Grp = G) and (D[I].Part = Part_) then
       begin
-        { a big solid is asked about each of its edges against each of its
-          faces; past a point, say they are all sides and be quick }
-        if N > 600 then Side[I] := True else Side[I] := IsSide(D[I].A, D[I].B);
-        if not Side[I] then
-          PutLine(Depth + 1, I, Pts)
-        else if D[I].Soft or (D[I].Ink <> DefInk) or (Abs(D[I].Weight - DefWidth) > 1E-3) then
-        begin
-          Put(Depth + 1, 'edge', I);
-          Put(Depth + 2, 'between = ' + Ref(Pts, D[I].A) + ' ' + Ref(Pts, D[I].B), I);
-          if D[I].Soft then Put(Depth + 2, 'soft = yes', I);
-          PutInk(Depth + 2, I);
-          Put(Depth + 1, 'end', I);
-        end;
-        { an ordinary side has no line of its own; picked on the sheet, it
-          lights the solid it belongs to }
-        if First[I] > Last[I] then
-        begin
-          First[I] := Header;
-          Last[I] := Header;
-        end;
+        PutLine(Depth + 1, I, Pts);
       end
       else if (D[I].Kind = ekBore) and (D[I].Grp = G) and (D[I].Part = Part_) then
       begin
@@ -734,7 +636,7 @@ var
       if (D[I].Kind = ekPart) and (D[I].Part = Part_) then
       begin
         Put(Depth, 'group ' + Quoted(D[I].Txt), I);
-        if D[I].Solid then Put(Depth + 1, 'locked = yes', I);
+        if D[I].Solid then Put(Depth + 1, 'locked = true', I);
         PutLevel(Depth + 1, D[I].Grp);
         Put(Depth, 'end', I);
       end;
@@ -746,6 +648,7 @@ begin
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';
   NLine := 0;
+  NextHint := '';
   SetLength(LineThing, 256);
   SetLength(First, D.Live);
   SetLength(Last, D.Live);

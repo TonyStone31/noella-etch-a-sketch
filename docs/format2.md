@@ -1,7 +1,7 @@
 # The drawing file, version 2 - the grammar
 
-Proposed 20 September 2026; this is the second go at it, the same day,
-after the first had been looked at on real drawings.  **Not built.**  The program reads and writes
+Proposed 20 September 2026; this is the third go at it, the same day,
+each one after the last had been looked at on real drawings.  **Not built.**  The program reads and writes
 version 1 today; this is the page to argue with before any of it exists.
 The order of work is: agree how it *reads*, show it read-only in the source
 window (`/source`) on real drawings, live with it, and only then write a
@@ -17,7 +17,8 @@ change the same way, in any language, with nothing but text tools.
 1. **It is data, not a program.**  No variables, no arithmetic, no loops,
    nothing executed.  Every statement says one fact about one thing.
 2. **One fact, one place.**  Nothing is stated twice, so nothing in a file
-   can contradict itself.  A line has a length *or* a far end, never both.
+   can contradict itself.  A line is its two points, and its length is
+   whatever that makes it.
 3. **Saving loses nothing.**  What is read back is what was there.
 4. **Only what differs from the default is written** - the `.lfm` habit.
    A plain black edge of ordinary width says nothing about ink or width.
@@ -34,39 +35,64 @@ change the same way, in any language, with nothing but text tools.
 
 ## The test it has to pass
 
-Somebody who has never seen the inside of the program imagines a
-four-foot cube with a circle on its top, and types it:
+Somebody imagines a four-foot cube with a circle on its top, and types it.
+Everything is a line, and a line is two points:
 
 ```
 HeckersSketch 2
 units = ft in
 
 sheet 'Cube'
-  box = 0; 4' east, 4' north, 4' up
+  points
+    a = x 0 y 0 z 0          // on the floor
+    b = a + x 4'
+    c = b + y 4'
+    d = a + y 4'
+    e = a + z 4'             // and the same four, 4 feet up
+    f = b + z 4'
+    g = c + z 4'
+    h = d + z 4'
+  end
+
+  line = a to b
+  line = b to c
+  line = c to d
+  line = d to a
+  line = e to f
+  line = f to g
+  line = g to h
+  line = h to e
+  line = a to e
+  line = b to f
+  line = c to g
+  line = d to h
 
   circle
-    center = 2' east, 2' north, 4' up
+    center = x 2' y 2' z 4'
     radius = 1'
     facing = up
   end
 end
 ```
 
-That is the whole file.  The hole the circle cuts in the top, and the disk
-inside it, are what the program works out whenever a circle is drawn on a
-face - so they need not be typed.  If a file this short, in words this
-plain, does not open as that drawing, the format has failed.
+Nothing in that needs explaining to somebody who has not seen it before,
+and none of it had to be in that order or spaced that way.  The six faces,
+the hole the circle cuts in the top and the disk inside it are what the
+program works out whenever lines close a loop or a circle is drawn on a
+face - so they are not typed.  A point could equally have been written
+where it is used: `line = x 0 y 0 z 0 to x 4' y 0 z 0`.
 
 ## Words and marks
 
 * UTF-8.  Keywords in lower case; **the reader does not care about case**.
 * **Spaces do not matter.**  Any run of spaces or tabs is one space, and
-  none is needed round `=` `,` `;` `+` `(` `)`.  Indentation is for the
-  eye.  Blank lines can go anywhere.  `5'10 5/8"` is `5' 10 5/8"`.
-* **Comments**: `{ like this }` on one line, or `// to the end of the line`.
-  The program writes `{ }` notes of its own - `{ facing south }` - for
+  none is needed round `=` `+` `(` `)`.  Indentation is for the eye.
+  Blank lines can go anywhere.  `5'10 5/8"` is `5' 10 5/8"`.
+* **Comments are Pascal's**: `// to the end of the line`, or `{ like this }`.
+  The program writes `{ }` notes of its own - `{ facing up }` - for
   orientation.  They are never read back as facts.
-* **Names**: a letter, then letters, digits or `_`.  `a`, `p12`, `c1`.
+* **Names**: a letter, then letters, digits or `_`.  `a`, `p272`, `c1`.
+  Not `x`, `y` or `z`.
 * **Text**: in single quotes, a quote inside doubled -
   `'the fitter''s bracket'`.
 * **The feet mark**: a `'` straight after a digit is feet.  Anywhere else
@@ -74,7 +100,8 @@ plain, does not open as that drawing, the format has failed.
 * **Marks that are awkward to type** have words: `4ft` is `4'`, `6in` is
   `6"`, `90deg` is `90°`.  A `.bat` file or a shell script fights quote
   marks; it need not use any.
-* **Yes and no**: `yes`, `no`.  **Nothing**: `none`.
+* **True and false** are `true` and `false`, as in Pascal; `1` and `0` are
+  read as well.  **Nothing** is `none`.
 * **Colors**: `#RRGGBB`, or one of `black white gray red orange yellow
   green blue purple brown` when it is exactly that color.
 
@@ -84,7 +111,7 @@ The top of the file says how lengths are written in it:
 
 ```
 HeckersSketch 2
-units = ft in          { or: in, ft, mm, m }
+units = ft in          // or: in, ft, mm, m
 ```
 
 | `units =` | Written | Also read |
@@ -103,45 +130,47 @@ decimal in full: `2.843721934"`.  Nearly everything somebody drew by
 typing sizes comes out friendly; a corner worked out by turning something
 through 17° does not, and is not rounded to look as if it did.
 
-## Directions
+## Where a thing is: x, y and z
 
-Six words, fixed for ever, the same as the axes on the sheet and colored
-like them in the source window - the number as well as the word:
+The same three letters the program shows at the top of its window, and
+the same three colors as the axes on the sheet - in the source window the
+letter and its number are colored together.
 
-| Word | Axis | Color |
+| | Runs | On the sheet |
 |---|---|---|
-| `east` / `west` | X, plus and minus | red |
-| `north` / `south` | Y, plus and minus | green |
-| `up` / `down` | Z, plus and minus | blue |
+| `x` | across the floor | the red axis |
+| `y` | across the floor, square to x | the green axis |
+| `z` | **up from the floor** - `z 0` is on it, `z 1"` an inch above, `z -1"` an inch below | the blue axis |
 
-## Places, steps and lists
-
-A **place** is up to three parts in any order, separated by commas; a part
-left out is nought, and nought itself is `0`.
+A **place** is all three, always, so that the height is there to be seen:
 
 ```
-2' east, 3' north, 18" up
-6" west, 4' up
-0
+x 1" y 1" z 0          // sitting on the floor
+x 1" y 1" z 1"         // the same spot, an inch up
 ```
 
-A **step** is the same thing meaning "this far from somewhere":
-`3" east`, or `3" east, 2" up`.
+Any order, and commas between them if you like them.  A number carries its
+own sign: `x -4 3/8"`.
 
-Wherever a place is wanted it may be a place, a **name**, or **a name and
-a step**: `a`, or `a + 3" east`.
+A **step** is how far from somewhere, and says only what changes:
+`x 4'`, or `x 3" z 2"`.
 
-A **list** of places is separated by semicolons, and in a list **`+` and a
-step means "from the one before"** - so a list is a walk, and a square is:
+Wherever a place is wanted it may be **a place, a name, or a name and a
+step** - `x 1" y 1" z 0`, or `a`, or `a + z 1"`.  Names are a convenience,
+never a requirement.
+
+A **list of places** is joined with `to`, and in a list **`+` and a step
+means "from the one before"** - so a list is a walk, and a square is:
 
 ```
-face = 0; + 4' east; + 4' north; + 4' west
+face = x 0 y 0 z 0 to + x 4' to + y 4' to + x -4'
 ```
 
 A list of names needs only spaces: `face = a b c d`.
 
 **A list too long for a line** is written the way an `.lfm` writes one -
-an opening bracket, as many lines as it takes, a closing bracket:
+an opening bracket, as many lines as it takes, a closing bracket.  The
+program keeps its lines under eighty characters.
 
 ```
 face = (
@@ -149,8 +178,6 @@ face = (
   p13 p14 p15 p16 p17 p18 p19 p20 p21 p22 p23 p24
 )
 ```
-
-The program keeps its lines under eighty characters.
 
 ## Points
 
@@ -160,34 +187,40 @@ shared by three faces *one* corner, that moves as one.
 
 ```
 points
-  a = 4 3/8" west, 4 1/2" south, 5' 10 5/8" up
-  b = a + 3" east
-  c = b + 2 3/8" up
-  d = a + 2 3/8" up
+  a = x -4 3/8" y -4 1/2" z 5' 10 5/8"
+  b = a + x 3"
+  c = b + z 2 3/8"
+  d = a + z 2 3/8"
 end
 ```
 
-`b = a + 3" east` is a way of *writing down where b is*, chosen by the
+`b = a + x 3"` is a way of *writing down where b is*, chosen by the
 program when it saves because it reads well: from an earlier point, along
-an axis when it can.  It is not a link that is kept.  Change the `3"` and
+one axis when it can.  It is not a link that is kept.  Change the `3"` and
 `b` moves, and so does whatever was written from `b`; save, and the
 program writes the points out again its own way, the geometry exactly as
 it was left.
 
-The program names points `a` to `z` in a block of twenty-six or fewer and
-`p1`, `p2`... in a bigger one, and circles `c1`, `c2`...  Any name is read.
+The program names points `a` to `w` in a small block and `p1`, `p2`... in a
+bigger one, and circles `c1`, `c2`...  Any name is read.
+
+**In the source window** a name behaves as it does in Lazarus: every other
+place it turns up is outlined when the caret is on it; **Ctrl and a click**
+goes to the line that gives it its meaning; and **resting the pointer** on
+it says what that line is - and, for a point written as a step, where that
+comes to.
 
 ## Things
 
 Every thing has two forms, and rule 7 says which is which:
 
 ```
-face = e f g h                     { complete: it has an = }
+line = a to b                      // complete: it has an =
 
-face                               { a block: no = on this line }
-  points = a b c d
-  hole   = c1
-  paint  = orange
+line                               // a block: no = on this line
+  points = a to b
+  ink    = red
+  width  = 2
 end
 ```
 
@@ -204,36 +237,27 @@ without `=` opens a block, and `end` closes it.
 
 | Thing | Short form | In a block (default) |
 |---|---|---|
-| `box` | `box = ` low corner`;` size | `at`, `size`, `paint` (none) |
-| `line` | `line = ` from`;` to - and `to` may be `+` a step | `from`, then `goes` (a step) *or* `to`; `ink`, `width`, `soft` (no), `ref` (no) |
+| `line` | `line = ` one point ` to ` the other | `points`; `ink`, `width`, `soft` (false), `ref` (false) |
 | `circle`, `arc` | - | `center`, `radius`, `facing`; `starts` (0°), `sweep` (arc only), `sides`, `ink`, `width` |
 | `face` | `face = ` its outline | `points`, `hole` (as many as there are), `paint` (the solid's), `ink` |
-| `solid` | - | `paint` (none) - what its faces are made of unless they say otherwise; its `points`, `face`s, and the exceptions among its edges |
-| `edge` | `no edge = a b` - a face's side with no edge on it | `between`, and what is unusual: `soft`, `ink`, `width` |
+| `solid` | - | `paint` (none) - what its faces are made of unless they say otherwise; then its `points`, `face`s and `line`s |
 | `bore` | - | inside a solid: `points`, `goes` (a step) |
-| `group` | - | `locked` (no), and everything inside it, groups included |
+| `group` | - | `locked` (false), and everything inside it, groups included |
 | `dim` | - | `from`, `to`, `off` (a step); `label` (the measured length), `ink` |
 | `note` | - | `at`, `text` (one line each, repeated); `to` (nowhere), `size` (1), `ink` |
 | `guide` | `guide = ` two places - or one, which is a guide point | - |
 
+* **A line is two points.**  Which comes first does not matter, and the
+  line says nothing about its direction or its length - the two points do,
+  and so there is one way to write a line and one number to change.
 * **An outline can be a name.**  A circle that is named is an outline:
   `face = c1` is the disk inside circle `c1`, and `hole = c1` is that
   circle cut out of a face.  Thirty-two corners become two letters.
-* **`box`** is a solid that is nothing but a box square to the axes: eight
-  corners, six whole faces, ordinary edges, one paint or none.  The
-  moment it is anything more - a hole in its top, one face painted - it
-  is written as the `solid` it is.  Both read the same.
-* **`goes` or `to`.**  `goes = 4' east` when the line runs along an axis,
-  `to = ` a place when it does not.  Both are read; never both at once.
-* **A solid's edges are its faces' sides.**  They are not listed.  What is
-  listed is what is unusual: an edge that is soft, or inked, or heavier; a
-  side with no edge on it; and any `line` in the solid that is not the side
-  of a face.
-* **`facing`** is the way a flat thing looks: `up`, `north`, `east`, their
-  opposites, or three numbers for anything else - `facing = 0.5 east,
-  0.5 north, 0.7071 up`.  Turning is anticlockwise seen from the side it
-  faces.  `starts` is measured from east for a thing facing up or north,
-  from north for one facing east; on any other plane it is
+* **`facing`** is the way a flat thing looks: `up`, `down`, `+x`, `-x`,
+  `+y`, `-y`, or three numbers for anything else -
+  `facing = x 0.5 y 0.5 z 0.7071`.  Turning is anticlockwise seen from the
+  side it faces.  `starts` is measured from x for a thing facing up or
+  along y, from y for one facing along x; on any other plane it is
   `starts toward = ` and a direction.
 * **A face's outline** goes round anticlockwise seen from the front, which
   is the side `paint` is on.  A `hole` goes round the other way.
@@ -243,24 +267,30 @@ without `=` opens a block, and `end` closes it.
 The program works flat areas out for itself: close a loop of lines and
 there is a face; draw a circle on a face and the face has a hole and the
 circle has a disk.  It does this after every edit, and it does it after
-reading a file.  So somebody typing a drawing types the lines, the boxes
-and the circles, and **does not type the faces those make**.
+reading a file.  So somebody typing a drawing types the lines and the
+circles, and **does not type the faces those make**.
 
 The program *does* write them, because they carry things that are the
 person's: paint, which way they face, and having not been rubbed out.
 Which leaves one thing to say when it is so: `no face = c1` - the disk
 was rubbed out, and the circle is an opening.
 
+One thing this does not yet answer: six faces that close, typed as twelve
+lines, are six loose faces and not a `solid` - the program has no way yet
+to make a solid out of what was drawn (TODO, "Making a solid out of what
+you drew").  Until it has, a typed cube can be painted and measured but
+not pushed as one.
+
 ## The sheet
 
 ```
 sheet 'Robot'
-  shows  = ft in                   { what the rulers and readouts say }
+  shows  = ft in                   // what the rulers and readouts say
   scale  = 1/4" to 1'
   snap   = 1/16"
-  view   = 3d                      { or: plan, iso }
+  view   = 3d                      // or: plan, iso
   camera = 98° round, 12° up, 15.2 times, centered 812, 2640
-  ink    = #201C1A                 { the default for everything on it }
+  ink    = #201C1A                 // the default for everything on it
   width  = 1
   sides  = 24
   ...
@@ -271,38 +301,38 @@ A file is its header and then one `sheet` block for each sheet.
 
 ## What the program writes for that cube
 
-Drawn with the mouse and shown in `/source` - thirty-seven lines, where
-version 1 has eighteen lines of numbers and a thirty-two-cornered hole:
+Drawn with the mouse - a rectangle, pushed up, a circle on top - and shown
+in `/source`:
 
 ```
 circle c1
-  center = 2' east, 2' north, 4' up
+  center = x 2' y 2' z 4'
   radius = 1'
   facing = up
+  sides = 24
 end
 solid
   points
-    a = 4' up
-    b = a + 4' east
-    c = b + 4' north
-    d = a + 4' north
-    e = d + 4' down
-    f = e + 4' east
-    g = f + 4' south
-    h = g + 4' west
+    a = x 0 y 0 z 4'
+    b = a + x 4'
+    c = b + y 4'
+    d = a + y 4'
+    e = d + z -4'
+    ...
   end
   face   { facing up }
     points = a b c d
     hole = c1
   end
   face = e f g h   { facing down }
-  face = h g b a   { facing south }
+  face = h g b a   { facing -y }
+  ...
+  line = h to g
+  line = g to f
   ...
 end
 face = c1   { facing up }
 ```
-
-It is a `solid` and not a `box` because its top has a hole in it.
 
 ## The awkward case
 
@@ -312,9 +342,9 @@ any more, and this is what it costs:
 ```
 solid
   points
-    a = 1' east, 2' north
-    b = a + 3.8252190" east, 1.1694869" north     { 4" long, 17° north of east }
-    c = b + 0.5847434" west, 1.9126095" north     { 2" long }
+    a = x 1' y 2' z 0
+    b = a + x 3.8252190" y 1.1694869"      { 4" long, 17° round from x }
+    c = b + x -0.5847434" y 1.9126095"     { 2" long }
     ...
 ```
 
@@ -360,6 +390,9 @@ rule 8 allows, and it is not needed to begin.
   having: they read beautifully and they are a second way to say a thing.
 * What the source window does with a drawing of fifteen thousand things -
   the text is built for what is shown, or for all of it.
-* **Single letters for the directions** - `4' e, 2' n` - were considered
-  and left out: `e`, `n`, `s`, `u`, `d` and `w` are the names the program
-  gives corners, and a word that is sometimes a point is a trap.
+* **What was tried and dropped**, so it is not tried again by accident:
+  `east`/`north`/`up` for the axes (the first two goes) - they read well
+  in a sentence and were one more thing to keep straight, where `x y z`
+  is what the program already shows; `above the floor` - too many words;
+  `box` as a statement of its own - a second way to say what twelve lines
+  say; `goes = 4' east` on a line - a line is two points; `yes`/`no`.

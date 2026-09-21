@@ -393,6 +393,14 @@ What has to be thought about before it is as nice as it sounds:
   flattened solid reads as `corners = a b b a`, which is the format showing
   a fault the sheet hides.  **Live with how it reads before writing a
   reader.**
+* **No releases while the format is being settled** - asked 20 September.
+  Commit, do not cut a release, until the grammar is agreed.  The release
+  notes for what is sitting unreleased are under "Next release" already.
+* **The format, third go** - 20 September: `x y z` with the height always
+  said, a line is two points and nothing else, no `box`, `true`/`false`,
+  and in the source window the matching-word outline, Ctrl+click to a
+  name's definition and a hover that says what it is.  What was tried and
+  dropped is listed at the end of `docs/format2.md`.
 * **Editing in the source window, when it comes: Apply, not live.**  Asked
   for 20 September.  The moment the text differs from the drawing an
   **Apply** button appears; nothing touches the drawing until it is

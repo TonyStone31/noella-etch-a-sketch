@@ -28,14 +28,14 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
-  SynGutterLineNumber, uWork, uSynHsk2;
+  SynGutterLineNumber, SynEditMarkupHighAll, SynEditMouseCmds, uWork, uSynHsk2;
 
 type
   TSourceAskState = procedure(out DocSeq, PickSeq: Int64) of object;
   { Version 1 is the file as it is saved today; 2 is the proposed format,
     docs/format2.md, written for looking at.  LineThing may come back empty,
     and is then worked out from First and Last. }
-  TSourceAskSource = procedure(Version: Integer; L: TStrings;
+  TSourceAskSource = procedure(Version: Integer; L, Hints: TStrings;
     out First, Last, LineThing: TIntArrayW; out SheetName: string) of object;
   TSourceAskPicked = procedure(out Picked: TIntArrayW) of object;
   TSourcePickThings = procedure(const Things: TIntArrayW) of object;
@@ -55,12 +55,19 @@ type
     procedure EditorSpecialLineColors(Sender: TObject; Line: integer;
       var Special: boolean; var FG, BG: TColor);
     procedure EditorStatusChange(Sender: TObject; Changes: TSynStatusChanges);
+    procedure EditorMouseLink(Sender: TObject; X, Y: Integer;
+      var AllowMouseLink: Boolean);
+    procedure EditorClickLink(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure EditorMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure tmrFollowTimer(Sender: TObject);
   private
     FAll: TStringList;          { the whole sheet's text }
+    FHints: TStringList;        { for a point written as a step: where it is }
+    FHintWord: string;
     FFirst, FLast: TIntArrayW;  { thing -> its lines in FAll }
     FLineThing: TIntArrayW;     { line in FAll -> thing, or -1 }
     FRowLine: TIntArrayW;       { row shown in the editor -> line in FAll }
@@ -72,6 +79,9 @@ type
     FCaretRow, FBlockA, FBlockB: Integer;
     FColors: TSynHsk2Syn;
     procedure FoldToPicked;
+    { the row, counted from 0, where Name_ is given its meaning, looking
+      back from FromRow: "name = ..." in a points block, or "circle name" }
+    function DefinedAt(const Name_: string; FromRow: Integer): Integer;
     procedure LoadText;
     procedure ShowRows;
     procedure ShowPicked(Scroll: Boolean);
@@ -99,14 +109,37 @@ const
 procedure TSourceForm.FormCreate(Sender: TObject);
 begin
   FAll := TStringList.Create;
+  FHints := TStringList.Create;
   FHaveState := False;
   FCaretRow := -1;
   FColors := TSynHsk2Syn.Create(Self);
+
+  { The things Lazarus's own editor does, because a drawing written as
+    names wants them as much as a program does: every other place the word
+    under the caret turns up is outlined; Ctrl and a click on a name goes
+    to where it is given its meaning; and resting on one says what that
+    is. }
+  with Editor.MarkupByClass[TSynEditMarkupHighlightAllCaret] as TSynEditMarkupHighlightAllCaret do
+  begin
+    MarkupInfo.Background := clNone;
+    MarkupInfo.FrameColor := TColor($C08040);
+    MarkupInfo.FrameStyle := slsSolid;
+    FullWord := True;
+    WaitTime := 250;
+    IgnoreKeywords := False;
+    Enabled := True;
+  end;
+  Editor.MouseOptions := Editor.MouseOptions + [emShowCtrlMouseLinks];
+  Editor.OnMouseLink := @EditorMouseLink;
+  Editor.OnClickLink := @EditorClickLink;
+  Editor.OnMouseMove := @EditorMouseMove;
+  Editor.ShowHint := True;
 end;
 
 procedure TSourceForm.FormDestroy(Sender: TObject);
 begin
   FAll.Free;
+  FHints.Free;
 end;
 
 procedure TSourceForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -155,8 +188,9 @@ begin
   SetLength(FLast, 0);
   Name_ := '';
   SetLength(FLineThing, 0);
+  FHints.Clear;
   if Assigned(OnAskSource) then
-    OnAskSource(1 + Ord(chkVersion2.Checked), FAll, FFirst, FLast, FLineThing, Name_);
+    OnAskSource(1 + Ord(chkVersion2.Checked), FAll, FHints, FFirst, FLast, FLineThing, Name_);
   if Length(FLineThing) <> FAll.Count then
   begin
     SetLength(FLineThing, FAll.Count);
@@ -364,6 +398,77 @@ begin
         if (R >= 0) and (R < FAll.Count) then FLinePicked[R] := True;
   Editor.Invalidate;
   TellPicked;
+end;
+
+function TSourceForm.DefinedAt(const Name_: string; FromRow: Integer): Integer;
+var
+  R: Integer;
+  T: string;
+begin
+  Result := -1;
+  if (Name_ = '') or (FromRow > Editor.Lines.Count - 1) then Exit;
+  for R := FromRow downto 0 do
+  begin
+    T := LowerCase(Trim(Editor.Lines[R]));
+    if (Copy(T, 1, Length(Name_) + 1) = LowerCase(Name_) + ' ') and
+       (Pos('=', T) > 0) and (Trim(Copy(T, Length(Name_) + 1, Pos('=', T) - Length(Name_) - 1)) = '') then
+      Exit(R);
+    if T = 'circle ' + LowerCase(Name_) then Exit(R);
+  end;
+  { a circle may be written further down than the face that names it }
+  for R := FromRow + 1 to Editor.Lines.Count - 1 do
+    if LowerCase(Trim(Editor.Lines[R])) = 'circle ' + LowerCase(Name_) then Exit(R);
+end;
+
+procedure TSourceForm.EditorMouseLink(Sender: TObject; X, Y: Integer;
+  var AllowMouseLink: Boolean);
+var
+  W: string;
+  At: Integer;
+begin
+  W := Editor.GetWordAtRowCol(Point(X, Y));
+  At := DefinedAt(W, Y - 1);
+  AllowMouseLink := (At >= 0) and (At <> Y - 1);
+end;
+
+procedure TSourceForm.EditorClickLink(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  P: TPoint;
+  At: Integer;
+begin
+  P := Editor.PixelsToLogicalPos(Point(X, Y));
+  At := DefinedAt(Editor.GetWordAtRowCol(P), P.Y - 1);
+  if At < 0 then Exit;
+  Editor.CaretXY := Point(1, At + 1);
+  Editor.EnsureCursorPosVisible;
+  Editor.BlockBegin := Point(1, At + 1);
+  Editor.BlockEnd := Point(Length(Editor.Lines[At]) + 1, At + 1);
+end;
+
+{ resting on a name: the line that gives it its meaning, and for a point
+  written as a step from another, where that comes to }
+procedure TSourceForm.EditorMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+var
+  P: TPoint;
+  W, H: string;
+  At: Integer;
+begin
+  P := Editor.PixelsToLogicalPos(Point(X, Y));
+  W := Editor.GetWordAtRowCol(P);
+  if W = FHintWord then Exit;
+  FHintWord := W;
+  H := '';
+  At := DefinedAt(W, P.Y - 1);
+  if (At >= 0) and (At <> P.Y - 1) then
+  begin
+    H := Trim(Editor.Lines[At]);
+    if (At <= High(FRowLine)) and (FRowLine[At] < FHints.Count) and
+       (FHints[FRowLine[At]] <> '') then
+      H := H + LineEnding + 'which is  ' + FHints[FRowLine[At]];
+  end;
+  Application.CancelHint;
+  Editor.Hint := H;
 end;
 
 procedure TSourceForm.chkOnlyPickedChange(Sender: TObject);

@@ -8318,7 +8318,7 @@ var
   D: TWorkDoc;
   L: TStringList;
   First, Last, LineThing: TIntArrayW;
-  I, NFace, NPoint: Integer;
+  I, NFace, NPoint, NLine_: Integer;
 begin
   WriteLn('the drawing file, version 2, for looking at');
   Ok(Len2(4, usImperial) = '4''', '4 feet');
@@ -8336,25 +8336,26 @@ begin
     Ok(D.PushPull(4, 2), 'a box');
     WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
     EqI(Length(LineThing), L.Count, 'every line says whose it is');
-    Ok(L.IndexOf('  box = 0; 4'' east, 4'' north, 2'' up') >= 0, 'a plain box is one line');
-    Ok((First[4] >= 0) and (First[4] = Last[4]), 'and every face of it is that line');
-
-    { paint one face and it is no longer only a box: eight named corners,
-      five one-line faces and one that says what it is painted }
-    D.SetMaterial(4, $3CB0FF);
-    L.Clear;
-    WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
     NFace := 0;
     NPoint := 0;
+    NLine_ := 0;
     for I := 0 to L.Count - 1 do
     begin
       if Copy(Trim(L[I]), 1, 7) = 'face = ' then Inc(NFace);
+      if Copy(Trim(L[I]), 1, 7) = 'line = ' then Inc(NLine_);
       if (Pos(' = ', L[I]) > 0) and (Length(Trim(Copy(L[I], 1, Pos(' = ', L[I])))) = 1) then Inc(NPoint);
     end;
-    EqI(NFace, 5, 'five plain faces, a line each');
+    EqI(NFace, 6, 'six faces, a line each');
+    EqI(NLine_, 12, 'twelve edges, a line each, two names and a "to"');
     EqI(NPoint, 8, 'eight corners, named once');
-    Ok(L.IndexOf('      paint = orange') >= 0, 'and the painted one says so');
-    Ok(L.Count < 32, 'the whole of it under thirty-two lines');
+    Ok(L.IndexOf('      b = a + x 4''') >= 0, 'a corner is a step from another');
+    Ok(Pos('x 0 y 0 z ', L.Text) > 0, 'a place says all three, the height as well');
+    Ok((First[4] >= 0) and (First[4] = Last[4]), 'a plain face is one line of the text');
+
+    D.SetMaterial(4, $3CB0FF);
+    L.Clear;
+    WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('      paint = orange') >= 0, 'a painted face says so');
   finally
     L.Free;
     D.Free;
