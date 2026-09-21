@@ -106,7 +106,6 @@ object SourceForm: TSourceForm
     Gutter.MouseActions = <>
     RightGutter.Width = 0
     RightGutter.MouseActions = <>
-    Keystrokes = <>
     MouseActions = <>
     MouseTextActions = <>
     MouseSelActions = <>

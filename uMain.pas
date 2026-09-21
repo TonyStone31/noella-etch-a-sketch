@@ -882,6 +882,8 @@ type
       drawing is a rectangle in plan, and a cube over it is an instrument for
       a question nobody has yet. }
     FCubeOn: Boolean;
+    FSourceWasOpen: Boolean;      { the source window was open when the program was last shut }
+    FSourceBounds: TRect;         { Left, Top, and Width and Height in Right and Bottom }
     { which corner of the drawing it sits in: 0 top left, 1 top right,
       2 bottom left, 3 bottom right }
     FCubeCorner: Integer;
@@ -9187,6 +9189,27 @@ begin
     FCmdMsg := Info.Tag + ' is out - you have ' + CurrentVersion +
       '.  Type /update, or use the help button.';
     Invalidate;
+    { Found at startup: offer it there and then, the same question /update
+      asks - yes fetches it, no leaves everything alone.  Not where this
+      copy cannot update itself, not for a build made from source, and not
+      twice for a version that has been turned down: that one waits for
+      /update. }
+    if (not Loud) and (WhyNotUpdate = '') and (Pos('dev', LowerCase(CurrentVersion)) = 0) then
+    begin
+      Ini := TIniFile.Create(ConfigFile);
+      try
+        Last := Ini.ReadString('update', 'declined', '');
+        if Last <> Info.Tag then Ini.WriteString('update', 'declined', Info.Tag);
+      finally
+        Ini.Free;
+      end;
+      if Last <> Info.Tag then
+      begin
+        pbCmd.Invalidate;
+        DoUpdate;
+        Exit;
+      end;
+    end;
   end
   else
   begin
@@ -17985,12 +18008,21 @@ begin
     SourceForm.OnRunJigs := @RunAllJigs;
     { beside the main window if there is room on its right, over its right
       half if there is not }
-    SourceForm.Height := Height;
-    SourceForm.Top := Top;
-    if Left + Width + SourceForm.Width <= Screen.DesktopLeft + Screen.DesktopWidth then
-      SourceForm.Left := Left + Width
+    if (FSourceBounds.Right > 200) and (FSourceBounds.Bottom > 150) and
+       (FSourceBounds.Left + FSourceBounds.Right > Screen.DesktopLeft + 40) and
+       (FSourceBounds.Left < Screen.DesktopLeft + Screen.DesktopWidth - 40) and
+       (FSourceBounds.Top < Screen.DesktopTop + Screen.DesktopHeight - 40) then
+      { where it was left - so long as that is still somewhere on a screen }
+      SourceForm.SetBounds(FSourceBounds.Left, FSourceBounds.Top, FSourceBounds.Right, FSourceBounds.Bottom)
     else
-      SourceForm.Left := Left + Width - SourceForm.Width;
+    begin
+      SourceForm.Height := Height;
+      SourceForm.Top := Top;
+      if Left + Width + SourceForm.Width <= Screen.DesktopLeft + Screen.DesktopWidth then
+        SourceForm.Left := Left + Width
+      else
+        SourceForm.Left := Left + Width - SourceForm.Width;
+    end;
   end;
   SourceForm.Show;
   SourceForm.Refresh_;
@@ -22032,6 +22064,12 @@ begin
         startup meant the window could not appear until the answer came
         back, or the connection gave up - which on a bad line is a program
         that takes half a minute to start for no reason the user can see. }
+      { the source window back, if it was open last time }
+      if FSourceWasOpen and (FMode = mdPro) then
+      begin
+        ShowSource;
+        BringToFront;
+      end;
       CheckForUpdate(False);
       { and the manual beside the program, in step with it }
       KeepHelpCurrent;
@@ -25097,6 +25135,9 @@ begin
       Ini.ReadSectionValues('exportpaths', FExportDirs);
       FCubeOn := Ini.ReadBool('look', 'cube', False);
       CameraLamp := Ini.ReadBool('look', 'cameralamp', True);
+      FSourceWasOpen := Ini.ReadBool('source', 'open', False);
+      FSourceBounds := Rect(Ini.ReadInteger('source', 'left', 0), Ini.ReadInteger('source', 'top', 0),
+        Ini.ReadInteger('source', 'width', 0), Ini.ReadInteger('source', 'height', 0));
       FInfoOn := Ini.ReadBool('look', 'info', False);
       FCubeCorner := EnsureRange(Ini.ReadInteger('look', 'cubecorner', 1), 0, 3);
       FCubeFitSel := Ini.ReadBool('look', 'cubefit', True);
@@ -25201,6 +25242,20 @@ begin
     try
       Ini.WriteBool('look', 'cube', FCubeOn);
       Ini.WriteBool('look', 'cameralamp', CameraLamp);
+      { the source window: whether it was open, and where it had been put }
+      if SourceForm <> nil then
+      begin
+        Ini.WriteBool('source', 'open', SourceForm.Visible);
+        if SourceForm.WindowState = wsNormal then
+        begin
+          Ini.WriteInteger('source', 'left', SourceForm.Left);
+          Ini.WriteInteger('source', 'top', SourceForm.Top);
+          Ini.WriteInteger('source', 'width', SourceForm.Width);
+          Ini.WriteInteger('source', 'height', SourceForm.Height);
+        end;
+      end
+      else
+        Ini.WriteBool('source', 'open', FSourceWasOpen);
       Ini.WriteBool('look', 'info', FInfoOn);
       Ini.WriteInteger('look', 'cubecorner', FCubeCorner);
       Ini.WriteBool('look', 'cubefit', FCubeFitSel);

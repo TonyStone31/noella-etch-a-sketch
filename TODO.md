@@ -122,6 +122,21 @@ pixel by pixel.  What the pictures said:
 
 ### Done 21 September
 
+* **The source window's keys.**  Reported as the main form's KeyPreview
+  eating them, with docking the window proposed as the cure.  It was
+  neither: `uSourceView.lfm` had `Keystrokes = <>`, an empty list written
+  over SynEdit's defaults when the form was first made by hand, so the
+  editor had no bindings at all - letters typed and nothing else did.  The
+  line is gone.  **Docking is therefore not needed for the keys**; it is
+  still a fair idea for its own sake and the window was built to allow it
+  (it knows nothing of the main form), but it costs the sheet a third of
+  its width, so it waits to be asked for again.
+* **The source window is remembered** - open or not, and where
+  (`[source]` in the settings) - and **an update found at startup is
+  offered at once** (`CheckForUpdate(False)` calls `DoUpdate`), except in
+  a build from source, where a copy cannot update itself, and for a
+  version already turned down (`update/declined`).
+
 * **Range check error on opening a file** (crash log beside the program,
   17:26).  `LoadDocument` replaced the drawings and never called
   `LeaveSheet`, so `FSel` kept an index from the old drawing: a pick in the

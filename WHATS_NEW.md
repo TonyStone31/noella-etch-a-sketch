@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **An update is offered the moment the program starts.**  It used to say
+  in the bar that a newer version was out and leave you to type `/update`.
+  Now it asks there and then - yes fetches it and restarts with your
+  drawings as they were, no leaves everything alone, and a version you
+  have said no to is not offered again until you ask with `/update`.
+- **The source window comes back.**  If it was open when you shut the
+  program it opens again, where you left it and the size you left it.
+
+### Fixed
+
+- **The source window took letters and not much else.**  The arrow keys,
+  Backspace, Delete, Enter, Home, End, copy and paste did nothing in it.
+  They all work now.
+
 ## v2026.09.21.3
 
 ### Fixed
