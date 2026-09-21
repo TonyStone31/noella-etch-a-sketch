@@ -42,8 +42,13 @@ const
 { Hints, when given, gets a line for each line of L: where a point written
   as a step from another actually is, for the source window to say when
   the pointer rests on its name; empty for every other line. }
+{ Names, when given, gets one entry for every named point, ring corners
+  included: "line|name=place", where line is the "points" line of the block
+  that names it - so a name can be looked up from wherever it is used, by
+  taking the nearest block above. }
 procedure WriteFormat2(D: TWorkDoc; const SheetName: string; U: TUnitSystem;
-  L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil);
+  L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil;
+  Names: TStrings = nil);
 
 { one length, the way the file writes it; always positive - the direction
   word carries the sign }
@@ -256,7 +261,8 @@ begin
 end;
 
 procedure WriteFormat2(D: TWorkDoc; const SheetName: string; U: TUnitSystem;
-  L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil);
+  L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil;
+  Names: TStrings = nil);
 var
   NextHint: string;
   DefInk: TColor;
@@ -529,6 +535,9 @@ var
         else Pts[I].Name := PointName(K, Loose);
         Inc(K);
       end;
+    if Names <> nil then
+      for I := 0 to High(Pts) do
+        Names.Add(IntToStr(NLine) + '|' + LowerCase(Pts[I].Name) + '=' + Place2(Pts[I].P, U, False));
     Put(Depth, 'points', -1);
     for I := 0 to High(Rings) do
     begin

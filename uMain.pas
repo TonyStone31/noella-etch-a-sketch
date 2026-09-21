@@ -283,7 +283,7 @@ type
     { the source window - see uSourceView.  It asks; these answer. }
     procedure ShowSource;
     procedure SourceAskState(out DocSeq, PickSeq: Int64);
-    procedure SourceAskSource(Version: Integer; L, Hints: TStrings;
+    procedure SourceAskSource(Version: Integer; L, Hints, Names: TStrings;
       out First, Last, LineThing: TIntArrayW; out SheetName: string);
     procedure SourceAskPicked(out Picked: TIntArrayW);
     procedure SourcePickThings(const Things: TIntArrayW);
@@ -17966,7 +17966,7 @@ begin
 end;
 {$pop}
 
-procedure TMainForm.SourceAskSource(Version: Integer; L, Hints: TStrings;
+procedure TMainForm.SourceAskSource(Version: Integer; L, Hints, Names: TStrings;
   out First, Last, LineThing: TIntArrayW; out SheetName: string);
 begin
   SetLength(First, 0);
@@ -17976,7 +17976,7 @@ begin
   if FD = nil then Exit;
   SheetName := FD.Name;
   if Version = 2 then
-    WriteFormat2(FD.Doc, FD.Name, FD.Units, L, First, Last, LineThing, Hints)
+    WriteFormat2(FD.Doc, FD.Name, FD.Units, L, First, Last, LineThing, Hints, Names)
   else
     FD.Doc.SaveTo(L, First, Last);
 end;

@@ -35,7 +35,7 @@ type
   { Version 1 is the file as it is saved today; 2 is the proposed format,
     docs/format2.md, written for looking at.  LineThing may come back empty,
     and is then worked out from First and Last. }
-  TSourceAskSource = procedure(Version: Integer; L, Hints: TStrings;
+  TSourceAskSource = procedure(Version: Integer; L, Hints, Names: TStrings;
     out First, Last, LineThing: TIntArrayW; out SheetName: string) of object;
   TSourceAskPicked = procedure(out Picked: TIntArrayW) of object;
   TSourcePickThings = procedure(const Things: TIntArrayW) of object;
@@ -45,13 +45,19 @@ type
   TSourceForm = class(TForm)
     chkOnlyPicked: TCheckBox;
     chkVersion2: TCheckBox;
+    btnFold: TButton;
+    btnUnfold: TButton;
+    edtFind: TEdit;
     Editor: TSynEdit;
-    lblWhat: TLabel;
     pnlTop: TPanel;
     Status: TStatusBar;
     tmrFollow: TTimer;
     procedure chkOnlyPickedChange(Sender: TObject);
     procedure chkVersion2Change(Sender: TObject);
+    procedure btnFoldClick(Sender: TObject);
+    procedure btnUnfoldClick(Sender: TObject);
+    procedure edtFindKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorSpecialLineColors(Sender: TObject; Line: integer;
       var Special: boolean; var FG, BG: TColor);
     procedure EditorStatusChange(Sender: TObject; Changes: TSynStatusChanges);
@@ -67,7 +73,9 @@ type
   private
     FAll: TStringList;          { the whole sheet's text }
     FHints: TStringList;        { for a point written as a step: where it is }
+    FNames: TStringList;        { every named point: "line|name=place" }
     FHintWord: string;
+    FWhat: string;
     FFirst, FLast: TIntArrayW;  { thing -> its lines in FAll }
     FLineThing: TIntArrayW;     { line in FAll -> thing, or -1 }
     FRowLine: TIntArrayW;       { row shown in the editor -> line in FAll }
@@ -82,6 +90,9 @@ type
     { the row, counted from 0, where Name_ is given its meaning, looking
       back from FromRow: "name = ..." in a points block, or "circle name" }
     function DefinedAt(const Name_: string; FromRow: Integer): Integer;
+    { where a named point is, looked up in the nearest points block above }
+    function WhereIs(const Name_: string; FromRow: Integer): string;
+    procedure FindNext(Back: Boolean);
     procedure LoadText;
     procedure ShowRows;
     procedure ShowPicked(Scroll: Boolean);
@@ -110,6 +121,7 @@ procedure TSourceForm.FormCreate(Sender: TObject);
 begin
   FAll := TStringList.Create;
   FHints := TStringList.Create;
+  FNames := TStringList.Create;
   FHaveState := False;
   FCaretRow := -1;
   FColors := TSynHsk2Syn.Create(Self);
@@ -129,7 +141,8 @@ begin
     IgnoreKeywords := False;
     Enabled := True;
   end;
-  Editor.MouseOptions := Editor.MouseOptions + [emShowCtrlMouseLinks];
+  Editor.MouseOptions := Editor.MouseOptions + [emShowCtrlMouseLinks, emCtrlWheelZoom];
+  Editor.OnKeyDown := @EditorKeyDown;
   Editor.OnMouseLink := @EditorMouseLink;
   Editor.OnClickLink := @EditorClickLink;
   Editor.OnMouseMove := @EditorMouseMove;
@@ -140,6 +153,7 @@ procedure TSourceForm.FormDestroy(Sender: TObject);
 begin
   FAll.Free;
   FHints.Free;
+  FNames.Free;
 end;
 
 procedure TSourceForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -189,8 +203,9 @@ begin
   Name_ := '';
   SetLength(FLineThing, 0);
   FHints.Clear;
+  FNames.Clear;
   if Assigned(OnAskSource) then
-    OnAskSource(1 + Ord(chkVersion2.Checked), FAll, FHints, FFirst, FLast, FLineThing, Name_);
+    OnAskSource(1 + Ord(chkVersion2.Checked), FAll, FHints, FNames, FFirst, FLast, FLineThing, Name_);
   if Length(FLineThing) <> FAll.Count then
   begin
     SetLength(FLineThing, FAll.Count);
@@ -200,9 +215,9 @@ begin
         if (K >= 0) and (K < FAll.Count) then FLineThing[K] := I;
   end;
   if chkVersion2.Checked then
-    lblWhat.Caption := 'Version 2, proposed.  Read only.'
+    FWhat := 'Heck (version 2, proposed) - read only.'
   else
-    lblWhat.Caption := 'This sheet, as it is saved.  Read only.';
+    FWhat := 'The file as it is saved today - read only.';
   if Name_ <> '' then Caption := 'Source - ' + Name_ else Caption := 'Source';
 end;
 
@@ -318,11 +333,11 @@ end;
 procedure TSourceForm.TellPicked;
 begin
   if Length(FPicked) = 0 then
-    Status.SimpleText := Format('  %d lines, %d things.  Nothing picked - ' +
-      'click a line, or drag over several.', [FAll.Count, Length(FFirst)])
+    Status.SimpleText := Format('  %s  %d lines, %d things.  Click a line to pick it; ' +
+      'Ctrl+click a name to go to it.', [FWhat, FAll.Count, Length(FFirst)])
   else
-    Status.SimpleText := Format('  %d lines, %d things.  %d picked.',
-      [FAll.Count, Length(FFirst), Length(FPicked)]);
+    Status.SimpleText := Format('  %s  %d lines, %d things.  %d picked.',
+      [FWhat, FAll.Count, Length(FFirst), Length(FPicked)]);
 end;
 
 procedure TSourceForm.EditorSpecialLineColors(Sender: TObject; Line: integer;
@@ -402,11 +417,15 @@ end;
 
 function TSourceForm.DefinedAt(const Name_: string; FromRow: Integer): Integer;
 var
-  R: Integer;
-  T: string;
+  R, P: Integer;
+  T, Stem: string;
 begin
   Result := -1;
   if (Name_ = '') or (FromRow > Editor.Lines.Count - 1) then Exit;
+  Stem := LowerCase(Name_);
+  P := Length(Stem);
+  while (P > 0) and (Stem[P] in ['0'..'9']) do Dec(P);
+  if (P = Length(Stem)) or (P = 0) then Stem := '' else Stem := Copy(Stem, 1, P);
   for R := FromRow downto 0 do
   begin
     T := LowerCase(Trim(Editor.Lines[R]));
@@ -414,10 +433,106 @@ begin
        (Pos('=', T) > 0) and (Trim(Copy(T, Length(Name_) + 1, Pos('=', T) - Length(Name_) - 1)) = '') then
       Exit(R);
     if T = 'circle ' + LowerCase(Name_) then Exit(R);
+    { ra5 is a corner of "ring ra" }
+    if (Stem <> '') and (T = 'ring ' + Stem) then Exit(R);
   end;
   { a circle may be written further down than the face that names it }
   for R := FromRow + 1 to Editor.Lines.Count - 1 do
     if LowerCase(Trim(Editor.Lines[R])) = 'circle ' + LowerCase(Name_) then Exit(R);
+end;
+
+function TSourceForm.WhereIs(const Name_: string; FromRow: Integer): string;
+var
+  I, Bar, Eq, Ln, BestLn, Row: Integer;
+  E: string;
+begin
+  Result := '';
+  if (FromRow < 0) or (FromRow > High(FRowLine)) then Exit;
+  Row := FRowLine[FromRow];
+  BestLn := -1;
+  for I := 0 to FNames.Count - 1 do
+  begin
+    E := FNames[I];
+    Bar := Pos('|', E);
+    Eq := Pos('=', E);
+    if (Bar = 0) or (Eq < Bar) then Continue;
+    if Copy(E, Bar + 1, Eq - Bar - 1) <> LowerCase(Name_) then Continue;
+    Ln := StrToIntDef(Copy(E, 1, Bar - 1), -1);
+    if (Ln <= Row) and (Ln > BestLn) then
+    begin
+      BestLn := Ln;
+      Result := Copy(E, Eq + 1, MaxInt);
+    end;
+  end;
+end;
+
+procedure TSourceForm.FindNext(Back: Boolean);
+var
+  Opt: TSynSearchOptions;
+begin
+  if edtFind.Text = '' then Exit;
+  Opt := [];
+  if Back then Opt := [ssoBackwards];
+  if Editor.SearchReplace(edtFind.Text, '', Opt) = 0 then
+  begin
+    { round again from the other end }
+    if Back then Editor.CaretXY := Point(1, Editor.Lines.Count)
+    else Editor.CaretXY := Point(1, 1);
+    if Editor.SearchReplace(edtFind.Text, '', Opt) = 0 then
+      Status.SimpleText := '  "' + edtFind.Text + '" is not in it.';
+  end;
+end;
+
+procedure TSourceForm.edtFindKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if Key = 13 then
+  begin
+    FindNext(ssShift in Shift);
+    Key := 0;
+  end
+  else if Key = 27 then
+  begin
+    Editor.SetFocus;
+    Key := 0;
+  end;
+end;
+
+{ Ctrl+F to the find box, F3 and Shift+F3 for the next and the one before }
+procedure TSourceForm.EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (Key = Ord('F')) and (ssCtrl in Shift) then
+  begin
+    if Editor.SelAvail and (Editor.BlockBegin.Y = Editor.BlockEnd.Y) then
+      edtFind.Text := Editor.SelText;
+    edtFind.SetFocus;
+    edtFind.SelectAll;
+    Key := 0;
+  end
+  else if Key = 114 then         { F3 }
+  begin
+    FindNext(ssShift in Shift);
+    Key := 0;
+  end;
+end;
+
+procedure TSourceForm.btnFoldClick(Sender: TObject);
+begin
+  FBusy := True;
+  try
+    Editor.FoldAll(1, False);
+  finally
+    FBusy := False;
+  end;
+end;
+
+procedure TSourceForm.btnUnfoldClick(Sender: TObject);
+begin
+  FBusy := True;
+  try
+    Editor.UnfoldAll;
+  finally
+    FBusy := False;
+  end;
 end;
 
 procedure TSourceForm.EditorMouseLink(Sender: TObject; X, Y: Integer;
@@ -463,9 +578,8 @@ begin
   if (At >= 0) and (At <> P.Y - 1) then
   begin
     H := Trim(Editor.Lines[At]);
-    if (At <= High(FRowLine)) and (FRowLine[At] < FHints.Count) and
-       (FHints[FRowLine[At]] <> '') then
-      H := H + LineEnding + 'which is  ' + FHints[FRowLine[At]];
+    if WhereIs(W, P.Y - 1) <> '' then
+      H := H + LineEnding + W + ' is at  ' + WhereIs(W, P.Y - 1);
   end;
   Application.CancelHint;
   Editor.Hint := H;

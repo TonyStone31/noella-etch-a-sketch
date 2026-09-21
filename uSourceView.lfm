@@ -2,10 +2,10 @@ object SourceForm: TSourceForm
   Left = 300
   Height = 720
   Top = 160
-  Width = 760
+  Width = 820
   Caption = 'Source'
   ClientHeight = 720
-  ClientWidth = 760
+  ClientWidth = 820
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -15,19 +15,38 @@ object SourceForm: TSourceForm
     Left = 0
     Height = 38
     Top = 0
-    Width = 760
+    Width = 820
     Align = alTop
     BevelOuter = bvNone
     ClientHeight = 38
-    ClientWidth = 760
+    ClientWidth = 820
     TabOrder = 0
-    object lblWhat: TLabel
+    object edtFind: TEdit
       Left = 12
-      Height = 18
-      Top = 10
-      Width = 330
-      AutoSize = False
-      Caption = 'This sheet, as it is saved.  Read only.'
+      Height = 26
+      Top = 6
+      Width = 150
+      TabOrder = 2
+      TextHint = 'Find  (Ctrl+F, F3)'
+      OnKeyDown = edtFindKeyDown
+    end
+    object btnFold: TButton
+      Left = 170
+      Height = 26
+      Top = 6
+      Width = 70
+      Caption = 'Fold all'
+      TabOrder = 3
+      OnClick = btnFoldClick
+    end
+    object btnUnfold: TButton
+      Left = 244
+      Height = 26
+      Top = 6
+      Width = 80
+      Caption = 'Unfold all'
+      TabOrder = 4
+      OnClick = btnUnfoldClick
     end
     object chkVersion2: TCheckBox
       Left = 350
@@ -56,7 +75,7 @@ object SourceForm: TSourceForm
     Left = 0
     Height = 660
     Top = 38
-    Width = 760
+    Width = 820
     Align = alClient
     Font.Height = -14
     Font.Name = 'Courier New'
@@ -128,7 +147,7 @@ object SourceForm: TSourceForm
     Left = 0
     Height = 22
     Top = 698
-    Width = 760
+    Width = 820
     Panels = <>
     SimplePanel = True
   end
