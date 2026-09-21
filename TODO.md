@@ -397,6 +397,11 @@ What has to be thought about before it is as nice as it sounds:
   for none on 20 September, and for one on the 21st so it could be tried
   away from the development machine.  So: commit and push as the work
   goes, and cut a release when he says to.
+* **Names, settled 21 September.**  The language a drawing is written in
+  is **Heck** (`.hsk` files are Heck; the grammar page is "What the
+  Heck").  A group whose contents a program writes is made by a **JIG -
+  Just Include Geometry**: any program that prints Heck, and the same idea
+  as a server-side include on a web page in the nineties.
 * **The format, fourth go** - 21 September: the compass words are back as
   what the program writes (`x y z` is still read), a place always says
   its height, and `docs/format2.md` gained "What it grows into": sums,

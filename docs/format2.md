@@ -1,4 +1,9 @@
-# The drawing file, version 2 - the grammar
+# What the Heck - the drawing file, version 2
+
+**Heck** is the language a Heckers Sketch drawing is written in: plain
+text that draws, which the drawing also writes.  A markup, the way HTML is
+- except that what it renders is a model and not a page.  `.hsk` files are
+Heck.  This page is its grammar.
 
 Proposed 20 September 2026; this is the fourth go at it, each one after
 the last had been looked at on real drawings.  **Not built.**  The program reads and writes
@@ -422,10 +427,23 @@ one; the faces are then worked out again as after any edit.
 ### 3. Jigs - a group whose contents a script writes
 
 A jig is what a shop makes once so that a part can be made the same way
-again and again, and that is what this is.  (The name was settled on 21
-September; `makers`, `recipe` and `made by` were the other candidates, and
-what the letters might stand for is still being played with.)  A group
-can say that a jig makes it:
+again and again, and that is what this is.  It is also **JIG: Just
+Include Geometry** - or, for those who like them that way, *JIG Includes
+Geometry*.  The whole of it in a sentence:
+
+> **A JIG is any program that prints Heck.**
+
+A script, a `.bat` file, something compiled and enormous - what is behind
+it is nobody's business but its author's.  It is handed `name = value`
+lines, it prints Heck, and the drawing includes what it printed.
+
+**If you remember SSI, you already know what a JIG is.**  Server-side
+includes, from web pages in the nineties: a line in the page named a
+program, the server ran it, and what it printed became part of the page.
+This is that, on a sheet instead of a server.
+
+(Settled 21 September.  `makers`, `recipe` and `made by` were the other
+names tried.)  A group says that a jig makes it:
 
 ```
 group 'Hangers'
