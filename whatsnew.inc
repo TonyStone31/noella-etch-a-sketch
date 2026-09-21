@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.15' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **"This program and the others" says a good deal more.**  The help page' + LineEnding +
+    '  now sets this program beside thirteen others, with a plain table of what' + LineEnding +
+    '  to use instead when this is the wrong tool - and a section on ZCAD, the' + LineEnding +
+    '  other drawing program written in Free Pascal: what to go there for (DXF' + LineEnding +
+    '  and DWG, layers and blocks, electrical work) and what to stay here for.' + LineEnding +
+    '  The list of what we do not do is longer, and honest.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.14' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
