@@ -241,6 +241,21 @@ from the default, and the block when something does.  A thing may have a
 name after its kind - `circle c1`, `group 'Left eye'` - and need not.  A
 group's name is text because people type it.
 
+**There is no `begin`.**  A block opens with the word that says what it
+is and closes with `end` - the way Pascal writes a `record`, a `class`, a
+`case`, and the way every `.lfm` writes an `object`.  Pascal keeps `begin`
+for blocks of *statements*, and there are no statements here; a `begin`
+under every thing would be a line that says nothing, twelve hundred of
+them in a drawing of any size.  The reader lets one pass if it is typed,
+as it lets extra spaces pass; the program never writes it.
+
+**Names are a person's.**  `line Rafter`, `solid Foot`, `group 'Left
+eye'`.  The program does not invent them - `line1` to `line753` would be
+noise, and would renumber the moment something was rubbed out, which is
+the opposite of a name.  A name somebody gave is kept and saved.  (Points
+and circles are the exception: they are named by the program because
+other lines have to be able to say them.)
+
 **Rule 7, in full:** a line with `=` is complete - unless what follows the
 `=` opens a bracket, and then it runs to the line that closes it.  A line
 without `=` opens a block, and `end` closes it.

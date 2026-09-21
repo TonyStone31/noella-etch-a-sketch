@@ -402,6 +402,13 @@ What has to be thought about before it is as nice as it sounds:
   Heck").  A group whose contents a program writes is made by a **JIG -
   Just Include Geometry**: any program that prints Heck, and the same idea
   as a server-side include on a web page in the nineties.
+* **Settled 21 September: no `begin`.**  A block is `line Rafter ... end`,
+  as a record or an `.lfm` object is; the reader lets a typed `begin`
+  pass, the program never writes one.  And names on things are a
+  person's, optional, kept and saved - which needs somewhere to live in
+  version 1 too: `Txt` on a line or a face is unused, and a `NAME` line
+  after the thing is skipped by old readers the way `MATERIAL` is.  Goes
+  with "Entity panel: a name on a solid" under Small.
 * **The format, fourth go** - 21 September: the compass words are back as
   what the program writes (`x y z` is still read), a place always says
   its height, and `docs/format2.md` gained "What it grows into": sums,
