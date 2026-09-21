@@ -362,6 +362,61 @@ What has to be thought about before it is as nice as it sounds:
   thousand things and wants thinking about at fifteen thousand; reparsing
   the changed lines only is the obvious answer.
 
+### A friendlier file format - Pascal-like, perhaps
+
+If the source is going to be looked at and typed into, `FACE 2104346 1 4
+0.000000 0.000000 2.000000 ...` is not it.  The thought: a second version
+of the format that reads like Pascal - words, brackets, `begin`/`end`
+blocks for groups, `{ comments }` - with version 1 still read for ever.
+
+A sketch of the feel, nothing more:
+
+```
+sheet 'Robot';
+units feet;  scale 1/4";
+
+group 'Left eye' locked
+begin
+  line (0, 0, 0) to (4', 0, 0)  ink black  width 1;
+  face [(0,0,0), (4',0,0), (4',4',0), (0,4',0)]  material orange;   { worked out by the program }
+end;
+```
+
+What would have to be settled:
+
+* **Data, or a program?**  This is the big one.  The moment the file
+  allows `const W = 4';` and `line (0,0,0) to (W,0,0)`, the program has
+  to write that back on save or it destroys what the person wrote - the
+  disease the old WYSIWYG editors had, mangling hand-written source.
+  The safe rule: **the saved file is data** - declarative, every
+  statement one thing, written back exactly - and loops and arithmetic
+  belong to the recipe language and to outside scripts.  The ambitious
+  version: a coordinate remembers *what was typed* as well as what it
+  came to, the way a spreadsheet cell keeps its formula beside its value.
+  That is a road to parametric drawing, and a long one.
+* **One statement to a line, by habit.**  The grammar need not demand it,
+  but pick-in-one-pane-picked-in-the-other, flashing the changed lines,
+  and a useful `git diff` of a drawing all lean on it.  The program
+  always writes it that way.
+* **The quote.**  Pascal strings are in single quotes and feet are a
+  single quote: `'Robot'` and `4'`.  A lexer can tell them apart - a quote
+  straight after a digit is feet - but it wants deciding, and testing on
+  `4'6"`.
+* **Comments survive.**  A comment on a line belongs to that thing and is
+  saved with it; a comment on its own belongs to what follows.  If the
+  program throws comments away nobody will write any.
+* **Derived lines say so.**  Faces the region finder makes are the
+  program's to write.  Marked, folded, or left out of the friendly form
+  altogether and worked out on loading - which would make files smaller
+  and hand-editing safe, at the price of load time and of a file that no
+  longer says exactly what was on the screen.
+* **Still hardened.**  Drawings arrive from strangers in reports.  A
+  richer grammar is a bigger thing to get wrong; it stays declarative and
+  nothing in a drawing is ever executed, which is the rule below.
+* **Both versions for ever.**  Version 1 is what every drawing so far is,
+  and what older builds read; the program reads both and there is a way
+  to save as the old one.
+
 ### Rules that come before any of it
 
 * **Off until asked for, and local only.**  Nothing listens until the
