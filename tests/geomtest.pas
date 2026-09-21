@@ -1002,13 +1002,13 @@ procedure TestExampleDrawings;
 var
   D: TWorkDoc;
   L, Own: TStringList;
-  I, J, Idx, NFace, NSolid, Grp: Integer;
+  I, J, K, Idx, NFace, NSolid, Grp, NJig: Integer;
   Lo, Hi: TP3;
   Path: string;
   Same: Boolean;
 begin
   WriteLn('the example drawings');
-  EqI(ExampleCount, 5, 'there are five of them');
+  EqI(ExampleCount, 6, 'there are six of them');
 
   for I := 0 to ExampleCount - 1 do
   begin
@@ -1056,11 +1056,26 @@ begin
             if D[J].Solid then Inc(NSolid);
             if D[J].Grp <> 0 then Grp := D[J].Grp;
           end;
-        Ok(NFace > 50, Format('  it carries its faces - %d of them', [NFace]));
-        EqI(NSolid, NFace,
-          '  and every one belongs to a solid, so /reface leaves them');
-        Ok(Grp <> 0, '  it is a solid');
-        Ok(D.GroupClosed(Grp), '  and it is closed, so it will print');
+        if ExampleFile(I) = 'jigs.hsk' then
+        begin
+          { The jigs example is about something else: what four little
+            programs printed, and a cube typed as twelve lines whose faces
+            the program worked out.  Loose lines and loose faces are the
+            point of it, so it is asked for what it is for. }
+          NJig := 0;
+          for K := 0 to D.Live - 1 do
+            if (D[K].Kind = ekPart) and (D[K].Jig <> '') then Inc(NJig);
+          EqI(NJig, 4, '  it has four groups made by jigs');
+          Ok(NFace >= 6, Format('  and the faces that were worked out - %d of them', [NFace]));
+        end
+        else
+        begin
+          Ok(NFace > 50, Format('  it carries its faces - %d of them', [NFace]));
+          EqI(NSolid, NFace,
+            '  and every one belongs to a solid, so /reface leaves them');
+          Ok(Grp <> 0, '  it is a solid');
+          Ok(D.GroupClosed(Grp), '  and it is closed, so it will print');
+        end;
 
         { an example that starts underground is an example about the wrong
           thing - they all stand on the ground plane }

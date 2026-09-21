@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFormat2, uHeck, uJig, uFittings, uTransition, uSpool, uPipe,
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFormat2, uHeck, uJig, uJigFiles, uFittings, uTransition, uSpool, uPipe,
   InkPage;
 
 type
@@ -1398,6 +1398,7 @@ type
     function RestoreHandoff: Boolean;
     function LoadExample: Boolean;
     procedure WriteExamples;
+    procedure WriteJigs;
     procedure LoadSettings;
     procedure ApplyCommandLine;
     procedure FollowScreenSize;
@@ -3066,6 +3067,7 @@ begin
     be pushed.  Only when there is genuinely nothing: a drawing named on the
     command line wins, and so does a draft. }
   WriteExamples;
+  WriteJigs;
   if not Opened then Opened := LoadExample;
   SplashLoaded(LoadedWords);
   { fingers on the drawing, where the platform gives them to us }
@@ -24903,6 +24905,40 @@ end;
   see PutExample - and one that has been saved over since is left alone.
   An untouched one still gets the newer version when the program has one.
   Somebody who wants the original back deletes their copy. }
+{ The jigs the program carries, put in the jigs folder by the examples' own
+  rule: one that has been changed there is somebody's, and is left alone. }
+procedure TMainForm.WriteJigs;
+var
+  Ini: TIniFile;
+  L: TStringList;
+  I: Integer;
+  Rec: string;
+begin
+  try
+    Ini := TIniFile.Create(ConfigFile);
+    L := TStringList.Create;
+    try
+      for I := 0 to JigFileCount - 1 do
+      begin
+        L.Clear;
+        JigFileLines(I, L);
+        Rec := Ini.ReadString('jigs', JigFileName(I), '');
+        case PutCarried(JigsDir + JigFileName(I), L, Rec) of
+          ewWritten, ewUpToDate:
+            Ini.WriteString('jigs', JigFileName(I), Rec);
+          ewKeptTheirs:
+            Trail('jig ' + JigFileName(I) + ' has been changed here - left alone');
+        end;
+      end;
+    finally
+      L.Free;
+      Ini.Free;
+    end;
+  except
+    on E: Exception do ;
+  end;
+end;
+
 procedure TMainForm.WriteExamples;
 var
   Ini: TIniFile;

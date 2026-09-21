@@ -419,6 +419,13 @@ What has to be thought about before it is as nice as it sounds:
   `reports/2026-09-18` comes back as more lines of text than it went out
   as, every thing accounted for - rings or circles not being found again
   the second time; not looked at.
+* **The jigs are carried the way the examples are** - 21 September.
+  `jigs/` in the repository is the source; `jigs/make-jigs.pas` turns it
+  into `uJigFiles.pas`; `WriteJigs` puts them in `AppDataDir/jigs` at
+  startup by `PutCarried`, the examples' own checksum rule, so a jig
+  somebody has changed is theirs.  `steps` is there twice, `.sh` and
+  `.ps1`, and `FindJig` takes the kind the system runs.  `examples/jigs.hsk`
+  is made with the program itself (its README says how).
 * **Names, settled 21 September.**  The language a drawing is written in
   is **Heck** (`.hsk` files are Heck; the grammar page is "What the
   Heck").  A group whose contents a program writes is made by a **JIG -

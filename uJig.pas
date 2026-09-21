@@ -135,12 +135,22 @@ begin
 end;
 
 function FindJig(const Name: string): string;
+const
+  { the same jig may be there twice - steps.sh and steps.ps1 - so that it
+    runs wherever it finds itself: the kinds this system runs come first }
+  {$IFDEF WINDOWS}
+  ORDER: array[0..7] of string = ('.ps1', '.bat', '.cmd', '.exe', '.py', '.pl', '.pas', '.sh');
+  {$ELSE}
+  ORDER: array[0..7] of string = ('.sh', '.pas', '.py', '.pl', '', '.ps1', '.bat', '.cmd');
+  {$ENDIF}
 var
   SR: TSearchRec;
+  I: Integer;
 begin
   Result := '';
   if not SafeName(Name) then Exit;
-  if FileExists(JigsDir + Name) then Exit(JigsDir + Name);
+  for I := 0 to High(ORDER) do
+    if FileExists(JigsDir + Name + ORDER[I]) then Exit(JigsDir + Name + ORDER[I]);
   if FindFirst(JigsDir + Name + '.*', faAnyFile and not faDirectory, SR) = 0 then
   begin
     Result := JigsDir + SR.Name;

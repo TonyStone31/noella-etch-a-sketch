@@ -259,3 +259,18 @@ worth keeping:
   example teaching the wrong lesson;
 * and **it stands on the ground**, at z = 0, in the quarter where all three
   axes are drawn solid.
+
+## `jigs.hsk` - the one the program made itself
+
+Four groups, each filled by a **jig** - a little program of the person's
+own, in any language, that prints the drawing's text (`../jigs/`, and
+`docs/format2.md`): a star from Pascal, a balloon from Python, a fence from
+Perl, a flight of steps from shell or PowerShell.  Beside them a cube typed
+as twelve lines with a circle on it, whose faces the program worked out.
+
+It is not generated from nothing the way the others are, because what it
+shows is what the program does: it was made with `/source`, **Sample**,
+**Apply**, **Run jigs** and **Save**.  `make-jigs.pas` only carries the saved
+file into `../uExJigs.pas`.  Right-click a group in it and **Run the Jig
+Again** - after changing a number in the source window, if you like.
+

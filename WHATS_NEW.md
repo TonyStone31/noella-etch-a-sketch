@@ -28,9 +28,13 @@
   language.  Right-click the group for **Run the Jig Again**, or `/jig`.
   Nothing ever runs because a drawing was opened - the drawing keeps what
   the jig made - and a drawing can only name a jig, never carry one.
-  **Sample** in the source window puts in a small drawing and three jigs
-  to try: a star in Pascal, a balloon in Python, a fence in Perl.
-  Ctrl+click a `jig` line opens its program.
+  Four come with the program and are written out to your **jigs** folder,
+  beside the examples: a star in Pascal, a balloon in Python, a fence in
+  Perl, and a flight of steps in shell *and* PowerShell - the same jig
+  twice, so it runs on Windows with nothing installed.  Change one and it
+  is yours: it is never written over.  The new **jigs** example shows all
+  four, and **Sample** in the source window types the same drawing in for
+  you to Apply.  Ctrl+click a `jig` line opens its program.
 
 ## v2026.09.21.1
 

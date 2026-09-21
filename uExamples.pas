@@ -56,15 +56,20 @@ type
 function PutExample(I: Integer; const Dir: string;
   var Recorded: string): TExampleWrite;
 
+{ The same rule for any file the program carries and writes out - the jigs
+  are put in their folder by it too. }
+function PutCarried(const Path: string; L: TStrings;
+  var Recorded: string): TExampleWrite;
+
 implementation
 
 uses
-  SysUtils, uExample, uExGlass, uExBroom, uExRobot, uExBall, uUpdate;
+  SysUtils, uExample, uExGlass, uExBroom, uExRobot, uExBall, uExJigs, uUpdate;
 
 const
-  FILES: array[0..4] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
-    'broom.hsk', 'robot.hsk', 'ball.hsk');
-  ABOUT: array[0..4] of string = (
+  FILES: array[0..5] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
+    'broom.hsk', 'robot.hsk', 'ball.hsk', 'jigs.hsk');
+  ABOUT: array[0..5] of string = (
     'A toy etch-a-sketch, to scale, with a robot on the screen.  Every ' +
     'face of it is something to push.',
     'A wine glass, off the lathe: an outline spun about the blue axis.  ' +
@@ -74,7 +79,9 @@ const
     'A robot six foot two, with the etch-a-sketch set in his chest at the ' +
     'height your hands are - and the toy is the toy, not a copy of it.',
     'A soccer ball: twelve pentagons and twenty hexagons, cut off the corners ' +
-    'of an icosahedron the way the real one is.');
+    'of an icosahedron the way the real one is.',
+    'Four groups, each made by a jig - a little program of your own, in any ' +
+    'language, that prints the drawing''s text.  Right-click one and run it again.');
 
 function ExampleCount: Integer;
 begin
@@ -99,6 +106,7 @@ begin
     2: BroomDrawing(L);
     3: RobotDrawing(L);
     4: BallDrawing(L);
+    5: JigsDrawing(L);
   end;
 end;
 
@@ -116,34 +124,45 @@ begin
   end;
 end;
 
+function PutCarried(const Path: string; L: TStrings;
+  var Recorded: string): TExampleWrite;
+var
+  Sum: string;
+begin
+  Result := ewFailed;
+  try
+    if L.Count = 0 then Exit;
+    if FileExists(Path) then
+    begin
+      if ReadRaw(Path) = L.Text then
+      begin
+        Recorded := Sha256Of(Path);
+        Exit(ewUpToDate);
+      end;
+      Sum := Sha256Of(Path);
+      if (Recorded <> '') and (Sum <> Recorded) then
+        Exit(ewKeptTheirs);
+    end;
+    L.SaveToFile(Path);
+    Recorded := Sha256Of(Path);
+    Result := ewWritten;
+  except
+    Result := ewFailed;
+  end;
+end;
+
 function PutExample(I: Integer; const Dir: string;
   var Recorded: string): TExampleWrite;
 var
   L: TStringList;
-  Path, Sum: string;
 begin
   Result := ewFailed;
   if (I < 0) or (I >= ExampleCount) then Exit;
-  Path := IncludeTrailingPathDelimiter(Dir) + ExampleFile(I);
   L := TStringList.Create;
   try
     try
       ExampleLines(I, L);
-      if L.Count = 0 then Exit;
-      if FileExists(Path) then
-      begin
-        if ReadRaw(Path) = L.Text then
-        begin
-          Recorded := Sha256Of(Path);
-          Exit(ewUpToDate);
-        end;
-        Sum := Sha256Of(Path);
-        if (Recorded <> '') and (Sum <> Recorded) then
-          Exit(ewKeptTheirs);
-      end;
-      L.SaveToFile(Path);
-      Recorded := Sha256Of(Path);
-      Result := ewWritten;
+      Result := PutCarried(IncludeTrailingPathDelimiter(Dir) + ExampleFile(I), L, Recorded);
     except
       Result := ewFailed;
     end;
