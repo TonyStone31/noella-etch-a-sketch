@@ -70,8 +70,8 @@ const
 implementation
 
 const
-  KEYWORDS = ' heckerssketch sheet group solid points face hole line arc circle ' +
-    'bore dim note guide end to true false none ';
+  KEYWORDS = ' heckerssketch sheet group solid points ring const face hole line arc circle ' +
+    'bore dim note guide jig begin end to true false none ';
   NAMES: array[THskToken] of string = ('Space', 'Note', 'Keyword', 'Property',
     'Name', 'Text', 'Symbol', 'East-west', 'North-south', 'Up-down', 'Number', 'Color');
 
@@ -213,7 +213,10 @@ begin
   W := WordAt(I, WLen);
   FCloses := (W = 'end');
   { inside a bracketed list the lines are its items, not blocks }
+  { a "begin" under the word that opened the block is let pass and opens
+    nothing: the block is open already }
   FOpens := (not HasEq) and (WLen > 0) and (not FCloses) and (W <> 'heckerssketch') and
+            (W <> 'begin') and
             (not FListCloses) and (PtrUInt(TopCodeFoldBlockType) <> 2);
   FDone := False;
   FSeenEquals := False;

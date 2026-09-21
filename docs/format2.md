@@ -216,6 +216,52 @@ it was left.
 The program names points `a` to `w` in a small block and `p1`, `p2`... in a
 bigger one, and circles `c1`, `c2`...  Any name is read.
 
+### Rings
+
+Corners spaced evenly round a circle are said once, as a **ring**: where
+its middle is, how big it is, how many corners, and which way it faces.
+The ring's name and a number is each corner - `ra1` to `ra24` - counted
+round anticlockwise as seen from the side it faces.
+
+```
+points
+  ring ra
+    center = 2' east, 2' north, 2' up
+    radius = 1'
+    sides  = 24
+    facing = up
+  end
+  ring rb
+    center = 2' east, 2' north, 0 up
+    radius = 1'
+    sides  = 24
+    facing = down
+    starts = 15°
+  end
+end
+face = ra1..ra24                   // the top: a run of names is its two ends
+face = rb24 rb23 ra2 ra1           // one of the twenty-four walls
+```
+
+That is a cylinder: forty-eight corners in twelve lines, and not one ugly
+number, where writing each corner out is forty-eight lines of them.
+
+* **`a..b`** in a list of names is every name from one to the other,
+  counting up or down.
+* **`starts`** is where corner 1 is, as an angle; left out, it is nought.
+  For a ring facing up or down it is measured from east.  For any other it
+  is measured from the ring's **level line** - the one direction in its
+  plane that is neither up nor down (`up x facing`, for whoever has to
+  compute it) - and always turning anticlockwise seen from the side it
+  faces.  `circle` and `arc` measure theirs the same way.
+* **A ring that is not square to anything** says how it leans:
+  `facing = up, leaning 30° toward east`, or `... toward 40° round from
+  east` when it leans between the compass points.  When the angles are not
+  clean ones it falls back on three numbers - `facing = 0.5 east,
+  0.5 north, 0.7071 up` - which is harder to read and always right.
+  This is the honest limit of reading a drawing as text: a thing tilted
+  two ways at once is hard to picture from *any* words.
+
 **In the source window** a name behaves as it does in Lazarus: every other
 place it turns up is outlined when the caret is on it; **Ctrl and a click**
 goes to the line that gives it its meaning; and **resting the pointer** on
@@ -529,11 +575,9 @@ and comparing.
   *reading* a version 1 file should put the friendly value back for good.
   It would be right nearly always, and it is the one place the reader
   would be deciding what somebody meant.
-* **Round solids.**  A cylinder is forty-eight corners with ugly numbers
-  and twenty-four walls.  A `ring` in a points block - center, radius,
-  sides, facing, which names `r1` to `r24` at a stroke - and a range in a
-  list, `face = r1..r24`, would cut it to a third.  Wanted, not yet drawn
-  up.
+* **The walls of a round solid** are still a line each -
+  `face = rb24 rb23 ra2 ra1`, twenty-four times.  "The walls between `ra`
+  and `rb`" in one line would be the next saving, if it is wanted.
 * **Soft edges on round things.**  A cylinder of twenty-four sides has
   twenty-four soft edges, and an `edge` block each is a hundred lines that
   say one thing.  A solid-level `soft edges = a i, b j, ...` would say it

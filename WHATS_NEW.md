@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Round things read as rings.**  In `/source`, corners spaced evenly
+  round a circle are said once - `ring ra`, its center, radius and how
+  many sides - and a face round them is `face = ra1..ra24`.  A cylinder is
+  about forty-five lines with no ugly numbers in it, where it was a
+  hundred and fifty.  A tilted one says which way it leans.
+
 ## v2026.09.21
 
 ### New

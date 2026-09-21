@@ -409,6 +409,14 @@ What has to be thought about before it is as nice as it sounds:
   version 1 too: `Txt` on a line or a face is unused, and a `NAME` line
   after the thing is skipped by old readers the way `MATERIAL` is.  Goes
   with "Entity panel: a name on a solid" under Small.
+* **Rings** - 21 September.  The writer finds corners spaced evenly round
+  a circle and says them as a `ring` (center, radius, sides, facing,
+  starts), names them `ra1`..., and writes a run of names as its ends,
+  `face = ra1..ra24`.  A cylinder went from about 150 lines to about 45.
+  Angles are measured from the level line, `up x facing`, for circles and
+  arcs too; a tilted thing says `up, leaning 30° toward east` when the
+  angles are clean and three numbers when not.  The highlighter lets a
+  typed `begin` pass.  Not released.
 * **The format, fourth go** - 21 September: the compass words are back as
   what the program writes (`x y z` is still read), a place always says
   its height, and `docs/format2.md` gained "What it grows into": sums,

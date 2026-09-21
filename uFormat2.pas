@@ -55,8 +55,19 @@ type
   TPt = record
     P: TP3;
     Name: string;
+    Ring: Integer;       { which ring it is a corner of, or -1 }
   end;
   TPts = array of TPt;
+
+  { corners spaced evenly round a circle, said once: where, how big, how
+    many, which way it faces and where the first one is }
+  TRing = record
+    Name: string;
+    C, Facing: TP3;
+    R, Starts: Double;
+    N: Integer;
+  end;
+  TRings = array of TRing;
 
 function Len2(V: Double; U: TUnitSystem): string;
 var
@@ -162,6 +173,68 @@ begin
   else if N.Z > 0.5 then Result := 'up' else Result := 'down';
 end;
 
+{ The two directions a flat thing's angles are measured in - docs/format2.md,
+  "facing".  For a thing facing up or down: from east.  For anything else:
+  from its level line, up x facing.  V is facing x U, so that turning is
+  anticlockwise seen from the side it faces. }
+procedure SpecAxes(const F: TP3; out AU, AV: TP3);
+var
+  L: Double;
+begin
+  if (Abs(F.X) < 1E-9) and (Abs(F.Y) < 1E-9) then
+    AU := P3(1, 0, 0)
+  else
+  begin
+    AU := P3(-F.Y, F.X, 0);                       { up x facing }
+    L := Sqrt(AU.X * AU.X + AU.Y * AU.Y);
+    AU := P3(AU.X / L, AU.Y / L, 0);
+  end;
+  AV := P3(F.Y * AU.Z - F.Z * AU.Y, F.Z * AU.X - F.X * AU.Z, F.X * AU.Y - F.Y * AU.X);
+end;
+
+function Deg2(A: Double): string;
+var
+  FS: TFormatSettings;
+begin
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  A := RadToDeg(A);
+  if Abs(A - Round(A * 1000) / 1000) < 1E-7 then A := Round(A * 1000) / 1000;
+  if Abs(A) < 1E-9 then A := 0;
+  Result := FloatToStrF(A, ffGeneral, 10, 0, FS) + '°';
+end;
+
+{ "up", "east" ... or, for a thing that is tilted, how far it leans from
+  facing up and which way: "up, leaning 30° toward east".  When the angles
+  are not clean ones, the three numbers, which are always right. }
+function Facing2(const N: TP3): string;
+var
+  Tilt, Head, T2, H2: Double;
+  W: string;
+  FS: TFormatSettings;
+  Back: TP3;
+begin
+  Result := FacingWord(N);
+  if Result <> '' then Exit;
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  Tilt := ArcCos(EnsureRange(N.Z, -1, 1));
+  Head := ArcTan2(N.Y, N.X);
+  T2 := DegToRad(Round(RadToDeg(Tilt) * 1000) / 1000);
+  H2 := DegToRad(Round(RadToDeg(Head) * 1000) / 1000);
+  Back := P3(Sin(T2) * Cos(H2), Sin(T2) * Sin(H2), Cos(T2));
+  if SameP(Back, N) then
+  begin
+    if Abs(H2) < 1E-9 then W := 'east'
+    else if Abs(H2 - Pi / 2) < 1E-9 then W := 'north'
+    else if Abs(Abs(H2) - Pi) < 1E-9 then W := 'west'
+    else if Abs(H2 + Pi / 2) < 1E-9 then W := 'south'
+    else W := Deg2(H2) + ' round from east';
+    Exit('up, leaning ' + Deg2(T2) + ' toward ' + W);
+  end;
+  Result := Format('%.9g east, %.9g north, %.9g up', [N.X, N.Y, N.Z], FS);
+end;
+
 function Color2(C: TColor): string;
 const
   NAMES: array[0..9] of string = ('black', 'white', 'gray', 'red', 'orange',
@@ -259,6 +332,7 @@ var
     if FindPt(Pts, P) >= 0 then Exit;
     SetLength(Pts, Length(Pts) + 1);
     Pts[High(Pts)].P := P;
+    Pts[High(Pts)].Ring := -1;
   end;
 
   function Ref(const Pts: TPts; const P: TP3): string;
@@ -292,6 +366,57 @@ var
     Result := Length(It) > 0;
     for K := 0 to High(It) do
       if Pos(' ', It[K]) > 0 then Exit(False);
+  end;
+
+  { a run of three or more names that count up or down by one is said as
+    its ends: ra1..ra24 }
+  function Runs(const It: TStringArray): TStringArray;
+  var
+    K, J, N, Step, A, B, Q: Integer;
+    Stem: string;
+
+    function Split(const S: string; out St: string; out Num: Integer): Boolean;
+    var
+      P: Integer;
+    begin
+      P := Length(S);
+      while (P > 0) and (S[P] in ['0'..'9']) do Dec(P);
+      St := Copy(S, 1, P);
+      Result := (P < Length(S)) and (P > 0) and TryStrToInt(Copy(S, P + 1, 9), Num);
+    end;
+
+  begin
+    SetLength(Result, Length(It));
+    N := 0;
+    K := 0;
+    while K <= High(It) do
+    begin
+      J := K;
+      if Split(It[K], Stem, A) and (K < High(It)) and Split(It[K + 1], Result[N], B) and
+         (Result[N] = Stem) and (Abs(B - A) = 1) then
+      begin
+        Step := B - A;
+        J := K + 1;
+        while (J < High(It)) and Split(It[J + 1], Result[N], Q) and (Result[N] = Stem) and
+              (Q - B = Step) do
+        begin
+          B := Q;
+          Inc(J);
+        end;
+      end;
+      if J - K >= 2 then
+      begin
+        Result[N] := It[K] + '..' + It[J];
+        K := J + 1;
+      end
+      else
+      begin
+        Result[N] := It[K];
+        Inc(K);
+      end;
+      Inc(N);
+    end;
+    SetLength(Result, N);
   end;
 
   function Joined(const It: TStringArray): string;
@@ -379,19 +504,46 @@ var
       Result[0] := Nm;
     end
     else
+    begin
       Result := Items(Pts, Poly);
+      if Named(Result) then Result := Runs(Result);
+    end;
   end;
 
-  procedure PutPoints(Depth: Integer; var Pts: TPts);
+  procedure PutPoints(Depth: Integer; var Pts: TPts; const Rings: TRings);
   var
-    I, J, From: Integer;
+    I, J, From, Loose, K: Integer;
     V: TP3;
   begin
     if Length(Pts) = 0 then Exit;
-    for I := 0 to High(Pts) do Pts[I].Name := PointName(I, Length(Pts));
+    Loose := 0;
+    for I := 0 to High(Pts) do
+      if Pts[I].Ring < 0 then Inc(Loose);
+    K := 0;
+    for I := 0 to High(Pts) do
+      if Pts[I].Ring < 0 then
+      begin
+        { with rings about, the loose corners are p1, p2... so that a
+          letter and a number is always a ring's }
+        if Length(Rings) > 0 then Pts[I].Name := 'p' + IntToStr(K + 1)
+        else Pts[I].Name := PointName(K, Loose);
+        Inc(K);
+      end;
     Put(Depth, 'points', -1);
+    for I := 0 to High(Rings) do
+    begin
+      Put(Depth + 1, 'ring ' + Rings[I].Name, -1);
+      Put(Depth + 2, 'center = ' + Place2(Rings[I].C, U, False), -1);
+      Put(Depth + 2, 'radius = ' + Len2(Rings[I].R, U), -1);
+      Put(Depth + 2, 'sides  = ' + IntToStr(Rings[I].N), -1);
+      Put(Depth + 2, 'facing = ' + Facing2(Rings[I].Facing), -1);
+      if Abs(Rings[I].Starts) > 1E-9 then
+        Put(Depth + 2, 'starts = ' + Deg2(Rings[I].Starts), -1);
+      Put(Depth + 1, 'end', -1);
+    end;
     for I := 0 to High(Pts) do
     begin
+      if Pts[I].Ring >= 0 then Continue;
       { from an earlier point along one axis: the latest such, and one that
         lets it be said with east, north or up before one that needs west }
       From := -1;
@@ -410,6 +562,46 @@ var
         Put(Depth + 1, Format('%s = %s', [Pts[I].Name, Place2(Pts[I].P, U, False)]), -1);
     end;
     Put(Depth, 'end', -1);
+  end;
+
+  { Are these corners spaced evenly round a circle?  Then they are a ring. }
+  function RingOf(const Poly: array of TP3; out Rg: TRing): Boolean;
+  var
+    K, N: Integer;
+    C, Nm, AU, AV, W0, W1: TP3;
+    R, A, A1: Double;
+  begin
+    Result := False;
+    N := Length(Poly);
+    if N < 8 then Exit;
+    C := P3(0, 0, 0);
+    for K := 0 to N - 1 do C := P3(C.X + Poly[K].X / N, C.Y + Poly[K].Y / N, C.Z + Poly[K].Z / N);
+    R := Dist(Poly[0], C);
+    if R < 1E-9 then Exit;
+    for K := 0 to N - 1 do
+      if Abs(Dist(Poly[K], C) - R) > 1E-9 then Exit;
+    { the way it faces: the way its own order turns }
+    W0 := Sub3(Poly[0], C);
+    W1 := Sub3(Poly[1], C);
+    Nm := P3(W0.Y * W1.Z - W0.Z * W1.Y, W0.Z * W1.X - W0.X * W1.Z, W0.X * W1.Y - W0.Y * W1.X);
+    A := Sqrt(Nm.X * Nm.X + Nm.Y * Nm.Y + Nm.Z * Nm.Z);
+    if A < 1E-12 then Exit;
+    Nm := P3(Nm.X / A, Nm.Y / A, Nm.Z / A);
+    SpecAxes(Nm, AU, AV);
+    A := ArcTan2(Dot3(W0, AV), Dot3(W0, AU));
+    for K := 1 to N - 1 do
+    begin
+      A1 := A + K * 2 * Pi / N;
+      if not SameP(Poly[K], P3(C.X + (AU.X * Cos(A1) + AV.X * Sin(A1)) * R,
+                               C.Y + (AU.Y * Cos(A1) + AV.Y * Sin(A1)) * R,
+                               C.Z + (AU.Z * Cos(A1) + AV.Z * Sin(A1)) * R)) then Exit;
+    end;
+    Rg.C := C;
+    Rg.R := R;
+    Rg.N := N;
+    Rg.Facing := Nm;
+    Rg.Starts := A;
+    Result := True;
   end;
 
   procedure PutInk(Depth, I: Integer);
@@ -472,8 +664,8 @@ var
   var
     Parts: TStringList;
     K: Integer;
-    W: string;
-    Nm: TP3;
+    Nm, AU, AV, P0: TP3;
+    A0: Double;
   begin
     case D[I].Kind of
       ekArc:
@@ -482,23 +674,22 @@ var
           else Put(Depth, 'arc', I);
           Put(Depth + 1, 'center = ' + Place2(D[I].C, U, False), I);
           Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
+          { which way it faces is the way its own turning goes round, and
+            where it starts is measured the grammar's way - from the level
+            line - whatever axes the program happens to keep for the plane }
+          Nm := P3(0, 0, 1);
           case D[I].Plane of
-            plXY: W := 'up';
-            plXZ: W := 'north';
-            plYZ: W := 'east';
-          else
-            begin
-              Nm := D[I].Nm;
-              W := FacingWord(Nm);
-              if W = '' then
-                W := Format('%.6g east, %.6g north, %.6g up', [Nm.X, Nm.Y, Nm.Z], FS);
-            end;
+            plXZ: Nm := P3(0, -1, 0);
+            plYZ: Nm := P3(1, 0, 0);
+            plFree: Nm := D[I].Nm;
           end;
-          Put(Depth + 1, 'facing = ' + W, I);
-          if Abs(D[I].A0) > 1E-9 then
-            Put(Depth + 1, 'starts = ' + FloatToStrF(RadToDeg(D[I].A0), ffGeneral, 10, 0, FS) + '°', I);
+          Put(Depth + 1, 'facing = ' + Facing2(Nm), I);
+          SpecAxes(Nm, AU, AV);
+          P0 := Sub3(ArcPoint(D[I].C, D[I].R, D[I].A0, D[I].Plane, D[I].Nm), D[I].C);
+          A0 := ArcTan2(Dot3(P0, AV), Dot3(P0, AU));
+          if Abs(A0) > 1E-9 then Put(Depth + 1, 'starts = ' + Deg2(A0), I);
           if Abs(Abs(D[I].Sweep) - 2 * Pi) >= 1E-9 then
-            Put(Depth + 1, 'sweep = ' + FloatToStrF(RadToDeg(D[I].Sweep), ffGeneral, 10, 0, FS) + '°', I);
+            Put(Depth + 1, 'sweep = ' + Deg2(D[I].Sweep), I);
           if D[I].Sides >= 3 then Put(Depth + 1, 'sides = ' + IntToStr(D[I].Sides), I);
           PutInk(Depth + 1, I);
           Put(Depth, 'end', I);
@@ -549,6 +740,8 @@ var
     I, J, K, N, Header, Best: Integer;
     HasMat: Boolean;
     SMat: TColor;
+    Rings: TRings;
+    Rg: TRing;
 
   begin
     SetLength(Pts, 0);
@@ -558,6 +751,8 @@ var
       begin
         Inc(N);
         for K := 0 to High(D[I].Poly) do AddPt(Pts, D[I].Poly[K]);
+        for J := 0 to High(D[I].Holes) do
+          for K := 0 to High(D[I].Holes[J]) do AddPt(Pts, D[I].Holes[J][K]);
       end;
     { what most of its faces are made of is said once, for the solid }
     HasMat := False;
@@ -574,10 +769,37 @@ var
         if Best * 2 > N then Break;
       end;
     HasMat := (Best >= 2) and (Best * 2 > N);
+    { the round faces' corners are rings: each said once, its corners named
+      ra1, ra2... in the order that face goes round }
+    SetLength(Rings, 0);
+    for I := 0 to High(Pts) do Pts[I].Ring := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
+        for J := -1 to High(D[I].Holes) do
+        begin
+          if J < 0 then Best := Ord(RingOf(D[I].Poly, Rg))
+          else Best := Ord(RingOf(D[I].Holes[J], Rg));
+          if Best = 0 then Continue;
+          if J < 0 then K := FindPt(Pts, D[I].Poly[0]) else K := FindPt(Pts, D[I].Holes[J][0]);
+          if (K < 0) or (Pts[K].Ring >= 0) then Continue;   { that ring is known }
+          Rg.Name := 'r' + Chr(Ord('a') + Length(Rings) mod 26);
+          if Length(Rings) >= 26 then Rg.Name := Rg.Name + IntToStr(Length(Rings) div 26);
+          SetLength(Rings, Length(Rings) + 1);
+          Rings[High(Rings)] := Rg;
+          for Best := 0 to Rg.N - 1 do
+          begin
+            if J < 0 then K := FindPt(Pts, D[I].Poly[Best]) else K := FindPt(Pts, D[I].Holes[J][Best]);
+            if (K >= 0) and (Pts[K].Ring < 0) then
+            begin
+              Pts[K].Ring := High(Rings);
+              Pts[K].Name := Rg.Name + IntToStr(Best + 1);
+            end;
+          end;
+        end;
     Header := NLine;
     Put(Depth, 'solid', -1);
     if HasMat then Put(Depth + 1, 'paint = ' + Color2(SMat), -1);
-    PutPoints(Depth + 1, Pts);
+    PutPoints(Depth + 1, Pts, Rings);
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
         PutFace(Depth + 1, I, Pts, HasMat, SMat);
