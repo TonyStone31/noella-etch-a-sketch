@@ -14,11 +14,15 @@
 
 ### New
 
-- **The proposed drawing format, third go: x, y and z.**  In `/source` a
-  place is `x 1" y 1" z 0` - all three, always, so you can see it is on
-  the floor - colored red, green and blue like the axes.  A line is two
-  points, `line = a to b`, and that is all it is.  True and false are
-  `true` and `false`.
+- **The proposed drawing format, as it now reads.**  In `/source` a place
+  is `1" east, 1" north, 0 up` - all three, always, so you can see it is
+  on the floor, and with a word for each way no number is negative.
+  Colored red, green and blue like the axes.  A line is two points,
+  `line = a to b`, and that is all it is; a solid's edges are lines you
+  can pick like any other.  True and false are `true` and `false`.
+  Nothing is saved in this format yet - it is there to be read and argued
+  with, and `docs/format2.md` says where it is going: sums, constants,
+  and groups that a script of your own makes.
 - **The source window behaves like a code editor.**  Put the caret on a
   name and every other place it is used is outlined; Ctrl and a click goes
   to the line that says what it is; rest the pointer on it and it tells

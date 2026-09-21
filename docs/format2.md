@@ -1,7 +1,7 @@
 # The drawing file, version 2 - the grammar
 
-Proposed 20 September 2026; this is the third go at it, the same day,
-each one after the last had been looked at on real drawings.  **Not built.**  The program reads and writes
+Proposed 20 September 2026; this is the fourth go at it, each one after
+the last had been looked at on real drawings.  **Not built.**  The program reads and writes
 version 1 today; this is the page to argue with before any of it exists.
 The order of work is: agree how it *reads*, show it read-only in the source
 window (`/source`) on real drawings, live with it, and only then write a
@@ -44,14 +44,14 @@ units = ft in
 
 sheet 'Cube'
   points
-    a = x 0 y 0 z 0          // on the floor
-    b = a + x 4'
-    c = b + y 4'
-    d = a + y 4'
-    e = a + z 4'             // and the same four, 4 feet up
-    f = b + z 4'
-    g = c + z 4'
-    h = d + z 4'
+    a = 0 east, 0 north, 0 up      // on the floor
+    b = a + 4' east
+    c = b + 4' north
+    d = a + 4' north
+    e = a + 4' up                  // and the same four, 4 feet up
+    f = b + 4' up
+    g = c + 4' up
+    h = d + 4' up
   end
 
   line = a to b
@@ -68,7 +68,7 @@ sheet 'Cube'
   line = d to h
 
   circle
-    center = x 2' y 2' z 4'
+    center = 2' east, 2' north, 4' up
     radius = 1'
     facing = up
   end
@@ -80,7 +80,7 @@ and none of it had to be in that order or spaced that way.  The six faces,
 the hole the circle cuts in the top and the disk inside it are what the
 program works out whenever lines close a loop or a circle is drawn on a
 face - so they are not typed.  A point could equally have been written
-where it is used: `line = x 0 y 0 z 0 to x 4' y 0 z 0`.
+where it is used: `line = 0 east, 0 north, 0 up to + 4' east`.
 
 ## Words and marks
 
@@ -92,7 +92,7 @@ where it is used: `line = x 0 y 0 z 0 to x 4' y 0 z 0`.
   The program writes `{ }` notes of its own - `{ facing up }` - for
   orientation.  They are never read back as facts.
 * **Names**: a letter, then letters, digits or `_`.  `a`, `p272`, `c1`.
-  Not `x`, `y` or `z`.
+  Not `x`, `y` or `z`, which are the axes' letters.
 * **Text**: in single quotes, a quote inside doubled -
   `'the fitter''s bracket'`.
 * **The feet mark**: a `'` straight after a digit is feet.  Anywhere else
@@ -130,40 +130,47 @@ decimal in full: `2.843721934"`.  Nearly everything somebody drew by
 typing sizes comes out friendly; a corner worked out by turning something
 through 17° does not, and is not rounded to look as if it did.
 
-## Where a thing is: x, y and z
+## Where a thing is: east, north and up
 
-The same three letters the program shows at the top of its window, and
-the same three colors as the axes on the sheet - in the source window the
-letter and its number are colored together.
+Six words.  `east`, `west`, `north` and `south` are directions across the
+floor; `up` and `down` are above and below it.  They are the axes on the
+sheet and wear the same colors in the source window - the number as well
+as the word.
 
-| | Runs | On the sheet |
+| Words | Axis | Color |
 |---|---|---|
-| `x` | across the floor | the red axis |
-| `y` | across the floor, square to x | the green axis |
-| `z` | **up from the floor** - `z 0` is on it, `z 1"` an inch above, `z -1"` an inch below | the blue axis |
+| `east` / `west` | X, plus and minus | red |
+| `north` / `south` | Y, plus and minus | green |
+| `up` / `down` | Z, plus and minus - `0 up` is on the floor | blue |
 
-A **place** is all three, always, so that the height is there to be seen:
+A **place** says all three, always, so that the height is there to be
+seen, and because there is a word for each way no number in a place is
+ever negative:
 
 ```
-x 1" y 1" z 0          // sitting on the floor
-x 1" y 1" z 1"         // the same spot, an inch up
+1" east, 1" north, 0 up          // sitting on the floor
+1" east, 1" north, 1" up         // the same spot, an inch above it
+4" west, 2' north, 6" down       // and one below it
 ```
 
-Any order, and commas between them if you like them.  A number carries its
-own sign: `x -4 3/8"`.
+Any order; the commas are for the eye.  It is longer to type than
+`x 1" y 1" z 0` and it reads as a sentence, which is the bargain Pascal
+makes with `begin` and `end`.  **The letters are read too** - `x 1" y 1"
+z -6"` means the same, for whoever is typing fast or writing a script -
+but the program always writes the words.
 
 A **step** is how far from somewhere, and says only what changes:
-`x 4'`, or `x 3" z 2"`.
+`4' east`, or `3" east, 2" up`.
 
 Wherever a place is wanted it may be **a place, a name, or a name and a
-step** - `x 1" y 1" z 0`, or `a`, or `a + z 1"`.  Names are a convenience,
-never a requirement.
+step** - `1" east, 1" north, 0 up`, or `a`, or `a + 1" up`.  Names are a
+convenience, never a requirement.
 
 A **list of places** is joined with `to`, and in a list **`+` and a step
 means "from the one before"** - so a list is a walk, and a square is:
 
 ```
-face = x 0 y 0 z 0 to + x 4' to + y 4' to + x -4'
+face = 0 east, 0 north, 0 up to + 4' east to + 4' north to + 4' west
 ```
 
 A list of names needs only spaces: `face = a b c d`.
@@ -187,14 +194,14 @@ shared by three faces *one* corner, that moves as one.
 
 ```
 points
-  a = x -4 3/8" y -4 1/2" z 5' 10 5/8"
-  b = a + x 3"
-  c = b + z 2 3/8"
-  d = a + z 2 3/8"
+  a = 4 3/8" west, 4 1/2" south, 5' 10 5/8" up
+  b = a + 3" east
+  c = b + 2 3/8" up
+  d = a + 2 3/8" up
 end
 ```
 
-`b = a + x 3"` is a way of *writing down where b is*, chosen by the
+`b = a + 3" east` is a way of *writing down where b is*, chosen by the
 program when it saves because it reads well: from an earlier point, along
 one axis when it can.  It is not a link that is kept.  Change the `3"` and
 `b` moves, and so does whatever was written from `b`; save, and the
@@ -253,11 +260,11 @@ without `=` opens a block, and `end` closes it.
 * **An outline can be a name.**  A circle that is named is an outline:
   `face = c1` is the disk inside circle `c1`, and `hole = c1` is that
   circle cut out of a face.  Thirty-two corners become two letters.
-* **`facing`** is the way a flat thing looks: `up`, `down`, `+x`, `-x`,
-  `+y`, `-y`, or three numbers for anything else -
-  `facing = x 0.5 y 0.5 z 0.7071`.  Turning is anticlockwise seen from the
-  side it faces.  `starts` is measured from x for a thing facing up or
-  along y, from y for one facing along x; on any other plane it is
+* **`facing`** is the way a flat thing looks: `up`, `down`, `east`,
+  `west`, `north`, `south`, or three numbers for anything else -
+  `facing = 0.5 east, 0.5 north, 0.7071 up`.  Turning is anticlockwise seen from the
+  side it faces.  `starts` is measured from east for a thing facing up or
+  north, from north for one facing east; on any other plane it is
   `starts toward = ` and a direction.
 * **A face's outline** goes round anticlockwise seen from the front, which
   is the side `paint` is on.  A `hole` goes round the other way.
@@ -306,18 +313,18 @@ in `/source`:
 
 ```
 circle c1
-  center = x 2' y 2' z 4'
+  center = 2' east, 2' north, 4' up
   radius = 1'
   facing = up
   sides = 24
 end
 solid
   points
-    a = x 0 y 0 z 4'
-    b = a + x 4'
-    c = b + y 4'
-    d = a + y 4'
-    e = d + z -4'
+    a = 0 east, 0 north, 4' up
+    b = a + 4' east
+    c = b + 4' north
+    d = a + 4' north
+    e = d + 4' down
     ...
   end
   face   { facing up }
@@ -325,7 +332,7 @@ solid
     hole = c1
   end
   face = e f g h   { facing down }
-  face = h g b a   { facing -y }
+  face = h g b a   { facing south }
   ...
   line = h to g
   line = g to f
@@ -342,9 +349,9 @@ any more, and this is what it costs:
 ```
 solid
   points
-    a = x 1' y 2' z 0
-    b = a + x 3.8252190" y 1.1694869"      { 4" long, 17° round from x }
-    c = b + x -0.5847434" y 1.9126095"     { 2" long }
+    a = 1' east, 2' north, 0 up
+    b = a + 3.8252190" east, 1.1694869" north     { 4" long, 17° north of east }
+    c = b + 0.5847434" west, 1.9126095" north     { 2" long }
     ...
 ```
 
@@ -352,6 +359,116 @@ The numbers are ugly because they are ugly; the note beside them says what
 a person wants to know.  A later version could let the solid carry
 `turned = 17°` and keep its points square - that is an addition, which
 rule 8 allows, and it is not needed to begin.
+
+## What it grows into
+
+Agreed in outline on 21 September, none of it built, and written down here
+so the grammar above is judged knowing where it is headed.  **It stays a
+markup and never becomes a program: no loops, no conditions, nothing that
+runs when a drawing is opened.**  The reason is the one that separates
+this from OpenSCAD.  There the text is a program, so the model cannot
+write the text: drag one of twenty-four holes a loop made and there is no
+right answer to what the loop should become, which is why OpenSCAD has no
+push/pull.  A markup can always be written back.  HTML could be edited
+both ways; the JavaScript in the page never could.
+
+### 1. Sums
+
+Anywhere a length goes, a sum may go: `+`, `-`, and `*` and `/` by a plain
+number, with brackets.
+
+```
+b = a + 4' east + 8" east
+c = b + (3' 6" - 3/4") / 2 north
+```
+
+Type `+ 8"` on the end of a point, press Apply, and it has moved eight
+inches on the sheet.  **The program writes back the answer** - `4' 8" east`
+- so the file stays plain data.  This comes nearly free with the reader.
+
+### 2. Constants
+
+```
+const
+  Width  = 4'
+  Height = 2' 6"
+  Gap    = Width / 8
+end
+
+points
+  a = 0 east, 0 north, 0 up
+  b = a + Width east
+  c = b + Height up
+end
+```
+
+Change `Width` and everything written from it moves.  Here the file has
+to remember the *formula* as well as the answer, the way a spreadsheet
+cell does - and that is the one step in this list that changes what a
+drawing has to hold.  The way to do it without touching how geometry is
+stored: a table beside the drawing of named points and constants - name,
+formula, value.  Change a constant, work the table out again, see which
+places moved, and move every corner that sat at an old place to its new
+one; the faces are then worked out again as after any edit.
+
+* **Move a point with the mouse and its formula becomes a plain number.**
+  The source says so beside it - `{ was: a + Width east }`.  The same as
+  typing a value over a formula in a spreadsheet.  The alternative is
+  working out what `Width` would have to be, which is a constraint solver
+  and another program.
+* `const` and `points` blocks **fold**, like everything else.
+* Names are Pascal's: a constant is `Width`, not `$width`.
+
+### 3. Makers - a node whose contents a script writes
+
+Working name; it wants a better one.  (`recipe` and `made by` were the
+other candidates.)  A group can say that a script makes it:
+
+```
+group 'Hangers'
+  made by = 'hangers' with Count = 6, Spacing = 16", Drop = Height
+  ...what the script gave back, folded, gray, the program's to write...
+end
+```
+
+The program runs the script - any language: a Pascal file through
+`instantfpc`, a `.bat` file, a shell script - hands it the values after
+`with`, and what it prints, which is this same markup, becomes the group's
+contents.  The values can be constants, so change `Count`, make it again,
+and there are seven hangers.  It is a server-side include, not a script in
+the page.  Three rules make it safe and none of them bends:
+
+1. **Nothing runs when a drawing is opened.**  The file keeps the last
+   result beside the `made by` line, like a spreadsheet keeping the last
+   value of a cell, so a drawing opens anywhere - with no script and no
+   compiler on the machine - and a drawing from a stranger, or inside a
+   bug report, is geometry with a line of text on it.  Making it again is
+   something a person presses.
+2. **A drawing names a script and never carries one**, and the name is
+   looked up in the person's own scripts folder and nowhere else - not a
+   path, not a web address, nothing a file can point outside.
+3. **Change the contents by hand or with a tool and the group lets go of
+   its maker** - it becomes an ordinary group, and the program says so
+   rather than quietly throwing the change away the next time it is made.
+
+A script's side of it is one page: it is given `name = value` lines, it
+prints markup, and what it prints goes through the same reader as any
+file a stranger sent.
+
+### The order
+
+1. The reader, and **Apply** in the source window: nothing touches the
+   drawing until the whole text has been read without a fault; a fault
+   marks its line and offers to go on editing or put the text back; an
+   Apply is one undo step.
+2. Sums - nearly free once there is a reader.
+3. Makers.
+4. Constants, last, because they are the one that changes what a drawing
+   remembers.
+
+Before any of it is *saved*: the audit in TODO.md - every field version 1
+stores has a home here, proved by writing a drawing out, reading it back
+and comparing.
 
 ## Version 1
 
@@ -391,8 +508,9 @@ rule 8 allows, and it is not needed to begin.
 * What the source window does with a drawing of fifteen thousand things -
   the text is built for what is shown, or for all of it.
 * **What was tried and dropped**, so it is not tried again by accident:
-  `east`/`north`/`up` for the axes (the first two goes) - they read well
-  in a sentence and were one more thing to keep straight, where `x y z`
-  is what the program already shows; `above the floor` - too many words;
-  `box` as a statement of its own - a second way to say what twelve lines
-  say; `goes = 4' east` on a line - a line is two points; `yes`/`no`.
+  `x y z` as what the program *writes* (the third go) - easy to understand
+  and it does not read; the letters are still read.  `above the floor` -
+  too many words; `0 up` says it.  `box` as a statement of its own - a
+  second way to say what twelve lines say.  `goes = 4' east` on a line - a
+  line is two points.  `yes`/`no` - Pascal says `true` and `false`.
+  Executable Pascal inside the file - see "What it grows into".

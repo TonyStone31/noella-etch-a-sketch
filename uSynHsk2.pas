@@ -164,8 +164,8 @@ end;
 
 function TSynHsk2Syn.AxisOf(const W: string): THskToken;
 begin
-  if W = 'x' then Result := htEast
-  else if W = 'y' then Result := htNorth
+  if (W = 'x') or (W = 'east') or (W = 'west') then Result := htEast
+  else if (W = 'y') or (W = 'north') or (W = 'south') then Result := htNorth
   else if (W = 'z') or (W = 'up') or (W = 'down') then Result := htUp
   else Result := htNumber;
 end;
@@ -278,8 +278,17 @@ begin
           else if (L[Run] = #$C2) and (Run + 1 < N) and (L[Run + 1] = #$B0) then Inc(Run, 2)
           else Break;
         end;
+        { the color of the direction word that follows it - "4' east" - or
+          of the letter that came before it - "x 4'" }
         FTok := FAxisNext;
         FAxisNext := htNumber;
+        if FTok = htNumber then
+        begin
+          P := Run;
+          while (P < N) and (L[P] = ' ') do Inc(P);
+          W := WordAt(P, WLen);
+          if WLen > 1 then FTok := AxisOf(W);
+        end;
       end;
   else
     if (L[Run] = '/') and (Run + 1 < N) and (L[Run + 1] = '/') then

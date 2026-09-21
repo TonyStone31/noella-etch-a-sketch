@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The proposed drawing format, third go: x, y and z.**  In `/source` a' + LineEnding +
+    '  place is `x 1" y 1" z 0` - all three, always, so you can see it is on' + LineEnding +
+    '  the floor - colored red, green and blue like the axes.  A line is two' + LineEnding +
+    '  points, `line = a to b`, and that is all it is.  True and false are' + LineEnding +
+    '  `true` and `false`.' + LineEnding +
+    '- **The source window behaves like a code editor.**  Put the caret on a' + LineEnding +
+    '  name and every other place it is used is outlined; Ctrl and a click goes' + LineEnding +
+    '  to the line that says what it is; rest the pointer on it and it tells' + LineEnding +
+    '  you - and for a corner written as a step from another, where that comes' + LineEnding +
+    '  to.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.18' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

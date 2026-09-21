@@ -114,24 +114,26 @@ begin
   Result := S;
 end;
 
-{ A place is "x 1" y 1" z 0" - all three, always, so that "z 0" is there
-  to be seen: it is on the floor.  A step says only the parts that change,
-  "x 4'" or "z -1"", and a number carries its own sign. }
-function Len2Signed(V: Double; U: TUnitSystem): string;
-begin
-  if V < -FRIENDLY_TOL then Result := '-' + Len2(V, U) else Result := Len2(V, U);
-end;
-
+{ A place is "1" east, 1" north, 0 up" - all three, always, so that the
+  height is there to be seen: "0 up" is on the floor.  West, south and down
+  are the other way, so no number in a place is ever negative.  A step
+  says only the parts that change: "4' east", or "3" east, 2" up". }
 function Place2(const P: TP3; U: TUnitSystem; Offset: Boolean): string;
+
+  procedure Part(V: Double; const Plus, Minus: string);
+  begin
+    if Offset and (Abs(V) < FRIENDLY_TOL) then Exit;
+    if Result <> '' then Result := Result + ', ';
+    if V >= -FRIENDLY_TOL then Result := Result + Len2(V, U) + ' ' + Plus
+    else Result := Result + Len2(V, U) + ' ' + Minus;
+  end;
+
 begin
-  if not Offset then
-    Exit('x ' + Len2Signed(P.X, U) + ' y ' + Len2Signed(P.Y, U) + ' z ' + Len2Signed(P.Z, U));
   Result := '';
-  if Abs(P.X) >= FRIENDLY_TOL then Result := Result + ' x ' + Len2Signed(P.X, U);
-  if Abs(P.Y) >= FRIENDLY_TOL then Result := Result + ' y ' + Len2Signed(P.Y, U);
-  if Abs(P.Z) >= FRIENDLY_TOL then Result := Result + ' z ' + Len2Signed(P.Z, U);
-  Result := Trim(Result);
-  if Result = '' then Result := 'x 0';
+  Part(P.X, 'east', 'west');
+  Part(P.Y, 'north', 'south');
+  Part(P.Z, 'up', 'down');
+  if Result = '' then Result := '0 east';
 end;
 
 function Sub3(const A, B: TP3): TP3;
@@ -155,8 +157,8 @@ function FacingWord(const N: TP3): string;
 begin
   Result := '';
   if AxesUsed(N) <> 1 then Exit;
-  if N.X > 0.5 then Result := '+x' else if N.X < -0.5 then Result := '-x'
-  else if N.Y > 0.5 then Result := '+y' else if N.Y < -0.5 then Result := '-y'
+  if N.X > 0.5 then Result := 'east' else if N.X < -0.5 then Result := 'west'
+  else if N.Y > 0.5 then Result := 'north' else if N.Y < -0.5 then Result := 'south'
   else if N.Z > 0.5 then Result := 'up' else Result := 'down';
 end;
 
@@ -482,14 +484,14 @@ var
           Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
           case D[I].Plane of
             plXY: W := 'up';
-            plXZ: W := '+y';
-            plYZ: W := '+x';
+            plXZ: W := 'north';
+            plYZ: W := 'east';
           else
             begin
               Nm := D[I].Nm;
               W := FacingWord(Nm);
               if W = '' then
-                W := Format('x %.6g y %.6g z %.6g', [Nm.X, Nm.Y, Nm.Z], FS);
+                W := Format('%.6g east, %.6g north, %.6g up', [Nm.X, Nm.Y, Nm.Z], FS);
             end;
           end;
           Put(Depth + 1, 'facing = ' + W, I);
