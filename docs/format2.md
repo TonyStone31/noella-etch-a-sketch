@@ -530,9 +530,38 @@ server - and not a script in the page.  Three rules make it safe and none of the
 2. **A drawing names a script and never carries one**, and the name is
    looked up in the person's own scripts folder and nowhere else - not a
    path, not a web address, nothing a file can point outside.
-3. **Change the contents by hand or with a tool and the group comes off
-   its jig** - it becomes an ordinary group, and the program says so
-   rather than quietly throwing the change away the next time it is made.
+3. **A jig fills its own group and touches nothing else.**  That is what
+   makes running it again always safe to reason about: the only thing
+   that can change is what is inside that one block.
+
+The group stays the jig's for good.  What it made is ordinary geometry:
+it can be pushed, moved and painted on the sheet like anything else, and
+the group goes on saying which jig made it.  Make a mess of it and the
+cure is to **run the jig again** - which replaces what is in the group,
+hand changes and all, says so before it does, and is one undo step.  (An
+earlier draft had a hand edit cut the group loose from its jig.  Keeping
+the tag is simpler and kinder: nothing is ever lost that Undo does not
+give back.)  The source window marks a group changed by hand since it
+was made - `{ changed by hand since it was made }` - so it is no
+surprise when running it again puts it back.
+
+**Two kinds, and only one of them lives in the drawing** (talked through
+21 September, not settled in detail):
+
+* The **inline jig**, above - a thing in the drawing that remembers where
+  it came from.  Delphi's *component*: it sits on the form and is saved
+  with it.
+* The **run-once jig** - not in the drawing at all.  Run on purpose, from
+  a menu or `/jig name`; it is handed what is picked, or the sheet, as
+  Heck, and hands back a changed version, which goes through the same
+  Apply as an edit typed by hand: shown first, accepted or not, one undo
+  step.  Delphi's *wizard*.  Nothing of it is saved but what it did.
+
+The same program can be either; which it is, is how it was called.  Both
+are handed the drawing as Heck, which is how a jig sees every constant,
+group and name there is **without there being an API**: the file format
+is the API.  And Ctrl+click on a `jig =` line opens the script in
+whatever edits such things on the machine.
 
 A script's side of it is one page: it is given `name = value` lines, it
 prints markup, and what it prints goes through the same reader as any
