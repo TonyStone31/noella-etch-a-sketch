@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFittings, uTransition, uSpool, uPipe,
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFormat2, uFittings, uTransition, uSpool, uPipe,
   InkPage;
 
 type
@@ -283,8 +283,8 @@ type
     { the source window - see uSourceView.  It asks; these answer. }
     procedure ShowSource;
     procedure SourceAskState(out DocSeq, PickSeq: Int64);
-    procedure SourceAskSource(L: TStrings; out First, Last: TIntArrayW;
-      out SheetName: string);
+    procedure SourceAskSource(Version: Integer; L: TStrings;
+      out First, Last, LineThing: TIntArrayW; out SheetName: string);
     procedure SourceAskPicked(out Picked: TIntArrayW);
     procedure SourcePickThings(const Things: TIntArrayW);
     procedure RebuildInfo;
@@ -17966,15 +17966,19 @@ begin
 end;
 {$pop}
 
-procedure TMainForm.SourceAskSource(L: TStrings; out First, Last: TIntArrayW;
-  out SheetName: string);
+procedure TMainForm.SourceAskSource(Version: Integer; L: TStrings;
+  out First, Last, LineThing: TIntArrayW; out SheetName: string);
 begin
   SetLength(First, 0);
   SetLength(Last, 0);
+  SetLength(LineThing, 0);
   SheetName := '';
   if FD = nil then Exit;
   SheetName := FD.Name;
-  FD.Doc.SaveTo(L, First, Last);
+  if Version = 2 then
+    WriteFormat2(FD.Doc, FD.Name, FD.Units, L, First, Last, LineThing)
+  else
+    FD.Doc.SaveTo(L, First, Last);
 end;
 
 procedure TMainForm.SourceAskPicked(out Picked: TIntArrayW);

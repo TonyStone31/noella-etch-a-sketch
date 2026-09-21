@@ -27,12 +27,16 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
-  SynEdit, SynEditTypes, uWork;
+  SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
+  SynGutterLineNumber, uWork, uSynHsk2;
 
 type
   TSourceAskState = procedure(out DocSeq, PickSeq: Int64) of object;
-  TSourceAskSource = procedure(L: TStrings; out First, Last: TIntArrayW;
-    out SheetName: string) of object;
+  { Version 1 is the file as it is saved today; 2 is the proposed format,
+    docs/format2.md, written for looking at.  LineThing may come back empty,
+    and is then worked out from First and Last. }
+  TSourceAskSource = procedure(Version: Integer; L: TStrings;
+    out First, Last, LineThing: TIntArrayW; out SheetName: string) of object;
   TSourceAskPicked = procedure(out Picked: TIntArrayW) of object;
   TSourcePickThings = procedure(const Things: TIntArrayW) of object;
 
@@ -40,12 +44,14 @@ type
 
   TSourceForm = class(TForm)
     chkOnlyPicked: TCheckBox;
+    chkVersion2: TCheckBox;
     Editor: TSynEdit;
     lblWhat: TLabel;
     pnlTop: TPanel;
     Status: TStatusBar;
     tmrFollow: TTimer;
     procedure chkOnlyPickedChange(Sender: TObject);
+    procedure chkVersion2Change(Sender: TObject);
     procedure EditorSpecialLineColors(Sender: TObject; Line: integer;
       var Special: boolean; var FG, BG: TColor);
     procedure EditorStatusChange(Sender: TObject; Changes: TSynStatusChanges);
@@ -64,6 +70,8 @@ type
     FHaveState: Boolean;
     FBusy: Boolean;             { we are moving the caret, not the person }
     FCaretRow, FBlockA, FBlockB: Integer;
+    FColors: TSynHsk2Syn;
+    procedure FoldToPicked;
     procedure LoadText;
     procedure ShowRows;
     procedure ShowPicked(Scroll: Boolean);
@@ -93,6 +101,7 @@ begin
   FAll := TStringList.Create;
   FHaveState := False;
   FCaretRow := -1;
+  FColors := TSynHsk2Syn.Create(Self);
 end;
 
 procedure TSourceForm.FormDestroy(Sender: TObject);
@@ -145,12 +154,21 @@ begin
   SetLength(FFirst, 0);
   SetLength(FLast, 0);
   Name_ := '';
-  if Assigned(OnAskSource) then OnAskSource(FAll, FFirst, FLast, Name_);
-  SetLength(FLineThing, FAll.Count);
-  for I := 0 to High(FLineThing) do FLineThing[I] := -1;
-  for I := 0 to High(FFirst) do
-    for K := FFirst[I] to FLast[I] do
-      if (K >= 0) and (K < FAll.Count) then FLineThing[K] := I;
+  SetLength(FLineThing, 0);
+  if Assigned(OnAskSource) then
+    OnAskSource(1 + Ord(chkVersion2.Checked), FAll, FFirst, FLast, FLineThing, Name_);
+  if Length(FLineThing) <> FAll.Count then
+  begin
+    SetLength(FLineThing, FAll.Count);
+    for I := 0 to High(FLineThing) do FLineThing[I] := -1;
+    for I := 0 to High(FFirst) do
+      for K := FFirst[I] to FLast[I] do
+        if (K >= 0) and (K < FAll.Count) then FLineThing[K] := I;
+  end;
+  if chkVersion2.Checked then
+    lblWhat.Caption := 'Version 2, proposed.  Read only.'
+  else
+    lblWhat.Caption := 'This sheet, as it is saved.  Read only.';
   if Name_ <> '' then Caption := 'Source - ' + Name_ else Caption := 'Source';
 end;
 
@@ -165,7 +183,10 @@ begin
   L := TStringList.Create;
   try
     WasTop := Editor.TopLine;
-    if chkOnlyPicked.Checked and (Length(FPicked) > 0) then
+    { version 2 has blocks, so there the others are folded shut rather
+      than taken away - see FoldToPicked }
+    if chkOnlyPicked.Checked and (Length(FPicked) > 0) and
+       not chkVersion2.Checked then
     begin
       N := 0;
       SetLength(FRowLine, FAll.Count);
@@ -184,7 +205,9 @@ begin
       SetLength(FRowLine, FAll.Count);
       for I := 0 to FAll.Count - 1 do FRowLine[I] := I;
     end;
-    Editor.Lines.Assign(L);
+    if chkVersion2.Checked then Editor.Highlighter := FColors
+    else Editor.Highlighter := nil;
+    if Editor.Lines.Text <> L.Text then Editor.Lines.Assign(L);
     if WasTop <= Editor.Lines.Count then Editor.TopLine := WasTop;
   finally
     L.Free;
@@ -206,6 +229,7 @@ begin
         if (K >= 0) and (K < FAll.Count) then FLinePicked[K] := True;
 
   ShowRows;
+  if chkVersion2.Checked then FoldToPicked;
 
   { bring the first picked line into view, unless it is there already -
     a window that jumps about while things are being picked is worse than
@@ -229,6 +253,32 @@ begin
   end;
   Editor.Invalidate;
   TellPicked;
+end;
+
+{ Version 2, and "only what is picked": every block shut, then the picked
+  things' blocks opened - the whole drawing still there, a line each. }
+procedure TSourceForm.FoldToPicked;
+var
+  I, N: Integer;
+begin
+  FBusy := True;
+  try
+    Editor.UnfoldAll;
+    if not (chkOnlyPicked.Checked and (Length(FPicked) > 0)) then Exit;
+    Editor.FoldAll(1, False);
+    N := 0;
+    for I := 0 to High(FPicked) do
+    begin
+      if (FPicked[I] < 0) or (FPicked[I] > High(FFirst)) then Continue;
+      if FFirst[FPicked[I]] > FLast[FPicked[I]] then Continue;
+      Editor.CaretXY := Point(1, FLast[FPicked[I]] + 1);
+      Editor.EnsureCursorPosVisible;
+      Inc(N);
+      if N >= 200 then Break;     { opening thousands one by one is slow }
+    end;
+  finally
+    FBusy := False;
+  end;
 end;
 
 procedure TSourceForm.TellPicked;
@@ -319,6 +369,11 @@ end;
 procedure TSourceForm.chkOnlyPickedChange(Sender: TObject);
 begin
   ShowPicked(True);
+end;
+
+procedure TSourceForm.chkVersion2Change(Sender: TObject);
+begin
+  Refresh_;
 end;
 
 end.

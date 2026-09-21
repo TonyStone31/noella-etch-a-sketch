@@ -375,7 +375,19 @@ What has to be thought about before it is as nice as it sounds:
   than folding them: SynEdit folds through a highlighter's fold ranges,
   and a one-line-a-thing format has nothing to fold.  Folding, and
   coloring, come with the next step.
-* **Next: the format's syntax.**  A thing as a `begin`/`end` block of
+* **Version 2 of the file, read only** - 20 September.  The grammar is
+  `docs/format2.md`; `uFormat2.pas` writes a sheet out in it for the source
+  window (nothing reads it back, nothing saves it); `uSynHsk2.pas` colors
+  it by axis and folds it by the grammar's own rule - a line with no `=`
+  opens a block.  "Only what is picked" folds everything else shut.  The
+  first real drawing through it found two things the page now records:
+  version 1's six decimal places show up as 1.400004 inches, and a
+  flattened solid reads as `corners = a b b a`, which is the format showing
+  a fault the sheet hides.  **Live with how it reads before writing a
+  reader.**
+* **Then: the reader**, and saving in it.  The questions are at the end of
+  `docs/format2.md`.  The note below was written before the grammar was:
+* **The format's syntax (earlier note).**  A thing as a `begin`/`end` block of
   several readable lines rather than one line of numbers, which is also
   what gives SynEdit something to fold - so several things picked on the
   sheet can show as their blocks open and everything else folded shut.

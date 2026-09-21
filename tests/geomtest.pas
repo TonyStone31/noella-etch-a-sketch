@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper, uFormat2;
 
 var
   Fails: Integer = 0;
@@ -8311,6 +8311,47 @@ begin
   end;
 end;
 
+{ version 2 of the file, as far as it goes: how a length is written, and
+  that a box comes out as eight named corners and six one-line faces }
+procedure TestFormat2;
+var
+  D: TWorkDoc;
+  L: TStringList;
+  First, Last, LineThing: TIntArrayW;
+  I, NFace, NPoint: Integer;
+begin
+  WriteLn('the drawing file, version 2, for looking at');
+  Ok(Len2(4, usImperial) = '4''', '4 feet');
+  Ok(Len2(1.5, usImperial) = '1'' 6"', '1.5 feet is 1 foot 6');
+  Ok(Len2(0.3125, usImperial) = '3 3/4"', '0.3125 feet is 3 3/4 inches');
+  Ok(Len2(5 + 10.625 / 12, usImperial) = '5'' 10 5/8"', 'feet, inches and a fraction');
+  Ok(Len2(2.4 / 12, usImperial) = '2.4"', 'a decimal that is not a sixty-fourth stays a decimal');
+  Ok(Len2(0.116667, usImperial) = '1.4"', 'what version 1 rounded is read as what was meant');
+  Ok(Len2(0, usImperial) = '0', 'nought');
+  Ok(Pos('3.8252', Len2(3.8252190 / 12, usImperial)) = 1, 'an ugly number is left ugly');
+  D := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    MakeRect(D, 0, 0, 4, 4);
+    Ok(D.PushPull(4, 2), 'a box');
+    WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
+    EqI(Length(LineThing), L.Count, 'every line says whose it is');
+    NFace := 0;
+    NPoint := 0;
+    for I := 0 to L.Count - 1 do
+    begin
+      if Copy(Trim(L[I]), 1, 7) = 'face = ' then Inc(NFace);
+      if (Pos(' = ', L[I]) > 0) and (Length(Trim(Copy(L[I], 1, Pos(' = ', L[I])))) = 1) then Inc(NPoint);
+    end;
+    EqI(NFace, 6, 'six faces, a line each');
+    EqI(NPoint, 8, 'eight corners, named once');
+    Ok(L.Count < 30, 'and the whole box is under thirty lines');
+  finally
+    L.Free;
+    D.Free;
+  end;
+end;
+
 procedure TestGroups;
 var
   D, B: TWorkDoc;
@@ -8558,6 +8599,7 @@ begin
   TestPressedFlat;  WriteLn;
   TestPushCarriesPaint; WriteLn;
   TestSaveMap;      WriteLn;
+  TestFormat2;      WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

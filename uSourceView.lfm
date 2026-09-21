@@ -25,9 +25,21 @@ object SourceForm: TSourceForm
       Left = 12
       Height = 18
       Top = 10
-      Width = 420
+      Width = 330
       AutoSize = False
       Caption = 'This sheet, as it is saved.  Read only.'
+    end
+    object chkVersion2: TCheckBox
+      Left = 350
+      Height = 24
+      Top = 7
+      Width = 200
+      Anchors = [akTop, akRight]
+      Caption = 'Version 2 (proposed)'
+      Checked = True
+      State = cbChecked
+      TabOrder = 1
+      OnChange = chkVersion2Change
     end
     object chkOnlyPicked: TCheckBox
       Left = 560
@@ -53,7 +65,7 @@ object SourceForm: TSourceForm
     ParentColor = False
     ParentFont = False
     TabOrder = 1
-    Gutter.Width = 57
+    Gutter.Width = 71
     Gutter.MouseActions = <>
     RightGutter.Width = 0
     RightGutter.MouseActions = <>
@@ -96,6 +108,13 @@ object SourceForm: TSourceForm
         ShowOnlyLineNumbersMultiplesOf = 1
         ZeroStart = False
         LeadingZeros = False
+      end
+      object SynGutterCodeFolding1: TSynGutterCodeFolding
+        MouseActions = <>
+        MarkupInfo.Background = clNone
+        MarkupInfo.Foreground = clGray
+        MouseActionsExpanded = <>
+        MouseActionsCollapsed = <>
       end
       object SynGutterSeparator1: TSynGutterSeparator
         Width = 2

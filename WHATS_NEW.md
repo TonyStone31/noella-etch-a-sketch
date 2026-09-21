@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **`/source` shows the drawing in a new, readable form.**  A proposed
+  second version of the drawing file, for looking at - nothing is saved in
+  it yet.  A corner reads as `3 3/4" east, 2" north, 2 1/2" above the
+  floor`, the next as `b = a + 5 1/2" east`; a box is eight named corners
+  and six one-line faces.  Lengths are colored like the axes - east and
+  west red, north and south green, up and down blue - and every solid and
+  group folds.  Tick **Only what is picked** and everything folds shut but
+  what you picked on the sheet.  Untick **Version 2** to see the file as
+  it is saved today.  The grammar is in `docs/format2.md`.
+
 ## v2026.09.20.16
 
 ### New

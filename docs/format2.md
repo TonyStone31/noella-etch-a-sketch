@@ -152,7 +152,7 @@ need not.  A group's name is text because people type it.
 | `line` | `from`, then `goes` *or* `to` | `ink` (the sheet's), `width` (the sheet's), `soft` (no), `reference` (no) |
 | `arc`, `circle` | `center`, `radius`, `facing` | `starts` (0°), `sweep` (arc only), `sides` (the sheet's), `ink`, `width` |
 | `face` | `corners` | `hole` (as many as there are), `material` (none), `ink` |
-| `solid` | its `points`, `face`s, and the exceptions among its edges | - |
+| `solid` | its `points`, `face`s, and the exceptions among its edges | `material` (none) - what its faces are made of unless they say otherwise; a face that is bare in a painted solid says `material = none` |
 | `edge`, `no edge` | inside a solid: an `edge` block says `between = a b` and what is unusual about it - `soft`, `ink`, `width`; `no edge = a b` where a face's side has no edge on it | - |
 | `drilled` | inside a solid: `outline`, `through` (an offset) | - |
 | `group` | everything inside it, groups included | `locked` (no) |
@@ -294,6 +294,19 @@ rule 8 allows, and it is not needed to begin.
   size, and version 1 is compact.
 
 ## Still to settle
+
+* **What version 1 did to the numbers.**  Found on the first real drawing
+  put through this: version 1 writes feet to six places, so a drawing
+  that has been saved holds 1.4 inches as 1.400004 - and every drawing
+  there is has been saved.  The source window shows a value within
+  version 1's own half-millionth of a foot of a friendly one as the
+  friendly one (`V1_NOISE` in `uFormat2.pas`).  The question is whether
+  *reading* a version 1 file should put the friendly value back for good.
+  It would be right nearly always, and it is the one place the reader
+  would be deciding what somebody meant.
+* **Lists.**  Names in a list are separated by spaces, `corners = a b c d`;
+  places written out in full are separated by semicolons, because a place
+  has commas in it.
 
 * **Soft edges on round things.**  A cylinder of twenty-four sides has
   twenty-four soft edges, and an `edge` block each is a hundred lines that
