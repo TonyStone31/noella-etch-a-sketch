@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFormat2, uFittings, uTransition, uSpool, uPipe,
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFormat2, uHeck, uJig, uFittings, uTransition, uSpool, uPipe,
   InkPage;
 
 type
@@ -287,6 +287,10 @@ type
       out First, Last, LineThing: TIntArrayW; out SheetName: string);
     procedure SourceAskPicked(out Picked: TIntArrayW);
     procedure SourcePickThings(const Things: TIntArrayW);
+    function SourceApply(L: TStrings; out ErrLine: Integer; out Err: string): Boolean;
+    { run the jig that makes this group again; 0 runs every jig on the sheet }
+    function RunJigOf(PartId: Integer): Boolean;
+    function RunAllJigs: Integer;
     procedure RebuildInfo;
     procedure PaintInfoStep(C: TCanvas; const R: TRect; const S: string;
       Hot: Boolean);
@@ -1493,7 +1497,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..80] of TCmdItem = (
+  CMD_LIST: array[0..81] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1528,6 +1532,7 @@ const
                          Eg:   '/info on';
                          Also: 'entity properties'),
     (Name: 'iso';        Hint: 'the isometric view';                    Arg: False),
+    (Name: 'jig';        Hint: 'run the picked group''s jig again, or every jig';  Arg: False; Eg: ''; Also: 'jigs'),
     (Name: 'keep';       Hint: 'the last tape run, kept as a dimension';   Arg: False; Eg: ''; Also: 'keepdim'),
     (Name: 'leave';      Hint: 'close the open group';                  Arg: False; Eg: ''; Also: 'closegroup'),
     (Name: 'left';       Hint: 'look from the left';                    Arg: False),
@@ -4077,6 +4082,11 @@ begin
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(SelectedGroups) > 0;
   Add('Explode Group', 14);
   pmCanvas.Items[pmCanvas.Items.Count - 1].Enabled := Length(SelectedGroups) > 0;
+  if (SoleGroup > 0) and (FD.Doc.PartJig(SoleGroup) <> '') then
+  begin
+    Add('Run the Jig Again', 15);
+    Add('Show It in the Source', 16);
+  end;
   M := TMenuItem.Create(pmCanvas);
   M.Caption := '-';
   pmCanvas.Items.Add(M);
@@ -4154,6 +4164,19 @@ begin
     12: CloseGroup;
     13: LockGroups(not ((SoleGroup > 0) and FD.Doc.PartLocked(SoleGroup)));
     14: ExplodeGroups;
+    15:
+      begin
+        if RunJigOf(SoleGroup) then
+        begin
+          RebuildFlatFaces;
+          FCmdMsg := 'The jig was run again.';
+        end;
+        RenderPro;
+        RecomposeAll;
+        pbScreen.Invalidate;
+        pbCmd.Invalidate;
+      end;
+    16: ShowSource;
     7:
       begin
         FD.Doc.GuidesHidden := not FD.Doc.GuidesHidden;
@@ -15290,7 +15313,30 @@ begin
     FScreenDirty := True;
     pbScreen.Invalidate;
   end
-  else if (W = 'source') or (W = 'src') or (W = 'text-view') then ShowSource
+  else if (W = 'source') or (W = 'src') or (W = 'text-view') then
+  begin
+    ShowSource;
+    { "/source sample" puts the sample in to be looked at; "/source apply"
+      presses Apply - the same two buttons, for a keyboard or a test }
+    if Rest = 'sample' then SourceForm.LoadSample
+    else if Rest = 'apply' then SourceForm.ApplyNow;
+  end
+  else if (W = 'jig') or (W = 'jigs') then
+  begin
+    if SoleGroup > 0 then
+    begin
+      if RunJigOf(SoleGroup) then
+      begin
+        RebuildFlatFaces;
+        FCmdMsg := 'The jig was run again.';
+      end;
+      RenderPro;
+      RecomposeAll;
+    end
+    else
+      RunAllJigs;
+    pbScreen.Invalidate;
+  end
   else if (W = 'cube') or (W = 'viewcube') then
   begin
     FCubeHasHot := False;
@@ -17933,6 +17979,8 @@ begin
     SourceForm.OnAskSource := @SourceAskSource;
     SourceForm.OnAskPicked := @SourceAskPicked;
     SourceForm.OnPickThings := @SourcePickThings;
+    SourceForm.OnApply := @SourceApply;
+    SourceForm.OnRunJigs := @RunAllJigs;
     { beside the main window if there is room on its right, over its right
       half if there is not }
     SourceForm.Height := Height;
@@ -18013,6 +18061,127 @@ begin
   FScreenDirty := True;
   InfoChanged;
   pbScreen.Invalidate;
+end;
+
+{ The text in the source window, made the drawing.  Read into a scratch
+  drawing first: a fault leaves this one exactly as it was. }
+function TMainForm.SourceApply(L: TStrings; out ErrLine: Integer; out Err: string): Boolean;
+var
+  T: TWorkDoc;
+begin
+  Result := False;
+  ErrLine := -1;
+  Err := 'there is no sheet open';
+  if FD = nil then Exit;
+  T := TWorkDoc.Create;
+  try
+    Result := ReadHeck(L, T, FD.Units, ErrLine, Err);
+  finally
+    T.Free;
+  end;
+  if not Result then Exit;
+  PushUndo;
+  SelectNone;
+  FD.Doc.Clear;
+  ReadHeck(L, FD.Doc, FD.Units, ErrLine, Err);
+  FD.Dirty := True;
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  FCmdMsg := Format('Applied: %d things.', [FD.Doc.Live]);
+  pbScreen.Invalidate;
+  pbCmd.Invalidate;
+end;
+
+{ Run a group's jig again.  What it prints is read into a scratch drawing
+  first; only when that went well is what was in the group taken out and
+  what the jig made put in - one undo step. }
+function TMainForm.RunJigOf(PartId: Integer): Boolean;
+var
+  Spec, Err: string;
+  Out_: TStringList;
+  T: TWorkDoc;
+  M: TIntArrayW;
+  Doomed: array of Boolean;
+  I, ErrLine, WasStamp, Rec: Integer;
+begin
+  Result := False;
+  if FD = nil then Exit;
+  Spec := FD.Doc.PartJig(PartId);
+  if Spec = '' then
+  begin
+    FCmdMsg := 'That group is not made by a jig.';
+    Exit;
+  end;
+  Out_ := TStringList.Create;
+  try
+    Screen.Cursor := crHourGlass;
+    try
+      if not RunJig(Spec, FD.Units, Out_, Err) then
+      begin
+        FCmdMsg := 'The jig did not run - ' + Err;
+        Exit;
+      end;
+    finally
+      Screen.Cursor := crDefault;
+    end;
+    T := TWorkDoc.Create;
+    try
+      if not ReadHeck(Out_, T, FD.Units, ErrLine, Err) then
+      begin
+        FCmdMsg := Format('Heck if I know - what the jig printed is not Heck.  Line %d: %s', [ErrLine + 1, Err]);
+        Exit;
+      end;
+    finally
+      T.Free;
+    end;
+    PushUndo;
+    SelectNone;
+    M := FD.Doc.PartMembers(PartId, False);
+    Rec := FD.Doc.PartEnt(PartId);
+    SetLength(Doomed, FD.Doc.Live);
+    for I := 0 to High(Doomed) do Doomed[I] := False;
+    for I := 0 to High(M) do
+      if M[I] <> Rec then Doomed[M[I]] := True;
+    FD.Doc.DeleteMarked(Doomed);
+    WasStamp := FD.Doc.Stamp;
+    FD.Doc.Stamp := PartId;
+    try
+      ReadHeck(Out_, FD.Doc, FD.Units, ErrLine, Err);
+    finally
+      FD.Doc.Stamp := WasStamp;
+    end;
+    FD.Dirty := True;
+    Result := True;
+  finally
+    Out_.Free;
+  end;
+end;
+
+function TMainForm.RunAllJigs: Integer;
+var
+  Ids: TIntArrayW;
+  I, N: Integer;
+begin
+  Result := 0;
+  if FD = nil then Exit;
+  { the ids first: running one moves everything in the list }
+  N := 0;
+  SetLength(Ids, FD.Doc.Live);
+  for I := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[I].Kind = ekPart) and (FD.Doc[I].Jig <> '') then
+    begin
+      Ids[N] := FD.Doc[I].Grp;
+      Inc(N);
+    end;
+  for I := 0 to N - 1 do
+    if RunJigOf(Ids[I]) then Inc(Result);
+  RebuildFlatFaces;
+  RenderPro;
+  RecomposeAll;
+  if Result = N then FCmdMsg := Format('%d jigs run.', [Result]);
+  pbScreen.Invalidate;
+  pbCmd.Invalidate;
 end;
 
 procedure TMainForm.InfoChanged;

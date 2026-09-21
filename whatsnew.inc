@@ -13,6 +13,28 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Type in the source window and the drawing changes.**  `/source` is no' + LineEnding +
+    '  longer only for reading.  Change a number - or write `+ 8"` on the end' + LineEnding +
+    '  of a point - and an **Apply** bar appears; nothing on the sheet moves' + LineEnding +
+    '  until you press it.  If what you typed does not read, the line is marked' + LineEnding +
+    '  and it says why, and **Revert** puts the text back.  Apply is one undo' + LineEnding +
+    '  step.  Sums work wherever a length goes, and a `const` block gives' + LineEnding +
+    '  numbers names.  You can type a whole drawing: lines and circles, and the' + LineEnding +
+    '  program works out the faces.' + LineEnding +
+    '- **JIGs - Just Include Geometry.**  A group can say `jig = ''star'' with' + LineEnding +
+    '  Points = 5, Radius = 2''`, and a little program of your own, in your own' + LineEnding +
+    '  jigs folder, fills it: *a JIG is any program that prints Heck*, in any' + LineEnding +
+    '  language.  Right-click the group for **Run the Jig Again**, or `/jig`.' + LineEnding +
+    '  Nothing ever runs because a drawing was opened - the drawing keeps what' + LineEnding +
+    '  the jig made - and a drawing can only name a jig, never carry one.' + LineEnding +
+    '  **Sample** in the source window puts in a small drawing and three jigs' + LineEnding +
+    '  to try: a star in Pascal, a balloon in Python, a fence in Perl.' + LineEnding +
+    '  Ctrl+click a `jig` line opens its program.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

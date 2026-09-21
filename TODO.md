@@ -397,6 +397,28 @@ What has to be thought about before it is as nice as it sounds:
   for none on 20 September, and for one on the 21st so it could be tried
   away from the development machine.  So: commit and push as the work
   goes, and cut a release when he says to.
+* **Two-way, and the first jigs - 21 September, built, not released.**
+  `uHeck.pas` reads Heck: what `uFormat2` writes and what a person may
+  type besides - x y z, ft and in, any spacing, a `begin` let pass, sums,
+  `const`, rings, runs, named circles, blocks it has never heard of.
+  Every drawing in `reports/` goes out and comes back with a twin for
+  every thing and no corner moved by more than two hundred-thousandths of
+  an inch (version 1's own rounding).  The source window edits: **Apply**
+  reads the whole text into a scratch drawing first, marks the line and
+  says why when it will not read, and is one undo step; **Revert**.
+  `uJig.pas` runs a jig by name from `AppDataDir/jigs` only (a name with a
+  slash or a dot in it is refused), thirty seconds, 32 MB, values as
+  `Name=value` arguments with lengths as plain inches; the group keeps
+  `jig = ...` (a `JIG` line in version 1 too); right-click, `/jig`,
+  **Run jigs**.  `/source sample` and `/source apply` press the buttons
+  for a test.  **Known rough edges:** Apply writes the text again its own
+  way, so typed names, comments and a `points` block outside a solid do
+  not survive it - which is also why **rename** waits: there is nothing
+  yet that keeps a name.  That is the constants table (docs/format2.md,
+  "What it grows into"), and it is the next real piece.  One drawing in
+  `reports/2026-09-18` comes back as more lines of text than it went out
+  as, every thing accounted for - rings or circles not being found again
+  the second time; not looked at.
 * **Names, settled 21 September.**  The language a drawing is written in
   is **Heck** (`.hsk` files are Heck; the grammar page is "What the
   Heck").  A group whose contents a program writes is made by a **JIG -

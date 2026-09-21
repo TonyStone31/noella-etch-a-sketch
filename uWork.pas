@@ -173,6 +173,9 @@ type
       note size.  Nought means normal, which is what every note made before
       this has and what a new one gets - so nothing that exists changes. }
     Size: Single;
+    { ekPart: the jig that makes this group - "'star' with Points = 5" -
+      or nothing.  See docs/format2.md, "Jigs". }
+    Jig: string;
     Dim: Boolean;
     { A soft edge is one of the many little creases that stand in for a curved
       surface - the facets down the side of a pulled circle.  SketchUp hides
@@ -469,6 +472,11 @@ type
     procedure SetFaceHoles(Index: Integer; const H: array of TP3Array);
     { Make a face part of a solid - the one whose face it was cut from. }
     procedure SetFaceGroup(Index, G: Integer);
+    { a line belongs to a solid: the Heck reader puts a solid's edges back }
+    procedure SetLineGroup(Index, G: Integer);
+    { turn an arc to face any way: the plane becomes a free one with this
+      normal, and A0 is then measured in AxesFromNormal's terms }
+    procedure SetArcFacing(Index: Integer; const Nm: TP3; A0: Double);
     { the same for anything - a line that belongs to a solid, say }
     procedure SetGroup(Index, G: Integer);
     { a fresh solid identity, for something built rather than pulled }
@@ -588,6 +596,8 @@ type
     function PartParent(Id: Integer): Integer;
     procedure SetPartName(Id: Integer; const Name: string);
     procedure SetPartLocked(Id: Integer; Locked: Boolean);
+    function PartJig(Id: Integer): string;
+    procedure SetPartJig(Id: Integer; const Spec: string);
     procedure SetPartParent(Id, Parent: Integer);
     { which group an entity is in, and putting it in one }
     procedure SetPart(Index, Id: Integer);
@@ -5146,6 +5156,41 @@ procedure TWorkDoc.SetGroup(Index, G: Integer);
 begin
   if (Index < 0) or (Index >= FLive) then Exit;
   FEnts[Index].Grp := G;
+end;
+
+function TWorkDoc.PartJig(Id: Integer): string;
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if E < 0 then Result := '' else Result := FEnts[E].Jig;
+end;
+
+procedure TWorkDoc.SetPartJig(Id: Integer; const Spec: string);
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if E < 0 then Exit;
+  FEnts[E].Jig := Spec;
+  Inc(FEditSeq);
+end;
+
+procedure TWorkDoc.SetLineGroup(Index, G: Integer);
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekLine) then Exit;
+  FEnts[Index].Grp := G;
+end;
+
+procedure TWorkDoc.SetArcFacing(Index: Integer; const Nm: TP3; A0: Double);
+begin
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekArc) then Exit;
+  FEnts[Index].Plane := plFree;
+  FEnts[Index].Nm := Nm;
+  FEnts[Index].A0 := A0;
+  FEnts[Index].A := ArcPoint(FEnts[Index].C, FEnts[Index].R, A0, plFree, Nm);
+  FEnts[Index].B := ArcPoint(FEnts[Index].C, FEnts[Index].R, A0 + FEnts[Index].Sweep, plFree, Nm);
+  FSnapDirty := True; Inc(FEditSeq);
 end;
 
 procedure TWorkDoc.SetFaceGroup(Index, G: Integer);
@@ -10706,8 +10751,12 @@ begin
     First[I] := L.Count;
     case FEnts[I].Kind of
       ekPart:
-        L.Add(TrimRight(Format('GROUP %d %d %d %s',
-          [FEnts[I].Grp, Ord(FEnts[I].Solid), FEnts[I].Part, EscapeNote(FEnts[I].Txt)])));
+        begin
+          L.Add(TrimRight(Format('GROUP %d %d %d %s',
+            [FEnts[I].Grp, Ord(FEnts[I].Solid), FEnts[I].Part, EscapeNote(FEnts[I].Txt)])));
+          if FEnts[I].Jig <> '' then
+            L.Add('JIG ' + IntToStr(FEnts[I].Grp) + ' ' + EscapeNote(FEnts[I].Jig));
+        end;
       ekLine:
         L.Add(Format('LINE %s %s %d %.3f %d %d %d',
           [N3(FEnts[I].A), N3(FEnts[I].B), FEnts[I].Ink, FEnts[I].Weight,
@@ -10966,6 +11015,8 @@ begin
         FEnts[FLive].Txt := UnescapeNote(JoinFrom(T, 4));
         Inc(FLive);
       end
+      else if (Kind = 'JIG') and (T.Count >= 3) then
+        SetPartJig(StrToIntDef(T[1], 0), UnescapeNote(JoinFrom(T, 2)))
       else if (Kind = 'FACE') and (T.Count >= 4) then
       begin
         N := StrToIntDef(T[3], 0);

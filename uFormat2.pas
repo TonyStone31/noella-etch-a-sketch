@@ -50,6 +50,10 @@ procedure WriteFormat2(D: TWorkDoc; const SheetName: string; U: TUnitSystem;
   L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil;
   Names: TStrings = nil);
 
+{ the two directions a flat thing's angles are measured in: from east for a
+  thing facing up or down, from its level line (up x facing) for any other }
+procedure SpecAxes(const F: TP3; out AU, AV: TP3);
+
 { one length, the way the file writes it; always positive - the direction
   word carries the sign }
 function Len2(V: Double; U: TUnitSystem): string;
@@ -300,7 +304,7 @@ var
   var
     I, J, Best, N: Integer;
   begin
-    DefInk := $1A1C20;
+    DefInk := $201C1A;
     DefWidth := 1;
     Best := 0;
     for I := 0 to Min(D.Live - 1, 400) do
@@ -460,6 +464,8 @@ var
     begin
       if (Row <> '') and ((Depth + 1) * 2 + Length(Row) + Length(Sep) + Length(It[K]) > WIDE) then
       begin
+        { a row of places ends in its "to", so the rows read on as one list }
+        if Sep <> ' ' then Row := Row + ' to';
         Put(Depth + 1, Row, Thing);
         Row := '';
       end;
@@ -821,7 +827,7 @@ var
       begin
         Put(Depth + 1, 'bore', I);
         PutList(Depth + 2, 'points', Items(Pts, D[I].Poly), I);
-        Put(Depth + 2, 'goes = ' + Place2(D[I].B, U, True), I);
+        Put(Depth + 2, 'goes = ' + Place2(Sub3(D[I].B, D[I].Poly[0]), U, True), I);
         Put(Depth + 1, 'end', I);
       end;
     Put(Depth, 'end', -1);
@@ -870,6 +876,7 @@ var
       begin
         Put(Depth, 'group ' + Quoted(D[I].Txt), I);
         if D[I].Solid then Put(Depth + 1, 'locked = true', I);
+        if D[I].Jig <> '' then Put(Depth + 1, 'jig = ' + D[I].Jig, I);
         PutLevel(Depth + 1, D[I].Grp);
         Put(Depth, 'end', I);
       end;

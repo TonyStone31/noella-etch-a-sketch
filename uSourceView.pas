@@ -28,7 +28,8 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
-  SynGutterLineNumber, SynEditMarkupHighAll, SynEditMouseCmds, uWork, uSynHsk2;
+  SynGutterLineNumber, SynEditMarkupHighAll, SynEditMouseCmds, LCLIntf,
+  uWork, uSynHsk2, uJig, uHeckSample;
 
 type
   TSourceAskState = procedure(out DocSeq, PickSeq: Int64) of object;
@@ -39,6 +40,9 @@ type
     out First, Last, LineThing: TIntArrayW; out SheetName: string) of object;
   TSourceAskPicked = procedure(out Picked: TIntArrayW) of object;
   TSourcePickThings = procedure(const Things: TIntArrayW) of object;
+  { the text, to be made the drawing: False, a line and why, when it cannot }
+  TSourceApply = function(L: TStrings; out ErrLine: Integer; out Err: string): Boolean of object;
+  TSourceRunJigs = function: Integer of object;
 
   { TSourceForm }
 
@@ -46,6 +50,12 @@ type
     chkOnlyPicked: TCheckBox;
     chkVersion2: TCheckBox;
     btnFold: TButton;
+    btnApply: TButton;
+    btnRevert: TButton;
+    btnSample: TButton;
+    btnJigs: TButton;
+    lblApply: TLabel;
+    pnlApply: TPanel;
     btnUnfold: TButton;
     edtFind: TEdit;
     Editor: TSynEdit;
@@ -55,6 +65,11 @@ type
     procedure chkOnlyPickedChange(Sender: TObject);
     procedure chkVersion2Change(Sender: TObject);
     procedure btnFoldClick(Sender: TObject);
+    procedure btnApplyClick(Sender: TObject);
+    procedure btnRevertClick(Sender: TObject);
+    procedure btnSampleClick(Sender: TObject);
+    procedure btnJigsClick(Sender: TObject);
+    procedure EditorChange(Sender: TObject);
     procedure btnUnfoldClick(Sender: TObject);
     procedure edtFindKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -76,6 +91,8 @@ type
     FNames: TStringList;        { every named point: "line|name=place" }
     FHintWord: string;
     FWhat: string;
+    FEdited: Boolean;           { the text is the person's now, not the drawing's }
+    FErrRow: Integer;
     FFirst, FLast: TIntArrayW;  { thing -> its lines in FAll }
     FLineThing: TIntArrayW;     { line in FAll -> thing, or -1 }
     FRowLine: TIntArrayW;       { row shown in the editor -> line in FAll }
@@ -86,6 +103,7 @@ type
     FBusy: Boolean;             { we are moving the caret, not the person }
     FCaretRow, FBlockA, FBlockB: Integer;
     FColors: TSynHsk2Syn;
+    procedure SetEdited(On_: Boolean; const Msg: string = '');
     procedure FoldToPicked;
     { the row, counted from 0, where Name_ is given its meaning, looking
       back from FromRow: "name = ..." in a points block, or "circle name" }
@@ -93,6 +111,7 @@ type
     { where a named point is, looked up in the nearest points block above }
     function WhereIs(const Name_: string; FromRow: Integer): string;
     procedure FindNext(Back: Boolean);
+    procedure OpenJigOn(const Line: string);
     procedure LoadText;
     procedure ShowRows;
     procedure ShowPicked(Scroll: Boolean);
@@ -102,8 +121,13 @@ type
     OnAskSource: TSourceAskSource;
     OnAskPicked: TSourceAskPicked;
     OnPickThings: TSourcePickThings;
+    OnApply: TSourceApply;
+    OnRunJigs: TSourceRunJigs;
     { look again now, rather than at the next tick }
     procedure Refresh_;
+    { the buttons, for a command or a test to press }
+    procedure LoadSample;
+    procedure ApplyNow;
   end;
 
 var
@@ -124,6 +148,8 @@ begin
   FNames := TStringList.Create;
   FHaveState := False;
   FCaretRow := -1;
+  FErrRow := -1;
+  Editor.OnChange := @EditorChange;
   FColors := TSynHsk2Syn.Create(Self);
 
   { The things Lazarus's own editor does, because a drawing written as
@@ -161,6 +187,16 @@ begin
   CloseAction := caHide;
 end;
 
+procedure TSourceForm.LoadSample;
+begin
+  btnSampleClick(nil);
+end;
+
+procedure TSourceForm.ApplyNow;
+begin
+  if FEdited then btnApplyClick(nil);
+end;
+
 procedure TSourceForm.Refresh_;
 begin
   FHaveState := False;
@@ -175,6 +211,7 @@ var
 begin
   if not Visible then Exit;
   if not Assigned(OnAskState) then Exit;
+  if FEdited then Exit;        { the text is being typed: the drawing waits for Apply }
   OnAskState(D, P);
   if FHaveState and (D = FDocSeq) and (P = FPickSeq) then Exit;
   if (not FHaveState) or (D <> FDocSeq) then
@@ -256,6 +293,9 @@ begin
     end;
     if chkVersion2.Checked then Editor.Highlighter := FColors
     else Editor.Highlighter := nil;
+    { Heck can be typed into; the file as it is saved today cannot }
+    Editor.ReadOnly := not chkVersion2.Checked or
+      (chkOnlyPicked.Checked and not chkVersion2.Checked);
     if Editor.Lines.Text <> L.Text then Editor.Lines.Assign(L);
     if WasTop <= Editor.Lines.Count then Editor.TopLine := WasTop;
   finally
@@ -346,6 +386,14 @@ var
   R: Integer;
 begin
   R := Line - 1;
+  if R = FErrRow then
+  begin
+    Special := True;
+    BG := TColor($D0D0FF);
+    FG := TColor($000080);
+    Exit;
+  end;
+  if FEdited then Exit;
   if (R < 0) or (R > High(FRowLine)) then Exit;
   if (FRowLine[R] <= High(FLinePicked)) and FLinePicked[FRowLine[R]] then
   begin
@@ -364,7 +412,7 @@ var
   Things: TIntArrayW;
   Dup: Boolean;
 begin
-  if FBusy then Exit;
+  if FBusy or FEdited then Exit;
   if Changes * [scCaretY, scSelection] = [] then Exit;
   A := Editor.CaretY - 1;
   B := A;
@@ -466,6 +514,24 @@ begin
   end;
 end;
 
+{ jig = 'star' with ... : open star, whatever kind of file it is, in
+  whatever this machine opens such files with }
+procedure TSourceForm.OpenJigOn(const Line: string);
+var
+  A, B: Integer;
+  F: string;
+begin
+  A := Pos('''', Line);
+  if A = 0 then Exit;
+  B := A + 1;
+  while (B <= Length(Line)) and (Line[B] <> '''') do Inc(B);
+  F := FindJig(Copy(Line, A + 1, B - A - 1));
+  if F = '' then
+    Status.SimpleText := '  There is no jig called "' + Copy(Line, A + 1, B - A - 1) + '" in ' + JigsDir
+  else
+    OpenDocument(F);
+end;
+
 procedure TSourceForm.FindNext(Back: Boolean);
 var
   Opt: TSynSearchOptions;
@@ -515,6 +581,101 @@ begin
   end;
 end;
 
+{ The text has been typed into.  From here until Apply or Revert it is the
+  person's: the drawing is not read again, lines are not picked from it,
+  and nothing on the sheet changes. }
+procedure TSourceForm.SetEdited(On_: Boolean; const Msg: string);
+begin
+  FEdited := On_;
+  pnlApply.Visible := On_;
+  if Msg <> '' then lblApply.Caption := Msg
+  else lblApply.Caption := 'Changed.  Apply makes the drawing match; nothing on the sheet moves until then.';
+  if not On_ then FErrRow := -1;
+  Editor.Invalidate;
+end;
+
+procedure TSourceForm.EditorChange(Sender: TObject);
+begin
+  if FBusy or Editor.ReadOnly then Exit;
+  if not FEdited then SetEdited(True)
+  else if FErrRow >= 0 then
+  begin
+    FErrRow := -1;
+    Editor.Invalidate;
+  end;
+end;
+
+procedure TSourceForm.btnApplyClick(Sender: TObject);
+var
+  ErrLine, WasTop, CY: Integer;
+  Err: string;
+begin
+  if not Assigned(OnApply) then Exit;
+  WasTop := Editor.TopLine;
+  CY := Editor.CaretY;
+  if OnApply(Editor.Lines, ErrLine, Err) then
+  begin
+    SetEdited(False);
+    Refresh_;
+    FBusy := True;
+    try
+      if WasTop <= Editor.Lines.Count then Editor.TopLine := WasTop;
+      if CY <= Editor.Lines.Count then Editor.CaretY := CY;
+    finally
+      FBusy := False;
+    end;
+    Exit;
+  end;
+  { the title can have its joke; the message under it is plain }
+  FErrRow := ErrLine;
+  SetEdited(True, Format('What the Heck?  Line %d: %s', [ErrLine + 1, Err]));
+  FErrRow := ErrLine;
+  if (ErrLine >= 0) and (ErrLine < Editor.Lines.Count) then
+  begin
+    FBusy := True;
+    try
+      Editor.CaretXY := Point(1, ErrLine + 1);
+      Editor.EnsureCursorPosVisible;
+    finally
+      FBusy := False;
+    end;
+  end;
+  Editor.Invalidate;
+end;
+
+procedure TSourceForm.btnRevertClick(Sender: TObject);
+begin
+  SetEdited(False);
+  Refresh_;
+end;
+
+{ A little drawing and three jigs to try it on: the text goes into the
+  editor as if it had been typed, so Apply is what makes it happen. }
+procedure TSourceForm.btnSampleClick(Sender: TObject);
+begin
+  if not chkVersion2.Checked then chkVersion2.Checked := True;
+  WriteSampleJigs(JigsDir);
+  FBusy := True;
+  try
+    Editor.ReadOnly := False;
+    Editor.Lines.Text := SampleHeck;
+  finally
+    FBusy := False;
+  end;
+  SetEdited(True, 'A sample, and its jigs are in ' + JigsDir + '.  Press Apply, then Run jigs.');
+end;
+
+procedure TSourceForm.btnJigsClick(Sender: TObject);
+begin
+  if FEdited then
+  begin
+    lblApply.Caption := 'Apply or Revert first - the jigs run on the drawing, not on what is typed here.';
+    Exit;
+  end;
+  if Assigned(OnRunJigs) then OnRunJigs();
+  Refresh_;
+end;
+
 procedure TSourceForm.btnFoldClick(Sender: TObject);
 begin
   FBusy := True;
@@ -543,7 +704,9 @@ var
 begin
   W := Editor.GetWordAtRowCol(Point(X, Y));
   At := DefinedAt(W, Y - 1);
-  AllowMouseLink := (At >= 0) and (At <> Y - 1);
+  AllowMouseLink := ((At >= 0) and (At <> Y - 1)) or
+    ((Y >= 1) and (Y <= Editor.Lines.Count) and
+     (LowerCase(Copy(Trim(Editor.Lines[Y - 1]), 1, 3)) = 'jig'));
 end;
 
 procedure TSourceForm.EditorClickLink(Sender: TObject; Button: TMouseButton;
@@ -553,6 +716,12 @@ var
   At: Integer;
 begin
   P := Editor.PixelsToLogicalPos(Point(X, Y));
+  if (P.Y >= 1) and (P.Y <= Editor.Lines.Count) and
+     (LowerCase(Copy(Trim(Editor.Lines[P.Y - 1]), 1, 3)) = 'jig') then
+  begin
+    OpenJigOn(Editor.Lines[P.Y - 1]);
+    Exit;
+  end;
   At := DefinedAt(Editor.GetWordAtRowCol(P), P.Y - 1);
   if At < 0 then Exit;
   Editor.CaretXY := Point(1, At + 1);

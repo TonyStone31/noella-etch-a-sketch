@@ -2,10 +2,10 @@ object SourceForm: TSourceForm
   Left = 300
   Height = 720
   Top = 160
-  Width = 820
+  Width = 920
   Caption = 'Source'
   ClientHeight = 720
-  ClientWidth = 820
+  ClientWidth = 920
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -15,11 +15,11 @@ object SourceForm: TSourceForm
     Left = 0
     Height = 38
     Top = 0
-    Width = 820
+    Width = 920
     Align = alTop
     BevelOuter = bvNone
     ClientHeight = 38
-    ClientWidth = 820
+    ClientWidth = 920
     TabOrder = 0
     object edtFind: TEdit
       Left = 12
@@ -48,8 +48,26 @@ object SourceForm: TSourceForm
       TabOrder = 4
       OnClick = btnUnfoldClick
     end
+    object btnSample: TButton
+      Left = 330
+      Height = 26
+      Top = 6
+      Width = 70
+      Caption = 'Sample'
+      TabOrder = 5
+      OnClick = btnSampleClick
+    end
+    object btnJigs: TButton
+      Left = 404
+      Height = 26
+      Top = 6
+      Width = 80
+      Caption = 'Run jigs'
+      TabOrder = 6
+      OnClick = btnJigsClick
+    end
     object chkVersion2: TCheckBox
-      Left = 350
+      Left = 500
       Height = 24
       Top = 7
       Width = 200
@@ -61,7 +79,7 @@ object SourceForm: TSourceForm
       OnChange = chkVersion2Change
     end
     object chkOnlyPicked: TCheckBox
-      Left = 560
+      Left = 720
       Height = 24
       Top = 7
       Width = 190
@@ -75,7 +93,7 @@ object SourceForm: TSourceForm
     Left = 0
     Height = 660
     Top = 38
-    Width = 820
+    Width = 920
     Align = alClient
     Font.Height = -14
     Font.Name = 'Courier New'
@@ -94,7 +112,6 @@ object SourceForm: TSourceForm
     MouseSelActions = <>
     Options = [eoAutoIndent, eoBracketHighlight, eoGroupUndo, eoScrollPastEol, eoSmartTabs, eoTabsToSpaces, eoTrimTrailingSpaces, eoPersistentBlock]
     VisibleSpecialChars = [vscSpace, vscTabAtLast]
-    ReadOnly = True
     RightEdge = 0
     ScrollBars = ssAutoBoth
     SelectedColor.BackPriority = 50
@@ -143,11 +160,59 @@ object SourceForm: TSourceForm
       end
     end
   end
+  object pnlApply: TPanel
+    Left = 0
+    Height = 40
+    Top = 658
+    Width = 920
+    Align = alBottom
+    BevelOuter = bvNone
+    ClientHeight = 40
+    ClientWidth = 920
+    Color = 13434879
+    ParentBackground = False
+    ParentColor = False
+    TabOrder = 2
+    Visible = False
+    object lblApply: TLabel
+      Left = 12
+      Height = 28
+      Top = 6
+      Width = 690
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = False
+      Caption = 'Changed.'
+      Font.Color = clBlack
+      Layout = tlCenter
+      ParentFont = False
+      WordWrap = True
+    end
+    object btnApply: TButton
+      Left = 714
+      Height = 28
+      Top = 6
+      Width = 96
+      Anchors = [akTop, akRight]
+      Caption = 'Apply'
+      TabOrder = 0
+      OnClick = btnApplyClick
+    end
+    object btnRevert: TButton
+      Left = 816
+      Height = 28
+      Top = 6
+      Width = 96
+      Anchors = [akTop, akRight]
+      Caption = 'Revert'
+      TabOrder = 1
+      OnClick = btnRevertClick
+    end
+  end
   object Status: TStatusBar
     Left = 0
     Height = 22
     Top = 698
-    Width = 820
+    Width = 920
     Panels = <>
     SimplePanel = True
   end

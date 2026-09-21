@@ -10,6 +10,28 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Type in the source window and the drawing changes.**  `/source` is no
+  longer only for reading.  Change a number - or write `+ 8"` on the end
+  of a point - and an **Apply** bar appears; nothing on the sheet moves
+  until you press it.  If what you typed does not read, the line is marked
+  and it says why, and **Revert** puts the text back.  Apply is one undo
+  step.  Sums work wherever a length goes, and a `const` block gives
+  numbers names.  You can type a whole drawing: lines and circles, and the
+  program works out the faces.
+- **JIGs - Just Include Geometry.**  A group can say `jig = 'star' with
+  Points = 5, Radius = 2'`, and a little program of your own, in your own
+  jigs folder, fills it: *a JIG is any program that prints Heck*, in any
+  language.  Right-click the group for **Run the Jig Again**, or `/jig`.
+  Nothing ever runs because a drawing was opened - the drawing keeps what
+  the jig made - and a drawing can only name a jig, never carry one.
+  **Sample** in the source window puts in a small drawing and three jigs
+  to try: a star in Pascal, a balloon in Python, a fence in Perl.
+  Ctrl+click a `jig` line opens its program.
+
 ## v2026.09.21.1
 
 ### New

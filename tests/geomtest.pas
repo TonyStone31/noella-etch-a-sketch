@@ -8,7 +8,7 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper, uFormat2;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper, uFormat2, uHeck, uJig;
 
 var
   Fails: Integer = 0;
@@ -8362,6 +8362,100 @@ begin
   end;
 end;
 
+{ Heck read back: what the writer writes, the reader reads, and what a
+  person may type besides }
+procedure TestHeckReader;
+var
+  D, E: TWorkDoc;
+  A, B: TStringList;
+  First, Last, LineThing: TIntArrayW;
+  ErrLine, I, NLine_, NFace: Integer;
+  Err, Name_: string;
+  V: Double;
+  IsLen: Boolean;
+
+  function Reads(const Text: string): Boolean;
+  begin
+    E.Clear;
+    A.Text := Text;
+    Result := ReadHeck(A, E, usImperial, ErrLine, Err);
+  end;
+
+begin
+  WriteLn('Heck, read back');
+  D := TWorkDoc.Create;
+  E := TWorkDoc.Create;
+  A := TStringList.Create;
+  B := TStringList.Create;
+  try
+    { a painted box out and in again is the same box, and says the same }
+    MakeRect(D, 0, 0, 4, 4);
+    Ok(D.PushPull(4, 2), 'a box');
+    D.SetMaterial(4, $3CB0FF);
+    WriteFormat2(D, 'Box', usImperial, A, First, Last, LineThing);
+    Ok(ReadHeck(A, E, usImperial, ErrLine, Err), 'what the writer wrote is read: ' + Err);
+    EqI(E.Live, D.Live, 'as many things come back as went out');
+    WriteFormat2(E, 'Box', usImperial, B, First, Last, LineThing);
+    Ok(A.Text = B.Text, 'and written out again it is the same text, line for line');
+
+    { what a person may type }
+    Ok(Reads('line = 0 east, 0 north, 0 up to 4'' east, 0 north, 0 up'), 'a line, with no sheet round it');
+    EqI(E.Live, 1, 'is one thing');
+    Ok(Abs(E[0].B.X - 4) < 1E-12, 'four feet long');
+    Ok(Reads('line = x 0 y 0 z 0 to x 4ft y 6in z 0'), 'x y z, and ft and in for the marks');
+    Ok((Abs(E[0].B.X - 4) < 1E-12) and (Abs(E[0].B.Y - 0.5) < 1E-12), 'mean the same');
+    Ok(Reads('LINE   =   0 east,0 north,0 up   TO   +   5''  10 5/8"   up'), 'any spacing, any case, a step from the place before');
+    { worked out in a variable: the compiler does a sum of constants that fit
+      a Single in single precision, and is then a hundred-millionth out }
+    V := 10.625;
+    V := 5 + V / 12;
+    Ok(Abs(E[0].B.Z - V) < 1E-12, 'and feet, inches and a fraction');
+    Ok(Reads('const' + LineEnding + '  Width = 4''' + LineEnding + 'end' + LineEnding +
+             'points' + LineEnding + '  a = 0 east, 0 north, 0 up' + LineEnding +
+             '  b = a + Width east + 8" east' + LineEnding +
+             '  c = b + (Width - 1'') / 2 north' + LineEnding + 'end' + LineEnding +
+             'line = a to c'), 'constants, sums and brackets');
+    Ok((Abs(E[0].B.X - (4 + 8 / 12)) < 1E-12) and (Abs(E[0].B.Y - 1.5) < 1E-12), 'come to the right place');
+    Ok(Reads('line Rafter' + LineEnding + 'begin' + LineEnding + '  points = 0 east, 0 north, 0 up to 1'' up' +
+             LineEnding + '  ink = red' + LineEnding + 'end'), 'a name, and a begin that means nothing');
+    Ok((E.Live = 1) and (E[0].Ink = $0000FF), 'and its ink');
+    Ok(Reads('weld Seam' + LineEnding + '  heat = 900' + LineEnding + '  bead' + LineEnding + '    x = 1' +
+             LineEnding + '  end' + LineEnding + 'end' + LineEnding + 'line = 0 east, 0 north, 0 up to 1'' up'),
+       'a block nobody has heard of is stepped over, whatever is in it');
+    EqI(E.Live, 1, 'and what follows it is read');
+    Ok(Reads('group ''Hangers''' + LineEnding + '  jig = ''hangers'' with Count = 6' + LineEnding + 'end'), 'a group made by a jig');
+    Ok((E.Live = 1) and (E[0].Kind = ekPart) and (E[0].Jig = '''hangers'' with Count = 6'), 'remembers which');
+    Ok(Reads('points' + LineEnding + '  ring r' + LineEnding + '    center = 0 east, 0 north, 2'' up' + LineEnding +
+             '    radius = 1''' + LineEnding + '    sides = 8' + LineEnding + '    facing = up' + LineEnding +
+             '  end' + LineEnding + 'end' + LineEnding + 'face = r1..r8'), 'a ring, and a run of its corners');
+    Ok((E.Live = 1) and (Length(E[0].Poly) = 8) and (Abs(E[0].Poly[0].X - 1) < 1E-12) and
+       (Abs(E[0].Poly[2].Y - 1) < 1E-9), 'goes round from east, anticlockwise');
+
+    { and what is wrong is said, with the line it is on }
+    Ok(not Reads('line = 0 east, 0 north, 0 up to 4'' nrth'), 'a direction that is not one is refused');
+    EqI(ErrLine, 0, 'on its line');
+    Ok(not Reads('sheet ''S''' + LineEnding + '  line = 0 east, 0 north, 0 up to 1'' up'), 'a sheet never closed is refused');
+    Ok(not Reads('line = a to b'), 'points nobody named are refused');
+    Ok(not Reads('face = 0 east, 0 north, 0 up to 1'' east'), 'a face of two corners is refused');
+
+    { a jig's line }
+    B.Clear;
+    Ok(ParseJigSpec('''star'' with Points = 5, Radius = 2'', Tag = ''a b''', usImperial, Name_, B, Err), 'a jig and its values');
+    Ok((Name_ = 'star') and (B.Count = 3) and (B[0] = 'Points=5') and (B[1] = 'Radius=24') and (B[2] = 'Tag=a b'),
+       'a length goes as plain inches');
+    Ok(not ParseJigSpec('''../evil'' with X = 1', usImperial, Name_, B, Err), 'a jig''s name cannot be a path');
+    Ok(not ParseJigSpec('''C:\evil''', usImperial, Name_, B, Err), 'on any system');
+    Ok(HeckValue('2'' 6"', usImperial, V, IsLen) and IsLen and (Abs(V - 2.5) < 1E-12), 'one value read on its own');
+    NLine_ := 0; NFace := 0; I := 0;
+    if NLine_ + NFace + I = 0 then ;
+  finally
+    B.Free;
+    A.Free;
+    E.Free;
+    D.Free;
+  end;
+end;
+
 procedure TestGroups;
 var
   D, B: TWorkDoc;
@@ -8610,6 +8704,7 @@ begin
   TestPushCarriesPaint; WriteLn;
   TestSaveMap;      WriteLn;
   TestFormat2;      WriteLn;
+  TestHeckReader;   WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
