@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.17' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`/source` shows the drawing in a new, readable form.**  A proposed' + LineEnding +
+    '  second version of the drawing file, for looking at - nothing is saved in' + LineEnding +
+    '  it yet.  A corner reads as `3 3/4" east, 2" north, 2 1/2" above the' + LineEnding +
+    '  floor`, the next as `b = a + 5 1/2" east`; a box is eight named corners' + LineEnding +
+    '  and six one-line faces.  Lengths are colored like the axes - east and' + LineEnding +
+    '  west red, north and south green, up and down blue - and every solid and' + LineEnding +
+    '  group folds.  Tick **Only what is picked** and everything folds shut but' + LineEnding +
+    '  what you picked on the sheet.  Untick **Version 2** to see the file as' + LineEnding +
+    '  it is saved today.  The grammar is in `docs/format2.md`.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.16' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
