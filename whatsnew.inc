@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.21.4' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **An update is offered the moment the program starts.**  It used to say' + LineEnding +
+    '  in the bar that a newer version was out and leave you to type `/update`.' + LineEnding +
+    '  Now it asks there and then - yes fetches it and restarts with your' + LineEnding +
+    '  drawings as they were, no leaves everything alone, and a version you' + LineEnding +
+    '  have said no to is not offered again until you ask with `/update`.' + LineEnding +
+    '- **The source window comes back.**  If it was open when you shut the' + LineEnding +
+    '  program it opens again, where you left it and the size you left it.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The source window took letters and not much else.**  The arrow keys,' + LineEnding +
+    '  Backspace, Delete, Enter, Home, End, copy and paste did nothing in it.' + LineEnding +
+    '  They all work now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
