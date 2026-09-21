@@ -296,6 +296,72 @@ tool - rather than an API reference.
      can drive the program.  On them to set up; on us to make that an
      afternoon and not a project.
 
+### The source view - the same idea from the other end
+
+Added later the same day, and it is what ties the rest together.  **The
+drawing is already plain text.**  A `.hsk` file is lines - `LINE`, `FACE`,
+`MATERIAL`, `HOLE`, `GROUP`, `PARTOF` - one thing to a line, which nobody
+planned as a scripting feature and which turns out to be most of one.
+
+Think of the old WYSIWYG web page editors: the page on one side, its
+source on the other, and either one edits both.
+
+* **A source pane beside the drawing** (SynEdit is the obvious editor -
+  highlighting, folding, line marks).  It shows the model as its text.
+* **Pick in one, picked in the other.**  Select a line on the sheet and
+  its line in the source is selected; put the caret on a line of source
+  and the thing lights up on the sheet.  Entities are saved in order, one
+  record each, so line-to-thing is nearly a lookup already.
+* **Watch it change.**  Draw, push, move - and see the lines appear and
+  alter in the source as it happens, the changed ones flashed.  That alone
+  teaches the format to anybody who watches for five minutes, which is the
+  on-ramp again: nobody reads a reference, they watch.
+* **Edit the text, the drawing follows, live.**  Change a number and the
+  line moves.  A line that does not parse is marked where it stands and
+  the drawing stays at the last good state - no dialog, no refusing to
+  type.
+* **Scripting is then a layer over the text.**  A script - any language,
+  the gateway above - is something that *edits the source*, and the
+  editing is watched in both panes as it happens, then accepted or not.
+  The rehearsal and the source view are one mechanism: provisional text,
+  drawn provisionally.
+* And the cheapest form of the whole vision exists today: **any program
+  that can write a text file can already make a drawing.**  Watching the
+  open `.hsk` for changes from outside, reloading it live, showing what
+  changed and asking accept-or-not, is a gateway with no protocol at all.
+
+What has to be thought about before it is as nice as it sounds:
+
+* **The file is the result, not the recipe.**  A box is twelve `LINE`s and
+  six `FACE`s of raw numbers; pushing one face rewrites a dozen lines.
+  Reading that is fine, editing it by hand is not push/pull-easy.  Two
+  ways to close the gap, not exclusive: show a *friendlier projection* in
+  the pane (edges and groups up front, the faces the program works out
+  for itself folded away and grayed, since they are derived); and let
+  *recipe lines* - the tool language above - be typed in the same pane,
+  played, and replaced by the result lines they make when accepted.
+* **Faces are derived from edges.**  Edit a `LINE` and the `FACE`s round
+  it are stale; the program already rebuilds them after every ordinary
+  edit (`RebuildFlatFaces`), so a text edit is just another edit - but it
+  means some lines in the pane are the program's to write, not the
+  person's, and the pane should say which.
+* **Lengths in the source.**  The file stores feet as decimals
+  (`0.312500`).  A source meant to be read wants `3 3/4"`.  Either the
+  pane shows and accepts typed lengths and the file stays as it is, or
+  the format grows a version that allows them.
+* **Identity.**  Line number is identity only until something is inserted
+  above.  Selection sync is easy; "the same thing as before the script ran"
+  wants something steadier - which is the face-naming question again.
+* **Undo.**  One history for both panes, or typing in the source is its
+  own run of steps that lands as one.
+* **SynEdit's license** is MPL 1.1 or GPL 2, the user's choice.  Under the
+  MPL it sits beside MIT code without changing ours, but it is a thing to
+  check rather than assume - LazInk's roadmap rules SynEdit out for that
+  package for the GPL half of it.  It also adds to the one file's size.
+* **Speed.**  Reparsing the whole sheet on every keystroke is fine at a
+  thousand things and wants thinking about at fifteen thousand; reparsing
+  the changed lines only is the obvious answer.
+
 ### Rules that come before any of it
 
 * **Off until asked for, and local only.**  Nothing listens until the
