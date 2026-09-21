@@ -18083,7 +18083,8 @@ begin
   end;
   if not Result then Exit;
   PushUndo;
-  SelectNone;
+  LeaveSheet;        { every number held - picked, hovered, marked - is about to mean something else }
+  ResetTool;
   FD.Doc.Clear;
   ReadHeck(L, FD.Doc, FD.Units, ErrLine, Err);
   FD.Dirty := True;
@@ -18138,7 +18139,8 @@ begin
       T.Free;
     end;
     PushUndo;
-    SelectNone;
+    LeaveSheet;
+    ResetTool;
     M := FD.Doc.PartMembers(PartId, False);
     Rec := FD.Doc.PartEnt(PartId);
     SetLength(Doomed, FD.Doc.Live);
@@ -23785,6 +23787,13 @@ begin
       FDrawings[0] := TDrawing.Create('Sheet 1');
     end;
 
+    { What was picked, hovered or marked belonged to the drawing that has
+      just gone, and the numbers mean nothing in this one.  Changing sheets
+      has always let go of them; opening a file did not - 21 September, a
+      thing picked on a drawing of twelve hundred and then a file of a
+      hundred opened over it: the pick pointed past the end of the new
+      drawing, and the first thing to look at it was a range error. }
+    LeaveSheet;
     FDocPath := FileName;
     FTabIdx := 0;
     FD := FDrawings[0];

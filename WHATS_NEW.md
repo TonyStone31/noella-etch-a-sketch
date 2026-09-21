@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A crash on opening a drawing while something was picked.**  Pick a
+  thing in a big drawing, open a smaller one over it, and the pick was
+  left pointing past the end of the new drawing - the entity panel, or
+  anything else that looked at it, fell over.  Opening a file now lets go
+  of what was picked, hovered and marked, the way changing sheets always
+  has.  Apply in the source window and running a jig do the same.
+
 ## v2026.09.21.2
 
 ### New

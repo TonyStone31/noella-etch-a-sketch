@@ -120,6 +120,21 @@ pixel by pixel.  What the pictures said:
 * `/light off` puts the old fixed lamp back, `/light on` (the default) is
   the one on the camera; remembered between runs (`CameraLamp`).
 
+### Done 21 September
+
+* **Range check error on opening a file** (crash log beside the program,
+  17:26).  `LoadDocument` replaced the drawings and never called
+  `LeaveSheet`, so `FSel` kept an index from the old drawing: a pick in the
+  1,254-thing Robot, then `jigs.hsk` (106 things) opened over it, and the
+  next reader of `FD.Doc[FSel[0]]` - the entity panel was on - raised.  An
+  old fault, not the source window's: it only needs a pick and a smaller
+  file.  The unchecked release build reads past the end instead of
+  raising, which is worse.  `LeaveSheet` is now called there, and in
+  `SourceApply` and `RunJigOf`, which also replace things under the same
+  numbers.  It was first chased as an Apply fault, because the crash log's
+  thing count matched the sample; "bar said: Opened jigs.hsk" is what
+  gave it away - read the whole log.
+
 ### Done 20 September, evening
 
 * **The Robot's eye** (report 201624, sheet "Robot"): "the one eye lost its
