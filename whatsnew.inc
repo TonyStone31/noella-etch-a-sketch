@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.21.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A crash on opening a drawing while something was picked.**  Pick a' + LineEnding +
+    '  thing in a big drawing, open a smaller one over it, and the pick was' + LineEnding +
+    '  left pointing past the end of the new drawing - the entity panel, or' + LineEnding +
+    '  anything else that looked at it, fell over.  Opening a file now lets go' + LineEnding +
+    '  of what was picked, hovered and marked, the way changing sheets always' + LineEnding +
+    '  has.  Apply in the source window and running a jig do the same.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
