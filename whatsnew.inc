@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.14' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A painted face turning plain after push/pull.**  Pushing a small box' + LineEnding +
+    '  back flush with what it stood on left a box with no thickness - two' + LineEnding +
+    '  faces in the same place, and which one showed was luck, so one of two' + LineEnding +
+    '  orange eyes went gray.  Pressed flat, a solid now goes back to the' + LineEnding +
+    '  painted face it was pulled from, the way SketchUp leaves it.' + LineEnding +
+    '- **Paint lost when the flat areas were worked out again.**  A loose' + LineEnding +
+    '  painted face could come back unpainted, or showing its blue back, after' + LineEnding +
+    '  an edit nearby.  It keeps its paint and the way it faced.' + LineEnding +
+    '- **What push/pull makes is painted like the face you pushed** - walls,' + LineEnding +
+    '  cap and the lining of any opening - as a revolve and a sweep already' + LineEnding +
+    '  were.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.13' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
