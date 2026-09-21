@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.21.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
@@ -22,6 +22,15 @@ const
     '  many sides - and a face round them is `face = ra1..ra24`.  A cylinder is' + LineEnding +
     '  about forty-five lines with no ugly numbers in it, where it was a' + LineEnding +
     '  hundred and fifty.  A tilted one says which way it leans.' + LineEnding +
+    '- **The source window works like a code editor.**  Everything folds, and' + LineEnding +
+    '  **Fold all** and **Unfold all** do it at a stroke.  **Ctrl and a click**' + LineEnding +
+    '  on a name - a corner `c`, a ring''s `rb23`, a circle `c1` - goes to the' + LineEnding +
+    '  line that says what it is.  **Rest the pointer on a name** and it tells' + LineEnding +
+    '  you what it is and where it is: `c is at 4'' east, 4'' north, 4'' up`.  Put' + LineEnding +
+    '  the caret on a name and every other place it is used is outlined.' + LineEnding +
+    '  **Ctrl+F** finds, **F3** and **Shift+F3** find the next and the one' + LineEnding +
+    '  before.  **Ctrl and the wheel** makes the text bigger or smaller.  And' + LineEnding +
+    '  it is called **Heck** now - the language a drawing is written in.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.21' + LineEnding +
     '' + LineEnding +
