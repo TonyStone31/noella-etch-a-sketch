@@ -15,7 +15,7 @@
 ### New
 
 - **"This program and the others" says a good deal more.**  The help page
-  now sets this program beside thirteen others, with a plain table of what
+  now sets this program beside fifteen others, with a plain table of what
   to use instead when this is the wrong tool - and a section on ZCAD, the
   other drawing program written in Free Pascal: what to go there for (DXF
   and DWG, layers and blocks, electrical work) and what to stay here for.
