@@ -13,11 +13,18 @@ not much use to somebody deciding whether to bother, so here is the honest
 version.  The longer table, with links and dates, is
 <a href="https://github.com/TonyStone31/noella-etch-a-sketch/blob/main/docs/comparison.md">in the repository</a>.</p>
 
-<div class="note"><b>Use something else if</b> you are drawing a building to
-build from - that is <b>Revit</b> or <b>FreeCAD</b>.  If you want a part
-whose dimensions you can go back and change afterwards, that is
-<b>FreeCAD</b> or <b>SolveSpace</b>.  If you want flat 2D drafting that
-behaves like AutoCAD, that is <b>LibreCAD</b> or <b>QCAD</b>.</div>
+<table class="sheet">
+<tr><th>If you want</th><th>Use</th></tr>
+<tr><td>A building to build from</td><td><b>Revit</b>, or <b>FreeCAD</b>'s BIM workbench.</td></tr>
+<tr><td>A part whose numbers you can go back and change</td><td><b>FreeCAD</b>, <b>SolveSpace</b>, <b>Dune 3D</b>; <b>Fusion</b> or <b>Onshape</b> if you do not mind an account.</td></tr>
+<tr><td>Flat 2D drafting that behaves like AutoCAD - layers, blocks, linetypes</td><td><b>LibreCAD</b>, <b>QCAD</b>, <b>ZCAD</b>.</td></tr>
+<tr><td>To open somebody's DXF or DWG</td><td>Any of those three.  This program reads its own files and nothing else yet.</td></tr>
+<tr><td>Electrical drawings that write their own cable list</td><td><b>ZCAD</b>'s electrical build - see below.</td></tr>
+<tr><td>Rounded, filleted solids, on Linux</td><td><b>Plasticity</b>.</td></tr>
+<tr><td>To model with a pencil on a tablet</td><td><b>Shapr3D</b>.</td></tr>
+<tr><td>A first 3D print, in a browser</td><td><b>Tinkercad</b>.</td></tr>
+<tr><td>Characters, sculpting, pictures</td><td><b>Blender</b>.</td></tr>
+</table>
 
 <h2 id="what-this-is-for">What this is for</h2>
 <p>Roughing something out at a real scale, quickly, and getting a drawing
@@ -31,12 +38,34 @@ reach for.  It <b>runs on Linux</b>, which SketchUp has never done.  And the
 pipe spool leg by leg, and the flat pattern to cut from sheet - rather than
 being an extension somebody sells you.</p>
 
+<h2 id="zcad">ZCAD, the other Pascal one</h2>
+<p><b>ZCAD</b> is written in Free Pascal and Lazarus, as this is, has been
+going for years longer, and is worked on daily.  The two hardly overlap,
+which is the useful thing to know: they are different tools that happen to
+share a language.</p>
+<table class="sheet">
+<tr><th>Go to ZCAD for</th><th>Stay here for</th></tr>
+<tr><td>Opening DXF (R12 to 2018) and DWG</td><td>A solid - ZCAD has 3D coordinates and faces, but no solids and no push/pull</td></tr>
+<tr><td>Layers, blocks, linetypes, text styles, SHX and TTF fonts</td><td>Offset and a corner fillet; trim, extend and array are in neither</td></tr>
+<tr><td>A DXF another CAD program treats as its own</td><td>A manual in English - theirs is in Russian, and unfinished</td></tr>
+<tr><td>Electrical work: devices, cable routing, the cable legend, the materials list and a bill of materials, out as CSV and XLSX</td><td>Duct fittings, the pipe spool, flat patterns</td></tr>
+<tr><td>An object inspector, and scripting in Pascal Script</td><td>STL for a printer, animated pictures</td></tr>
+<tr><td>A Russian interface</td><td>A Linux download - their current release ships for Windows, and Linux is a build from source</td></tr>
+</table>
+
 <h2 id="what-we-do-not-have">What we do not have</h2>
 <table class="sheet">
 <tr><th>Missing</th><th>Where to get it</th></tr>
 <tr><td>Groups and components</td><td>Groups are built - see <a href="groups.html">Groups</a>.  Components, a definition with copies that all change together, are not; a copy of a group here is a group of its own.</td></tr>
-<tr><td>Parametric history</td><td>Going back and changing a number afterwards: FreeCAD, SolveSpace.</td></tr>
-<tr><td>A plugin language</td><td>SketchUp's Ruby ecosystem is decades of other people's work.</td></tr>
+<tr><td>Reading other people's files</td><td>Its own format only.  DXF import is planned, and last; DWG is not planned.  LibreCAD, QCAD and ZCAD read both.</td></tr>
+<tr><td>Layers</td><td>Groups organize by what a thing is; nothing here organizes by kind of line, or hides a kind.  Every drafting program has layers and SketchUp has tags.</td></tr>
+<tr><td>Solid union and intersection</td><td>A shape can be drilled through a solid and that is all.  Plasticity, FreeCAD, SolveSpace, Dune 3D, Tinkercad and paid SketchUp do the rest.</td></tr>
+<tr><td>Rounded edges in 3D</td><td>The arc tool fillets a flat corner.  Plasticity and Shapr3D are built round doing it to a solid.</td></tr>
+<tr><td>Hatching, linetypes, paper layouts</td><td>LibreCAD, QCAD, ZCAD.</td></tr>
+<tr><td>Shadows and a perspective view</td><td>The light follows the camera, as SketchUp's does; shadows and a perspective camera for looking are planned.</td></tr>
+<tr><td>Other languages</td><td>English only.  LibreCAD is in over thirty.</td></tr>
+<tr><td>Parametric history</td><td>Going back and changing a number afterwards: FreeCAD, SolveSpace, Dune 3D.  A shape roughed out here exports to OpenSCAD, and can be made parametric there.</td></tr>
+<tr><td>A plugin language</td><td>SketchUp's Ruby, FreeCAD's and Blender's Python, QCAD's JavaScript, ZCAD's Pascal Script.  Here there is <code>/replay</code>, which is a recording and not a language.</td></tr>
 <tr><td>Photo-real rendering</td><td>Not attempted, and not planned.</td></tr>
 <tr><td>BIM, assemblies, FEA, CAM</td><td>Revit and FreeCAD.</td></tr>
 <tr><td>A macOS build</td><td>The code should build on it; nobody has built it.</td></tr>
@@ -45,11 +74,14 @@ being an extension somebody sells you.</p>
 <h2 id="what-we-do-have">What we do have</h2>
 <table class="sheet">
 <tr><th>Here</th><th>What it means</th></tr>
-<tr><td>One file</td><td>About nine megabytes.  No installer, no runtime, no account, nothing phoning home.  The manual you are reading is inside it.</td></tr>
+<tr><td>One file</td><td>Eleven megabytes on Windows, twenty-one on Linux.  No installer, no runtime, no account, nothing phoning home.  The manual you are reading is inside it.</td></tr>
 <tr><td>Linux, natively</td><td>And Windows.  The same program, the same drawings.</td></tr>
 <tr><td>SketchUp's habits</td><td>The same keys, the same typed measurements, the same push/pull, on purpose - so somebody who knows that program is not starting again.</td></tr>
 <tr><td>The trade tools</td><td><a href="fittings.html">Fittings</a>, the <a href="spool.html">pipe spool</a>, and <a href="unfold.html">unfolding</a>.</td></tr>
 <tr><td>Exports</td><td>PNG, JPEG, GIF, WebP, SVG, DXF (view and model), STL, OpenSCAD.  The animation encoders are inside the program; nothing extra is installed.</td></tr>
+<tr><td>Commands you can type</td><td><code>/</code> and a word - about eighty, <a href="commands.html">all listed</a>.  The drafting programs have this; none of the push/pull ones do.</td></tr>
+<tr><td>True scale on paper</td><td>Pick a scale and that is what the printer makes.  Half the 3D programs in the table cannot print a drawing at all.</td></tr>
+<tr><td>Reports that say what went</td><td>Encrypted on your machine before they leave, with a summary of exactly what was sent - see <a href="reporting.html">When it breaks</a>.</td></tr>
 <tr><td>MIT license</td><td>Fork it, sell it, mount it on a machine.  That is the point.</td></tr>
 </table>
 
