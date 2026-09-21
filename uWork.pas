@@ -505,6 +505,9 @@ type
     function ThroughDistance(Face: Integer; Want: Double): Double;
     { Slide a face along a vector, dragging everything joined to it. }
     procedure MoveFaceWith(Index: Integer; const D: TP3);
+    { after a face of a solid has been moved: if that pressed the solid
+      flat, take away what is left of it and leave the one face }
+    function FlattenedAway(Index: Integer): Boolean;
     { A pushed patch whose far end lands on another face of the same solid
       that contains it.  Opens that face, walls the tunnel, removes the patch
       and its edges' claim.  False when the push lands anywhere else. }
@@ -877,6 +880,11 @@ type
       frames went in - and lines bled through face edges while orbiting;
       LINE_STEPS and 6, the full pass, since 20 September, at a measured
       +3 ms on 712 faces.  tools/inkprof sweeps the choices. }
+    { the last push pressed a solid flat, and what is left is a loose face
+      lying on whatever was under it - the caller works the flat areas out
+      again, so the face under it is cut round it rather than sharing its
+      plane with it }
+    LastFlattened: Boolean;
     QuickSteps: Integer;
     QuickBisect: Integer;
     procedure EnsureOnFace;
@@ -8204,6 +8212,126 @@ begin
   if Best <> 0 then Result := Best;
 end;
 
+{ A face pushed back until it meets the one opposite presses its solid flat,
+  and a flat solid is not nothing: it is two faces in the same place back to
+  back, four walls with no area, and every edge twice.
+
+  20 September, the Robot: two eyes, each a small orange box standing a
+  quarter inch off the head, pushed back flush with it.  One stayed orange
+  and the other turned the head's gray, and it read as push/pull losing the
+  paint.  Nothing was lost - both boxes were still there with no thickness,
+  their orange fronts in exactly the plane of the head's own face, and which
+  of two faces in one plane gets drawn is decided by rounding.  One eye won
+  and the other did not.
+
+  SketchUp takes the extrusion away and leaves the face it was pulled from.
+  So: when every other face of the moved face's solid is either without area
+  or lying in the moved face's plane, the walls, the cap underneath and the
+  doubled edges go, and the face that was pushed stays as a loose face with
+  its paint and its four edges - which is what it was before it was ever
+  pulled.
+
+  Where the solid is more than the thing pressed flat - a boss on a body,
+  pushed back into it - the body's faces are neither, so this leaves the
+  solid alone but for the walls with no area and the edges that now lie on
+  top of each other. }
+function TWorkDoc.FlattenedAway(Index: Integer): Boolean;
+const
+  TOL = 1E-6;
+var
+  Doomed: array of Boolean;
+  I, J, K, G, Part_, NOther: Integer;
+  Nm: TP3;
+  D: Double;
+  AllFlat, InPlane: Boolean;
+
+  function SameP(const P, Q: TP3): Boolean;
+  begin
+    Result := (Abs(P.X - Q.X) < TOL) and (Abs(P.Y - Q.Y) < TOL) and
+              (Abs(P.Z - Q.Z) < TOL);
+  end;
+
+begin
+  Result := False;
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
+  G := FEnts[Index].Grp;
+  if G = 0 then Exit;
+  Part_ := FEnts[Index].Part;
+  Nm := FaceNormal(Index);
+  D := Dot3(Nm, FEnts[Index].Poly[0]);
+  SetLength(Doomed, FLive);
+  for I := 0 to FLive - 1 do Doomed[I] := False;
+
+  { the faces: which have no area left, which lie under the moved one, and
+    whether that is all of them }
+  AllFlat := True;
+  NOther := 0;
+  for I := 0 to FLive - 1 do
+    if (I <> Index) and (FEnts[I].Kind = ekFace) and (FEnts[I].Grp = G) and
+       (FEnts[I].Part = Part_) then
+    begin
+      Inc(NOther);
+      if FaceArea(I) < TOL * TOL then
+        Doomed[I] := True
+      else
+      begin
+        InPlane := True;
+        for J := 0 to High(FEnts[I].Poly) do
+          if Abs(Dot3(Nm, FEnts[I].Poly[J]) - D) > TOL then InPlane := False;
+        if not InPlane then AllFlat := False;
+      end;
+    end;
+  if NOther = 0 then Exit;
+  { pressed flat: what lies in the moved face's plane is the cap that was
+    under it, and it goes too }
+  if AllFlat then
+    for I := 0 to FLive - 1 do
+      if (I <> Index) and (FEnts[I].Kind = ekFace) and (FEnts[I].Grp = G) and
+         (FEnts[I].Part = Part_) then
+        Doomed[I] := True;
+
+  { the edges: one with no length was a wall's upright, and of two that lie
+    on top of each other the later one is the ring that came down to meet
+    the first }
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekLine) and (FEnts[I].Grp = G) and
+       (FEnts[I].Part = Part_) and not FEnts[I].Dim then
+    begin
+      if SameP(FEnts[I].A, FEnts[I].B) then
+      begin
+        Doomed[I] := True;
+        Continue;
+      end;
+      for K := 0 to I - 1 do
+        if (FEnts[K].Kind = ekLine) and (FEnts[K].Grp = G) and
+           (FEnts[K].Part = Part_) and not Doomed[K] and
+           ((SameP(FEnts[K].A, FEnts[I].A) and SameP(FEnts[K].B, FEnts[I].B)) or
+            (SameP(FEnts[K].A, FEnts[I].B) and SameP(FEnts[K].B, FEnts[I].A))) then
+        begin
+          Doomed[I] := True;
+          Break;
+        end;
+    end;
+
+  K := 0;
+  for I := 0 to FLive - 1 do
+    if Doomed[I] then Inc(K);
+  if K = 0 then Exit;
+
+  { what is left of a solid pressed flat is loose drawing again }
+  if AllFlat then
+    for I := 0 to FLive - 1 do
+      if (FEnts[I].Kind in [ekFace, ekLine, ekArc]) and (FEnts[I].Grp = G) and
+         (FEnts[I].Part = Part_) and not Doomed[I] then
+      begin
+        FEnts[I].Grp := 0;
+        if FEnts[I].Kind = ekFace then FEnts[I].Solid := False;
+        if FEnts[I].Kind = ekLine then FEnts[I].Soft := False;
+      end;
+  DeleteMarked(Doomed);
+  Result := AllFlat;
+end;
+
 function TWorkDoc.PushPull(Index: Integer; Dist: Double): Boolean;
 var
   I, J, N, G: Integer;
@@ -8243,10 +8371,12 @@ begin
     could cut a solid's face.  Half a box top still belongs to the solid, but
     pushing it has to lift that half out - sliding it would shear the box.
     Asking whether the face is a patch answers both cases with one question. }
+  LastFlattened := False;
   Plug := FEnts[Index].Solid and IsPatch(Index);
   if FEnts[Index].Solid and not Plug then
   begin
     MoveFaceWith(Index, P3(Nm.X * Dist, Nm.Y * Dist, Nm.Z * Dist));
+    LastFlattened := FlattenedAway(Index);
     Exit(True);
   end;
 
@@ -8357,6 +8487,10 @@ begin
   if not Plug then
   begin
     AddFaceRaw(Rev, Ink, True);
+    { what a push makes is made of what was pushed, as a revolve and a
+      sweep already were: the cap, the walls and the lining of any opening
+      take the face's paint.  SketchUp does the same. }
+    if FEnts[Index].MatSet then SetMaterial(FLive - 1, FEnts[Index].Mat);
     FEnts[FLive - 1].Grp := G;
     { and so does the one left behind, wound to match its own outline }
     if Length(HBase) > 0 then
@@ -8391,6 +8525,7 @@ begin
       Quad[2] := Top[I];  Quad[3] := Top[J];
     end;
     AddFaceRaw(Quad, Ink, True);
+    if FEnts[Index].MatSet then SetMaterial(FLive - 1, FEnts[Index].Mat);
     FEnts[FLive - 1].Grp := G;
     AddLine(Base[I], Top[I], LineInk, Wt, False);
     FEnts[FLive - 1].Grp := G;
@@ -8447,6 +8582,7 @@ begin
         Quad[2] := HTop[H][I];  Quad[3] := HTop[H][J];
       end;
       AddFaceRaw(Quad, Ink, True);
+      if FEnts[Index].MatSet then SetMaterial(FLive - 1, FEnts[Index].Mat);
       FEnts[FLive - 1].Grp := G;
       AddLine(HBase[H][I], HTop[H][I], LineInk, Wt, False);
       FEnts[FLive - 1].Grp := G;

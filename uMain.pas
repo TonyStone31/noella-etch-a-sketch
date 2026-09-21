@@ -14683,6 +14683,11 @@ begin
               of a tunnel above all, which is an opening and not a place for
               a face.  Without this the next rebuild found it new, and
               closed it. }
+            { pressed flat, the solid is a loose face again, lying on
+              whatever it stood on - which has to be cut round it, the way
+              it is when a shape is first drawn there, or the two share a
+              plane and which one shows is luck }
+            if FD.Doc.LastFlattened then RebuildFlatFaces;
             SeedRegions;
             SelectNone;
             RenderPro;
@@ -19697,10 +19702,17 @@ type
     Nm: TP3;
     Ink: TColor;
     Part: Integer;
+    { what it was painted with.  The ink came across from the start and the
+      paint did not, so any edit that had the flat areas worked out again
+      washed every loose painted face back to the default - 20 September,
+      the Robot's eye }
+    Mat: TColor;
+    MatSet: Boolean;
   end;
 var
   R: TRegionArray;
   Was: array of TWas;
+  WasHit: Integer;
   NWas, I, J, K, M, G, Made, DupAt: Integer;
   RegArea, FArea, PiecesArea: Double;
   FN: TP3;
@@ -20208,6 +20220,8 @@ begin
       Was[NWas].Nm := FD.Doc.FaceNormal(I);
       Was[NWas].Ink := FD.Doc[I].Ink;
       Was[NWas].Part := FD.Doc[I].Part;
+      Was[NWas].Mat := FD.Doc[I].Mat;
+      Was[NWas].MatSet := FD.Doc[I].MatSet;
       Mid := P3(0, 0, 0);
       for K := 0 to High(Was[NWas].Poly) do
         Mid := P3(Mid.X + Was[NWas].Poly[K].X, Mid.Y + Was[NWas].Poly[K].Y,
@@ -20423,13 +20437,25 @@ begin
     end;
 
     Ink := FInkColor;
+    WasHit := -1;
     for J := 0 to High(WasOn) do
       if WasCovering(WasOn[J]) then
       begin
         Ink := Was[WasOn[J]].Ink;
+        WasHit := WasOn[J];
         Break;
       end;
     FD.Doc.AddFace(R[I].Outer, Ink, False);
+    { the face it replaces was painted, and faced a way: both come across.
+      A face that came back the other way round showed its back, in blue,
+      where a moment before it had been the front of something. }
+    if WasHit >= 0 then
+    begin
+      if Was[WasHit].MatSet then
+        FD.Doc.SetMaterial(FD.Doc.Live - 1, Was[WasHit].Mat);
+      if Dot3(FD.Doc.FaceNormal(FD.Doc.Live - 1), Was[WasHit].Nm) < 0 then
+        FD.Doc.FlipFace(FD.Doc.Live - 1);
+    end;
     { and whatever is cut out of it.  The region finder has worked these out
       all along; nothing was asking for them, so a wall with a window in it
       was filled in solid and the window could only be seen by its edges. }

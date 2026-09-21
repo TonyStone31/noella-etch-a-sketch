@@ -8207,6 +8207,67 @@ begin
   Result := D.BestSnap(V, Q.X, Q.Y, 6, Hit) and (Dist(Hit.P, P) < 1E-6);
 end;
 
+{ 20 September, the Robot's eyes: a box pushed back flat is not left as a
+  box with no thickness - two faces in one plane, and which shows is luck. }
+procedure TestPressedFlat;
+var
+  D: TWorkDoc;
+  I, Top, NF: Integer;
+begin
+  WriteLn('a solid pressed flat');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 4), 'pushed into a box');
+    EqI(CountKind(D, ekFace), 6, 'six faces');
+    D.SetMaterial(4, $3CB0FF);
+
+    { part of the way back is still a box }
+    Ok(D.PushPull(4, -1), 'pushed back a foot');
+    EqI(CountKind(D, ekFace), 6, 'still six faces at three feet');
+
+    { and all the way back is the face it was pulled from }
+    Top := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and D[I].MatSet then Top := I;
+    Ok(Top >= 0, 'the painted face is there to push');
+    Ok(D.PushPull(Top, -3), 'pushed the rest of the way');
+    EqI(CountKind(D, ekFace), 1, 'one face left, not two back to back');
+    EqI(CountKind(D, ekLine), 4, 'four edges left, not twelve');
+    NF := 0;
+    for I := 0 to D.Live - 1 do
+    begin
+      if (D[I].Kind = ekFace) and D[I].MatSet and (D[I].Mat = $3CB0FF) and
+         not D[I].Solid then Inc(NF);
+      Ok(D[I].Grp = 0, 'what is left is loose drawing');
+    end;
+    EqI(NF, 1, 'and it kept its paint');
+  finally
+    D.Free;
+  end;
+end;
+
+{ what a push makes is made of what was pushed }
+procedure TestPushCarriesPaint;
+var
+  D: TWorkDoc;
+  I, N: Integer;
+begin
+  WriteLn('push/pull carries the paint');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    D.SetMaterial(4, $3CB0FF);
+    Ok(D.PushPull(4, 4), 'a painted rectangle pulled into a box');
+    N := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and D[I].MatSet and (D[I].Mat = $3CB0FF) then Inc(N);
+    EqI(N, 6, 'all six faces are painted');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestGroups;
 var
   D, B: TWorkDoc;
@@ -8451,6 +8512,8 @@ begin
   TestExport;       WriteLn;
   TestScad;         WriteLn;
   TestGroups;       WriteLn;
+  TestPressedFlat;  WriteLn;
+  TestPushCarriesPaint; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

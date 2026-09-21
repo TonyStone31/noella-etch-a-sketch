@@ -112,6 +112,25 @@ pixel by pixel.  What the pictures said:
 * `/light off` puts the old fixed lamp back, `/light on` (the default) is
   the one on the camera; remembered between runs (`CameraLamp`).
 
+### Done 20 September, evening
+
+* **The Robot's eye** (report 201624, sheet "Robot"): "the one eye lost its
+  face color after push pull".  Not lost.  Each eye was its own small box,
+  pushed back flush with the head, which left a solid with no thickness -
+  front and back in one plane, four walls with no area, every edge twice -
+  and which of two faces in a plane is drawn is rounding.  `FlattenedAway`
+  (uWork) now takes such a solid back to the one painted face, and the
+  push commit works the flat areas out again when `LastFlattened`.  On the
+  way: `RebuildFlatFaces` carried a replaced face's ink but not its paint
+  or its facing (`TWas.Mat`, `MatSet`), so the face came back gray, or
+  blue; and push/pull's walls and cap did not take the pushed face's
+  paint.  A drawing saved with a flat solid in it is not healed on
+  loading - pull the face out and push it back.  In `/replay`, a press on
+  two faces in one plane takes the back one; a real click goes by which
+  faces the camera.
+* The three other reports of the evening (191309, 193027, 200407) were
+  tests of the send window and say so; nothing in them to fix.
+
 ### Small
 
 * **Windows built in code, to become real forms.**  The rule, 20

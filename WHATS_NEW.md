@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A painted face turning plain after push/pull.**  Pushing a small box
+  back flush with what it stood on left a box with no thickness - two
+  faces in the same place, and which one showed was luck, so one of two
+  orange eyes went gray.  Pressed flat, a solid now goes back to the
+  painted face it was pulled from, the way SketchUp leaves it.
+- **Paint lost when the flat areas were worked out again.**  A loose
+  painted face could come back unpainted, or showing its blue back, after
+  an edit nearby.  It keeps its paint and the way it faced.
+- **What push/pull makes is painted like the face you pushed** - walls,
+  cap and the lining of any opening - as a revolve and a sweep already
+  were.
+
 ## v2026.09.20.13
 
 ### New
