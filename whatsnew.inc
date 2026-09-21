@@ -13,12 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`/source`: the drawing as its text, beside the drawing.**  A drawing' + LineEnding +
+    '  is saved as plain lines, one thing to a line, and this window shows' + LineEnding +
+    '  them.  Pick something on the sheet and its lines light up and scroll' + LineEnding +
+    '  into view; click a line, or drag over several, and those things are' + LineEnding +
+    '  picked on the sheet - a line inside a group picks the group, as a click' + LineEnding +
+    '  on the sheet would.  It follows the drawing as you work.  Tick **Only' + LineEnding +
+    '  what is picked** to hide every other line.  Read only, for now: it is' + LineEnding +
+    '  the first piece of something larger.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.15' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
     '- **"This program and the others" says a good deal more.**  The help page' + LineEnding +
-    '  now sets this program beside thirteen others, with a plain table of what' + LineEnding +
+    '  now sets this program beside fifteen others, with a plain table of what' + LineEnding +
     '  to use instead when this is the wrong tool - and a section on ZCAD, the' + LineEnding +
     '  other drawing program written in Free Pascal: what to go there for (DXF' + LineEnding +
     '  and DWG, layers and blocks, electrical work) and what to stay here for.' + LineEnding +

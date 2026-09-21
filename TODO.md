@@ -362,6 +362,26 @@ What has to be thought about before it is as nice as it sounds:
   thousand things and wants thinking about at fifteen thousand; reparsing
   the changed lines only is the obvious answer.
 
+### Built so far
+
+* **The source window, read only, picked both ways** - 20 September.
+  `/source` (`uSourceView.pas` and `.lfm`, a `TSynEdit`).  It knows nothing
+  of the main form: it polls a change number on a timer and asks for the
+  text, the line map (`TWorkDoc.SaveTo` now has an overload that says which
+  lines each thing came out as) and what is picked, through four events -
+  so it is a window today and could be a docked pane without either side
+  being rewritten.  Picking from it goes through `SelectAdd`, so the
+  sheet's own rules hold.  "Only what is picked" filters the rows rather
+  than folding them: SynEdit folds through a highlighter's fold ranges,
+  and a one-line-a-thing format has nothing to fold.  Folding, and
+  coloring, come with the next step.
+* **Next: the format's syntax.**  A thing as a `begin`/`end` block of
+  several readable lines rather than one line of numbers, which is also
+  what gives SynEdit something to fold - so several things picked on the
+  sheet can show as their blocks open and everything else folded shut.
+  That wants a small highlighter of our own (`TSynCustomFoldHighlighter`).
+  The questions under it are in the next section.
+
 ### A friendlier file format - Pascal-like, perhaps
 
 If the source is going to be looked at and typed into, `FACE 2104346 1 4

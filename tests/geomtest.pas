@@ -8268,6 +8268,49 @@ begin
   end;
 end;
 
+{ the source window finds a thing's text by this map, and a line's thing }
+procedure TestSaveMap;
+var
+  D: TWorkDoc;
+  L: TStringList;
+  First, Last: TIntArrayW;
+  I, K, Bad: Integer;
+  Want: string;
+begin
+  WriteLn('which lines each thing is saved as');
+  D := TWorkDoc.Create;
+  L := TStringList.Create;
+  try
+    MakeRect(D, 0, 0, 10, 6);
+    Ok(D.PushPull(4, 4), 'a box');
+    D.SetMaterial(4, $3CB0FF);
+    D.SaveTo(L, First, Last);
+    EqI(Length(First), D.Live, 'one entry for each thing');
+    Bad := 0;
+    for I := 0 to D.Live - 1 do
+    begin
+      case D[I].Kind of
+        ekLine: Want := 'LINE ';
+        ekFace: Want := 'FACE ';
+      else
+        Want := '';
+      end;
+      if (First[I] < 0) or (Last[I] >= L.Count) or (Last[I] < First[I]) then Inc(Bad)
+      else if (Want <> '') and (Copy(L[First[I]], 1, 5) <> Want) then Inc(Bad);
+      if (I > 0) and (First[I] <= Last[I - 1]) then Inc(Bad);
+    end;
+    EqI(Bad, 0, 'every thing starts on its own kind of line, in order');
+    K := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and D[I].MatSet then K := I;
+    Ok((K >= 0) and (Last[K] > First[K]) and
+       (Copy(L[First[K] + 1], 1, 9) = 'MATERIAL '), 'a painted face takes its MATERIAL line with it');
+  finally
+    L.Free;
+    D.Free;
+  end;
+end;
+
 procedure TestGroups;
 var
   D, B: TWorkDoc;
@@ -8514,6 +8557,7 @@ begin
   TestGroups;       WriteLn;
   TestPressedFlat;  WriteLn;
   TestPushCarriesPaint; WriteLn;
+  TestSaveMap;      WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

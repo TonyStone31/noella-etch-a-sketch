@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **`/source`: the drawing as its text, beside the drawing.**  A drawing
+  is saved as plain lines, one thing to a line, and this window shows
+  them.  Pick something on the sheet and its lines light up and scroll
+  into view; click a line, or drag over several, and those things are
+  picked on the sheet - a line inside a group picks the group, as a click
+  on the sheet would.  It follows the drawing as you work.  Tick **Only
+  what is picked** to hide every other line.  Read only, for now: it is
+  the first piece of something larger.
+
 ## v2026.09.20.15
 
 ### New

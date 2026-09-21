@@ -762,7 +762,11 @@ type
       Half: TArtSurface = nil; Phase: TRenderPhase = rpAll);
 
     { the document, as plain text - one line per entity }
-    procedure SaveTo(L: TStrings);
+    procedure SaveTo(L: TStrings); overload;
+    { the same, and which lines each thing came out as - First[I] to Last[I]
+      in L, counted from 0, for entity I.  The source window uses it to find
+      a thing's text and a line's thing. }
+    procedure SaveTo(L: TStrings; out First, Last: TIntArrayW); overload;
     procedure LoadFrom(L: TStrings; var Idx: Integer);
     { The drawing as DXF.  ThreeD writes the model in its own coordinates,
       faces and all; otherwise it is this view, flat, the way the SVG is -
@@ -10672,9 +10676,18 @@ end;
 
 procedure TWorkDoc.SaveTo(L: TStrings);
 var
+  First, Last: TIntArrayW;
+begin
+  SaveTo(L, First, Last);
+end;
+
+procedure TWorkDoc.SaveTo(L: TStrings; out First, Last: TIntArrayW);
+var
   I, J, K, Cur: Integer;
   Line: string;
 begin
+  SetLength(First, FLive);
+  SetLength(Last, FLive);
   { Groups.  A record is a GROUP line - id, locked, the group it sits in,
     then its name, which can have spaces and so goes last.  Membership is a
     PARTOF line written whenever it changes from one entity to the next,
@@ -10690,6 +10703,7 @@ begin
       Cur := FEnts[I].Part;
       L.Add(Format('PARTOF %d', [Cur]));
     end;
+    First[I] := L.Count;
     case FEnts[I].Kind of
       ekPart:
         L.Add(TrimRight(Format('GROUP %d %d %d %s',
@@ -10768,6 +10782,7 @@ begin
             end;
         end;
     end;
+    Last[I] := L.Count - 1;
   end;
 end;
 

@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uFittings, uTransition, uSpool, uPipe,
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFittings, uTransition, uSpool, uPipe,
   InkPage;
 
 type
@@ -280,6 +280,13 @@ type
     procedure pbToolsPaint(Sender: TObject);
     function InfoPanelWidth: Integer;
     procedure InfoChanged;
+    { the source window - see uSourceView.  It asks; these answer. }
+    procedure ShowSource;
+    procedure SourceAskState(out DocSeq, PickSeq: Int64);
+    procedure SourceAskSource(L: TStrings; out First, Last: TIntArrayW;
+      out SheetName: string);
+    procedure SourceAskPicked(out Picked: TIntArrayW);
+    procedure SourcePickThings(const Things: TIntArrayW);
     procedure RebuildInfo;
     procedure PaintInfoStep(C: TCanvas; const R: TRect; const S: string;
       Hot: Boolean);
@@ -1486,7 +1493,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..79] of TCmdItem = (
+  CMD_LIST: array[0..80] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1571,6 +1578,7 @@ const
     (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False;
                          Eg:   '/session session.txt';
                          Also: 'acts'),
+    (Name: 'source';     Hint: 'this sheet as its text, picked both ways';  Arg: False; Eg: ''; Also: 'src text-view'),
     (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False; Eg: ''; Also: 'pipe scratchpad'),
     (Name: 'state';      Hint: 'what a report says about the program right now'; Arg: False),
     (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False; Eg: ''; Also: 'machine'),
@@ -15282,6 +15290,7 @@ begin
     FScreenDirty := True;
     pbScreen.Invalidate;
   end
+  else if (W = 'source') or (W = 'src') or (W = 'text-view') then ShowSource
   else if (W = 'cube') or (W = 'viewcube') then
   begin
     FCubeHasHot := False;
@@ -17914,6 +17923,94 @@ end;
   selection or the drawing changes.  One call in one place would be neater
   and would also be wrong: the selection is changed from a dozen places and
   a panel that is a frame behind is worse than no panel. }
+{ The source window: the sheet as its text, picked both ways. }
+procedure TMainForm.ShowSource;
+begin
+  if SourceForm = nil then
+  begin
+    Application.CreateForm(TSourceForm, SourceForm);
+    SourceForm.OnAskState := @SourceAskState;
+    SourceForm.OnAskSource := @SourceAskSource;
+    SourceForm.OnAskPicked := @SourceAskPicked;
+    SourceForm.OnPickThings := @SourcePickThings;
+    { beside the main window if there is room on its right, over its right
+      half if there is not }
+    SourceForm.Height := Height;
+    SourceForm.Top := Top;
+    if Left + Width + SourceForm.Width <= Screen.DesktopLeft + Screen.DesktopWidth then
+      SourceForm.Left := Left + Width
+    else
+      SourceForm.Left := Left + Width - SourceForm.Width;
+  end;
+  SourceForm.Show;
+  SourceForm.Refresh_;
+end;
+
+{ Two numbers that change when the drawing does and when the picking does.
+  Cheap on purpose - the window asks several times a second.  A hash is
+  meant to wrap round, and the checked build calls that an overflow. }
+{$push}{$Q-}{$R-}
+procedure TMainForm.SourceAskState(out DocSeq, PickSeq: Int64);
+var
+  I: Integer;
+begin
+  DocSeq := 0;
+  PickSeq := 0;
+  if FD = nil then Exit;
+  DocSeq := Int64(PtrUInt(FD)) xor (Int64(FD.Doc.FEditSeq) shl 20) xor
+            (Int64(FD.Doc.Live) shl 8) xor (Int64(FD.UndoTop) shl 40) xor
+            (Int64(FD.RedoTop) shl 50) xor FD.Doc.Context;
+  PickSeq := Length(FSel);
+  for I := 0 to High(FSel) do
+    PickSeq := (PickSeq * 1000003) xor FSel[I];
+end;
+{$pop}
+
+procedure TMainForm.SourceAskSource(L: TStrings; out First, Last: TIntArrayW;
+  out SheetName: string);
+begin
+  SetLength(First, 0);
+  SetLength(Last, 0);
+  SheetName := '';
+  if FD = nil then Exit;
+  SheetName := FD.Name;
+  FD.Doc.SaveTo(L, First, Last);
+end;
+
+procedure TMainForm.SourceAskPicked(out Picked: TIntArrayW);
+var
+  I: Integer;
+begin
+  SetLength(Picked, Length(FSel));
+  for I := 0 to High(FSel) do Picked[I] := FSel[I];
+end;
+
+{ Lines were picked in the source window.  Through SelectAdd, so the rules
+  are the sheet's own: a thing inside a closed group picks the group, and
+  one outside the open group is not picked at all. }
+procedure TMainForm.SourcePickThings(const Things: TIntArrayW);
+var
+  I: Integer;
+  M: TIntArrayW;
+begin
+  if FD = nil then Exit;
+  SelectNone;
+  BeginBulkSelect;
+  for I := 0 to High(Things) do
+    if FD.Doc[Things[I]].Kind = ekPart then
+    begin
+      { a GROUP line is the group: any member of it picks the whole }
+      M := FD.Doc.PartMembers(FD.Doc[Things[I]].Grp, False);
+      if Length(M) > 0 then SelectAdd(M[0]);
+    end
+    else
+      SelectAdd(Things[I]);
+  EndBulkSelect;
+  FScreenDirty := True;
+  InfoChanged;
+  pbScreen.Invalidate;
+end;
+
 procedure TMainForm.InfoChanged;
 begin
   if not FInfoOn then Exit;

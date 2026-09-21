@@ -116,6 +116,9 @@
         <DefaultFilename Value="../LazInk/lazink.lpk" Prefer="True"/>
       </Item>
       <Item>
+        <PackageName Value="SynEdit"/>
+      </Item>
+      <Item>
         <PackageName Value="LCL"/>
       </Item>
     </RequiredPackages>
@@ -272,6 +275,13 @@
         <Filename Value="uSendForm.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SendForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+      </Unit>
+      <Unit>
+        <Filename Value="uSourceView.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="SourceForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
       </Unit>

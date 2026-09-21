@@ -1,0 +1,122 @@
+object SourceForm: TSourceForm
+  Left = 300
+  Height = 720
+  Top = 160
+  Width = 760
+  Caption = 'Source'
+  ClientHeight = 720
+  ClientWidth = 760
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  Position = poDefaultPosOnly
+  ShowInTaskBar = stAlways
+  object pnlTop: TPanel
+    Left = 0
+    Height = 38
+    Top = 0
+    Width = 760
+    Align = alTop
+    BevelOuter = bvNone
+    ClientHeight = 38
+    ClientWidth = 760
+    TabOrder = 0
+    object lblWhat: TLabel
+      Left = 12
+      Height = 18
+      Top = 10
+      Width = 420
+      AutoSize = False
+      Caption = 'This sheet, as it is saved.  Read only.'
+    end
+    object chkOnlyPicked: TCheckBox
+      Left = 560
+      Height = 24
+      Top = 7
+      Width = 190
+      Anchors = [akTop, akRight]
+      Caption = 'Only what is picked'
+      TabOrder = 0
+      OnChange = chkOnlyPickedChange
+    end
+  end
+  object Editor: TSynEdit
+    Left = 0
+    Height = 660
+    Top = 38
+    Width = 760
+    Align = alClient
+    Font.Height = -14
+    Font.Name = 'Courier New'
+    Font.Pitch = fpFixed
+    Font.Quality = fqCleartype
+    ParentColor = False
+    ParentFont = False
+    TabOrder = 1
+    Gutter.Width = 57
+    Gutter.MouseActions = <>
+    RightGutter.Width = 0
+    RightGutter.MouseActions = <>
+    Keystrokes = <>
+    MouseActions = <>
+    MouseTextActions = <>
+    MouseSelActions = <>
+    Options = [eoAutoIndent, eoBracketHighlight, eoGroupUndo, eoScrollPastEol, eoSmartTabs, eoTabsToSpaces, eoTrimTrailingSpaces, eoPersistentBlock]
+    VisibleSpecialChars = [vscSpace, vscTabAtLast]
+    ReadOnly = True
+    RightEdge = 0
+    ScrollBars = ssAutoBoth
+    SelectedColor.BackPriority = 50
+    SelectedColor.ForePriority = 50
+    SelectedColor.FramePriority = 50
+    SelectedColor.BoldPriority = 50
+    SelectedColor.ItalicPriority = 50
+    SelectedColor.UnderlinePriority = 50
+    SelectedColor.StrikeOutPriority = 50
+    BracketHighlightStyle = sbhsBoth
+    BracketMatchColor.Background = clNone
+    BracketMatchColor.Foreground = clNone
+    BracketMatchColor.Style = [fsBold]
+    FoldedCodeColor.Background = clNone
+    FoldedCodeColor.Foreground = clGray
+    FoldedCodeColor.FrameColor = clGray
+    MouseLinkColor.Background = clNone
+    MouseLinkColor.Foreground = clBlue
+    LineHighlightColor.Background = clNone
+    LineHighlightColor.Foreground = clNone
+    OnSpecialLineColors = EditorSpecialLineColors
+    OnStatusChange = EditorStatusChange
+    inline SynLeftGutterPartList1: TSynGutterPartList
+      object SynGutterLineNumber1: TSynGutterLineNumber
+        Width = 17
+        MouseActions = <>
+        MarkupInfo.Background = clBtnFace
+        MarkupInfo.Foreground = clNone
+        DigitCount = 2
+        ShowOnlyLineNumbersMultiplesOf = 1
+        ZeroStart = False
+        LeadingZeros = False
+      end
+      object SynGutterSeparator1: TSynGutterSeparator
+        Width = 2
+        MouseActions = <>
+        MarkupInfo.Background = clWhite
+        MarkupInfo.Foreground = clGray
+      end
+    end
+  end
+  object Status: TStatusBar
+    Left = 0
+    Height = 22
+    Top = 698
+    Width = 760
+    Panels = <>
+    SimplePanel = True
+  end
+  object tmrFollow: TTimer
+    Interval = 150
+    OnTimer = tmrFollowTimer
+    Left = 680
+    Top = 80
+  end
+end
