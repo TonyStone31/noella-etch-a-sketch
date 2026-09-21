@@ -35,6 +35,7 @@ type
     FTokPos: Integer;
     Run: Integer;
     FOpens, FCloses, FDone: Boolean;   { this line opens a block / is "end" }
+    FListOpens, FListCloses: Boolean;  { "key = (" and the ")" that ends it }
     FSeenEquals: Boolean;
     function LineLen_: Integer;
     function WordAt(P: Integer; out Len: Integer): string;
@@ -68,8 +69,8 @@ const
 implementation
 
 const
-  KEYWORDS = ' heckerssketch sheet group solid points face line arc circle edge ' +
-    'drilled dimension note guide end no yes origin ';
+  KEYWORDS = ' heckerssketch sheet group solid box points face hole line arc circle ' +
+    'edge bore dim note guide end no yes none ';
   NAMES: array[THskToken] of string = ('Space', 'Note', 'Keyword', 'Property',
     'Name', 'Text', 'Symbol', 'East-west', 'North-south', 'Up-down', 'Number', 'Color');
 
@@ -128,12 +129,12 @@ end;
 
 function TSynHsk2Syn.GetFoldConfigCount: Integer;
 begin
-  Result := 1;
+  Result := 2;
 end;
 
 function TSynHsk2Syn.GetFoldConfigInternalCount: Integer;
 begin
-  Result := 2;
+  Result := 3;
 end;
 
 procedure TSynHsk2Syn.CreateRootCodeFoldBlock;
@@ -164,7 +165,7 @@ function TSynHsk2Syn.AxisOf(const W: string): THskToken;
 begin
   if (W = 'east') or (W = 'west') then Result := htEast
   else if (W = 'north') or (W = 'south') then Result := htNorth
-  else if (W = 'up') or (W = 'down') or (W = 'above') or (W = 'below') then Result := htUp
+  else if (W = 'up') or (W = 'down') then Result := htUp
   else Result := htNumber;
 end;
 
@@ -195,11 +196,24 @@ begin
     else if L[I] = '=' then begin HasEq := True; Break; end;
     Inc(I);
   end;
+  { the last thing on the line that is not a space or a note }
+  I := N - 1;
+  while (I >= 0) and (L[I] = ' ') do Dec(I);
+  if (I >= 0) and (L[I] = '}') then
+  begin
+    while (I >= 0) and (L[I] <> '{') do Dec(I);
+    Dec(I);
+    while (I >= 0) and (L[I] = ' ') do Dec(I);
+  end;
+  FListOpens := HasEq and (I >= 0) and (L[I] = '(');
+  FListCloses := (not HasEq) and (I >= 0) and (L[I] = ')');
   I := 0;
   while (I < N) and (L[I] = ' ') do Inc(I);
   W := WordAt(I, WLen);
   FCloses := (W = 'end');
-  FOpens := (not HasEq) and (WLen > 0) and (not FCloses) and (W <> 'heckerssketch');
+  { inside a bracketed list the lines are its items, not blocks }
+  FOpens := (not HasEq) and (WLen > 0) and (not FCloses) and (W <> 'heckerssketch') and
+            (not FListCloses) and (PtrUInt(TopCodeFoldBlockType) <> 2);
   FDone := False;
   FSeenEquals := False;
   Run := 0;
@@ -279,8 +293,7 @@ begin
       FTok := AxisOf(W);
       if FTok = htNumber then
       begin
-        if (W = 'the') or (W = 'floor') then FTok := htUp
-        else if Pos(' ' + W + ' ', KEYWORDS) > 0 then FTok := htKey
+        if Pos(' ' + W + ' ', KEYWORDS) > 0 then FTok := htKey
         else if not FSeenEquals then FTok := htProp
         else if (W = 'black') or (W = 'white') or (W = 'gray') or (W = 'red') or
                 (W = 'orange') or (W = 'yellow') or (W = 'green') or (W = 'blue') or
@@ -298,6 +311,9 @@ begin
     else
     begin
       if L[Run] = '=' then FSeenEquals := True;
+      if (L[Run] = '(') and FListOpens then StartCodeFoldBlock(Pointer(PtrInt(2)), True);
+      if (L[Run] = ')') and FListCloses and (PtrUInt(TopCodeFoldBlockType) = 2) then
+        EndCodeFoldBlock(True);
       FTok := htSymbol;
       Inc(Run);
     end;

@@ -34,6 +34,14 @@ when something is done.  Bugs first, then the small things, then the big.
 
 ### Bugs
 
+* **Orbiting feels inverted when the press starts on the negative side of
+  an axis** (20 September, found while trying the source window).  Press
+  the mouse down in the part of the view where an axis runs negative and
+  drag: the view turns the opposite way to the hand.  Not looked at yet -
+  only noted.  Likely the sign of the turn being taken from where the
+  press landed relative to the origin on screen, or from the elevation
+  having gone past the pole so that left and right swap.
+
 * **The surface guard canary** - something writes over a `TArtSurface`
   (Windows, three sightings, twice the same value, always just after
   "opened the example").  Three traced runs of that on Linux, 20
@@ -385,6 +393,13 @@ What has to be thought about before it is as nice as it sounds:
   flattened solid reads as `corners = a b b a`, which is the format showing
   a fault the sheet hides.  **Live with how it reads before writing a
   reader.**
+* **Editing in the source window, when it comes: Apply, not live.**  Asked
+  for 20 September.  The moment the text differs from the drawing an
+  **Apply** button appears; nothing touches the drawing until it is
+  pressed, and pressing it parses the whole text first.  If it does not
+  parse, the line is marked, the drawing is left alone, and the choice
+  offered is to go on editing or **Revert** to the text the drawing
+  gives.  Applied, it is one undo step.
 * **Then: the reader**, and saving in it.  The questions are at the end of
   `docs/format2.md`.  The note below was written before the grammar was:
 * **The format's syntax (earlier note).**  A thing as a `begin`/`end` block of

@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **The proposed drawing format, second go - shorter and easier to type.**
+  In `/source`: heights are just `up`; a plain box is one line,
+  `box = 0; 4' east, 4' north, 4' up`; a list of places is a walk, each
+  `+` step from the one before, so a square reads as four moves; a face
+  bounded by a circle is `face = c1` and a circle cut out of a face is
+  `hole = c1`, where there used to be thirty-two corners; `paint` for
+  material; and no line is wider than eighty characters - a long list
+  wraps between brackets the way a Lazarus form file does.  A cube with a
+  circle on its top is thirty-seven readable lines.
+
 ## v2026.09.20.17
 
 ### New

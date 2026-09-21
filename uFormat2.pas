@@ -127,10 +127,9 @@ begin
   Result := '';
   Part(P.X, 'east', 'west');
   Part(P.Y, 'north', 'south');
-  if Offset then Part(P.Z, 'up', 'down')
-  else Part(P.Z, 'above the floor', 'below the floor');
-  if Result = '' then
-    if Offset then Result := '0' else Result := 'origin';
+  Part(P.Z, 'up', 'down');
+  if Result = '' then Result := '0';
+  if Offset then ;
 end;
 
 function Sub3(const A, B: TP3): TP3;
@@ -186,6 +185,16 @@ var
   DefWidth: Single;
   NLine: Integer;
   FS: TFormatSettings;
+  Circles: TIntArrayW;        { the whole circles on the sheet: c1, c2... }
+
+  function CircleName(I: Integer): string;
+  var
+    K: Integer;
+  begin
+    Result := '';
+    for K := 0 to High(Circles) do
+      if Circles[K] = I then Exit('c' + IntToStr(K + 1));
+  end;
 
   procedure Put(Depth: Integer; const S: string; Thing: Integer);
   begin
@@ -254,18 +263,113 @@ var
     else Result := Place2(P, U, False);
   end;
 
-  function Loop(const Pts: TPts; const Poly: array of TP3): string;
+  { A list of places.  Named corners are just their names.  Places written
+    out are a walk: the first where it is, each one after it as the step
+    from the one before - "0; + 4' east; + 4' north; + 4' west" is a
+    square, and reads as one. }
+  function Items(const Pts: TPts; const Poly: array of TP3): TStringArray;
+  var
+    K: Integer;
+  begin
+    SetLength(Result, Length(Poly));
+    for K := 0 to High(Poly) do
+      if FindPt(Pts, Poly[K]) >= 0 then Result[K] := Ref(Pts, Poly[K])
+      else if K = 0 then Result[K] := Place2(Poly[K], U, False)
+      else Result[K] := '+ ' + Place2(Sub3(Poly[K], Poly[K - 1]), U, True);
+  end;
+
+  function Named(const It: TStringArray): Boolean;
+  begin
+    Result := (Length(It) > 0) and (Pos(' ', It[0]) = 0) and
+              ((Length(It) < 2) or (It[1][1] <> '+'));
+  end;
+
+  function Joined(const It: TStringArray): string;
   var
     K: Integer;
   begin
     Result := '';
-    for K := 0 to High(Poly) do
+    for K := 0 to High(It) do
     begin
       if K > 0 then
-        if FindPt(Pts, Poly[K]) >= 0 then Result := Result + ' '
-        else Result := Result + ';  ';
-      Result := Result + Ref(Pts, Poly[K]);
+        if Named(It) then Result := Result + ' ' else Result := Result + '; ';
+      Result := Result + It[K];
     end;
+  end;
+
+  { "key = list" on one line when it fits, and LFM's way when it does not:
+    "key = (", the list over as many lines as it takes, ")" }
+  procedure PutList(Depth: Integer; const Key: string; const It: TStringArray;
+    Thing: Integer; const Note: string = '');
+  const
+    WIDE = 78;
+  var
+    K: Integer;
+    Row, Sep: string;
+  begin
+    if Depth * 2 + Length(Key) + 3 + Length(Joined(It)) <= WIDE then
+    begin
+      Put(Depth, Key + ' = ' + Joined(It) + Note, Thing);
+      Exit;
+    end;
+    if Named(It) then Sep := ' ' else Sep := '; ';
+    Put(Depth, Key + ' = (' + Note, Thing);
+    Row := '';
+    for K := 0 to High(It) do
+    begin
+      if (Row <> '') and ((Depth + 1) * 2 + Length(Row) + Length(Sep) + Length(It[K]) > WIDE) then
+      begin
+        Put(Depth + 1, Row, Thing);
+        Row := '';
+      end;
+      if Row <> '' then Row := Row + Sep;
+      Row := Row + It[K];
+    end;
+    if Row <> '' then Put(Depth + 1, Row, Thing);
+    Put(Depth, ')', Thing);
+  end;
+
+  { Is this loop one of the circles drawn on the sheet, corner for corner?
+    Then it is that circle, by name - "face = c1" - and not thirty-two
+    places. }
+  function CircleNamed(const Poly: array of TP3; Part_: Integer): string;
+  var
+    C, K, Q, N, Hit: Integer;
+    P: TP3;
+    Ok_: Boolean;
+  begin
+    Result := '';
+    N := Length(Poly);
+    if N < 8 then Exit;
+    for C := 0 to High(Circles) do
+    begin
+      if D[Circles[C]].Part <> Part_ then Continue;
+      Ok_ := True;
+      for K := 0 to N - 1 do
+      begin
+        P := ArcPoint(D[Circles[C]].C, D[Circles[C]].R,
+          D[Circles[C]].A0 + K * 2 * Pi / N, D[Circles[C]].Plane, D[Circles[C]].Nm);
+        Hit := -1;
+        for Q := 0 to N - 1 do
+          if SameP(Poly[Q], P) then begin Hit := Q; Break; end;
+        if Hit < 0 then begin Ok_ := False; Break; end;
+      end;
+      if Ok_ then Exit('c' + IntToStr(C + 1));
+    end;
+  end;
+
+  function Outline(const Pts: TPts; const Poly: array of TP3; Part_: Integer): TStringArray;
+  var
+    Nm: string;
+  begin
+    Nm := CircleNamed(Poly, Part_);
+    if Nm <> '' then
+    begin
+      SetLength(Result, 1);
+      Result[0] := Nm;
+    end
+    else
+      Result := Items(Pts, Poly);
   end;
 
   procedure PutPoints(Depth: Integer; var Pts: TPts);
@@ -318,16 +422,16 @@ var
     SameMat := (D[I].MatSet = HasMat) and ((not HasMat) or (D[I].Mat = Mat));
     if SameMat and (Length(D[I].Holes) = 0) and (D[I].Ink = DefInk) then
     begin
-      Put(Depth, 'face = ' + Loop(Pts, D[I].Poly) + Note, I);
+      PutList(Depth, 'face', Outline(Pts, D[I].Poly, D[I].Part), I, Note);
       Exit;
     end;
     Put(Depth, 'face' + Note, I);
-    Put(Depth + 1, 'corners = ' + Loop(Pts, D[I].Poly), I);
+    PutList(Depth + 1, 'points', Outline(Pts, D[I].Poly, D[I].Part), I);
     for K := 0 to High(D[I].Holes) do
-      Put(Depth + 1, 'hole = ' + Loop(Pts, D[I].Holes[K]), I);
+      PutList(Depth + 1, 'hole', Outline(Pts, D[I].Holes[K], D[I].Part), I);
     if not SameMat then
-      if D[I].MatSet then Put(Depth + 1, 'material = ' + Color2(D[I].Mat), I)
-      else Put(Depth + 1, 'material = none', I);
+      if D[I].MatSet then Put(Depth + 1, 'paint = ' + Color2(D[I].Mat), I)
+      else Put(Depth + 1, 'paint = none', I);
     if D[I].Ink <> DefInk then Put(Depth + 1, 'ink = ' + Color2(D[I].Ink), I);
     Put(Depth, 'end', I);
   end;
@@ -335,7 +439,16 @@ var
   procedure PutLine(Depth, I: Integer; const Pts: TPts);
   var
     V: TP3;
+    Two: array[0..1] of TP3;
   begin
+    if (D[I].Ink = DefInk) and (Abs(D[I].Weight - DefWidth) <= 1E-3) and
+       (not D[I].Soft) and (not D[I].Dim) then
+    begin
+      Two[0] := D[I].A;
+      Two[1] := D[I].B;
+      PutList(Depth, 'line', Items(Pts, Two), I);
+      Exit;
+    end;
     Put(Depth, 'line', I);
     Put(Depth + 1, 'from = ' + Ref(Pts, D[I].A), I);
     V := Sub3(D[I].B, D[I].A);
@@ -345,7 +458,7 @@ var
       Put(Depth + 1, 'to = ' + Ref(Pts, D[I].B), I);
     PutInk(Depth + 1, I);
     if D[I].Soft then Put(Depth + 1, 'soft = yes', I);
-    if D[I].Dim then Put(Depth + 1, 'reference = yes', I);
+    if D[I].Dim then Put(Depth + 1, 'ref = yes', I);
     Put(Depth, 'end', I);
   end;
 
@@ -359,7 +472,7 @@ var
     case D[I].Kind of
       ekArc:
         begin
-          if Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9 then Put(Depth, 'circle', I)
+          if Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9 then Put(Depth, 'circle ' + CircleName(I), I)
           else Put(Depth, 'arc', I);
           Put(Depth + 1, 'center = ' + Place2(D[I].C, U, False), I);
           Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
@@ -386,10 +499,10 @@ var
         end;
       ekDim:
         begin
-          Put(Depth, 'dimension', I);
+          Put(Depth, 'dim', I);
           Put(Depth + 1, 'from = ' + Place2(D[I].A, U, False), I);
           Put(Depth + 1, 'to = ' + Place2(D[I].B, U, False), I);
-          Put(Depth + 1, 'stands off = ' + Place2(D[I].C, U, True), I);
+          Put(Depth + 1, 'off = ' + Place2(D[I].C, U, True), I);
           if D[I].Txt <> '' then Put(Depth + 1, 'label = ' + Quoted(D[I].Txt), I);
           PutInk(Depth + 1, I);
           Put(Depth, 'end', I);
@@ -398,14 +511,14 @@ var
         if SameP(D[I].A, D[I].B) then
           Put(Depth, 'guide = ' + Place2(D[I].A, U, False), I)
         else
-          Put(Depth, 'guide = ' + Place2(D[I].A, U, False) + ';  ' +
+          Put(Depth, 'guide = ' + Place2(D[I].A, U, False) + '; ' +
             Place2(D[I].B, U, False), I);
       ekText:
         begin
           Put(Depth, 'note', I);
           Put(Depth + 1, 'at = ' + Place2(D[I].A, U, False), I);
           if not SameP(D[I].A, D[I].B) then
-            Put(Depth + 1, 'points to = ' + Place2(D[I].B, U, False), I);
+            Put(Depth + 1, 'to = ' + Place2(D[I].B, U, False), I);
           Parts := TStringList.Create;
           try
             Parts.Text := D[I].Txt;
@@ -428,7 +541,9 @@ var
   var
     Pts: TPts;
     I, J, K, N, Header, Best: Integer;
-    HasMat: Boolean;
+    HasMat, Plain, BoxMat: Boolean;
+    BoxPaint: TColor;
+    Lo, Hi: TP3;
     SMat: TColor;
     Side: array of Boolean;      { is line I the side of one of the faces? }
 
@@ -457,6 +572,69 @@ var
         Inc(N);
         for K := 0 to High(D[I].Poly) do AddPt(Pts, D[I].Poly[K]);
       end;
+    { A plain box is said as one: where its low corner is and how big it
+      is.  Only when that is the whole truth - eight corners, six faces
+      square to the axes and whole, every edge ordinary, one paint or none -
+      so that reading "box" back gives exactly this solid. }
+    if (N = 6) and (Length(Pts) = 8) then
+    begin
+      Plain := True;
+      Lo := Pts[0].P;
+      Hi := Pts[0].P;
+      for I := 1 to 7 do
+      begin
+        Lo := P3(Min(Lo.X, Pts[I].P.X), Min(Lo.Y, Pts[I].P.Y), Min(Lo.Z, Pts[I].P.Z));
+        Hi := P3(Max(Hi.X, Pts[I].P.X), Max(Hi.Y, Pts[I].P.Y), Max(Hi.Z, Pts[I].P.Z));
+      end;
+      for I := 0 to 7 do
+        if not ((SameP(P3(Pts[I].P.X, 0, 0), P3(Lo.X, 0, 0)) or SameP(P3(Pts[I].P.X, 0, 0), P3(Hi.X, 0, 0))) and
+                (SameP(P3(Pts[I].P.Y, 0, 0), P3(Lo.Y, 0, 0)) or SameP(P3(Pts[I].P.Y, 0, 0), P3(Hi.Y, 0, 0))) and
+                (SameP(P3(Pts[I].P.Z, 0, 0), P3(Lo.Z, 0, 0)) or SameP(P3(Pts[I].P.Z, 0, 0), P3(Hi.Z, 0, 0)))) then
+          Plain := False;
+      BoxMat := False;
+      BoxPaint := 0;
+      K := 0;
+      for I := 0 to D.Live - 1 do
+        if (D[I].Grp = G) and (D[I].Part = Part_) then
+          case D[I].Kind of
+            ekFace:
+              begin
+                if (Length(D[I].Poly) <> 4) or (Length(D[I].Holes) > 0) or
+                   (D[I].Ink <> DefInk) or (FacingWord(D.FaceNormal(I)) = '') then Plain := False;
+                if K = 0 then begin BoxMat := D[I].MatSet; BoxPaint := D[I].Mat; end
+                else if (D[I].MatSet <> BoxMat) or (BoxMat and (D[I].Mat <> BoxPaint)) then Plain := False;
+                Inc(K);
+              end;
+            ekLine:
+              if D[I].Soft or D[I].Dim or (D[I].Ink <> DefInk) or
+                 (Abs(D[I].Weight - DefWidth) > 1E-3) or (AxesUsed(Sub3(D[I].B, D[I].A)) <> 1) then
+                Plain := False;
+            ekBore: Plain := False;
+          end;
+      if Plain then
+      begin
+        Header := NLine;
+        if not BoxMat then
+          Put(Depth, 'box = ' + Place2(Lo, U, False) + '; ' + Place2(Sub3(Hi, Lo), U, True), -1)
+        else
+        begin
+          Put(Depth, 'box', -1);
+          Put(Depth + 1, 'at = ' + Place2(Lo, U, False), -1);
+          Put(Depth + 1, 'size = ' + Place2(Sub3(Hi, Lo), U, True), -1);
+          Put(Depth + 1, 'paint = ' + Color2(BoxPaint), -1);
+          Put(Depth, 'end', -1);
+        end;
+        { every face and edge of it is that one statement }
+        for I := 0 to D.Live - 1 do
+          if (D[I].Grp = G) and (D[I].Part = Part_) and (D[I].Kind in [ekFace, ekLine]) then
+          begin
+            First[I] := Header;
+            Last[I] := NLine - 1;
+          end;
+        Exit;
+      end;
+    end;
+
     { what most of its faces are made of is said once, for the solid }
     HasMat := False;
     SMat := 0;
@@ -474,7 +652,7 @@ var
     HasMat := (Best >= 2) and (Best * 2 > N);
     Header := NLine;
     Put(Depth, 'solid', -1);
-    if HasMat then Put(Depth + 1, 'material = ' + Color2(SMat), -1);
+    if HasMat then Put(Depth + 1, 'paint = ' + Color2(SMat), -1);
     PutPoints(Depth + 1, Pts);
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
@@ -506,9 +684,9 @@ var
       end
       else if (D[I].Kind = ekBore) and (D[I].Grp = G) and (D[I].Part = Part_) then
       begin
-        Put(Depth + 1, 'drilled', I);
-        Put(Depth + 2, 'outline = ' + Loop(Pts, D[I].Poly), I);
-        Put(Depth + 2, 'through = ' + Place2(D[I].B, U, True), I);
+        Put(Depth + 1, 'bore', I);
+        PutList(Depth + 2, 'points', Items(Pts, D[I].Poly), I);
+        Put(Depth + 2, 'goes = ' + Place2(D[I].B, U, True), I);
         Put(Depth + 1, 'end', I);
       end;
     Put(Depth, 'end', -1);
@@ -525,10 +703,14 @@ var
   begin
     SetLength(None, 0);
     SetLength(Done, 0);
+    { the circles first: faces and holes further down say them by name }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Part = Part_) and (CircleName(I) <> '') then PutOther(Depth, I);
     for I := 0 to D.Live - 1 do
     begin
       if D[I].Part <> Part_ then Continue;
       if D[I].Kind = ekPart then Continue;
+      if CircleName(I) <> '' then Continue;
       G := D[I].Grp;
       if (G <> 0) and (D[I].Kind in [ekFace, ekLine, ekBore]) then
       begin
@@ -569,10 +751,17 @@ begin
   SetLength(Last, D.Live);
   for I := 0 to D.Live - 1 do begin First[I] := 0; Last[I] := -1; end;
   FindDefaults;
+  SetLength(Circles, 0);
+  for I := 0 to D.Live - 1 do
+    if (D[I].Kind = ekArc) and (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) then
+    begin
+      SetLength(Circles, Length(Circles) + 1);
+      Circles[High(Circles)] := I;
+    end;
 
   Put(0, 'HeckersSketch 2', -1);
-  if U = usMetric then Put(0, 'lengths = millimeters', -1)
-  else Put(0, 'lengths = feet and inches', -1);
+  if U = usMetric then Put(0, 'units = mm', -1)
+  else Put(0, 'units = ft in', -1);
   Put(0, '', -1);
   Put(0, 'sheet ' + Quoted(SheetName), -1);
   Put(1, 'ink = ' + Color2(DefInk), -1);

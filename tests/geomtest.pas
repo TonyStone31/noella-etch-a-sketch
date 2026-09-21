@@ -8336,6 +8336,14 @@ begin
     Ok(D.PushPull(4, 2), 'a box');
     WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
     EqI(Length(LineThing), L.Count, 'every line says whose it is');
+    Ok(L.IndexOf('  box = 0; 4'' east, 4'' north, 2'' up') >= 0, 'a plain box is one line');
+    Ok((First[4] >= 0) and (First[4] = Last[4]), 'and every face of it is that line');
+
+    { paint one face and it is no longer only a box: eight named corners,
+      five one-line faces and one that says what it is painted }
+    D.SetMaterial(4, $3CB0FF);
+    L.Clear;
+    WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
     NFace := 0;
     NPoint := 0;
     for I := 0 to L.Count - 1 do
@@ -8343,9 +8351,10 @@ begin
       if Copy(Trim(L[I]), 1, 7) = 'face = ' then Inc(NFace);
       if (Pos(' = ', L[I]) > 0) and (Length(Trim(Copy(L[I], 1, Pos(' = ', L[I])))) = 1) then Inc(NPoint);
     end;
-    EqI(NFace, 6, 'six faces, a line each');
+    EqI(NFace, 5, 'five plain faces, a line each');
     EqI(NPoint, 8, 'eight corners, named once');
-    Ok(L.Count < 30, 'and the whole box is under thirty lines');
+    Ok(L.IndexOf('      paint = orange') >= 0, 'and the painted one says so');
+    Ok(L.Count < 32, 'the whole of it under thirty-two lines');
   finally
     L.Free;
     D.Free;
