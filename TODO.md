@@ -401,6 +401,20 @@ What has to be thought about before it is as nice as it sounds:
   and in the source window the matching-word outline, Ctrl+click to a
   name's definition and a hover that says what it is.  What was tried and
   dropped is listed at the end of `docs/format2.md`.
+* **For the morning of 21 September.**  Three things left hanging:
+  (1) `x 1" y 1" z 0` is easy to understand and does not *read* like
+  Pascal - a thought to come back to; record-like `(x: 1"; y: 1"; z: 0)`
+  is the Pascal way of saying it.  (2) Whether text can be pictured at all:
+  the ideas on the table are paths (a shape as one walk), levels (a block
+  at one height, so only x and y inside it) and "the same as that, 4 feet
+  up" - none coded, waiting on a cold read of the third go.  (3) **Before
+  anything is ever saved as version 2, an audit: every field version 1
+  stores has a home in version 2, proved by a test that writes a drawing
+  out, reads it back and compares.**  Known not to be carried by the
+  writer yet, because it is only a viewer: the sheet's own lines (units,
+  scale, snap, view, camera), an arc's starting direction on a free plane,
+  and which flat areas have been seen and rubbed out.  Nothing on disk is
+  touched by any of this - saving is still version 1, byte for byte.
 * **Editing in the source window, when it comes: Apply, not live.**  Asked
   for 20 September.  The moment the text differs from the drawing an
   **Apply** button appears; nothing touches the drawing until it is
