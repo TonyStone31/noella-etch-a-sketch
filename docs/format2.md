@@ -548,14 +548,21 @@ surprise when running it again puts it back.
 **Two kinds, and only one of them lives in the drawing** (talked through
 21 September, not settled in detail):
 
-* The **inline jig**, above - a thing in the drawing that remembers where
-  it came from.  Delphi's *component*: it sits on the form and is saved
-  with it.
-* The **run-once jig** - not in the drawing at all.  Run on purpose, from
-  a menu or `/jig name`; it is handed what is picked, or the sheet, as
-  Heck, and hands back a changed version, which goes through the same
-  Apply as an edit typed by hand: shown first, accepted or not, one undo
-  step.  Delphi's *wizard*.  Nothing of it is saved but what it did.
+* The **JIG**, above - a thing in the drawing that remembers where it
+  came from.  *A JIG is any program that prints Heck.*  Delphi's
+  component: it sits on the form and is saved with it.
+* The **jigsaw** - not in the drawing at all.  *A jigsaw is any program
+  that reads Heck and prints it back changed.*  A jig helps make a thing;
+  a jigsaw cuts into what is already there.  Run on purpose, from a menu
+  or `/jigsaw name`; it is handed what is picked, or the sheet, as Heck,
+  and hands back a changed version, which goes through the same Apply as
+  an edit typed by hand: shown first, accepted or not, one undo step.
+  Nothing of it is saved but what it did.  And because a drawing is a
+  text file, a jigsaw does not need this program at all - it can be run
+  from a command line over a folder of drawings.  (The name is the working
+  one as of 21 September and may yet change; `rejig` was the other
+  finalist, and stays an ordinary word - you run a jigsaw to rejig a
+  drawing.  The people who write either are jigwrights.)
 
 The same program can be either; which it is, is how it was called.  Both
 are handed the drawing as Heck, which is how a jig sees every constant,
