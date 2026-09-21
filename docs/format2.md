@@ -419,14 +419,17 @@ one; the faces are then worked out again as after any edit.
 * `const` and `points` blocks **fold**, like everything else.
 * Names are Pascal's: a constant is `Width`, not `$width`.
 
-### 3. Makers - a node whose contents a script writes
+### 3. Jigs - a group whose contents a script writes
 
-Working name; it wants a better one.  (`recipe` and `made by` were the
-other candidates.)  A group can say that a script makes it:
+A jig is what a shop makes once so that a part can be made the same way
+again and again, and that is what this is.  (The name was settled on 21
+September; `makers`, `recipe` and `made by` were the other candidates, and
+what the letters might stand for is still being played with.)  A group
+can say that a jig makes it:
 
 ```
 group 'Hangers'
-  made by = 'hangers' with Count = 6, Spacing = 16", Drop = Height
+  jig = 'hangers' with Count = 6, Spacing = 16", Drop = Height
   ...what the script gave back, folded, gray, the program's to write...
 end
 ```
@@ -435,11 +438,12 @@ The program runs the script - any language: a Pascal file through
 `instantfpc`, a `.bat` file, a shell script - hands it the values after
 `with`, and what it prints, which is this same markup, becomes the group's
 contents.  The values can be constants, so change `Count`, make it again,
-and there are seven hangers.  It is a server-side include, not a script in
-the page.  Three rules make it safe and none of them bends:
+and there are seven hangers.  Anybody who wrote web pages in the nineties
+knows it already: it is a server-side include, on a sheet instead of a
+server - and not a script in the page.  Three rules make it safe and none of them bends:
 
 1. **Nothing runs when a drawing is opened.**  The file keeps the last
-   result beside the `made by` line, like a spreadsheet keeping the last
+   result beside the `jig` line, like a spreadsheet keeping the last
    value of a cell, so a drawing opens anywhere - with no script and no
    compiler on the machine - and a drawing from a stranger, or inside a
    bug report, is geometry with a line of text on it.  Making it again is
@@ -447,8 +451,8 @@ the page.  Three rules make it safe and none of them bends:
 2. **A drawing names a script and never carries one**, and the name is
    looked up in the person's own scripts folder and nowhere else - not a
    path, not a web address, nothing a file can point outside.
-3. **Change the contents by hand or with a tool and the group lets go of
-   its maker** - it becomes an ordinary group, and the program says so
+3. **Change the contents by hand or with a tool and the group comes off
+   its jig** - it becomes an ordinary group, and the program says so
    rather than quietly throwing the change away the next time it is made.
 
 A script's side of it is one page: it is given `name = value` lines, it
@@ -462,7 +466,7 @@ file a stranger sent.
    marks its line and offers to go on editing or put the text back; an
    Apply is one undo step.
 2. Sums - nearly free once there is a reader.
-3. Makers.
+3. Jigs.
 4. Constants, last, because they are the one that changes what a drawing
    remembers.
 

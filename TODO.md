@@ -400,8 +400,8 @@ What has to be thought about before it is as nice as it sounds:
 * **The format, fourth go** - 21 September: the compass words are back as
   what the program writes (`x y z` is still read), a place always says
   its height, and `docs/format2.md` gained "What it grows into": sums,
-  constants that keep their formula, and **makers** - a group whose
-  contents a script of the person's own writes, a server-side include
+  constants that keep their formula, and **jigs** (first called makers) -
+  a group whose contents a script of the person's own writes, a server-side include
   with three rules that keep it from being a macro virus.  None of that
   is built; the order to build it in is on the page.
 * **The format, third go** - 20 September: `x y z` with the height always
