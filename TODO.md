@@ -168,6 +168,9 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Scripting** - not decided; the thinking is in its own section below,
+  "Scripting - thinking only, 20 September 2026".
+
 * **Shadows, the way SketchUp has them.**  Asked for 20 September, for
   some day - not the same thing as the lamp, which is shading only.
   Theirs: a sun placed by time of day, date and where on the earth the
@@ -207,6 +210,144 @@ healed by a rectangle (20 September), a healed top coming back facing in
 (20 September).
 
 ---
+
+## Scripting - thinking only, 20 September 2026
+
+Nothing here is decided and nothing is built.  It is written down so the
+ideas can be come back to whole, rather than remembered in pieces.  It came
+out of the comparison page: nearly every program on it can be scripted
+(Ruby, Python, JavaScript, Lape in ZCAD) and we cannot.
+
+### The idea, in one paragraph
+
+Not an embedded language and not the way everybody else does it.  A
+**gateway**: one standard, plain way for *anything outside the program* to
+tell it what to do, in a language simple enough that somebody who does not
+program can read it - and can therefore direct an AI to write it.  And the
+gateway is **visual**: what comes in is *played out on the screen* with
+our own tools, where it can be watched, stepped, changed and run again,
+and only becomes part of the drawing when the person **accepts** it.
+Scripting that feels the way push/pull feels - a toy that is also a real
+tool - rather than an API reference.
+
+### What that is made of
+
+1. **Anything can be the script.**  A `.bat` file, a shell script, Perl
+   because it happens to be installed, Ruby, C, Java, a Pascal file run by
+   `instantfpc`, something an AI wrote.  We never care what made the
+   words, only that the words arrive.  No language is blessed and nobody
+   is tied to one.
+
+2. **One simple language on the wire.**  A line is a thing to do, in words
+   a person would use: pick a tool, go to a point, type a size, push this
+   far.  Lengths as they are typed in the measurement box (`2'6"`,
+   `40mm`).  It **drives the tools**, precisely - the numbers worked out
+   outside, however the person likes - rather than reaching past them into
+   the geometry.  That is the unconventional part and it is on purpose:
+   - what plays on the screen is what a person would have done, so it can
+     be followed by eye;
+   - every tool's behavior - snapping, splitting, healing, groups - comes
+     along free, and a script cannot make something a person could not;
+   - we already have the beginnings: `/replay` reads `tool`, `press x y z`,
+     `input`, `enter`, `undo`, `redo`, and every bug report already carries
+     the session written out in exactly those lines.
+
+3. **A standard way in.**  One of, or all of - to be decided:
+   - **a pipe**: we run the script and read what it prints (works for a
+     `.bat` file and everything else, nothing to set up);
+   - **a watched file**: save the script, the program sees it change and
+     runs it again - which *is* the edit-and-see loop, with any editor;
+   - **a local socket**: for a program that wants to stay connected and
+     hold a conversation.
+   Whichever it is, the program **answers** in the same plain words - done,
+   or what went wrong, at which line, and what it found there instead - so
+   a person can read it and an AI can fix it.
+
+4. **It plays out, live, like a debugger that is fun.**  A script does not
+   simply happen.  It runs in a **rehearsal**:
+   - the cursor goes where the line says, the rubber band stretches, the
+     face rises - at a speed that can be watched, or stepped a line at a
+     time, paused, run to here, run again from the top;
+   - the line being played is shown beside it, in words, with the reply;
+   - what it has made so far is drawn as provisional - in the accent
+     color, say - and is not in the drawing yet;
+   - change the script, run it again straight away, see the difference;
+   - **Accept** makes it real, as one step that one undo takes back, and
+     probably as one group.  **Reject** and it was never there.
+
+5. **Nobody starts from a blank page.**  The program already writes the
+   session down as it goes.  So the on-ramp is: *do it once by hand, ask
+   for the script of what you just did, change the numbers.*  Turning a
+   recording into a script with a few named numbers at the top is what
+   makes this as easy as push/pull was.
+
+6. **Easy to hand to an AI - theirs, not ours.**  We ship no AI and talk
+   to nobody's.  What we do is make it easy for somebody running their own
+   (LM Studio and the like) to wire it up themselves:
+   - **the whole language on one page**, written to be pasted into a
+     prompt, and a command that copies it - with what is on the sheet now,
+     so the AI knows what it is working on;
+   - **questions as well as orders** on the gateway: what is selected, what
+     groups are there, how big is this, where is that face - answered in
+     the same plain text, so a program can look before it acts;
+   - errors that say enough to be fixed without a person in the middle;
+   - possibly, later, a small wrapper speaking whatever the common
+     AI-tool protocol is by then (MCP today), so any client that speaks it
+     can drive the program.  On them to set up; on us to make that an
+     afternoon and not a project.
+
+### Rules that come before any of it
+
+* **Off until asked for, and local only.**  Nothing listens until the
+  person turns it on; nothing is ever reachable from another machine.
+* **Never from a drawing, never from a report.**  A `.hsk` file carries no
+  script and a report is evidence, not instructions (CLAUDE.md).  A script
+  is a file the person chose to run, outside the drawing - which is what
+  keeps this from being the macro virus every office program grew.
+* **A person accepts.**  The rehearsal is not only the fun part, it is the
+  safety: nothing a script does is in the drawing until somebody has
+  watched it and said yes.  A batch mode with no window, for tests and for
+  making files, would be a separate, explicit way of starting the program.
+
+### Things talked through and parked
+
+* **Geometry verbs** (`rect 0 0 0 4' 4' 0`, `push at ... by 3'`) acting on
+  the document directly, as `tests/geomtest.pas` does.  Sturdier than
+  driving tools, invisible while it happens.  The vision above prefers the
+  tools; the two are not exclusive, and a verb could *be played* as the
+  tool moves that make it.
+* **Generators**: a scripts folder; run one, what it prints becomes a group
+  at the cursor; the selection goes to it as `.hsk` text; `# param` lines
+  at the top become a little form.  Fits inside the gateway as its
+  simplest use.
+* **`instantfpc` as the first-class Pascal way** - found, not bundled (it
+  needs the whole compiler beside it, a hundred megabytes against our
+  eleven), with a small MIT `hsk.pas` helper unit whose procedures just
+  write the lines.  The repository already runs its own tools this way.
+* **Embedded Pascal Script / Lape**: ties people to one language, needs a
+  binding layer kept in step, and Lape is LGPL.  Only ever as a thin skin
+  over the same gateway.
+* **Headless** `--run script --export out.stl`: tests without Xephyr, and
+  what SolveSpace and QCAD offer.
+
+### Questions still open
+
+* How a script **names a face or an edge**.  A point on it is what
+  `/replay` does and what a person does; it fails where two things lie in
+  one plane (the Robot's eyes, 20 September - the press took the back
+  one).  Names on groups help.  Ids handed back by the program are the
+  programmer's answer and the least readable.
+* Is the script language **the same words as the `/` commands**, so that
+  typing and scripting are one thing learned once?  Probably yes.
+* **Pipe, watched file or socket first?**  The watched file is the least
+  work and gives the edit-and-see loop on its own.
+* What the **rehearsal** is underneath: a snapshot to go back to (we have
+  undo snapshots already), or a second document drawn over the first.
+* Does a script get **loops and numbers of its own**, or is that always
+  the outside program's job?  The idea above says the outside's - our
+  language stays a list of things to do, and stays readable.
+* Where the **record-to-script** step puts its named numbers, and how it
+  guesses which ones the person meant to be able to change.
 
 ## Where it stands, 17 September 2026
 
