@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.20.18' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The proposed drawing format, second go - shorter and easier to type.**' + LineEnding +
+    '  In `/source`: heights are just `up`; a plain box is one line,' + LineEnding +
+    '  `box = 0; 4'' east, 4'' north, 4'' up`; a list of places is a walk, each' + LineEnding +
+    '  `+` step from the one before, so a square reads as four moves; a face' + LineEnding +
+    '  bounded by a circle is `face = c1` and a circle cut out of a face is' + LineEnding +
+    '  `hole = c1`, where there used to be thirty-two corners; `paint` for' + LineEnding +
+    '  material; and no line is wider than eighty characters - a long list' + LineEnding +
+    '  wraps between brackets the way a Lazarus form file does.  A cube with a' + LineEnding +
+    '  circle on its top is thirty-seven readable lines.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.20.17' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
