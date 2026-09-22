@@ -5851,3 +5851,28 @@ as a list, each version previewed on the sheet, which no program in the
 comparison has.  All of it is git on a text file; none of it needs to
 know it is a drawing.  A jig in the repository beside the
 drawing, its output committed with it, is a build.
+
+## Heck beyond this program - things not to break
+
+22 September.  Could a browser render it, or a language build a 3D GUI
+from it?  Closer than it looks, and one rule stands in the way - on
+purpose.  Rule 7 makes the parser a hundred lines in any language; rule
+6 lets old readers survive new words; units are in the file; nothing
+executes, so nothing is unsafe to open.  Rule 9 - faces from lines -
+needs the region finder, and a second finder would find slightly
+different faces: the HTML-tables failure.  `faces = said` is the answer
+and already exists: every face written, the reader makes none, a
+renderer needs only a triangulator.  So Heck has two profiles without
+anyone deciding it - the *authoring* form (short, faces implied) and the
+*interchange* form (everything said, renders anywhere) - and an export
+"as Heck for others" is the second.
+
+Events and behavior are the host's layer, as JavaScript is to SVG; what
+Heck owes that future is stable names on things (see Names that stick).
+
+Not to break, and not work today: keep the kernel small - every word
+added is one every reader must know forever; keep `faces = said` a
+first-class profile; write the grammar as a specification that does not
+mention this program (format2.md is most of it); when the words settle,
+a file name of its own - `.heck` - and a header that says `Heck 2`, not
+the program's name.
