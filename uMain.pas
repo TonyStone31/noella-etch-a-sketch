@@ -293,6 +293,8 @@ type
     function SourceApply(L: TStrings; out ErrLine: Integer; out Err: string): Boolean;
     { run the jig that makes this group again; 0 runs every jig on the sheet }
     function RunJigOf(PartId: Integer): Boolean;
+    { the same, from the group's record - the source window's play button }
+    function RunJigOfThing(Thing: Integer): Boolean;
     function RunAllJigs: Integer;
     procedure SourceCenter;
     procedure RebuildInfo;
@@ -18272,6 +18274,7 @@ begin
     SourceForm.OnPickThings := @SourcePickThings;
     SourceForm.OnApply := @SourceApply;
     SourceForm.OnRunJigs := @RunAllJigs;
+    SourceForm.OnRunJig := @RunJigOfThing;
     SourceForm.OnCenter := @SourceCenter;
     { The main window's own, so that on Windows it stays in front of the
       main window instead of opening behind it - a report from a Windows
@@ -18481,6 +18484,21 @@ begin
   if (FD = nil) or (Length(FSel) = 0) then Exit;
   if FitTarget(True, FD.Az, FD.El, FitZ, FitX, FitY) then
     GlideCamera(FD.Az, FD.El, FitZ, FitX, FitY);
+end;
+
+function TMainForm.RunJigOfThing(Thing: Integer): Boolean;
+begin
+  Result := False;
+  if (FD = nil) or (Thing < 0) or (Thing >= FD.Doc.Live) then Exit;
+  if (FD.Doc[Thing].Kind <> ekPart) or (FD.Doc[Thing].Jig = '') then Exit;
+  Result := RunJigOf(FD.Doc[Thing].Grp);
+  if Result then
+  begin
+    RebuildFlatFaces;
+    RenderPro;
+    RecomposeAll;
+    pbScreen.Invalidate;
+  end;
 end;
 
 function TMainForm.RunAllJigs: Integer;

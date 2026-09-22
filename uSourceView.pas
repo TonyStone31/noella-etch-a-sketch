@@ -29,6 +29,7 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls, Menus,
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
   SynGutterLineNumber, SynEditMarkupHighAll, SynEditMarkupWordGroup, SynEditMouseCmds, LCLIntf,
+  SynEditMiscProcs, LazSynEditText, SynEditFoldedView,
   uWork, uSynHsk2, uJig, uHeckSample, uHeckComplete;
 
 type
@@ -43,10 +44,14 @@ type
   { the text, to be made the drawing: False, a line and why, when it cannot }
   TSourceApply = function(L: TStrings; out ErrLine: Integer; out Err: string): Boolean of object;
   TSourceRunJigs = function: Integer of object;
+  { run the jig of this thing - the group's own record; true if it ran }
+  TSourceRunJig = function(Thing: Integer): Boolean of object;
   { bring what is picked on the sheet to the middle of the view, sized }
   TSourceCenter = procedure of object;
 
   { TSourceForm }
+
+  TJigGutter = class;
 
   TSourceForm = class(TForm)
     chkOnlyPicked: TCheckBox;
@@ -119,6 +124,8 @@ type
     FCaretRow, FBlockA, FBlockB: Integer;
     FColors: TSynHsk2Syn;
     FComplete: THeckCompleter;
+    FJigGutter: TJigGutter;
+    FFoldJigs: Boolean;           { fold the jigs' output on the next tick }
     FCompleteChange: TNotifyEvent;
     FCompleteKey: TKeyEvent;
     procedure SetEdited(On_: Boolean; const Msg: string = '');
@@ -144,7 +151,12 @@ type
     OnPickThings: TSourcePickThings;
     OnApply: TSourceApply;
     OnRunJigs: TSourceRunJigs;
+    OnRunJig: TSourceRunJig;
     OnCenter: TSourceCenter;
+    { is this line (0-based) a "jig = " line? }
+    function IsJigLine(Line: Integer): Boolean;
+    { the gutter's play button on a jig line was pressed }
+    procedure RunJigAt(Line: Integer);
     { look again now, rather than at the next tick }
     procedure Refresh_;
     { the program's theme: the page dark or light to match, and the
@@ -161,6 +173,21 @@ type
     function AutoComplete: Boolean;
   end;
 
+  { A button in the gutter on every "jig = " line: a little play mark, and
+    a click runs that jig alone.  The output of the jig folds under the
+    line - see the highlighter - so the line reads as the include it is. }
+  TJigGutter = class(TSynGutterPartBase)
+  private
+    FForm: TSourceForm;
+  public
+    procedure Paint(Canvas: TCanvas; AClip: TRect; FirstLine, LastLine: integer); override;
+    procedure MouseDown(const AnInfo: TSynEditMouseActionInfo); override;
+    { fold the jig's output under this line - a friend of the editor can
+      reach the folded view, which the form cannot }
+    procedure FoldLine(Line: Integer);
+    property Form: TSourceForm read FForm write FForm;
+  end;
+
 var
   SourceForm: TSourceForm;
 
@@ -171,6 +198,48 @@ implementation
 const
   PICKED_BG = TColor($FFE2C2);   { a pale blue, under the picked lines }
   PICKED_FG = TColor($401000);
+
+{ TJigGutter }
+
+procedure TJigGutter.Paint(Canvas: TCanvas; AClip: TRect; FirstLine, LastLine: integer);
+var
+  I, J, H, Cx, Cy: Integer;
+  R: TRect;
+  Range: TLineRange;
+begin
+  PaintBackground(Canvas, AClip);
+  if FForm = nil then Exit;
+  H := SynEdit.LineHeight;
+  for I := FirstLine to LastLine do
+  begin
+    J := ViewedTextBuffer.DisplayView.ViewToTextIndexEx(I + ToIdx(GutterArea.TextArea.TopViewedLine), Range);
+    if (J < 0) or (J >= SynEdit.Lines.Count) or not FForm.IsJigLine(J) then Continue;
+    R := AClip;
+    R.Top := AClip.Top + (I - FirstLine) * H;
+    R.Bottom := R.Top + H;
+    { a play mark: a small triangle pointing right, in the gutter's ink }
+    Cx := (R.Left + R.Right) div 2;
+    Cy := (R.Top + R.Bottom) div 2;
+    Canvas.Brush.Color := MarkupInfo.Foreground;
+    Canvas.Pen.Color := MarkupInfo.Foreground;
+    Canvas.Polygon([Point(Cx - 3, Cy - 4), Point(Cx + 4, Cy), Point(Cx - 3, Cy + 4)]);
+  end;
+end;
+
+procedure TJigGutter.FoldLine(Line: Integer);
+begin
+  TSynEditFoldedView(FoldedTextBuffer).FoldAtTextIndex(Line);
+end;
+
+procedure TJigGutter.MouseDown(const AnInfo: TSynEditMouseActionInfo);
+var
+  J: Integer;
+begin
+  inherited MouseDown(AnInfo);
+  if (FForm = nil) or (AnInfo.Button <> mbXLeft) then Exit;
+  J := AnInfo.NewCaret.LinePos - 1;
+  if FForm.IsJigLine(J) then FForm.RunJigAt(J);
+end;
 
 procedure TSourceForm.FormCreate(Sender: TObject);
 begin
@@ -225,6 +294,40 @@ begin
     on column one is not lost against the gutter }
   Editor.Gutter.RightOffset := 6;
   Editor.ShowHint := True;
+  { the play button beside a jig line, after the line numbers }
+  FJigGutter := TJigGutter.Create(Editor.Gutter.Parts);
+  FJigGutter.Form := Self;
+  FJigGutter.Width := 14;
+  FJigGutter.AutoSize := False;
+end;
+
+function TSourceForm.IsJigLine(Line: Integer): Boolean;
+var
+  T: string;
+begin
+  Result := False;
+  if (Line < 0) or (Line >= Editor.Lines.Count) then Exit;
+  T := LowerCase(TrimLeft(Editor.Lines[Line]));
+  Result := (Copy(T, 1, 3) = 'jig') and (Pos('=', T) > 0) and
+            (Trim(Copy(T, 4, Pos('=', T) - 4)) = '');
+end;
+
+procedure TSourceForm.RunJigAt(Line: Integer);
+var
+  T: Integer;
+begin
+  if FEdited then
+  begin
+    lblApply.Caption := 'Apply or Revert first - the jig runs on the drawing, not on what is typed here.';
+    Exit;
+  end;
+  { the group the line belongs to, through the row map when only what is
+    picked is showing }
+  T := -1;
+  if (Line >= 0) and (Line < Length(FRowLine)) and (FRowLine[Line] >= 0) and
+     (FRowLine[Line] < Length(FLineThing)) then T := FLineThing[FRowLine[Line]];
+  if T < 0 then Exit;
+  if Assigned(OnRunJig) and OnRunJig(T) then Refresh_;
 end;
 
 procedure TSourceForm.FormDestroy(Sender: TObject);
@@ -271,8 +374,17 @@ end;
 procedure TSourceForm.tmrFollowTimer(Sender: TObject);
 var
   D, P: Int64;
+  I: Integer;
 begin
   if not Visible then Exit;
+  { the jig folds asked for when the text came in, done now that the
+    highlighter has been over it - asked for at once they were ignored }
+  if FFoldJigs then
+  begin
+    FFoldJigs := False;
+    for I := 0 to Editor.Lines.Count - 1 do
+      if IsJigLine(I) then FJigGutter.FoldLine(I);
+  end;
   if not Assigned(OnAskState) then Exit;
   if FEdited then Exit;        { the text is being typed: the drawing waits for Apply }
   OnAskState(D, P);
@@ -359,7 +471,13 @@ begin
     { Heck can be typed into; the file as it is saved today cannot }
     Editor.ReadOnly := not chkVersion2.Checked or
       (chkOnlyPicked.Checked and not chkVersion2.Checked);
-    if Editor.Lines.Text <> L.Text then Editor.Lines.Assign(L);
+    if Editor.Lines.Text <> L.Text then
+    begin
+      Editor.Lines.Assign(L);
+      { a jig's output folds shut under its line, so the line reads as the
+        include it is; opened by hand, it stays open until the text changes }
+      FFoldJigs := True;
+    end;
     if WasTop <= Editor.Lines.Count then Editor.TopLine := WasTop;
   finally
     L.Free;
@@ -946,7 +1064,8 @@ end;
 
 procedure TSourceForm.miRunJigClick(Sender: TObject);
 begin
-  btnJigsClick(nil);
+  { this jig, not all of them }
+  RunJigAt(Editor.CaretY - 1);
 end;
 
 procedure TSourceForm.pmEditorPopup(Sender: TObject);

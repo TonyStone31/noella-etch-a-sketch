@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Jigs in the source window.**  A group made by a jig shows as its
+  header and its `jig = ...` line; what the jig printed folds shut under
+  that line, opened with the fold mark when you want to see it.  A play
+  mark in the gutter beside the line runs that one jig again - right-click
+  *Run jig* does the same for the line under the caret - and *Run jigs*
+  on the toolbar still runs them all.  Inside the quotes of a jig line the
+  word list offers the jigs in your folder.
+
 ## v2026.09.22.4
 
 ### Fixed

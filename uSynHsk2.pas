@@ -35,6 +35,7 @@ type
     FTokPos: Integer;
     Run: Integer;
     FOpens, FCloses, FDone: Boolean;   { this line opens a block / is "end" }
+    FJigLine: Boolean;                  { "jig = ...": what follows is its output, folded under it }
     FListOpens, FListCloses: Boolean;  { "key = (" and the ")" that ends it }
     FSeenEquals: Boolean;
     FAxisNext: THskToken;              { the number after "x" is red, and so on }
@@ -247,6 +248,10 @@ begin
   FOpens := (not HasEq) and (WLen > 0) and (not FCloses) and (W <> 'heckerssketch') and
             (W <> 'begin') and
             (not FListCloses) and (PtrUInt(TopCodeFoldBlockType) <> 2);
+  { a jig line inside a group: the group's things after it are what the
+    jig printed, and fold under the jig line, which stays in view.  The
+    fold closes with the group's own "end". }
+  FJigLine := HasEq and (W = 'jig') and (PtrUInt(TopCodeFoldBlockType) = 1);
   FDone := False;
   FSeenEquals := False;
   FAxisNext := htNumber;
@@ -356,7 +361,13 @@ begin
       begin
         FDone := True;
         if FOpens then StartCodeFoldBlock(Pointer(PtrInt(1)), True)
-        else if FCloses then EndCodeFoldBlock(True);
+        else if FJigLine then StartCodeFoldBlock(Pointer(PtrInt(3)), True)
+        else if FCloses then
+        begin
+          { the group's end closes the jig's output first, then the group }
+          if PtrUInt(TopCodeFoldBlockType) = 3 then EndCodeFoldBlock(True);
+          EndCodeFoldBlock(True);
+        end;
       end;
     end
     else

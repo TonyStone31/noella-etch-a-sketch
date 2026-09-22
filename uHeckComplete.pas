@@ -28,7 +28,7 @@ interface
 
 uses
   Classes, SysUtils, Controls, Graphics, Forms, ExtCtrls, LCLType,
-  SynEdit, SynCompletion, SynEditKeyCmds, LazUTF8;
+  SynEdit, SynCompletion, SynEditKeyCmds, LazUTF8, uJig;
 
 type
 
@@ -335,6 +335,37 @@ var
               (S[Length(S)] <> ')');
   end;
 
+  procedure OfferJigs(const Pfx: string);
+  var
+    R: TSearchRec;
+    Nm, Ext: string;
+    Seen: TStringList;
+  begin
+    Seen := TStringList.Create;
+    try
+      Seen.Sorted := True;
+      Seen.Duplicates := dupIgnore;
+      if FindFirst(JigsDir + '*', faAnyFile, R) = 0 then
+      begin
+        repeat
+          if (R.Attr and faDirectory) <> 0 then Continue;
+          Nm := ChangeFileExt(R.Name, '');
+          Ext := LowerCase(ExtractFileExt(R.Name));
+          if (Nm = '') or (Nm[1] = '.') then Continue;
+          if not ((Ext = '.sh') or (Ext = '.py') or (Ext = '.pl') or (Ext = '.pas') or
+                  (Ext = '.ps1') or (Ext = '.bat') or (Ext = '.cmd') or (Ext = '.exe') or (Ext = '')) then Continue;
+          if Seen.IndexOf(Nm) >= 0 then Continue;
+          Seen.Add(Nm);
+          if (Pfx = '') or (Pos(LowerCase(Pfx), LowerCase(Nm)) = 1) then
+            Offer(Nm, Nm + ''' with ', 'a jig in ' + JigsDir + ' (' + Ext + ')');
+        until FindNext(R) <> 0;
+        FindClose(R);
+      end;
+    finally
+      Seen.Free;
+    end;
+  end;
+
   procedure Props(const A: array of string);
   var
     J, Q: Integer;
@@ -414,7 +445,13 @@ begin
     end;
 
     { what goes here }
-    if T = '' then
+    if (Pos('jig', T) = 1) and (T[Length(T)] = '''') then
+    begin
+      { inside the quotes of a jig line: the jigs in the folder, each with
+        its "with" ready for the values }
+      OfferJigs(Pfx);
+    end
+    else if T = '' then
     begin
       { the start of a line: a thing, or a property of the block }
       if Block = 'face' then Props(FACE_PROPS)
