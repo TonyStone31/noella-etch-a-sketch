@@ -15,8 +15,9 @@ not ask for, and four hundred pages of reference before the first box.
 
 Heckers Sketch does not have an API.  **It has a file you can read.**
 
-A drawing is written in **Heck**, a plain-text language that a person can
-read out loud:
+A drawing is written in **Heck**, a description language: it says what
+the drawing *is*, not how to make it - plain text a person can read out
+loud, with sums in it but no program:
 
 ```
 points

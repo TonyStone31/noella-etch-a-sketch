@@ -1,9 +1,15 @@
 # What the Heck - the drawing file, version 2
 
-**Heck** is the language a Heckers Sketch drawing is written in: plain
-text that draws, which the drawing also writes.  A markup, the way HTML is
-- except that what it renders is a model and not a page.  `.hsk` files are
-Heck.  This page is its grammar.
+**Heck** is a *description language* for drawings: it says what a
+drawing is, never how to make it.  Plain text - a file format you can
+read - with sums in it but no program: nothing loops, nothing runs, and
+the program works out the rest (the faces from the lines, a box from its
+corner and size).  Not a programming language, as OpenSCAD's is; not a
+scripting language, which would need an API to act on; not an instruction
+stream, as G-code is.  Its kin are CSS, a spreadsheet, and Pascal's own
+`.lfm`.  The programming goes in a jig, in any language, and a jig
+prints Heck.  The drawing writes it, and reads it back.  This page is its
+grammar.
 
 Proposed 20 September 2026; this is the fourth go at it, each one after
 the last had been looked at on real drawings.  **Not built.**  The program reads and writes
