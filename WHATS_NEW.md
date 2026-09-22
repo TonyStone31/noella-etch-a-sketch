@@ -20,6 +20,15 @@
   A piece with a taller neighbor's wall on its edge is now lifted out on
   its own, and pushed down it cuts a pocket; a push past the bottom of the
   block goes through it.
+- **With the source window open, the pointer shows the line.**  Rest on a
+  face or an edge with the select tool and the chip beside the pointer
+  names the line of Heck it is, and shows it.  Only while the source
+  window is open: the text behind a drawing is there to be found, not to
+  be met with.
+- **Right-click in the source window puts the caret where you clicked
+  first**, so Go to Definition and Center in View act on the word and the
+  line under the pointer.  The caret's line is shaded, the text sits a
+  little off the gutter, and a jump lands on the word.
 - **Right-click in the source window.**  **Center in View** picks the thing
   on that line - or everything in the block, on a `solid` or `group` line -
   and brings it to the middle of the sheet, sized, gliding there.  **Go to

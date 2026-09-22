@@ -12192,8 +12192,8 @@ var
   Hi: TPointFArray;
   RectPrev: TP3Array;
   RectI: Integer;
-  S1, S2, S3: string;
-  W1, W2, W3, BoxW, BoxH, LnH: Integer;
+  S1, S2, S3, S4, HTx: string;
+  W1, W2, W3, W4, BoxW, BoxH, LnH, HL, HLn: Integer;
   StrainPts: TPointFArray;
   GrpBoxes: TIntArrayW;
   GI, GrpId: Integer;
@@ -12791,6 +12791,21 @@ begin
     beside the pointer is where somebody is looking, so it is where the
     modifiers belong as well as along the bottom }
   S3 := ShortKeys;
+  { With the source window open, the thing under the pointer says which
+    line of the text it is, and shows it - the drawing and its words as
+    one thing.  Only then: the text behind a drawing is a thing to find
+    later, not a thing to be met with. }
+  S4 := '';
+  if (SourceForm <> nil) and SourceForm.Visible and (FTool = ptSelect) then
+  begin
+    HL := FHoverEnt;
+    if (HL < 0) and (FHoverFace >= 0) then HL := FHoverFace;
+    if (HL >= 0) and SourceForm.LineOfThing(HL, HLn, HTx) then
+    begin
+      if Length(HTx) > 60 then HTx := Copy(HTx, 1, 57) + '...';
+      S4 := Format('line %d:  %s', [HLn, HTx]);
+    end;
+  end;
   UIFont(C, 9, True, Theme.Text);
   LnH := C.TextHeight('Xg');
   W1 := C.TextWidth(S1);
@@ -12802,9 +12817,19 @@ begin
     UIFont(C, 8, False, Theme.TextDim);
     W3 := C.TextWidth(S3);
   end;
-  BoxW := Max(W1, Max(W2, W3)) + Round(18 * FUIScale);
+  W4 := 0;
+  if S4 <> '' then
+  begin
+    C.Font.Name := 'Courier New';
+    C.Font.Pitch := fpFixed;
+    UIFont(C, 8, False, Theme.Accent);
+    C.Font.Name := 'Courier New';
+    W4 := C.TextWidth(S4);
+  end;
+  BoxW := Max(Max(W1, W4), Max(W2, W3)) + Round(18 * FUIScale);
   BoxH := 2 * LnH + Round(14 * FUIScale);
   if S3 <> '' then Inc(BoxH, LnH);
+  if S4 <> '' then Inc(BoxH, LnH);
 
   R := TipSpot(SX, SY, BoxW, BoxH);
 
@@ -12824,6 +12849,16 @@ begin
     UIFont(C, 8, False, Theme.TextDim);
     C.TextOut(R.Left + Round(9 * FUIScale),
       R.Top + Round(5 * FUIScale) + 2 * LnH, S3);
+  end;
+  if S4 <> '' then
+  begin
+    UIFont(C, 8, False, Theme.Accent);
+    C.Font.Name := 'Courier New';
+    C.Font.Pitch := fpFixed;
+    HLn := 2;
+    if S3 <> '' then HLn := 3;
+    C.TextOut(R.Left + Round(9 * FUIScale),
+      R.Top + Round(5 * FUIScale) + HLn * LnH, S4);
   end;
 end;
 

@@ -127,6 +127,8 @@ type
     procedure FindNext(Back: Boolean);
     procedure OpenJigOn(const Line: string);
     procedure JumpTo(Row: Integer);
+    procedure EditorMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
     procedure LoadText;
     procedure ShowRows;
     procedure ShowPicked(Scroll: Boolean);
@@ -144,6 +146,9 @@ type
     { the program's theme: the page dark or light to match, and the
       picked-line wash and the axis colors with it }
     procedure UseDark(Dark: Boolean; Back, Fore: TColor);
+    { the line of the sheet's text that is thing I - its number, counted
+      from 1, and the line itself; False when the text is not current }
+    function LineOfThing(I: Integer; out LineNo: Integer; out Line: string): Boolean;
     { the buttons, for a command or a test to press }
     procedure LoadSample;
     procedure ApplyNow;
@@ -205,6 +210,7 @@ begin
   Editor.OnClickLink := @EditorClickLink;
   Editor.OnMouseMove := @EditorMouseMove;
   Editor.PopupMenu := pmEditor;
+  Editor.OnMouseDown := @EditorMouseDown;
   { a little room between the fold marks and the first letter, so the caret
     on column one is not lost against the gutter }
   Editor.Gutter.RightOffset := 6;
@@ -792,6 +798,39 @@ end;
   and sized, gliding, so the text and the drawing are looking at the same
   thing.  Asked for 21 September: "a right click in the block could be the
   go to and fit". }
+{ The right button puts the caret where it went down, before the menu is
+  up - so Go to Definition and Center in View act on the word and the line
+  under the pointer, and not on wherever the caret happened to be.  What
+  Lazarus does, and what makes a right-click menu feel aimed. }
+procedure TSourceForm.EditorMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if Button <> mbRight then Exit;
+  FBusy := True;
+  try
+    Editor.CaretXY := Editor.PixelsToLogicalPos(Point(X, Y));
+    if Editor.SelAvail then
+    begin
+      Editor.BlockBegin := Editor.CaretXY;
+      Editor.BlockEnd := Editor.CaretXY;
+    end;
+  finally
+    FBusy := False;
+  end;
+end;
+
+function TSourceForm.LineOfThing(I: Integer; out LineNo: Integer; out Line: string): Boolean;
+begin
+  Result := False;
+  LineNo := 0;
+  Line := '';
+  if FEdited or (I < 0) or (I > High(FFirst)) then Exit;
+  if (FFirst[I] < 0) or (FFirst[I] >= FAll.Count) then Exit;
+  LineNo := FFirst[I] + 1;
+  Line := Trim(FAll[FFirst[I]]);
+  Result := True;
+end;
+
 procedure TSourceForm.miCenterClick(Sender: TObject);
 var
   A, B, Depth, R: Integer;
