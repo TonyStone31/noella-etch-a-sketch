@@ -26,6 +26,8 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **A drawn rectangle is `rect = corner; size`** in `/source` - the one' + LineEnding +
+    '  fold that was read but not yet written.' + LineEnding +
     '- **`/source complete off`** - the list of words the source window offers' + LineEnding +
     '  as you type stays away, and comes only on Ctrl+Space; `/source complete' + LineEnding +
     '  on` brings it back.  Remembered.' + LineEnding +

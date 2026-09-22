@@ -399,9 +399,10 @@ without `=` opens a block, and `end` closes it.
   writer folds a solid back to `box` only while it is exactly that: square
   to the axes, no hole, nothing pushed, one paint over the whole or none.
   Nudge a corner and the word goes and the faces are written.  A `rect` is
-  four lines; its face is worked out as always, and it is written back as
-  lines until the writer learns the fold.  The two parts of its size say
-  the plane: `east, north` is flat; `east, up` faces south.
+  four lines, and its face is worked out as always; the writer folds four
+  loose lines square to the axes that close, with the plain face they
+  imply, back to `rect`.  The two parts of its size say the plane: `east,
+  north` is flat; `east, up` faces south.
 
 ## What may be left out
 

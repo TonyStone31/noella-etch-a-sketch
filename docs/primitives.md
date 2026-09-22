@@ -2,7 +2,7 @@
 
 The set, drawn up to be argued with before it went into the reader or the
 writer.  **Built so far:** `box`, both forms, read and folded; `rect`,
-both forms, read (the writer does not fold to it yet); the one-line
+both forms, read and folded; the one-line
 `circle`; the box under a circle, (b) below - the cube with a circle on
 it is two lines; and **`pull`**, which was not on this page and turned
 out to be the one that matters: a flat outline gone some way, which is
@@ -258,7 +258,7 @@ drawing.
 1. ~~`box`, both forms, reader and writer, with the fold test and its test
    in geomtest: a box goes out as `box`, a nudged one goes out as lines,
    both come back exactly.~~  Done, 21 September 2026.
-2. ~~`rect`~~ - read, both forms.  The writer's fold is still to do.
+2. ~~`rect`~~ - read and folded, 22 September 2026.
 3. ~~The one-line `circle`, and the writer folding a box under a circle
    (b above).~~  Done, 22 September 2026.  The reader cuts a circle into
    the face it lies on, so the fold needs no `hole` said.

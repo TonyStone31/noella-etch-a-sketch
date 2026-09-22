@@ -73,8 +73,8 @@ const
 implementation
 
 const
-  KEYWORDS = ' heckerssketch sheet group solid points ring const face hole line arc circle ' +
-    'bore dim note guide jig begin end to true false none ';
+  KEYWORDS = ' heckerssketch sheet group solid points ring const face noface hole line arc circle ' +
+    'box rect pull bore dim note guide jig begin end to true false none ';
   NAMES: array[THskToken] of string = ('Space', 'Note', 'Keyword', 'Property',
     'Name', 'Text', 'Symbol', 'East-west', 'North-south', 'Up-down', 'Number', 'Color');
 

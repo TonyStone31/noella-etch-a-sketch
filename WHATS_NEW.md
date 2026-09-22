@@ -23,6 +23,8 @@
 
 ### New
 
+- **A drawn rectangle is `rect = corner; size`** in `/source` - the one
+  fold that was read but not yet written.
 - **`/source complete off`** - the list of words the source window offers
   as you type stays away, and comes only on Ctrl+Space; `/source complete
   on` brings it back.  Remembered.

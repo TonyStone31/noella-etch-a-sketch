@@ -8756,6 +8756,26 @@ begin
     Ok(Pos('box = 0 east, 0 north, 0 up; 4'' east, 4'' north, 3'' up', M.Text) > 0,
       'and written back, it is a box - the shorter word wins');
 
+    { a rectangle drawn on the sheet is a rect - the RECT tool's own word }
+    D.Clear;
+    MakeRect(D, 1, 1, 5, 4);
+    L.Clear;
+    WriteFormat2(D, 'L', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('  rect = 1'' east, 1'' north, 0 up; 4'' east, 3'' north') >= 0,
+      'a drawn rectangle is one line: rect = corner; size');
+    Ok(Pos('line', L.Text) = 0, 'and none of its lines are said');
+    Ok((First[0] >= 0) and (Copy(Trim(L[First[0]]), 1, 4) = 'rect'), 'a line of it, picked, lights the rect');
+    D.SetMaterial(4, $3CB0FF);
+    L.Clear;
+    WriteFormat2(D, 'L', usImperial, L, First, Last, LineThing);
+    Ok((L.IndexOf('  rect') >= 0) and (L.IndexOf('    paint = orange') >= 0), 'painted, it is a rect block with a paint');
+    E.Clear;
+    Ok(ReadHeck(L, E, usImperial, ErrLine, Err), 'which reads back: ' + Err);
+    EqI(E.Live, 5, 'to four lines and the painted face');
+    M.Clear;
+    WriteFormat2(E, 'L', usImperial, M, First, Last, LineThing);
+    Ok(L.Text = M.Text, 'and writes the same again');
+
     { a typed loop is a face: four lines make one }
     M.Text := 'line = 0 east, 0 north, 0 up to 3'' east, 0 north, 0 up' + LineEnding +
               'line = 3'' east, 0 north, 0 up to 3'' east, 2'' north, 0 up' + LineEnding +

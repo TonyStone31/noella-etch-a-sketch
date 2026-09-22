@@ -1121,6 +1121,117 @@ var
     end;
   end;
 
+  { A rectangle drawn on the sheet: four loose lines square to the axes
+    that close, and the plain face they imply - what the RECT tool makes.
+    Written "rect = corner; size", or a block with a paint.  Lines that
+    are not plain, a face turned the other way or with a hole, or no face
+    at all, and it is written as its lines. }
+  { are A and B neighboring corners of face F, either way round? }
+  function EdgeOf(F: Integer; const A, B: TP3): Boolean;
+  var
+    K, N: Integer;
+  begin
+    Result := False;
+    N := Length(D[F].Poly);
+    for K := 0 to N - 1 do
+      if (SameP(D[F].Poly[K], A) and SameP(D[F].Poly[(K + 1) mod N], B)) or
+         (SameP(D[F].Poly[K], B) and SameP(D[F].Poly[(K + 1) mod N], A)) then Exit(True);
+  end;
+
+  function IsRect(Part_, I: Integer; out Lines: TIntArrayW; out Face: Integer;
+    out Lo, Size: TP3; out HasPaint: Boolean; out Paint: TColor): Boolean;
+  var
+    K, J, F: Integer;
+    Pts: array[0..3] of TP3;
+    Hi: TP3;
+    Loop: TP3Array;
+
+    function Plain(L: Integer): Boolean;
+    begin
+      Result := (D[L].Kind = ekLine) and (D[L].Part = Part_) and (D[L].Grp = 0) and
+        (not D[L].Soft) and (not D[L].Dim) and (D[L].Ink = DefInk) and
+        (Abs(D[L].Weight - DefWidth) <= 1E-3) and (AxesUsed(Sub3(D[L].B, D[L].A)) = 1);
+    end;
+
+    { the walk round, trying every plain line that leaves the corner and
+      turns - three lines can meet at a corner, and the first that turns
+      need not be the rectangle's }
+    function Walk(K: Integer; const Cur: TP3): Boolean;
+    var
+      J: Integer;
+      Nxt: TP3;
+    begin
+      Result := False;
+      if K = 4 then Exit(SameP(Cur, Pts[0]));
+      Pts[K] := Cur;
+      for J := 0 to D.Live - 1 do
+      begin
+        if (J = Lines[0]) or not Plain(J) then Continue;
+        if (K > 1) and ((J = Lines[1]) or ((K > 2) and (J = Lines[2]))) then Continue;
+        if SameP(D[J].A, Cur) then Nxt := D[J].B
+        else if SameP(D[J].B, Cur) then Nxt := D[J].A
+        else Continue;
+        if SameP(Nxt, Pts[K - 1]) then Continue;            { back the way we came }
+        { a corner: the next edge runs along a different axis }
+        if (Abs(Nxt.X - Cur.X) > 1E-9) = (Abs(Pts[K - 1].X - Cur.X) > 1E-9) then
+          if (Abs(Nxt.Y - Cur.Y) > 1E-9) = (Abs(Pts[K - 1].Y - Cur.Y) > 1E-9) then Continue;
+        Lines[K] := J;
+        if Walk(K + 1, Nxt) then Exit(True);
+      end;
+    end;
+
+  begin
+    Result := False;
+    Face := -1;
+    HasPaint := False;
+    Paint := 0;
+    SetLength(Lines, 0);
+    if not Plain(I) then Exit;
+    SetLength(Lines, 4);
+    Lines[0] := I;
+    Pts[0] := D[I].A;
+    if not Walk(1, D[I].B) then Exit;
+    for K := 0 to 3 do
+      for J := K + 1 to 3 do
+        if (Lines[K] = Lines[J]) or SameP(Pts[K], Pts[J]) then Exit;
+    { in one plane, square to it: two axes used across the four corners }
+    Lo := Pts[0]; Hi := Pts[0];
+    for K := 1 to 3 do
+    begin
+      Lo := P3(Min(Lo.X, Pts[K].X), Min(Lo.Y, Pts[K].Y), Min(Lo.Z, Pts[K].Z));
+      Hi := P3(Max(Hi.X, Pts[K].X), Max(Hi.Y, Pts[K].Y), Max(Hi.Z, Pts[K].Z));
+    end;
+    Size := Sub3(Hi, Lo);
+    if AxesUsed(Size) <> 2 then Exit;
+    { the face: the plain one these four corners imply, or a painted one }
+    SetLength(Loop, 4);
+    for K := 0 to 3 do Loop[K] := Pts[K];
+    for F := 0 to D.Live - 1 do
+      if (D[F].Kind = ekFace) and (D[F].Part = Part_) and (D[F].Grp = 0) and
+         (Length(D[F].Holes) = 0) and (D[F].Ink = DefInk) and SameLoop(D[F].Poly, Loop) then
+      begin
+        Face := F;
+        Break;
+      end;
+    if Face < 0 then Exit;
+    { its own four lines: an edge shared with another face - the next
+      step of a stair, the next pane of a window - is one line here and
+      would be two once each rect made its own }
+    for K := 0 to 3 do
+      for F := 0 to D.Live - 1 do
+        if (D[F].Kind = ekFace) and (F <> Face) and EdgeOf(F, D[Lines[K]].A, D[Lines[K]].B) then Exit;
+    if D[Face].MatSet then
+    begin
+      HasPaint := True;
+      Paint := D[Face].Mat;
+      { turned the way the reader turns one it paints: OrientFace's way }
+      if Dot3(D.FaceNormal(Face), P3(Ord(Abs(Size.X) < 1E-9), Ord((Abs(Size.X) >= 1E-9) and (Abs(Size.Y) < 1E-9)),
+           Ord((Abs(Size.X) >= 1E-9) and (Abs(Size.Y) >= 1E-9)))) <= 0 then Exit;
+    end
+    else if not FaceImplied(Face, False, 0) then Exit;
+    Result := True;
+  end;
+
   { A disk in a box's face: a face of the solid whose outline is a circle
     by name.  Written after the box as "face = c1"; the hole it sits in is
     the circle's doing, and the reader cuts it again from the circle. }
@@ -1592,17 +1703,32 @@ var
     inside it }
   procedure PutLevel(Depth, Part_: Integer);
   var
-    I, J, G, LinesFrom, PBottom: Integer;
+    I, J, G, LinesFrom, PBottom, RFace, Header: Integer;
     Done: array of Integer;
     Seen, BPaintOn, PRound: Boolean;
     None: TPts;
-    BLo, BHi, PBy: TP3;
+    BLo, BHi, PBy, RLo, RSize: TP3;
     BPaint: TColor;
-    Implied: array of Boolean;
+    Implied, RectDone, RectAt: array of Boolean;
+    RLines: TIntArrayW;
   begin
     SetLength(None, 0);
     SetLength(Done, 0);
     SetLength(Implied, D.Live);
+    SetLength(RectDone, D.Live);
+    for I := 0 to D.Live - 1 do RectDone[I] := False;
+    { the rectangles first, so that a face met before its lines is known
+      to be one's; each is written where its first line falls }
+    SetLength(RectAt, D.Live);
+    for I := 0 to D.Live - 1 do RectAt[I] := False;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (D[I].Part = Part_) and (D[I].Grp = 0) and not RectDone[I] and
+         IsRect(Part_, I, RLines, RFace, RLo, RSize, BPaintOn, BPaint) then
+      begin
+        for J := 0 to 3 do RectDone[RLines[J]] := True;
+        RectDone[RFace] := True;
+        RectAt[I] := True;
+      end;
     LinesFrom := -1;
     { the circles first: faces and holes further down say them by name.
       A solid's own circle - the bottom of a pulled disk - is written with
@@ -1631,6 +1757,7 @@ var
           PutSolid(Depth, Part_, G);
         Continue;
       end;
+      if RectDone[I] and not RectAt[I] then Continue;
       case D[I].Kind of
         ekFace:
           begin
@@ -1638,6 +1765,30 @@ var
             if not Implied[I] then PutFace(Depth, I, None);
           end;
         ekLine:
+          if RectAt[I] and IsRect(Part_, I, RLines, RFace, RLo, RSize, BPaintOn, BPaint) then
+          begin
+            Header := NLine;
+            if BPaintOn then
+            begin
+              Put(Depth, 'rect', -1);
+              Put(Depth + 1, 'at   = ' + Place2(RLo, U, False), -1);
+              Put(Depth + 1, 'size = ' + Place2(RSize, U, True), -1);
+              Put(Depth + 1, 'paint = ' + Color2(BPaint), -1);
+              Put(Depth, 'end', -1);
+            end
+            else
+              Put(Depth, 'rect = ' + Place2(RLo, U, False) + '; ' + Place2(RSize, U, True), -1);
+            for J := 0 to 3 do
+            begin
+              RectDone[RLines[J]] := True;
+              First[RLines[J]] := Header;
+              Last[RLines[J]] := NLine - 1;
+            end;
+            RectDone[RFace] := True;
+            First[RFace] := Header;
+            Last[RFace] := NLine - 1;
+          end
+          else
           begin
             if LinesFrom < 0 then LinesFrom := NLine;
             PutLine(Depth, I, None);
