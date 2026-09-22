@@ -883,6 +883,7 @@ type
       a question nobody has yet. }
     FCubeOn: Boolean;
     FSourceWasOpen: Boolean;      { the source window was open when the program was last shut }
+    FSourceOnTop: Boolean;
     FSourceBounds: TRect;         { Left, Top, and Width and Height in Right and Bottom }
     { which corner of the drawing it sits in: 0 top left, 1 top right,
       2 bottom left, 3 bottom right }
@@ -18024,6 +18025,14 @@ begin
         SourceForm.Left := Left + Width - SourceForm.Width;
     end;
   end;
+  { the page in the program's own theme: dark on a dark theme, light on a
+    light one, and the picked-line wash to suit }
+  with Themes[FThemeIdx] do
+    if DarkScreen then
+      SourceForm.UseDark(True, PixToColor(Screen1), PixToColor(Text))
+    else
+      SourceForm.UseDark(False, clWhite, clBlack);
+  SourceForm.chkOnTop.Checked := FSourceOnTop;
   SourceForm.Show;
   SourceForm.Refresh_;
 end;
@@ -25136,6 +25145,7 @@ begin
       FCubeOn := Ini.ReadBool('look', 'cube', False);
       CameraLamp := Ini.ReadBool('look', 'cameralamp', True);
       FSourceWasOpen := Ini.ReadBool('source', 'open', False);
+      FSourceOnTop := Ini.ReadBool('source', 'ontop', False);
       FSourceBounds := Rect(Ini.ReadInteger('source', 'left', 0), Ini.ReadInteger('source', 'top', 0),
         Ini.ReadInteger('source', 'width', 0), Ini.ReadInteger('source', 'height', 0));
       FInfoOn := Ini.ReadBool('look', 'info', False);
@@ -25246,6 +25256,7 @@ begin
       if SourceForm <> nil then
       begin
         Ini.WriteBool('source', 'open', SourceForm.Visible);
+        Ini.WriteBool('source', 'ontop', SourceForm.chkOnTop.Checked);
         if SourceForm.WindowState = wsNormal then
         begin
           Ini.WriteInteger('source', 'left', SourceForm.Left);

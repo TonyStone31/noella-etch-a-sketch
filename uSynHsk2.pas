@@ -59,6 +59,9 @@ type
     function GetTokenKind: integer; override;
     function GetTokenPos: Integer; override;
     procedure Next; override;
+    { the colors, for a light page or a dark one: the axes' own red, green
+      and blue either way, lifted or deepened so they read on the ground }
+    procedure UseDark(Dark: Boolean);
   end;
 
 const
@@ -85,20 +88,42 @@ begin
     FAttr[T] := TLazEditHighlighterAttributes.Create(NAMES[T], NAMES[T]);
     AddAttribute(FAttr[T]);
   end;
-  FAttr[htComment].Foreground := TColor($909090);
   FAttr[htComment].Style := [fsItalic];
   FAttr[htKey].Style := [fsBold];
-  FAttr[htKey].Foreground := TColor($402010);
-  FAttr[htProp].Foreground := TColor($705030);
-  FAttr[htName].Foreground := TColor($202020);
-  FAttr[htText].Foreground := TColor($1060A0);
-  FAttr[htSymbol].Foreground := TColor($808080);
-  FAttr[htEast].Foreground := HSK_RED;
-  FAttr[htNorth].Foreground := HSK_GREEN;
-  FAttr[htUp].Foreground := HSK_BLUE;
-  FAttr[htNumber].Foreground := TColor($202020);
-  FAttr[htColor].Foreground := TColor($8000A0);
+  UseDark(False);
   SetAttributesOnChange(@DefHighlightChange);
+end;
+
+procedure TSynHsk2Syn.UseDark(Dark: Boolean);
+begin
+  if Dark then
+  begin
+    FAttr[htComment].Foreground := TColor($8A8A8A);
+    FAttr[htKey].Foreground := TColor($F0E0C0);
+    FAttr[htProp].Foreground := TColor($C0B0A0);
+    FAttr[htName].Foreground := TColor($E8E8E8);
+    FAttr[htText].Foreground := TColor($F0C070);
+    FAttr[htSymbol].Foreground := TColor($909090);
+    FAttr[htEast].Foreground := TColor($6070FF);
+    FAttr[htNorth].Foreground := TColor($60D060);
+    FAttr[htUp].Foreground := TColor($FFA050);
+    FAttr[htNumber].Foreground := TColor($E8E8E8);
+    FAttr[htColor].Foreground := TColor($E080E0);
+  end
+  else
+  begin
+    FAttr[htComment].Foreground := TColor($909090);
+    FAttr[htKey].Foreground := TColor($402010);
+    FAttr[htProp].Foreground := TColor($705030);
+    FAttr[htName].Foreground := TColor($202020);
+    FAttr[htText].Foreground := TColor($1060A0);
+    FAttr[htSymbol].Foreground := TColor($808080);
+    FAttr[htEast].Foreground := HSK_RED;
+    FAttr[htNorth].Foreground := HSK_GREEN;
+    FAttr[htUp].Foreground := HSK_BLUE;
+    FAttr[htNumber].Foreground := TColor($202020);
+    FAttr[htColor].Foreground := TColor($8000A0);
+  end;
 end;
 
 class function TSynHsk2Syn.GetLanguageName: string;

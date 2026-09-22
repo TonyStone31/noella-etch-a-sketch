@@ -48,6 +48,7 @@ type
 
   TSourceForm = class(TForm)
     chkOnlyPicked: TCheckBox;
+    chkOnTop: TCheckBox;
     chkVersion2: TCheckBox;
     btnFold: TButton;
     btnApply: TButton;
@@ -64,6 +65,7 @@ type
     tmrFollow: TTimer;
     procedure chkOnlyPickedChange(Sender: TObject);
     procedure chkVersion2Change(Sender: TObject);
+    procedure chkOnTopChange(Sender: TObject);
     procedure btnFoldClick(Sender: TObject);
     procedure btnApplyClick(Sender: TObject);
     procedure btnRevertClick(Sender: TObject);
@@ -93,6 +95,8 @@ type
     FWhat: string;
     FEdited: Boolean;           { the text is the person's now, not the drawing's }
     FErrRow: Integer;
+    FDark: Boolean;
+    FPickBG, FPickFG: TColor;
     FFirst, FLast: TIntArrayW;  { thing -> its lines in FAll }
     FLineThing: TIntArrayW;     { line in FAll -> thing, or -1 }
     FRowLine: TIntArrayW;       { row shown in the editor -> line in FAll }
@@ -125,6 +129,9 @@ type
     OnRunJigs: TSourceRunJigs;
     { look again now, rather than at the next tick }
     procedure Refresh_;
+    { the program's theme: the page dark or light to match, and the
+      picked-line wash and the axis colors with it }
+    procedure UseDark(Dark: Boolean; Back, Fore: TColor);
     { the buttons, for a command or a test to press }
     procedure LoadSample;
     procedure ApplyNow;
@@ -149,6 +156,8 @@ begin
   FHaveState := False;
   FCaretRow := -1;
   FErrRow := -1;
+  FPickBG := PICKED_BG;
+  FPickFG := PICKED_FG;
   Editor.OnChange := @EditorChange;
   FColors := TSynHsk2Syn.Create(Self);
 
@@ -398,8 +407,8 @@ begin
   if (FRowLine[R] <= High(FLinePicked)) and FLinePicked[FRowLine[R]] then
   begin
     Special := True;
-    BG := PICKED_BG;
-    FG := PICKED_FG;
+    BG := FPickBG;
+    FG := FPickFG;
   end;
 end;
 
@@ -481,7 +490,7 @@ begin
        (Pos('=', T) > 0) and (Trim(Copy(T, Length(Name_) + 1, Pos('=', T) - Length(Name_) - 1)) = '') then
       Exit(R);
     if T = 'circle ' + LowerCase(Name_) then Exit(R);
-    { ra5 is a corner of "ring ra" }
+    { ra5 is a corner of "ring ra" - but floor1 and top1 are their own }
     if (Stem <> '') and (T = 'ring ' + Stem) then Exit(R);
   end;
   { a circle may be written further down than the face that names it }
@@ -762,6 +771,41 @@ end;
 procedure TSourceForm.chkVersion2Change(Sender: TObject);
 begin
   Refresh_;
+end;
+
+procedure TSourceForm.chkOnTopChange(Sender: TObject);
+begin
+  if chkOnTop.Checked then FormStyle := fsSystemStayOnTop
+  else FormStyle := fsNormal;
+end;
+
+procedure TSourceForm.UseDark(Dark: Boolean; Back, Fore: TColor);
+begin
+  FDark := Dark;
+  FColors.UseDark(Dark);
+  Editor.Color := Back;
+  Editor.Font.Color := Fore;
+  Editor.Gutter.Color := Back;
+  if Dark then
+  begin
+    Editor.Gutter.Parts[0].MarkupInfo.Foreground := TColor($909090);
+    FPickBG := TColor($604020);
+    FPickFG := TColor($FFF0E0);
+    Editor.SelectedColor.Background := TColor($806040);
+    Editor.SelectedColor.Foreground := clWhite;
+  end
+  else
+  begin
+    Editor.Gutter.Parts[0].MarkupInfo.Foreground := clNone;
+    FPickBG := PICKED_BG;
+    FPickFG := PICKED_FG;
+    Editor.SelectedColor.Background := clHighlight;
+    Editor.SelectedColor.Foreground := clHighlightText;
+  end;
+  Color := Back;
+  pnlTop.Color := Back;
+  Font.Color := Fore;
+  Editor.Invalidate;
 end;
 
 end.

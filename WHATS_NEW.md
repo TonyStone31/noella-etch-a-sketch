@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Corners named by where they stand.**  In `/source` a box's corners are
+  `floor1` to `floor4` and `top1` to `top4`, so `line = floor1 to top1` is
+  an upright and `face = floor1 floor2 top2 top1` is a wall, and the text
+  reads without the picture.  A hole cut in the top is `topin1`...
+- **The source window is a tool window that can stay on top.**  Smaller,
+  out of the taskbar, with an **On top** tick that is remembered - and it
+  takes the program's theme: dark text colors on a dark theme, light on a
+  light one, with the axes' red, green and blue either way.
+
 ## v2026.09.21.4
 
 ### New

@@ -213,8 +213,21 @@ one axis when it can.  It is not a link that is kept.  Change the `3"` and
 program writes the points out again its own way, the geometry exactly as
 it was left.
 
-The program names points `a` to `w` in a small block and `p1`, `p2`... in a
-bigger one, and circles `c1`, `c2`...  Any name is read.
+The program names a solid's corners **by where they stand**: the lowest
+are `floor1`, `floor2`... round from the one nearest the origin, the
+highest are `top1`, `top2`..., anything between is `mid`, and a corner that
+belongs only to a hole cut in that level is `topin1`... So a box is
+
+```
+line = floor1 to floor2        // along the floor
+line = floor1 to top1          // an upright
+face = floor1 floor2 top2 top1 // the south wall
+```
+
+and reads without a picture.  A solid whose corners stand at more than
+three heights - something turned over, a revolve - falls back on `a`, `b`,
+`c` (or `p1`, `p2`... past twenty-three).  Circles are `c1`, `c2`... and a
+ring's corners `ra1`, `ra2`...  Any name is read.
 
 ### Rings
 

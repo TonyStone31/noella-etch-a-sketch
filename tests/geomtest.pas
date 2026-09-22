@@ -8363,7 +8363,8 @@ begin
     EqI(NFace, 6, 'six faces, a line each');
     EqI(NLine_, 12, 'twelve edges, a line each, two names and a "to"');
     EqI(NPoint, 8, 'eight corners, named once');
-    Ok(L.IndexOf('      b = a + 4'' east') >= 0, 'a corner is a step from another');
+    Ok(L.IndexOf('      floor2 = floor1 + 4'' east') >= 0, 'a corner is a step from another, and named by where it stands');
+    Ok(L.IndexOf('    line = floor1 to top1') >= 0, 'so an upright reads as one');
     Ok(Pos('0 east, 0 north, ', L.Text) > 0, 'a place says all three, the height as well');
     Ok((First[4] >= 0) and (First[4] = Last[4]), 'a plain face is one line of the text');
 

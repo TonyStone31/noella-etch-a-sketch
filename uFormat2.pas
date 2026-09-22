@@ -65,6 +65,7 @@ type
     P: TP3;
     Name: string;
     Ring: Integer;       { which ring it is a corner of, or -1 }
+    InHole: Boolean;     { a corner of a hole, and of no outline }
   end;
   TPts = array of TPt;
 
@@ -343,6 +344,8 @@ var
     SetLength(Pts, Length(Pts) + 1);
     Pts[High(Pts)].P := P;
     Pts[High(Pts)].Ring := -1;
+    Pts[High(Pts)].Name := '';
+    Pts[High(Pts)].InHole := True;
   end;
 
   function Ref(const Pts: TPts; const P: TP3): string;
@@ -522,6 +525,148 @@ var
     end;
   end;
 
+  function NameKey(const Nm: string): string;
+  var
+    P: Integer;
+    Stem: string;
+  begin
+    P := Length(Nm);
+    while (P > 0) and (Nm[P] in ['0'..'9']) do Dec(P);
+    Stem := Copy(Nm, 1, P);
+    { floor before mid before top before anything else, then the number }
+    if Stem = 'floor' then Result := '1'
+    else if Stem = 'floorin' then Result := '2'
+    else if Stem = 'mid' then Result := '3'
+    else if Stem = 'midin' then Result := '4'
+    else if Stem = 'top' then Result := '5'
+    else if Stem = 'topin' then Result := '6'
+    else Result := '7' + Stem;
+    Result := Result + Format('%.4d', [StrToIntDef(Copy(Nm, P + 1, 9), 0)]);
+  end;
+
+  procedure SortByName(var Pts: TPts);
+  var
+    I, J: Integer;
+    T: TPt;
+  begin
+    for I := 1 to High(Pts) do
+    begin
+      T := Pts[I];
+      J := I - 1;
+      while (J >= 0) and (NameKey(Pts[J].Name) > NameKey(T.Name)) do
+      begin
+        Pts[J + 1] := Pts[J];
+        Dec(J);
+      end;
+      Pts[J + 1] := T;
+    end;
+  end;
+
+  { floor1..N, top1..N, mid1..N - or nothing, when the corners do not fall
+    into a few levels }
+  procedure NameByPlace(var Pts: TPts);
+  var
+    I, J, N, NLevels, Best, Pass: Integer;
+    Z: array of Double;
+    Level: array of Integer;
+    Count: array of Integer;
+    Order: array of Integer;
+    Ang, BestAng, BestAng2, CX, CY: Double;
+    W: string;
+
+  begin
+    N := 0;
+    for I := 0 to High(Pts) do
+      if Pts[I].Ring < 0 then Inc(N);
+    if (N < 4) or (N > 24) then Exit;
+    { the distinct heights }
+    SetLength(Z, 0);
+    SetLength(Level, Length(Pts));
+    for I := 0 to High(Pts) do
+    begin
+      Level[I] := -1;
+      if Pts[I].Ring >= 0 then Continue;
+      for J := 0 to High(Z) do
+        if Abs(Z[J] - Pts[I].P.Z) < 1E-6 then begin Level[I] := J; Break; end;
+      if Level[I] < 0 then
+      begin
+        SetLength(Z, Length(Z) + 1);
+        Z[High(Z)] := Pts[I].P.Z;
+        Level[I] := High(Z);
+      end;
+    end;
+    NLevels := Length(Z);
+    if (NLevels < 1) or (NLevels > 3) then Exit;
+    { one level only is a flat thing: its corners go round from the one
+      nearest the origin, as floor1, floor2... }
+    { the levels sorted low to high: which is floor, mid, top }
+    SetLength(Order, NLevels);
+    for I := 0 to NLevels - 1 do
+    begin
+      Order[I] := 0;
+      for J := 0 to NLevels - 1 do
+        if Z[J] < Z[I] - 1E-6 then Inc(Order[I]);
+    end;
+    { round each level: by angle about the level's middle, starting from
+      the corner nearest the origin }
+    SetLength(Count, NLevels);
+    for I := 0 to NLevels - 1 do Count[I] := 0;
+    for J := 0 to NLevels - 1 do
+    begin
+      CX := 0; CY := 0; N := 0;
+      for I := 0 to High(Pts) do
+        if Level[I] = J then begin CX := CX + Pts[I].P.X; CY := CY + Pts[I].P.Y; Inc(N); end;
+      if N = 0 then Continue;
+      CX := CX / N; CY := CY / N;
+      Best := -1;
+      for I := 0 to High(Pts) do
+        if (Level[I] = J) and ((Best < 0) or
+           (Sqr(Pts[I].P.X) + Sqr(Pts[I].P.Y) < Sqr(Pts[Best].P.X) + Sqr(Pts[Best].P.Y) - 1E-9)) then
+          Best := I;
+      BestAng := ArcTan2(Pts[Best].P.Y - CY, Pts[Best].P.X - CX);
+      { number them anticlockwise from that one }
+      for I := 0 to High(Pts) do
+        if Level[I] = J then
+        begin
+          Ang := ArcTan2(Pts[I].P.Y - CY, Pts[I].P.X - CX) - BestAng;
+          while Ang < -1E-9 do Ang := Ang + 2 * Pi;
+          Count[J] := Count[J] + 1;
+        end;
+      { the names, in that order - the outline's corners first, then any
+        that belong to a hole cut in that level, as "in" corners }
+      for Pass := 0 to 1 do
+      begin
+      N := 0;
+      while N < Count[J] do
+      begin
+        Best := -1;
+        for I := 0 to High(Pts) do
+          if (Level[I] = J) and (Pts[I].Name = '') and (Ord(Pts[I].InHole) = Pass) then
+          begin
+            Ang := ArcTan2(Pts[I].P.Y - CY, Pts[I].P.X - CX) - BestAng;
+            while Ang < -1E-9 do Ang := Ang + 2 * Pi;
+            if (Best < 0) or (Ang < BestAng2) then begin Best := I; BestAng2 := Ang; end;
+          end;
+        if Best < 0 then Break;
+        case NLevels of
+          1: W := 'p';
+          2: if Order[J] = 0 then W := 'floor' else W := 'top';
+        else
+          case Order[J] of
+            0: W := 'floor';
+            1: W := 'mid';
+          else
+            W := 'top';
+          end;
+        end;
+        if Pass = 1 then W := W + 'in';
+        Pts[Best].Name := W + IntToStr(N + 1);
+        Inc(N);
+      end;
+      end;
+    end;
+  end;
+
   procedure PutPoints(Depth: Integer; var Pts: TPts; const Rings: TRings);
   var
     I, J, From, Loose, K: Integer;
@@ -531,16 +676,26 @@ var
     Loose := 0;
     for I := 0 to High(Pts) do
       if Pts[I].Ring < 0 then Inc(Loose);
+    { Corners are named by where they stand, so that a line between two of
+      them reads as what it is.  A corner is "floor" or "top" by its
+      height - the lowest corners are the floor, the highest the top,
+      anything between is "mid" - and then numbered round: floor1, floor2,
+      floor3, floor4, top1... so "line = floor1 to top1" is an upright and
+      "line = top1 to top2" runs along the top.  Which corner is 1 is
+      whichever is nearest the origin, and the rest follow the way the
+      lowest face goes round.  A solid whose corners all stand at different
+      heights - something turned over - falls back on a, b, c. }
+    NameByPlace(Pts);
     K := 0;
     for I := 0 to High(Pts) do
-      if Pts[I].Ring < 0 then
+      if (Pts[I].Ring < 0) and (Pts[I].Name = '') then
       begin
-        { with rings about, the loose corners are p1, p2... so that a
-          letter and a number is always a ring's }
         if Length(Rings) > 0 then Pts[I].Name := 'p' + IntToStr(K + 1)
         else Pts[I].Name := PointName(K, Loose);
         Inc(K);
       end;
+    { in the order the names read: floor1, floor2... then top1... }
+    SortByName(Pts);
     if Names <> nil then
       for I := 0 to High(Pts) do
         Names.Add(IntToStr(NLine) + '|' + LowerCase(Pts[I].Name) + '=' + Place2(Pts[I].P, U, False));
@@ -765,7 +920,11 @@ var
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
       begin
         Inc(N);
-        for K := 0 to High(D[I].Poly) do AddPt(Pts, D[I].Poly[K]);
+        for K := 0 to High(D[I].Poly) do
+        begin
+          AddPt(Pts, D[I].Poly[K]);
+          Pts[FindPt(Pts, D[I].Poly[K])].InHole := False;
+        end;
         for J := 0 to High(D[I].Holes) do
           for K := 0 to High(D[I].Holes[J]) do AddPt(Pts, D[I].Holes[J][K]);
       end;

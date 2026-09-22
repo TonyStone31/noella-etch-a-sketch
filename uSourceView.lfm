@@ -1,90 +1,101 @@
 object SourceForm: TSourceForm
   Left = 300
-  Height = 720
+  Height = 620
   Top = 160
-  Width = 920
+  Width = 720
   Caption = 'Source'
-  ClientHeight = 720
-  ClientWidth = 920
+  ClientHeight = 620
+  ClientWidth = 720
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   Position = poDefaultPosOnly
-  ShowInTaskBar = stAlways
+  ShowInTaskBar = stNever
+  BorderStyle = bsSizeToolWin
   object pnlTop: TPanel
     Left = 0
     Height = 38
     Top = 0
-    Width = 920
+    Width = 720
     Align = alTop
     BevelOuter = bvNone
     ClientHeight = 38
-    ClientWidth = 920
+    ClientWidth = 720
     TabOrder = 0
     object edtFind: TEdit
       Left = 12
       Height = 26
       Top = 6
-      Width = 150
+      Width = 120
       TabOrder = 2
-      TextHint = 'Find  (Ctrl+F, F3)'
+      TextHint = 'Find (Ctrl+F)'
       OnKeyDown = edtFindKeyDown
     end
     object btnFold: TButton
-      Left = 170
+      Left = 138
       Height = 26
       Top = 6
-      Width = 70
-      Caption = 'Fold all'
+      Width = 56
+      Caption = 'Fold'
       TabOrder = 3
       OnClick = btnFoldClick
     end
     object btnUnfold: TButton
-      Left = 244
+      Left = 198
       Height = 26
       Top = 6
-      Width = 80
-      Caption = 'Unfold all'
+      Width = 62
+      Caption = 'Unfold'
       TabOrder = 4
       OnClick = btnUnfoldClick
     end
     object btnSample: TButton
-      Left = 330
+      Left = 266
       Height = 26
       Top = 6
-      Width = 70
+      Width = 66
       Caption = 'Sample'
       TabOrder = 5
       OnClick = btnSampleClick
     end
     object btnJigs: TButton
-      Left = 404
+      Left = 336
       Height = 26
       Top = 6
-      Width = 80
+      Width = 74
       Caption = 'Run jigs'
       TabOrder = 6
       OnClick = btnJigsClick
     end
     object chkVersion2: TCheckBox
-      Left = 500
+      Left = 424
       Height = 24
       Top = 7
-      Width = 200
+      Width = 62
       Anchors = [akTop, akRight]
-      Caption = 'Version 2 (proposed)'
+      Caption = 'Heck'
       Checked = True
       State = cbChecked
       TabOrder = 1
       OnChange = chkVersion2Change
     end
-    object chkOnlyPicked: TCheckBox
-      Left = 720
+    object chkOnTop: TCheckBox
+      Left = 608
       Height = 24
       Top = 7
-      Width = 190
+      Width = 100
       Anchors = [akTop, akRight]
-      Caption = 'Only what is picked'
+      Caption = 'On top'
+      TabOrder = 7
+      OnChange = chkOnTopChange
+    end
+    object chkOnlyPicked: TCheckBox
+      Left = 490
+      Height = 24
+      Top = 7
+      Width = 112
+      Anchors = [akTop, akRight]
+      Caption = 'Only picked'
       TabOrder = 0
       OnChange = chkOnlyPickedChange
     end
@@ -93,7 +104,7 @@ object SourceForm: TSourceForm
     Left = 0
     Height = 660
     Top = 38
-    Width = 920
+    Width = 720
     Align = alClient
     Font.Height = -14
     Font.Name = 'Courier New'
@@ -162,12 +173,12 @@ object SourceForm: TSourceForm
   object pnlApply: TPanel
     Left = 0
     Height = 40
-    Top = 658
-    Width = 920
+    Top = 558
+    Width = 720
     Align = alBottom
     BevelOuter = bvNone
     ClientHeight = 40
-    ClientWidth = 920
+    ClientWidth = 720
     Color = 13434879
     ParentBackground = False
     ParentColor = False
@@ -177,7 +188,7 @@ object SourceForm: TSourceForm
       Left = 12
       Height = 28
       Top = 6
-      Width = 690
+      Width = 490
       Anchors = [akTop, akLeft, akRight]
       AutoSize = False
       Caption = 'Changed.'
@@ -187,7 +198,7 @@ object SourceForm: TSourceForm
       WordWrap = True
     end
     object btnApply: TButton
-      Left = 714
+      Left = 514
       Height = 28
       Top = 6
       Width = 96
@@ -197,7 +208,7 @@ object SourceForm: TSourceForm
       OnClick = btnApplyClick
     end
     object btnRevert: TButton
-      Left = 816
+      Left = 616
       Height = 28
       Top = 6
       Width = 96
@@ -210,8 +221,8 @@ object SourceForm: TSourceForm
   object Status: TStatusBar
     Left = 0
     Height = 22
-    Top = 698
-    Width = 920
+    Top = 598
+    Width = 720
     Panels = <>
     SimplePanel = True
   end
