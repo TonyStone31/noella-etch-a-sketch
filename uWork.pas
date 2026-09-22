@@ -651,7 +651,20 @@ type
       along one of its edges - which is exactly what a cut across a box top
       leaves behind.  Push decides what to do from this: a whole side slides
       and resizes the solid, a patch is lifted out of it. }
+    { The face this point is on: in its plane and inside its outline (and
+      not inside a hole).  For a replayed press, which knows the point the
+      press landed on and nothing about the screen: which face that is does
+      not depend on the camera.  The smallest such face, so a patch on a
+      wall wins over the wall.  -1 for none. }
+    function FaceHolding(const P: TP3): Integer;
     function IsPatch(Index: Integer): Boolean;
+    { Can this face slide along its normal without bending anything?  Only
+      when every face of its solid that shares an edge with it stands
+      square to it - then sliding it just makes those walls longer.  A
+      neighbor at any other angle, or one that carries on past the edge
+      into another block, would be sheared, which is what SketchUp never
+      does: it lifts the face out as a new block instead. }
+    function WallsSquareTo(Index: Integer): Boolean;
     { The face a point lies on, or -1.  Used to work out which plane a new
       shape belongs in when the cursor has snapped to a corner. }
     function FaceThrough(const P: TP3): Integer;
@@ -6397,6 +6410,90 @@ end;
 { Which flat face a point sits on.  A corner of a box belongs to three of
   them; the first found will do, since they are all planes a new shape could
   reasonably be drawn in. }
+function TWorkDoc.WallsSquareTo(Index: Integer): Boolean;
+const
+  TOL = 1E-6;
+var
+  I, Q, K, N, M: Integer;
+  Nm, ONm: TP3;
+  A, B: TP3Array;
+  Shares: Boolean;
+begin
+  Result := True;
+  if (Index < 0) or (Index >= FLive) or (FEnts[Index].Kind <> ekFace) then Exit;
+  Nm := FaceNormal(Index);
+  A := FEnts[Index].Poly;
+  N := Length(A);
+  for I := 0 to FLive - 1 do
+  begin
+    if (I = Index) or (FEnts[I].Kind <> ekFace) then Continue;
+    if FEnts[I].Grp <> FEnts[Index].Grp then Continue;
+    B := FEnts[I].Poly;
+    M := Length(B);
+    if M < 3 then Continue;
+    { does it share an edge with the face? }
+    Shares := False;
+    for Q := 0 to N - 1 do
+    begin
+      for K := 0 to M - 1 do
+        if ((Dist(A[Q], B[K]) < TOL) and (Dist(A[(Q + 1) mod N], B[(K + 1) mod M]) < TOL)) or
+           ((Dist(A[Q], B[(K + 1) mod M]) < TOL) and (Dist(A[(Q + 1) mod N], B[K]) < TOL)) then
+        begin
+          Shares := True;
+          Break;
+        end;
+      if Shares then Break;
+    end;
+    if not Shares then Continue;
+    ONm := FaceNormal(I);
+    { square to the push: the wall's normal is at right angles to ours }
+    if Abs(Dot3(Nm, ONm)) > 1E-6 then Exit(False);
+    { and the wall lies behind the face, not in front of it.  A face's own
+      walls run from it back into the solid, against its normal.  One that
+      runs out along the normal - up from the top of a low block to the top
+      of a taller one beside it - is the taller block's wall, and sliding
+      the face would drag its bottom edge and leave its top, shearing it.
+      20 September's report: three blocks in a row, the middle one's top
+      pushed down, and its two neighbors' walls leaning over. }
+    for K := 0 to M - 1 do
+      if Dot3(Nm, P3(B[K].X - A[0].X, B[K].Y - A[0].Y, B[K].Z - A[0].Z)) > TOL then
+        Exit(False);
+  end;
+end;
+
+function LoopContains(const P: TP3; const Loop: TP3Array; const N: TP3): Boolean; forward;
+
+function TWorkDoc.FaceHolding(const P: TP3): Integer;
+const
+  TOL = 1E-6;
+var
+  I, H: Integer;
+  Nm, W: TP3;
+  A, Best: Double;
+  InHole: Boolean;
+begin
+  Result := -1;
+  Best := 0;
+  for I := 0 to FLive - 1 do
+  begin
+    if (FEnts[I].Kind <> ekFace) or (Length(FEnts[I].Poly) < 3) then Continue;
+    Nm := FaceNormal(I);
+    W := P3(P.X - FEnts[I].Poly[0].X, P.Y - FEnts[I].Poly[0].Y, P.Z - FEnts[I].Poly[0].Z);
+    if Abs(Dot3(W, Nm)) > TOL then Continue;
+    if not LoopContains(P, FEnts[I].Poly, Nm) then Continue;
+    InHole := False;
+    for H := 0 to High(FEnts[I].Holes) do
+      if LoopContains(P, FEnts[I].Holes[H], Nm) then begin InHole := True; Break; end;
+    if InHole then Continue;
+    A := FaceArea(I);
+    if (Result < 0) or (A < Best) then
+    begin
+      Result := I;
+      Best := A;
+    end;
+  end;
+end;
+
 function TWorkDoc.FaceThrough(const P: TP3): Integer;
 const
   TOL = 1E-6;
@@ -8421,7 +8518,7 @@ begin
     pushing it has to lift that half out - sliding it would shear the box.
     Asking whether the face is a patch answers both cases with one question. }
   LastFlattened := False;
-  Plug := FEnts[Index].Solid and IsPatch(Index);
+  Plug := FEnts[Index].Solid and (IsPatch(Index) or not WallsSquareTo(Index));
   if FEnts[Index].Solid and not Plug then
   begin
     MoveFaceWith(Index, P3(Nm.X * Dist, Nm.Y * Dist, Nm.Z * Dist));

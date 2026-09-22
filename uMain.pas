@@ -464,6 +464,7 @@ type
     FPanning: Boolean;
     FOrbiting: Boolean;
     FPushFace: Integer;
+    FReplayFace: Integer;        { the face a replayed press is on, while it is pressed; -1 otherwise }
     { the face the offset tool is working on, or -1 }
     FOffFace: Integer;
     FHoverFace: Integer;   // the face push/pull would take, before you click
@@ -2845,6 +2846,7 @@ begin
   FTool := ptSelect;
   FDirLock := -1;
 FPushFace := -1;
+  FReplayFace := -1;
   FOffFace := -1;
   FHoverFace := -1;
   FHint := TOY_HINT;
@@ -14053,7 +14055,8 @@ begin
             Exit;
           end;
         end;
-        FPushFace := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
+        if FReplayFace >= 0 then FPushFace := InContextFace(FReplayFace)
+        else FPushFace := InContextFace(FD.Doc.HitFace(Proj, FMouseSX, FMouseSY));
         { A face too small or too crowded to click can be picked with the
           arrow first and pushed afterwards, which the docs recommend. }
         if (FPushFace < 0) and (Length(FSel) = 1) and
@@ -16071,7 +16074,17 @@ begin
         FMouseSX := Round(SP.X);
         FMouseSY := Round(SP.Y);
         FSnapKind := snGrid;
-        ProClick;
+        { And which face.  The point is on the face that was pressed, so
+          the face is the one that holds the point - found in the model,
+          not under the pixel, where a different camera or window finds a
+          different face behind the same pixel.  21 September: a report
+          replayed in a smaller window pushed a neighbor's top instead. }
+        FReplayFace := FD.Doc.FaceHolding(FCur);
+        try
+          ProClick;
+        finally
+          FReplayFace := -1;
+        end;
       end
       else if Cmd = 'tool' then
       begin

@@ -34,6 +34,27 @@ when something is done.  Bugs first, then the small things, then the big.
 
 ### Bugs
 
+* **Push/pull on a stepped body** (report 212808, 21 September, sheet
+  "Sheet 1"): three blocks in a row, the middle one's top pushed down, and
+  the two neighbors' walls leaned over.  Two things in it.  **(1) Fixed:**
+  a face slid, dragging its walls, whenever it had no coplanar neighbor;
+  `WallsSquareTo` now refuses the slide when any wall sharing an edge runs
+  out along the face's normal - that wall is the taller neighbor's - and
+  the face is lifted out as a plug instead.  **(2) Open:** a plug pushed
+  *into* its solid still builds outward walls, so the top pushed down
+  grows a block whose walls cut through the neighbors (blue, in the
+  replay).  A plug pushed inward wants a pocket: the face goes down, the
+  walls go down from the old outline to it, and the old outline stays as
+  edges in the surrounding face.  That is the push/pull "stopped at an
+  inch" family and wants doing carefully.
+* **Replaying picked the wrong face** - fixed 21 September.  A replayed
+  press turned its world point back into a pixel and picked the face
+  under the pixel, which in another window or camera is a different face.
+  `FaceHolding` finds the face that contains the point in the model, and
+  `FReplayFace` hands it to push/pull.  The other seven `HitFace` callers
+  (offset, revolve, drill, the eraser, hover) still pick by pixel and
+  want the same treatment.
+
 * **Orbiting feels inverted when the press starts on the negative side of
   an axis** (20 September, found while trying the source window).  Press
   the mouse down in the part of the view where an axis runs negative and
