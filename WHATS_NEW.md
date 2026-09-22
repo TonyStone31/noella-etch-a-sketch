@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Push/pull among taller neighbors.**  Cut a block's top into pieces,
+  pull them to different heights, then push one back down - and the
+  taller pieces beside it leaned over, or the pushed top turned inside out.
+  A piece with a taller neighbor's wall on its edge is now lifted out on
+  its own, and pushed down it cuts a pocket; a push past the bottom of the
+  block goes through it.
+- **Replaying a report picks the right face.**  A replayed press found its
+  face under the pixel, which in another window is a different face; it
+  finds the face the press landed on now.
+
 ## v2026.09.21.7
 
 ### Fixed

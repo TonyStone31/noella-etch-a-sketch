@@ -8472,6 +8472,61 @@ begin
   end;
 end;
 
+{ 21 September: a slab with its top cut into nine and the pieces pulled to
+  different heights, then the middle one pushed back down.  It used to slide
+  the face and pin the taller neighbors' walls - which sheared them when they
+  were not square, and here, where they are, left the middle top facing
+  down into a hole.  A face with a taller neighbor's wall standing on its
+  edge is lifted out as a plug now, and pushed down it makes a pocket. }
+procedure TestPushAmongNeighbors;
+var
+  D: TWorkDoc;
+  I, J, K, F, Bad: Integer;
+  Nm: TP3;
+  H: array[0..8] of Double;
+begin
+  WriteLn('push/pull among taller and shorter neighbors');
+  D := TWorkDoc.Create;
+  try
+    MakeRect(D, 0, 0, 3, 3);
+    Ok(D.PushPull(4, 1), 'a slab');
+    for I := 1 to 2 do
+    begin
+      D.SplitFacesWith(P3(I, 0, 1), P3(I, 3, 1));
+      D.AddLine(P3(I, 0, 1), P3(I, 3, 1), clBlack, 1, False);
+      D.SplitFacesWith(P3(0, I, 1), P3(3, I, 1));
+      D.AddLine(P3(0, I, 1), P3(3, I, 1), clBlack, 1, False);
+    end;
+    H[0] := 1; H[1] := 2; H[2] := 0.5; H[3] := 1.5; H[4] := 1.5; H[5] := 2.5; H[6] := 1; H[7] := 2; H[8] := 0.5;
+    for K := 0 to 8 do
+    begin
+      F := D.FaceHolding(P3(K mod 3 + 0.5, K div 3 + 0.5, 1));
+      Ok(F >= 0, 'a piece of the top to pull');
+      if F >= 0 then D.PushPull(F, H[K]);
+    end;
+    F := D.FaceHolding(P3(1.5, 1.5, 2.5));
+    Ok(F >= 0, 'the middle piece stands at 2.5');
+    Ok(not D.WallsSquareTo(F), 'and its taller neighbors'' walls stand on its edges, so it cannot slide');
+    Ok(D.PushPull(F, -1), 'pushed down a foot');
+    Bad := 0;
+    for K := 0 to D.Live - 1 do
+      if D[K].Kind = ekFace then
+      begin
+        Nm := D.FaceNormal(K);
+        if (Abs(Abs(Nm.X) - 1) > 1E-6) and (Abs(Abs(Nm.Y) - 1) > 1E-6) and (Abs(Abs(Nm.Z) - 1) > 1E-6) then Inc(Bad);
+      end;
+    EqI(Bad, 0, 'no wall was sheared');
+    F := D.FaceHolding(P3(1.5, 1.5, 1.5));
+    Ok(F >= 0, 'the middle is at 1.5 now');
+    Ok((F >= 0) and (D.FaceNormal(F).Z > 0.5), 'and faces up, not down into a hole');
+    Ok(D.FaceHolding(P3(1.5, 1.5, 2.5)) < 0, 'and nothing is left at 2.5');
+    Ok(D.FaceHolding(P3(0.5, 1.5, 2.5)) >= 0, 'the neighbor west of it is still at 2.5');
+    Ok(D.FaceHolding(P3(2.5, 1.5, 3.5)) >= 0, 'and the one east at 3.5');
+  finally
+    D.Free;
+  end;
+end;
+
 procedure TestGroups;
 var
   D, B: TWorkDoc;
@@ -8721,6 +8776,7 @@ begin
   TestSaveMap;      WriteLn;
   TestFormat2;      WriteLn;
   TestHeckReader;   WriteLn;
+  TestPushAmongNeighbors; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

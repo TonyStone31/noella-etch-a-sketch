@@ -8115,7 +8115,7 @@ var
   Wt: Single;
   Holes: array of TP3Array;
   Near: Integer;
-  Opened: Boolean;
+  Opened, Pocket: Boolean;
 begin
   Result := False;
   Near := -1;
@@ -8181,7 +8181,16 @@ begin
       Break;
     end;
   end;
-  if Far < 0 then Exit;
+  { No far face: the push stops inside the solid.  Pushed inward, a plug
+    makes a pocket - a tunnel with a floor - and this same code does it,
+    laying the floor where the opening would have been.  21 September, the
+    report of a top pushed down among taller neighbors: it grew a block
+    with walls out through them instead, because inward and outward were
+    built alike.  Pushed outward, or not a plug, it is an extrusion, and
+    the caller builds that. }
+  Pocket := (Far < 0) and (Dist < 0) and FEnts[Index].Solid and
+            (IsPatch(Index) or not WallsSquareTo(Index));
+  if (Far < 0) and not Pocket then Exit;
 
   Ink := FEnts[Index].Ink;
   LineInk := OutlineInk(Index, Ink);
@@ -8214,11 +8223,23 @@ begin
     end;
   end;
 
-  { the far face gets the opening }
-  SetLength(Holes, Length(FEnts[Far].Holes) + 1);
-  for I := 0 to High(FEnts[Far].Holes) do Holes[I] := FEnts[Far].Holes[I];
-  Holes[High(Holes)] := Copy(Top, 0, N);
-  SetFaceHoles(Far, Holes);
+  if Pocket then
+  begin
+    { the floor of the pocket: the face itself, moved down, still facing
+      the way it did - out of the solid, up the pocket }
+    AddFaceRaw(Top, Ink, True);
+    FEnts[FLive - 1].Grp := G;
+    if FEnts[Index].MatSet then SetMaterial(FLive - 1, FEnts[Index].Mat);
+    if Dot3(FaceNormal(FLive - 1), Nm) < 0 then FlipFace(FLive - 1);
+  end
+  else
+  begin
+    { the far face gets the opening }
+    SetLength(Holes, Length(FEnts[Far].Holes) + 1);
+    for I := 0 to High(FEnts[Far].Holes) do Holes[I] := FEnts[Far].Holes[I];
+    Holes[High(Holes)] := Copy(Top, 0, N);
+    SetFaceHoles(Far, Holes);
+  end;
 
   { the walls line the tunnel, looking inward at the space it leaves; the
     edges at the far end and the creases along it are drawn, and a curved
@@ -8254,12 +8275,15 @@ begin
     FEnts[FLive - 1].Grp := G;
   end;
 
-  { and the record of the tunnel, for the next one through this solid }
-  AddBore(FEnts[Index].Poly, Top[0], G);
-  FLastBore := FLive - 1;
+  if not Pocket then
+  begin
+    { and the record of the tunnel, for the next one through this solid }
+    AddBore(FEnts[Index].Poly, Top[0], G);
+    FLastBore := FLive - 1;
+  end;
   { and the pushed face is the hole now }
   Delete(Index);
-  Dec(FLastBore);
+  if not Pocket then Dec(FLastBore);
   FSnapDirty := True; FOnFaceOK := False; Inc(FEditSeq);
   Result := True;
 end;
@@ -8489,7 +8513,7 @@ var
   Ink, LineInk: TColor;
   Wt: Single;
   Plug, Same: Boolean;
-  Turn: Double;
+  Turn, Far_: Double;
 begin
   Result := False;
   FLastBore := -1;
@@ -8524,6 +8548,17 @@ begin
     MoveFaceWith(Index, P3(Nm.X * Dist, Nm.Y * Dist, Nm.Z * Dist));
     LastFlattened := FlattenedAway(Index);
     Exit(True);
+  end;
+
+  { A plug pushed into its solid stops at the far side.  Dragged by eye a
+    little past the wall it is coming out of, it would poke through - a
+    pocket deeper than the block, its walls out the bottom.  The far wall
+    is where a push through a solid ends, so a push that reaches it or
+    goes past it is taken to it, and comes out a tunnel. }
+  if Plug and (Dist < 0) then
+  begin
+    Far_ := ThroughDistance(Index, Dist);
+    if (Far_ <> Dist) and (Abs(Far_) < Abs(Dist) + 1E-9) then Dist := Far_;
   end;
 
   SetLength(Base, N);

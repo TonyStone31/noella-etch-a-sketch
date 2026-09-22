@@ -35,18 +35,20 @@ when something is done.  Bugs first, then the small things, then the big.
 ### Bugs
 
 * **Push/pull on a stepped body** (report 212808, 21 September, sheet
-  "Sheet 1"): three blocks in a row, the middle one's top pushed down, and
-  the two neighbors' walls leaned over.  Two things in it.  **(1) Fixed:**
-  a face slid, dragging its walls, whenever it had no coplanar neighbor;
-  `WallsSquareTo` now refuses the slide when any wall sharing an edge runs
-  out along the face's normal - that wall is the taller neighbor's - and
-  the face is lifted out as a plug instead.  **(2) Open:** a plug pushed
-  *into* its solid still builds outward walls, so the top pushed down
-  grows a block whose walls cut through the neighbors (blue, in the
-  replay).  A plug pushed inward wants a pocket: the face goes down, the
-  walls go down from the old outline to it, and the old outline stays as
-  edges in the surrounding face.  That is the push/pull "stopped at an
-  inch" family and wants doing carefully.
+  "Sheet 1") - **fixed**.  Three blocks in a row, the middle one's top
+  pushed down, and the two neighbors' walls leaned over.  A face slid,
+  dragging every corner in its plane, whenever it had no coplanar
+  neighbor - and the taller neighbors' walls have their bottom corners in
+  that plane.  `WallsSquareTo` refuses the slide when any wall sharing an
+  edge runs out along the face's normal (that wall is the neighbor's), the
+  face is lifted out as a plug instead, and a plug pushed *inward* now
+  makes a **pocket**: `TunnelThrough` with a floor where the far opening
+  would be.  A push past the far side of the block is taken to it and
+  comes out a tunnel (`ThroughDistance`).  Proved on a clean bed, which is
+  what to test on: a slab cut into nine, pulled to mixed heights, the
+  middle pushed down - with the old code that left the middle top facing
+  down into a hole on a square grid, and sheared walls on the report's
+  uneven one.  `TestPushAmongNeighbors`.
 * **Replaying picked the wrong face** - fixed 21 September.  A replayed
   press turned its world point back into a pixel and picked the face
   under the pixel, which in another window or camera is a different face.
