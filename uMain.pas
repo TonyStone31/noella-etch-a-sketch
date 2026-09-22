@@ -282,6 +282,9 @@ type
     procedure InfoChanged;
     { the source window - see uSourceView.  It asks; these answer. }
     procedure ShowSource;
+    { the source window in the program's theme - at opening, and whenever
+      the theme changes }
+    procedure ThemeSourceWindow;
     procedure SourceAskState(out DocSeq, PickSeq: Int64);
     procedure SourceAskSource(Version: Integer; L, Hints, Names: TStrings;
       out First, Last, LineThing: TIntArrayW; out SheetName: string);
@@ -2960,6 +2963,16 @@ end;
 procedure TMainForm.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   RememberWindow;
+  { The source window, while it is still a window.  The settings are
+    written from FormDestroy, and by then every other form has been hidden
+    - so it was always written down as closed, and never came back. }
+  if SourceForm <> nil then
+  begin
+    FSourceWasOpen := SourceForm.Visible;
+    FSourceOnTop := SourceForm.chkOnTop.Checked;
+    if SourceForm.WindowState = wsNormal then
+      FSourceBounds := Rect(SourceForm.Left, SourceForm.Top, SourceForm.Width, SourceForm.Height);
+  end;
 end;
 
 { --blank on the command line, and no drawing named - see where it is used. }
@@ -17995,6 +18008,18 @@ end;
   selection or the drawing changes.  One call in one place would be neater
   and would also be wrong: the selection is changed from a dozen places and
   a panel that is a frame behind is worse than no panel. }
+procedure TMainForm.ThemeSourceWindow;
+begin
+  if SourceForm = nil then Exit;
+  { dark when the theme's chrome is dark - the "Dark" theme has a white
+    sheet and dark panels, and the window is chrome, not sheet }
+  with Themes[FThemeIdx] do
+    if Panel.R + Panel.G + Panel.B < 3 * 128 then
+      SourceForm.UseDark(True, PixToColor(Panel), PixToColor(Text))
+    else
+      SourceForm.UseDark(False, clWhite, clBlack);
+end;
+
 { The source window: the sheet as its text, picked both ways. }
 procedure TMainForm.ShowSource;
 begin
@@ -18027,13 +18052,7 @@ begin
   end;
   { the page in the program's own theme: dark on a dark theme, light on a
     light one, and the picked-line wash to suit }
-  { dark when the theme's chrome is dark - the "Dark" theme has a white
-    sheet and dark panels, and the window is chrome, not sheet }
-  with Themes[FThemeIdx] do
-    if Panel.R + Panel.G + Panel.B < 3 * 128 then
-      SourceForm.UseDark(True, PixToColor(Panel), PixToColor(Text))
-    else
-      SourceForm.UseDark(False, clWhite, clBlack);
+  ThemeSourceWindow;
   SourceForm.chkOnTop.Checked := FSourceOnTop;
   SourceForm.Show;
   SourceForm.Refresh_;
@@ -23638,6 +23657,7 @@ begin
   RenderPro;
   RecomposeAll;
   RefreshChrome;
+  ThemeSourceWindow;
   FHint := 'Theme: ' + Theme.Name;
 end;
 
@@ -25264,20 +25284,15 @@ begin
       Ini.WriteBool('look', 'cube', FCubeOn);
       Ini.WriteBool('look', 'cameralamp', CameraLamp);
       { the source window: whether it was open, and where it had been put }
-      if SourceForm <> nil then
+      Ini.WriteBool('source', 'open', FSourceWasOpen);
+      Ini.WriteBool('source', 'ontop', FSourceOnTop);
+      if FSourceBounds.Right > 0 then
       begin
-        Ini.WriteBool('source', 'open', SourceForm.Visible);
-        Ini.WriteBool('source', 'ontop', SourceForm.chkOnTop.Checked);
-        if SourceForm.WindowState = wsNormal then
-        begin
-          Ini.WriteInteger('source', 'left', SourceForm.Left);
-          Ini.WriteInteger('source', 'top', SourceForm.Top);
-          Ini.WriteInteger('source', 'width', SourceForm.Width);
-          Ini.WriteInteger('source', 'height', SourceForm.Height);
-        end;
-      end
-      else
-        Ini.WriteBool('source', 'open', FSourceWasOpen);
+        Ini.WriteInteger('source', 'left', FSourceBounds.Left);
+        Ini.WriteInteger('source', 'top', FSourceBounds.Top);
+        Ini.WriteInteger('source', 'width', FSourceBounds.Right);
+        Ini.WriteInteger('source', 'height', FSourceBounds.Bottom);
+      end;
       Ini.WriteBool('look', 'info', FInfoOn);
       Ini.WriteInteger('look', 'cubecorner', FCubeCorner);
       Ini.WriteBool('look', 'cubefit', FCubeFitSel);
