@@ -8532,10 +8532,12 @@ var
   D, E: TWorkDoc;
   L, M: TStringList;
   First, Last, LineThing: TIntArrayW;
-  I, ErrLine, NF, NL: Integer;
+  I, ErrLine, NF, NL, Top: Integer;
   Err: string;
+  Ring: TP3Array;
+  Holes: array of TP3Array;
 begin
-  WriteLn('primitives: box and rect');
+  WriteLn('primitives: box, rect, and the circle on the box');
   D := TWorkDoc.Create;
   E := TWorkDoc.Create;
   L := TStringList.Create;
@@ -8583,6 +8585,49 @@ begin
     M.Text := 'rect = 0 east, 0 north, 0 up; 4'' east, 3'' north, 2'' up';
     E.Clear;
     Ok(not ReadHeck(M, E, usImperial, ErrLine, Err), 'a rect with a three-part size is refused');
+
+    { the cube with a circle on its top, which the whole format was meant
+      to say in a few lines - docs/format2.md, "The test it has to pass" }
+    D.Clear;
+    MakeRect(D, 0, 0, 4, 4);
+    Ok(D.PushPull(4, 4), 'a cube');
+    Top := -1;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (Abs(D.FaceNormal(I).Z - 1) < 1E-9) then Top := I;
+    Ok(Top >= 0, 'with a top');
+    D.AddArc(P3(2, 2, 4), 1, 0, 2 * Pi, plXY, 0, 2);   { the same pen as MakeRect }
+    SetLength(Ring, 24);
+    for I := 0 to 23 do Ring[I] := ArcPoint(P3(2, 2, 4), 1, I * 2 * Pi / 24, plXY, P3(0, 0, 1));
+    SetLength(Holes, 1);
+    SetLength(Holes[0], 24);
+    for I := 0 to 23 do Holes[0][I] := Ring[23 - I];
+    D.SetFaceHoles(Top, Holes);
+    D.AddFaceRaw(Ring, 0, False);
+    D.SetFaceGroup(D.Live - 1, D[Top].Grp);
+    L.Clear;
+    WriteFormat2(D, 'B', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('  circle c1 = 2'' east, 2'' north, 4'' up; 1''') >= 0, 'a circle drawn on it is one line');
+    Ok(L.IndexOf('  box = 0 east, 0 north, 0 up; 4'' east, 4'' north, 4'' up') >= 0, 'the cube is still a box');
+    Ok(Pos('face = c1', L.Text) > 0, 'and the disk is the circle by name');
+    Ok(Pos('hole', L.Text) = 0, 'nothing says "hole": the circle on the box is the hole');
+    Ok(Pos('ring', L.Text) = 0, 'and no ring of corners is listed');
+    NL := 0;
+    for I := 0 to L.Count - 1 do if Trim(L[I]) <> '' then Inc(NL);
+    Ok(NL <= 9, Format('the whole sheet is %d lines', [NL]));
+    E.Clear;
+    Ok(ReadHeck(L, E, usImperial, ErrLine, Err), 'which reads back: ' + Err);
+    EqI(E.Live, D.Live, 'to as many things');
+    NF := 0;
+    for I := 0 to E.Live - 1 do
+      if (E[I].Kind = ekFace) and (Length(E[I].Holes) = 1) then Inc(NF);
+    EqI(NF, 1, 'with the hole cut in the top by the circle');
+    NF := 0;
+    for I := 0 to E.Live - 1 do
+      if (E[I].Kind = ekFace) and (Length(E[I].Poly) = 24) and (E.FaceNormal(I).Z > 0.5) then Inc(NF);
+    EqI(NF, 1, 'and the disk facing up, as the circle does');
+    M.Clear;
+    WriteFormat2(E, 'B', usImperial, M, First, Last, LineThing);
+    Ok(L.Text = M.Text, 'and writes the same again');
   finally
     M.Free;
     L.Free;

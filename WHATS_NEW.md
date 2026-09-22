@@ -14,6 +14,11 @@
 
 ### New
 
+- **The cube with a circle on it is three lines.**  In `/source` a plain
+  circle is one line - `circle c1 = 2' east, 2' north, 4' up; 1'` - and a
+  box with a circle drawn on its top is still written `box`: the hole is
+  the circle's doing, and `face = c1` is the disk in it.  Twenty-six
+  lines yesterday.  Typing those three draws the same twenty things.
 - **A postcard, if you like.**  On its second start the program asks,
   once, whether it may send us one note saying what sort of computer it is
   running on - and, if you care to say, what you want to use it for.  The

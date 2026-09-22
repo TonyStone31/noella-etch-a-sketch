@@ -2,8 +2,9 @@
 
 The set, drawn up to be argued with before it went into the reader or the
 writer.  **Built so far:** `box`, both forms, read and folded; `rect`,
-both forms, read (the writer does not fold to it yet).  The rest is as
-planned.  See `heck-vs-the-others.md` for why:
+both forms, read (the writer does not fold to it yet); the one-line
+`circle`; and the box under a circle, (b) below - the cube with a circle
+on it is three lines.  The rest is as planned.  See `heck-vs-the-others.md` for why:
 the readable formats are the ones with a small vocabulary of whole things,
 and a face list is what you write when you have none.
 
@@ -89,9 +90,10 @@ circle c1
 end
 ```
 
-As it is.  One-line form to add: `circle c1 = 2' east, 2' north, 4' up; 1'`
-with `facing` taken from where it sits (`up` when its center is on a
-level face or nothing says otherwise).  `sides` stays a property.
+One-line form: `circle c1 = 2' east, 2' north, 4' up; 1'`, facing up;
+a third part says otherwise: `circle c1 = 0 east, 2' north, 2' up; 1'; east`.
+The writer folds to it when nothing else about the circle is unusual -
+its own `sides`, a `starts`, an ink - and those keep the block.
 
 ### `arc` - already here
 
@@ -251,8 +253,9 @@ drawing.
    in geomtest: a box goes out as `box`, a nudged one goes out as lines,
    both come back exactly.~~  Done, 21 September 2026.
 2. ~~`rect`~~ - read, both forms.  The writer's fold is still to do.
-3. The one-line `circle`, and the writer folding a box under a circle
-   (b above).
+3. ~~The one-line `circle`, and the writer folding a box under a circle
+   (b above).~~  Done, 22 September 2026.  The reader cuts a circle into
+   the face it lies on, so the fold needs no `hole` said.
 4. `cylinder`.
 5. `wedge`, if wanted.
 6. `turned`, with transforms, when groups get there.

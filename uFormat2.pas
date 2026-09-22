@@ -309,11 +309,11 @@ var
     DefWidth := 1;
     Best := 0;
     for I := 0 to Min(D.Live - 1, 400) do
-      if D[I].Kind = ekLine then
+      if D[I].Kind in [ekLine, ekArc] then
       begin
         N := 0;
         for J := 0 to Min(D.Live - 1, 400) do
-          if (D[J].Kind = ekLine) and (D[J].Ink = D[I].Ink) then Inc(N);
+          if (D[J].Kind in [ekLine, ekArc]) and (D[J].Ink = D[I].Ink) then Inc(N);
         if N > Best then
         begin
           Best := N;
@@ -840,10 +840,6 @@ var
     case D[I].Kind of
       ekArc:
         begin
-          if Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9 then Put(Depth, 'circle ' + CircleName(I), I)
-          else Put(Depth, 'arc', I);
-          Put(Depth + 1, 'center = ' + Place2(D[I].C, U, False), I);
-          Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
           { which way it faces is the way its own turning goes round, and
             where it starts is measured the grammar's way - from the level
             line - whatever axes the program happens to keep for the plane }
@@ -853,10 +849,29 @@ var
             plYZ: Nm := P3(1, 0, 0);
             plFree: Nm := D[I].Nm;
           end;
-          Put(Depth + 1, 'facing = ' + Facing2(Nm), I);
           SpecAxes(Nm, AU, AV);
           P0 := Sub3(ArcPoint(D[I].C, D[I].R, D[I].A0, D[I].Plane, D[I].Nm), D[I].C);
           A0 := ArcTan2(Dot3(P0, AV), Dot3(P0, AU));
+          { A plain circle is one line: its center and its radius, and which
+            way it faces only when that is not up.  Anything else about it -
+            where it starts, its own sides, an ink - and it is a block. }
+          if (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) and (Abs(A0) <= 1E-9) and
+             (D[I].Sides < 3) and (D[I].Ink = DefInk) and
+             (Abs(D[I].Weight - DefWidth) <= 1E-3) then
+          begin
+            if Abs(Nm.Z - 1) < 1E-9 then
+              Put(Depth, Trim('circle ' + CircleName(I)) + ' = ' + Place2(D[I].C, U, False) +
+                '; ' + Len2(D[I].R, U), I)
+            else
+              Put(Depth, Trim('circle ' + CircleName(I)) + ' = ' + Place2(D[I].C, U, False) +
+                '; ' + Len2(D[I].R, U) + '; ' + Facing2(Nm), I);
+            Exit;
+          end;
+          if Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9 then Put(Depth, 'circle ' + CircleName(I), I)
+          else Put(Depth, 'arc', I);
+          Put(Depth + 1, 'center = ' + Place2(D[I].C, U, False), I);
+          Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
+          Put(Depth + 1, 'facing = ' + Facing2(Nm), I);
           if Abs(A0) > 1E-9 then Put(Depth + 1, 'starts = ' + Deg2(A0), I);
           if Abs(Abs(D[I].Sweep) - 2 * Pi) >= 1E-9 then
             Put(Depth + 1, 'sweep = ' + Deg2(D[I].Sweep), I);
@@ -908,6 +923,15 @@ var
     be said as one: docs/primitives.md, "a primitive is a fold".  A box
     whose top has a circle's hole in it is not, for now - the fold under a
     circle is step 3 on that page. }
+  { A disk in a box's face: a face of the solid whose outline is a circle
+    by name.  Written after the box as "face = c1"; the hole it sits in is
+    the circle's doing, and the reader cuts it again from the circle. }
+  function IsDisk(I, Part_: Integer): Boolean;
+  begin
+    Result := (D[I].Kind = ekFace) and (Length(D[I].Poly) >= 8) and
+      (Length(D[I].Holes) = 0) and (CircleNamed(D[I].Poly, Part_) <> '');
+  end;
+
   function IsBox(Part_, G: Integer; out Lo, Hi: TP3; out HasPaint: Boolean; out Paint: TColor): Boolean;
   var
     I, K, NF, NL, NPaint: Integer;
@@ -921,11 +945,16 @@ var
     for I := 0 to D.Live - 1 do
     begin
       if (D[I].Grp <> G) or (D[I].Part <> Part_) then Continue;
+      if IsDisk(I, Part_) then Continue;
       case D[I].Kind of
         ekFace:
           begin
             Inc(NF);
-            if (Length(D[I].Poly) <> 4) or (Length(D[I].Holes) > 0) or (D[I].Ink <> DefInk) then Exit;
+            if (Length(D[I].Poly) <> 4) or (D[I].Ink <> DefInk) then Exit;
+            { a hole is allowed when it is a circle drawn on the face - the
+              box is still a box, and the circle is written on its own }
+            for K := 0 to High(D[I].Holes) do
+              if CircleNamed(D[I].Holes[K], Part_) = '' then Exit;
             if FacingWord(D.FaceNormal(I)) = '' then Exit;
             for K := 0 to 3 do AddPt(Pts, D[I].Poly[K]);
             if D[I].MatSet then
@@ -965,6 +994,7 @@ var
   procedure PutBox(Depth, Part_, G: Integer; const Lo, Hi: TP3; HasPaint: Boolean; Paint: TColor);
   var
     I, Header: Integer;
+    NoPts: TPts;
   begin
     Header := NLine;
     if HasPaint then
@@ -980,11 +1010,17 @@ var
     { every face and edge of it is that statement: picked on the sheet,
       the box lights up }
     for I := 0 to D.Live - 1 do
-      if (D[I].Grp = G) and (D[I].Part = Part_) and (D[I].Kind in [ekFace, ekLine]) then
+      if (D[I].Grp = G) and (D[I].Part = Part_) and (D[I].Kind in [ekFace, ekLine]) and
+         not IsDisk(I, Part_) then
       begin
         First[I] := Header;
         Last[I] := NLine - 1;
       end;
+    { and the disks lying in its faces, by their circles' names }
+    SetLength(NoPts, 0);
+    for I := 0 to D.Live - 1 do
+      if (D[I].Grp = G) and (D[I].Part = Part_) and IsDisk(I, Part_) then
+        PutFace(Depth, I, NoPts, HasPaint, Paint);
   end;
 
   { one solid: its corners once, its faces, and only the edges that are
@@ -1005,13 +1041,17 @@ var
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
       begin
         Inc(N);
-        for K := 0 to High(D[I].Poly) do
-        begin
-          AddPt(Pts, D[I].Poly[K]);
-          Pts[FindPt(Pts, D[I].Poly[K])].InHole := False;
-        end;
+        { a loop that is a circle by name - "face = c1", "hole = c1" - has
+          no corners to list: the circle says them }
+        if CircleNamed(D[I].Poly, Part_) = '' then
+          for K := 0 to High(D[I].Poly) do
+          begin
+            AddPt(Pts, D[I].Poly[K]);
+            Pts[FindPt(Pts, D[I].Poly[K])].InHole := False;
+          end;
         for J := 0 to High(D[I].Holes) do
-          for K := 0 to High(D[I].Holes[J]) do AddPt(Pts, D[I].Holes[J][K]);
+          if CircleNamed(D[I].Holes[J], Part_) = '' then
+            for K := 0 to High(D[I].Holes[J]) do AddPt(Pts, D[I].Holes[J][K]);
       end;
     { what most of its faces are made of is said once, for the solid }
     HasMat := False;
@@ -1039,6 +1079,8 @@ var
           if J < 0 then Best := Ord(RingOf(D[I].Poly, Rg))
           else Best := Ord(RingOf(D[I].Holes[J], Rg));
           if Best = 0 then Continue;
+          if J < 0 then begin if CircleNamed(D[I].Poly, Part_) <> '' then Continue; end
+          else if CircleNamed(D[I].Holes[J], Part_) <> '' then Continue;
           if J < 0 then K := FindPt(Pts, D[I].Poly[0]) else K := FindPt(Pts, D[I].Holes[J][0]);
           if (K < 0) or (Pts[K].Ring >= 0) then Continue;   { that ring is known }
           Rg.Name := 'r' + Chr(Ord('a') + Length(Rings) mod 26);

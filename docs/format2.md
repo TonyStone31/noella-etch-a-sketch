@@ -72,12 +72,15 @@ sheet 'Cube'
   line = c to g
   line = d to h
 
-  circle
-    center = 2' east, 2' north, 4' up
-    radius = 1'
-    facing = up
-  end
+  circle = 2' east, 2' north, 4' up; 1'
 end
+```
+
+Or, since a box is a box:
+
+```
+box = 0 east, 0 north, 0 up; 4' east, 4' north, 4' up
+circle = 2' east, 2' north, 4' up; 1'
 ```
 
 Nothing in that needs explaining to somebody who has not seen it before,
@@ -324,7 +327,8 @@ without `=` opens a block, and `end` closes it.
 | Thing | Short form | In a block (default) |
 |---|---|---|
 | `line` | `line = ` one point ` to ` the other | `points`; `ink`, `width`, `soft` (false), `ref` (false) |
-| `circle`, `arc` | - | `center`, `radius`, `facing`; `starts` (0°), `sweep` (arc only), `sides`, `ink`, `width` |
+| `circle` | `circle c1 = ` its center `; ` its radius - `; ` which way it faces, when not up | `center`, `radius`, `facing`; `starts` (0°), `sides`, `ink`, `width` |
+| `arc` | - | `center`, `radius`, `facing`, `sweep`; `starts` (0°), `sides`, `ink`, `width` |
 | `face` | `face = ` its outline | `points`, `hole` (as many as there are), `paint` (the solid's), `ink` |
 | `solid` | - | `paint` (none) - what its faces are made of unless they say otherwise; then its `points`, `face`s and `line`s |
 | `bore` | - | inside a solid: `points`, `goes` (a step) |
@@ -341,6 +345,11 @@ without `=` opens a block, and `end` closes it.
 * **An outline can be a name.**  A circle that is named is an outline:
   `face = c1` is the disk inside circle `c1`, and `hole = c1` is that
   circle cut out of a face.  Thirty-two corners become two letters.
+* **A circle on a face cuts it.**  Once everything is read, a circle whose
+  ring lies flat inside a face becomes a hole in that face, whether or not
+  the face said `hole` - the tool does the same the moment a circle is
+  drawn on a face.  So a `box` with a `circle` on its top is a box with a
+  round hole, and `face = c1` puts the disk back in it.
 * **`facing`** is the way a flat thing looks: `up`, `down`, `east`,
   `west`, `north`, `south`, or three numbers for anything else -
   `facing = 0.5 east, 0.5 north, 0.7071 up`.  Turning is anticlockwise seen from the
@@ -402,33 +411,32 @@ Drawn with the mouse - a rectangle, pushed up, a circle on top - and shown
 in `/source`:
 
 ```
-circle c1
-  center = 2' east, 2' north, 4' up
-  radius = 1'
-  facing = up
-  sides = 24
-end
+circle c1 = 2' east, 2' north, 4' up; 1'
+box = 0 east, 0 north, 0 up; 4' east, 4' north, 4' up
+face = c1   { facing up }
+```
+
+Three lines (22 September 2026; it was twenty-six).  The circle is a
+circle by name, the box folds because its own corners and faces are still
+a box's - the hole in its top is the circle's doing, and the reader cuts it
+again from the circle, as the tool did - and the disk inside the hole is
+the circle's outline, `face = c1`.  Push one side of the box in, or nudge
+a corner, and it is written as its faces again:
+
+```
 solid
   points
-    a = 0 east, 0 north, 4' up
-    b = a + 4' east
-    c = b + 4' north
-    d = a + 4' north
-    e = d + 4' down
+    floor1 = 0 east, 0 north, 0 up
+    floor2 = floor1 + 4' east
     ...
   end
   face   { facing up }
-    points = a b c d
+    points = top1..top4
     hole = c1
   end
-  face = e f g h   { facing down }
-  face = h g b a   { facing south }
-  ...
-  line = h to g
-  line = g to f
+  face = floor4..floor1   { facing down }
   ...
 end
-face = c1   { facing up }
 ```
 
 ## The awkward case

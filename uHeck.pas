@@ -22,7 +22,7 @@ unit uHeck;
 interface
 
 uses
-  Classes, SysUtils, Math, Graphics, uWork;
+  Classes, SysUtils, Math, Graphics, uWork, uRegion;
 
 type
   EHeck = class(Exception);
@@ -104,7 +104,7 @@ type
     procedure DoPoints;
     procedure DoRing(const Name: string);
     procedure DoConst;
-    procedure DoCircle(const Name: string; IsArc: Boolean);
+    procedure DoCircle(const Name: string; IsArc: Boolean; const Value: string = '');
     procedure DoFace(const Value: string; Block: Boolean; Solid: Integer;
       HasPaint: Boolean; Paint: TColor);
     procedure DoLine(const Value: string; Block: Boolean; Solid: Integer);
@@ -125,6 +125,7 @@ type
     constructor Create(ADoc: TWorkDoc; AUnits: TUnitSystem);
     destructor Destroy; override;
     procedure Run(L: TStrings);
+    procedure CutCircles(FirstNew: Integer);
     function ErrLine: Integer;
   end;
 
@@ -967,6 +968,11 @@ begin
       DoLine(Value, False, Solid);
       Continue;
     end
+    else if Kind = 'circle' then
+    begin
+      DoCircle(Rest, False, Value);
+      Continue;
+    end
     else if Kind = 'box' then
     begin
       DoBox(Value, False);
@@ -1092,15 +1098,16 @@ begin
   Fail('the constants are never closed: an "end" is missing');
 end;
 
-procedure THeckReader.DoCircle(const Name: string; IsArc: Boolean);
+procedure THeckReader.DoCircle(const Name: string; IsArc: Boolean; const Value: string);
 var
-  Key, Value: string;
-  C, F, AU, AV, PU, PV, Dir: TP3;
+  Key, V: string;
+  C, F, AU, AV, PU, PV, Dir, Nrm, Tmp: TP3;
   R, Starts, Sweep, A0, Wd: Double;
   Sides, P, Idx, K, N: Integer;
   Ink: TColor;
   Pl: TPlane;
   Lp: TLoop;
+  Parts: TStringArray;
 begin
   C := P3(0, 0, 0);
   F := P3(0, 0, 1);
@@ -1110,25 +1117,41 @@ begin
   Sides := 0;
   Ink := DefInk;
   Wd := DefWidth;
-  Inc(Cur);
-  while (Cur < Src.Count) and (LowerCase(Src[Cur]) <> 'end') do
+  if Value <> '' then
   begin
-    if SplitProp(Src[Cur], Key, Value) then
+    { one line: center; radius - and which way it faces, when not up }
+    Parts := Value.Split([';']);
+    if (Length(Parts) < 2) or (Length(Parts) > 3) then
+      Fail('a circle in one line is its center, then its radius: circle c1 = 2'' east, 2'' north, 0 up; 1''');
+    P := 1;
+    C := ReadPlace(Trim(Parts[0]), P, False, C);
+    P := 1;
+    R := AsFeet(Expr(Trim(Parts[1]), P));
+    if Length(Parts) = 3 then F := ReadFacing(Trim(Parts[2]));
+    Inc(Cur);
+  end
+  else
+  begin
+    Inc(Cur);
+    while (Cur < Src.Count) and (LowerCase(Src[Cur]) <> 'end') do
     begin
-      P := 1;
-      if Key = 'center' then C := ReadPlace(Value, P, False, C)
-      else if Key = 'radius' then R := AsFeet(Expr(Value, P))
-      else if Key = 'facing' then F := ReadFacing(Value)
-      else if Key = 'starts' then Starts := Expr(Value, P).V
-      else if Key = 'sweep' then Sweep := Expr(Value, P).V
-      else if Key = 'sides' then Sides := Round(Expr(Value, P).V)
-      else if Key = 'ink' then Ink := ReadColor(Value)
-      else if Key = 'width' then Wd := Expr(Value, P).V;
+      if SplitProp(Src[Cur], Key, V) then
+      begin
+        P := 1;
+        if Key = 'center' then C := ReadPlace(V, P, False, C)
+        else if Key = 'radius' then R := AsFeet(Expr(V, P))
+        else if Key = 'facing' then F := ReadFacing(V)
+        else if Key = 'starts' then Starts := Expr(V, P).V
+        else if Key = 'sweep' then Sweep := Expr(V, P).V
+        else if Key = 'sides' then Sides := Round(Expr(V, P).V)
+        else if Key = 'ink' then Ink := ReadColor(V)
+        else if Key = 'width' then Wd := Expr(V, P).V;
+      end;
+      Inc(Cur);
     end;
+    if Cur >= Src.Count then Fail('the circle is never closed: an "end" is missing');
     Inc(Cur);
   end;
-  if Cur >= Src.Count then Fail('the circle is never closed: an "end" is missing');
-  Inc(Cur);
   if R <= 0 then Fail('a circle wants a radius');
   if IsArc and (Abs(Sweep) >= 2 * Pi - 1E-9) then Fail('an arc wants a sweep');
 
@@ -1159,6 +1182,22 @@ begin
     SetLength(Lp, N);
     for K := 0 to N - 1 do
       Lp[K] := ArcPoint(C, R, D[Idx].A0 + K * 2 * Pi / N, D[Idx].Plane, D[Idx].Nm);
+    { the outline goes round the way the circle faces - "face = c1" is a
+      disk facing the way c1 does - whichever way the program's plane happens
+      to turn }
+    Nrm := P3(0, 0, 0);
+    for K := 0 to N - 1 do
+    begin
+      Tmp := Cross3(Lp[K], Lp[(K + 1) mod N]);
+      Nrm := P3(Nrm.X + Tmp.X, Nrm.Y + Tmp.Y, Nrm.Z + Tmp.Z);
+    end;
+    if Dot3(Nrm, F) < 0 then
+      for K := 0 to N div 2 - 1 do
+      begin
+        Tmp := Lp[K];
+        Lp[K] := Lp[N - 1 - K];
+        Lp[N - 1 - K] := Tmp;
+      end;
     with Scopes[High(Scopes)] do
     begin
       Shapes.Add(LowerCase(Name));
@@ -1218,17 +1257,22 @@ begin
   if Length(Holes) > 0 then
   begin
     { a hole said by a circle's name comes the way the circle goes round;
-      a hole goes round the other way from its face }
+      a hole goes round the other way from its face.  Turned round on a
+      copy: the loop is the circle's own, and "face = c1" further down
+      wants it the way it was. }
     for K := 0 to High(Holes) do
       if Dot3(Cross3(P3(Holes[K][1].X - Holes[K][0].X, Holes[K][1].Y - Holes[K][0].Y, Holes[K][1].Z - Holes[K][0].Z),
                      P3(Holes[K][2].X - Holes[K][1].X, Holes[K][2].Y - Holes[K][1].Y, Holes[K][2].Z - Holes[K][1].Z)),
               D.FaceNormal(Idx)) > 0 then
+      begin
+        Holes[K] := Copy(Holes[K]);
         for J := 0 to (Length(Holes[K]) div 2) - 1 do
         begin
           Tmp := Holes[K][J];
           Holes[K][J] := Holes[K][High(Holes[K]) - J];
           Holes[K][High(Holes[K]) - J] := Tmp;
         end;
+      end;
     D.SetFaceHoles(Idx, Holes);
   end;
   if HasPaint then D.SetMaterial(Idx, Paint);
@@ -1610,12 +1654,85 @@ begin
   D.AddBore(Lp, P3(Lp[0].X + Goes.X, Lp[0].Y + Goes.Y, Lp[0].Z + Goes.Z), Solid);
 end;
 
+{ A circle drawn on a face cuts it - that is what the tool does, and the
+  writer leans on it: a box with a circle on its top is still written "box",
+  and the circle after it, with no "hole" said anywhere.  So once everything
+  is read, every circle whose ring lies flat inside a face becomes a hole in
+  that face, unless the face already has it.  The disk is not made: that is
+  "face = c1", and the writer writes it. }
+procedure THeckReader.CutCircles(FirstNew: Integer);
+var
+  I, F, K, N, J: Integer;
+  Lp: TLoop;
+  Nm, P0, Q, E1, E2: TP3;
+  Holes: array of TP3Array;
+  Inside, Known: Boolean;
+  Tmp: TP3;
+begin
+  for I := FirstNew to D.Live - 1 do
+  begin
+    if (D[I].Kind <> ekArc) or (Abs(Abs(D[I].Sweep) - 2 * Pi) >= 1E-9) then Continue;
+    N := D[I].Sides;
+    if N < 3 then N := DefSides;
+    SetLength(Lp, N);
+    for K := 0 to N - 1 do
+      Lp[K] := ArcPoint(D[I].C, D[I].R, D[I].A0 + K * 2 * Pi / N, D[I].Plane, D[I].Nm);
+    for F := FirstNew to D.Live - 1 do
+    begin
+      if D[F].Kind <> ekFace then Continue;
+      if Length(D[F].Poly) = N then
+      begin
+        { the disk itself, or a face that is this ring: not cut }
+        Inside := True;
+        for K := 0 to N - 1 do
+          if not SamePt(D[F].Poly[K], Lp[0], 1E-6) then Continue else begin Inside := False; Break; end;
+        if not Inside then Continue;
+      end;
+      Nm := D.FaceNormal(F);
+      P0 := D[F].Poly[0];
+      Inside := True;
+      for K := 0 to N - 1 do
+      begin
+        Q := P3(Lp[K].X - P0.X, Lp[K].Y - P0.Y, Lp[K].Z - P0.Z);
+        if Abs(Dot3(Q, Nm)) > 1E-6 then begin Inside := False; Break; end;
+        if not PointInLoop(Lp[K], D[F].Poly, Nm) then begin Inside := False; Break; end;
+      end;
+      if not Inside then Continue;
+      { already a hole of it? }
+      Known := False;
+      for J := 0 to High(D[F].Holes) do
+        if (Length(D[F].Holes[J]) = N) then
+          for K := 0 to N - 1 do
+            if SamePt(D[F].Holes[J][K], Lp[0], 1E-6) then begin Known := True; Break; end;
+      if Known then Continue;
+      { a hole goes round the other way from its face }
+      SetLength(Holes, Length(D[F].Holes) + 1);
+      for J := 0 to High(D[F].Holes) do Holes[J] := D[F].Holes[J];
+      Holes[High(Holes)] := Copy(Lp);
+      E1 := P3(Lp[1].X - Lp[0].X, Lp[1].Y - Lp[0].Y, Lp[1].Z - Lp[0].Z);
+      E2 := P3(Lp[2].X - Lp[1].X, Lp[2].Y - Lp[1].Y, Lp[2].Z - Lp[1].Z);
+      if Dot3(Cross3(E1, E2), Nm) > 0 then
+        for K := 0 to N div 2 - 1 do
+        begin
+          Tmp := Holes[High(Holes)][K];
+          Holes[High(Holes)][K] := Holes[High(Holes)][N - 1 - K];
+          Holes[High(Holes)][N - 1 - K] := Tmp;
+        end;
+      D.SetFaceHoles(F, Holes);
+    end;
+  end;
+end;
+
 procedure THeckReader.Run(L: TStrings);
+var
+  FirstNew: Integer;
 begin
   Prepare(L);
   Cur := 0;
+  FirstNew := D.Live;
   Things(0, False, 0);
   if Cur < Src.Count then Fail('there is an "end" here with nothing to close');
+  CutCircles(FirstNew);
 end;
 
 function ReadHeck(L: TStrings; D: TWorkDoc; U: TUnitSystem;

@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **The cube with a circle on it is three lines.**  In `/source` a plain' + LineEnding +
+    '  circle is one line - `circle c1 = 2'' east, 2'' north, 4'' up; 1''` - and a' + LineEnding +
+    '  box with a circle drawn on its top is still written `box`: the hole is' + LineEnding +
+    '  the circle''s doing, and `face = c1` is the disk in it.  Twenty-six' + LineEnding +
+    '  lines yesterday.  Typing those three draws the same twenty things.' + LineEnding +
+    '- **A postcard, if you like.**  On its second start the program asks,' + LineEnding +
+    '  once, whether it may send us one note saying what sort of computer it is' + LineEnding +
+    '  running on - and, if you care to say, what you want to use it for.  The' + LineEnding +
+    '  whole of the text is on the screen before you answer, *No* is as big a' + LineEnding +
+    '  button as *Yes*, and whichever you press it never asks again.  There is' + LineEnding +
+    '  no serial number or identifier in it, and it goes the same encrypted way' + LineEnding +
+    '  a bug report goes.  `/postcard` brings it back; `--offline` means it is' + LineEnding +
+    '  never asked at all.  We are two people, and we cannot otherwise tell' + LineEnding +
+    '  whether anyone is trying this.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.8' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
