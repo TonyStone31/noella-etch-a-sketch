@@ -23,11 +23,13 @@ const
     '  A piece with a taller neighbor''s wall on its edge is now lifted out on' + LineEnding +
     '  its own, and pushed down it cuts a pocket; a push past the bottom of the' + LineEnding +
     '  block goes through it.' + LineEnding +
-    '- **Orbit turns about the middle of the screen, at half the speed.**  Set' + LineEnding +
-    '  beside SketchUp: it turned about the point under the pointer and twice' + LineEnding +
-    '  as far for the same mouse, which read as spinning.  It turns about what' + LineEnding +
-    '  is under the middle of the view now, the way theirs does, and wants' + LineEnding +
-    '  twice the mouse for the same turn.' + LineEnding +
+    '- **Orbit turns about the middle of the screen, and turns like a ball.**' + LineEnding +
+    '  Set beside SketchUp: it turned about the point under the pointer, at' + LineEnding +
+    '  one speed, and read as spinning.  It turns about what is under the' + LineEnding +
+    '  middle of the view now, the way theirs does - and how fast depends on' + LineEnding +
+    '  where you take hold.  Press near the middle and it turns slowly, for' + LineEnding +
+    '  fine work; press out at the edge and the same mouse spins it round.' + LineEnding +
+    '  Like turning a ball by its face or by its rim.' + LineEnding +
     '- **The ring on a held point is gone.**  Rest on a corner and the dotted' + LineEnding +
     '  guide still runs from it; the ring drawn on the corner itself, which' + LineEnding +
     '  read as a mark left behind, does not.' + LineEnding +
