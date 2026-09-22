@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The source window on a dark theme.**  It came up with a white page and
+  line numbers that could not be read.  On any theme with dark panels the
+  page, the gutter, the fold marks, the picked-line wash and the status
+  line are dark now, with the axis colors lifted to read on it.
+
 ## v2026.09.21.6
 
 ### Fixed

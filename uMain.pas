@@ -18027,9 +18027,11 @@ begin
   end;
   { the page in the program's own theme: dark on a dark theme, light on a
     light one, and the picked-line wash to suit }
+  { dark when the theme's chrome is dark - the "Dark" theme has a white
+    sheet and dark panels, and the window is chrome, not sheet }
   with Themes[FThemeIdx] do
-    if DarkScreen then
-      SourceForm.UseDark(True, PixToColor(Screen1), PixToColor(Text))
+    if Panel.R + Panel.G + Panel.B < 3 * 128 then
+      SourceForm.UseDark(True, PixToColor(Panel), PixToColor(Text))
     else
       SourceForm.UseDark(False, clWhite, clBlack);
   SourceForm.chkOnTop.Checked := FSourceOnTop;

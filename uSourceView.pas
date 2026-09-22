@@ -791,30 +791,67 @@ begin
 end;
 
 procedure TSourceForm.UseDark(Dark: Boolean; Back, Fore: TColor);
+var
+  I: Integer;
 begin
   FDark := Dark;
   FColors.UseDark(Dark);
   Editor.Color := Back;
   Editor.Font.Color := Fore;
+  { the gutter: numbers, the fold marks and the separator, all of them
+    dressed, since each keeps its own colors and a white one on a dark
+    page is what could not be read }
   Editor.Gutter.Color := Back;
+  for I := 0 to Editor.Gutter.Parts.Count - 1 do
+  begin
+    Editor.Gutter.Parts[I].MarkupInfo.Background := Back;
+    if Dark then Editor.Gutter.Parts[I].MarkupInfo.Foreground := TColor($A0A0A0)
+    else Editor.Gutter.Parts[I].MarkupInfo.Foreground := TColor($606060);
+  end;
+  Editor.FoldedCodeColor.Foreground := TColor($A0A0A0);
+  Editor.FoldedCodeColor.FrameColor := TColor($A0A0A0);
   if Dark then
   begin
-    Editor.Gutter.Parts[0].MarkupInfo.Foreground := TColor($909090);
+    Editor.RightGutter.Color := Back;
     FPickBG := TColor($604020);
     FPickFG := TColor($FFF0E0);
     Editor.SelectedColor.Background := TColor($806040);
     Editor.SelectedColor.Foreground := clWhite;
+    Editor.LineHighlightColor.Background := clNone;
+    Editor.BracketMatchColor.FrameColor := TColor($F0C070);
+    (Editor.MarkupByClass[TSynEditMarkupWordGroup] as TSynEditMarkupWordGroup).MarkupInfo.FrameColor := TColor($F0C070);
+    (Editor.MarkupByClass[TSynEditMarkupHighlightAllCaret] as TSynEditMarkupHighlightAllCaret).MarkupInfo.FrameColor := TColor($E0A060);
+    pnlApply.Color := TColor($405060);
+    lblApply.Font.Color := Fore;
   end
   else
   begin
-    Editor.Gutter.Parts[0].MarkupInfo.Foreground := clNone;
     FPickBG := PICKED_BG;
     FPickFG := PICKED_FG;
     Editor.SelectedColor.Background := clHighlight;
     Editor.SelectedColor.Foreground := clHighlightText;
+    Editor.BracketMatchColor.FrameColor := clNone;
+    (Editor.MarkupByClass[TSynEditMarkupWordGroup] as TSynEditMarkupWordGroup).MarkupInfo.FrameColor := TColor($2060C0);
+    (Editor.MarkupByClass[TSynEditMarkupHighlightAllCaret] as TSynEditMarkupHighlightAllCaret).MarkupInfo.FrameColor := TColor($C08040);
+    pnlApply.Color := TColor($CCFFFF);
+    lblApply.Font.Color := clBlack;
   end;
   Color := Back;
   pnlTop.Color := Back;
+  { the buttons keep the platform's own look: their faces stay light, so
+    their words have to stay dark whatever the page is }
+  for I := 0 to pnlTop.ControlCount - 1 do
+    if pnlTop.Controls[I] is TButton then pnlTop.Controls[I].Font.Color := clBlack
+    else if pnlTop.Controls[I] is TEdit then
+    begin
+      pnlTop.Controls[I].Color := clWindow;
+      pnlTop.Controls[I].Font.Color := clWindowText;
+    end
+    else pnlTop.Controls[I].Font.Color := Fore;
+  btnApply.Font.Color := clBlack;
+  btnRevert.Font.Color := clBlack;
+  Status.Color := Back;
+  Status.Font.Color := Fore;
   Font.Color := Fore;
   Editor.Invalidate;
 end;
