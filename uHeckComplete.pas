@@ -427,7 +427,16 @@ begin
             P := Length(W);
             while (P > 0) and (W[P] <> ' ') do Dec(P);
             W := Copy(W, P + 1, MaxInt);
-            if W <> '' then Word_(W, THING_HINTS[N]);
+            if W <> '' then
+              { a thing that is written on one line comes with its "= "
+                ready; a block-opener is its word, and what follows it - a
+                name, or a new line - is the person's }
+              if (W = 'face') or (W = 'line') or (W = 'guide') then
+              begin
+                if (Pfx = '') or (Pos(Pfx, W) = 1) then Offer(W, W + ' = ', THING_HINTS[N]);
+              end
+              else
+                Word_(W, THING_HINTS[N]);
             Inc(N);
           end;
         if Block <> '' then Word_('end', 'closes the block');
