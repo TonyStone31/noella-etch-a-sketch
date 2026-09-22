@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.21.7' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The source window on a dark theme.**  It came up with a white page and' + LineEnding +
+    '  line numbers that could not be read.  On any theme with dark panels the' + LineEnding +
+    '  page, the gutter, the fold marks, the picked-line wash and the status' + LineEnding +
+    '  line are dark now, with the axis colors lifted to read on it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.6' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
