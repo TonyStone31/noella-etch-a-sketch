@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.4' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A solid''s top could go missing, or come back twice, on the way' + LineEnding +
+    '  through the text** when the same ring of corners was closed by two' + LineEnding +
+    '  things'' edges - a cylinder standing in a washer''s hole.  A face the' + LineEnding +
+    '  text also calls `noface` is written out now, and the sheet''s default' + LineEnding +
+    '  ink and width are counted over everything rather than the first few' + LineEnding +
+    '  hundred things, so the second write is the first.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
