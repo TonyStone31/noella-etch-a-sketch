@@ -10,7 +10,7 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
-## v2026.09.22.5
+## Next release
 
 ### New
 
@@ -22,6 +22,11 @@
   word list now fills a statement in with its parts - `box = <corner>;
   <size>` - and each pick takes the next `<part>`.  Esc on the sheet, or
   *Picking* in the window, ends it.
+
+## v2026.09.22.5
+
+### New
+
 - **Jigs in the source window.**  A group made by a jig shows as its
   header and its `jig = ...` line; what the jig printed folds shut under
   that line, opened with the fold mark when you want to see it.  A play
