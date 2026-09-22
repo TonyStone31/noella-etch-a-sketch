@@ -26,7 +26,7 @@ unit uSourceView;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
+  Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls, Menus,
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
   SynGutterLineNumber, SynEditMarkupHighAll, SynEditMarkupWordGroup, SynEditMouseCmds, LCLIntf,
   uWork, uSynHsk2, uJig, uHeckSample;
@@ -43,6 +43,8 @@ type
   { the text, to be made the drawing: False, a line and why, when it cannot }
   TSourceApply = function(L: TStrings; out ErrLine: Integer; out Err: string): Boolean of object;
   TSourceRunJigs = function: Integer of object;
+  { bring what is picked on the sheet to the middle of the view, sized }
+  TSourceCenter = procedure of object;
 
   { TSourceForm }
 
@@ -63,6 +65,10 @@ type
     pnlTop: TPanel;
     Status: TStatusBar;
     tmrFollow: TTimer;
+    pmEditor: TPopupMenu;
+    miCenter: TMenuItem;
+    miGoTo: TMenuItem;
+    miRunJig: TMenuItem;
     procedure chkOnlyPickedChange(Sender: TObject);
     procedure chkVersion2Change(Sender: TObject);
     procedure chkOnTopChange(Sender: TObject);
@@ -87,6 +93,10 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure tmrFollowTimer(Sender: TObject);
+    procedure miCenterClick(Sender: TObject);
+    procedure miGoToClick(Sender: TObject);
+    procedure miRunJigClick(Sender: TObject);
+    procedure pmEditorPopup(Sender: TObject);
   private
     FAll: TStringList;          { the whole sheet's text }
     FHints: TStringList;        { for a point written as a step: where it is }
@@ -127,6 +137,7 @@ type
     OnPickThings: TSourcePickThings;
     OnApply: TSourceApply;
     OnRunJigs: TSourceRunJigs;
+    OnCenter: TSourceCenter;
     { look again now, rather than at the next tick }
     procedure Refresh_;
     { the program's theme: the page dark or light to match, and the
@@ -192,6 +203,7 @@ begin
   Editor.OnMouseLink := @EditorMouseLink;
   Editor.OnClickLink := @EditorClickLink;
   Editor.OnMouseMove := @EditorMouseMove;
+  Editor.PopupMenu := pmEditor;
   Editor.ShowHint := True;
 end;
 
@@ -772,6 +784,84 @@ begin
   end;
   Application.CancelHint;
   Editor.Hint := H;
+end;
+
+{ Right-click: the thing on the caret's line is picked on the sheet - the
+  same as a click here does - and then brought to the middle of the view
+  and sized, gliding, so the text and the drawing are looking at the same
+  thing.  Asked for 21 September: "a right click in the block could be the
+  go to and fit". }
+procedure TSourceForm.miCenterClick(Sender: TObject);
+var
+  A, B, Depth, R: Integer;
+  T: string;
+begin
+  if FEdited then Exit;
+  { on a line that opens a block - solid, group, points - the block is
+    what is meant: its lines are all picked, as a drag over them would }
+  A := Editor.CaretY - 1;
+  B := A;
+  if (A >= 0) and (A < Editor.Lines.Count) then
+  begin
+    T := LowerCase(Trim(Editor.Lines[A]));
+    if (Pos('=', T) = 0) and (T <> 'end') and (T <> '') then
+    begin
+      Depth := 1;
+      R := A + 1;
+      while (R < Editor.Lines.Count) and (Depth > 0) do
+      begin
+        T := LowerCase(Trim(Editor.Lines[R]));
+        if T = 'end' then Dec(Depth)
+        else if (T <> '') and (Pos('=', T) = 0) and (T <> 'begin') and
+                (T[Length(T)] <> ')') then Inc(Depth);
+        Inc(R);
+      end;
+      B := R - 1;
+    end;
+  end;
+  FBusy := True;
+  try
+    Editor.BlockBegin := Point(1, A + 1);
+    Editor.BlockEnd := Point(1, B + 1);
+    if B > A then Editor.BlockEnd := Point(Length(Editor.Lines[B]) + 1, B + 1);
+  finally
+    FBusy := False;
+  end;
+  FCaretRow := -1;
+  FBlockA := -1;
+  FBlockB := -1;
+  EditorStatusChange(nil, [scSelection]);
+  if Assigned(OnCenter) then OnCenter();
+end;
+
+procedure TSourceForm.miGoToClick(Sender: TObject);
+var
+  At: Integer;
+  W: string;
+begin
+  W := Editor.GetWordAtRowCol(Editor.CaretXY);
+  At := DefinedAt(W, Editor.CaretY - 1);
+  if At < 0 then Exit;
+  Editor.CaretXY := Point(1, At + 1);
+  Editor.EnsureCursorPosVisible;
+end;
+
+procedure TSourceForm.miRunJigClick(Sender: TObject);
+begin
+  btnJigsClick(nil);
+end;
+
+procedure TSourceForm.pmEditorPopup(Sender: TObject);
+var
+  R: Integer;
+  T: string;
+begin
+  R := Editor.CaretY - 1;
+  T := '';
+  if (R >= 0) and (R < Editor.Lines.Count) then T := LowerCase(Trim(Editor.Lines[R]));
+  miCenter.Enabled := (not FEdited) and (R >= 0) and (T <> '') and (T <> 'end');
+  miGoTo.Enabled := DefinedAt(Editor.GetWordAtRowCol(Editor.CaretXY), R) >= 0;
+  miRunJig.Visible := Copy(T, 1, 3) = 'jig';
 end;
 
 procedure TSourceForm.chkOnlyPickedChange(Sender: TObject);

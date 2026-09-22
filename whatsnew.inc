@@ -23,6 +23,11 @@ const
     '  A piece with a taller neighbor''s wall on its edge is now lifted out on' + LineEnding +
     '  its own, and pushed down it cuts a pocket; a push past the bottom of the' + LineEnding +
     '  block goes through it.' + LineEnding +
+    '- **Right-click in the source window.**  **Center in View** picks the thing' + LineEnding +
+    '  on that line - or everything in the block, on a `solid` or `group` line -' + LineEnding +
+    '  and brings it to the middle of the sheet, sized, gliding there.  **Go to' + LineEnding +
+    '  Definition** jumps to where a name is given its meaning, and on a `jig`' + LineEnding +
+    '  line there is **Run the Jig Again**.' + LineEnding +
     '- **Orbit turns about the middle of the screen, and turns like a ball.**' + LineEnding +
     '  Set beside SketchUp: it turned about the point under the pointer, at' + LineEnding +
     '  one speed, and read as spinning.  It turns about what is under the' + LineEnding +

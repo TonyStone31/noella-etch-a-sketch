@@ -226,6 +226,23 @@ object SourceForm: TSourceForm
     Panels = <>
     SimplePanel = True
   end
+  object pmEditor: TPopupMenu
+    OnPopup = pmEditorPopup
+    Left = 600
+    Top = 80
+    object miCenter: TMenuItem
+      Caption = 'Center in View'
+      OnClick = miCenterClick
+    end
+    object miGoTo: TMenuItem
+      Caption = 'Go to Definition'
+      OnClick = miGoToClick
+    end
+    object miRunJig: TMenuItem
+      Caption = 'Run the Jig Again'
+      OnClick = miRunJigClick
+    end
+  end
   object tmrFollow: TTimer
     Interval = 150
     OnTimer = tmrFollowTimer

@@ -20,6 +20,11 @@
   A piece with a taller neighbor's wall on its edge is now lifted out on
   its own, and pushed down it cuts a pocket; a push past the bottom of the
   block goes through it.
+- **Right-click in the source window.**  **Center in View** picks the thing
+  on that line - or everything in the block, on a `solid` or `group` line -
+  and brings it to the middle of the sheet, sized, gliding there.  **Go to
+  Definition** jumps to where a name is given its meaning, and on a `jig`
+  line there is **Run the Jig Again**.
 - **Orbit turns about the middle of the screen, and turns like a ball.**
   Set beside SketchUp: it turned about the point under the pointer, at
   one speed, and read as spinning.  It turns about what is under the

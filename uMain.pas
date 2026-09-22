@@ -294,6 +294,7 @@ type
     { run the jig that makes this group again; 0 runs every jig on the sheet }
     function RunJigOf(PartId: Integer): Boolean;
     function RunAllJigs: Integer;
+    procedure SourceCenter;
     procedure RebuildInfo;
     procedure PaintInfoStep(C: TCanvas; const R: TRect; const S: string;
       Hot: Boolean);
@@ -18204,6 +18205,7 @@ begin
     SourceForm.OnPickThings := @SourcePickThings;
     SourceForm.OnApply := @SourceApply;
     SourceForm.OnRunJigs := @RunAllJigs;
+    SourceForm.OnCenter := @SourceCenter;
     { beside the main window if there is room on its right, over its right
       half if there is not }
     if (FSourceBounds.Right > 200) and (FSourceBounds.Bottom > 150) and
@@ -18394,6 +18396,17 @@ begin
   finally
     Out_.Free;
   end;
+end;
+
+{ what is picked, to the middle of the view and sized - gliding there in
+  the 3D view, as a cube click does; straight there in plan and iso }
+procedure TMainForm.SourceCenter;
+var
+  FitZ, FitX, FitY: Double;
+begin
+  if (FD = nil) or (Length(FSel) = 0) then Exit;
+  if FitTarget(True, FD.Az, FD.El, FitZ, FitX, FitY) then
+    GlideCamera(FD.Az, FD.El, FitZ, FitX, FitY);
 end;
 
 function TMainForm.RunAllJigs: Integer;
