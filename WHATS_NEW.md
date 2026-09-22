@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The window opens where you left it.**  It came back the right size
+  and in the middle of the screen, every time, on Windows.  It comes back
+  where it was.
+
 ## v2026.09.21.5
 
 ### New

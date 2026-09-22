@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The window opens where you left it.**  It came back the right size' + LineEnding +
+    '  and in the middle of the screen, every time, on Windows.  It comes back' + LineEnding +
+    '  where it was.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

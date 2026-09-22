@@ -25225,7 +25225,16 @@ begin
         WH := Min(WH, Screen.DesktopHeight);
       end;
       if (WL <> MaxInt) and (WT <> MaxInt) and OnAScreen(WL, WT, WW, WH) then
-        SetBounds(WL, WT, WW, WH)
+      begin
+        { The form is designed to open in the middle of the screen, and
+          that setting outlives SetBounds: the widget set puts the window
+          where the bounds say and then, at first show, centers it anyway.
+          So the size came back and the place did not - "the right size but
+          it starts in the center of the screen", 21 September, on Windows.
+          Designed means: where the bounds say, and nowhere else. }
+        Position := poDesigned;
+        SetBounds(WL, WT, WW, WH);
+      end
       else
       begin
         SetBounds(Left, Top, WW, WH);
