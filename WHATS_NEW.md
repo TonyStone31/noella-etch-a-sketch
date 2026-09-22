@@ -10,6 +10,14 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A drawn rectangle is `rect = corner; size`** in `/source` - the one
+  fold that was read but not yet written.  Its `noface`, `box`, `rect`
+  and `pull` are colored as the other words are.
+
 ## v2026.09.22.1
 
 ### Fixed
@@ -23,8 +31,6 @@
 
 ### New
 
-- **A drawn rectangle is `rect = corner; size`** in `/source` - the one
-  fold that was read but not yet written.
 - **`/source complete off`** - the list of words the source window offers
   as you type stays away, and comes only on Ctrl+Space; `/source complete
   on` brings it back.  Remembered.
