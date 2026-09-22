@@ -2239,6 +2239,35 @@ var
   end;
 
   { the three axes, from a reference point }
+  { Where the axis through R crosses the edge A-B, if the two pass within
+    a hair of each other: the point on the edge. }
+  function AxisMeetsEdge(const R: TP3; Axis: Integer; const A, B: TP3;
+    out P: TP3): Boolean;
+  var
+    D, E, W: TP3;
+    A2, B2, D2, DD, EE, DE, T, U, Den: Double;
+  begin
+    Result := False;
+    case Axis of
+      0: D := P3(1, 0, 0);
+      1: D := P3(0, 1, 0);
+    else D := P3(0, 0, 1);
+    end;
+    E := P3(B.X - A.X, B.Y - A.Y, B.Z - A.Z);
+    W := P3(A.X - R.X, A.Y - R.Y, A.Z - R.Z);
+    DD := Dot3(D, D); EE := Dot3(E, E); DE := Dot3(D, E);
+    Den := DD * EE - DE * DE;
+    if (EE < 1E-18) or (Abs(Den) < 1E-12 * DD * EE) then Exit;   { parallel }
+    A2 := Dot3(D, W); B2 := Dot3(E, W);
+    T := (A2 * EE - B2 * DE) / Den;         { along the axis }
+    U := (A2 * DE - B2 * DD) / Den;         { along the edge, 0..1 }
+    if (U < -1E-9) or (U > 1 + 1E-9) then Exit;
+    P := P3(A.X + E.X * U, A.Y + E.Y * U, A.Z + E.Z * U);
+    { the two lines have to actually meet, not just pass near }
+    D2 := Sqr(R.X + D.X * T - P.X) + Sqr(R.Y + D.Y * T - P.Y) + Sqr(R.Z + D.Z * T - P.Z);
+    Result := D2 < 1E-12;
+  end;
+
   procedure AxisTry(const R: TP3);
   begin
     DirTry(R, P3(1, 0, 0), 0);
@@ -2372,6 +2401,34 @@ begin
       FStickPt := MidP;
       FStickKind := snMidpoint;
       Exit(MidP);
+    end;
+    { On the edge AND on an axis through the start: the point is where the
+      axis crosses the edge - a definite place, exactly on both.
+
+      21 September: a line started an inch and a half in from one side of a
+      square, run across to the other side along the green, "and that point
+      ends up not being exactly 1.5 inches like the other end".  On Edge
+      took the point here, as the place on the far edge nearest the
+      pointer, which slides along the edge with every pixel; the axis code
+      below never ran, and the green came from a looser check drawn on top.
+      Square means square: the axis is held, and the edge says how far. }
+    if (FStage > 0) and (FDirLock < 0) and (FInferMode = imAll) then
+    begin
+      AxIdx := -1;
+      AxPx := AXIS_PX;
+      AxPt := Wf;
+      AxRef := Wf;
+      FParPerp := 0;
+      AxisTry(FP1);
+      if FLockOn then AxisTry(FLockPt);
+      if (AxIdx >= 0) and (AxIdx <= 2) and
+         AxisMeetsEdge(AxRef, AxIdx, EdgeA, EdgeB, MidP) then
+      begin
+        FAxisLock := AxIdx;
+        FAxisFrom := AxRef;
+        FSnapKind := snOnEdge;
+        Exit(MidP);
+      end;
     end;
     FSnapKind := snOnEdge;
     Exit(EdgeP);
@@ -9091,6 +9148,38 @@ begin
       if not Typed then L := AlongL;
       Result := P3(FP1.X + D.X * L, FP1.Y + D.Y * L, FP1.Z + D.Z * L);
       Exit;
+    end;
+  end;
+
+  { Green means green.  The band is drawn in an axis color when the run is
+    within a hair of that axis - AxisAlong, 0.9999 of parallel, near
+    enough a degree - and up to now that was all it was: a color.  The
+    point underneath could sit that degree off, and over a foot that is an
+    eighth of an inch: a line that showed green from end to end and was
+    not square, and a rectangle drawn inside a rectangle that would not
+    close (report 215257, 21 September; "there is no wiggle room when you
+    are snapped on plane").  So the run is squared onto the axis it is
+    shown on - the far end moved the hair sideways onto it, its distance
+    along kept - and the color is true.  The color is not a guess at what
+    you meant; it is a promise about the point, and now it is kept. }
+  if FParPerp = 0 then
+  begin
+    { the axis the band is drawn in - the same test the painter makes, so
+      the two cannot disagree: a lock the resolver set, or a run that lies
+      along one }
+    if FAxisLock in [0..2] then K := FAxisLock
+    else if FInferMode = imAll then K := AxisAlong(FP1, Result)
+    else K := -1;
+    if K >= 0 then
+    begin
+      { K is an axis - 0 X, 1 Y, 2 Z - where AxisDir counts directions, two
+        to an axis; asking it for axis 1 gave minus X and a Y run collapsed
+        to nothing }
+      D := AxisDir(K * 2);
+      AlongL := (Result.X - FP1.X) * D.X + (Result.Y - FP1.Y) * D.Y + (Result.Z - FP1.Z) * D.Z;
+      Result := P3(FP1.X + D.X * AlongL, FP1.Y + D.Y * AlongL, FP1.Z + D.Z * AlongL);
+      FAxisLock := K;
+      FAxisFrom := FP1;
     end;
   end;
 

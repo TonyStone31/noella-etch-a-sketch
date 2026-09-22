@@ -20,6 +20,14 @@
   A piece with a taller neighbor's wall on its edge is now lifted out on
   its own, and pushed down it cuts a pocket; a push past the bottom of the
   block goes through it.
+- **Green means green.**  A line drawn in an axis color is now exactly on
+  that axis when you click - to the end, whatever it snapped to on the way.
+  Start a line an inch in from one side of a square, run it across to the
+  other side along the green, and the far end is an inch in too.  It used
+  to be allowed a degree of slop, which over a foot is an eighth of an
+  inch, and a rectangle drawn inside a rectangle would not come out
+  square.  A corner or an edge near the far end sets how far along the
+  axis you go, and never pulls you off it.
 - **Replaying a report picks the right face.**  A replayed press found its
   face under the pixel, which in another window is a different face; it
   finds the face the press landed on now.
