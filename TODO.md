@@ -5818,3 +5818,34 @@ writer prefers a given name to a generated one; the reader takes names
 from a `points` block; the file keeps them.  Names on things - `line
 Rafter`, `solid Foot` - ride the same way.  Before `turned`, and before
 the picker gets fancier: named corners are what a person picks against.
+
+The same table keeps what was *typed* for a corner, not only its name.
+Six corners moved by `+ 5"` in the text and applied are, today, six
+numbers on the next write, and the adjustment is gone from sight.  If
+the corner still sits exactly where the text evaluates to, the text is
+written back as it was - `a + 5"`, `Width / 2`; if a tool has moved it
+since, the number, with a note: `2' 5"  { was a + 5" }`.  That is the
+rule the pitch already gives for constants, for any expression.  So the
+sheet gets a second memory beside undo: what was adjusted, per corner,
+in view.  Negative numbers stay out of the language and come in only as
+arithmetic - `a - 5"` is a subtraction, not a place.
+
+## Git
+
+The reason for a plain-text language in the first place, 22 September:
+a drawing under git, with its history.  Rule 5 - one statement to a
+line - is for this, and so is every bit of today's work on the second
+write being the first: a nudge to one corner has to change one line, or
+the diff is noise.  The corpus round trip is a git test in disguise.
+
+It pays off only once the file *is* Heck; `.hsk` is still the old line
+format, diffable but not readable.  Saving as Heck is the next big step
+after the words settle, and the reason to settle them.
+
+Helpers in the source window, when it is time, cheapest first: a diff
+view - what changed since the last save or commit, as marks in the
+gutter, which SynEdit has; history per line, `git blame` on a corner
+being who moved it and when, and with the kept text, what they typed;
+commit from the window.  All of it is git on a text file; none of it
+needs to know it is a drawing.  A jig in the repository beside the
+drawing, its output committed with it, is a build.
