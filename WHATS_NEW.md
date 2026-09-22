@@ -20,6 +20,14 @@
   A piece with a taller neighbor's wall on its edge is now lifted out on
   its own, and pushed down it cuts a pocket; a push past the bottom of the
   block goes through it.
+- **Orbit turns about the middle of the screen, at half the speed.**  Set
+  beside SketchUp: it turned about the point under the pointer and twice
+  as far for the same mouse, which read as spinning.  It turns about what
+  is under the middle of the view now, the way theirs does, and wants
+  twice the mouse for the same turn.
+- **The ring on a held point is gone.**  Rest on a corner and the dotted
+  guide still runs from it; the ring drawn on the corner itself, which
+  read as a mark left behind, does not.
 - **Green means green.**  A line drawn in an axis color is now exactly on
   that axis when you click - to the end, whatever it snapped to on the way.
   Start a line an inch in from one side of a square, run it across to the

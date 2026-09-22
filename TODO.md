@@ -229,6 +229,22 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Replaying real mouse movement.**  Asked for 21 September, after a
+  night of snapping faults that no replay could show: a report records
+  each press as the world point it resolved to, so the snap, the axis
+  lock, the edge the pointer rested on and the tool's mode are all gone
+  from it - "replay should be able to replay real mouse movements".  What
+  it wants: the pointer's screen position with every press, the movement
+  between presses (thinned - a point every few pixels, and every pause),
+  the window's client size and the camera at each press so the pixels mean
+  the same thing again, the snap kind, axis lock and inference mode the
+  tool had at the press, and what it resolved to - so a replay can play
+  the pointer and compare what it resolves to now with what it resolved to
+  then, and stop and say where they differ.  And knowing when to take a
+  picture.  A bigger job than it looks; a replay file format of its own
+  (Heck could carry it as a block), and the report's size cap to think
+  about.
+
 * **Scripting** - not decided; the thinking is in its own section below,
   "Scripting - thinking only, 20 September 2026".
 

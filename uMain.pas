@@ -1701,6 +1701,11 @@ const
                             // about to happen and still leaves room to let go
   SNAP_RECOIL     = 0.30;
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
+  { How far the view turns for a pixel of drag.  It was 0.010 - a half turn
+    in 314 pixels - and set beside SketchUp on 21 September that was about
+    twice as fast: theirs wants twice the mouse for the same turn, which is
+    what makes their orbit read as smooth and ours as spinning.  Half. }
+  ORBIT_RAD_PX    = 0.005;
   LOCK_PX         = 7.5;    // this close and the point is what you meant
   { and once it has been taken, this far before it is let go again.  Coming
     onto a point is a decision; sliding a couple of pixels off it is not, and
@@ -12696,17 +12701,10 @@ begin
     C.Rectangle(Round(GP.X) - 3, Round(GP.Y) - 3, Round(GP.X) + 4, Round(GP.Y) + 4);
   end;
 
-  { --- the point being held as a reference ------------------------------ }
-  if FLockOn then
-  begin
-    GP := ScreenOf(FLockPt);
-    C.Pen.Style := psSolid;
-    C.Pen.Width := Max(2, Round(2 * FUIScale));
-    C.Pen.Color := PixToColor(GuideColor);
-    C.Brush.Style := bsClear;
-    C.Ellipse(Round(GP.X) - 7, Round(GP.Y) - 7, Round(GP.X) + 8, Round(GP.Y) + 8);
-    C.Pen.Width := 1;
-  end;
+  { The point being held as a reference used to wear a ring here.  SketchUp
+    draws nothing on the held point itself - only the dotted guide running
+    from it, which is drawn above - and the ring read as a mark left
+    behind.  Gone, 21 September. }
 
 
   { --- the view cube ---------------------------------------------------- }
@@ -16940,8 +16938,8 @@ begin
         Working the angles out into locals first is the workaround.  It costs
         nothing and it is the only thing standing between this line and the
         fault. }
-      NewAz := FD.Az - (X - FPanRefX) * 0.010;
-      NewEl := FD.El + (Y - FPanRefY) * 0.010;
+      NewAz := FD.Az - (X - FPanRefX) * ORBIT_RAD_PX;
+      NewEl := FD.El + (Y - FPanRefY) * ORBIT_RAD_PX;
       if NewEl < -1.45 then NewEl := -1.45;
       if NewEl > 1.45 then NewEl := 1.45;
       FD.Az := NewAz;
@@ -17297,6 +17295,16 @@ begin
     a big drawing, turning about a point a hundred feet away swung the
     fitting straight out of the view, which is what orbiting at a zoom
     felt like. }
+  { About the middle of the screen, not the point under the pointer.  It was
+    the pointer's point, and it read as wrong both ways it was tried: the
+    press felt like it grabbed the model there, and the model then turned
+    about a point off to one side.  SketchUp turns about what is under the
+    middle of the view, which is where you are looking - and set beside it
+    on 21 September that was the difference.  So: the drawn thing under the
+    middle, then the nearest drawn thing to the middle off the depth
+    buffer, then what is picked, then the drawing's own middle. }
+  SX := pbScreen.Width div 2;
+  SY := pbScreen.Height div 2;
   if FD.Doc.FaceUnder(Proj, SX, SY, F, P) and Grabbable(P) then
     Exit(P);
   if FD.Doc.DepthPointNear(SX, SY, 4000, P) and Grabbable(P) then
