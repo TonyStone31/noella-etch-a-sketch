@@ -89,6 +89,7 @@ type
     procedure EditorClickLink(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure EditorMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure FormActivate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -155,6 +156,9 @@ type
     { the buttons, for a command or a test to press }
     procedure LoadSample;
     procedure ApplyNow;
+    { completion that opens by itself, or only on Ctrl+Space }
+    procedure SetAutoComplete(On: Boolean);
+    function AutoComplete: Boolean;
   end;
 
 var
@@ -244,6 +248,16 @@ end;
 procedure TSourceForm.ApplyNow;
 begin
   if FEdited then btnApplyClick(nil);
+end;
+
+procedure TSourceForm.SetAutoComplete(On: Boolean);
+begin
+  FComplete.Auto := On;
+end;
+
+function TSourceForm.AutoComplete: Boolean;
+begin
+  Result := FComplete.Auto;
 end;
 
 procedure TSourceForm.Refresh_;
@@ -811,9 +825,20 @@ end;
   up - so Go to Definition and Center in View act on the word and the line
   under the pointer, and not on wherever the caret happened to be.  What
   Lazarus does, and what makes a right-click menu feel aimed. }
+{ The keys go to the text.  A window activated by a click had its keyboard
+  focus on whichever control was first in line - a checkbox - so typing
+  into it toggled "Only picked" with every space; and a click in the
+  editor did not always move the focus there under GTK.  Both made the
+  window unworkable from the test harness, which types blind. }
+procedure TSourceForm.FormActivate(Sender: TObject);
+begin
+  if Editor.CanFocus then Editor.SetFocus;
+end;
+
 procedure TSourceForm.EditorMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
+  if Editor.CanFocus and not Editor.Focused then Editor.SetFocus;
   if Button <> mbRight then Exit;
   FBusy := True;
   try

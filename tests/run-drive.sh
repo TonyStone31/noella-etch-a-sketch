@@ -144,7 +144,7 @@ SOLOISTS="groups rect-heal copy-paste gif-loop entity-panel face-needs-edges clo
           frame-watchdog entity-style guide-select export-dialog help-window
           ring-hint orbit-snap orbit-grid help-picture revolve-edge
           glass-revolve dim-resize report-tick upright-outline reverse-face
-          narrow-window held-endpoint blank-start postcard"
+          narrow-window held-endpoint blank-start postcard source-typed"
 
 if [ $# -gt 0 ]; then
   NAMES="$*"

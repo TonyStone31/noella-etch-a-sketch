@@ -1,0 +1,57 @@
+# The two-line cube, typed into the source window and applied.
+#
+# The source window takes keys from the harness only since 22 September:
+# a window activated by a click had its keyboard focus on a checkbox, and
+# the list of words that opens after a pause took the next Return for a
+# choice.  So the editor takes the focus itself, and "/source complete
+# off" keeps the list away while a script types blind.
+#
+# Clicks, not "activate", to get back to the main window: the source
+# window is the main window's own, and activating a window with an owned
+# window open puts the focus on the owned one.
+#
+# What to look for: hsk-source-typed is a cube with a circle on its top,
+# four feet, drawn from two lines of Heck in millimeters.
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 400
+key slash
+wait 500
+type source complete off
+key return
+wait 2500
+at 1000 300
+click
+wait 500
+hold ctrl
+key a
+let ctrl
+wait 300
+type box = 0 east, 0 north, 0 up; 1200mm east, 1200mm north, 1200mm up
+key return
+type circle c1 = 600mm east, 600mm north, 1200mm up; 300mm
+wait 800
+at 300 400
+click
+wait 800
+key slash
+wait 500
+type source apply
+key return
+wait 3000
+at 300 400
+click
+wait 300
+key slash
+wait 500
+type fit
+key return
+wait 1500
+shot /tmp/hsk-source-typed.png
+key slash
+wait 400
+type source complete on
+key return
+wait 800

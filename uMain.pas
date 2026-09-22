@@ -733,6 +733,7 @@ type
     FUpdatedFrom: string;
     FWhatsNewShown: Boolean;
     FPostcardOffered: Boolean;
+    FSourceComplete: Boolean;     { the source window's list of words opens by itself }
     { The last few dozen things that happened, so a crash report says what
       was being done and not only where it landed.  A ring, so it costs
       nothing and never grows. }
@@ -1597,7 +1598,9 @@ const
     (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False;
                          Eg:   '/session session.txt';
                          Also: 'acts'),
-    (Name: 'source';     Hint: 'this sheet as its text, picked both ways';  Arg: False; Eg: ''; Also: 'src text-view'),
+    (Name: 'source';     Hint: 'this sheet as its text, picked both ways';  Arg: False;
+                         Eg:   '/source complete off';
+                         Also: 'src text-view'),
     (Name: 'spool';      Hint: 'the pipe spool scratchpad';             Arg: False; Eg: ''; Also: 'pipe scratchpad'),
     (Name: 'state';      Hint: 'what a report says about the program right now'; Arg: False),
     (Name: 'sysinfo';    Hint: 'what a report says about this machine'; Arg: False; Eg: ''; Also: 'machine'),
@@ -15534,7 +15537,19 @@ begin
     { "/source sample" puts the sample in to be looked at; "/source apply"
       presses Apply - the same two buttons, for a keyboard or a test }
     if Rest = 'sample' then SourceForm.LoadSample
-    else if Rest = 'apply' then SourceForm.ApplyNow;
+    else if Rest = 'apply' then SourceForm.ApplyNow
+    { "/source complete off": the list of words stops popping up by itself
+      and comes only on Ctrl+Space - remembered }
+    else if (Rest = 'complete off') or (Rest = 'complete on') then
+    begin
+      FSourceComplete := Rest = 'complete on';
+      SourceForm.SetAutoComplete(FSourceComplete);
+      if FSourceComplete then
+        FCmdMsg := 'The source window offers words as you type.  /source complete off stops it.'
+      else
+        FCmdMsg := 'The source window offers words only on Ctrl+Space.  /source complete on brings them back.';
+    end
+    else if Rest <> '' then FCmdMsg := '/source takes sample, apply, complete on or complete off.';
   end
   else if (W = 'jig') or (W = 'jigs') then
   begin
@@ -18258,6 +18273,12 @@ begin
     SourceForm.OnApply := @SourceApply;
     SourceForm.OnRunJigs := @RunAllJigs;
     SourceForm.OnCenter := @SourceCenter;
+    { The main window's own, so that on Windows it stays in front of the
+      main window instead of opening behind it - a report from a Windows
+      machine, 22 September: the source window came back, but behind, and
+      not to the right where it had been left. }
+    SourceForm.PopupMode := pmExplicit;
+    SourceForm.PopupParent := Self;
     { beside the main window if there is room on its right, over its right
       half if there is not }
     if (FSourceBounds.Right > 200) and (FSourceBounds.Bottom > 150) and
@@ -18280,6 +18301,7 @@ begin
     light one, and the picked-line wash to suit }
   ThemeSourceWindow;
   SourceForm.chkOnTop.Checked := FSourceOnTop;
+  SourceForm.SetAutoComplete(FSourceComplete);
   SourceForm.Show;
   SourceForm.Refresh_;
 end;
@@ -25410,6 +25432,7 @@ begin
       CameraLamp := Ini.ReadBool('look', 'cameralamp', True);
       FSourceWasOpen := Ini.ReadBool('source', 'open', False);
       FSourceOnTop := Ini.ReadBool('source', 'ontop', False);
+      FSourceComplete := Ini.ReadBool('source', 'complete', True);
       FSourceBounds := Rect(Ini.ReadInteger('source', 'left', 0), Ini.ReadInteger('source', 'top', 0),
         Ini.ReadInteger('source', 'width', 0), Ini.ReadInteger('source', 'height', 0));
       FInfoOn := Ini.ReadBool('look', 'info', False);
@@ -25528,6 +25551,7 @@ begin
       { the source window: whether it was open, and where it had been put }
       Ini.WriteBool('source', 'open', FSourceWasOpen);
       Ini.WriteBool('source', 'ontop', FSourceOnTop);
+      Ini.WriteBool('source', 'complete', FSourceComplete);
       if FSourceBounds.Right > 0 then
       begin
         Ini.WriteInteger('source', 'left', FSourceBounds.Left);

@@ -6,10 +6,11 @@ object SourceForm: TSourceForm
   Caption = 'Source'
   ClientHeight = 620
   ClientWidth = 720
+  OnActivate = FormActivate
   OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  Position = poDefaultPosOnly
+  Position = poDesigned
   ShowInTaskBar = stNever
   BorderStyle = bsSizeToolWin
   object pnlTop: TPanel

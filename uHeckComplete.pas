@@ -42,6 +42,7 @@ type
     FDeclined: string;         { the word the list was dismissed on }
     FInserts: TStringList;     { what each item puts in, matching ItemList }
     FDark: Boolean;
+    FAuto: Boolean;
     procedure EditorChange(Sender: TObject);
     procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure TimerTick(Sender: TObject);
@@ -62,6 +63,11 @@ type
     { open it now, on whatever is under the caret - Ctrl+Space }
     procedure Open;
     property Box: TSynCompletion read FBox;
+    { whether it opens by itself after a pause in typing.  Off, it only
+      comes when asked with Ctrl+Space - for somebody who finds it in the
+      way, and for the test harness, which types blind and whose Return
+      the list would take for a choice. }
+    property Auto: Boolean read FAuto write FAuto;
   end;
 
 implementation
@@ -114,6 +120,7 @@ const
 
 constructor THeckCompleter.Create(Ed: TSynEdit);
 begin
+  FAuto := True;
   inherited Create;
   FEd := Ed;
   FInserts := TStringList.Create;
@@ -201,6 +208,7 @@ begin
   end;
   if SameText(W, FDeclined) then Exit;
   if FBox.IsActive then Exit;      { it narrows itself as the word grows }
+  if not FAuto then Exit;
   FTimer.Enabled := False;
   FTimer.Enabled := True;
 end;

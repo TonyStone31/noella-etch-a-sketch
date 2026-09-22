@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **On Windows the source window came back behind the main window**, and
+  not where it had been left.  It is the main window's own now, in front
+  of it, and it keeps its place.
+- **Typing into the source window went astray** when the window had just
+  been clicked into: its keyboard focus was on a checkbox, so a space
+  toggled *Only picked*.  The text takes the keys now.
+
+### New
+
+- **`/source complete off`** - the list of words the source window offers
+  as you type stays away, and comes only on Ctrl+Space; `/source complete
+  on` brings it back.  Remembered.
+
 ## v2026.09.22
 
 ### New
