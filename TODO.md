@@ -5876,3 +5876,20 @@ first-class profile; write the grammar as a specification that does not
 mention this program (format2.md is most of it); when the words settle,
 a file name of its own - `.heck` - and a header that says `Heck 2`, not
 the program's name.
+
+The prior art, for the reading list: VRML (1994/97) and X3D (2001, ISO,
+XML) - the text scene descriptions, used by exporters and typed by
+nobody; X3DOM (Behr, Eschler, Jung, Zöllner, "X3DOM: a DOM-based
+HTML5/X3D integration model", Web3D 2009) and XML3D (Sons, Klein,
+Rubinstein, Byelozyorov, Slusallek, "XML3D: interactive 3D graphics for
+the web", Web3D 2010) - the "SVG for 3D" attempts, minimal elements,
+DOM events on shapes; the W3C Declarative 3D community group that tried
+to standardize them and stalled; and glTF (Khronos, 2015), JSON plus
+binary, for machines, the one that won.  Browsers are getting a
+`<model>` element whose content is glTF or USDZ - so a browser rendering
+Heck means Heck to glTF, which is the faces-said profile plus a
+triangulator: a day, when wanted, beside STL.  What they got right: a
+tiny core, everything else optional, named things a host can hang
+events on.  What to learn from their failing: not XML, and no plug-in.
+Nobody has held the place Heck aims at - a description a tradesman can
+read and write; the one 3D language people type, OpenSCAD, is a program.
