@@ -74,6 +74,7 @@ choosing between.
 | Animation out (GIF / WebP) | yes, built in | scenes to video | - | - | - | yes, anything |
 | Commands you can type | yes, `/` and about eighty of them | no | a command palette | - | - | operator search |
 | Scripting or plugins | **the drawing is text (Heck), and a jig is any program that prints it - experimental** | Ruby, and twenty years of extensions | - | - | Codeblocks | Python, enormous |
+| Readable native file, under git | **yes - Heck, experimental** | no | no | no | no | no |
 | Touch and pen | yes | yes (iPad) | - | **yes, it is built for it** | iPad | tablet and touch |
 | Interface languages | **English only** | several | - | - | - | many |
 
@@ -108,6 +109,7 @@ to be right in every number or has to change later.
 | STL out | yes | no | no | no | yes | yes | yes | yes | yes |
 | Prints at true scale | yes | prints; paper layouts not found | yes, and PDF | yes, and PDF | yes | PDF out | - | yes | yes |
 | **Typed command line** | yes, `/` | yes | yes | yes | Python console | no | no | no | no |
+| **Readable, diffable file** | **Heck, experimental** | no | DXF, at a stretch | DXF, at a stretch | no | its own text, not for people | no | no | no |
 | **Scripting** | **Heck text, and jigs - experimental** | Lape (Pascal script) | - | JavaScript | Python, enormous | batch export | Python, a proof of concept | an API | FeatureScript |
 | **Sheet metal** | unfolding, built in | no | no | no | workbench | no | - | yes | yes, with a live flat pattern |
 | **Trade work built in** | duct fittings, pipe spool, flat patterns | **electrical**: devices, cables, cable legend, materials list, bill of materials, CSV and XLSX | no | CAM in QCAD/CAM | workbenches for nearly everything | no | no | CAM | - |
@@ -255,6 +257,14 @@ Not hedged, because nobody is helped by it being hedged.
   now the same light.  `docs/sketchup/` is sixteen of their help pages read
   properly and written up, and where we differ it is on purpose and written
   down.
+* **The drawing is text, under git.**  Heck (`docs/heck-pitch.md`,
+  experimental) writes the sheet as one statement to a line, so `git
+  diff` on a drawing says what moved and nothing else, and history,
+  blame and branches come with the tools a programmer already has.  It
+  is also a language small enough for an AI to learn from a page, and
+  open enough that anyone can wire in their own.  None of the programs
+  here has a readable, diffable native file; the closest is OpenSCAD,
+  whose text is a program and not the drawing.
 * **The trade work is in the box.**  Duct fittings from the measurements you
   took, a pipe spool leg by leg, and the flat pattern to cut - built in
   rather than bought as an extension.  That is the job this program was

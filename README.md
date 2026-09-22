@@ -118,8 +118,11 @@ The manual covers all of this properly.  The short version:
   [`docs/primitives.md`](docs/primitives.md).  There is no scripting
   API; instead a group can be made by a **jig** - *Just Include
   Geometry*, any program that prints Heck, in whatever language is on
-  the machine - and run again from the text.  **Experimental:** the
-  words are still settling, and the `.hsk` file is still the old format.
+  the machine - and run again from the text.  Text means a drawing under
+  **git** - a diff that says what moved, history, branches - and a
+  language small enough for an AI to learn from a page.
+  **Experimental:** the words are still settling, and the `.hsk` file is
+  still the old format.
   [Heck](https://tonystone31.github.io/noella-etch-a-sketch/heck.html) ·
   [the pitch](docs/heck-pitch.md)
 * **A command bar** - type `/` and a searchable list of every command comes

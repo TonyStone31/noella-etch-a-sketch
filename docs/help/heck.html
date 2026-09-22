@@ -13,7 +13,7 @@ now may need a small edit later.  The <code>.hsk</code> file the program
 saves is still the old format; Heck is what <code>/source</code> shows, and
 what it reads back when you press <b>Apply</b>.</p>
 
-<nav class="jump"><b>On this page:</b> <a href="#the-window">The window</a> &middot; <a href="#a-place">A place</a> &middot; <a href="#lengths">Lengths</a> &middot; <a href="#things">Things</a> &middot; <a href="#faces">Faces come from lines</a> &middot; <a href="#primitives">Box, rect, circle, pull</a> &middot; <a href="#blocks">Blocks and one-liners</a> &middot; <a href="#names">Names</a> &middot; <a href="#pick">Picking points from the sheet</a> &middot; <a href="#jigs">Jigs</a> &middot; <a href="#the-rules">The rules</a></nav>
+<nav class="jump"><b>On this page:</b> <a href="#the-window">The window</a> &middot; <a href="#a-place">A place</a> &middot; <a href="#lengths">Lengths</a> &middot; <a href="#things">Things</a> &middot; <a href="#faces">Faces come from lines</a> &middot; <a href="#primitives">Box, rect, circle, pull</a> &middot; <a href="#blocks">Blocks and one-liners</a> &middot; <a href="#names">Names</a> &middot; <a href="#pick">Picking points from the sheet</a> &middot; <a href="#jigs">Jigs</a> &middot; <a href="#why-text">Why text</a> &middot; <a href="#the-rules">The rules</a></nav>
 
 <h2 id="the-window">The window</h2>
 <p><code>/source</code> opens a window beside the drawing with the sheet
@@ -126,6 +126,16 @@ opens - you press the play mark beside the line, or <b>Run jigs</b> for
 all of them.  What the jig printed folds shut under its line.
 <code>/source sample</code> puts a sample drawing in the window and writes
 its jigs to the folder for you to look at.</p>
+
+<h2 id="why-text">Why text</h2>
+<p>Two reasons beyond reading it.  A drawing that is text is a drawing
+under <b>git</b>: one statement to a line, so a diff says <i>this corner
+moved four inches</i> and nothing else, and history, blame and branches
+come with the tools a programmer already has - a revision browser with a
+preview of each version is where the source window is heading.  And a
+small, plain language is one a machine can learn from a page: any AI can
+already write Heck, and anyone can wire their own into it, because
+nothing in a drawing is hidden.</p>
 
 <h2 id="the-rules">The rules</h2>
 <ol>

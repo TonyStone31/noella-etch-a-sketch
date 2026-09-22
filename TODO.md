@@ -5846,6 +5846,8 @@ Helpers in the source window, when it is time, cheapest first: a diff
 view - what changed since the last save or commit, as marks in the
 gutter, which SynEdit has; history per line, `git blame` on a corner
 being who moved it and when, and with the kept text, what they typed;
-commit from the window.  All of it is git on a text file; none of it
-needs to know it is a drawing.  A jig in the repository beside the
+commit from the window; and a revision browser - the drawing's history
+as a list, each version previewed on the sheet, which no program in the
+comparison has.  All of it is git on a text file; none of it needs to
+know it is a drawing.  A jig in the repository beside the
 drawing, its output committed with it, is a build.

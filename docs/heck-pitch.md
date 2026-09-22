@@ -101,6 +101,29 @@ And it is safe in the way office macros never were:
   folder.  A file from a stranger is geometry with a line of text on it.
 * **You press the button.**  Every run is something a person asked for.
 
+## Under version control
+
+A drawing that is text is a drawing under **git**.  One statement to a
+line, on purpose, so that `git diff` on a drawing says *this corner
+moved four inches* and nothing else; a nudge to one corner changes one
+line, and the writer is held to that.  History, blame - who moved this
+corner, when, and what they typed - branches for an experiment, a pull
+request for a change to a part: all of it comes free, with the tools
+every programmer already has.  None of the programs in the table below
+can do this; their files are binary, or text nobody reads.  A revision
+browser in the source window, with a preview of each version, is the
+natural next step.
+
+## A language a machine can learn
+
+The other reason it reads like Pascal: a small, plain, regular language
+is one an AI can learn from a page and write well.  Every model can
+already produce it - hand this page over and ask for a staircase - and,
+because nothing in a drawing is hidden in an object model or a binary,
+somebody training their own, or wiring in their own engine or API, has
+the whole of the drawing to work with as text.  A drawing you can read is
+a drawing anything can read.
+
 ## Next to the others
 
 | | How you script it | Can the model write the script back? | What you must learn first |
