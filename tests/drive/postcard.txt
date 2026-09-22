@@ -1,0 +1,24 @@
+# /postcard opens the once-only note to the authors - uHello - by hand,
+# offline, and Escape closes it without a fuss.
+#
+# NOTHING IS SENT: the suite runs --offline, so a Send here fails with a
+# line under the buttons and the window stays up.  The script does not press
+# Send anyway; it opens the window, types a word into the note, and leaves.
+# What to look for: the program is still up afterwards, and the shot is an
+# untouched sheet.
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 400
+key slash
+wait 600
+type postcard
+wait 300
+key return
+wait 1500
+type a word for the note
+wait 600
+key escape
+wait 800
+shot /tmp/hsk-postcard-after.png

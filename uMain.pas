@@ -51,7 +51,7 @@ uses
   Classes, SysUtils, Types, Math, StrUtils, IniFiles, Forms, Controls, Graphics,
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
-  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uFormat2, uHeck, uJig, uJigFiles, uFittings, uTransition, uSpool, uPipe,
+  uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uHello, uFormat2, uHeck, uJig, uJigFiles, uFittings, uTransition, uSpool, uPipe,
   InkPage;
 
 type
@@ -732,6 +732,7 @@ type
     FCrashToOffer: Boolean;
     FUpdatedFrom: string;
     FWhatsNewShown: Boolean;
+    FPostcardOffered: Boolean;
     { The last few dozen things that happened, so a crash report says what
       was being done and not only where it landed.  A ring, so it costs
       nothing and never grows. }
@@ -1509,7 +1510,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..81] of TCmdItem = (
+  CMD_LIST: array[0..82] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1566,6 +1567,7 @@ const
     (Name: 'plan';       Hint: 'look straight down';                    Arg: False; Eg: ''; Also: '2d flat'),
     (Name: 'plane';      Hint: 'the working plane: xy, xz or yz';       Arg: True;
                          Eg:   '/plane xz'),
+    (Name: 'postcard';   Hint: 'the once-only note to the authors, to send or read';  Arg: False; Eg: ''; Also: 'hello'),
     (Name: 'print';      Hint: 'this sheet - or "all", or "full"';      Arg: True;
                          Eg:   '/print all'),
     (Name: 'protractor'; Hint: 'lay a guide at an angle';               Arg: False; Eg: ''; Also: 'angle'),
@@ -2850,6 +2852,8 @@ begin
   Application.OnException := @ReportCrash;
   FExportDirs := TStringList.Create;
   Randomize;
+  { one more start, for the postcard's sake - see uHello }
+  CountLaunch;
   FRunTag := IntToHex(GetTickCount64 and $FFFFFF, 6) + IntToHex(Random($10000), 4);
   for I := 1 to ParamCount do
   begin
@@ -15500,6 +15504,11 @@ begin
       FCmdMsg := 'A move stretches what it is joined to again, which is how ' +
         'SketchUp does it.';
   end
+  else if (W = 'postcard') or (W = 'hello') then
+  begin
+    uDlgSkin.UseTheme(Themes[FThemeIdx]);
+    OfferPostcard(Self, CurrentVersion, True);
+  end
   else if (W = 'light') or (W = 'lamp') then
   begin
     if (Rest = 'on') or (Rest = 'off') then CameraLamp := Rest = 'on'
@@ -22325,6 +22334,17 @@ begin
       CheckForUpdate(False);
       { and the manual beside the program, in step with it }
       KeepHelpCurrent;
+    end;
+    { The postcard - uHello - once the update question has had its turn
+      and nothing else is up.  Second start or later, and only ever once. }
+    if (FUpTime > 3.0) and not FPostcardOffered and (Application.ModalLevel = 0) then
+    begin
+      FPostcardOffered := True;
+      if PostcardDue then
+      begin
+        uDlgSkin.UseTheme(Themes[FThemeIdx]);
+        OfferPostcard(Self, CurrentVersion, False);
+      end;
     end;
     if FUpTime > 4.0 then
       FStartupDone := True;

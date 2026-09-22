@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A postcard, if you like.**  On its second start the program asks,
+  once, whether it may send us one note saying what sort of computer it is
+  running on - and, if you care to say, what you want to use it for.  The
+  whole of the text is on the screen before you answer, *No* is as big a
+  button as *Yes*, and whichever you press it never asks again.  There is
+  no serial number or identifier in it, and it goes the same encrypted way
+  a bug report goes.  `/postcard` brings it back; `--offline` means it is
+  never asked at all.  We are two people, and we cannot otherwise tell
+  whether anyone is trying this.
+
 ## v2026.09.21.8
 
 ### Fixed

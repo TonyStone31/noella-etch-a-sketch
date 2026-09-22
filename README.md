@@ -4,8 +4,22 @@ A simple 3D sketching program for Windows and Linux PCs, modeled on SketchUp.
 It started out as my daughter's Etch A Sketch program.  Free Pascal / Lazarus, free to use,
 MIT licensed.
 
+## Get it
+
 **[Download the latest release](../../releases/latest)** - one file, no
-installer.
+installer, no account.  Pick the one for your computer and run it:
+
+| File | For |
+| --- | --- |
+| `heckers-sketch.exe` | Windows |
+| `heckers-sketch-linux` | Linux (`chmod +x` it first) |
+
+> **This is an early beta.**  It works, I use it at work, and it is
+> changing every few days - the drawing file format is being settled right
+> now.  Expect rough edges, and expect to be asked to update often.  An
+> actual 1.0 will be built with a stable Free Pascal release rather than the
+> trunk compiler these builds come from.
+
 **[Read the manual](https://tonystone31.github.io/noella-etch-a-sketch/)** -
 every tool, command and key.  The same pages open inside the program
 (`/manual`), from a copy it keeps beside itself.
@@ -109,27 +123,40 @@ them.  The manual covers them if you're curious.
 ## Installing
 
 Download the file for your computer from
-**[Releases](../../releases/latest)** and run it.
-
-| File | For |
-| --- | --- |
-| `heckers-sketch.exe` | Windows |
-| `heckers-sketch-linux` | Linux (`chmod +x` it first) |
-| `*-checked` | the same, with extra error checking - slower, but better crash reports |
+**[Releases](../../releases/latest)** and run it.  The `*-checked` builds
+there are the same program with extra error checking - slower, but they
+give better crash reports.
 
 It's portable: settings and the draft live next to the program, so it can
-run from a USB stick.  It checks GitHub every few hours for a newer version
-and `/update` installs it, and it keeps its own copy of the manual in a `help`
-folder beside itself, fetched from the matching release.  `--offline` keeps
-it off the network entirely.
+run from a USB stick.  It keeps its own copy of the manual in a `help`
+folder beside itself, fetched from the matching release.
 `--help` lists the command-line switches.
 
-## Problems and feedback
+## What it does on the network, plainly
 
-**Help → Report a problem** sends a screenshot, your note, and what the
-program was doing.  Your drawing is only included if you tick the box.  No
-account needed.  If it crashes, it offers to send the crash report.
-[Reporting a problem](https://tonystone31.github.io/noella-etch-a-sketch/reporting.html)
+No account, no sign-in, no tracking, and nothing that identifies you or
+your machine.  Everything it does online is listed here, and `--offline`
+switches all of it off:
+
+* **Looks for a newer version.**  Every few hours it asks GitHub what the
+  latest release is - one request, nothing about you or your drawing in
+  it - and `/update` installs it.  `/update never` turns the check off.
+* **Sends a bug report when you ask it to.**  Help → Report a problem sends
+  a screenshot, your note and what the program was doing; your drawing goes
+  only if you tick the box.  If it crashes, it offers to send the crash
+  report.  A report is encrypted to our key before it leaves, and travels
+  through a public file drop that throws files away after a few days -
+  there is no server of ours behind it.
+  [Reporting a problem](https://tonystone31.github.io/noella-etch-a-sketch/reporting.html)
+* **Asks, once, to send a postcard.**  On its second start it asks whether
+  it may send us one note saying what sort of computer it is on - the
+  operating system, processor, memory, graphics, screen - and, if you care
+  to say, what you want to use it for.  The whole text is on the screen
+  before you answer, *No* is as big a button as *Yes*, and whichever you
+  press it never asks again (`/postcard` brings it back).  There is no
+  serial number or identifier in it; it goes the same encrypted way a bug
+  report goes.  We are two people and we cannot otherwise tell whether
+  anybody is trying this at all.
 
 ## Developed with Claude
 

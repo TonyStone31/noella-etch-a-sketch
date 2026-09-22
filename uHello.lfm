@@ -1,0 +1,132 @@
+object HelloForm: THelloForm
+  Left = 420
+  Height = 670
+  Top = 200
+  Width = 640
+  BorderIcons = [biSystemMenu]
+  BorderStyle = bsDialog
+  Caption = 'A postcard to the authors'
+  ClientHeight = 670
+  ClientWidth = 640
+  OnClose = FormClose
+  OnShow = FormShow
+  Position = poMainFormCenter
+  object lblHead: TLabel
+    Left = 24
+    Height = 26
+    Top = 20
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'Would you send us a postcard?'
+    Font.Height = -19
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblWhy: TLabel
+    Left = 24
+    Height = 92
+    Top = 52
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'lblWhy'
+    WordWrap = True
+  end
+  object lblWhat: TLabel
+    Left = 24
+    Height = 18
+    Top = 152
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'This is the whole of what would be sent - nothing else:'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object memText: TMemo
+    Left = 24
+    Height = 190
+    Top = 174
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    Font.Name = 'Monospace'
+    Font.Pitch = fpFixed
+    ParentFont = False
+    ReadOnly = True
+    ScrollBars = ssAutoBoth
+    TabOrder = 0
+    WordWrap = False
+  end
+  object lblNote: TLabel
+    Left = 24
+    Height = 18
+    Top = 374
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'What do you want to use this for?  It would shape where the work goes.  Anything at all, or nothing:'
+    WordWrap = True
+  end
+  object memNote: TMemo
+    Left = 24
+    Height = 80
+    Top = 396
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    MaxLength = 2000
+    ScrollBars = ssAutoVertical
+    TabOrder = 1
+    OnChange = memNoteChange
+  end
+  object lblHonest: TLabel
+    Left = 24
+    Height = 126
+    Top = 484
+    Width = 592
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    Caption = 'lblHonest'
+    WordWrap = True
+  end
+  object lblStage: TLabel
+    Left = 152
+    Height = 18
+    Top = 629
+    Width = 216
+    Anchors = [akLeft, akBottom]
+    AutoSize = False
+    Caption = ''
+  end
+  object btnSave: TButton
+    Left = 24
+    Height = 32
+    Top = 622
+    Width = 120
+    Anchors = [akLeft, akBottom]
+    Caption = 'Save a copy...'
+    TabOrder = 2
+    OnClick = btnSaveClick
+  end
+  object btnNo: TButton
+    Left = 376
+    Height = 32
+    Top = 622
+    Width = 120
+    Anchors = [akRight, akBottom]
+    Cancel = True
+    Caption = 'No thanks'
+    TabOrder = 3
+    OnClick = btnNoClick
+  end
+  object btnSend: TButton
+    Left = 504
+    Height = 32
+    Top = 622
+    Width = 112
+    Anchors = [akRight, akBottom]
+    Caption = 'Send it'
+    TabOrder = 4
+    OnClick = btnSendClick
+  end
+end
