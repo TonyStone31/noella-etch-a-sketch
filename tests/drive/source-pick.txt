@@ -1,0 +1,40 @@
+# The source window's Pick: type a statement with its <parts>, press Pick,
+# and each click on the sheet fills the next part - a place, then the
+# step from it.  What to look for: the program is still up afterwards; the
+# text itself is in the source window, which "shot" does not capture.
+geometry 0 0 1400 800
+activate
+wait 1500
+key escape
+wait 400
+key slash
+wait 500
+type source complete off
+key return
+wait 2500
+at 1000 300
+click
+wait 500
+hold ctrl
+key a
+let ctrl
+wait 300
+type box = <corner>; <size>
+wait 500
+at 1076 18
+click
+wait 800
+at 300 400
+click
+wait 800
+at 500 300
+click
+wait 800
+key escape
+wait 800
+shot /tmp/hsk-source-pick.png
+key slash
+wait 400
+type source complete on
+key return
+wait 600

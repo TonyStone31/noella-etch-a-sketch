@@ -30,7 +30,7 @@ uses
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
   SynGutterLineNumber, SynEditMarkupHighAll, SynEditMarkupWordGroup, SynEditMouseCmds, LCLIntf,
   SynEditMiscProcs, LazSynEditText, SynEditFoldedView,
-  uWork, uSynHsk2, uJig, uHeckSample, uHeckComplete;
+  uWork, uSynHsk2, uJig, uHeckSample, uHeckComplete, uFormat2, StrUtils;
 
 type
   TSourceAskState = procedure(out DocSeq, PickSeq: Int64) of object;
@@ -46,6 +46,8 @@ type
   TSourceRunJigs = function: Integer of object;
   { run the jig of this thing - the group's own record; true if it ran }
   TSourceRunJig = function(Thing: Integer): Boolean of object;
+  { the sheet is to take a point for the text: On starts it, off stops it }
+  TSourcePick = procedure(On: Boolean) of object;
   { bring what is picked on the sheet to the middle of the view, sized }
   TSourceCenter = procedure of object;
 
@@ -62,6 +64,7 @@ type
     btnRevert: TButton;
     btnSample: TButton;
     btnJigs: TButton;
+    btnPick: TButton;
     lblApply: TLabel;
     pnlApply: TPanel;
     btnUnfold: TButton;
@@ -82,6 +85,7 @@ type
     procedure btnRevertClick(Sender: TObject);
     procedure btnSampleClick(Sender: TObject);
     procedure btnJigsClick(Sender: TObject);
+    procedure btnPickClick(Sender: TObject);
     procedure EditorChange(Sender: TObject);
     procedure btnUnfoldClick(Sender: TObject);
     procedure edtFindKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -126,6 +130,9 @@ type
     FComplete: THeckCompleter;
     FJigGutter: TJigGutter;
     FFoldJigs: Boolean;           { fold the jigs' output on the next tick }
+    FPickFirst: TP3;              { the first point picked for the caret line }
+    FPickLine: Integer;           { which line that was; -1 for none }
+    FPicking: Boolean;
     FCompleteChange: TNotifyEvent;
     FCompleteKey: TKeyEvent;
     procedure SetEdited(On_: Boolean; const Msg: string = '');
@@ -153,6 +160,15 @@ type
     OnRunJigs: TSourceRunJigs;
     OnRunJig: TSourceRunJig;
     OnCenter: TSourceCenter;
+    OnPick: TSourcePick;
+    { A point picked on the sheet, for the line the caret is on.  The line
+      says what it wants: the first pick is a place; after it, a line
+      wants "to" and a place, a box, rect or pull wants ";" and the step
+      from the first, a circle wants ";" and the radius.  Anything else
+      gets the place as it is. }
+    procedure TakePoint(const P: TP3; U: TUnitSystem);
+    { the pick is over - the sheet said so }
+    procedure PickEnded;
     { is this line (0-based) a "jig = " line? }
     function IsJigLine(Line: Integer): Boolean;
     { the gutter's play button on a jig line was pressed }
@@ -1060,6 +1076,106 @@ begin
   end;
   Editor.EnsureCursorPosVisible;
   Editor.SetFocus;
+end;
+
+procedure TSourceForm.btnPickClick(Sender: TObject);
+begin
+  if not chkVersion2.Checked then Exit;
+  FPicking := not FPicking;
+  FPickLine := -1;
+  btnPick.Caption := IfThen(FPicking, 'Picking', 'Pick');
+  if FPicking then
+    lblApply.Caption := 'Click points on the sheet: they are typed in at the caret.  Esc there, or Picking here, stops.';
+  if Assigned(OnPick) then OnPick(FPicking);
+end;
+
+procedure TSourceForm.PickEnded;
+begin
+  FPicking := False;
+  btnPick.Caption := 'Pick';
+end;
+
+procedure TSourceForm.TakePoint(const P: TP3; U: TUnitSystem);
+var
+  Y, A, B: Integer;
+  L, T, Key, Add, Slot: string;
+  HasPlace: Boolean;
+begin
+  Y := Editor.CaretY - 1;
+  if (Y < 0) or (Y >= Editor.Lines.Count) then Exit;
+  L := Editor.Lines[Y];
+  T := LowerCase(Trim(L));
+  { A <part> left by the word list: the first one on the line is what this
+    point is for, and its name says how - a place, a step from the first
+    place, a radius from it.  The next pick takes the next. }
+  A := Pos('<', L);
+  B := Pos('>', L);
+  if (A > 0) and (B > A) then
+  begin
+    Slot := LowerCase(Copy(L, A + 1, B - A - 1));
+    if Y <> FPickLine then FPickLine := -1;
+    if (Slot = 'size') or (Slot = 'by') or (Slot = 'step') then
+    begin
+      if FPickLine = Y then
+        Add := Place2(P3(P.X - FPickFirst.X, P.Y - FPickFirst.Y, P.Z - FPickFirst.Z), U, True)
+      else Add := Place2(P, U, True);
+    end
+    else if Slot = 'radius' then
+    begin
+      if FPickLine = Y then
+        Add := Len2(Sqrt(Sqr(P.X - FPickFirst.X) + Sqr(P.Y - FPickFirst.Y) + Sqr(P.Z - FPickFirst.Z)), U)
+      else Add := Len2(1, U);
+    end
+    else
+    begin
+      Add := Place2(P, U, False);
+      if FPickLine <> Y then
+      begin
+        FPickFirst := P;
+        FPickLine := Y;
+      end;
+    end;
+    { through the editor's own edit, so undo and the edited state follow }
+    Editor.BeginUpdate(False);
+    Editor.BlockBegin := Point(A, Y + 1);
+    Editor.BlockEnd := Point(B + 1, Y + 1);
+    Editor.SelText := Add;
+    Editor.EndUpdate;
+    Exit;
+  end;
+  Key := Copy(T, 1, Pos(' ', T + ' ') - 1);
+  if Pos('=', Key) > 0 then Key := Copy(Key, 1, Pos('=', Key) - 1);
+  if Y <> FPickLine then FPickLine := -1;
+  HasPlace := (FPickLine = Y) or (Pos(' east', T) > 0) or (Pos(' west', T) > 0) or
+              (Pos(' north', T) > 0) or (Pos(' south', T) > 0);
+  if not HasPlace then
+  begin
+    Add := Place2(P, U, False);
+    FPickFirst := P;
+    FPickLine := Y;
+  end
+  else if (Key = 'line') or (Key = 'guide') then
+  begin
+    if Pos(' to ', T) > 0 then Add := ' ' + Place2(P, U, False)
+    else Add := ' to ' + Place2(P, U, False);
+  end
+  else if (Key = 'box') or (Key = 'rect') or (Key = 'pull') or (Key = 'size') or (Key = 'by') then
+  begin
+    if (Pos(';', T) > 0) or (FPickLine <> Y) then Add := ' ' + Place2(P, U, False)
+    else Add := '; ' + Place2(P3(P.X - FPickFirst.X, P.Y - FPickFirst.Y, P.Z - FPickFirst.Z), U, True);
+  end
+  else if Key = 'circle' then
+  begin
+    if (Pos(';', T) > 0) or (FPickLine <> Y) then Add := ' ' + Place2(P, U, False)
+    else Add := '; ' + Len2(Sqrt(Sqr(P.X - FPickFirst.X) + Sqr(P.Y - FPickFirst.Y) + Sqr(P.Z - FPickFirst.Z)), U);
+  end
+  else Add := ' ' + Place2(P, U, False);
+  { typed at the end of the line, after whatever is there, with a space
+    when the line does not end in one or in "= " }
+  if (L <> '') and (L[Length(L)] <> ' ') and (Add <> '') and (Add[1] <> ' ') and
+     (Add[1] <> ';') then Add := ' ' + Add;
+  Editor.CaretX := Length(L) + 1;
+  Editor.InsertTextAtCaret(Add);
 end;
 
 procedure TSourceForm.miRunJigClick(Sender: TObject);

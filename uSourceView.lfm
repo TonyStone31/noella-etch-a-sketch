@@ -2,10 +2,10 @@ object SourceForm: TSourceForm
   Left = 300
   Height = 620
   Top = 160
-  Width = 720
+  Width = 760
   Caption = 'Source'
   ClientHeight = 620
-  ClientWidth = 720
+  ClientWidth = 760
   OnActivate = FormActivate
   OnClose = FormClose
   OnCreate = FormCreate
@@ -68,8 +68,17 @@ object SourceForm: TSourceForm
       TabOrder = 6
       OnClick = btnJigsClick
     end
+    object btnPick: TButton
+      Left = 414
+      Height = 26
+      Top = 6
+      Width = 48
+      Caption = 'Pick'
+      TabOrder = 8
+      OnClick = btnPickClick
+    end
     object chkVersion2: TCheckBox
-      Left = 424
+      Left = 470
       Height = 24
       Top = 7
       Width = 62
@@ -81,7 +90,7 @@ object SourceForm: TSourceForm
       OnChange = chkVersion2Change
     end
     object chkOnTop: TCheckBox
-      Left = 608
+      Left = 640
       Height = 24
       Top = 7
       Width = 100
@@ -91,7 +100,7 @@ object SourceForm: TSourceForm
       OnChange = chkOnTopChange
     end
     object chkOnlyPicked: TCheckBox
-      Left = 490
+      Left = 534
       Height = 24
       Top = 7
       Width = 112

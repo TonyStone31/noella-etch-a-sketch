@@ -85,6 +85,9 @@ procedure SpecAxes(const F: TP3; out AU, AV: TP3);
 { one length, the way the file writes it; always positive - the direction
   word carries the sign }
 function Len2(V: Double; U: TUnitSystem): string;
+{ a place - "1" east, 1" north, 0 up" - or, Offset, a step that says only
+  what changes }
+function Place2(const P: TP3; U: TUnitSystem; Offset: Boolean): string;
 
 implementation
 

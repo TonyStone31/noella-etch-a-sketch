@@ -14,6 +14,14 @@
 
 ### New
 
+- **Pick a point from the sheet for the text.**  *Pick* in the source
+  window turns the sheet into a point picker: each click, snapped exactly
+  as the line tool snaps, is typed into the line the caret is on - a
+  place; then, for a line, `to` and a place; for a box, rect or pull, `;`
+  and the step from the first; for a circle, `;` and the radius.  The
+  word list now fills a statement in with its parts - `box = <corner>;
+  <size>` - and each pick takes the next `<part>`.  Esc on the sheet, or
+  *Picking* in the window, ends it.
 - **Jigs in the source window.**  A group made by a jig shows as its
   header and its `jig = ...` line; what the jig printed folds shut under
   that line, opened with the fold mark when you want to see it.  A play

@@ -295,6 +295,8 @@ type
     function RunJigOf(PartId: Integer): Boolean;
     { the same, from the group's record - the source window's play button }
     function RunJigOfThing(Thing: Integer): Boolean;
+    { the source window's Pick: clicks on the sheet type places into it }
+    procedure SourcePick(On: Boolean);
     function RunAllJigs: Integer;
     procedure SourceCenter;
     procedure RebuildInfo;
@@ -735,6 +737,7 @@ type
     FUpdatedFrom: string;
     FWhatsNewShown: Boolean;
     FPostcardOffered: Boolean;
+    FTextPick: Boolean;           { the sheet is taking points for the source window }
     FSourceComplete: Boolean;     { the source window's list of words opens by itself }
     { The last few dozen things that happened, so a crash report says what
       was being done and not only where it landed.  A ring, so it costs
@@ -15942,6 +15945,16 @@ begin
     tool can get in front of it.  Any button dismisses the list; only a left
     press on a row chooses it, so a right-click to get out cannot pick
     something on the way. }
+  { The source window's Pick: a left press is a point for the text - the
+    snapped cursor, the same one every tool works from - and nothing else
+    happens on the sheet. }
+  if FTextPick and (Button = mbLeft) and (SourceForm <> nil) and (FD <> nil) then
+  begin
+    SourceForm.TakePoint(FCur, FD.Units);
+    FCmdMsg := 'Typed in: ' + Place2(FCur, FD.Units, False) + '.  Next point, or Esc.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
   if FPopup <> POP_NONE then
   begin
     Which := FPopup;
@@ -18275,6 +18288,7 @@ begin
     SourceForm.OnApply := @SourceApply;
     SourceForm.OnRunJigs := @RunAllJigs;
     SourceForm.OnRunJig := @RunJigOfThing;
+    SourceForm.OnPick := @SourcePick;
     SourceForm.OnCenter := @SourceCenter;
     { The main window's own, so that on Windows it stays in front of the
       main window instead of opening behind it - a report from a Windows
@@ -18484,6 +18498,21 @@ begin
   if (FD = nil) or (Length(FSel) = 0) then Exit;
   if FitTarget(True, FD.Az, FD.El, FitZ, FitX, FitY) then
     GlideCamera(FD.Az, FD.El, FitZ, FitX, FitY);
+end;
+
+procedure TMainForm.SourcePick(On: Boolean);
+begin
+  FTextPick := On;
+  if On then
+  begin
+    FCmdMsg := 'Picking for the text: click a point on the sheet, and it is typed in.  Esc stops.';
+    { the sheet has the keys and the mouse now }
+    BringToFront;
+    SetFocus;
+  end
+  else
+    FCmdMsg := 'Picking for the text is over.';
+  pbCmd.Invalidate;
 end;
 
 function TMainForm.RunJigOfThing(Thing: Integer): Boolean;
@@ -23410,6 +23439,14 @@ var
   end;
 
 begin
+  { the source window's Pick ends on Esc, before anything else sees it }
+  if FTextPick and (Key = VK_ESCAPE) then
+  begin
+    SourcePick(False);
+    if SourceForm <> nil then SourceForm.PickEnded;
+    Key := 0;
+    Exit;
+  end;
   if FBusy then Exit;
   Handled := True;
 

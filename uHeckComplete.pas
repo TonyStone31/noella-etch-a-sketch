@@ -489,7 +489,21 @@ begin
                 name, or a new line - is the person's }
               if (W = 'face') or (W = 'line') or (W = 'guide') or (W = 'box') or (W = 'rect') or (W = 'pull') or (W = 'noface') then
               begin
-                if (Pfx = '') or (Pos(Pfx, W) = 1) then Offer(W, W + ' = ', THING_HINTS[N]);
+                { a thing said in one line comes with its parts to fill in:
+                  each <part> is a place the source window's Pick takes from
+                  the sheet, in order, or a thing typed over }
+                if (Pfx = '') or (Pos(Pfx, W) = 1) then
+                begin
+                  if W = 'line' then Offer(W, 'line = <from> to <to>', THING_HINTS[N])
+                  else if W = 'guide' then Offer(W, 'guide = <from> to <to>', THING_HINTS[N])
+                  else if (W = 'box') or (W = 'rect') then Offer(W, W + ' = <corner>; <size>', THING_HINTS[N])
+                  else if W = 'pull' then Offer(W, 'pull = <outline>; <by>', THING_HINTS[N])
+                  else Offer(W, W + ' = ', THING_HINTS[N]);
+                end;
+              end
+              else if W = 'circle' then
+              begin
+                if (Pfx = '') or (Pos(Pfx, W) = 1) then Offer(W, 'circle c = <center>; <radius>', THING_HINTS[N]);
               end
               else
                 Word_(W, THING_HINTS[N]);
