@@ -343,9 +343,9 @@ without `=` opens a block, and `end` closes it.
 | `note` | - | `at`, `text` (one line each, repeated); `to` (nowhere), `size` (1), `ink` |
 | `guide` | `guide = ` two places - or one, which is a guide point | - |
 | `noface` | `noface = ` the corners of a loop of lines that is not a face | - |
-| `pull` | `pull = ` a flat outline `; ` how far it goes - `pull = c1; 2' up` is a cylinder | `points`, `by`; `paint` (none) |
-| `box` | `box = ` its low southwest corner `; ` its size as a step | `at`, `size`; `paint` (none) |
-| `rect` | `rect = ` a corner `; ` a size with two parts | `at`, `size`; `paint` (none) |
+| `pull` | `pull = ` a flat outline `; ` how far it goes - `pull = c1; 2' up` is a cylinder | `points`, `by`; `paint` (none), `ink`, `width` (the sheet's) |
+| `box` | `box = ` its low southwest corner `; ` its size as a step | `at`, `size`; `paint` (none), `ink`, `width` |
+| `rect` | `rect = ` a corner `; ` a size with two parts | `at`, `size`; `paint` (none), `ink`, `width` |
 
 * **A line is two points.**  Which comes first does not matter, and the
   line says nothing about its direction or its length - the two points do,

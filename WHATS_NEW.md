@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A circle drawn with the tool was not a circle to `/source`** - it was
+  an arc of 359.9999824°, a hair short of the way round after the file's
+  six decimals - so it was a block, the hole it cut was twenty-four
+  corners instead of `hole = c1`, and a disk pulled up was a hundred
+  lines instead of `pull = c1; 4 5/8" up`.  A whole circle within a hair
+  is a whole circle.
+- **A box, rect or pull drawn with a wider pen** - `width = 4` on every
+  edge - was written as its edges, four lines each.  The block form
+  carries `ink` and `width` now, once for all of them.
+- **A circle by name only ever meant the disk facing the circle's way**,
+  and the bottom of a pulled disk faces the other way; it came back turned
+  round.  Circles are written at the level, before what stands on them.
+
 ## v2026.09.22.2
 
 ### New

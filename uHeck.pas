@@ -82,6 +82,9 @@ type
     NoFaces: array of TLoop;
     { "faces = said" in the header: make no faces from the lines at all }
     AllSaid: Boolean;
+    { the faces written out in full - "face = ..." - which say their own
+      holes and are not to be cut by a circle lying on them }
+    Explicit: array of Integer;
     { one flag a thing: a face that its scope's edges close exactly, alone,
       turned the way it would have been made - for the writer }
     Implied: array of Boolean;
@@ -1197,7 +1200,7 @@ begin
     Inc(Cur);
   end;
   if R <= 0 then Fail('a circle wants a radius');
-  if IsArc and (Abs(Sweep) >= 2 * Pi - 1E-9) then Fail('an arc wants a sweep');
+  if IsArc and FullCircle(Sweep) then Fail('an arc wants a sweep');
 
   { where it starts, as a direction, and then as an angle in the axes the
     program keeps for that plane }
@@ -1303,6 +1306,8 @@ begin
   if Length(Outline) < 3 then Fail('a face wants three corners or more');
   D.AddFaceRaw(Outline, Ink, Solid <> 0);
   Idx := D.Live - 1;
+  SetLength(Explicit, Length(Explicit) + 1);
+  Explicit[High(Explicit)] := Idx;
   if Solid <> 0 then D.SetFaceGroup(Idx, Solid);
   if Length(Holes) > 0 then
   begin
@@ -1579,11 +1584,15 @@ var
   Key, V, Name: string;
   Corner, Size: TP3;
   HasPaint, HasAt, HasSize: Boolean;
+  Ink, WasInk: TColor;
+  Wd, WasWd: Single;
   Paint: TColor;
   P: Integer;
 begin
   HasPaint := False;
   Paint := 0;
+  Ink := DefInk;
+  Wd := DefWidth;
   Name := '';
   if not Block then
   begin
@@ -1610,14 +1619,23 @@ begin
       begin
         HasPaint := LowerCase(Trim(V)) <> 'none';
         if HasPaint then Paint := ReadColor(V);
-      end;
+      end
+      else if Key = 'ink' then Ink := ReadColor(V)
+      else if Key = 'width' then Wd := Expr(V, P).V;
     end;
     Inc(Cur);
   end;
   if Cur >= Src.Count then Fail('the box is never closed: an "end" is missing');
   Inc(Cur);
   if not (HasAt and HasSize) then Fail('a box wants an "at" and a "size"');
-  MakeBox(Corner, Size, HasPaint, Paint, Name);
+  { its edges in the pen the block says - ink and width - or the sheet's }
+  WasInk := DefInk; WasWd := DefWidth;
+  DefInk := Ink; DefWidth := Wd;
+  try
+    MakeBox(Corner, Size, HasPaint, Paint, Name);
+  finally
+    DefInk := WasInk; DefWidth := WasWd;
+  end;
 end;
 
 { four lines; the face comes from them as it always does, unless a paint
@@ -1636,7 +1654,8 @@ var
   Lp: TLoop;
   By: TP3;
   HasPaint, Round_: Boolean;
-  Paint: TColor;
+  Paint, Ink: TColor;
+  Wd: Single;
   Parts: TStringArray;
   P, I, N, G, ArcAt, K: Integer;
   Top: TP3;
@@ -1645,6 +1664,8 @@ begin
   ByText := '';
   HasPaint := False;
   Paint := 0;
+  Ink := DefInk;
+  Wd := DefWidth;
   if not Block then
   begin
     Parts := Value.Split([';']);
@@ -1667,7 +1688,9 @@ begin
         begin
           HasPaint := LowerCase(Trim(V)) <> 'none';
           if HasPaint then Paint := ReadColor(V);
-        end;
+        end
+        else if Key = 'ink' then Ink := ReadColor(V)
+        else if Key = 'width' then begin P := 1; Wd := Expr(V, P).V; end;
       end;
       Inc(Cur);
     end;
@@ -1689,7 +1712,7 @@ begin
   if (Pos(' ', Trim(OutlineText)) = 0) and (Pos(',', OutlineText) = 0) then
   begin
     for I := D.Live - 1 downto 0 do
-      if (D[I].Kind = ekArc) and (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) and
+      if (D[I].Kind = ekArc) and FullCircle(D[I].Sweep) and
          (Abs(Dist(D[I].C, Lp[0]) - D[I].R) < 1E-6) and
          (Abs(Dist(D[I].C, Lp[N div 2]) - D[I].R) < 1E-6) then
       begin
@@ -1700,20 +1723,22 @@ begin
   end;
   G := D.NewGroup;
   NoteSolid(G, HasPaint, Paint);
-  if Round_ then D.SetGroup(ArcAt, G)
+  { a loose circle pulled is the solid's; one that is another solid's
+    already - the hole in the box this one stands on - stays so }
+  if Round_ then begin if D[ArcAt].Grp = 0 then D.SetGroup(ArcAt, G); end
   else
     for K := 0 to N - 1 do
     begin
-      D.AddLine(Lp[K], Lp[(K + 1) mod N], DefInk, DefWidth, False);
+      D.AddLine(Lp[K], Lp[(K + 1) mod N], Ink, Wd, False);
       D.SetLineGroup(D.Live - 1, G);
     end;
   for K := 0 to N - 1 do
   begin
     Top := P3(Lp[K].X + By.X, Lp[K].Y + By.Y, Lp[K].Z + By.Z);
     D.AddLine(Top, P3(Lp[(K + 1) mod N].X + By.X, Lp[(K + 1) mod N].Y + By.Y, Lp[(K + 1) mod N].Z + By.Z),
-      DefInk, DefWidth, False);
+      Ink, Wd, False);
     D.SetLineGroup(D.Live - 1, G);
-    D.AddLine(Lp[K], Top, DefInk, DefWidth, False);
+    D.AddLine(Lp[K], Top, Ink, Wd, False);
     D.SetLineGroup(D.Live - 1, G);
     if Round_ then D.SetSoft(D.Live - 1, True);
   end;
@@ -1747,11 +1772,15 @@ var
   Key, V: string;
   Corner, Size: TP3;
   HasPaint, HasAt, HasSize: Boolean;
+  Ink, WasInk: TColor;
+  Wd, WasWd: Single;
   Paint: TColor;
   P: Integer;
 begin
   HasPaint := False;
   Paint := 0;
+  Ink := DefInk;
+  Wd := DefWidth;
   if not Block then
   begin
     PlaceAndStep(Value, Corner, Size);
@@ -1775,14 +1804,22 @@ begin
       begin
         HasPaint := LowerCase(Trim(V)) <> 'none';
         if HasPaint then Paint := ReadColor(V);
-      end;
+      end
+      else if Key = 'ink' then Ink := ReadColor(V)
+      else if Key = 'width' then Wd := Expr(V, P).V;
     end;
     Inc(Cur);
   end;
   if Cur >= Src.Count then Fail('the rectangle is never closed: an "end" is missing');
   Inc(Cur);
   if not (HasAt and HasSize) then Fail('a rectangle wants an "at" and a "size"');
-  MakeRect(Corner, Size, HasPaint, Paint);
+  WasInk := DefInk; WasWd := DefWidth;
+  DefInk := Ink; DefWidth := Wd;
+  try
+    MakeRect(Corner, Size, HasPaint, Paint);
+  finally
+    DefInk := WasInk; DefWidth := WasWd;
+  end;
 end;
 
 procedure THeckReader.DoBore(Solid: Integer);
@@ -1828,7 +1865,7 @@ var
 begin
   for I := FirstNew to D.Live - 1 do
   begin
-    if (D[I].Kind <> ekArc) or (Abs(Abs(D[I].Sweep) - 2 * Pi) >= 1E-9) then Continue;
+    if (D[I].Kind <> ekArc) or not FullCircle(D[I].Sweep) then Continue;
     N := D[I].Sides;
     if N < 3 then N := DefSides;
     SetLength(Lp, N);
@@ -1837,6 +1874,12 @@ begin
     for F := FirstNew to D.Live - 1 do
     begin
       if D[F].Kind <> ekFace then Continue;
+      { a face written out says its own holes; only what the reader made
+        itself - a box's top, a pull's, a face the lines closed - is cut }
+      Known := False;
+      for J := 0 to High(Explicit) do
+        if Explicit[J] = F then begin Known := True; Break; end;
+      if Known then Continue;
       if Length(D[F].Poly) = N then
       begin
         { the disk itself, or a face that is this ring: not cut }

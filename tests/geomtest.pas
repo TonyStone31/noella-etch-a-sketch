@@ -8859,7 +8859,11 @@ begin
           if D[I].Kind = ekLine then
             Far := Max(Far, Min(Max(Dist(D[I].A, E[K].A), Dist(D[I].B, E[K].B)),
                                 Max(Dist(D[I].A, E[K].B), Dist(D[I].B, E[K].A))))
-          else if D[I].Kind in [ekArc, ekGuide, ekDim] then
+          else if (D[I].Kind = ekArc) and FullCircle(D[I].Sweep) then
+        { a whole circle is its center and its radius; where it starts is
+          nobody's business }
+        Far := Max(Far, Max(Dist(D[I].C, E[K].C), Abs(D[I].R - E[K].R)))
+      else if D[I].Kind in [ekArc, ekGuide, ekDim] then
             Far := Max(Far, Max(Dist(D[I].A, E[K].A), Dist(D[I].B, E[K].B)));
           if Far < 3E-6 then begin Hit := K; Break; end;
         end;

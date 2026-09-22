@@ -5731,3 +5731,25 @@ the three merged faces a loose overlap makes.
 **Not built, and said so in the spec note:** components (a copy that
 follows its original), the Outliner, hiding a group, scaling one.  The
 `Of_` link the plan left room for is still the room.
+
+## A circle that is lines
+
+Pulling a disk leaves its top ring as twenty-four lines and its uprights
+soft; whatever cuts an arc at a crossing does the same.  Picked, such a
+ring is picked a line at a time, where the circle it came from was one
+thing - seen in the tool long before Heck.  The fold `pull = c1; ...`
+hides it in the text; the tool could keep the moved ring as an arc.
+
+## A point near an edge should take the edge, not the floor
+
+Pushing a face down onto a box's corner snapped to the floor plane, and
+the box went past it.  A snap to an edge or a corner within reach should
+win over the ground and a face behind it.  22 September, from the Windows
+machine.
+
+## The report's drawing
+
+A report carries every sheet, but the collector splits out only the
+first; the sheet the person was on should come first, or each sheet its
+own file.
+

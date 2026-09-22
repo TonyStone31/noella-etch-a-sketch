@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A circle drawn with the tool was not a circle to `/source`** - it was' + LineEnding +
+    '  an arc of 359.9999824°, a hair short of the way round after the file''s' + LineEnding +
+    '  six decimals - so it was a block, the hole it cut was twenty-four' + LineEnding +
+    '  corners instead of `hole = c1`, and a disk pulled up was a hundred' + LineEnding +
+    '  lines instead of `pull = c1; 4 5/8" up`.  A whole circle within a hair' + LineEnding +
+    '  is a whole circle.' + LineEnding +
+    '- **A box, rect or pull drawn with a wider pen** - `width = 4` on every' + LineEnding +
+    '  edge - was written as its edges, four lines each.  The block form' + LineEnding +
+    '  carries `ink` and `width` now, once for all of them.' + LineEnding +
+    '- **A circle by name only ever meant the disk facing the circle''s way**,' + LineEnding +
+    '  and the bottom of a pulled disk faces the other way; it came back turned' + LineEnding +
+    '  round.  Circles are written at the level, before what stands on them.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.2' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

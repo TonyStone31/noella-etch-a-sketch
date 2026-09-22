@@ -73,6 +73,11 @@ var
     every face is written, which is never wrong, only longer. }
   ReadBack: TReadBack = nil;
 
+{ A whole circle: an arc that goes all the way round - to the six decimals
+  a version 1 file keeps, which left the circle tool's own circles a hair
+  short of 2 pi and so "arcs" of 359.9999824 degrees. }
+function FullCircle(Sweep: Double): Boolean;
+
 { the two directions a flat thing's angles are measured in: from east for a
   thing facing up or down, from its level line (up x facing) for any other }
 procedure SpecAxes(const F: TP3; out AU, AV: TP3);
@@ -82,6 +87,11 @@ procedure SpecAxes(const F: TP3; out AU, AV: TP3);
 function Len2(V: Double; U: TUnitSystem): string;
 
 implementation
+
+function FullCircle(Sweep: Double): Boolean;
+begin
+  Result := Abs(Abs(Sweep) - 2 * Pi) < 1E-5;
+end;
 
 var
   { pass one is under way: every face is written and no noface }
@@ -619,21 +629,50 @@ var
       for K := 0 to N - 1 do
       begin
         P := ArcPoint(D[Circles[C]].C, D[Circles[C]].R,
-          D[Circles[C]].A0 + K * 2 * Pi / N, D[Circles[C]].Plane, D[Circles[C]].Nm);
+          D[Circles[C]].A0 + K * D[Circles[C]].Sweep / N, D[Circles[C]].Plane, D[Circles[C]].Nm);
+        { to the rounding of a version 1 file: a ring's corners are far
+          further apart than that }
         Hit := -1;
         for Q := 0 to N - 1 do
-          if SameP(Poly[Q], P) then begin Hit := Q; Break; end;
+          if SamePt(Poly[Q], P, 2E-5) then begin Hit := Q; Break; end;
         if Hit < 0 then begin Ok_ := False; Break; end;
       end;
       if Ok_ then Exit('c' + IntToStr(C + 1));
     end;
   end;
 
-  function Outline(const Pts: TPts; const Poly: array of TP3; Part_: Integer): TStringArray;
+  { the way a circle faces, as the reader will turn the disk "face = c1" }
+  function CircleFacing(const Nm: string): TP3;
+  var
+    I: Integer;
+  begin
+    Result := P3(0, 0, 1);
+    I := StrToIntDef(Copy(Nm, 2, MaxInt), 0) - 1;
+    if (I < 0) or (I > High(Circles)) then Exit;
+    case D[Circles[I]].Plane of
+      plXZ: Result := P3(0, -1, 0);
+      plYZ: Result := P3(1, 0, 0);
+      plFree: Result := D[Circles[I]].Nm;
+    end;
+  end;
+
+  function Outline(const Pts: TPts; const Poly: array of TP3; Part_: Integer;
+    IsHole: Boolean = False): TStringArray;
   var
     Nm: string;
+    Lp: TP3Array;
+    K: Integer;
   begin
     Nm := CircleNamed(Poly, Part_);
+    { a circle by name is the disk facing the circle's way; a face the
+      other way round - the bottom of a pulled disk - is its corners.  A
+      hole goes round against its face, and is the circle whichever way. }
+    if (Nm <> '') and not IsHole then
+    begin
+      SetLength(Lp, Length(Poly));
+      for K := 0 to High(Poly) do Lp[K] := Poly[K];
+      if Dot3(LoopNormal(Lp), CircleFacing(Nm)) < 0 then Nm := '';
+    end;
     if Nm <> '' then
     begin
       SetLength(Result, 1);
@@ -961,7 +1000,7 @@ var
     Put(Depth, 'face' + Note, I);
     PutList(Depth + 1, 'points', Outline(Pts, D[I].Poly, D[I].Part), I);
     for K := 0 to High(D[I].Holes) do
-      PutList(Depth + 1, 'hole', Outline(Pts, D[I].Holes[K], D[I].Part), I);
+      PutList(Depth + 1, 'hole', Outline(Pts, D[I].Holes[K], D[I].Part, True), I);
     if not SameMat then
       if D[I].MatSet then Put(Depth + 1, 'paint = ' + Color2(D[I].Mat), I)
       else Put(Depth + 1, 'paint = none', I);
@@ -1015,7 +1054,7 @@ var
           { A plain circle is one line: its center and its radius, and which
             way it faces only when that is not up.  Anything else about it -
             where it starts, its own sides, an ink - and it is a block. }
-          if (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) and (Abs(A0) <= 1E-9) and
+          if FullCircle(D[I].Sweep) and (Abs(A0) <= 1E-9) and
              (D[I].Sides = HECK_SIDES) and (D[I].Ink = DefInk) and
              (Abs(D[I].Weight - DefWidth) <= 1E-3) then
           begin
@@ -1027,13 +1066,13 @@ var
                 '; ' + Len2(D[I].R, U) + '; ' + Facing2(Nm), I);
             Exit;
           end;
-          if Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9 then Put(Depth, 'circle ' + CircleName(I), I)
+          if FullCircle(D[I].Sweep) then Put(Depth, 'circle ' + CircleName(I), I)
           else Put(Depth, 'arc', I);
           Put(Depth + 1, 'center = ' + Place2(D[I].C, U, False), I);
           Put(Depth + 1, 'radius = ' + Len2(D[I].R, U), I);
           Put(Depth + 1, 'facing = ' + Facing2(Nm), I);
           if Abs(A0) > 1E-9 then Put(Depth + 1, 'starts = ' + Deg2(A0), I);
-          if Abs(Abs(D[I].Sweep) - 2 * Pi) >= 1E-9 then
+          if not FullCircle(D[I].Sweep) then
             Put(Depth + 1, 'sweep = ' + Deg2(D[I].Sweep), I);
           { the sides the ring has for the faces it implies: what the tool
             uses, said whenever it is not what a circle comes back with }
@@ -1139,7 +1178,7 @@ var
   end;
 
   function IsRect(Part_, I: Integer; out Lines: TIntArrayW; out Face: Integer;
-    out Lo, Size: TP3; out HasPaint: Boolean; out Paint: TColor): Boolean;
+    out Lo, Size: TP3; out HasPaint: Boolean; out Paint: TColor; out Ink: TColor; out Wd: Single): Boolean;
   var
     K, J, F: Integer;
     Pts: array[0..3] of TP3;
@@ -1149,8 +1188,8 @@ var
     function Plain(L: Integer): Boolean;
     begin
       Result := (D[L].Kind = ekLine) and (D[L].Part = Part_) and (D[L].Grp = 0) and
-        (not D[L].Soft) and (not D[L].Dim) and (D[L].Ink = DefInk) and
-        (Abs(D[L].Weight - DefWidth) <= 1E-3) and (AxesUsed(Sub3(D[L].B, D[L].A)) = 1);
+        (not D[L].Soft) and (not D[L].Dim) and (D[L].Ink = D[I].Ink) and
+        (Abs(D[L].Weight - D[I].Weight) <= 1E-3) and (AxesUsed(Sub3(D[L].B, D[L].A)) = 1);
     end;
 
     { the walk round, trying every plain line that leaves the corner and
@@ -1186,7 +1225,9 @@ var
     HasPaint := False;
     Paint := 0;
     SetLength(Lines, 0);
-    if not Plain(I) then Exit;
+    if (D[I].Kind <> ekLine) or not Plain(I) then Exit;
+    Ink := D[I].Ink;
+    Wd := D[I].Weight;
     SetLength(Lines, 4);
     Lines[0] := I;
     Pts[0] := D[I].A;
@@ -1241,7 +1282,28 @@ var
       (Length(D[I].Holes) = 0) and (CircleNamed(D[I].Poly, Part_) <> '');
   end;
 
-  function IsBox(Part_, G: Integer; out Lo, Hi: TP3; out HasPaint: Boolean; out Paint: TColor): Boolean;
+  { one pen over all the lines of a fold - any ink, any width, so long as
+    they are all the same; said in the block when not the sheet's }
+  function OnePen(Part_, G: Integer; out Ink: TColor; out Wd: Single): Boolean;
+  var
+    I, N: Integer;
+  begin
+    Result := False;
+    N := 0;
+    Ink := DefInk;
+    Wd := DefWidth;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (D[I].Grp = G) and (D[I].Part = Part_) then
+      begin
+        if N = 0 then begin Ink := D[I].Ink; Wd := D[I].Weight; end
+        else if (D[I].Ink <> Ink) or (Abs(D[I].Weight - Wd) > 1E-3) then Exit;
+        Inc(N);
+      end;
+    Result := N > 0;
+  end;
+
+  function IsBox(Part_, G: Integer; out Lo, Hi: TP3; out HasPaint: Boolean; out Paint: TColor;
+    out Ink: TColor; out Wd: Single): Boolean;
   var
     I, K, NF, NL, NPaint: Integer;
     Pts: TPts;
@@ -1251,6 +1313,7 @@ var
     SetLength(Pts, 0);
     NF := 0; NL := 0; NPaint := 0;
     HasPaint := False; Paint := 0;
+    if not OnePen(Part_, G, Ink, Wd) then Exit;
     for I := 0 to D.Live - 1 do
     begin
       if (D[I].Grp <> G) or (D[I].Part <> Part_) then Continue;
@@ -1276,7 +1339,7 @@ var
         ekLine:
           begin
             Inc(NL);
-            if D[I].Soft or D[I].Dim or (D[I].Ink <> DefInk) or (Abs(D[I].Weight - DefWidth) > 1E-3) then Exit;
+            if D[I].Soft or D[I].Dim then Exit;
             if AxesUsed(Sub3(D[I].B, D[I].A)) <> 1 then Exit;
           end;
         ekBore: Exit;
@@ -1300,20 +1363,32 @@ var
     Result := True;
   end;
 
-  procedure PutBox(Depth, Part_, G: Integer; const Lo, Hi: TP3; HasPaint: Boolean; Paint: TColor);
+  { the pen of a fold's lines, when it is not the sheet's }
+  procedure PutPen(Depth: Integer; Ink: TColor; Wd: Single);
+  begin
+    if Ink <> DefInk then Put(Depth, 'ink = ' + Color2(Ink), -1);
+    if Abs(Wd - DefWidth) > 1E-3 then Put(Depth, 'width = ' + FloatToStrF(Wd, ffGeneral, 4, 0, FS), -1);
+  end;
+
+  function PlainPen(Ink: TColor; Wd: Single): Boolean;
+  begin
+    Result := (Ink = DefInk) and (Abs(Wd - DefWidth) <= 1E-3);
+  end;
+
+  procedure PutBox(Depth, Part_, G: Integer; const Lo, Hi: TP3; HasPaint: Boolean; Paint: TColor;
+    Ink: TColor; Wd: Single);
   var
     I, Header: Integer;
     NoPts: TPts;
   begin
-    for I := 0 to D.Live - 1 do
-      if (D[I].Part = Part_) and (D[I].Grp = G) and (CircleName(I) <> '') then PutOther(Depth, I);
     Header := NLine;
-    if HasPaint then
+    if HasPaint or not PlainPen(Ink, Wd) then
     begin
       Put(Depth, 'box', -1);
       Put(Depth + 1, 'at   = ' + Place2(Lo, U, False), -1);
       Put(Depth + 1, 'size = ' + Place2(Sub3(Hi, Lo), U, True), -1);
-      Put(Depth + 1, 'paint = ' + Color2(Paint), -1);
+      if HasPaint then Put(Depth + 1, 'paint = ' + Color2(Paint), -1);
+      PutPen(Depth + 1, Ink, Wd);
       Put(Depth, 'end', -1);
     end
     else
@@ -1350,7 +1425,7 @@ var
     close - it will make the faces from the edges, so they must come out
     as they are. }
   function IsPull(Part_, G: Integer; out Bottom: Integer; out By: TP3; out Round_: Boolean;
-    out HasPaint: Boolean; out Paint: TColor): Boolean;
+    out HasPaint: Boolean; out Paint: TColor; out Ink: TColor; out Wd: Single): Boolean;
   var
     I, J, K, C, N, NF, NPaint, Top, Best, NBottom, NTop, NUp, NArc: Integer;
     V, Mid: TP3;
@@ -1380,6 +1455,7 @@ var
     Paint := 0;
     SetLength(Faces, 0);
     NPaint := 0;
+    if not OnePen(Part_, G, Ink, Wd) then Exit;
     for I := 0 to D.Live - 1 do
     begin
       if (D[I].Grp <> G) or (D[I].Part <> Part_) then Continue;
@@ -1398,7 +1474,7 @@ var
           end;
         ekBore: Exit;
         ekLine:
-          if D[I].Dim or (D[I].Ink <> DefInk) or (Abs(D[I].Weight - DefWidth) > 1E-3) then Exit;
+          if D[I].Dim then Exit;
       end;
     end;
     NF := Length(Faces);
@@ -1513,7 +1589,9 @@ var
       Inc(NTop);
     end;
     if (NTop <> N) or (NUp <> N) then Exit;
-    if Round_ then begin if (NArc <> 1) or (NBottom <> 0) then Exit; end
+    { round: the circle may be the solid's own or another's - a disk drawn
+      on a box and pulled stands on the box's hole - but no bottom lines }
+    if Round_ then begin if (NArc > 1) or (NBottom <> 0) then Exit; end
     else if NBottom <> N then Exit;
     { and turned as the reader will turn them: away from the middle of the
       edges it will be given }
@@ -1540,7 +1618,7 @@ var
   end;
 
   procedure PutPull(Depth, Part_, G, Bottom: Integer; const By: TP3; Round_, HasPaint: Boolean;
-    Paint: TColor);
+    Paint: TColor; Ink: TColor; Wd: Single);
   var
     I, Header, Best: Integer;
     NoPts: TPts;
@@ -1548,9 +1626,6 @@ var
     Step: string;
     Poly: TP3Array;
   begin
-    { the circle it stands on comes first, by name }
-    for I := 0 to D.Live - 1 do
-      if (D[I].Part = Part_) and (D[I].Grp = G) and (CircleName(I) <> '') then PutOther(Depth, I);
     Header := NLine;
     SetLength(NoPts, 0);
     { from the corner nearest the origin, the way the face goes round, so
@@ -1564,11 +1639,19 @@ var
          ((Abs(Poly[I].X - Poly[Best].X) <= 1E-9) and (Abs(Poly[I].Y - Poly[Best].Y) <= 1E-9) and
           (Poly[I].Z < Poly[Best].Z - 1E-9)) then Best := I;
     for I := 0 to High(Poly) do Poly[I] := D[Bottom].Poly[(Best + I) mod Length(Poly)];
-    It := Outline(NoPts, Poly, Part_);
+    { a circle by name whichever way the bottom faces: a pull's outline has
+      no facing of its own }
+    if Round_ then
+    begin
+      SetLength(It, 1);
+      It[0] := CircleNamed(D[Bottom].Poly, Part_);
+    end
+    else
+      It := Outline(NoPts, Poly, Part_);
     Step := Place2(By, U, True);
     { one line while it fits - "pull = c1; 2' up" - and a block when the
       outline runs long or there is a paint to say }
-    if not HasPaint and (Depth * 2 + 9 + Length(Joined(It)) + Length(Step) <= 78) then
+    if not HasPaint and PlainPen(Ink, Wd) and (Depth * 2 + 9 + Length(Joined(It)) + Length(Step) <= 78) then
       Put(Depth, 'pull = ' + Joined(It) + '; ' + Step, -1)
     else
     begin
@@ -1576,6 +1659,7 @@ var
       PutList(Depth + 1, 'points', It, -1);
       Put(Depth + 1, 'by = ' + Step, -1);
       if HasPaint then Put(Depth + 1, 'paint = ' + Color2(Paint), -1);
+      PutPen(Depth + 1, Ink, Wd);
       Put(Depth, 'end', -1);
     end;
     for I := 0 to D.Live - 1 do
@@ -1665,8 +1749,6 @@ var
     Header := NLine;
     Put(Depth, 'solid', -1);
     if HasMat then Put(Depth + 1, 'paint = ' + Color2(SMat), -1);
-    for I := 0 to D.Live - 1 do
-      if (D[I].Part = Part_) and (D[I].Grp = G) and (CircleName(I) <> '') then PutOther(Depth + 1, I);
     PutPoints(Depth + 1, Pts, Rings);
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
@@ -1708,7 +1790,8 @@ var
     Seen, BPaintOn, PRound: Boolean;
     None: TPts;
     BLo, BHi, PBy, RLo, RSize: TP3;
-    BPaint: TColor;
+    BPaint, PInk: TColor;
+    PWd: Single;
     Implied, RectDone, RectAt: array of Boolean;
     RLines: TIntArrayW;
   begin
@@ -1723,25 +1806,27 @@ var
     for I := 0 to D.Live - 1 do RectAt[I] := False;
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekLine) and (D[I].Part = Part_) and (D[I].Grp = 0) and not RectDone[I] and
-         IsRect(Part_, I, RLines, RFace, RLo, RSize, BPaintOn, BPaint) then
+         IsRect(Part_, I, RLines, RFace, RLo, RSize, BPaintOn, BPaint, PInk, PWd) then
       begin
         for J := 0 to 3 do RectDone[RLines[J]] := True;
         RectDone[RFace] := True;
         RectAt[I] := True;
       end;
     LinesFrom := -1;
-    { the circles first: faces and holes further down say them by name.
-      A solid's own circle - the bottom of a pulled disk - is written with
-      the solid, so that it reads back as the solid's. }
+    { The circles first, all of them, at the level: faces, holes and
+      pulls further down say them by name, and a name said inside a solid
+      block would be out of reach of the next solid - the cylinder standing
+      on a box's hole.  Which solid a circle belongs to is not said; the
+      reader gives a pulled circle to its pull. }
     for I := 0 to D.Live - 1 do
-      if (D[I].Part = Part_) and (D[I].Grp = 0) and (CircleName(I) <> '') then PutOther(Depth, I);
+      if (D[I].Part = Part_) and (CircleName(I) <> '') then PutOther(Depth, I);
     for I := 0 to D.Live - 1 do
     begin
       if D[I].Part <> Part_ then Continue;
       if D[I].Kind = ekPart then Continue;
       if CircleName(I) <> '' then Continue;
       G := D[I].Grp;
-      if (G <> 0) and (D[I].Kind in [ekFace, ekLine, ekBore, ekArc]) then
+      if (G <> 0) and (D[I].Kind in [ekFace, ekLine, ekBore]) then
       begin
         Seen := False;
         for J := 0 to High(Done) do
@@ -1749,10 +1834,10 @@ var
         if Seen then Continue;
         SetLength(Done, Length(Done) + 1);
         Done[High(Done)] := G;
-        if IsBox(Part_, G, BLo, BHi, BPaintOn, BPaint) then
-          PutBox(Depth, Part_, G, BLo, BHi, BPaintOn, BPaint)
-        else if IsPull(Part_, G, PBottom, PBy, PRound, BPaintOn, BPaint) then
-          PutPull(Depth, Part_, G, PBottom, PBy, PRound, BPaintOn, BPaint)
+        if IsBox(Part_, G, BLo, BHi, BPaintOn, BPaint, PInk, PWd) then
+          PutBox(Depth, Part_, G, BLo, BHi, BPaintOn, BPaint, PInk, PWd)
+        else if IsPull(Part_, G, PBottom, PBy, PRound, BPaintOn, BPaint, PInk, PWd) then
+          PutPull(Depth, Part_, G, PBottom, PBy, PRound, BPaintOn, BPaint, PInk, PWd)
         else
           PutSolid(Depth, Part_, G);
         Continue;
@@ -1765,15 +1850,16 @@ var
             if not Implied[I] then PutFace(Depth, I, None);
           end;
         ekLine:
-          if RectAt[I] and IsRect(Part_, I, RLines, RFace, RLo, RSize, BPaintOn, BPaint) then
+          if RectAt[I] and IsRect(Part_, I, RLines, RFace, RLo, RSize, BPaintOn, BPaint, PInk, PWd) then
           begin
             Header := NLine;
-            if BPaintOn then
+            if BPaintOn or not PlainPen(PInk, PWd) then
             begin
               Put(Depth, 'rect', -1);
               Put(Depth + 1, 'at   = ' + Place2(RLo, U, False), -1);
               Put(Depth + 1, 'size = ' + Place2(RSize, U, True), -1);
-              Put(Depth + 1, 'paint = ' + Color2(BPaint), -1);
+              if BPaintOn then Put(Depth + 1, 'paint = ' + Color2(BPaint), -1);
+              PutPen(Depth + 1, PInk, PWd);
               Put(Depth, 'end', -1);
             end
             else
@@ -2067,7 +2153,7 @@ begin
   FindDefaults;
   SetLength(Circles, 0);
   for I := 0 to D.Live - 1 do
-    if (D[I].Kind = ekArc) and (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) then
+    if (D[I].Kind = ekArc) and FullCircle(D[I].Sweep) then
     begin
       SetLength(Circles, Length(Circles) + 1);
       Circles[High(Circles)] := I;
