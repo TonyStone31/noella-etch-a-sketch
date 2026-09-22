@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Heck - Heckers Sketch</title>
+<link rel="stylesheet" href="style.css">
+<script src="theme.js"></script></head>
+<body><div class="wrap"><a class="themebtn" id="themebtn" href="#theme" title="Light or dark">Theme</a><nav class="crumbs"><a href="index.html">Help</a> &rsaquo; Heck</nav>
+<header><h1>Heck</h1><p class="lead">The drawing as text you can read - and type.</p></header>
+
+<p><b>Experimental.</b>  Everything on this page works today and is
+changing every few days.  The words may change; a drawing saved as Heck
+now may need a small edit later.  The <code>.hsk</code> file the program
+saves is still the old format; Heck is what <code>/source</code> shows, and
+what it reads back when you press <b>Apply</b>.</p>
+
+<nav class="jump"><b>On this page:</b> <a href="#the-window">The window</a> &middot; <a href="#a-place">A place</a> &middot; <a href="#lengths">Lengths</a> &middot; <a href="#things">Things</a> &middot; <a href="#faces">Faces come from lines</a> &middot; <a href="#primitives">Box, rect, circle, pull</a> &middot; <a href="#blocks">Blocks and one-liners</a> &middot; <a href="#names">Names</a> &middot; <a href="#pick">Picking points from the sheet</a> &middot; <a href="#jigs">Jigs</a> &middot; <a href="#the-rules">The rules</a></nav>
+
+<h2 id="the-window">The window</h2>
+<p><code>/source</code> opens a window beside the drawing with the sheet
+written out in Heck.  It follows the drawing: draw a line and its text
+appears; pick a face and its line lights up; click a line of text, or drag
+over several, and those things are picked on the sheet.  Right-click a
+line for <b>Center in view</b>.</p>
+<p>Type into it and press <b>Apply</b>: the drawing becomes what the text
+says.  A mistake is marked on its line and nothing changes until it is
+fixed; <b>Revert</b> puts the text back.  As you type it offers words -
+Ctrl+Space asks for them, <code>/source complete off</code> stops them
+coming by themselves - and a statement taken from the list comes with its
+parts to fill in: <code>box = &lt;corner&gt;; &lt;size&gt;</code>.</p>
+
+<h2 id="a-place">A place</h2>
+<p>A place is three lengths and the way each goes, always all three, so the
+height is there to be seen:</p>
+<pre>2' east, 3' north, 0 up          on the floor
+2' east, 3' north, 4' up         four feet above it
+3' west, 2' south, 6" down</pre>
+<p><code>east</code>, <code>north</code> and <code>up</code> are the red,
+green and blue axes; <code>west</code>, <code>south</code> and
+<code>down</code> go the other way, so no number is ever negative.  A place
+can be said from another: <code>b = a + 4' east</code>, or in a list,
+<code>to + 4' east</code>.  <code>x</code>, <code>y</code> and
+<code>z</code> are read too, for anyone who prefers them.</p>
+
+<h2 id="lengths">Lengths</h2>
+<p>Written the way a tradesman says them: <code>4'</code>,
+<code>2 1/2"</code>, <code>1' 6"</code>, <code>1200mm</code>,
+<code>1.2m</code>.  A number with no mark is in the sheet's units.  Sums
+are allowed - <code>4' + 2"</code>, <code>(Width - 1') / 2</code> - and a
+<code>const</code> block names numbers: <code>Width = 4'</code>.</p>
+
+<h2 id="things">Things</h2>
+<table>
+<tr><th>Thing</th><th>In one line</th><th>As a block</th></tr>
+<tr><td><code>line</code></td><td><code>line = a to b</code></td><td><code>points</code>; <code>ink</code>, <code>width</code>, <code>soft</code></td></tr>
+<tr><td><code>circle</code></td><td><code>circle c1 = 2' east, 2' north, 0 up; 1'</code> - and <code>; north</code> when it does not face up</td><td><code>center</code>, <code>radius</code>, <code>facing</code>; <code>starts</code>, <code>sides</code></td></tr>
+<tr><td><code>arc</code></td><td>-</td><td><code>center</code>, <code>radius</code>, <code>facing</code>, <code>sweep</code></td></tr>
+<tr><td><code>box</code></td><td><code>box = corner; size</code></td><td><code>at</code>, <code>size</code>; <code>paint</code>, <code>ink</code>, <code>width</code></td></tr>
+<tr><td><code>rect</code></td><td><code>rect = corner; size with two parts</code></td><td>the same</td></tr>
+<tr><td><code>pull</code></td><td><code>pull = outline; how far</code> - <code>pull = c1; 2' up</code> is a cylinder</td><td><code>points</code>, <code>by</code>; <code>paint</code></td></tr>
+<tr><td><code>face</code></td><td><code>face = a b c d</code>, or <code>face = c1</code> for the disk in a circle</td><td><code>points</code>, <code>hole</code>, <code>paint</code></td></tr>
+<tr><td><code>noface</code></td><td><code>noface = a b c d</code> - lines that close, and are not a face</td><td>-</td></tr>
+<tr><td><code>solid</code></td><td>-</td><td><code>paint</code>, then its <code>points</code>, lines and faces</td></tr>
+<tr><td><code>group</code></td><td>-</td><td><code>locked</code>, <code>jig</code>, and everything inside it</td></tr>
+<tr><td><code>guide</code></td><td><code>guide = a to b</code>, or one place</td><td>-</td></tr>
+<tr><td><code>dim</code>, <code>note</code></td><td>-</td><td><code>from</code>, <code>to</code>, <code>off</code>; <code>at</code>, <code>text</code></td></tr>
+</table>
+<p>Notes go in <code>// ...</code> or <code>{ ... }</code>.  A list too long
+for a line runs from <code>(</code> to <code>)</code>.</p>
+
+<h2 id="faces">Faces come from lines</h2>
+<p>As on the sheet: close a loop of lines and the face appears.  So a
+plain face is never written - a cube is its eight corners and twelve
+edges, and typing twelve lines that close gives you the six faces.  A
+face is written only when something about it is not automatic: it is
+painted, it has a hole the lines would not cut, it faces the other way.
+A loop of lines that is <em>not</em> a face - one you rubbed out - is
+written <code>noface</code>, so it stays that way.</p>
+
+<h2 id="primitives">Box, rect, circle, pull</h2>
+<p>These are shorthand, not extra things.  <code>box = 0 east, 0 north, 0
+up; 4' east, 3' north, 2' up</code> reads as the twelve lines and six faces
+a rectangle pulled up would have made, and a block that is still exactly a
+box - square, unpushed, no hole, one paint or none - is written that way.
+Nudge a corner and it is written as its lines again.  A circle drawn on a
+box's top is the box's hole, and the two of them are two lines:</p>
+<pre>circle c1 = 2' east, 2' north, 4' up; 1'
+box = 0 east, 0 north, 0 up; 4' east, 4' north, 4' up</pre>
+<p><code>pull</code> is what push/pull makes of any flat outline: its
+corners, or a circle by name, and how far it went.  <code>pull = c1; 2'
+up</code> is a cylinder.</p>
+
+<h2 id="blocks">Blocks and one-liners</h2>
+<p>One rule covers the grammar: <b>a line with <code>=</code> is complete;
+a line without one opens a block, and <code>end</code> closes it.</b>  The
+program writes the one-liner when nothing about the thing is unusual and
+the block when something is - a paint, a width, a name.  You may type
+either.</p>
+
+<h2 id="names">Names</h2>
+<p>Corners are named by where they stand - <code>floor1</code> to
+<code>floor4</code> and <code>top1</code> to <code>top4</code> on a block,
+<code>ra1</code>.. round a ring - so <code>line = floor1 to top1</code> is
+an upright.  A circle is <code>c1</code>, <code>c2</code>.  A thing can be
+given a name - <code>line Rafter</code>, <code>group 'Left eye'</code> - and
+a name you give is yours; keeping it through the next write is still to
+come.</p>
+
+<h2 id="pick">Picking points from the sheet</h2>
+<p>Press <b>Pick</b> and the sheet becomes a point picker: each click,
+snapped exactly as the line tool snaps, is typed into the line the caret
+is on - the next <code>&lt;part&gt;</code> if the line has them, or a
+place, then <code>to</code> and a place for a line, <code>;</code> and a
+step for a box, <code>;</code> and a radius for a circle.  Esc on the sheet
+ends it.</p>
+
+<h2 id="jigs">Jigs</h2>
+<p>A <b>jig</b> - <i>Just Include Geometry</i> - is any program that prints
+Heck: a batch file, a shell script, Python, Perl, Pascal.  A group can be
+made by one:</p>
+<pre>group 'Hangers'
+  jig = 'hangers' with Count = 6, Spacing = 16", Drop = 4'
+end</pre>
+<p>Jigs live in your own <code>jigs</code> folder beside the program; the
+drawing names one and never carries it, and nothing runs when a drawing
+opens - you press the play mark beside the line, or <b>Run jigs</b> for
+all of them.  What the jig printed folds shut under its line.
+<code>/source sample</code> puts a sample drawing in the window and writes
+its jigs to the folder for you to look at.</p>
+
+<h2 id="the-rules">The rules</h2>
+<ol>
+<li>It is data, not a program.  No loops, nothing executed.</li>
+<li>One fact, one place.  A line is its two points; its length is whatever
+that makes it.</li>
+<li>Saving loses nothing: what is read back is what was there.  Every
+drawing sent in as a report is checked this way with each build.</li>
+<li>Only what differs from the default is written.</li>
+<li>One statement to a line, so <code>grep</code> and <code>diff</code> work
+on a drawing.</li>
+<li>A reader skips what it does not know.</li>
+<li>A line with <code>=</code> is complete; one without opens a block that
+<code>end</code> closes.</li>
+<li>Faces are what closed lines become.</li>
+</ol>
+<p>The full grammar, with what is still to settle, is
+<code>docs/format2.md</code> in the repository; the set of primitives and
+the ones still to come are in <code>docs/primitives.md</code>.</p>
+<footer><a href="index.html">Back to the contents</a> &middot; Heckers Sketch help</footer>
+</div></body></html>

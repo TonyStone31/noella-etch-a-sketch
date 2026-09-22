@@ -73,7 +73,7 @@ choosing between.
 | **Pipe spool from legs** | **yes, built in** | extension | no | no | no | no |
 | Animation out (GIF / WebP) | yes, built in | scenes to video | - | - | - | yes, anything |
 | Commands you can type | yes, `/` and about eighty of them | no | a command palette | - | - | operator search |
-| Scripting or plugins | **no** | Ruby, and twenty years of extensions | - | - | Codeblocks | Python, enormous |
+| Scripting or plugins | **the drawing is text (Heck), and a jig is any program that prints it - experimental** | Ruby, and twenty years of extensions | - | - | Codeblocks | Python, enormous |
 | Touch and pen | yes | yes (iPad) | - | **yes, it is built for it** | iPad | tablet and touch |
 | Interface languages | **English only** | several | - | - | - | many |
 
@@ -108,7 +108,7 @@ to be right in every number or has to change later.
 | STL out | yes | no | no | no | yes | yes | yes | yes | yes |
 | Prints at true scale | yes | prints; paper layouts not found | yes, and PDF | yes, and PDF | yes | PDF out | - | yes | yes |
 | **Typed command line** | yes, `/` | yes | yes | yes | Python console | no | no | no | no |
-| **Scripting** | **no** | Lape (Pascal script) | - | JavaScript | Python, enormous | batch export | Python, a proof of concept | an API | FeatureScript |
+| **Scripting** | **Heck text, and jigs - experimental** | Lape (Pascal script) | - | JavaScript | Python, enormous | batch export | Python, a proof of concept | an API | FeatureScript |
 | **Sheet metal** | unfolding, built in | no | no | no | workbench | no | - | yes | yes, with a live flat pattern |
 | **Trade work built in** | duct fittings, pipe spool, flat patterns | **electrical**: devices, cables, cable legend, materials list, bill of materials, CSV and XLSX | no | CAM in QCAD/CAM | workbenches for nearly everything | no | no | CAM | - |
 | Interface languages | **English only** | English, Russian | over 30 | - | many | 10 | - | - | - |
@@ -162,7 +162,9 @@ language**, and somebody who likes one may well want the other too.
   touches it.
 * **an object inspector** - every property of whatever is picked, editable,
   and several things at once.  Ours is a small panel with a few rows.
-* **scripting**, in Pascal Script (Lape).  We have none.
+* **scripting**, in Pascal Script (Lape).  We have no script engine; we
+  have the drawing as text (Heck, experimental) and jigs, programs in any
+  language that print it - see `docs/heck-pitch.md`.
 * **Russian.**  Its interface is in English and Russian; ours is English
   only.
 
@@ -233,8 +235,11 @@ Not hedged, because nobody is helped by it being hedged.
   shadows from a real sun; Blender renders photographs.
 * **A perspective view.**
 * **Plugins.**  SketchUp's Ruby, FreeCAD's and Blender's Python, QCAD's
-  JavaScript, ZCAD's Lape, Onshape's FeatureScript.  We have a `/replay`
-  file, which is a recording and not a language.
+  JavaScript, ZCAD's Lape, Onshape's FeatureScript.  We have no API and no
+  plugin language: the drawing is text (Heck) and a jig is any program
+  that prints it.  Experimental, and a different bet - see
+  `docs/heck-pitch.md` for the case and `docs/heck-vs-the-others.md`
+  for Heck beside VRML, X3D, OpenSCAD and OBJ.
 * **Languages.**  English.  LibreCAD is in over thirty.
 * **STEP, IGES, 3MF, OBJ.**  STL is the only solid format we write.
 * **A Mac, a tablet, a browser.**

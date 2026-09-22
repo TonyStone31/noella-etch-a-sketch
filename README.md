@@ -115,9 +115,13 @@ The manual covers all of this properly.  The short version:
   Faces come from the lines that close them, the same as on the sheet;
   a circle, a box, a rectangle or anything pulled up is one line.  The
   grammar is [`docs/format2.md`](docs/format2.md) and the primitives are
-  [`docs/primitives.md`](docs/primitives.md).  A group can be made by a
-  **jig** - any program that prints Heck - and run again from the text.
-  Still settling, so expect the words to change.
+  [`docs/primitives.md`](docs/primitives.md).  There is no scripting
+  API; instead a group can be made by a **jig** - *Just Include
+  Geometry*, any program that prints Heck, in whatever language is on
+  the machine - and run again from the text.  **Experimental:** the
+  words are still settling, and the `.hsk` file is still the old format.
+  [Heck](https://tonystone31.github.io/noella-etch-a-sketch/heck.html) ·
+  [the pitch](docs/heck-pitch.md)
 * **A command bar** - type `/` and a searchable list of every command comes
   up, so there is nothing to memorize.
   [Commands](https://tonystone31.github.io/noella-etch-a-sketch/commands.html) ·
