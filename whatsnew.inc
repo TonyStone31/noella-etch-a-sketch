@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Push/pull among taller neighbors.**  Cut a block''s top into pieces,' + LineEnding +
+    '  pull them to different heights, then push one back down - and the' + LineEnding +
+    '  taller pieces beside it leaned over, or the pushed top turned inside out.' + LineEnding +
+    '  A piece with a taller neighbor''s wall on its edge is now lifted out on' + LineEnding +
+    '  its own, and pushed down it cuts a pocket; a push past the bottom of the' + LineEnding +
+    '  block goes through it.' + LineEnding +
+    '- **Replaying a report picks the right face.**  A replayed press found its' + LineEnding +
+    '  face under the pixel, which in another window is a different face; it' + LineEnding +
+    '  finds the face the press landed on now.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.7' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

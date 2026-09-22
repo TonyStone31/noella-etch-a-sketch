@@ -972,6 +972,7 @@ type
       measured from - the start of the line, or one acquired by resting on
       it - and FAxisLock says which axis is free: 0 X, 1 Y, 2 Z. }
     FAxisLock: Integer;
+    FSnapFromPt: Boolean;     { the distance along the axis came from a corner, not the grid }
     FAxisFrom: TP3;
 
     { which standard view we are parked on, or -1 after a free orbit }
@@ -2409,6 +2410,7 @@ begin
   AxPt := Wf;
   AxRef := Wf;              { only read once AxisTry has set it; keeps the
                               compiler from having to take that on trust }
+  FSnapFromPt := False;
   FParPerp := 0;
   if FDirLock < 0 then
   begin
@@ -2446,7 +2448,33 @@ begin
     whenever you are anywhere near it, and a corner eight pixels off could
     never beat a line one pixel off.  A point is a stronger statement than a
     line and wins on being one. }
-  if PtOK and (AxIdx >= 0) and
+  { And then a second report, 21 September: drawing a rectangle inside a
+    rectangle, the line green, the far end resting on a corner of the
+    outer one - and the corner took it clean off the axis, so the "square"
+    line came out three-sixteenths out of true from end to end.  "If it
+    snaps to be aligned with an axis it better only be able to draw it on
+    that point and keep it parallel."
+
+    So the corner no longer takes the point off the guide: it says how far
+    ALONG the guide.  The point handed back is the place on the axis
+    nearest the corner - SketchUp's own rule, which it draws as a dotted
+    line from the corner to the axis.  A corner that lies on the axis, the
+    dimensioning case the rule above was written for, projects to itself
+    and is had exactly as before.  A corner off the axis gives the run its
+    length and the axis keeps its direction, which is what square and
+    plumb mean. }
+  if PtOK and (AxIdx >= 0) and (AxIdx <= 2) and
+     (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint, snOrigin]) then
+  begin
+    AxPt := AxRef;
+    case AxIdx of
+      0: AxPt.X := Hit.P.X;
+      1: AxPt.Y := Hit.P.Y;
+    else AxPt.Z := Hit.P.Z;
+    end;
+    FSnapFromPt := True;
+  end
+  else if PtOK and (AxIdx >= 3) and
      (Hit.Kind in [snEndpoint, snCross, snCenter, snMidpoint, snOrigin]) then
     AxIdx := -1;
 
@@ -2468,7 +2496,9 @@ begin
     { The distance along the axis still snaps, so a riser lands on a round
       number; the other two coordinates come from the reference point, which
       is what puts the result exactly on the axis. }
-    W := SnapToGrid(AxPt);
+    { the distance along the axis snaps to the grid - unless a corner set
+      it, and then it is the corner's, to the inch and the fraction }
+    if FSnapFromPt then W := AxPt else W := SnapToGrid(AxPt);
     case AxIdx of
       0: begin W.Y := AxRef.Y; W.Z := AxRef.Z; end;
       1: begin W.X := AxRef.X; W.Z := AxRef.Z; end;
