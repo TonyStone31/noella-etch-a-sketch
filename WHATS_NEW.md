@@ -22,6 +22,10 @@
   out of the taskbar, with an **On top** tick that is remembered - and it
   takes the program's theme: dark text colors on a dark theme, light on a
   light one, with the axes' red, green and blue either way.
+- **A block's opening word and its `end` are outlined together.**  Put
+  the caret on `solid`, `group`, `ring` or any word that opens a block, or
+  on its `end`, and both are boxed - Lazarus's begin-and-end outline, for
+  finding the end of a long block.
 
 ## v2026.09.21.4
 

@@ -8358,7 +8358,7 @@ begin
     begin
       if Copy(Trim(L[I]), 1, 7) = 'face = ' then Inc(NFace);
       if Copy(Trim(L[I]), 1, 7) = 'line = ' then Inc(NLine_);
-      if (Pos(' = ', L[I]) > 0) and (Length(Trim(Copy(L[I], 1, Pos(' = ', L[I])))) = 1) then Inc(NPoint);
+      if (Pos('floor', Trim(L[I])) = 1) or (Pos('top', Trim(L[I])) = 1) then Inc(NPoint);
     end;
     EqI(NFace, 6, 'six faces, a line each');
     EqI(NLine_, 12, 'twelve edges, a line each, two names and a "to"');

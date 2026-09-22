@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Corners named by where they stand.**  In `/source` a box''s corners are' + LineEnding +
+    '  `floor1` to `floor4` and `top1` to `top4`, so `line = floor1 to top1` is' + LineEnding +
+    '  an upright and `face = floor1 floor2 top2 top1` is a wall, and the text' + LineEnding +
+    '  reads without the picture.  A hole cut in the top is `topin1`...' + LineEnding +
+    '- **The source window is a tool window that can stay on top.**  Smaller,' + LineEnding +
+    '  out of the taskbar, with an **On top** tick that is remembered - and it' + LineEnding +
+    '  takes the program''s theme: dark text colors on a dark theme, light on a' + LineEnding +
+    '  light one, with the axes'' red, green and blue either way.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.21.4' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

@@ -20,7 +20,7 @@ interface
 uses
   Classes, SysUtils, Graphics,
   SynEditHighlighter, SynEditHighlighterFoldBase, LazEditTextAttributes,
-  LazEditHighlighter;
+  LazEditHighlighter, LazEditFoldHighlighter;
 
 type
   THskToken = (htSpace, htComment, htKey, htProp, htName, htText, htSymbol,
@@ -151,6 +151,10 @@ function TSynHsk2Syn.GetFoldConfigInstance(Index: Integer): TSynCustomFoldConfig
 begin
   Result := inherited GetFoldConfigInstance(Index);
   Result.Enabled := True;
+  { a block's opening word and its "end" are a pair to outline together,
+    as begin and end are in Lazarus }
+  Result.SupportedModes := Result.SupportedModes + [fmMarkup];
+  Result.Modes := Result.Modes + [fmMarkup];
 end;
 
 function TSynHsk2Syn.GetFoldConfigCount: Integer;

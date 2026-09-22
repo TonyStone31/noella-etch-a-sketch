@@ -28,7 +28,7 @@ interface
 uses
   Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
-  SynGutterLineNumber, SynEditMarkupHighAll, SynEditMouseCmds, LCLIntf,
+  SynGutterLineNumber, SynEditMarkupHighAll, SynEditMarkupWordGroup, SynEditMouseCmds, LCLIntf,
   uWork, uSynHsk2, uJig, uHeckSample;
 
 type
@@ -174,6 +174,17 @@ begin
     FullWord := True;
     WaitTime := 250;
     IgnoreKeywords := False;
+    Enabled := True;
+  end;
+  { the word that opens the block the caret is in, and its "end", both
+    outlined - what Lazarus does for begin and end }
+  with Editor.MarkupByClass[TSynEditMarkupWordGroup] as TSynEditMarkupWordGroup do
+  begin
+    MarkupInfo.Background := clNone;
+    MarkupInfo.Foreground := clNone;
+    MarkupInfo.FrameColor := TColor($2060C0);
+    MarkupInfo.FrameStyle := slsSolid;
+    MarkupInfo.FrameEdges := sfeAround;
     Enabled := True;
   end;
   Editor.MouseOptions := Editor.MouseOptions + [emShowCtrlMouseLinks, emCtrlWheelZoom];
