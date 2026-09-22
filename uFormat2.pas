@@ -396,41 +396,50 @@ var
     Inc(NLine);
   end;
 
-  { the commonest ink and width are the sheet's, and are then never said }
+  { the commonest ink and width are the sheet's, and are then never said.
+    Counted over everything - a count of the first few hundred things
+    changed its mind when the reader gave them back in another order }
   procedure FindDefaults;
   var
-    I, J, Best, N: Integer;
+    I, K, Best: Integer;
+    Inks: array of record C: TColor; N: Integer; end;
+    Wds: array of record W: Single; N: Integer; end;
   begin
     DefInk := $201C1A;
     DefWidth := 1;
-    Best := 0;
-    for I := 0 to Min(D.Live - 1, 400) do
-      if D[I].Kind in [ekLine, ekArc] then
+    SetLength(Inks, 0);
+    SetLength(Wds, 0);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind in [ekLine, ekArc, ekFace] then
       begin
-        N := 0;
-        for J := 0 to Min(D.Live - 1, 400) do
-          if (D[J].Kind in [ekLine, ekArc]) and (D[J].Ink = D[I].Ink) then Inc(N);
-        if N > Best then
+        { the ink: lines, arcs and faces all carry one, and the commonest
+          over all of them is the one that goes unsaid most }
+        K := 0;
+        while (K < Length(Inks)) and (Inks[K].C <> D[I].Ink) do Inc(K);
+        if K = Length(Inks) then
         begin
-          Best := N;
-          DefInk := D[I].Ink;
+          SetLength(Inks, K + 1);
+          Inks[K].C := D[I].Ink;
+          Inks[K].N := 0;
         end;
+        Inc(Inks[K].N);
+        if D[I].Kind = ekFace then Continue;
+        K := 0;
+        while (K < Length(Wds)) and (Abs(Wds[K].W - D[I].Weight) > 1E-3) do Inc(K);
+        if K = Length(Wds) then
+        begin
+          SetLength(Wds, K + 1);
+          Wds[K].W := D[I].Weight;
+          Wds[K].N := 0;
+        end;
+        Inc(Wds[K].N);
       end;
-    { and the commonest width, on its own - not the width of whatever
-      happened to carry the ink first }
     Best := 0;
-    for I := 0 to Min(D.Live - 1, 400) do
-      if D[I].Kind in [ekLine, ekArc] then
-      begin
-        N := 0;
-        for J := 0 to Min(D.Live - 1, 400) do
-          if (D[J].Kind in [ekLine, ekArc]) and (Abs(D[J].Weight - D[I].Weight) <= 1E-3) then Inc(N);
-        if N > Best then
-        begin
-          Best := N;
-          DefWidth := D[I].Weight;
-        end;
-      end;
+    for K := 0 to High(Inks) do
+      if Inks[K].N > Best then begin Best := Inks[K].N; DefInk := Inks[K].C; end;
+    Best := 0;
+    for K := 0 to High(Wds) do
+      if Wds[K].N > Best then begin Best := Wds[K].N; DefWidth := Wds[K].W; end;
   end;
 
   function PointName(Index, Count: Integer): string;
@@ -2053,16 +2062,20 @@ var
       for F := 0 to E.Live - 1 do
         if (E[F].Kind = ekFace) and (Match[F] < 0) then
         begin
-          { the same loop closed by a solid's edges and by loose lines lying
-            on them is one noface }
-          Found := False;
-          for R := 0 to High(NoFaceLoops) do
-            if SameLoopTol(NoFaceLoops[R], E[F].Poly, 1E-4) then begin Found := True; Break; end;
-          if Found then Continue;
-          { the scope of D it belongs in: that of a D line along it, or of
-            the D arc it is the ring of }
+          { the scope of D it belongs in: the reader made it in the scope
+            whose lines closed it, and E's group is D's by the lines; a
+            loose one is placed by a D line along it, or the D arc it is
+            the ring of }
           Grp := 0;
           Prt := -1;
+          if (E[F].Grp <> 0) and (GrpOfE(E[F].Grp) > 0) then
+          begin
+            Grp := GrpOfE(E[F].Grp);
+            Prt := E[F].Part;
+            for I := 0 to D.Live - 1 do
+              if (D[I].Kind = ekLine) and (D[I].Grp = Grp) then begin Prt := D[I].Part; Break; end;
+          end
+          else
           for S := 0 to High(E[F].Poly) do
           begin
             Seg[0] := E[F].Poly[S]; Seg[1] := E[F].Poly[(S + 1) mod Length(E[F].Poly)];
@@ -2091,6 +2104,13 @@ var
                 Break;
               end;
           if Prt < 0 then Prt := 0;
+          { said once a scope: the same ring closed by two solids' edges
+            is a noface of each, and one said twice in one is one }
+          Found := False;
+          for R := 0 to High(NoFaceLoops) do
+            if (NoFaceScope[R] = Grp) and (NoFacePart[R] = Prt) and
+               SameLoopTol(NoFaceLoops[R], E[F].Poly, 1E-4) then begin Found := True; Break; end;
+          if Found then Continue;
           SetLength(NoFaceLoops, Length(NoFaceLoops) + 1);
           NoFaceLoops[High(NoFaceLoops)] := Copy(E[F].Poly);
           SetLength(NoFaceScope, Length(NoFaceScope) + 1);
@@ -2098,6 +2118,17 @@ var
           SetLength(NoFacePart, Length(NoFacePart) + 1);
           NoFacePart[High(NoFacePart)] := Prt;
         end;
+      { a face left unsaid whose loop is also a noface - a ring that is a
+        solid's top and a loop of another's lines - would be lost, since
+        the noface holds everywhere: it is written out instead }
+      for I := 0 to D.Live - 1 do
+        if ImpliedGeom[I] then
+          for R := 0 to High(NoFaceLoops) do
+            if SameLoopTol(NoFaceLoops[R], D[I].Poly, 1E-4) then
+            begin
+              ImpliedGeom[I] := False;
+              Break;
+            end;
     finally
       DLines.Free;
       DFaces.Free;

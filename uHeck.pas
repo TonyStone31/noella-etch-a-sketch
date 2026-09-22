@@ -78,8 +78,11 @@ type
     { the solids read, and what each is painted, for the faces their edges
       imply }
     Solids: array of record G: Integer; HasPaint: Boolean; Paint: TColor; end;
-    { loops that close and are not faces: "noface = ..." }
+    { loops that close and are not faces: "noface = ...", each with the
+      solid it was said in, or 0 for the level - the same corners can be
+      a face of one solid and a loop of another's lines }
     NoFaces: array of TLoop;
+    NoFaceGrp: array of Integer;
     { "faces = said" in the header: make no faces from the lines at all }
     AllSaid: Boolean;
     { the faces written out in full - "face = ..." - which say their own
@@ -1014,6 +1017,8 @@ begin
       if Length(Ends) < 3 then Fail('noface wants the corners of the loop that is not a face');
       SetLength(NoFaces, Length(NoFaces) + 1);
       NoFaces[High(NoFaces)] := Ends;
+      SetLength(NoFaceGrp, Length(NoFaceGrp) + 1);
+      NoFaceGrp[High(NoFaceGrp)] := Solid;
       Inc(Cur);
       Continue;
     end
@@ -2009,9 +2014,16 @@ begin
       { a noface is said by the drawing's named corners, which may sit a
         hair from the loose lines that close the same loop: a tolerance of
         the text's own }
+      { a noface holds in every scope: the same loop closed by two solids'
+        edges, or by a solid's and loose lines lying on them, is no face
+        in either - and a face that is one is written out, so it is known }
       if not Known then
         for J := 0 to High(NoFaces) do
-          if SameLoopTol(NoFaces[J], Regs[I].Outer, 1E-4) then begin Known := True; Break; end;
+          if SameLoopTol(NoFaces[J], Regs[I].Outer, 1E-4) then
+          begin
+            Known := True;
+            Break;
+          end;
       if Known then Continue;
       ImpliedLoop(Regs[I], InSolid, Mid, Outer, Holes);
       D.AddFaceRaw(Outer, DefInk, InSolid);

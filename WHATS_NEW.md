@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A solid's top could go missing, or come back twice, on the way
+  through the text** when the same ring of corners was closed by two
+  things' edges - a cylinder standing in a washer's hole.  A face the
+  text also calls `noface` is written out now, and the sheet's default
+  ink and width are counted over everything rather than the first few
+  hundred things, so the second write is the first.
+
 ## v2026.09.22.3
 
 ### Fixed
