@@ -22,9 +22,14 @@ unit uFormat2;
 interface
 
 uses
-  Classes, SysUtils, Math, Graphics, uWork;
+  Classes, SysUtils, Math, Graphics, uWork, uRegion, uImply;
 
 const
+  { how many sides a circle has when nothing says: what the circle tool
+    draws, and what a circle written in one line comes back with }
+  HECK_SIDES = 24;
+  { the drawing size up to which faces are left unsaid - see ReadBack }
+  IMPLY_LIMIT = 20000;
   { a million-millionth of a foot: see "Lengths" in docs/format2.md }
   FRIENDLY_TOL = 1E-12;
   { Version 1 writes a length as feet to six places, so every drawing that
@@ -50,6 +55,24 @@ procedure WriteFormat2(D: TWorkDoc; const SheetName: string; U: TUnitSystem;
   L: TStrings; out First, Last, LineThing: TIntArrayW; Hints: TStrings = nil;
   Names: TStrings = nil);
 
+type
+  TBoolArray = array of Boolean;
+  { the reader; Implied comes back one flag a thing, true for a face the
+    reader found its scope's edges close exactly, turned the way it would
+    have turned it, and alone - the face it would have made by itself }
+  TReadBack = function(L: TStrings; D: TWorkDoc; U: TUnitSystem;
+    out ErrLine: Integer; out Err: string; out Implied: TBoolArray): Boolean;
+
+var
+  { The reader, for the writer to see what its own text becomes.  uHeck
+    sets it.  Faces are implied by their edges - uImply - and which loops
+    the reader will close is a question of the numbers as READ, rounded by
+    the writing, not the numbers in the drawing: so the writer writes once
+    with every face said, reads that back, and leaves out of the real text
+    exactly the faces the reader put back by itself.  Without a reader
+    every face is written, which is never wrong, only longer. }
+  ReadBack: TReadBack = nil;
+
 { the two directions a flat thing's angles are measured in: from east for a
   thing facing up or down, from its level line (up x facing) for any other }
 procedure SpecAxes(const F: TP3; out AU, AV: TP3);
@@ -60,9 +83,14 @@ function Len2(V: Double; U: TUnitSystem): string;
 
 implementation
 
+var
+  { pass one is under way: every face is written and no noface }
+  InPass1: Boolean = False;
+
 type
   TPt = record
     P: TP3;
+    Read: TP3;           { where the reader will put it, from the text }
     Name: string;
     Ring: Integer;       { which ring it is a corner of, or -1 }
     InHole: Boolean;     { a corner of a hole, and of no outline }
@@ -132,7 +160,55 @@ begin
     end;
     S := S + '"';
   end;
+  { a hair above the tolerance and below a sixty-fourth is nought too: it
+    used to come out as nothing at all, and "+ 14" west,  north" read as
+    nothing being a number }
+  if S = '' then S := '0';
   Result := S;
+end;
+
+{ What a length reads back as, once written: Len2's rounding, and no
+  more.  A walk of steps is written so that each corner reads back as its
+  own rounded self - the step is taken from where the reader will be, not
+  from where the drawing is - because forty-eight steps each half a
+  millionth out drift a disk off the ring it was drawn on. }
+function AsRead(V: Double; U: TUnitSystem): Double;
+var
+  A, Inches, R: Double;
+  FS: TFormatSettings;
+begin
+  FS := DefaultFormatSettings;
+  FS.DecimalSeparator := '.';
+  A := Abs(V);
+  Result := 0;
+  if A < FRIENDLY_TOL then Exit;
+  if U = usMetric then
+  begin
+    R := A * 304.8;
+    if Abs(Round(R * 1000) / 1000 / 304.8 - A) <= FRIENDLY_TOL then
+      Result := Round(R * 1000) / 1000 / 304.8
+    else
+      Result := StrToFloat(FloatToStrF(R, ffGeneral, 15, 0, FS), FS) / 304.8;
+  end
+  else
+  begin
+    Inches := A * 12;
+    R := Round(Inches * 64) / 64;
+    if Abs(R / 12 - A) > V1_NOISE then
+    begin
+      R := Round(Inches * 1000) / 1000;
+      if Abs(R / 12 - A) <= V1_NOISE then Result := R / 12
+      else Result := StrToFloat(FloatToStrF(Inches, ffGeneral, 12, 0, FS), FS) / 12;
+    end
+    else
+      Result := R / 12;
+  end;
+  if V < 0 then Result := -Result;
+end;
+
+function AsRead3(const P: TP3; U: TUnitSystem): TP3;
+begin
+  Result := P3(AsRead(P.X, U), AsRead(P.Y, U), AsRead(P.Z, U));
 end;
 
 { A place is "1" east, 1" north, 0 up" - all three, always, so that the
@@ -142,11 +218,15 @@ end;
 function Place2(const P: TP3; U: TUnitSystem; Offset: Boolean): string;
 
   procedure Part(V: Double; const Plus, Minus: string);
+  var
+    S: string;
   begin
-    if Offset and (Abs(V) < FRIENDLY_TOL) then Exit;
+    S := Len2(V, U);
+    { a step says only what changes, and what writes as nought does not }
+    if Offset and (S = '0') then Exit;
     if Result <> '' then Result := Result + ', ';
-    if V >= -FRIENDLY_TOL then Result := Result + Len2(V, U) + ' ' + Plus
-    else Result := Result + Len2(V, U) + ' ' + Minus;
+    if V >= -FRIENDLY_TOL then Result := Result + S + ' ' + Plus
+    else Result := Result + S + ' ' + Minus;
   end;
 
 begin
@@ -275,6 +355,12 @@ var
   NLine: Integer;
   FS: TFormatSettings;
   Circles: TIntArrayW;        { the whole circles on the sheet: c1, c2... }
+  { from pass one: the faces the reader puts back by itself, and the loops
+    it closes that are not faces of the drawing }
+  ImpliedGeom: array of Boolean;
+  NoFaceLoops: TLoopArray;
+  NoFaceScope: array of Integer;   { the Grp each loop was closed in }
+  NoFacePart: array of Integer;    { and the group (Part) it is in }
 
   function CircleName(I: Integer): string;
   var
@@ -343,6 +429,7 @@ var
     if FindPt(Pts, P) >= 0 then Exit;
     SetLength(Pts, Length(Pts) + 1);
     Pts[High(Pts)].P := P;
+    Pts[High(Pts)].Read := P;
     Pts[High(Pts)].Ring := -1;
     Pts[High(Pts)].Name := '';
     Pts[High(Pts)].InHole := True;
@@ -363,13 +450,33 @@ var
     square, and reads as one. }
   function Items(const Pts: TPts; const Poly: array of TP3): TStringArray;
   var
-    K: Integer;
+    K, F: Integer;
+    Acc, Step: TP3;
   begin
     SetLength(Result, Length(Poly));
+    Acc := P3(0, 0, 0);
     for K := 0 to High(Poly) do
-      if FindPt(Pts, Poly[K]) >= 0 then Result[K] := Ref(Pts, Poly[K])
-      else if K = 0 then Result[K] := Place2(Poly[K], U, False)
-      else Result[K] := '+ ' + Place2(Sub3(Poly[K], Poly[K - 1]), U, True);
+    begin
+      F := FindPt(Pts, Poly[K]);
+      if F >= 0 then
+      begin
+        Result[K] := Pts[F].Name;
+        Acc := Pts[F].Read;
+      end
+      else if K = 0 then
+      begin
+        Result[K] := Place2(Poly[K], U, False);
+        Acc := AsRead3(Poly[K], U);
+      end
+      else
+      begin
+        { the step from where the reader will be, so this corner reads
+          back as its own rounded self }
+        Step := Sub3(Poly[K], Acc);
+        Result[K] := '+ ' + Place2(Step, U, True);
+        Acc := P3(Acc.X + AsRead(Step.X, U), Acc.Y + AsRead(Step.Y, U), Acc.Z + AsRead(Step.Z, U));
+      end;
+    end;
   end;
 
   function Named(const It: TStringArray): Boolean;
@@ -726,10 +833,20 @@ var
       end;
       if From >= 0 then NextHint := Place2(Pts[I].P, U, False);
       if From >= 0 then
+      begin
+        { the step from where the reader will have put the other, so this
+          one reads back as its own rounded self and nothing drifts }
+        V := Sub3(Pts[I].P, Pts[From].Read);
         Put(Depth + 1, Format('%s = %s + %s', [Pts[I].Name, Pts[From].Name,
-          Place2(Sub3(Pts[I].P, Pts[From].P), U, True)]), -1)
+          Place2(V, U, True)]), -1);
+        Pts[I].Read := P3(Pts[From].Read.X + AsRead(V.X, U), Pts[From].Read.Y + AsRead(V.Y, U),
+          Pts[From].Read.Z + AsRead(V.Z, U));
+      end
       else
+      begin
         Put(Depth + 1, Format('%s = %s', [Pts[I].Name, Place2(Pts[I].P, U, False)]), -1);
+        Pts[I].Read := AsRead3(Pts[I].P, U);
+      end;
     end;
     Put(Depth, 'end', -1);
   end;
@@ -856,7 +973,7 @@ var
             way it faces only when that is not up.  Anything else about it -
             where it starts, its own sides, an ink - and it is a block. }
           if (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) and (Abs(A0) <= 1E-9) and
-             (D[I].Sides < 3) and (D[I].Ink = DefInk) and
+             (D[I].Sides = HECK_SIDES) and (D[I].Ink = DefInk) and
              (Abs(D[I].Weight - DefWidth) <= 1E-3) then
           begin
             if Abs(Nm.Z - 1) < 1E-9 then
@@ -875,7 +992,9 @@ var
           if Abs(A0) > 1E-9 then Put(Depth + 1, 'starts = ' + Deg2(A0), I);
           if Abs(Abs(D[I].Sweep) - 2 * Pi) >= 1E-9 then
             Put(Depth + 1, 'sweep = ' + Deg2(D[I].Sweep), I);
-          if D[I].Sides >= 3 then Put(Depth + 1, 'sides = ' + IntToStr(D[I].Sides), I);
+          { the sides the ring has for the faces it implies: what the tool
+            uses, said whenever it is not what a circle comes back with }
+          if ArcSteps(D[I]) <> HECK_SIDES then Put(Depth + 1, 'sides = ' + IntToStr(ArcSteps(D[I])), I);
           PutInk(Depth + 1, I);
           Put(Depth, 'end', I);
         end;
@@ -923,6 +1042,42 @@ var
     be said as one: docs/primitives.md, "a primitive is a fold".  A box
     whose top has a circle's hole in it is not, for now - the fold under a
     circle is step 3 on that page. }
+  { Is this face what its scope's lines already say - uImply's rule, which
+    the reader applies?  Then it is not written.  Regs are the regions of
+    the face's own scope, and Loose those of the level's loose lines, since
+    a disk in a box's top is implied by the circle drawn beside the box. }
+  function FaceImplied(I: Integer; HasMat: Boolean; SMat: TColor): Boolean;
+  begin
+    Result := False;
+    if InPass1 or (I >= Length(ImpliedGeom)) or not ImpliedGeom[I] then Exit;
+    if D[I].Ink <> DefInk then Exit;
+    if D[I].MatSet and not (HasMat and (D[I].Mat = SMat)) then Exit;
+    if (not D[I].MatSet) and HasMat then Exit;
+    Result := True;
+  end;
+
+  { the loops that close and are not faces - rubbed out, and the reader
+    must not put them back.  Their corners are the drawing's where the
+    drawing has them, so they can be said by name. }
+  procedure PutNoFaces(Depth: Integer; const Pts: TPts; Part_, G: Integer);
+  var
+    R, K, F: Integer;
+    Lp: TP3Array;
+  begin
+    if InPass1 then Exit;
+    for R := 0 to High(NoFaceLoops) do
+    begin
+      if (NoFaceScope[R] <> G) or (NoFacePart[R] <> Part_) then Continue;
+      Lp := Copy(NoFaceLoops[R]);
+      for K := 0 to High(Lp) do
+      begin
+        for F := 0 to High(Pts) do
+          if SamePt(Pts[F].P, Lp[K], 1E-5) then begin Lp[K] := Pts[F].P; Break; end;
+      end;
+      PutList(Depth, 'noface', Outline(Pts, Lp, Part_), -1);
+    end;
+  end;
+
   { A disk in a box's face: a face of the solid whose outline is a circle
     by name.  Written after the box as "face = c1"; the hole it sits in is
     the circle's doing, and the reader cuts it again from the circle. }
@@ -1016,11 +1171,18 @@ var
         First[I] := Header;
         Last[I] := NLine - 1;
       end;
-    { and the disks lying in its faces, by their circles' names }
+    { and the disks lying in its faces, by their circles' names - unless
+      the circle beside the box already says them }
     SetLength(NoPts, 0);
     for I := 0 to D.Live - 1 do
       if (D[I].Grp = G) and (D[I].Part = Part_) and IsDisk(I, Part_) then
-        PutFace(Depth, I, NoPts, HasPaint, Paint);
+        if FaceImplied(I, HasPaint, Paint) then
+        begin
+          First[I] := Header;
+          Last[I] := Header;
+        end
+        else
+          PutFace(Depth, I, NoPts, HasPaint, Paint);
   end;
 
   { one solid: its corners once, its faces, and only the edges that are
@@ -1028,13 +1190,15 @@ var
   procedure PutSolid(Depth, Part_, G: Integer);
   var
     Pts: TPts;
-    I, J, K, N, Header, Best: Integer;
+    I, J, K, N, Header, Best, LinesFrom: Integer;
     HasMat: Boolean;
     SMat: TColor;
     Rings: TRings;
     Rg: TRing;
+    Implied: array of Boolean;
 
   begin
+    SetLength(Implied, D.Live);
     SetLength(Pts, 0);
     N := 0;
     for I := 0 to D.Live - 1 do
@@ -1103,7 +1267,12 @@ var
     PutPoints(Depth + 1, Pts, Rings);
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
-        PutFace(Depth + 1, I, Pts, HasMat, SMat);
+      begin
+        Implied[I] := FaceImplied(I, HasMat, SMat);
+        if not Implied[I] then PutFace(Depth + 1, I, Pts, HasMat, SMat);
+      end;
+    PutNoFaces(Depth + 1, Pts, Part_, G);
+    LinesFrom := NLine;
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekLine) and (D[I].Grp = G) and (D[I].Part = Part_) then
       begin
@@ -1116,6 +1285,14 @@ var
         Put(Depth + 2, 'goes = ' + Place2(Sub3(D[I].B, D[I].Poly[0]), U, True), I);
         Put(Depth + 1, 'end', I);
       end;
+    { a face that went unsaid is its edges: picked on the sheet, the lines
+      light up }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) and Implied[I] then
+      begin
+        First[I] := LinesFrom;
+        Last[I] := NLine - 1;
+      end;
     Put(Depth, 'end', -1);
   end;
 
@@ -1123,15 +1300,18 @@ var
     inside it }
   procedure PutLevel(Depth, Part_: Integer);
   var
-    I, J, G: Integer;
+    I, J, G, LinesFrom: Integer;
     Done: array of Integer;
     Seen, BPaintOn: Boolean;
     None: TPts;
     BLo, BHi: TP3;
     BPaint: TColor;
+    Implied: array of Boolean;
   begin
     SetLength(None, 0);
     SetLength(Done, 0);
+    SetLength(Implied, D.Live);
+    LinesFrom := -1;
     { the circles first: faces and holes further down say them by name }
     for I := 0 to D.Live - 1 do
       if (D[I].Part = Part_) and (CircleName(I) <> '') then PutOther(Depth, I);
@@ -1156,12 +1336,27 @@ var
         Continue;
       end;
       case D[I].Kind of
-        ekFace: PutFace(Depth, I, None);
-        ekLine: PutLine(Depth, I, None);
+        ekFace:
+          begin
+            Implied[I] := FaceImplied(I, False, 0);
+            if not Implied[I] then PutFace(Depth, I, None);
+          end;
+        ekLine:
+          begin
+            if LinesFrom < 0 then LinesFrom := NLine;
+            PutLine(Depth, I, None);
+          end;
       else
         PutOther(Depth, I);
       end;
     end;
+    PutNoFaces(Depth, None, Part_, 0);
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and (D[I].Part = Part_) and (D[I].Grp = 0) and Implied[I] then
+      begin
+        if LinesFrom >= 0 then First[I] := LinesFrom;
+        Last[I] := NLine - 1;
+      end;
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekPart) and (D[I].Part = Part_) then
       begin
@@ -1173,9 +1368,247 @@ var
       end;
   end;
 
+  { Pass one has been read back into E.  Which faces of D did the reader
+    put back by itself, and which loops did it close that D has no face
+    for?  A face of E is one of D's when its corners are - to the rounding
+    of the text - and it faces the same way; matching is by geometry, since
+    the reader's order is its own. }
+  procedure Decide(E: TWorkDoc; const EImplied: TBoolArray);
+  var
+    F, I, K, S, R, Grp, Prt, C: Integer;
+    Match: array of Integer;
+    Taken: array of Boolean;
+    Found: Boolean;
+    DFaces, DLines: TLoopIndex;
+    Cands: TIntArrayW;
+    GrpMap: array of record E, D: Integer; end;
+    Seg: TP3Array;
+
+    { E's groups are numbered as the reader numbers them; each is D's
+      group that its lines are in }
+    function GrpOfE(G: Integer): Integer;
+    var
+      K: Integer;
+    begin
+      Result := 0;
+      if G = 0 then Exit;
+      for K := 0 to High(GrpMap) do
+        if GrpMap[K].E = G then Exit(GrpMap[K].D);
+      Result := -1;
+    end;
+
+    function MatchOf(F: Integer): Integer;
+    var
+      C, I, Want: Integer;
+    begin
+      Result := -1;
+      Want := GrpOfE(E[F].Grp);
+      Cands := DFaces.Near(E[F].Poly);
+      for C := 0 to High(Cands) do
+      begin
+        I := Cands[C];
+        if Taken[I] or (D[I].Grp <> Want) then Continue;
+        if (Length(D[I].Holes) = Length(E[F].Holes)) and
+           SameLoopTol(D[I].Poly, E[F].Poly, 1E-4) then
+          Exit(I);
+      end;
+    end;
+
+    { one to one: two solids lying on each other - a copy set down on the
+      original - have the same lines, and each must get a group of its own }
+    procedure MapGroups;
+    var
+      F, I, K, C: Integer;
+      Known, Used: Boolean;
+    begin
+      SetLength(GrpMap, 0);
+      SetLength(Seg, 2);
+      for F := 0 to E.Live - 1 do
+      begin
+        if (E[F].Kind <> ekLine) or (E[F].Grp = 0) then Continue;
+        Known := False;
+        for K := 0 to High(GrpMap) do
+          if GrpMap[K].E = E[F].Grp then begin Known := True; Break; end;
+        if Known then Continue;
+        Seg[0] := E[F].A; Seg[1] := E[F].B;
+        Cands := DLines.Near(Seg);
+        for C := 0 to High(Cands) do
+        begin
+          I := Cands[C];
+          if D[I].Grp = 0 then Continue;
+          if ((SamePt(D[I].A, E[F].A, 1E-4) and SamePt(D[I].B, E[F].B, 1E-4)) or
+              (SamePt(D[I].A, E[F].B, 1E-4) and SamePt(D[I].B, E[F].A, 1E-4))) then
+          begin
+            Used := False;
+            for K := 0 to High(GrpMap) do
+              if GrpMap[K].D = D[I].Grp then begin Used := True; Break; end;
+            if Used then Continue;
+            SetLength(GrpMap, Length(GrpMap) + 1);
+            GrpMap[High(GrpMap)].E := E[F].Grp;
+            GrpMap[High(GrpMap)].D := D[I].Grp;
+            Break;
+          end;
+        end;
+      end;
+      { a solid with no lines of its own - every edge loose, as a jig may
+        build it - is known by a face instead }
+      for F := 0 to E.Live - 1 do
+      begin
+        if (E[F].Kind <> ekFace) or (E[F].Grp = 0) then Continue;
+        Known := False;
+        for K := 0 to High(GrpMap) do
+          if GrpMap[K].E = E[F].Grp then begin Known := True; Break; end;
+        if Known then Continue;
+        Cands := DFaces.Near(E[F].Poly);
+        for C := 0 to High(Cands) do
+        begin
+          I := Cands[C];
+          if (D[I].Grp = 0) or not SameLoopTol(D[I].Poly, E[F].Poly, 1E-4) then Continue;
+          Used := False;
+          for K := 0 to High(GrpMap) do
+            if GrpMap[K].D = D[I].Grp then begin Used := True; Break; end;
+          if Used then Continue;
+          SetLength(GrpMap, Length(GrpMap) + 1);
+          GrpMap[High(GrpMap)].E := E[F].Grp;
+          GrpMap[High(GrpMap)].D := D[I].Grp;
+          Break;
+        end;
+      end;
+    end;
+
+  begin
+    SetLength(ImpliedGeom, D.Live);
+    for I := 0 to D.Live - 1 do ImpliedGeom[I] := False;
+    SetLength(NoFaceLoops, 0);
+    SetLength(NoFaceScope, 0);
+    SetLength(NoFacePart, 0);
+    DFaces := TLoopIndex.Create;
+    DLines := TLoopIndex.Create;
+    try
+      SetLength(Seg, 2);
+      SetLength(Taken, D.Live);
+      for I := 0 to D.Live - 1 do
+      begin
+        Taken[I] := False;
+        if D[I].Kind = ekFace then DFaces.Add(D[I].Poly, I)
+        else if D[I].Kind = ekLine then
+        begin
+          Seg[0] := D[I].A; Seg[1] := D[I].B;
+          DLines.Add(Seg, I);
+        end;
+      end;
+      { each face of E, to a face of D - one each: a drawing with two faces
+        lying on each other keeps both, the second written out }
+      MapGroups;
+      SetLength(Match, E.Live);
+      for F := 0 to E.Live - 1 do
+      begin
+        Match[F] := -1;
+        if E[F].Kind <> ekFace then Continue;
+        Match[F] := MatchOf(F);
+        if Match[F] >= 0 then Taken[Match[F]] := True;
+      end;
+      { the faces the reader says its edges close by themselves: D's face
+        goes unsaid when it faces the way the reader would have turned it }
+      for F := 0 to E.Live - 1 do
+        if (F <= High(EImplied)) and EImplied[F] and (Match[F] >= 0) and
+           (Dot3(E.FaceNormal(F), D.FaceNormal(Match[F])) > 0) then
+          ImpliedGeom[Match[F]] := True;
+      { faces of E that are nobody's in D: loops the reader closed on its
+        own, and must be told not to.  Said in the scope of D that their
+        edges are in - the group of a D line on the loop, or loose. }
+      for F := 0 to E.Live - 1 do
+        if (E[F].Kind = ekFace) and (Match[F] < 0) then
+        begin
+          { the same loop closed by a solid's edges and by loose lines lying
+            on them is one noface }
+          Found := False;
+          for R := 0 to High(NoFaceLoops) do
+            if SameLoopTol(NoFaceLoops[R], E[F].Poly, 1E-4) then begin Found := True; Break; end;
+          if Found then Continue;
+          { the scope of D it belongs in: that of a D line along it, or of
+            the D arc it is the ring of }
+          Grp := 0;
+          Prt := -1;
+          for S := 0 to High(E[F].Poly) do
+          begin
+            Seg[0] := E[F].Poly[S]; Seg[1] := E[F].Poly[(S + 1) mod Length(E[F].Poly)];
+            Cands := DLines.Near(Seg);
+            for C := 0 to High(Cands) do
+            begin
+              I := Cands[C];
+              if (SamePt(D[I].A, Seg[0], 1E-4) and SamePt(D[I].B, Seg[1], 1E-4)) or
+                 (SamePt(D[I].A, Seg[1], 1E-4) and SamePt(D[I].B, Seg[0], 1E-4)) then
+              begin
+                Grp := D[I].Grp;
+                Prt := D[I].Part;
+                Break;
+              end;
+            end;
+            if Prt >= 0 then Break;
+          end;
+          if Prt < 0 then
+            for I := 0 to D.Live - 1 do
+              if (D[I].Kind = ekArc) and
+                 (Abs(Dist(D[I].C, E[F].Poly[0]) - D[I].R) < 1E-4) and
+                 (Abs(Dist(D[I].C, E[F].Poly[Length(E[F].Poly) div 2]) - D[I].R) < 1E-4) then
+              begin
+                Grp := D[I].Grp;
+                Prt := D[I].Part;
+                Break;
+              end;
+          if Prt < 0 then Prt := 0;
+          SetLength(NoFaceLoops, Length(NoFaceLoops) + 1);
+          NoFaceLoops[High(NoFaceLoops)] := Copy(E[F].Poly);
+          SetLength(NoFaceScope, Length(NoFaceScope) + 1);
+          NoFaceScope[High(NoFaceScope)] := Grp;
+          SetLength(NoFacePart, Length(NoFacePart) + 1);
+          NoFacePart[High(NoFacePart)] := Prt;
+        end;
+    finally
+      DLines.Free;
+      DFaces.Free;
+    end;
+  end;
+
 var
-  I: Integer;
+  I, EL: Integer;
+  T0, T1, T2: QWord;
+  Pass1: TStringList;
+  EImplied: TBoolArray;
+  E: TWorkDoc;
+  F1, L1, LT1: TIntArrayW;
+  Err: string;
 begin
+  SetLength(ImpliedGeom, 0);
+  SetLength(NoFaceLoops, 0);
+  SetLength(NoFaceScope, 0);
+  { Up to a size: the read-back costs a few seconds on a drawing of forty
+    thousand things, and the source window writes on every edit.  Past it
+    every face is written, which is never wrong, only longer. }
+  if Assigned(ReadBack) and not InPass1 and (D.Live <= IMPLY_LIMIT) then
+  begin
+    InPass1 := True;
+    Pass1 := TStringList.Create;
+    E := TWorkDoc.Create;
+    try
+      T0 := GetTickCount64;
+      WriteFormat2(D, SheetName, U, Pass1, F1, L1, LT1);
+      T1 := GetTickCount64;
+      if ReadBack(Pass1, E, U, EL, Err, EImplied) then
+      begin
+        T2 := GetTickCount64;
+        Decide(E, EImplied);
+        if GetEnvironmentVariable('HECK_TIMING') <> '' then
+          WriteLn(StdErr, Format('pass one: write %d ms, read %d ms, decide %d ms',
+            [T1 - T0, T2 - T1, GetTickCount64 - T2]));
+      end;
+    finally
+      E.Free;
+      Pass1.Free;
+      InPass1 := False;
+    end;
+  end;
   FS := DefaultFormatSettings;
   FS.DecimalSeparator := '.';
   NLine := 0;
@@ -1200,6 +1633,9 @@ begin
   Put(0, 'sheet ' + Quoted(SheetName), -1);
   Put(1, 'ink = ' + Color2(DefInk), -1);
   Put(1, 'width = ' + FloatToStrF(DefWidth, ffGeneral, 4, 0, FS), -1);
+  { every face said in full - no reader to ask, or a drawing past the size
+    the asking is worth - and the reader is to make none of its own }
+  if not InPass1 and (Length(ImpliedGeom) = 0) then Put(1, 'faces = said', -1);
   Put(0, '', -1);
   PutLevel(1, 0);
   Put(0, 'end', -1);

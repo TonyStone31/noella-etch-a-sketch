@@ -8363,14 +8363,15 @@ begin
       if Copy(Trim(L[I]), 1, 7) = 'line = ' then Inc(NLine_);
       if (Pos('floor', Trim(L[I])) = 1) or (Pos('top', Trim(L[I])) = 1) then Inc(NPoint);
     end;
-    EqI(NFace, 5, 'five plain faces, a line each, and the painted one a block');
+    EqI(NFace, 0, 'the plain faces go unsaid: their edges say them');
     EqI(NLine_, 12, 'twelve edges, a line each, two names and a "to"');
     EqI(NPoint, 8, 'eight corners, named once');
     Ok(L.IndexOf('      floor2 = floor1 + 4'' east') >= 0, 'a corner is a step from another, and named by where it stands');
     Ok(L.IndexOf('    line = floor1 to top1') >= 0, 'so an upright reads as one');
     Ok(Pos('0 east, 0 north, ', L.Text) > 0, 'a place says all three, the height as well');
-    Ok((First[5] >= 0) and (First[5] = Last[5]), 'a plain face is one line of the text');
-    Ok(L.IndexOf('      paint = orange') >= 0, 'a painted face says so');
+    Ok((First[5] >= 0) and (Last[5] >= First[5]) and (Copy(Trim(L[First[5]]), 1, 7) = 'line = '),
+      'a plain face, picked, lights its edges in the text');
+    Ok(L.IndexOf('      paint = orange') >= 0, 'a painted face says so, in a block');
   finally
     L.Free;
     D.Free;
@@ -8581,7 +8582,7 @@ begin
     for I := 0 to E.Live - 1 do
       if E[I].Kind = ekFace then Inc(NF) else if E[I].Kind = ekLine then Inc(NL);
     EqI(NL, 16, 'sixteen lines: four for the rect, twelve for the box');
-    EqI(NF, 6, 'six faces, the box''s; the rect''s is for the program to work out');
+    EqI(NF, 7, 'seven faces: the box''s six, and the rect''s, which its four lines imply');
     M.Text := 'rect = 0 east, 0 north, 0 up; 4'' east, 3'' north, 2'' up';
     E.Clear;
     Ok(not ReadHeck(M, E, usImperial, ErrLine, Err), 'a rect with a three-part size is refused');
@@ -8596,6 +8597,7 @@ begin
       if (D[I].Kind = ekFace) and (Abs(D.FaceNormal(I).Z - 1) < 1E-9) then Top := I;
     Ok(Top >= 0, 'with a top');
     D.AddArc(P3(2, 2, 4), 1, 0, 2 * Pi, plXY, 0, 2);   { the same pen as MakeRect }
+    D.SetArcSides(D.Live - 1, 24);                     { and the circle tool's sides }
     SetLength(Ring, 24);
     for I := 0 to 23 do Ring[I] := ArcPoint(P3(2, 2, 4), 1, I * 2 * Pi / 24, plXY, P3(0, 0, 1));
     SetLength(Holes, 1);
@@ -8608,12 +8610,12 @@ begin
     WriteFormat2(D, 'B', usImperial, L, First, Last, LineThing);
     Ok(L.IndexOf('  circle c1 = 2'' east, 2'' north, 4'' up; 1''') >= 0, 'a circle drawn on it is one line');
     Ok(L.IndexOf('  box = 0 east, 0 north, 0 up; 4'' east, 4'' north, 4'' up') >= 0, 'the cube is still a box');
-    Ok(Pos('face = c1', L.Text) > 0, 'and the disk is the circle by name');
+    Ok(Pos('face', L.Text) = 0, 'and nothing says "face": the circle says the disk');
     Ok(Pos('hole', L.Text) = 0, 'nothing says "hole": the circle on the box is the hole');
     Ok(Pos('ring', L.Text) = 0, 'and no ring of corners is listed');
     NL := 0;
     for I := 0 to L.Count - 1 do if Trim(L[I]) <> '' then Inc(NL);
-    Ok(NL <= 9, Format('the whole sheet is %d lines', [NL]));
+    Ok(NL <= 8, Format('the whole sheet is %d lines', [NL]));
     E.Clear;
     Ok(ReadHeck(L, E, usImperial, ErrLine, Err), 'which reads back: ' + Err);
     EqI(E.Live, D.Live, 'to as many things');
@@ -8628,6 +8630,97 @@ begin
     M.Clear;
     WriteFormat2(E, 'B', usImperial, M, First, Last, LineThing);
     Ok(L.Text = M.Text, 'and writes the same again');
+  finally
+    M.Free;
+    L.Free;
+    E.Free;
+    D.Free;
+  end;
+end;
+
+{ faces are what closed lines become - uImply: the writer leaves a plain
+  face unsaid when the reader will make it from the lines, and says
+  "noface" where lines close and there is no face }
+procedure TestImpliedFaces;
+var
+  D, E: TWorkDoc;
+  L, M: TStringList;
+  First, Last, LineThing: TIntArrayW;
+  I, ErrLine, NF, NL: Integer;
+  Err: string;
+  P: array[0..5] of TP3;
+begin
+  WriteLn('faces implied by their edges');
+  D := TWorkDoc.Create;
+  E := TWorkDoc.Create;
+  L := TStringList.Create;
+  M := TStringList.Create;
+  try
+    { an L-shaped room pulled up: eight faces, none of them a box }
+    P[0] := P3(0, 0, 0); P[1] := P3(6, 0, 0); P[2] := P3(6, 3, 0);
+    P[3] := P3(3, 3, 0); P[4] := P3(3, 5, 0); P[5] := P3(0, 5, 0);
+    for I := 0 to 5 do D.AddLine(P[I], P[(I + 1) mod 6], 0, 2, False);
+    D.AddFace(P, 0, False);
+    Ok(D.PushPull(D.Live - 1, 8), 'an L-shaped room, pulled up 8 feet');
+    { a rectangle whose face was rubbed out }
+    D.AddLine(P3(10, 0, 0), P3(12, 0, 0), 0, 2, False);
+    D.AddLine(P3(12, 0, 0), P3(12, 2, 0), 0, 2, False);
+    D.AddLine(P3(12, 2, 0), P3(10, 2, 0), 0, 2, False);
+    D.AddLine(P3(10, 2, 0), P3(10, 0, 0), 0, 2, False);
+    { and a triangle that kept its face, painted }
+    D.AddLine(P3(14, 0, 0), P3(16, 0, 0), 0, 2, False);
+    D.AddLine(P3(16, 0, 0), P3(15, 2, 0), 0, 2, False);
+    D.AddLine(P3(15, 2, 0), P3(14, 0, 0), 0, 2, False);
+    D.AddFace([P3(14, 0, 0), P3(16, 0, 0), P3(15, 2, 0)], 0, False);
+    D.SetMaterial(D.Live - 1, $3CB0FF);
+    WriteFormat2(D, 'L', usImperial, L, First, Last, LineThing);
+    NF := 0; NL := 0;
+    for I := 0 to L.Count - 1 do
+    begin
+      if Copy(Trim(L[I]), 1, 4) = 'face' then Inc(NF);
+      if Copy(Trim(L[I]), 1, 7) = 'line = ' then Inc(NL);
+    end;
+    EqI(NF, 1, 'one face said: the painted one');
+    EqI(NL, 25, 'every line said: eighteen of the room, four, and three');
+    Ok(Pos('noface = 10'' east, 0 north, 0 up to + 2'' east to + 2'' north to + 2'' west', L.Text) > 0,
+      'the rubbed-out rectangle is a noface');
+    Ok(Pos('paint = orange', L.Text) > 0, 'the painted triangle keeps its paint');
+    Ok(ReadHeck(L, E, usImperial, ErrLine, Err), 'which reads back: ' + Err);
+    EqI(E.Live, D.Live, 'to as many things');
+    NF := 0;
+    for I := 0 to E.Live - 1 do
+      if (E[I].Kind = ekFace) and E[I].Solid then Inc(NF);
+    EqI(NF, 8, 'the room has its eight faces again');
+    NF := 0;
+    for I := 0 to E.Live - 1 do
+      if (E[I].Kind = ekFace) and (Length(E[I].Poly) = 4) and (Abs(E[I].Poly[0].X - 11) < 1.5) then Inc(NF);
+    EqI(NF, 0, 'and the rubbed-out rectangle has none');
+    M.Clear;
+    WriteFormat2(E, 'L', usImperial, M, First, Last, LineThing);
+    Ok(L.Text = M.Text, 'and writes the same again');
+
+    { a room's face, picked, lights its edges in the text }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekFace) and D[I].Solid then
+      begin
+        Ok((First[I] >= 0) and (Last[I] >= First[I]) and (Copy(Trim(L[First[I]]), 1, 7) = 'line = '),
+          'an unsaid face maps to the lines of its solid');
+        Break;
+      end;
+
+    { a typed loop is a face: four lines make one }
+    M.Text := 'line = 0 east, 0 north, 0 up to 3'' east, 0 north, 0 up' + LineEnding +
+              'line = 3'' east, 0 north, 0 up to 3'' east, 2'' north, 0 up' + LineEnding +
+              'line = 3'' east, 2'' north, 0 up to 0 east, 2'' north, 0 up' + LineEnding +
+              'line = 0 east, 2'' north, 0 up to 0 east, 0 north, 0 up';
+    E.Clear;
+    Ok(ReadHeck(M, E, usImperial, ErrLine, Err), 'four typed lines read: ' + Err);
+    EqI(E.Live, 5, 'and are five things: the face came with them');
+    Ok((E[4].Kind = ekFace) and (E.FaceNormal(4).Z > 0.5), 'facing up, as a face on the floor does');
+    M.Add('noface = 0 east, 0 north, 0 up to + 3'' east to + 2'' north to + 3'' west');
+    E.Clear;
+    Ok(ReadHeck(M, E, usImperial, ErrLine, Err), 'with a noface they read: ' + Err);
+    EqI(E.Live, 4, 'and stay four lines');
   finally
     M.Free;
     L.Free;
@@ -8887,6 +8980,7 @@ begin
   TestHeckReader;   WriteLn;
   TestPushAmongNeighbors; WriteLn;
   TestPrimitives;   WriteLn;
+  TestImpliedFaces; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

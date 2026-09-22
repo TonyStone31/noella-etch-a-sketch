@@ -37,6 +37,12 @@ change the same way, in any language, with nothing but text tools.
    never heard of `weld` skip a `weld` block correctly.
 8. **Within version 2, things are only ever added.**  No word changes its
    meaning.  A change that would break that is version 3.
+9. **Faces are what closed lines become** - as they are for the tools.
+   The lines are written; a face is not, unless something about it is not
+   automatic: it is painted, it faces the other way from the way it would
+   have been turned, or it was rubbed out and the loop left standing,
+   which is `noface`.  (22 September 2026; before that every face was
+   listed, corner by corner, beside the lines that already said it.)
 
 ## The test it has to pass
 
@@ -336,6 +342,7 @@ without `=` opens a block, and `end` closes it.
 | `dim` | - | `from`, `to`, `off` (a step); `label` (the measured length), `ink` |
 | `note` | - | `at`, `text` (one line each, repeated); `to` (nowhere), `size` (1), `ink` |
 | `guide` | `guide = ` two places - or one, which is a guide point | - |
+| `noface` | `noface = ` the corners of a loop of lines that is not a face | - |
 | `box` | `box = ` its low southwest corner `; ` its size as a step | `at`, `size`; `paint` (none) |
 | `rect` | `rect = ` a corner `; ` a size with two parts | `at`, `size`; `paint` (none) |
 
@@ -358,6 +365,23 @@ without `=` opens a block, and `end` closes it.
   `starts toward = ` and a direction.
 * **A face's outline** goes round anticlockwise seen from the front, which
   is the side `paint` is on.  A `hole` goes round the other way.
+* **A face goes unsaid when its lines say it.**  Once everything is read,
+  the lines and arcs of each scope - one solid, or the loose things of one
+  group - are handed to the region finder, the same one the tools use, and
+  every loop it closes that is not already a face becomes one: loose, turned
+  so that its biggest component faces east, north or up (the way a face
+  drawn on the sheet is turned); in a solid, turned away from the middle of
+  the solid's edges.  A loose face that fills a hole in a solid's face is
+  that solid's.  So a plain face is never written - and the writer knows
+  which faces those are because it *reads its own text back* before
+  writing it, and leaves out exactly the faces the reader put back by
+  itself.  The rounding of the text is part of the question, so it is
+  asked of the text and not of the drawing.  A face with a paint, an ink,
+  or a hole the lines would not cut, or one turned the other way, is
+  written in full; a loop the lines close that is not a face is written
+  `noface`, so the reader does not put it back.  On a drawing past twenty
+  thousand things every face is written, which is never wrong, only
+  longer, and the sheet says `faces = said` so the reader makes none.
 * **`box` and `rect` are folds, not things of their own** - see
   `primitives.md`.  The reader expands a `box` into the eight corners,
   twelve lines and six faces a pulled rectangle would have made, and the
@@ -413,28 +437,25 @@ in `/source`:
 ```
 circle c1 = 2' east, 2' north, 4' up; 1'
 box = 0 east, 0 north, 0 up; 4' east, 4' north, 4' up
-face = c1   { facing up }
 ```
 
-Three lines (22 September 2026; it was twenty-six).  The circle is a
-circle by name, the box folds because its own corners and faces are still
-a box's - the hole in its top is the circle's doing, and the reader cuts it
-again from the circle, as the tool did - and the disk inside the hole is
-the circle's outline, `face = c1`.  Push one side of the box in, or nudge
-a corner, and it is written as its faces again:
+Two lines (22 September 2026; it was twenty-six that morning and three at
+noon).  The circle is a circle by name, the box folds because its own
+corners and faces are still a box's - the hole in its top is the circle's
+doing, and the reader cuts it again from the circle, as the tool did - and
+the disk inside the hole is what the circle's ring closes, so it is not
+said either.  Push one side of the box in, or nudge a corner, and it is
+written as its corners and edges, and still no faces:
 
 ```
+circle c1 = 2' east, 2' north, 4' up; 1'
 solid
   points
     floor1 = 0 east, 0 north, 0 up
     floor2 = floor1 + 4' east
     ...
   end
-  face   { facing up }
-    points = top1..top4
-    hole = c1
-  end
-  face = floor4..floor1   { facing down }
+  line = floor1 to floor2
   ...
 end
 ```

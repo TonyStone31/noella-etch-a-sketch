@@ -68,7 +68,7 @@ implementation
 
 const
   { blocks, and what may be said in each: "prop|hint" }
-  THINGS = 'face line box rect solid group points circle arc ring const dim note guide bore';
+  THINGS = 'face line box rect solid group points circle arc ring const dim note guide bore noface';
   TOP_PROPS: array[0..3] of string = ('ink|= black, red, #RRGGBB', 'width|= 1',
     'sides|= 24', 'units|= ft in, in, mm, m');
   FACE_PROPS: array[0..3] of string = ('points|= a b c d, or places joined with "to"',
@@ -91,7 +91,7 @@ const
   DIRS: array[0..5] of string = ('east', 'west', 'north', 'south', 'up', 'down');
   VALUES: array[0..12] of string = ('true', 'false', 'none', 'black', 'white', 'gray',
     'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'brown');
-  THING_HINTS: array[0..14] of string = (
+  THING_HINTS: array[0..15] of string = (
     'a flat area: face = a b c d',
     'two points: line = a to b',
     'a block: box = corner; size, or a block with at, size, paint',
@@ -106,7 +106,8 @@ const
     'a dimension: from, to, off',
     'a note: at, text',
     'guide = a place, or two',
-    'a tunnel in a solid: points, goes');
+    'a tunnel in a solid: points, goes',
+    'a loop of lines that is not a face: noface = a b c d');
 
 constructor THeckCompleter.Create(Ed: TSynEdit);
 begin
@@ -437,7 +438,7 @@ begin
               { a thing that is written on one line comes with its "= "
                 ready; a block-opener is its word, and what follows it - a
                 name, or a new line - is the person's }
-              if (W = 'face') or (W = 'line') or (W = 'guide') or (W = 'box') or (W = 'rect') then
+              if (W = 'face') or (W = 'line') or (W = 'guide') or (W = 'box') or (W = 'rect') or (W = 'noface') then
               begin
                 if (Pfx = '') or (Pos(Pfx, W) = 1) then Offer(W, W + ' = ', THING_HINTS[N]);
               end

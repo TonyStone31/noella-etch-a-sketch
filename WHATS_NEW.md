@@ -14,11 +14,19 @@
 
 ### New
 
-- **The cube with a circle on it is three lines.**  In `/source` a plain
-  circle is one line - `circle c1 = 2' east, 2' north, 4' up; 1'` - and a
-  box with a circle drawn on its top is still written `box`: the hole is
-  the circle's doing, and `face = c1` is the disk in it.  Twenty-six
-  lines yesterday.  Typing those three draws the same twenty things.
+- **Faces are what closed lines become - in the text too.**  `/source`
+  no longer lists a plain face beside the lines that already say it.  The
+  lines are written; a face is only written when something about it is
+  not automatic - a paint, a hole the lines would not cut, turned the
+  other way - and a loop of lines that is *not* a face (rubbed out) is
+  written `noface`, so it stays that way.  Type four lines that close and
+  you get the face, as with the tool.  A cube is its eight corners and
+  twelve edges and nothing more; the cube with a circle on its top is two
+  lines: `circle c1 = 2' east, 2' north, 4' up; 1'` and
+  `box = 0 east, 0 north, 0 up; 4' east, 4' north, 4' up`.  Twenty-six
+  lines yesterday.
+- **A plain circle is one line** - `circle c1 = center; radius`, and
+  `; north` when it does not face up.
 - **A postcard, if you like.**  On its second start the program asks,
   once, whether it may send us one note saying what sort of computer it is
   running on - and, if you care to say, what you want to use it for.  The
@@ -28,6 +36,20 @@
   a bug report goes.  `/postcard` brings it back; `--offline` means it is
   never asked at all.  We are two people, and we cannot otherwise tell
   whether anyone is trying this.
+
+### Fixed
+
+- **A circle read from the text came out facing the wrong way** when the
+  same circle was also a hole in a face above it - `hole = c1` turned the
+  circle's own corners round, and `face = c1` after it got them turned.
+  Big drawings read back from `/source` were coming out with hundreds of
+  faces flipped for the same reason.
+- **Reading a big drawing back from the text was slow** - thirteen seconds
+  for thirty thousand things, spent looking corner names up one by one.
+  Now a fifth of a second.
+- **A step a hair from nought was written as nothing** - `+ 14" west,
+  north` - and would not read back.  And a walk of steps no longer
+  drifts: each corner reads back as its own rounded self.
 
 ## v2026.09.21.8
 

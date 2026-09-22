@@ -22,7 +22,7 @@ unit uHeck;
 interface
 
 uses
-  Classes, SysUtils, Math, Graphics, uWork, uRegion;
+  Classes, SysUtils, Math, Graphics, uWork, uRegion, uImply, uFormat2;
 
 type
   EHeck = class(Exception);
@@ -33,6 +33,11 @@ type
 function ReadHeck(L: TStrings; D: TWorkDoc; U: TUnitSystem;
   out ErrLine: Integer; out Err: string): Boolean;
 
+{ The same, telling the writer which faces the edges closed by
+  themselves - uFormat2.ReadBack; see there. }
+function ReadHeckImplied(L: TStrings; D: TWorkDoc; U: TUnitSystem;
+  out ErrLine: Integer; out Err: string; out Implied: TBoolArray): Boolean;
+
 { one length or plain number out of a piece of text, for a jig's values:
   lengths come back in feet with IsLength set }
 function HeckValue(const S: string; U: TUnitSystem; out V: Double;
@@ -40,8 +45,6 @@ function HeckValue(const S: string; U: TUnitSystem; out V: Double;
 
 implementation
 
-uses
-  uFormat2;
 
 type
   TValKind = (vPlain, vLen, vAngle);
@@ -72,7 +75,20 @@ type
     DefInk: TColor;
     DefWidth: Single;
     DefSides: Integer;
+    { the solids read, and what each is painted, for the faces their edges
+      imply }
+    Solids: array of record G: Integer; HasPaint: Boolean; Paint: TColor; end;
+    { loops that close and are not faces: "noface = ..." }
+    NoFaces: array of TLoop;
+    { "faces = said" in the header: make no faces from the lines at all }
+    AllSaid: Boolean;
+    { one flag a thing: a face that its scope's edges close exactly, alone,
+      turned the way it would have been made - for the writer }
+    Implied: array of Boolean;
     procedure Fail(const Msg: string);
+    procedure NoteSolid(G: Integer; HasPaint: Boolean; Paint: TColor);
+    procedure ImplyFaces(FirstNew: Integer);
+    procedure HomeLooseFaces(FirstNew: Integer);
     procedure Prepare(L: TStrings);
     procedure PushScope;
     procedure PopScope;
@@ -144,7 +160,8 @@ begin
   Consts := TStringList.Create;
   DefInk := TColor($201C1A);     { the program's own ink: 1A 1C 20 as red, green, blue }
   DefWidth := 1;
-  DefSides := 24;
+  DefSides := HECK_SIDES;
+  AllSaid := False;
   PushScope;
 end;
 
@@ -248,6 +265,8 @@ begin
   with Scopes[High(Scopes)] do
   begin
     Names := TStringList.Create;
+    Names.Sorted := True;
+    Names.Duplicates := dupIgnore;
     Shapes := TStringList.Create;
     SetLength(Pts, 0);
     SetLength(Loops, 0);
@@ -270,7 +289,7 @@ begin
     K := Scopes[I].Names.IndexOf(LowerCase(Name));
     if K >= 0 then
     begin
-      P := Scopes[I].Pts[K];
+      P := Scopes[I].Pts[PtrInt(Scopes[I].Names.Objects[K])];
       Exit(True);
     end;
   end;
@@ -301,13 +320,18 @@ var
 begin
   with Scopes[High(Scopes)] do
   begin
+    { sorted, and looked up by halving - a drawing of thirty thousand
+      things names as many corners, and a walk over them for every one of
+      a hundred thousand lines was thirteen seconds of the read; the index
+      into Pts rides along as the Object }
     K := Names.IndexOf(LowerCase(Name));
     if K < 0 then
     begin
-      Names.Add(LowerCase(Name));
-      SetLength(Pts, Names.Count);
-      K := Names.Count - 1;
-    end;
+      SetLength(Pts, Length(Pts) + 1);
+      Names.AddObject(LowerCase(Name), TObject(PtrInt(High(Pts))));
+      K := High(Pts);
+    end
+    else K := PtrInt(Names.Objects[K]);
     Pts[K] := P;
   end;
 end;
@@ -973,6 +997,16 @@ begin
       DoCircle(Rest, False, Value);
       Continue;
     end
+    else if Kind = 'noface' then
+    begin
+      { a loop of lines that closes and is not a face: rubbed out }
+      Ends := ReadList(Value);
+      if Length(Ends) < 3 then Fail('noface wants the corners of the loop that is not a face');
+      SetLength(NoFaces, Length(NoFaces) + 1);
+      NoFaces[High(NoFaces)] := Ends;
+      Inc(Cur);
+      Continue;
+    end
     else if Kind = 'box' then
     begin
       DoBox(Value, False);
@@ -997,7 +1031,10 @@ begin
     end
     else if Key = 'ink' then DefInk := ReadColor(Value)
     else if Key = 'width' then begin P := 1; DefWidth := Expr(Value, P).V; end
-    else if Key = 'sides' then begin P := 1; DefSides := Round(Expr(Value, P).V); end;
+    else if Key = 'sides' then begin P := 1; DefSides := Round(Expr(Value, P).V); end
+    { "faces = said": every face is in the text, and no loop of lines is
+      to be made one - the writer says so when it has written them all }
+    else if Key = 'faces' then AllSaid := LowerCase(Trim(Value)) = 'said';
     { anything else - shows, scale, snap, view, camera, and whatever comes
       later - is let pass }
     Inc(Cur);
@@ -1173,7 +1210,10 @@ begin
   else D.AddArc(C, R, A0, Sweep, Pl, Ink, Wd);
   Idx := D.Live - 1;
   if Pl = plFree then D.SetArcFacing(Idx, F, A0);
-  if Sides >= 3 then D.SetArcSides(Idx, Sides);
+  { a circle that says no sides has the sheet's, as one the tool draws
+    has: what its ring is, and what its edges are for the faces they imply }
+  if Sides < 3 then Sides := DefSides;
+  D.SetArcSides(Idx, Sides);
 
   if (Name <> '') and not IsArc then
   begin
@@ -1322,6 +1362,14 @@ begin
   if Soft then D.SetSoft(D.Live - 1, True);
 end;
 
+procedure THeckReader.NoteSolid(G: Integer; HasPaint: Boolean; Paint: TColor);
+begin
+  SetLength(Solids, Length(Solids) + 1);
+  Solids[High(Solids)].G := G;
+  Solids[High(Solids)].HasPaint := HasPaint;
+  Solids[High(Solids)].Paint := Paint;
+end;
+
 procedure THeckReader.DoSolid;
 var
   G, Save: Integer;
@@ -1342,6 +1390,7 @@ begin
       if HasPaint then Paint := ReadColor(V);
       Inc(Cur);
     end;
+    NoteSolid(G, HasPaint, Paint);
     Save := Cur;
     Things(G, HasPaint, Paint);
     if Cur >= Src.Count then
@@ -1499,6 +1548,7 @@ begin
   C[2] := P3(X + Sx, Y + Sy, Z); C[3] := P3(X, Y + Sy, Z);
   for I := 0 to 3 do C[I + 4] := P3(C[I].X, C[I].Y, Z + Sz);
   G := D.NewGroup;
+  NoteSolid(G, HasPaint, Paint);
   Face4(3, 2, 1, 0);        { bottom, facing down }
   Face4(4, 5, 6, 7);        { top, facing up }
   Face4(0, 1, 5, 4);        { south }
@@ -1723,31 +1773,186 @@ begin
   end;
 end;
 
+{ The faces the lines imply - uImply has the rule.  Scope by scope: one
+  solid, or the loose things of one group.  A region that is already a face
+  anywhere is that face; one that is a noface is left open; the rest become
+  faces, turned as the tool would turn them, painted as their solid is. }
+procedure THeckReader.ImplyFaces(FirstNew: Integer);
+type
+  TKey = record Part, Grp: Integer; end;
+var
+  Keys: array of TKey;
+  I, K, F, S, J, C: Integer;
+  Segs: TSegArray;
+  Regs: TRegionArray;
+  Outer: TP3Array;
+  Holes: TLoopArray;
+  Mid: TP3;
+  Known, InSolid: Boolean;
+  SolidAt, Hit, NHit: Integer;
+  Faces: TLoopIndex;
+  Cands: TIntArrayW;
+begin
+  SetLength(Implied, D.Live);
+  for F := 0 to D.Live - 1 do Implied[F] := False;
+  Faces := TLoopIndex.Create;
+  for F := FirstNew to D.Live - 1 do
+    if D[F].Kind = ekFace then Faces.Add(D[F].Poly, F);
+  SetLength(Keys, 0);
+  for I := FirstNew to D.Live - 1 do
+    if D[I].Kind in [ekLine, ekArc] then
+    begin
+      Known := False;
+      for K := 0 to High(Keys) do
+        if (Keys[K].Part = D[I].Part) and (Keys[K].Grp = D[I].Grp) then begin Known := True; Break; end;
+      if Known then Continue;
+      SetLength(Keys, Length(Keys) + 1);
+      Keys[High(Keys)].Part := D[I].Part;
+      Keys[High(Keys)].Grp := D[I].Grp;
+    end;
+  for K := 0 to High(Keys) do
+  begin
+    Segs := ScopeSegments(D, FirstNew, Keys[K].Part, Keys[K].Grp);
+    if Length(Segs) < 3 then Continue;
+    Regs := BuildRegions(Segs);
+    SolidAt := -1;
+    for S := 0 to High(Solids) do
+      if Solids[S].G = Keys[K].Grp then SolidAt := S;
+    InSolid := SolidAt >= 0;
+    Mid := ScopeMid(Segs);
+    for I := 0 to High(Regs) do
+    begin
+      { Already the outline of a face of this scope - or, for a loose loop,
+        of anything: a solid lying exactly on another keeps its own faces,
+        and a disk said inside a box is not made again by the circle beside
+        it.  The outline alone: a face that has this outline and other
+        holes than the lines would cut is still that face, said in full. }
+      Known := False;
+      Hit := -1;
+      NHit := 0;
+      Cands := Faces.Near(Regs[I].Outer);
+      for C := 0 to High(Cands) do
+      begin
+        F := Cands[C];
+        if ((D[F].Grp = Keys[K].Grp) or (Keys[K].Grp = 0)) and
+           SameLoopTol(D[F].Poly, Regs[I].Outer, 1E-4) then
+        begin
+          Known := True;
+          if RegionIsFace(Regs[I], D, F) then
+          begin
+            Inc(NHit);
+            Hit := F;
+          end;
+        end;
+      end;
+      { exactly this face, and it alone: the writer may leave it unsaid,
+        provided it faces the way an implied one would have }
+      if NHit = 1 then
+      begin
+        ImpliedLoop(Regs[I], InSolid, Mid, Outer, Holes);
+        if Dot3(LoopNormal(Outer), D.FaceNormal(Hit)) > 0 then
+        begin
+          if Length(Implied) < D.Live then SetLength(Implied, D.Live);
+          Implied[Hit] := True;
+        end;
+      end;
+      { a noface is said by the drawing's named corners, which may sit a
+        hair from the loose lines that close the same loop: a tolerance of
+        the text's own }
+      if not Known then
+        for J := 0 to High(NoFaces) do
+          if SameLoopTol(NoFaces[J], Regs[I].Outer, 1E-4) then begin Known := True; Break; end;
+      if Known then Continue;
+      ImpliedLoop(Regs[I], InSolid, Mid, Outer, Holes);
+      D.AddFaceRaw(Outer, DefInk, InSolid);
+      F := D.Live - 1;
+      Faces.Add(Outer, F);
+      if Length(Holes) > 0 then D.SetFaceHoles(F, Holes);
+      if InSolid then
+      begin
+        D.SetFaceGroup(F, Keys[K].Grp);
+        if Solids[SolidAt].HasPaint then D.SetMaterial(F, Solids[SolidAt].Paint);
+      end
+      else if Keys[K].Grp <> 0 then D.SetFaceGroup(F, Keys[K].Grp);
+      D.SetPart(F, Keys[K].Part);
+    end;
+  end;
+  Faces.Free;
+end;
+
+{ A loose face that fills a hole in a solid's face is that solid's - the
+  disk a circle cut in a box's top, whether typed as "face = c1" beside the
+  box or made from the circle - as the tool heals it. }
+procedure THeckReader.HomeLooseFaces(FirstNew: Integer);
+var
+  F, S, J, C: Integer;
+  Holes: TLoopIndex;
+  Cands: TIntArrayW;
+begin
+  Holes := TLoopIndex.Create;
+  try
+    for S := FirstNew to D.Live - 1 do
+      if (D[S].Kind = ekFace) and (D[S].Grp <> 0) then
+        for J := 0 to High(D[S].Holes) do Holes.Add(D[S].Holes[J], S);
+    for F := FirstNew to D.Live - 1 do
+    begin
+      if (D[F].Kind <> ekFace) or (D[F].Grp <> 0) then Continue;
+      Cands := Holes.Near(D[F].Poly);
+      for C := 0 to High(Cands) do
+      begin
+        S := Cands[C];
+        if S = F then Continue;
+        for J := 0 to High(D[S].Holes) do
+          if SameLoopTol(D[S].Holes[J], D[F].Poly, 1E-4) then
+          begin
+            D.SetFaceGroup(F, D[S].Grp);
+            Break;
+          end;
+        if D[F].Grp <> 0 then Break;
+      end;
+    end;
+  finally
+    Holes.Free;
+  end;
+end;
+
 procedure THeckReader.Run(L: TStrings);
 var
   FirstNew: Integer;
+  T0, T1, T2, T3: QWord;
 begin
+  T0 := GetTickCount64;
   Prepare(L);
   Cur := 0;
   FirstNew := D.Live;
   Things(0, False, 0);
   if Cur < Src.Count then Fail('there is an "end" here with nothing to close');
+  T1 := GetTickCount64;
+  if not AllSaid then ImplyFaces(FirstNew);
+  T2 := GetTickCount64;
   CutCircles(FirstNew);
+  T3 := GetTickCount64;
+  HomeLooseFaces(FirstNew);
+  if GetEnvironmentVariable('HECK_TIMING') <> '' then
+    WriteLn(StdErr, Format('read: things %d ms, imply %d ms, circles %d ms, home %d ms',
+      [T1 - T0, T2 - T1, T3 - T2, GetTickCount64 - T3]));
 end;
 
-function ReadHeck(L: TStrings; D: TWorkDoc; U: TUnitSystem;
-  out ErrLine: Integer; out Err: string): Boolean;
+function ReadHeckImplied(L: TStrings; D: TWorkDoc; U: TUnitSystem;
+  out ErrLine: Integer; out Err: string; out Implied: TBoolArray): Boolean;
 var
   R: THeckReader;
   WasStamp: Integer;
 begin
   Err := '';
   ErrLine := -1;
+  SetLength(Implied, 0);
   WasStamp := D.Stamp;
   R := THeckReader.Create(D, U);
   try
     try
       R.Run(L);
+      Implied := Copy(R.Implied);
       Result := True;
     except
       on E: Exception do
@@ -1761,6 +1966,14 @@ begin
     D.Stamp := WasStamp;
     R.Free;
   end;
+end;
+
+function ReadHeck(L: TStrings; D: TWorkDoc; U: TUnitSystem;
+  out ErrLine: Integer; out Err: string): Boolean;
+var
+  Implied: TBoolArray;
+begin
+  Result := ReadHeckImplied(L, D, U, ErrLine, Err, Implied);
 end;
 
 function HeckValue(const S: string; U: TUnitSystem; out V: Double;
@@ -1792,5 +2005,9 @@ begin
     Scratch.Free;
   end;
 end;
+
+initialization
+  { the writer reads its own text back to see which faces go unsaid }
+  uFormat2.ReadBack := @ReadHeckImplied;
 
 end.

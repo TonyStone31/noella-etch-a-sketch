@@ -17,11 +17,19 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
-    '- **The cube with a circle on it is three lines.**  In `/source` a plain' + LineEnding +
-    '  circle is one line - `circle c1 = 2'' east, 2'' north, 4'' up; 1''` - and a' + LineEnding +
-    '  box with a circle drawn on its top is still written `box`: the hole is' + LineEnding +
-    '  the circle''s doing, and `face = c1` is the disk in it.  Twenty-six' + LineEnding +
-    '  lines yesterday.  Typing those three draws the same twenty things.' + LineEnding +
+    '- **Faces are what closed lines become - in the text too.**  `/source`' + LineEnding +
+    '  no longer lists a plain face beside the lines that already say it.  The' + LineEnding +
+    '  lines are written; a face is only written when something about it is' + LineEnding +
+    '  not automatic - a paint, a hole the lines would not cut, turned the' + LineEnding +
+    '  other way - and a loop of lines that is *not* a face (rubbed out) is' + LineEnding +
+    '  written `noface`, so it stays that way.  Type four lines that close and' + LineEnding +
+    '  you get the face, as with the tool.  A cube is its eight corners and' + LineEnding +
+    '  twelve edges and nothing more; the cube with a circle on its top is two' + LineEnding +
+    '  lines: `circle c1 = 2'' east, 2'' north, 4'' up; 1''` and' + LineEnding +
+    '  `box = 0 east, 0 north, 0 up; 4'' east, 4'' north, 4'' up`.  Twenty-six' + LineEnding +
+    '  lines yesterday.' + LineEnding +
+    '- **A plain circle is one line** - `circle c1 = center; radius`, and' + LineEnding +
+    '  `; north` when it does not face up.' + LineEnding +
     '- **A postcard, if you like.**  On its second start the program asks,' + LineEnding +
     '  once, whether it may send us one note saying what sort of computer it is' + LineEnding +
     '  running on - and, if you care to say, what you want to use it for.  The' + LineEnding +
@@ -31,6 +39,20 @@ const
     '  a bug report goes.  `/postcard` brings it back; `--offline` means it is' + LineEnding +
     '  never asked at all.  We are two people, and we cannot otherwise tell' + LineEnding +
     '  whether anyone is trying this.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A circle read from the text came out facing the wrong way** when the' + LineEnding +
+    '  same circle was also a hole in a face above it - `hole = c1` turned the' + LineEnding +
+    '  circle''s own corners round, and `face = c1` after it got them turned.' + LineEnding +
+    '  Big drawings read back from `/source` were coming out with hundreds of' + LineEnding +
+    '  faces flipped for the same reason.' + LineEnding +
+    '- **Reading a big drawing back from the text was slow** - thirteen seconds' + LineEnding +
+    '  for thirty thousand things, spent looking corner names up one by one.' + LineEnding +
+    '  Now a fifth of a second.' + LineEnding +
+    '- **A step a hair from nought was written as nothing** - `+ 14" west,' + LineEnding +
+    '  north` - and would not read back.  And a walk of steps no longer' + LineEnding +
+    '  drifts: each corner reads back as its own rounded self.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.21.8' + LineEnding +
     '' + LineEnding +
