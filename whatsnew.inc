@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.1' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **On Windows the source window came back behind the main window**, and' + LineEnding +
+    '  not where it had been left.  It is the main window''s own now, in front' + LineEnding +
+    '  of it, and it keeps its place.' + LineEnding +
+    '- **Typing into the source window went astray** when the window had just' + LineEnding +
+    '  been clicked into: its keyboard focus was on a checkbox, so a space' + LineEnding +
+    '  toggled *Only picked*.  The text takes the keys now.' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **`/source complete off`** - the list of words the source window offers' + LineEnding +
+    '  as you type stays away, and comes only on Ctrl+Space; `/source complete' + LineEnding +
+    '  on` brings it back.  Remembered.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
