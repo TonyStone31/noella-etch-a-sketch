@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.5' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Jigs in the source window.**  A group made by a jig shows as its' + LineEnding +
+    '  header and its `jig = ...` line; what the jig printed folds shut under' + LineEnding +
+    '  that line, opened with the fold mark when you want to see it.  A play' + LineEnding +
+    '  mark in the gutter beside the line runs that one jig again - right-click' + LineEnding +
+    '  *Run jig* does the same for the line under the caret - and *Run jigs*' + LineEnding +
+    '  on the toolbar still runs them all.  Inside the quotes of a jig line the' + LineEnding +
+    '  word list offers the jigs in your folder.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.4' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
