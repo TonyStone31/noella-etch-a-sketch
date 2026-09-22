@@ -17260,15 +17260,21 @@ begin
   else FOrbitAnchor := PtF(SX, SY);
 end;
 
-{ half at the middle of the view, twice at its edge, straight between }
+{ A fifth at the middle of the view, twice at its edge, and it grows with
+  the distance squared - so the middle third of the view is slow all over,
+  not only at the exact center, and the speed comes on out toward the rim.
+  The first cut went straight from half to twice and a press an inch off
+  the middle was already at the old rate, which is what "I put it down in
+  the middle and it was just as fast" was. }
 function TMainForm.OrbitGainAt(SX, SY: Integer): Double;
 var
-  R, RMax: Double;
+  R, RMax, T: Double;
 begin
   R := Sqrt(Sqr(SX - pbScreen.Width / 2) + Sqr(SY - pbScreen.Height / 2));
   RMax := Min(pbScreen.Width, pbScreen.Height) / 2;
   if RMax < 1 then Exit(1);
-  Result := 0.5 + 1.5 * Min(1, R / RMax);
+  T := Min(1, R / RMax);
+  Result := 0.2 + 1.8 * T * T;
 end;
 
 function TMainForm.PivotAt(SX, SY: Integer): TP3;
