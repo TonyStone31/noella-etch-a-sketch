@@ -5797,3 +5797,24 @@ The source window is a tool window beside the main one.  Docked, or a
 pane of the main window, is still an open question; the focus and
 stacking troubles of 22 September are fixed either way.
 
+
+## Names that stick
+
+22 September, from a thought about `p1 p2 p3`.  A generated name can
+say only where a corner stands - `floor1`, `top3`, `ra12` - and the
+writer does that already; when `p1..pN` shows up at all, the writer
+could not name by place, which is the same signal as "does not fold":
+something turned, or a ring it did not know.  The cure is folds, not a
+cleverer numbering - `pull = c1; 2' up` is twenty-four names gone, a
+revolve fold would be the wine glass's hundred.  At most, compass names
+for a four-cornered level (`floorsw`, `topne`), and a box folds anyway.
+
+What is a feature: a name a person gives should stick.  Rename `p7` to
+`ridge` in the text, Apply, and the next write must say `ridge` - and
+`line = ridge to eave` typed against it must keep meaning that.  So: a
+name table in the drawing, place to name with a tolerance; a corner
+moved by the tool takes its name with it; a corner gone drops it; the
+writer prefers a given name to a generated one; the reader takes names
+from a `points` block; the file keeps them.  Names on things - `line
+Rafter`, `solid Foot` - ride the same way.  Before `turned`, and before
+the picker gets fancier: named corners are what a person picks against.
