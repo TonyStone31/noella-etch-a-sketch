@@ -13,6 +13,14 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.2' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A drawn rectangle is `rect = corner; size`** in `/source` - the one' + LineEnding +
+    '  fold that was read but not yet written.  Its `noface`, `box`, `rect`' + LineEnding +
+    '  and `pull` are colored as the other words are.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
@@ -26,8 +34,6 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
-    '- **A drawn rectangle is `rect = corner; size`** in `/source` - the one' + LineEnding +
-    '  fold that was read but not yet written.' + LineEnding +
     '- **`/source complete off`** - the list of words the source window offers' + LineEnding +
     '  as you type stays away, and comes only on Ctrl+Space; `/source complete' + LineEnding +
     '  on` brings it back.  Remembered.' + LineEnding +
