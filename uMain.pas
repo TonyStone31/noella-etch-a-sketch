@@ -463,6 +463,7 @@ type
     FFreehand: Boolean;
     FPanning: Boolean;
     FOrbiting: Boolean;
+    FOrbitGain: Double;           { the trackball's leverage for this drag - see OrbitGainAt }
     FPushFace: Integer;
     FReplayFace: Integer;        { the face a replayed press is on, while it is pressed; -1 otherwise }
     { the face the offset tool is working on, or -1 }
@@ -1245,6 +1246,7 @@ type
     procedure PaintPopup(C: TCanvas; DX: Integer = 0; DY: Integer = 0);
     procedure PaintToolGlyph(C: TCanvas; AX, AY: Integer);
     function PivotAt(SX, SY: Integer): TP3;
+    function OrbitGainAt(SX, SY: Integer): Double;
     procedure AnchorOrbit(SX, SY: Integer);
     function RectTarget: TP3;
     procedure ReportCrash(Sender: TObject; E: Exception);
@@ -1701,11 +1703,12 @@ const
                             // about to happen and still leaves room to let go
   SNAP_RECOIL     = 0.30;
   AXIS_PX         = 8.0;    // how near the axis through a reference counts
-  { How far the view turns for a pixel of drag.  It was 0.010 - a half turn
-    in 314 pixels - and set beside SketchUp on 21 September that was about
-    twice as fast: theirs wants twice the mouse for the same turn, which is
-    what makes their orbit read as smooth and ours as spinning.  Half. }
-  ORBIT_RAD_PX    = 0.005;
+  { How far the view turns for a pixel of drag, pressed halfway out from
+    the middle of the view; OrbitGainAt scales it from half of this at the
+    middle to twice at the edge.  It was a flat 0.010 - a half turn in 314
+    pixels - and set beside SketchUp on 21 September that was about twice
+    as fast as theirs for a press in the middle. }
+  ORBIT_RAD_PX    = 0.006;
   LOCK_PX         = 7.5;    // this close and the point is what you meant
   { and once it has been taken, this far before it is let go again.  Coming
     onto a point is a decision; sliding a couple of pixels off it is not, and
@@ -15892,6 +15895,7 @@ begin
     FPanning := not FOrbiting;
     FPanRefX := X;
     FPanRefY := Y;
+    FOrbitGain := OrbitGainAt(X, Y);
     FOrbitPivot := PivotAt(X, Y);
     AnchorOrbit(X, Y);
     FMoveShift := Shift;
@@ -15922,6 +15926,7 @@ begin
       FPanRefY := Y;
       FRightSX := X;
       FRightSY := Y;
+      FOrbitGain := OrbitGainAt(X, Y);
       FOrbitPivot := PivotAt(X, Y);
       AnchorOrbit(X, Y);
       FMoveShift := Shift;
@@ -16938,8 +16943,18 @@ begin
         Working the angles out into locals first is the workaround.  It costs
         nothing and it is the only thing standing between this line and the
         fault. }
-      NewAz := FD.Az - (X - FPanRefX) * ORBIT_RAD_PX;
-      NewEl := FD.El + (Y - FPanRefY) * ORBIT_RAD_PX;
+      { The rate depends on where the press went down.  Set beside SketchUp
+        on 21 September: pressed near the middle of the view, theirs turns
+        slowly and wants a lot of mouse; pressed out at the edge, the same
+        mouse turns it fast - and it turns about the middle either way.
+        That is a trackball: a ball as wide as the view, its middle at the
+        middle of the screen.  A push on its face turns it a little; a push
+        on its rim spins it.  So the turn per pixel grows with the press's
+        distance from the middle, from half the rate there to twice at the
+        edge, and it is fixed for the whole drag - it is where you took
+        hold that matters, not where the hand is now. }
+      NewAz := FD.Az - (X - FPanRefX) * ORBIT_RAD_PX * FOrbitGain;
+      NewEl := FD.El + (Y - FPanRefY) * ORBIT_RAD_PX * FOrbitGain;
       if NewEl < -1.45 then NewEl := -1.45;
       if NewEl > 1.45 then NewEl := 1.45;
       FD.Az := NewAz;
@@ -17243,6 +17258,17 @@ begin
                     (Abs(P.X) < 1E6) and (Abs(P.Y) < 1E6);
   if FOrbitAnchored then FOrbitAnchor := P
   else FOrbitAnchor := PtF(SX, SY);
+end;
+
+{ half at the middle of the view, twice at its edge, straight between }
+function TMainForm.OrbitGainAt(SX, SY: Integer): Double;
+var
+  R, RMax: Double;
+begin
+  R := Sqrt(Sqr(SX - pbScreen.Width / 2) + Sqr(SY - pbScreen.Height / 2));
+  RMax := Min(pbScreen.Width, pbScreen.Height) / 2;
+  if RMax < 1 then Exit(1);
+  Result := 0.5 + 1.5 * Min(1, R / RMax);
 end;
 
 function TMainForm.PivotAt(SX, SY: Integer): TP3;
