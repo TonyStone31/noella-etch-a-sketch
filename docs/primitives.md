@@ -163,12 +163,6 @@ them, the writer folds the ones the tools make (`box`, `cylinder`,
 `rect`, `circle`), and each of the others gets its fold when it gets its
 tool.  The revolve tool is most of a sphere and a torus already.
 
-### `sphere`, `cone`
-
-Text-only until there is a tool; see above.  Nothing in the program draws either; a primitive with no tool
-behind it would be text-only, which is a different kind of thing.  When
-the revolve tool gets a "sphere" preset, `sphere` follows it.
-
 ## Turned things
 
 A box turned 17° is not a box in this scheme, and its corners are ugly
