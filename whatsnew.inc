@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.6' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Pick a point from the sheet for the text.**  *Pick* in the source' + LineEnding +
+    '  window turns the sheet into a point picker: each click, snapped exactly' + LineEnding +
+    '  as the line tool snaps, is typed into the line the caret is on - a' + LineEnding +
+    '  place; then, for a line, `to` and a place; for a box, rect or pull, `;`' + LineEnding +
+    '  and the step from the first; for a circle, `;` and the radius.  The' + LineEnding +
+    '  word list now fills a statement in with its parts - `box = <corner>;' + LineEnding +
+    '  <size>` - and each pick takes the next `<part>`.  Esc on the sheet, or' + LineEnding +
+    '  *Picking* in the window, ends it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
