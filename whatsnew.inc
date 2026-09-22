@@ -13,7 +13,7 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
-    '## Next release' + LineEnding +
+    '## v2026.09.21.5' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
@@ -25,6 +25,10 @@ const
     '  out of the taskbar, with an **On top** tick that is remembered - and it' + LineEnding +
     '  takes the program''s theme: dark text colors on a dark theme, light on a' + LineEnding +
     '  light one, with the axes'' red, green and blue either way.' + LineEnding +
+    '- **A block''s opening word and its `end` are outlined together.**  Put' + LineEnding +
+    '  the caret on `solid`, `group`, `ring` or any word that opens a block, or' + LineEnding +
+    '  on its `end`, and both are boxed - Lazarus''s begin-and-end outline, for' + LineEnding +
+    '  finding the end of a long block.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.21.4' + LineEnding +
     '' + LineEnding +
