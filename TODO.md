@@ -229,6 +229,19 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Orbiting over the pole.**  SketchUp goes straight over the top and
+  down the far side; ours stops at 83 degrees either way and you go back
+  round.  Tried 21 September by letting the tilt pass the pole and
+  flipping the camera's right vector past it: the drawing renders right
+  on both sides but the flip is a jump - "a rapid west to east flip" at
+  the top - because a polar camera (Az, El about world Z) has a seam
+  there and no choice of sign hides it.  The real fix is what SketchUp
+  has: a camera that carries its own up vector and is turned by the drag
+  as a rotation (a quaternion or a 3x3), with Az/El only derived from it
+  for the readouts, the presets and the cube.  Everything projects through
+  ViewRight/ViewUp/ViewDir, so the change is contained; what it touches
+  is every place that sets Az or El directly (34 in uMain) and the saved
+  camera line.  A day's job, done carefully.  Backed out.
 * **Replaying real mouse movement.**  Asked for 21 September, after a
   night of snapping faults that no replay could show: a report records
   each press as the world point it resolved to, so the snap, the axis
