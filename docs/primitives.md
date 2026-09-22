@@ -1,4 +1,4 @@
-# Primitives for Heck - on paper, 21 September 2026
+# Primitives for Heck - on paper, 21 September 2026; mostly built by the 22nd
 
 The set, drawn up to be argued with before it went into the reader or the
 writer.  **Built so far:** `box`, both forms, read and folded; `rect`,

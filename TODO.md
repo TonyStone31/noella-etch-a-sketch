@@ -5783,3 +5783,17 @@ repair.
 Jigs, when the language is settled: a jig line folded shut under itself
 in `/source` so one line shows and not its two hundred; a re-run on
 Apply when the `jig =` line changed; a picker for the jigs folder.
+
+## The point picker, next
+
+22 September, a rough first cut is in: Pick turns the sheet into a point
+picker and the parts of a statement - `<corner>`, `<size>`, `<radius>` -
+are filled in order.  The idea in full: the parts as buttons, a click on
+one starting a pick for that part alone; and, when the language is
+settled, a statement rendered the moment it parses, with no Apply.  Not
+before: a half-typed line must not rebuild the drawing.
+
+The source window is a tool window beside the main one.  Docked, or a
+pane of the main window, is still an open question; the focus and
+stacking troubles of 22 September are fixed either way.
+

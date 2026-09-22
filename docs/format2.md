@@ -686,7 +686,9 @@ and comparing.
 * Whether a **solid may be named** by the program (`solid 3`) so a script
   can point at it, or only by a person.
 * Whether `turned` is worth having - a box turned 17° said as the box
-  and the turn.  (`box` itself is settled: a fold, see `primitives.md`.)
+  and the turn.  (`box`, `rect`, `pull` and the one-line `circle` are
+  settled: folds, see `primitives.md`; and faces are what closed lines
+  become, rule 9, with `noface` for a loop that is not one.)
 * What the source window does with a drawing of fifteen thousand things -
   the text is built for what is shown, or for all of it.
 * **What was tried and dropped**, so it is not tried again by accident:

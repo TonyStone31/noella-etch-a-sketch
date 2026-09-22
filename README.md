@@ -108,6 +108,16 @@ The manual covers all of this properly.  The short version:
 * **Sheets** - several drawings in tabs, saved together in one `.hsk` file.
   Your work is also saved to a draft every few seconds.
   [Sheets](https://tonystone31.github.io/noella-etch-a-sketch/sheets.html)
+* **The drawing as text** - `/source` shows the sheet in **Heck**, a
+  plain-text language a person can read (`box = 0 east, 0 north, 0 up;
+  4' east, 3' north, 2' up`), live beside the drawing and editable both
+  ways: pick a face and its line lights up, change the text and Apply.
+  Faces come from the lines that close them, the same as on the sheet;
+  a circle, a box, a rectangle or anything pulled up is one line.  The
+  grammar is [`docs/format2.md`](docs/format2.md) and the primitives are
+  [`docs/primitives.md`](docs/primitives.md).  A group can be made by a
+  **jig** - any program that prints Heck - and run again from the text.
+  Still settling, so expect the words to change.
 * **A command bar** - type `/` and a searchable list of every command comes
   up, so there is nothing to memorize.
   [Commands](https://tonystone31.github.io/noella-etch-a-sketch/commands.html) ·
