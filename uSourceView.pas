@@ -126,6 +126,7 @@ type
     function WhereIs(const Name_: string; FromRow: Integer): string;
     procedure FindNext(Back: Boolean);
     procedure OpenJigOn(const Line: string);
+    procedure JumpTo(Row: Integer);
     procedure LoadText;
     procedure ShowRows;
     procedure ShowPicked(Scroll: Boolean);
@@ -204,6 +205,9 @@ begin
   Editor.OnClickLink := @EditorClickLink;
   Editor.OnMouseMove := @EditorMouseMove;
   Editor.PopupMenu := pmEditor;
+  { a little room between the fold marks and the first letter, so the caret
+    on column one is not lost against the gutter }
+  Editor.Gutter.RightOffset := 6;
   Editor.ShowHint := True;
 end;
 
@@ -756,10 +760,7 @@ begin
   end;
   At := DefinedAt(Editor.GetWordAtRowCol(P), P.Y - 1);
   if At < 0 then Exit;
-  Editor.CaretXY := Point(1, At + 1);
-  Editor.EnsureCursorPosVisible;
-  Editor.BlockBegin := Point(1, At + 1);
-  Editor.BlockEnd := Point(Length(Editor.Lines[At]) + 1, At + 1);
+  JumpTo(At);
 end;
 
 { resting on a name: the line that gives it its meaning, and for a point
@@ -842,8 +843,32 @@ begin
   W := Editor.GetWordAtRowCol(Editor.CaretXY);
   At := DefinedAt(W, Editor.CaretY - 1);
   if At < 0 then Exit;
-  Editor.CaretXY := Point(1, At + 1);
+  JumpTo(At);
+end;
+
+{ Go to a line the way Lazarus goes to a definition: the caret on the first
+  word rather than in the margin, the line shaded because it is the caret's,
+  and the window scrolled so it sits a few lines down from the top. }
+procedure TSourceForm.JumpTo(Row: Integer);
+var
+  C: Integer;
+  T: string;
+begin
+  if (Row < 0) or (Row >= Editor.Lines.Count) then Exit;
+  T := Editor.Lines[Row];
+  C := 1;
+  while (C <= Length(T)) and (T[C] = ' ') do Inc(C);
+  FBusy := True;
+  try
+    if Row + 1 > 4 then Editor.TopLine := Row + 1 - 3 else Editor.TopLine := 1;
+    Editor.CaretXY := Point(C, Row + 1);
+    Editor.BlockBegin := Editor.CaretXY;
+    Editor.BlockEnd := Editor.CaretXY;
+  finally
+    FBusy := False;
+  end;
   Editor.EnsureCursorPosVisible;
+  Editor.SetFocus;
 end;
 
 procedure TSourceForm.miRunJigClick(Sender: TObject);
@@ -907,7 +932,8 @@ begin
     FPickFG := TColor($FFF0E0);
     Editor.SelectedColor.Background := TColor($806040);
     Editor.SelectedColor.Foreground := clWhite;
-    Editor.LineHighlightColor.Background := clNone;
+    { the caret's line a shade lighter, so the eye finds it after a jump }
+    Editor.LineHighlightColor.Background := TColor($3A3430);
     Editor.BracketMatchColor.FrameColor := TColor($F0C070);
     (Editor.MarkupByClass[TSynEditMarkupWordGroup] as TSynEditMarkupWordGroup).MarkupInfo.FrameColor := TColor($F0C070);
     (Editor.MarkupByClass[TSynEditMarkupHighlightAllCaret] as TSynEditMarkupHighlightAllCaret).MarkupInfo.FrameColor := TColor($E0A060);
@@ -920,6 +946,7 @@ begin
     FPickFG := PICKED_FG;
     Editor.SelectedColor.Background := clHighlight;
     Editor.SelectedColor.Foreground := clHighlightText;
+    Editor.LineHighlightColor.Background := TColor($F4EEE6);
     Editor.BracketMatchColor.FrameColor := clNone;
     (Editor.MarkupByClass[TSynEditMarkupWordGroup] as TSynEditMarkupWordGroup).MarkupInfo.FrameColor := TColor($2060C0);
     (Editor.MarkupByClass[TSynEditMarkupHighlightAllCaret] as TSynEditMarkupHighlightAllCaret).MarkupInfo.FrameColor := TColor($C08040);
