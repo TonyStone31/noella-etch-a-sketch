@@ -123,6 +123,9 @@ begin
   FBox.OnPaintItem := @BoxPaintItem;
   FBox.OnSearchPosition := @BoxSearchPosition;
   FBox.ShowSizeDrag := True;
+  { one match is still shown, never typed in for you - "lin", a pause, and
+    it had become "line" under the fingers, which then typed the e }
+  FBox.AutoUseSingleIdent := False;
   FTimer := TTimer.Create(nil);
   FTimer.Enabled := False;
   FTimer.Interval := 300;

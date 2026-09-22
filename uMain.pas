@@ -3195,6 +3195,14 @@ begin
     report, which shows another dialog next time.  Offering the report waits
     for the tick, once the window is actually up. }
   ForgetPreviousBuild;
+  { The source window back, if it was open last time - now, with the main
+    window, and not at the tick a second and a half on where the update
+    check lives.  "It takes like 3 seconds to show when restarting." }
+  if FSourceWasOpen and (FMode = mdPro) then
+  begin
+    ShowSource;
+    BringToFront;
+  end;
 end;
 
 { The command line, for a launcher that wants the window a particular way.
@@ -22314,12 +22322,6 @@ begin
         startup meant the window could not appear until the answer came
         back, or the connection gave up - which on a bad line is a program
         that takes half a minute to start for no reason the user can see. }
-      { the source window back, if it was open last time }
-      if FSourceWasOpen and (FMode = mdPro) then
-      begin
-        ShowSource;
-        BringToFront;
-      end;
       CheckForUpdate(False);
       { and the manual beside the program, in step with it }
       KeepHelpCurrent;
