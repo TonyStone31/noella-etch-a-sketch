@@ -5753,3 +5753,33 @@ A report carries every sheet, but the collector splits out only the
 first; the sheet the person was on should come first, or each sheet its
 own file.
 
+
+## Heck as the specification
+
+22 September: every fault fixed today was found by the round trip -
+drawing to text to drawing - and not by looking at the sheet.  The text
+has to say exactly what the drawing is, so a drawing state that cannot
+be said cleanly is a drawing state that is wrong: the writer spells it
+out, and the mess shows.  So the text is a statement of what a
+well-formed drawing is, and `TestHeckRoundTrips` plus the drawings in
+`reports/` are its test.  Every fold added has to leave every one of
+them whole.
+
+"Does not fold" is a lint waiting to be written.  What the tools were
+seen to leave behind today, each spelled out faithfully where a person
+would expect a word:
+
+* a solid carrying every face twice (the coincident spheres);
+* a disk lying on a face with no hole under it (the wall in the 6
+  September drawings);
+* a pulled disk's top ring as twenty-four lines and its uprights soft,
+  where the circle it came from was one thing;
+* a loose face lying exactly on a solid's face, or filling its hole,
+  and not the solid's.
+
+A `/holes`-like check that names these would turn the signal into a
+repair.
+
+Jigs, when the language is settled: a jig line folded shut under itself
+in `/source` so one line shows and not its two hundred; a re-run on
+Apply when the `jig =` line changed; a picker for the jigs folder.
