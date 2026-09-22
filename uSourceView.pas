@@ -29,7 +29,7 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls, Menus,
   SynEdit, SynEditTypes, SynGutterBase, SynGutter, SynGutterCodeFolding,
   SynGutterLineNumber, SynEditMarkupHighAll, SynEditMarkupWordGroup, SynEditMouseCmds, LCLIntf,
-  uWork, uSynHsk2, uJig, uHeckSample;
+  uWork, uSynHsk2, uJig, uHeckSample, uHeckComplete;
 
 type
   TSourceAskState = procedure(out DocSeq, PickSeq: Int64) of object;
@@ -117,6 +117,9 @@ type
     FBusy: Boolean;             { we are moving the caret, not the person }
     FCaretRow, FBlockA, FBlockB: Integer;
     FColors: TSynHsk2Syn;
+    FComplete: THeckCompleter;
+    FCompleteChange: TNotifyEvent;
+    FCompleteKey: TKeyEvent;
     procedure SetEdited(On_: Boolean; const Msg: string = '');
     procedure FoldToPicked;
     { the row, counted from 0, where Name_ is given its meaning, looking
@@ -175,8 +178,11 @@ begin
   FErrRow := -1;
   FPickBG := PICKED_BG;
   FPickFG := PICKED_FG;
-  Editor.OnChange := @EditorChange;
   FColors := TSynHsk2Syn.Create(Self);
+  FComplete := THeckCompleter.Create(Editor);
+  FCompleteChange := Editor.OnChange;
+  FCompleteKey := Editor.OnKeyDown;
+  Editor.OnChange := @EditorChange;
 
   { The things Lazarus's own editor does, because a drawing written as
     names wants them as much as a program does: every other place the word
@@ -205,7 +211,7 @@ begin
     Enabled := True;
   end;
   Editor.MouseOptions := Editor.MouseOptions + [emShowCtrlMouseLinks, emCtrlWheelZoom];
-  Editor.OnKeyDown := @EditorKeyDown;
+  Editor.OnKeyDown := @EditorKeyDown;   { and it hands on to the completer }
   Editor.OnMouseLink := @EditorMouseLink;
   Editor.OnClickLink := @EditorClickLink;
   Editor.OnMouseMove := @EditorMouseMove;
@@ -219,6 +225,7 @@ end;
 
 procedure TSourceForm.FormDestroy(Sender: TObject);
 begin
+  FComplete.Free;
   FAll.Free;
   FHints.Free;
   FNames.Free;
@@ -608,6 +615,7 @@ end;
 { Ctrl+F to the find box, F3 and Shift+F3 for the next and the one before }
 procedure TSourceForm.EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  if Assigned(FCompleteKey) then FCompleteKey(Sender, Key, Shift);
   if (Key = Ord('F')) and (ssCtrl in Shift) then
   begin
     if Editor.SelAvail and (Editor.BlockBegin.Y = Editor.BlockEnd.Y) then
@@ -638,6 +646,7 @@ end;
 
 procedure TSourceForm.EditorChange(Sender: TObject);
 begin
+  if Assigned(FCompleteChange) and not FBusy then FCompleteChange(Sender);
   if FBusy or Editor.ReadOnly then Exit;
   if not FEdited then SetEdited(True)
   else if FErrRow >= 0 then
@@ -994,6 +1003,7 @@ begin
   end;
   Color := Back;
   pnlTop.Color := Back;
+  if FComplete <> nil then FComplete.UseDark(Dark, Back, Fore);
   { the buttons keep the platform's own look: their faces stay light, so
     their words have to stay dark whatever the page is }
   for I := 0 to pnlTop.ControlCount - 1 do

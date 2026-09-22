@@ -20,6 +20,13 @@
   A piece with a taller neighbor's wall on its edge is now lifted out on
   its own, and pushed down it cuts a pocket; a push past the bottom of the
   block goes through it.
+- **The source window completes what you type.**  Start a word and a list
+  comes up on its own: at the start of a line, the things that can go
+  there - `face`, `line`, `solid`, `points`... - or, inside a block, its
+  properties with a hint of what goes after the `=`; after `=` or `to`,
+  the names of the points and circles in the drawing; after a number, the
+  six directions.  Enter or Tab takes one, Escape puts it away, and
+  Ctrl+Space opens it on demand.
 - **With the source window open, the pointer shows the line.**  Rest on a
   face or an edge with the select tool and the chip beside the pointer
   names the line of Heck it is, and shows it.  Only while the source

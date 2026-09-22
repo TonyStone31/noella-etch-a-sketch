@@ -23,6 +23,22 @@ const
     '  A piece with a taller neighbor''s wall on its edge is now lifted out on' + LineEnding +
     '  its own, and pushed down it cuts a pocket; a push past the bottom of the' + LineEnding +
     '  block goes through it.' + LineEnding +
+    '- **The source window completes what you type.**  Start a word and a list' + LineEnding +
+    '  comes up on its own: at the start of a line, the things that can go' + LineEnding +
+    '  there - `face`, `line`, `solid`, `points`... - or, inside a block, its' + LineEnding +
+    '  properties with a hint of what goes after the `=`; after `=` or `to`,' + LineEnding +
+    '  the names of the points and circles in the drawing; after a number, the' + LineEnding +
+    '  six directions.  Enter or Tab takes one, Escape puts it away, and' + LineEnding +
+    '  Ctrl+Space opens it on demand.' + LineEnding +
+    '- **With the source window open, the pointer shows the line.**  Rest on a' + LineEnding +
+    '  face or an edge with the select tool and the chip beside the pointer' + LineEnding +
+    '  names the line of Heck it is, and shows it.  Only while the source' + LineEnding +
+    '  window is open: the text behind a drawing is there to be found, not to' + LineEnding +
+    '  be met with.' + LineEnding +
+    '- **Right-click in the source window puts the caret where you clicked' + LineEnding +
+    '  first**, so Go to Definition and Center in View act on the word and the' + LineEnding +
+    '  line under the pointer.  The caret''s line is shaded, the text sits a' + LineEnding +
+    '  little off the gutter, and a jump lands on the word.' + LineEnding +
     '- **Right-click in the source window.**  **Center in View** picks the thing' + LineEnding +
     '  on that line - or everything in the block, on a `solid` or `group` line -' + LineEnding +
     '  and brings it to the middle of the sheet, sized, gliding there.  **Go to' + LineEnding +
