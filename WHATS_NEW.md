@@ -27,6 +27,11 @@
   lines yesterday.
 - **A plain circle is one line** - `circle c1 = center; radius`, and
   `; north` when it does not face up.
+- **`pull` - what push/pull makes, in one line.**  A solid that is a flat
+  outline gone some way is written as that: `pull = c1; 2' up` is a
+  cylinder, an L-shaped room eight feet high is its six floor corners and
+  `by = 8' up`, and typing either draws the whole thing.  Thirty lines
+  for the room this morning; five now.
 - **A postcard, if you like.**  On its second start the program asks,
   once, whether it may send us one note saying what sort of computer it is
   running on - and, if you care to say, what you want to use it for.  The

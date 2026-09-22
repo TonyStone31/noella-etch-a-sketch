@@ -404,6 +404,20 @@ var
         begin
           Best := N;
           DefInk := D[I].Ink;
+        end;
+      end;
+    { and the commonest width, on its own - not the width of whatever
+      happened to carry the ink first }
+    Best := 0;
+    for I := 0 to Min(D.Live - 1, 400) do
+      if D[I].Kind in [ekLine, ekArc] then
+      begin
+        N := 0;
+        for J := 0 to Min(D.Live - 1, 400) do
+          if (D[J].Kind in [ekLine, ekArc]) and (Abs(D[J].Weight - D[I].Weight) <= 1E-3) then Inc(N);
+        if N > Best then
+        begin
+          Best := N;
           DefWidth := D[I].Weight;
         end;
       end;
@@ -774,10 +788,21 @@ var
     end;
   end;
 
+  { lower, then further south, then further west: the order corners are
+    numbered in when nothing better names them }
+  function Below(const A, B: TP3): Boolean;
+  begin
+    Result := (A.Z < B.Z - 1E-9) or
+      ((Abs(A.Z - B.Z) <= 1E-9) and (A.Y < B.Y - 1E-9)) or
+      ((Abs(A.Z - B.Z) <= 1E-9) and (Abs(A.Y - B.Y) <= 1E-9) and (A.X < B.X - 1E-9));
+  end;
+
   procedure PutPoints(Depth: Integer; var Pts: TPts; const Rings: TRings);
   var
     I, J, From, Loose, K: Integer;
     V: TP3;
+    Tmp: TPt;
+    Slots: TIntArrayW;
   begin
     if Length(Pts) = 0 then Exit;
     Loose := 0;
@@ -793,6 +818,24 @@ var
       lowest face goes round.  A solid whose corners all stand at different
       heights - something turned over - falls back on a, b, c. }
     NameByPlace(Pts);
+    { the rest numbered by where they stand - lowest first, then south to
+      north, then west to east - and not by the order the faces happened
+      to come in, which the reader's is not: the same solid is then named
+      the same way whichever side wrote it }
+    SetLength(Slots, 0);
+    for I := 0 to High(Pts) do
+      if (Pts[I].Ring < 0) and (Pts[I].Name = '') then
+      begin
+        SetLength(Slots, Length(Slots) + 1);
+        Slots[High(Slots)] := I;
+      end;
+    for I := 1 to High(Slots) do
+      for J := I downto 1 do
+        if Below(Pts[Slots[J]].P, Pts[Slots[J - 1]].P) then
+        begin
+          Tmp := Pts[Slots[J]]; Pts[Slots[J]] := Pts[Slots[J - 1]]; Pts[Slots[J - 1]] := Tmp;
+        end
+        else Break;
     K := 0;
     for I := 0 to High(Pts) do
       if (Pts[I].Ring < 0) and (Pts[I].Name = '') then
@@ -1129,7 +1172,7 @@ var
       end;
     end;
     if (NF <> 6) or (NL <> 12) or (Length(Pts) <> 8) then Exit;
-    if not (NPaint in [0, 6]) then Exit;
+    if (NPaint <> 0) and (NPaint <> 6) then Exit;
     HasPaint := NPaint = 6;
     Lo := Pts[0].P; Hi := Pts[0].P;
     for I := 1 to 7 do
@@ -1151,6 +1194,8 @@ var
     I, Header: Integer;
     NoPts: TPts;
   begin
+    for I := 0 to D.Live - 1 do
+      if (D[I].Part = Part_) and (D[I].Grp = G) and (CircleName(I) <> '') then PutOther(Depth, I);
     Header := NLine;
     if HasPaint then
     begin
@@ -1183,6 +1228,251 @@ var
         end
         else
           PutFace(Depth, I, NoPts, HasPaint, Paint);
+  end;
+
+  { A pull: a flat outline gone some way - what push/pull makes of a face,
+    and the cylinder that a pulled disk is.  A solid is one when it has a
+    bottom face, the same face again a step away, and a wall for each side
+    between them: no hole, no bore, one paint over all or none, every line
+    an edge of those, uprights soft round a circle and plain otherwise.
+    And every face turned the way the reader would turn what the edges
+    close - it will make the faces from the edges, so they must come out
+    as they are. }
+  function IsPull(Part_, G: Integer; out Bottom: Integer; out By: TP3; out Round_: Boolean;
+    out HasPaint: Boolean; out Paint: TColor): Boolean;
+  var
+    I, J, K, C, N, NF, NPaint, Top, Best, NBottom, NTop, NUp, NArc: Integer;
+    V, Mid: TP3;
+    Segs: TSegArray;
+    Faces: array of Integer;
+    Used: array of Boolean;
+    Q: TP3Array;
+    Hit, Ok_: Boolean;
+    Outer: TP3Array;
+    Holes: TLoopArray;
+    R: TRegion;
+
+    function CornerAt(const P: TP3; const Poly: TP3Array): Integer;
+    var
+      C: Integer;
+    begin
+      Result := -1;
+      for C := 0 to High(Poly) do
+        if SameP(Poly[C], P) then Exit(C);
+    end;
+
+  begin
+    Result := False;
+    Bottom := -1;
+    Round_ := False;
+    HasPaint := False;
+    Paint := 0;
+    SetLength(Faces, 0);
+    NPaint := 0;
+    for I := 0 to D.Live - 1 do
+    begin
+      if (D[I].Grp <> G) or (D[I].Part <> Part_) then Continue;
+      case D[I].Kind of
+        ekFace:
+          begin
+            if (Length(D[I].Holes) > 0) or (D[I].Ink <> DefInk) then Exit;
+            SetLength(Faces, Length(Faces) + 1);
+            Faces[High(Faces)] := I;
+            if D[I].MatSet then
+            begin
+              if (NPaint > 0) and (D[I].Mat <> Paint) then Exit;
+              Paint := D[I].Mat;
+              Inc(NPaint);
+            end;
+          end;
+        ekBore: Exit;
+        ekLine:
+          if D[I].Dim or (D[I].Ink <> DefInk) or (Abs(D[I].Weight - DefWidth) > 1E-3) then Exit;
+      end;
+    end;
+    NF := Length(Faces);
+    if NF < 5 then Exit;
+    if (NPaint <> 0) and (NPaint <> NF) then Exit;
+    HasPaint := NPaint = NF;
+    { the bottom and its twin: two faces of the most corners, one a step
+      from the other; the bottom is the one the step goes away from }
+    Best := 0;
+    for I := 0 to NF - 1 do
+      if Length(D[Faces[I]].Poly) > Best then Best := Length(D[Faces[I]].Poly);
+    N := Best;
+    if N + 2 <> NF then Exit;
+    Top := -1;
+    for I := 0 to NF - 1 do
+    begin
+      if Length(D[Faces[I]].Poly) <> N then Continue;
+      for J := 0 to NF - 1 do
+      begin
+        if (J = I) or (Length(D[Faces[J]].Poly) <> N) then Continue;
+        { the step: from the first bottom corner to whichever top corner
+          is its twin - the top need not start where the bottom does }
+        for C := 0 to N - 1 do
+        begin
+          V := Sub3(D[Faces[J]].Poly[C], D[Faces[I]].Poly[0]);
+          Ok_ := AxesUsed(V) > 0;
+          for K := 0 to N - 1 do
+            if Ok_ and (CornerAt(P3(D[Faces[I]].Poly[K].X + V.X, D[Faces[I]].Poly[K].Y + V.Y,
+                                    D[Faces[I]].Poly[K].Z + V.Z), D[Faces[J]].Poly) < 0) then Ok_ := False;
+          if Ok_ and (Dot3(D.FaceNormal(Faces[I]), V) < 0) and (Dot3(D.FaceNormal(Faces[J]), V) > 0) then
+          begin
+            { either end could be the bottom.  The one that is a circle is
+              - the tool pulled the disk up from it - and otherwise the one
+              the step goes up, north or east from, so the same solid is
+              always said the same way }
+            if (Top < 0) or (CircleNamed(D[Faces[I]].Poly, Part_) <> '') or
+               ((CircleNamed(D[Bottom].Poly, Part_) = '') and
+                (V.Z + V.Y * 1E-3 + V.X * 1E-6 > By.Z + By.Y * 1E-3 + By.X * 1E-6)) then
+            begin
+              Bottom := Faces[I];
+              Top := Faces[J];
+              By := V;
+            end;
+            Break;
+          end;
+        end;
+      end;
+    end;
+    if Top < 0 then Exit;
+    { every other face a wall: two neighboring bottom corners and their
+      twins above }
+    SetLength(Used, NF);
+    for I := 0 to NF - 1 do Used[I] := (Faces[I] = Bottom) or (Faces[I] = Top);
+    for K := 0 to N - 1 do
+    begin
+      SetLength(Q, 4);
+      Q[0] := D[Bottom].Poly[K];
+      Q[1] := D[Bottom].Poly[(K + 1) mod N];
+      Q[2] := P3(Q[1].X + By.X, Q[1].Y + By.Y, Q[1].Z + By.Z);
+      Q[3] := P3(Q[0].X + By.X, Q[0].Y + By.Y, Q[0].Z + By.Z);
+      Hit := False;
+      for I := 0 to NF - 1 do
+        if not Used[I] and (Length(D[Faces[I]].Poly) = 4) and SameLoop(D[Faces[I]].Poly, Q) then
+        begin
+          Used[I] := True;
+          Hit := True;
+          Break;
+        end;
+      if not Hit then Exit;
+    end;
+    { round: the bottom is a circle by name, and the uprights are soft }
+    Round_ := CircleNamed(D[Bottom].Poly, Part_) <> '';
+    { every line an edge of the bottom, the top or an upright, and every
+      such edge a line of the solid's own - the reader makes them all, so
+      a solid that shares its bottom edges with the one it stands on is
+      not a pull; the arcs the bottom's, if round }
+    NBottom := 0; NTop := 0; NUp := 0; NArc := 0;
+    for I := 0 to D.Live - 1 do
+    begin
+      if (D[I].Grp <> G) or (D[I].Part <> Part_) then Continue;
+      if D[I].Kind = ekArc then
+      begin
+        if not Round_ or (CircleName(I) = '') then Exit;
+        Inc(NArc);
+        Continue;
+      end;
+      if D[I].Kind <> ekLine then Continue;
+      J := CornerAt(D[I].A, D[Bottom].Poly);
+      K := CornerAt(D[I].B, D[Bottom].Poly);
+      if (J >= 0) and (K >= 0) then
+      begin
+        if Round_ or (Abs(J - K) <> 1) and (Abs(J - K) <> N - 1) then Exit;   { a bottom edge, not for a circle }
+        if D[I].Soft then Exit;
+        Inc(NBottom);
+        Continue;
+      end;
+      Ok_ := False;
+      if (J >= 0) and (CornerAt(D[I].B, D[Top].Poly) >= 0) then
+        Ok_ := SameP(D[I].B, P3(D[I].A.X + By.X, D[I].A.Y + By.Y, D[I].A.Z + By.Z))
+      else if (K >= 0) and (CornerAt(D[I].A, D[Top].Poly) >= 0) then
+        Ok_ := SameP(D[I].A, P3(D[I].B.X + By.X, D[I].B.Y + By.Y, D[I].B.Z + By.Z));
+      if Ok_ then
+      begin
+        if D[I].Soft <> Round_ then Exit;      { an upright }
+        Inc(NUp);
+        Continue;
+      end;
+      J := CornerAt(D[I].A, D[Top].Poly);
+      K := CornerAt(D[I].B, D[Top].Poly);
+      if (J < 0) or (K < 0) or ((Abs(J - K) <> 1) and (Abs(J - K) <> N - 1)) then Exit;
+      if D[I].Soft then Exit;                  { a top edge }
+      Inc(NTop);
+    end;
+    if (NTop <> N) or (NUp <> N) then Exit;
+    if Round_ then begin if (NArc <> 1) or (NBottom <> 0) then Exit; end
+    else if NBottom <> N then Exit;
+    { and turned as the reader will turn them: away from the middle of the
+      edges it will be given }
+    SetLength(Segs, 3 * N);
+    for K := 0 to N - 1 do
+    begin
+      Segs[3 * K].A := D[Bottom].Poly[K];
+      Segs[3 * K].B := D[Bottom].Poly[(K + 1) mod N];
+      Segs[3 * K + 1].A := P3(Segs[3 * K].A.X + By.X, Segs[3 * K].A.Y + By.Y, Segs[3 * K].A.Z + By.Z);
+      Segs[3 * K + 1].B := P3(Segs[3 * K].B.X + By.X, Segs[3 * K].B.Y + By.Y, Segs[3 * K].B.Z + By.Z);
+      Segs[3 * K + 2].A := Segs[3 * K].A;
+      Segs[3 * K + 2].B := Segs[3 * K + 1].A;
+    end;
+    Mid := ScopeMid(Segs);
+    for I := 0 to NF - 1 do
+    begin
+      R.Outer := Copy(D[Faces[I]].Poly);
+      SetLength(R.Holes, 0);
+      R.Normal := D.FaceNormal(Faces[I]);
+      ImpliedLoop(R, True, Mid, Outer, Holes);
+      if Dot3(LoopNormal(Outer), D.FaceNormal(Faces[I])) <= 0 then Exit;
+    end;
+    Result := True;
+  end;
+
+  procedure PutPull(Depth, Part_, G, Bottom: Integer; const By: TP3; Round_, HasPaint: Boolean;
+    Paint: TColor);
+  var
+    I, Header, Best: Integer;
+    NoPts: TPts;
+    It: TStringArray;
+    Step: string;
+    Poly: TP3Array;
+  begin
+    { the circle it stands on comes first, by name }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Part = Part_) and (D[I].Grp = G) and (CircleName(I) <> '') then PutOther(Depth, I);
+    Header := NLine;
+    SetLength(NoPts, 0);
+    { from the corner nearest the origin, the way the face goes round, so
+      the same solid is always said the same way whatever corner the
+      reader happened to start its face at }
+    Poly := Copy(D[Bottom].Poly);
+    Best := 0;
+    for I := 1 to High(Poly) do
+      if (Poly[I].X < Poly[Best].X - 1E-9) or
+         ((Abs(Poly[I].X - Poly[Best].X) <= 1E-9) and (Poly[I].Y < Poly[Best].Y - 1E-9)) or
+         ((Abs(Poly[I].X - Poly[Best].X) <= 1E-9) and (Abs(Poly[I].Y - Poly[Best].Y) <= 1E-9) and
+          (Poly[I].Z < Poly[Best].Z - 1E-9)) then Best := I;
+    for I := 0 to High(Poly) do Poly[I] := D[Bottom].Poly[(Best + I) mod Length(Poly)];
+    It := Outline(NoPts, Poly, Part_);
+    Step := Place2(By, U, True);
+    { one line while it fits - "pull = c1; 2' up" - and a block when the
+      outline runs long or there is a paint to say }
+    if not HasPaint and (Depth * 2 + 9 + Length(Joined(It)) + Length(Step) <= 78) then
+      Put(Depth, 'pull = ' + Joined(It) + '; ' + Step, -1)
+    else
+    begin
+      Put(Depth, 'pull', -1);
+      PutList(Depth + 1, 'points', It, -1);
+      Put(Depth + 1, 'by = ' + Step, -1);
+      if HasPaint then Put(Depth + 1, 'paint = ' + Color2(Paint), -1);
+      Put(Depth, 'end', -1);
+    end;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Grp = G) and (D[I].Part = Part_) and (D[I].Kind in [ekFace, ekLine]) then
+      begin
+        First[I] := Header;
+        Last[I] := NLine - 1;
+      end;
   end;
 
   { one solid: its corners once, its faces, and only the edges that are
@@ -1264,6 +1554,8 @@ var
     Header := NLine;
     Put(Depth, 'solid', -1);
     if HasMat then Put(Depth + 1, 'paint = ' + Color2(SMat), -1);
+    for I := 0 to D.Live - 1 do
+      if (D[I].Part = Part_) and (D[I].Grp = G) and (CircleName(I) <> '') then PutOther(Depth + 1, I);
     PutPoints(Depth + 1, Pts, Rings);
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and (D[I].Grp = G) and (D[I].Part = Part_) then
@@ -1300,11 +1592,11 @@ var
     inside it }
   procedure PutLevel(Depth, Part_: Integer);
   var
-    I, J, G, LinesFrom: Integer;
+    I, J, G, LinesFrom, PBottom: Integer;
     Done: array of Integer;
-    Seen, BPaintOn: Boolean;
+    Seen, BPaintOn, PRound: Boolean;
     None: TPts;
-    BLo, BHi: TP3;
+    BLo, BHi, PBy: TP3;
     BPaint: TColor;
     Implied: array of Boolean;
   begin
@@ -1312,16 +1604,18 @@ var
     SetLength(Done, 0);
     SetLength(Implied, D.Live);
     LinesFrom := -1;
-    { the circles first: faces and holes further down say them by name }
+    { the circles first: faces and holes further down say them by name.
+      A solid's own circle - the bottom of a pulled disk - is written with
+      the solid, so that it reads back as the solid's. }
     for I := 0 to D.Live - 1 do
-      if (D[I].Part = Part_) and (CircleName(I) <> '') then PutOther(Depth, I);
+      if (D[I].Part = Part_) and (D[I].Grp = 0) and (CircleName(I) <> '') then PutOther(Depth, I);
     for I := 0 to D.Live - 1 do
     begin
       if D[I].Part <> Part_ then Continue;
       if D[I].Kind = ekPart then Continue;
       if CircleName(I) <> '' then Continue;
       G := D[I].Grp;
-      if (G <> 0) and (D[I].Kind in [ekFace, ekLine, ekBore]) then
+      if (G <> 0) and (D[I].Kind in [ekFace, ekLine, ekBore, ekArc]) then
       begin
         Seen := False;
         for J := 0 to High(Done) do
@@ -1331,6 +1625,8 @@ var
         Done[High(Done)] := G;
         if IsBox(Part_, G, BLo, BHi, BPaintOn, BPaint) then
           PutBox(Depth, Part_, G, BLo, BHi, BPaintOn, BPaint)
+        else if IsPull(Part_, G, PBottom, PBy, PRound, BPaintOn, BPaint) then
+          PutPull(Depth, Part_, G, PBottom, PBy, PRound, BPaintOn, BPaint)
         else
           PutSolid(Depth, Part_, G);
         Continue;

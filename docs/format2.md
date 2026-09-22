@@ -343,6 +343,7 @@ without `=` opens a block, and `end` closes it.
 | `note` | - | `at`, `text` (one line each, repeated); `to` (nowhere), `size` (1), `ink` |
 | `guide` | `guide = ` two places - or one, which is a guide point | - |
 | `noface` | `noface = ` the corners of a loop of lines that is not a face | - |
+| `pull` | `pull = ` a flat outline `; ` how far it goes - `pull = c1; 2' up` is a cylinder | `points`, `by`; `paint` (none) |
 | `box` | `box = ` its low southwest corner `; ` its size as a step | `at`, `size`; `paint` (none) |
 | `rect` | `rect = ` a corner `; ` a size with two parts | `at`, `size`; `paint` (none) |
 
@@ -382,6 +383,16 @@ without `=` opens a block, and `end` closes it.
   `noface`, so the reader does not put it back.  On a drawing past twenty
   thousand things every face is written, which is never wrong, only
   longer, and the sheet says `faces = said` so the reader makes none.
+* **`pull` is what push/pull makes.**  A flat outline - corners, or a
+  circle by name - gone some way: `pull = c1; 2' up` is a cylinder, and
+  an L-shaped room eight feet high is its six floor corners and `by = 8'
+  up`.  It expands to the edges only - the outline, the same again a step
+  away, an upright at each corner, soft round a circle - and the faces are
+  what those edges close.  The writer folds a solid to it when it is
+  exactly that: a bottom, its twin a step away, a wall between each pair
+  of corners, no hole, one paint or none, and every face turned the way
+  the reader would turn it.  A box is a pull too, and the shorter word
+  wins.
 * **`box` and `rect` are folds, not things of their own** - see
   `primitives.md`.  The reader expands a `box` into the eight corners,
   twelve lines and six faces a pulled rectangle would have made, and the

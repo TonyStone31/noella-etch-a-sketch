@@ -3,8 +3,14 @@
 The set, drawn up to be argued with before it went into the reader or the
 writer.  **Built so far:** `box`, both forms, read and folded; `rect`,
 both forms, read (the writer does not fold to it yet); the one-line
-`circle`; and the box under a circle, (b) below - the cube with a circle
-on it is three lines.  The rest is as planned.  See `heck-vs-the-others.md` for why:
+`circle`; the box under a circle, (b) below - the cube with a circle on
+it is two lines; and **`pull`**, which was not on this page and turned
+out to be the one that matters: a flat outline gone some way, which is
+what push/pull makes of anything.  `pull = c1; 2' up` is the cylinder, so
+`cylinder` is not needed; an L-shaped room is its six floor corners and
+`by = 8' up`.  Since 22 September a plain face is never written at all -
+faces are what closed lines become, in the text as with the tools - which
+is why a `pull` can be edges only.  See `heck-vs-the-others.md` for why:
 the readable formats are the ones with a small vocabulary of whole things,
 and a face list is what you write when you have none.
 
@@ -256,6 +262,6 @@ drawing.
 3. ~~The one-line `circle`, and the writer folding a box under a circle
    (b above).~~  Done, 22 September 2026.  The reader cuts a circle into
    the face it lies on, so the fold needs no `hole` said.
-4. `cylinder`.
+4. ~~`cylinder`~~ - `pull = c1; 2' up`, done with `pull`, 22 September 2026.
 5. `wedge`, if wanted.
 6. `turned`, with transforms, when groups get there.

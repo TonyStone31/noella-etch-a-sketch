@@ -8649,6 +8649,7 @@ var
   I, ErrLine, NF, NL: Integer;
   Err: string;
   P: array[0..5] of TP3;
+  Ring: TP3Array;
 begin
   WriteLn('faces implied by their edges');
   D := TWorkDoc.Create;
@@ -8681,7 +8682,7 @@ begin
       if Copy(Trim(L[I]), 1, 7) = 'line = ' then Inc(NL);
     end;
     EqI(NF, 1, 'one face said: the painted one');
-    EqI(NL, 25, 'every line said: eighteen of the room, four, and three');
+    EqI(NL, 7, 'the loose lines said: the four of the rectangle and three of the triangle');
     Ok(Pos('noface = 10'' east, 0 north, 0 up to + 2'' east to + 2'' north to + 2'' west', L.Text) > 0,
       'the rubbed-out rectangle is a noface');
     Ok(Pos('paint = orange', L.Text) > 0, 'the painted triangle keeps its paint');
@@ -8699,14 +8700,61 @@ begin
     WriteFormat2(E, 'L', usImperial, M, First, Last, LineThing);
     Ok(L.Text = M.Text, 'and writes the same again');
 
-    { a room's face, picked, lights its edges in the text }
+    { a room's face, picked, lights the pull in the text }
     for I := 0 to D.Live - 1 do
       if (D[I].Kind = ekFace) and D[I].Solid then
       begin
-        Ok((First[I] >= 0) and (Last[I] >= First[I]) and (Copy(Trim(L[First[I]]), 1, 7) = 'line = '),
-          'an unsaid face maps to the lines of its solid');
+        Ok((First[I] >= 0) and (Last[I] >= First[I]) and (Trim(L[First[I]]) = 'pull'),
+          'an unsaid face of the room maps to the pull');
         Break;
       end;
+
+    { the room is a pull: its outline and how far it went }
+    Ok(L.IndexOf('  pull') >= 0, 'the room is written as a pull');
+    Ok(L.IndexOf('    by = 8'' up') >= 0, 'by eight feet up');
+    Ok(Pos('0 east, 0 north, 0 up to + 5'' north to + 3'' east', L.Text) > 0,
+      'from the corner nearest the origin, the way the floor goes round');
+    Ok(Pos('solid', L.Text) = 0, 'and no solid block at all');
+
+    { a pulled disk is a cylinder: the circle, and a pull of it }
+    D.Clear;
+    D.AddArc(P3(2, 2, 0), 1, 0, 2 * Pi, plXY, 0, 1);
+    D.SetArcSides(D.Live - 1, 24);
+    SetLength(Ring, 24);
+    for I := 0 to 23 do Ring[I] := ArcPoint(D[0].C, D[0].R, D[0].A0 + D[0].Sweep * I / 24, D[0].Plane, D[0].Nm);
+    D.AddFaceRaw(Ring, 0, False);
+    Ok(D.PushPull(D.Live - 1, 2), 'a disk pulled up two feet');
+    L.Clear;
+    WriteFormat2(D, 'L', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('  circle c1 = 2'' east, 2'' north, 0 up; 1''') >= 0, 'is its circle');
+    Ok(L.IndexOf('  pull = c1; 2'' up') >= 0, 'and one line: pull = c1; 2'' up');
+    NL := 0;
+    for I := 0 to L.Count - 1 do if Trim(L[I]) <> '' then Inc(NL);
+    EqI(NL, 8, 'the whole sheet');
+    E.Clear;
+    Ok(ReadHeck(L, E, usImperial, ErrLine, Err), 'which reads back: ' + Err);
+    EqI(E.Live, D.Live, 'to as many things: two disks, the walls, the rings, the uprights');
+    NF := 0;
+    for I := 0 to E.Live - 1 do
+      if (E[I].Kind = ekLine) and E[I].Soft then Inc(NF);
+    EqI(NF, 24, 'with the uprights soft, as the tool leaves them');
+    M.Clear;
+    WriteFormat2(E, 'L', usImperial, M, First, Last, LineThing);
+    Ok(L.Text = M.Text, 'and writes the same again');
+
+    { typed: a pull of four corners is a block of eighteen things }
+    M.Text := 'pull = 0 east, 0 north, 0 up to + 4'' east to + 4'' north to + 4'' west; 3'' up';
+    E.Clear;
+    Ok(ReadHeck(M, E, usImperial, ErrLine, Err), 'a typed pull reads: ' + Err);
+    EqI(E.Live, 18, 'to twelve edges and the six faces they close');
+    NF := 0;
+    for I := 0 to E.Live - 1 do
+      if (E[I].Kind = ekFace) and E[I].Solid then Inc(NF);
+    EqI(NF, 6, 'all of them the solid''s');
+    M.Clear;
+    WriteFormat2(E, 'L', usImperial, M, First, Last, LineThing);
+    Ok(Pos('box = 0 east, 0 north, 0 up; 4'' east, 4'' north, 3'' up', M.Text) > 0,
+      'and written back, it is a box - the shorter word wins');
 
     { a typed loop is a face: four lines make one }
     M.Text := 'line = 0 east, 0 north, 0 up to 3'' east, 0 north, 0 up' + LineEnding +
@@ -8724,6 +8772,88 @@ begin
   finally
     M.Free;
     L.Free;
+    E.Free;
+    D.Free;
+  end;
+end;
+
+{ Every example drawing goes out as Heck and comes back whole: as many
+  things, each with a twin - the same corners, facing the same way - and
+  the text the same again the second time round.  What the writer folds
+  and leaves unsaid, the reader has to put back exactly; this is where a
+  fold that does not would show. }
+procedure TestHeckRoundTrips;
+const
+  FILES: array[0..5] of string = ('ball', 'broom', 'etch-a-sketch', 'jigs', 'robot', 'wine-glass');
+var
+  D, E: TWorkDoc;
+  Src, A, B: TStringList;
+  First, Last, LineThing: TIntArrayW;
+  F, I, K, J, Q, Idx, ErrLine, Bad, Hit: Integer;
+  Err: string;
+  Used: array of Boolean;
+  Far, Nearest: Double;
+begin
+  WriteLn('every example drawing round trips through Heck');
+  D := TWorkDoc.Create;
+  E := TWorkDoc.Create;
+  Src := TStringList.Create;
+  A := TStringList.Create;
+  B := TStringList.Create;
+  try
+    for F := 0 to High(FILES) do
+    begin
+      D.Clear;
+      E.Clear;
+      Src.LoadFromFile('examples/' + FILES[F] + '.hsk');
+      Idx := 0;
+      while (Idx < Src.Count) and (Copy(Src[Idx], 1, 6) <> 'CAMERA') do Inc(Idx);
+      Inc(Idx);
+      D.LoadFrom(Src, Idx);
+      A.Clear;
+      WriteFormat2(D, FILES[F], usImperial, A, First, Last, LineThing);
+      Ok(ReadHeck(A, E, usImperial, ErrLine, Err), FILES[F] + ' reads back: ' + Err);
+      EqI(E.Live, D.Live, FILES[F] + ': as many things as went out');
+      { each thing of D has a twin in E: the same corners in some order,
+        the same way round; a line either way about }
+      SetLength(Used, E.Live);
+      for K := 0 to High(Used) do Used[K] := False;
+      Bad := 0;
+      for I := 0 to D.Live - 1 do
+      begin
+        Hit := -1;
+        for K := 0 to E.Live - 1 do
+        begin
+          if Used[K] or (D[I].Kind <> E[K].Kind) or (Length(D[I].Poly) <> Length(E[K].Poly)) or
+             (D[I].MatSet <> E[K].MatSet) or (D[I].Soft <> E[K].Soft) or
+             (Length(D[I].Holes) <> Length(E[K].Holes)) or ((D[I].Part <> 0) <> (E[K].Part <> 0)) then Continue;
+          Far := 0;
+          for J := 0 to High(D[I].Poly) do
+          begin
+            Nearest := 1E9;
+            for Q := 0 to High(E[K].Poly) do
+              if Dist(D[I].Poly[J], E[K].Poly[Q]) < Nearest then Nearest := Dist(D[I].Poly[J], E[K].Poly[Q]);
+            if Nearest > Far then Far := Nearest;
+          end;
+          if (D[I].Kind = ekFace) and (Dot3(D.FaceNormal(I), E.FaceNormal(K)) < 0) then Far := 1;
+          if D[I].Kind = ekLine then
+            Far := Max(Far, Min(Max(Dist(D[I].A, E[K].A), Dist(D[I].B, E[K].B)),
+                                Max(Dist(D[I].A, E[K].B), Dist(D[I].B, E[K].A))))
+          else if D[I].Kind in [ekArc, ekGuide, ekDim] then
+            Far := Max(Far, Max(Dist(D[I].A, E[K].A), Dist(D[I].B, E[K].B)));
+          if Far < 3E-6 then begin Hit := K; Break; end;
+        end;
+        if Hit >= 0 then Used[Hit] := True else Inc(Bad);
+      end;
+      EqI(Bad, 0, FILES[F] + ': things with no twin after the round trip');
+      B.Clear;
+      WriteFormat2(E, FILES[F], usImperial, B, First, Last, LineThing);
+      EqI(B.Count, A.Count, FILES[F] + ': and as many lines of text the second time');
+    end;
+  finally
+    B.Free;
+    A.Free;
+    Src.Free;
     E.Free;
     D.Free;
   end;
@@ -8981,6 +9111,7 @@ begin
   TestPushAmongNeighbors; WriteLn;
   TestPrimitives;   WriteLn;
   TestImpliedFaces; WriteLn;
+  TestHeckRoundTrips; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

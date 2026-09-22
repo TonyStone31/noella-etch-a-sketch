@@ -30,6 +30,11 @@ const
     '  lines yesterday.' + LineEnding +
     '- **A plain circle is one line** - `circle c1 = center; radius`, and' + LineEnding +
     '  `; north` when it does not face up.' + LineEnding +
+    '- **`pull` - what push/pull makes, in one line.**  A solid that is a flat' + LineEnding +
+    '  outline gone some way is written as that: `pull = c1; 2'' up` is a' + LineEnding +
+    '  cylinder, an L-shaped room eight feet high is its six floor corners and' + LineEnding +
+    '  `by = 8'' up`, and typing either draws the whole thing.  Thirty lines' + LineEnding +
+    '  for the room this morning; five now.' + LineEnding +
     '- **A postcard, if you like.**  On its second start the program asks,' + LineEnding +
     '  once, whether it may send us one note saying what sort of computer it is' + LineEnding +
     '  running on - and, if you care to say, what you want to use it for.  The' + LineEnding +

@@ -120,7 +120,8 @@ type
     procedure DoPoints;
     procedure DoRing(const Name: string);
     procedure DoConst;
-    procedure DoCircle(const Name: string; IsArc: Boolean; const Value: string = '');
+    procedure DoCircle(const Name: string; IsArc: Boolean; const Value: string = ''; Solid: Integer = 0);
+    procedure DoPull(const Value: string; Block: Boolean);
     procedure DoFace(const Value: string; Block: Boolean; Solid: Integer;
       HasPaint: Boolean; Paint: TColor);
     procedure DoLine(const Value: string; Block: Boolean; Solid: Integer);
@@ -965,8 +966,9 @@ begin
       end
       else if Kind = 'points' then DoPoints
       else if Kind = 'const' then DoConst
-      else if Kind = 'circle' then DoCircle(Rest, False)
-      else if Kind = 'arc' then DoCircle(Rest, True)
+      else if Kind = 'circle' then DoCircle(Rest, False, '', Solid)
+      else if Kind = 'arc' then DoCircle(Rest, True, '', Solid)
+      else if Kind = 'pull' then DoPull('', True)
       else if Kind = 'face' then DoFace('', True, Solid, HasPaint, Paint)
       else if Kind = 'line' then DoLine('', True, Solid)
       else if Kind = 'solid' then DoSolid
@@ -994,7 +996,12 @@ begin
     end
     else if Kind = 'circle' then
     begin
-      DoCircle(Rest, False, Value);
+      DoCircle(Rest, False, Value, Solid);
+      Continue;
+    end
+    else if Kind = 'pull' then
+    begin
+      DoPull(Value, False);
       Continue;
     end
     else if Kind = 'noface' then
@@ -1135,7 +1142,7 @@ begin
   Fail('the constants are never closed: an "end" is missing');
 end;
 
-procedure THeckReader.DoCircle(const Name: string; IsArc: Boolean; const Value: string);
+procedure THeckReader.DoCircle(const Name: string; IsArc: Boolean; const Value: string; Solid: Integer);
 var
   Key, V: string;
   C, F, AU, AV, PU, PV, Dir, Nrm, Tmp: TP3;
@@ -1214,6 +1221,9 @@ begin
     has: what its ring is, and what its edges are for the faces they imply }
   if Sides < 3 then Sides := DefSides;
   D.SetArcSides(Idx, Sides);
+  { a circle said inside a solid is the solid's - the bottom of a pulled
+    disk, as the tool keeps it }
+  if Solid <> 0 then D.SetGroup(Idx, Solid);
 
   if (Name <> '') and not IsArc then
   begin
@@ -1612,6 +1622,103 @@ end;
 
 { four lines; the face comes from them as it always does, unless a paint
   says the face is wanted now, painted }
+{ pull: a flat outline and how far it goes - the solid push/pull makes.
+  "pull = floor1..floor6; 8' up", or "pull = c1; 2' up" for a cylinder;
+  the block form has points, by and paint.  It expands to the edges and
+  nothing else: the bottom outline, the same again at the top, an upright
+  at each corner - soft ones round a circle, as the tool leaves them - in a
+  solid of its own; the faces are what those edges close, as always.  A
+  circle pulled is that circle's: the arc joins the solid, as it does when
+  the tool pulls a disk. }
+procedure THeckReader.DoPull(const Value: string; Block: Boolean);
+var
+  Key, V, OutlineText, ByText: string;
+  Lp: TLoop;
+  By: TP3;
+  HasPaint, Round_: Boolean;
+  Paint: TColor;
+  Parts: TStringArray;
+  P, I, N, G, ArcAt, K: Integer;
+  Top: TP3;
+begin
+  OutlineText := '';
+  ByText := '';
+  HasPaint := False;
+  Paint := 0;
+  if not Block then
+  begin
+    Parts := Value.Split([';']);
+    if Length(Parts) <> 2 then
+      Fail('a pull is its outline, then how far: pull = a b c d; 8'' up');
+    OutlineText := Trim(Parts[0]);
+    ByText := Trim(Parts[1]);
+    Inc(Cur);
+  end
+  else
+  begin
+    Inc(Cur);
+    while (Cur < Src.Count) and (LowerCase(Src[Cur]) <> 'end') do
+    begin
+      if SplitProp(Src[Cur], Key, V) then
+      begin
+        if Key = 'points' then OutlineText := V
+        else if Key = 'by' then ByText := V
+        else if Key = 'paint' then
+        begin
+          HasPaint := LowerCase(Trim(V)) <> 'none';
+          if HasPaint then Paint := ReadColor(V);
+        end;
+      end;
+      Inc(Cur);
+    end;
+    if Cur >= Src.Count then Fail('the pull is never closed: an "end" is missing');
+    Inc(Cur);
+  end;
+  if OutlineText = '' then Fail('a pull wants its outline: points = a b c d');
+  if ByText = '' then Fail('a pull wants how far it goes: by = 8'' up');
+  Lp := ReadList(OutlineText);
+  N := Length(Lp);
+  if N < 3 then Fail('a pull wants an outline of three corners or more');
+  P := 1;
+  By := ReadStep(ByText, P);
+  if (Abs(By.X) < 1E-9) and (Abs(By.Y) < 1E-9) and (Abs(By.Z) < 1E-9) then
+    Fail('a pull goes some way: by = 8'' up');
+  { a circle by name: the ring the tool pulled, and the arc is the solid's }
+  Round_ := False;
+  ArcAt := -1;
+  if (Pos(' ', Trim(OutlineText)) = 0) and (Pos(',', OutlineText) = 0) then
+  begin
+    for I := D.Live - 1 downto 0 do
+      if (D[I].Kind = ekArc) and (Abs(Abs(D[I].Sweep) - 2 * Pi) < 1E-9) and
+         (Abs(Dist(D[I].C, Lp[0]) - D[I].R) < 1E-6) and
+         (Abs(Dist(D[I].C, Lp[N div 2]) - D[I].R) < 1E-6) then
+      begin
+        ArcAt := I;
+        Break;
+      end;
+    Round_ := ArcAt >= 0;
+  end;
+  G := D.NewGroup;
+  NoteSolid(G, HasPaint, Paint);
+  if Round_ then D.SetGroup(ArcAt, G)
+  else
+    for K := 0 to N - 1 do
+    begin
+      D.AddLine(Lp[K], Lp[(K + 1) mod N], DefInk, DefWidth, False);
+      D.SetLineGroup(D.Live - 1, G);
+    end;
+  for K := 0 to N - 1 do
+  begin
+    Top := P3(Lp[K].X + By.X, Lp[K].Y + By.Y, Lp[K].Z + By.Z);
+    D.AddLine(Top, P3(Lp[(K + 1) mod N].X + By.X, Lp[(K + 1) mod N].Y + By.Y, Lp[(K + 1) mod N].Z + By.Z),
+      DefInk, DefWidth, False);
+    D.SetLineGroup(D.Live - 1, G);
+    D.AddLine(Lp[K], Top, DefInk, DefWidth, False);
+    D.SetLineGroup(D.Live - 1, G);
+    if Round_ then D.SetSoft(D.Live - 1, True);
+  end;
+end;
+
 procedure THeckReader.MakeRect(const Corner, Size: TP3; HasPaint: Boolean; Paint: TColor);
 var
   C: array[0..3] of TP3;
