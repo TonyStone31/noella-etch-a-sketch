@@ -68,7 +68,7 @@ implementation
 
 const
   { blocks, and what may be said in each: "prop|hint" }
-  THINGS = 'face line solid group points circle arc ring const dim note guide bore';
+  THINGS = 'face line box rect solid group points circle arc ring const dim note guide bore';
   TOP_PROPS: array[0..3] of string = ('ink|= black, red, #RRGGBB', 'width|= 1',
     'sides|= 24', 'units|= ft in, in, mm, m');
   FACE_PROPS: array[0..3] of string = ('points|= a b c d, or places joined with "to"',
@@ -81,6 +81,8 @@ const
   RING_PROPS: array[0..4] of string = ('center|= 2'' east, 2'' north, 0 up', 'radius|= 1''',
     'sides|= 24', 'facing|= up', 'starts|= 0°');
   SOLID_PROPS: array[0..0] of string = ('paint|= orange, #RRGGBB');
+  BOX_PROPS: array[0..2] of string = ('at|= 0 east, 0 north, 0 up  (the low southwest corner)',
+    'size|= 4'' east, 3'' north, 2'' up', 'paint|= orange, #RRGGBB');
   GROUP_PROPS: array[0..1] of string = ('locked|= true', 'jig|= ''name'' with A = 1, B = 2''');
   DIM_PROPS: array[0..4] of string = ('from|= a', 'to|= b', 'off|= 6" north', 'label|= ''text''', 'ink|= black');
   NOTE_PROPS: array[0..4] of string = ('at|= 1'' east, 1'' north, 0 up', 'text|= ''words''',
@@ -89,9 +91,11 @@ const
   DIRS: array[0..5] of string = ('east', 'west', 'north', 'south', 'up', 'down');
   VALUES: array[0..12] of string = ('true', 'false', 'none', 'black', 'white', 'gray',
     'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'brown');
-  THING_HINTS: array[0..12] of string = (
+  THING_HINTS: array[0..14] of string = (
     'a flat area: face = a b c d',
     'two points: line = a to b',
+    'a block: box = corner; size, or a block with at, size, paint',
+    'a rectangle: rect = corner; size with two parts',
     'a closed thing, with its own points and faces',
     'things that move as one; can be locked, or made by a jig',
     'named places: a = 1'' east, 2'' north, 0 up',
@@ -410,6 +414,7 @@ begin
       else if Block = 'bore' then Props(BORE_PROPS)
       else if Block = 'group' then Props(GROUP_PROPS)
       else if Block = 'solid' then Props(SOLID_PROPS)
+      else if (Block = 'box') or (Block = 'rect') then Props(BOX_PROPS)
       else if Block = 'sheet' then Props(TOP_PROPS);
       if Block = 'points' then
       begin
@@ -417,7 +422,8 @@ begin
         Word_('end', 'closes the block');
       end
       else if (Block <> 'face') and (Block <> 'line') and (Block <> 'circle') and (Block <> 'arc') and
-              (Block <> 'ring') and (Block <> 'dim') and (Block <> 'note') and (Block <> 'bore') then
+              (Block <> 'ring') and (Block <> 'dim') and (Block <> 'note') and (Block <> 'bore') and
+              (Block <> 'box') and (Block <> 'rect') then
       begin
         N := 0;
         for K := 1 to Length(THINGS) + 1 do
@@ -431,7 +437,7 @@ begin
               { a thing that is written on one line comes with its "= "
                 ready; a block-opener is its word, and what follows it - a
                 name, or a new line - is the person's }
-              if (W = 'face') or (W = 'line') or (W = 'guide') then
+              if (W = 'face') or (W = 'line') or (W = 'guide') or (W = 'box') or (W = 'rect') then
               begin
                 if (Pfx = '') or (Pos(Pfx, W) = 1) then Offer(W, W + ' = ', THING_HINTS[N]);
               end

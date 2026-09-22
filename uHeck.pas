@@ -113,6 +113,14 @@ type
     procedure DoDim;
     procedure DoNote;
     procedure DoBore(Solid: Integer);
+    { primitives - docs/primitives.md.  Each is a fold: it is read into the
+      same lines and faces the tools would have made, and nothing else. }
+    procedure DoBox(const Value: string; Block: Boolean);
+    procedure DoRect(const Value: string; Block: Boolean);
+    procedure MakeBox(const Corner, Size: TP3; HasPaint: Boolean; Paint: TColor; const Name: string);
+    procedure MakeRect(const Corner, Size: TP3; HasPaint: Boolean; Paint: TColor);
+    { "place; step" - two things with a semicolon between }
+    procedure PlaceAndStep(const Value: string; out Corner, Size: TP3);
   public
     constructor Create(ADoc: TWorkDoc; AUnits: TUnitSystem);
     destructor Destroy; override;
@@ -941,6 +949,8 @@ begin
       else if Kind = 'dim' then DoDim
       else if Kind = 'note' then DoNote
       else if (Kind = 'bore') and (Solid <> 0) then DoBore(Solid)
+      else if Kind = 'box' then DoBox(Rest, True)
+      else if Kind = 'rect' then DoRect(Rest, True)
       else SkipBlock;
       Continue;
     end;
@@ -955,6 +965,16 @@ begin
     else if Kind = 'line' then
     begin
       DoLine(Value, False, Solid);
+      Continue;
+    end
+    else if Kind = 'box' then
+    begin
+      DoBox(Value, False);
+      Continue;
+    end
+    else if Kind = 'rect' then
+    begin
+      DoRect(Value, False);
       Continue;
     end
     else if Kind = 'guide' then
@@ -1389,6 +1409,179 @@ begin
   if not HasT then T := A;
   D.AddNote(A, T, Txt, Ink);
   if Size > 0 then D.SetNoteSize(D.Live - 1, Size);
+end;
+
+procedure THeckReader.PlaceAndStep(const Value: string; out Corner, Size: TP3);
+var
+  P: Integer;
+  V: string;
+begin
+  V := Trim(Value);
+  P := Pos(';', V);
+  if P = 0 then Fail('a place, then a semicolon, then a size: "0 east, 0 north, 0 up; 4'' east, 3'' north, 2'' up"');
+  Corner := ReadList(Copy(V, 1, P - 1))[0];
+  P := P + 1;
+  Size := ReadStep(V, P);
+  SkipSp(V, P);
+  if P <= Length(V) then Fail('"' + Trim(Copy(V, P, 16)) + '" - what is that after the size?');
+end;
+
+{ eight corners, twelve lines, six faces, one solid - the same as a
+  rectangle pulled up by the tool }
+procedure THeckReader.MakeBox(const Corner, Size: TP3; HasPaint: Boolean; Paint: TColor; const Name: string);
+var
+  C: array[0..7] of TP3;
+  G, I, F0: Integer;
+  X, Y, Z: Double;
+  Sx, Sy, Sz: Double;
+  Save: Integer;
+  procedure Face4(A, B, Cc, Dd: Integer);
+  begin
+    D.AddFaceRaw([C[A], C[B], C[Cc], C[Dd]], DefInk, True);
+    D.SetFaceGroup(D.Live - 1, G);
+    if HasPaint then D.SetMaterial(D.Live - 1, Paint);
+  end;
+  procedure Edge(A, B: Integer);
+  begin
+    D.AddLine(C[A], C[B], DefInk, DefWidth, False);
+    D.SetLineGroup(D.Live - 1, G);
+  end;
+begin
+  if (Abs(Size.X) < 1E-9) or (Abs(Size.Y) < 1E-9) or (Abs(Size.Z) < 1E-9) then
+    Fail('a box wants a size with all three parts');
+  Sx := Abs(Size.X); Sy := Abs(Size.Y); Sz := Abs(Size.Z);
+  X := Min(Corner.X, Corner.X + Size.X); Y := Min(Corner.Y, Corner.Y + Size.Y); Z := Min(Corner.Z, Corner.Z + Size.Z);
+  C[0] := P3(X, Y, Z);           C[1] := P3(X + Sx, Y, Z);
+  C[2] := P3(X + Sx, Y + Sy, Z); C[3] := P3(X, Y + Sy, Z);
+  for I := 0 to 3 do C[I + 4] := P3(C[I].X, C[I].Y, Z + Sz);
+  G := D.NewGroup;
+  Face4(3, 2, 1, 0);        { bottom, facing down }
+  Face4(4, 5, 6, 7);        { top, facing up }
+  Face4(0, 1, 5, 4);        { south }
+  Face4(1, 2, 6, 5);        { east }
+  Face4(2, 3, 7, 6);        { north }
+  Face4(3, 0, 4, 7);        { west }
+  for I := 0 to 3 do
+  begin
+    Edge(I, (I + 1) mod 4);
+    Edge(I + 4, (I + 1) mod 4 + 4);
+    Edge(I, I + 4);
+  end;
+  if Name <> '' then ;   { a name on a solid: nowhere to keep it yet }
+end;
+
+procedure THeckReader.DoBox(const Value: string; Block: Boolean);
+var
+  Key, V, Name: string;
+  Corner, Size: TP3;
+  HasPaint, HasAt, HasSize: Boolean;
+  Paint: TColor;
+  P: Integer;
+begin
+  HasPaint := False;
+  Paint := 0;
+  Name := '';
+  if not Block then
+  begin
+    PlaceAndStep(Value, Corner, Size);
+    MakeBox(Corner, Size, False, 0, '');
+    Inc(Cur);
+    Exit;
+  end;
+  { "box Foot" - a name after the word }
+  Name := Trim(Copy(Trim(Src[Cur]), 4, MaxInt));
+  HasAt := False;
+  HasSize := False;
+  Corner := P3(0, 0, 0);
+  Size := Corner;
+  Inc(Cur);
+  while (Cur < Src.Count) and (LowerCase(Src[Cur]) <> 'end') do
+  begin
+    if SplitProp(Src[Cur], Key, V) then
+    begin
+      P := 1;
+      if Key = 'at' then begin Corner := ReadPlace(V, P, False, Corner); HasAt := True; end
+      else if Key = 'size' then begin Size := ReadStep(V, P); HasSize := True; end
+      else if Key = 'paint' then
+      begin
+        HasPaint := LowerCase(Trim(V)) <> 'none';
+        if HasPaint then Paint := ReadColor(V);
+      end;
+    end;
+    Inc(Cur);
+  end;
+  if Cur >= Src.Count then Fail('the box is never closed: an "end" is missing');
+  Inc(Cur);
+  if not (HasAt and HasSize) then Fail('a box wants an "at" and a "size"');
+  MakeBox(Corner, Size, HasPaint, Paint, Name);
+end;
+
+{ four lines; the face comes from them as it always does, unless a paint
+  says the face is wanted now, painted }
+procedure THeckReader.MakeRect(const Corner, Size: TP3; HasPaint: Boolean; Paint: TColor);
+var
+  C: array[0..3] of TP3;
+  I, N: Integer;
+  EU, EV: TP3;
+begin
+  N := Ord(Abs(Size.X) > 1E-9) + Ord(Abs(Size.Y) > 1E-9) + Ord(Abs(Size.Z) > 1E-9);
+  if N <> 2 then Fail('a rectangle''s size has two parts - "4'' east, 3'' north", or "4'' east, 2'' up"');
+  if Abs(Size.Z) < 1E-9 then begin EU := P3(Size.X, 0, 0); EV := P3(0, Size.Y, 0); end
+  else if Abs(Size.Y) < 1E-9 then begin EU := P3(Size.X, 0, 0); EV := P3(0, 0, Size.Z); end
+  else begin EU := P3(0, Size.Y, 0); EV := P3(0, 0, Size.Z); end;
+  C[0] := Corner;
+  C[1] := P3(Corner.X + EU.X, Corner.Y + EU.Y, Corner.Z + EU.Z);
+  C[2] := P3(C[1].X + EV.X, C[1].Y + EV.Y, C[1].Z + EV.Z);
+  C[3] := P3(Corner.X + EV.X, Corner.Y + EV.Y, Corner.Z + EV.Z);
+  for I := 0 to 3 do D.AddLine(C[I], C[(I + 1) mod 4], DefInk, DefWidth, False);
+  if HasPaint then
+  begin
+    D.AddFaceRaw(C, DefInk, False);
+    D.SetMaterial(D.Live - 1, Paint);
+  end;
+end;
+
+procedure THeckReader.DoRect(const Value: string; Block: Boolean);
+var
+  Key, V: string;
+  Corner, Size: TP3;
+  HasPaint, HasAt, HasSize: Boolean;
+  Paint: TColor;
+  P: Integer;
+begin
+  HasPaint := False;
+  Paint := 0;
+  if not Block then
+  begin
+    PlaceAndStep(Value, Corner, Size);
+    MakeRect(Corner, Size, False, 0);
+    Inc(Cur);
+    Exit;
+  end;
+  HasAt := False;
+  HasSize := False;
+  Corner := P3(0, 0, 0);
+  Size := Corner;
+  Inc(Cur);
+  while (Cur < Src.Count) and (LowerCase(Src[Cur]) <> 'end') do
+  begin
+    if SplitProp(Src[Cur], Key, V) then
+    begin
+      P := 1;
+      if Key = 'at' then begin Corner := ReadPlace(V, P, False, Corner); HasAt := True; end
+      else if Key = 'size' then begin Size := ReadStep(V, P); HasSize := True; end
+      else if Key = 'paint' then
+      begin
+        HasPaint := LowerCase(Trim(V)) <> 'none';
+        if HasPaint then Paint := ReadColor(V);
+      end;
+    end;
+    Inc(Cur);
+  end;
+  if Cur >= Src.Count then Fail('the rectangle is never closed: an "end" is missing');
+  Inc(Cur);
+  if not (HasAt and HasSize) then Fail('a rectangle wants an "at" and a "size"');
+  MakeRect(Corner, Size, HasPaint, Paint);
 end;
 
 procedure THeckReader.DoBore(Solid: Integer);

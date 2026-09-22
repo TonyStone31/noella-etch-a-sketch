@@ -87,6 +87,15 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **`box` and `rect` in the drawing''s text.**  A block that is still' + LineEnding +
+    '  exactly a block - square, unpushed, no hole, one paint or none - is' + LineEnding +
+    '  written in `/source` as one line, `box = 0 east, 0 north, 0 up; 4'' east,' + LineEnding +
+    '  3'' north, 2'' up`, instead of its twelve lines and six faces, and typing' + LineEnding +
+    '  that line draws the block.  Nudge one corner and it is written as its' + LineEnding +
+    '  faces again.  `rect = corner; 4'' east, 3'' north` draws a rectangle the' + LineEnding +
+    '  same way.  Both come in a block form with `at`, `size` and `paint`, and' + LineEnding +
+    '  the source window offers them.  See `docs/primitives.md` for the rest' + LineEnding +
+    '  of the set.' + LineEnding +
     '- **Corners named by where they stand.**  In `/source` a box''s corners are' + LineEnding +
     '  `floor1` to `floor4` and `top1` to `top4`, so `line = floor1 to top1` is' + LineEnding +
     '  an upright and `face = floor1 floor2 top2 top1` is a wall, and the text' + LineEnding +

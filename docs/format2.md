@@ -332,6 +332,8 @@ without `=` opens a block, and `end` closes it.
 | `dim` | - | `from`, `to`, `off` (a step); `label` (the measured length), `ink` |
 | `note` | - | `at`, `text` (one line each, repeated); `to` (nowhere), `size` (1), `ink` |
 | `guide` | `guide = ` two places - or one, which is a guide point | - |
+| `box` | `box = ` its low southwest corner `; ` its size as a step | `at`, `size`; `paint` (none) |
+| `rect` | `rect = ` a corner `; ` a size with two parts | `at`, `size`; `paint` (none) |
 
 * **A line is two points.**  Which comes first does not matter, and the
   line says nothing about its direction or its length - the two points do,
@@ -347,6 +349,15 @@ without `=` opens a block, and `end` closes it.
   `starts toward = ` and a direction.
 * **A face's outline** goes round anticlockwise seen from the front, which
   is the side `paint` is on.  A `hole` goes round the other way.
+* **`box` and `rect` are folds, not things of their own** - see
+  `primitives.md`.  The reader expands a `box` into the eight corners,
+  twelve lines and six faces a pulled rectangle would have made, and the
+  writer folds a solid back to `box` only while it is exactly that: square
+  to the axes, no hole, nothing pushed, one paint over the whole or none.
+  Nudge a corner and the word goes and the faces are written.  A `rect` is
+  four lines; its face is worked out as always, and it is written back as
+  lines until the writer learns the fold.  The two parts of its size say
+  the plane: `east, north` is flat; `east, up` faces south.
 
 ## What may be left out
 
@@ -633,14 +644,15 @@ and comparing.
   in one.
 * Whether a **solid may be named** by the program (`solid 3`) so a script
   can point at it, or only by a person.
-* Whether `turned`, and a `box` that says only corner and size, are worth
-  having: they read beautifully and they are a second way to say a thing.
+* Whether `turned` is worth having - a box turned 17° said as the box
+  and the turn.  (`box` itself is settled: a fold, see `primitives.md`.)
 * What the source window does with a drawing of fifteen thousand things -
   the text is built for what is shown, or for all of it.
 * **What was tried and dropped**, so it is not tried again by accident:
   `x y z` as what the program *writes* (the third go) - easy to understand
   and it does not read; the letters are still read.  `above the floor` -
-  too many words; `0 up` says it.  `box` as a statement of its own - a
-  second way to say what twelve lines say.  `goes = 4' east` on a line - a
+  too many words; `0 up` says it.  `box` as a statement of its own,
+  written *beside* the twelve lines - twice the truth; it came back as a
+  fold, written instead of them.  `goes = 4' east` on a line - a
   line is two points.  `yes`/`no` - Pascal says `true` and `false`.
   Executable Pascal inside the file - see "What it grows into".

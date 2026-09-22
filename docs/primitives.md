@@ -1,7 +1,9 @@
 # Primitives for Heck - on paper, 21 September 2026
 
-Not built.  This is the set, drawn up to be argued with before any of it
-goes into the reader or the writer.  See `heck-vs-the-others.md` for why:
+The set, drawn up to be argued with before it went into the reader or the
+writer.  **Built so far:** `box`, both forms, read and folded; `rect`,
+both forms, read (the writer does not fold to it yet).  The rest is as
+planned.  See `heck-vs-the-others.md` for why:
 the readable formats are the ones with a small vocabulary of whole things,
 and a face list is what you write when you have none.
 
@@ -244,10 +246,11 @@ drawing.
 ## Order of work
 
 0. The reader takes the whole industry set, so anything typed reads.
-1. `box`, both forms, reader and writer, with the fold test and its test
+   (Only `box` and `rect` so far.)
+1. ~~`box`, both forms, reader and writer, with the fold test and its test
    in geomtest: a box goes out as `box`, a nudged one goes out as lines,
-   both come back exactly.
-2. `rect`.
+   both come back exactly.~~  Done, 21 September 2026.
+2. ~~`rect`~~ - read, both forms.  The writer's fold is still to do.
 3. The one-line `circle`, and the writer folding a box under a circle
    (b above).
 4. `cylinder`.

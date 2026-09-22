@@ -902,6 +902,91 @@ var
     end;
   end;
 
+  { Is this solid exactly a box - and nothing more?  Eight corners on two
+    heights, six faces of four corners square to the axes with no hole,
+    twelve ordinary edges, one paint over the whole or none.  Then it can
+    be said as one: docs/primitives.md, "a primitive is a fold".  A box
+    whose top has a circle's hole in it is not, for now - the fold under a
+    circle is step 3 on that page. }
+  function IsBox(Part_, G: Integer; out Lo, Hi: TP3; out HasPaint: Boolean; out Paint: TColor): Boolean;
+  var
+    I, K, NF, NL, NPaint: Integer;
+    Pts: TPts;
+    Nm: TP3;
+  begin
+    Result := False;
+    SetLength(Pts, 0);
+    NF := 0; NL := 0; NPaint := 0;
+    HasPaint := False; Paint := 0;
+    for I := 0 to D.Live - 1 do
+    begin
+      if (D[I].Grp <> G) or (D[I].Part <> Part_) then Continue;
+      case D[I].Kind of
+        ekFace:
+          begin
+            Inc(NF);
+            if (Length(D[I].Poly) <> 4) or (Length(D[I].Holes) > 0) or (D[I].Ink <> DefInk) then Exit;
+            if FacingWord(D.FaceNormal(I)) = '' then Exit;
+            for K := 0 to 3 do AddPt(Pts, D[I].Poly[K]);
+            if D[I].MatSet then
+            begin
+              if (NPaint > 0) and (D[I].Mat <> Paint) then Exit;
+              Paint := D[I].Mat;
+              Inc(NPaint);
+            end;
+          end;
+        ekLine:
+          begin
+            Inc(NL);
+            if D[I].Soft or D[I].Dim or (D[I].Ink <> DefInk) or (Abs(D[I].Weight - DefWidth) > 1E-3) then Exit;
+            if AxesUsed(Sub3(D[I].B, D[I].A)) <> 1 then Exit;
+          end;
+        ekBore: Exit;
+      end;
+    end;
+    if (NF <> 6) or (NL <> 12) or (Length(Pts) <> 8) then Exit;
+    if not (NPaint in [0, 6]) then Exit;
+    HasPaint := NPaint = 6;
+    Lo := Pts[0].P; Hi := Pts[0].P;
+    for I := 1 to 7 do
+    begin
+      Lo := P3(Min(Lo.X, Pts[I].P.X), Min(Lo.Y, Pts[I].P.Y), Min(Lo.Z, Pts[I].P.Z));
+      Hi := P3(Max(Hi.X, Pts[I].P.X), Max(Hi.Y, Pts[I].P.Y), Max(Hi.Z, Pts[I].P.Z));
+    end;
+    { every corner at a low or high of each axis: the eight of a box }
+    for I := 0 to 7 do
+      if not ((Abs(Pts[I].P.X - Lo.X) < 1E-9) or (Abs(Pts[I].P.X - Hi.X) < 1E-9)) or
+         not ((Abs(Pts[I].P.Y - Lo.Y) < 1E-9) or (Abs(Pts[I].P.Y - Hi.Y) < 1E-9)) or
+         not ((Abs(Pts[I].P.Z - Lo.Z) < 1E-9) or (Abs(Pts[I].P.Z - Hi.Z) < 1E-9)) then Exit;
+    if (Hi.X - Lo.X < 1E-9) or (Hi.Y - Lo.Y < 1E-9) or (Hi.Z - Lo.Z < 1E-9) then Exit;
+    Result := True;
+  end;
+
+  procedure PutBox(Depth, Part_, G: Integer; const Lo, Hi: TP3; HasPaint: Boolean; Paint: TColor);
+  var
+    I, Header: Integer;
+  begin
+    Header := NLine;
+    if HasPaint then
+    begin
+      Put(Depth, 'box', -1);
+      Put(Depth + 1, 'at   = ' + Place2(Lo, U, False), -1);
+      Put(Depth + 1, 'size = ' + Place2(Sub3(Hi, Lo), U, True), -1);
+      Put(Depth + 1, 'paint = ' + Color2(Paint), -1);
+      Put(Depth, 'end', -1);
+    end
+    else
+      Put(Depth, 'box = ' + Place2(Lo, U, False) + '; ' + Place2(Sub3(Hi, Lo), U, True), -1);
+    { every face and edge of it is that statement: picked on the sheet,
+      the box lights up }
+    for I := 0 to D.Live - 1 do
+      if (D[I].Grp = G) and (D[I].Part = Part_) and (D[I].Kind in [ekFace, ekLine]) then
+      begin
+        First[I] := Header;
+        Last[I] := NLine - 1;
+      end;
+  end;
+
   { one solid: its corners once, its faces, and only the edges that are
     out of the ordinary - the rest are the faces' sides and go unsaid }
   procedure PutSolid(Depth, Part_, G: Integer);
@@ -998,8 +1083,10 @@ var
   var
     I, J, G: Integer;
     Done: array of Integer;
-    Seen: Boolean;
+    Seen, BPaintOn: Boolean;
     None: TPts;
+    BLo, BHi: TP3;
+    BPaint: TColor;
   begin
     SetLength(None, 0);
     SetLength(Done, 0);
@@ -1020,7 +1107,10 @@ var
         if Seen then Continue;
         SetLength(Done, Length(Done) + 1);
         Done[High(Done)] := G;
-        PutSolid(Depth, Part_, G);
+        if IsBox(Part_, G, BLo, BHi, BPaintOn, BPaint) then
+          PutBox(Depth, Part_, G, BLo, BHi, BPaintOn, BPaint)
+        else
+          PutSolid(Depth, Part_, G);
         Continue;
       end;
       case D[I].Kind of

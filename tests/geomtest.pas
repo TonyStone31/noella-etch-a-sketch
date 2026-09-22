@@ -8349,6 +8349,9 @@ begin
   try
     MakeRect(D, 0, 0, 4, 4);
     Ok(D.PushPull(4, 2), 'a box');
+    { one face painted, so it is not written as a box - see TestPrimitives
+      for that - but as the faces it is made of }
+    D.SetMaterial(4, $3CB0FF);
     WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
     EqI(Length(LineThing), L.Count, 'every line says whose it is');
     NFace := 0;
@@ -8360,17 +8363,13 @@ begin
       if Copy(Trim(L[I]), 1, 7) = 'line = ' then Inc(NLine_);
       if (Pos('floor', Trim(L[I])) = 1) or (Pos('top', Trim(L[I])) = 1) then Inc(NPoint);
     end;
-    EqI(NFace, 6, 'six faces, a line each');
+    EqI(NFace, 5, 'five plain faces, a line each, and the painted one a block');
     EqI(NLine_, 12, 'twelve edges, a line each, two names and a "to"');
     EqI(NPoint, 8, 'eight corners, named once');
     Ok(L.IndexOf('      floor2 = floor1 + 4'' east') >= 0, 'a corner is a step from another, and named by where it stands');
     Ok(L.IndexOf('    line = floor1 to top1') >= 0, 'so an upright reads as one');
     Ok(Pos('0 east, 0 north, ', L.Text) > 0, 'a place says all three, the height as well');
-    Ok((First[4] >= 0) and (First[4] = Last[4]), 'a plain face is one line of the text');
-
-    D.SetMaterial(4, $3CB0FF);
-    L.Clear;
-    WriteFormat2(D, 'Box', usImperial, L, First, Last, LineThing);
+    Ok((First[5] >= 0) and (First[5] = Last[5]), 'a plain face is one line of the text');
     Ok(L.IndexOf('      paint = orange') >= 0, 'a painted face says so');
   finally
     L.Free;
@@ -8523,6 +8522,71 @@ begin
     Ok(D.FaceHolding(P3(0.5, 1.5, 2.5)) >= 0, 'the neighbor west of it is still at 2.5');
     Ok(D.FaceHolding(P3(2.5, 1.5, 3.5)) >= 0, 'and the one east at 3.5');
   finally
+    D.Free;
+  end;
+end;
+
+{ box and rect - docs/primitives.md: a fold, never a second truth }
+procedure TestPrimitives;
+var
+  D, E: TWorkDoc;
+  L, M: TStringList;
+  First, Last, LineThing: TIntArrayW;
+  I, ErrLine, NF, NL: Integer;
+  Err: string;
+begin
+  WriteLn('primitives: box and rect');
+  D := TWorkDoc.Create;
+  E := TWorkDoc.Create;
+  L := TStringList.Create;
+  M := TStringList.Create;
+  try
+    MakeRect(D, 0, 0, 4, 3);
+    Ok(D.PushPull(4, 2), 'a rectangle pulled up');
+    WriteFormat2(D, 'B', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('  box = 0 east, 0 north, 0 up; 4'' east, 3'' north, 2'' up') >= 0, 'is written as one box line');
+    Ok((First[4] >= 0) and (First[4] = Last[4]), 'and every face of it is that line');
+    Ok(ReadHeck(L, E, usImperial, ErrLine, Err), 'which reads back: ' + Err);
+    EqI(E.Live, D.Live, 'to as many things as went out');
+    M.Clear;
+    WriteFormat2(E, 'B', usImperial, M, First, Last, LineThing);
+    Ok(L.Text = M.Text, 'and writes out the same again');
+
+    { painted all over: the block form }
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then D.SetMaterial(I, $3CB0FF);
+    L.Clear;
+    WriteFormat2(D, 'B', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('    paint = orange') >= 0, 'painted all over, it is a box block with a paint');
+    Ok(L.IndexOf('  box') >= 0, 'still a box');
+
+    { one corner nudged: not a box any more, written as its faces }
+    D.SetMaterial(4, $3CB0FF);
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekFace then D.ClearMaterial(I);
+    D.MoveVerts([D[5].Poly[0]], P3(0.1, 0, 0));
+    L.Clear;
+    WriteFormat2(D, 'B', usImperial, L, First, Last, LineThing);
+    Ok(L.IndexOf('  solid') >= 0, 'a corner nudged, and it is a solid of faces again');
+    Ok(Pos('box', L.Text) = 0, 'with no box in it');
+
+    { typed: a rect is four lines, a box is a solid }
+    M.Text := 'rect = 1'' east, 1'' north, 0 up; 4'' east, 3'' north' + LineEnding +
+              'box = 0 east, 0 north, 1'' up; 2'' east, 2'' north, 2'' up';
+    E.Clear;
+    Ok(ReadHeck(M, E, usImperial, ErrLine, Err), 'a typed rect and box read: ' + Err);
+    NF := 0; NL := 0;
+    for I := 0 to E.Live - 1 do
+      if E[I].Kind = ekFace then Inc(NF) else if E[I].Kind = ekLine then Inc(NL);
+    EqI(NL, 16, 'sixteen lines: four for the rect, twelve for the box');
+    EqI(NF, 6, 'six faces, the box''s; the rect''s is for the program to work out');
+    M.Text := 'rect = 0 east, 0 north, 0 up; 4'' east, 3'' north, 2'' up';
+    E.Clear;
+    Ok(not ReadHeck(M, E, usImperial, ErrLine, Err), 'a rect with a three-part size is refused');
+  finally
+    M.Free;
+    L.Free;
+    E.Free;
     D.Free;
   end;
 end;
@@ -8777,6 +8841,7 @@ begin
   TestFormat2;      WriteLn;
   TestHeckReader;   WriteLn;
   TestPushAmongNeighbors; WriteLn;
+  TestPrimitives;   WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.
