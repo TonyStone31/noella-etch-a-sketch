@@ -243,8 +243,15 @@ pixel by pixel.  What the pictures said:
   a jig or a shop tool.  What is *not* in reach is cloth that hangs and
   moves - that is a solver stepping a mass-spring mesh against the body,
   and it belongs to Blender, which Heck should one day export to (glTF,
-  below).  Next: the wrap - there is an idea for doing it in a slick way
-  that has not been written down yet - and a shop tool that takes a flat
+  below).  Next: the wrap.  The idea, as far as it has been said (22 September,
+  evening): **set a point, and it is magnetic to the nearby surfaces; you
+  direct it while orbiting.**  That is all there is so far - a point
+  that clings to the body and is steered from the camera rather than
+  from a plane - and it has not been elaborated.  *Ask about it before
+  designing any wrap: what the point leaves behind (a line on the
+  surface? a seam? the edge of a sheet?), what "direct" means with the
+  mouse busy orbiting, and what happens where two surfaces are equally
+  near.*  Fabric itself is for later in the week.  Also a shop tool that takes a flat
   painted face and corrugates it, strips tilted by a sine, for a fabric
   that reads as fabric without moving.  Rendering note from the first
   look: the flat underside of the torso draws as a ring at the hips from
