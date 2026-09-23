@@ -19,6 +19,7 @@ matter:
 | `balloon.py` | Python | a balloon on a string |
 | `fence.pl` | Perl | posts and two rails |
 | `steps.sh`, `steps.ps1` | shell with awk; PowerShell | a flight of steps - the same jig twice, so it runs on a machine that has only one of them |
+| `body.py` | Python | a mannequin to dress: `Height`, `Weight`, and `Bust`, `Waist`, `Hip` when you have them - a stack of ovals eased into one another, no engine and no library |
 
 They are written out to the jigs folder the first time the program runs, by
 the same rule as the example drawings: one that has been changed there is

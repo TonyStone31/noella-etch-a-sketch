@@ -1008,7 +1008,7 @@ var
   Same: Boolean;
 begin
   WriteLn('the example drawings');
-  EqI(ExampleCount, 6, 'there are six of them');
+  EqI(ExampleCount, 7, 'there are seven of them');
 
   for I := 0 to ExampleCount - 1 do
   begin
@@ -8804,7 +8804,7 @@ end;
   fold that does not would show. }
 procedure TestHeckRoundTrips;
 const
-  FILES: array[0..5] of string = ('ball', 'broom', 'etch-a-sketch', 'jigs', 'robot', 'wine-glass');
+  FILES: array[0..6] of string = ('ball', 'broom', 'etch-a-sketch', 'jigs', 'mannequin', 'robot', 'wine-glass');
 var
   D, E: TWorkDoc;
   Src, A, B: TStringList;

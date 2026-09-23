@@ -64,12 +64,13 @@ function PutCarried(const Path: string; L: TStrings;
 implementation
 
 uses
-  SysUtils, uExample, uExGlass, uExBroom, uExRobot, uExBall, uExJigs, uUpdate;
+  SysUtils, uExample, uExGlass, uExBroom, uExRobot, uExBall, uExJigs,
+  uExMannequin, uUpdate;
 
 const
-  FILES: array[0..5] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
-    'broom.hsk', 'robot.hsk', 'ball.hsk', 'jigs.hsk');
-  ABOUT: array[0..5] of string = (
+  FILES: array[0..6] of string = ('etch-a-sketch.hsk', 'wine-glass.hsk',
+    'broom.hsk', 'robot.hsk', 'ball.hsk', 'jigs.hsk', 'mannequin.hsk');
+  ABOUT: array[0..6] of string = (
     'A toy etch-a-sketch, to scale, with a robot on the screen.  Every ' +
     'face of it is something to push.',
     'A wine glass, off the lathe: an outline spun about the blue axis.  ' +
@@ -81,7 +82,10 @@ const
     'A soccer ball: twelve pentagons and twenty hexagons, cut off the corners ' +
     'of an icosahedron the way the real one is.',
     'Four groups, each made by a jig - a little program of your own, in any ' +
-    'language, that prints the drawing''s text.  Right-click one and run it again.');
+    'language, that prints the drawing''s text.  Right-click one and run it again.',
+    'A mannequin, six foot and a hundred and fifty pounds, made by the body ' +
+    'jig from those two numbers - to be dressed.  Right-click her, change the ' +
+    'numbers, run the jig again: another body.');
 
 function ExampleCount: Integer;
 begin
@@ -107,6 +111,7 @@ begin
     3: RobotDrawing(L);
     4: BallDrawing(L);
     5: JigsDrawing(L);
+    6: MannequinDrawing(L);
   end;
 end;
 

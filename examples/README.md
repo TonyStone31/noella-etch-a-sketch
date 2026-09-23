@@ -274,3 +274,25 @@ shows is what the program does: it was made with `/source`, **Sample**,
 file into `../uExJigs.pas`.  Right-click a group in it and **Run the Jig
 Again** - after changing a number in the source window, if you like.
 
+
+## `mannequin.hsk` - the one to dress
+
+One group, and what is in it was printed by `../jigs/body.py` from the
+jig line the group keeps: `'body' with Height = 6', Weight = 150`.  A
+woman six foot tall and a hundred and fifty pounds, standing on the floor
+facing south, arms at her sides - there to have clothes drawn on her,
+which is the thing this program was first asked for and cannot do yet.
+
+There is no engine in the jig and no library.  A body is a stack of ovals:
+at each height that matters, a width, a depth, and how far back the middle
+sits; between them the ovals are eased into one another, and a skin of
+triangles is stretched over the lot with every edge soft, so what shows is
+the shape and not the mesh.  The numbers are hers, and every other body is
+scaled from her: `Weight` makes the same height fuller or slighter, and
+`Bust`, `Waist` and `Hip` set those three round measurements outright.
+Right-click her, change a number in the source window, and run the jig
+again.
+
+`make-mannequin.pas` runs the jig with `python3` and reads what it printed
+exactly as the program does, so the file is what **Run the Jig Again** would
+make.

@@ -229,6 +229,27 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Fabric on the mannequin.**  22 September: the program's first
+  customer asked for the thing it was started for - to draw fabric, with
+  patterns, and have it wave.  A mannequin is the first step and it is
+  done: `jigs/body.py` prints a body from `Height`, `Weight` and the three
+  tape measurements, and `examples/mannequin.hsk` is the six-foot,
+  hundred-and-fifty-pound woman it prints by default.  What a body is in
+  that jig - a stack of ovals eased into one another, a skin of triangles
+  with every edge soft - is also what a garment is: a bodice is the body's
+  own sections offset outward, a skirt is a cone off the waist, a sleeve
+  is an arm's sections offset, and a hem that waves is a ring whose radius
+  is a sine of the angle.  None of that is a physics engine; all of it is
+  a jig or a shop tool.  What is *not* in reach is cloth that hangs and
+  moves - that is a solver stepping a mass-spring mesh against the body,
+  and it belongs to Blender, which Heck should one day export to (glTF,
+  below).  Next: the wrap - there is an idea for doing it in a slick way
+  that has not been written down yet - and a shop tool that takes a flat
+  painted face and corrugates it, strips tilted by a sine, for a fabric
+  that reads as fabric without moving.  Rendering note from the first
+  look: the flat underside of the torso draws as a ring at the hips from
+  above, which is SketchUp's profile rule doing its job (a face you can
+  see meeting one you cannot), and a real dress form has that seam.
 * **Orbiting over the pole.**  SketchUp goes straight over the top and
   down the far side; ours stops at 83 degrees either way and you go back
   round.  Tried 21 September by letting the tilt pass the pole and

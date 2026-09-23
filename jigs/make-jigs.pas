@@ -7,7 +7,7 @@ program makejigs;
 {$mode objfpc}{$H+}
 uses Classes, SysUtils;
 const
-  FILES: array[0..4] of string = ('star.pas', 'balloon.py', 'fence.pl', 'steps.sh', 'steps.ps1');
+  FILES: array[0..5] of string = ('star.pas', 'balloon.py', 'fence.pl', 'steps.sh', 'steps.ps1', 'body.py');
 var
   U, L: TStringList;
   I, K: Integer;

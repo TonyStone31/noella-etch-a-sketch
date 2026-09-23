@@ -10,6 +10,18 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **A mannequin, from a jig.**  A seventh example: a woman six foot tall
+  and a hundred and fifty pounds, standing on the floor, arms at her
+  sides, there to be dressed.  The whole of her is one group made by the
+  new `body` jig from those two numbers - right-click her, change
+  `Height`, `Weight`, or give `Bust`, `Waist` and `Hip` outright, and run
+  the jig again for another body.  Every edge of her is soft, so what
+  shows is the shape.  She is where drawing clothes will start.
+
 ## v2026.09.22.7
 
 ### Fixed
