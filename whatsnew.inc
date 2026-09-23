@@ -13,6 +13,23 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.1' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout, gone over.**  The runs were invisible on the' + LineEnding +
+    '  sheet - they are drawn now, in the tube''s red, as reference lines that' + LineEnding +
+    '  never close a face.  A join from one part of the floor to another, and' + LineEnding +
+    '  a lead to the manifold, used to be a straight line across the field,' + LineEnding +
+    '  through a column if that was nearest; both now go the way a fitter' + LineEnding +
+    '  runs them, out to the wall and along it.  Runs keep six inches off' + LineEnding +
+    '  every wall and obstacle.  A spacing tighter than the tube can turn is' + LineEnding +
+    '  laid as asked and the ticket says which PEX can make the turn, instead' + LineEnding +
+    '  of the pitch being doubled without a word.  Each loop''s length counts' + LineEnding +
+    '  both its leads, so none comes out over the maximum after the cut.  The' + LineEnding +
+    '  manifold is drawn as a box with its loop count.  On a wood floor the' + LineEnding +
+    '  spacing follows the joists - two runs a bay, or however many you say.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
