@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The point picker says so.**  Pressing *Pick* left the sheet looking
+  the same, and it was not clear a pick was on or what it was for.  Now
+  the sheet's chip reads *PICKING* and names the part it is waiting for -
+  `click a point for <corner>` - and the sheet is not dragged in front of
+  the source window any more, so both stay where they were.  The pick
+  fills the `<part>` the caret is in, not always the first one; a
+  double-click on a `<part>` starts picking for it; and Esc in the editor
+  ends it, the same as Esc on the sheet.
+
 ## v2026.09.22.6
 
 ### New

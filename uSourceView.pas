@@ -169,6 +169,9 @@ type
     procedure TakePoint(const P: TP3; U: TUnitSystem);
     { the pick is over - the sheet said so }
     procedure PickEnded;
+    { what the next pick is for: the <part> the caret is in, else the
+      first left on the line, else "the line" }
+    function PickWants: string;
     { is this line (0-based) a "jig = " line? }
     function IsJigLine(Line: Integer): Boolean;
     { the gutter's play button on a jig line was pressed }
@@ -187,6 +190,8 @@ type
     { completion that opens by itself, or only on Ctrl+Space }
     procedure SetAutoComplete(On: Boolean);
     function AutoComplete: Boolean;
+  private
+    procedure PartToFill(const L: string; out A, B: Integer);
   end;
 
   { A button in the gutter on every "jig = " line: a little play mark, and
@@ -763,6 +768,13 @@ end;
 { Ctrl+F to the find box, F3 and Shift+F3 for the next and the one before }
 procedure TSourceForm.EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  { Esc here ends a pick as it does on the sheet }
+  if (Key = 27) and FPicking then
+  begin
+    btnPickClick(nil);
+    Key := 0;
+    Exit;
+  end;
   if Assigned(FCompleteKey) then FCompleteKey(Sender, Key, Shift);
   if (Key = Ord('F')) and (ssCtrl in Shift) then
   begin
@@ -971,8 +983,20 @@ end;
 
 procedure TSourceForm.EditorMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
+var
+  A, B, R: Integer;
 begin
   if Editor.CanFocus and not Editor.Focused then Editor.SetFocus;
+  { a double-click on a <part> starts picking for it }
+  if (Button = mbLeft) and (ssDouble in Shift) and not FPicking then
+  begin
+    R := Editor.CaretY - 1;
+    if (R >= 0) and (R < Editor.Lines.Count) then
+    begin
+      PartToFill(Editor.Lines[R], A, B);
+      if (A > 0) and (Editor.CaretX > A) and (Editor.CaretX <= B + 1) then btnPickClick(nil);
+    end;
+  end;
   if Button <> mbRight then Exit;
   FBusy := True;
   try
@@ -1095,6 +1119,38 @@ begin
   btnPick.Caption := 'Pick';
 end;
 
+{ the <part> to fill: the one the caret is in, else the first on the
+  line; A and B its "<" and ">" in the line, or 0 }
+procedure TSourceForm.PartToFill(const L: string; out A, B: Integer);
+var
+  X, P, Q: Integer;
+begin
+  A := 0; B := 0;
+  X := Editor.CaretX;
+  P := Pos('<', L);
+  while P > 0 do
+  begin
+    Q := PosEx('>', L, P + 1);
+    if Q = 0 then Break;
+    if (X > P) and (X <= Q + 1) then begin A := P; B := Q; Exit; end;
+    if A = 0 then begin A := P; B := Q; end;
+    P := PosEx('<', L, Q + 1);
+  end;
+end;
+
+function TSourceForm.PickWants: string;
+var
+  Y, A, B: Integer;
+  L: string;
+begin
+  Result := 'the line';
+  Y := Editor.CaretY - 1;
+  if (Y < 0) or (Y >= Editor.Lines.Count) then Exit;
+  L := Editor.Lines[Y];
+  PartToFill(L, A, B);
+  if A > 0 then Result := Copy(L, A, B - A + 1);
+end;
+
 procedure TSourceForm.TakePoint(const P: TP3; U: TUnitSystem);
 var
   Y, A, B: Integer;
@@ -1105,11 +1161,10 @@ begin
   if (Y < 0) or (Y >= Editor.Lines.Count) then Exit;
   L := Editor.Lines[Y];
   T := LowerCase(Trim(L));
-  { A <part> left by the word list: the first one on the line is what this
-    point is for, and its name says how - a place, a step from the first
-    place, a radius from it.  The next pick takes the next. }
-  A := Pos('<', L);
-  B := Pos('>', L);
+  { A <part> left by the word list: the one the caret is in, else the
+    first on the line, is what this point is for, and its name says how -
+    a place, a step from the first place, a radius from it. }
+  PartToFill(L, A, B);
   if (A > 0) and (B > A) then
   begin
     Slot := LowerCase(Copy(L, A + 1, B - A - 1));

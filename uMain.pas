@@ -12743,6 +12743,16 @@ begin
   if CubeZone(FMouseSX, FMouseSY) then Exit;
   if FErasing then Exit;
   S1 := SnapLabel;
+  { picking for the text: the chip says so, and which part of the line
+    the next click is for }
+  if FTextPick and (SourceForm <> nil) then
+  begin
+    if S1 = '' then S1 := 'FREE';
+    S1 := 'PICKING  ' + S1;
+    S2 := 'click a point for ' + SourceForm.PickWants +
+      '.  Arrows lock red, green, blue for a height; Esc stops';
+  end
+  else
   if FStage = 0 then
   begin
     if S1 = '' then S1 := 'FREE';
@@ -18506,9 +18516,9 @@ begin
   if On then
   begin
     FCmdMsg := 'Picking for the text: click a point on the sheet, and it is typed in.  Esc stops.';
-    { the sheet has the keys and the mouse now }
-    BringToFront;
-    SetFocus;
+    { the sheet is not raised: the text being filled has to stay in view,
+      and the first click on the sheet brings the keys with it }
+    pbScreen.Invalidate;
   end
   else
     FCmdMsg := 'Picking for the text is over.';
