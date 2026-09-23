@@ -251,7 +251,30 @@ pixel by pixel.  What the pictures said:
   designing any wrap: what the point leaves behind (a line on the
   surface? a seam? the edge of a sheet?), what "direct" means with the
   mouse busy orbiting, and what happens where two surfaces are equally
-  near.*  Fabric itself is for later in the week.  Also a shop tool that takes a flat
+  near.*  Fabric itself is for later in the week, but the shape of it was
+  talked through 23 September, out loud and not designed: **fabric without
+  a physics engine, as a flat pattern.**  You draw a panel - front, back,
+  a sleeve - the way a real pattern is cut, and mark which of its edges
+  are seams, the ones that will be stitched to another panel's edge.  A
+  dialog turns the panel into a grid of many small flat faces rather than
+  one - resolution, the same idea as a circle's `sides`, and what makes a
+  panel able to bend at all, since one flat face cannot.  Then a second
+  step, maybe its own tool: grab a point and drag it, and nearby points
+  follow with a falloff - proportional editing, no solver, weighted
+  distance and nothing else - with perhaps a small jitter along the
+  normal afterward for a fabric feel, the same idea as the wave shop tool
+  below but applied once by hand instead of as a fixed sine.  None of
+  that needs an engine; it is all plain geometry, most of it a variation
+  on something the program already does (a box's shared corner is one
+  point three faces use; a seam would be the same idea at an edge - front
+  and back panel sharing the same points along it, so dragging one drags
+  the other).  Two things not yet answered: whether a v1 checks a
+  dragged point against the mannequin at all, or trusts the hand and
+  lets fabric pass through her; and what owns the moment a seam is
+  pulled to match a curved neighbor - the panel stops being flat right
+  there, which is correct, but the flat pattern and the draped result
+  become two different meshes and something has to carry that over.
+  Also a shop tool that takes a flat
   painted face and corrugates it, strips tilted by a sine, for a fabric
   that reads as fabric without moving.  Rendering note from the first
   look: the flat underside of the torso draws as a ring at the hips from
