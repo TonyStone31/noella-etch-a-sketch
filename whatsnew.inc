@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.8' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **A mannequin, from a jig.**  A seventh example: a woman six foot tall' + LineEnding +
+    '  and a hundred and fifty pounds, standing on the floor, arms at her' + LineEnding +
+    '  sides, there to be dressed.  The whole of her is one group made by the' + LineEnding +
+    '  new `body` jig from those two numbers - right-click her, change' + LineEnding +
+    '  `Height`, `Weight`, or give `Bust`, `Waist` and `Hip` outright, and run' + LineEnding +
+    '  the jig again for another body.  Every edge of her is soft, so what' + LineEnding +
+    '  shows is the shape.  She is where drawing clothes will start.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.7' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
