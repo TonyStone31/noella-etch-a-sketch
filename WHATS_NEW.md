@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout, gone over.**  The runs were invisible on the
+  sheet - they are drawn now, in the tube's red, as reference lines that
+  never close a face.  A join from one part of the floor to another, and
+  a lead to the manifold, used to be a straight line across the field,
+  through a column if that was nearest; both now go the way a fitter
+  runs them, out to the wall and along it.  Runs keep six inches off
+  every wall and obstacle.  A spacing tighter than the tube can turn is
+  laid as asked and the ticket says which PEX can make the turn, instead
+  of the pitch being doubled without a word.  Each loop's length counts
+  both its leads, so none comes out over the maximum after the cut.  The
+  manifold is drawn as a box with its loop count.  On a wood floor the
+  spacing follows the joists - two runs a bay, or however many you say.
+
 ## v2026.09.23
 
 ### New

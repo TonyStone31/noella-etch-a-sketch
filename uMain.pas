@@ -9984,7 +9984,9 @@ begin
     Exit;
   end;
   PushUndo;
-  First := BuildRadiant(FD.Doc, Outline, Holes, R, Spec, FInkColor,
+  { in the tube's own red, whatever pen is up - a run is not a line of
+    the drawing, and should not look like one }
+  First := BuildRadiant(FD.Doc, Outline, Holes, R, Spec, RGBToColor(200, 48, 32),
     IfThen(Spec.Tag <> '', Spec.Tag, 'Radiant'));
   SeedRegions;
   RenderPro;

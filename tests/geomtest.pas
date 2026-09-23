@@ -8,7 +8,8 @@ program geomtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper, uFormat2, uHeck, uJig;
+  SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper, uFormat2, uHeck, uJig,
+  uRadiantData, uRadiant;
 
 var
   Fails: Integer = 0;
@@ -9020,6 +9021,113 @@ begin
   end;
 end;
 
+
+{ The radiant heat layout, on the floor it was written for: a big open
+  rectangle, then the same floor with a column in the middle of it.
+  Every point of every loop is inside the floor and outside the column,
+  a hand's width off any wall; no loop is over the tube's maximum; the
+  loops are close to even; and on a floor with one column not one join
+  runs through it. }
+procedure TestRadiant;
+var
+  Floor, Hole: TP3Array;
+  Holes: array of TP3Array;
+  Spec: TRadiantSpec;
+  R: TRadiantResult;
+  M: TP3;
+  I, J, Inside, Outside, NearWall, Over: Integer;
+  MinLen, MaxLen, D: Double;
+  P: TP3;
+
+  function InRect(const P: TP3; X0, Y0, X1, Y1: Double): Boolean;
+  begin
+    Result := (P.X >= X0 - 1E-6) and (P.X <= X1 + 1E-6) and (P.Y >= Y0 - 1E-6) and (P.Y <= Y1 + 1E-6);
+  end;
+
+  { the room's corners, as the rect tool would leave them }
+  procedure Room(W, H: Double);
+  begin
+    SetLength(Floor, 4);
+    Floor[0] := P3(0, 0, 0); Floor[1] := P3(W, 0, 0);
+    Floor[2] := P3(W, H, 0); Floor[3] := P3(0, H, 0);
+  end;
+
+begin
+  WriteLn('Radiant heat layout');
+  Spec := DefaultRadiantSpec;
+  Spec.Tube := tsHalf;
+  Spec.Spacing := 9 / 12;
+  Spec.Corner := 0;
+  Spec.InAlong := 1; Spec.InAcross := 1;
+
+  { a 40 x 30 room, no obstacles: one cell, plain serpentine }
+  Room(40, 30);
+  SetLength(Holes, 0);
+  M := RadiantManifoldPoint(Floor, Spec);
+  EqF(M.X, 1, 'the manifold is in from the corner along one edge', 1E-9);
+  EqF(M.Y, 1, '  and along the other', 1E-9);
+  R := ComputeRadiantLayout(Floor, Holes, M, Spec);
+  Ok(R.Ok, 'an open room lays out: ' + R.Why);
+  EqI(R.CellCount, 1, '  one cell - nothing in the way');
+  EqF(R.AreaSqFt, 1200, '  the area is the room''s own', 1E-6);
+  Ok(R.RowCount >= 36, Format('  rows at 9" across 30'': %d', [R.RowCount]));
+  Inside := 0; NearWall := 0; Over := 0;
+  MinLen := 1E30; MaxLen := 0;
+  for I := 0 to High(R.Loops) do
+  begin
+    if R.Loops[I].LenFt > TubeOf(tsHalf).MaxLoopFt then Inc(Over);
+    MinLen := Min(MinLen, R.Loops[I].LenFt); MaxLen := Max(MaxLen, R.Loops[I].LenFt);
+    for J := 1 to High(R.Loops[I].Pts) - 1 do
+    begin
+      P := R.Loops[I].Pts[J];
+      if not InRect(P, 0, 0, 40, 30) then Inc(Inside);
+      { runs stay a hand's width off the wall; leads run in that band,
+        half way out, so nothing is nearer than half of it }
+      D := Min(Min(P.X, 40 - P.X), Min(P.Y, 30 - P.Y));
+      if D < EDGE_INSET_IN / 24 - 1E-6 then Inc(NearWall);
+    end;
+  end;
+  EqI(Inside, 0, '  every point is inside the room');
+  EqI(NearWall, 0, '  and nothing nearer a wall than the lead band');
+  EqI(Over, 0, Format('  no loop over %d ft (%d loops)', [Round(TubeOf(tsHalf).MaxLoopFt), Length(R.Loops)]));
+  Ok(Length(R.Loops) >= 5, Format('  a room this size takes several loops: %d', [Length(R.Loops)]));
+  Ok(MaxLen <= MinLen * 1.35, Format('  and they are close to even: %.0f to %.0f ft', [MinLen, MaxLen]));
+  EqI(R.Crossings, 0, '  nothing to cross');
+  Ok(R.TotalFt > 1200 * 12 / 9 * 0.8, Format('  about a foot of tube per 9" of floor: %.0f ft', [R.TotalFt]));
+
+  { the same room with a 4 x 4 column in the middle }
+  SetLength(Hole, 4);
+  Hole[0] := P3(18, 13, 0); Hole[1] := P3(22, 13, 0);
+  Hole[2] := P3(22, 17, 0); Hole[3] := P3(18, 17, 0);
+  SetLength(Holes, 1);
+  Holes[0] := Hole;
+  R := ComputeRadiantLayout(Floor, Holes, M, Spec);
+  Ok(R.Ok, 'a room with a column lays out: ' + R.Why);
+  EqI(R.ObstacleCount, 1, '  one obstacle');
+  EqI(R.CellCount, 4, '  four cells: below it, either side, above');
+  EqF(R.AreaSqFt, 1200 - 16, '  the column''s area is not covered', 1E-6);
+  Outside := 0; Over := 0;
+  for I := 0 to High(R.Loops) do
+  begin
+    if R.Loops[I].LenFt > TubeOf(tsHalf).MaxLoopFt then Inc(Over);
+    for J := 1 to High(R.Loops[I].Pts) - 1 do
+    begin
+      P := R.Loops[I].Pts[J];
+      { inside the column, or within the inset of it }
+      if InRect(P, 18 + 1E-6 - EDGE_INSET_IN / 12, 13 + 1E-6 - EDGE_INSET_IN / 12,
+                22 - 1E-6 + EDGE_INSET_IN / 12, 17 - 1E-6 + EDGE_INSET_IN / 12) then Inc(Outside);
+    end;
+  end;
+  EqI(Outside, 0, '  no point of any run is in the column or a hand''s width of it');
+  EqI(Over, 0, '  no loop over the maximum');
+  EqI(R.Crossings, 0, '  and no join between runs passes through it');
+
+  { the ticket reads, and says the things a fitter looks for }
+  Ok(Pos('manifold ports needed: ' + IntToStr(Length(R.Loops)), RadiantTicketText(Spec, R, usImperial)) > 0,
+    '  the ticket counts the manifold ports');
+  Ok(Pos('1 obstacle', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the obstacle');
+end;
+
 begin
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
@@ -9135,6 +9243,7 @@ begin
   TestPushAmongNeighbors; WriteLn;
   TestPrimitives;   WriteLn;
   TestImpliedFaces; WriteLn;
+  TestRadiant;      WriteLn;
   TestHeckRoundTrips; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);

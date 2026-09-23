@@ -70,6 +70,15 @@ const
   SPACING_MIN_IN = 4.0;
   SPACING_MAX_IN = 18.0;
 
+  { how far the outermost run and the ends of every run stay off a wall,
+    and off an obstacle - trade practice, a hand's width, so the tube is
+    never under a sill plate or a column's base }
+  EDGE_INSET_IN = 6.0;
+
+  { a staple-up floor runs its tube along the joist bays: this many runs
+    in each bay, so the spacing is the bay width over it }
+  RUNS_PER_BAY_DEFAULT = 2;
+
   { a coil's worth of waste - cutting losses and the length left on the
     spool that is never quite enough for one more run.  A trade rule, not
     a measured one. }

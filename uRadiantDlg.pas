@@ -31,6 +31,7 @@ type
     btnReport: TButton;
     cbCorner: TComboBox;
     cbPlates: TCheckBox;
+    cbRunsPerBay: TComboBox;
     cbTube: TComboBox;
     edBelowR: TEdit;
     edInAcross: TEdit;
@@ -54,6 +55,7 @@ type
     lblMaxLoop: TLabel;
     lblMaxLoopHint: TLabel;
     lblProblem: TLabel;
+    lblRunsPerBay: TLabel;
     lblSlabHead: TLabel;
     lblSlabThick: TLabel;
     lblSpacing: TLabel;
@@ -104,10 +106,11 @@ implementation
 uses
   uMain;
 
-function InchesOf(const S: string; U: TUnitSystem; Inch: Double; out V: Double): Boolean;
+{ A bare number is inches - the trade says 9, not 9" - and a mark makes it
+  the drawing's own notation, the same rule the fitting wizard keeps. }
+function InchesOf(const S: string; U: TUnitSystem; out V: Double): Boolean;
 var
   T: string;
-  F: Double;
 begin
   T := Trim(S);
   V := 0;
@@ -115,10 +118,21 @@ begin
   if (Pos('''', T) > 0) or (Pos('"', T) > 0) or (Pos('m', LowerCase(T)) > 0) then
     Result := ParseLen(T, U, V)
   else
-  begin
-    Result := ParseLen(T + '"', usImperial, F);
-    if Result then V := F;
-  end;
+    Result := ParseLen(T + '"', usImperial, V);
+end;
+
+{ A bare number here is feet - a loop is 300, not 300" }
+function FeetOf(const S: string; U: TUnitSystem; out V: Double): Boolean;
+var
+  T: string;
+begin
+  T := Trim(S);
+  V := 0;
+  if T = '' then Exit(False);
+  if (Pos('''', T) > 0) or (Pos('"', T) > 0) or (Pos('m', LowerCase(T)) > 0) then
+    Result := ParseLen(T, U, V)
+  else
+    Result := ParseLen(T + '''', usImperial, V);
 end;
 
 procedure TRadiantForm.FormCreate(Sender: TObject);
@@ -127,6 +141,11 @@ var
 begin
   for S := Low(TTubeSize) to High(TTubeSize) do cbTube.Items.Add(TUBE_NAMES[S]);
   cbTube.ItemIndex := Ord(tsHalf);
+  cbRunsPerBay.Items.Add('1 run per bay');
+  cbRunsPerBay.Items.Add('2 runs per bay');
+  cbRunsPerBay.Items.Add('3 runs per bay');
+  cbRunsPerBay.Items.Add('4 runs per bay');
+  cbRunsPerBay.ItemIndex := RUNS_PER_BAY_DEFAULT - 1;
   ShowFloorKind;
 end;
 
@@ -135,6 +154,9 @@ var
   Slab: Boolean;
 begin
   Slab := rgFloor.ItemIndex = 0;
+  { the spacing is typed on a slab; on a wood floor it follows the joists }
+  edSpacing.Enabled := Slab;
+  lblRunsPerBay.Visible := not Slab; cbRunsPerBay.Visible := not Slab;
   lblSlabHead.Visible := Slab;
   lblSlabThick.Visible := Slab; edSlabThick.Visible := Slab;
   lblTubeDepth.Visible := Slab; edTubeDepth.Visible := Slab; lblTubeDepthHint.Visible := Slab;
@@ -168,25 +190,29 @@ begin
   Spec := DefaultRadiantSpec;
   Spec.Floor := TRadiantFloor(Max(0, rgFloor.ItemIndex));
   Spec.Tube := TTubeSize(Max(0, cbTube.ItemIndex));
-  Result := InchesOf(edSpacing.Text, usImperial, Spec.Inch, Spec.Spacing);
+  Result := InchesOf(edSpacing.Text, FUnits, Spec.Spacing);
   if Trim(edMaxLoop.Text) = '' then Spec.MaxLoopFt := 0
-  else Result := Result and InchesOf(edMaxLoop.Text + '''', usImperial, Spec.Inch, Spec.MaxLoopFt);
+  else Result := Result and FeetOf(edMaxLoop.Text, FUnits, Spec.MaxLoopFt);
   Result := Result and TryStrToFloat(Trim(edWaste.Text), Spec.WastePct);
   Spec.Corner := Max(0, cbCorner.ItemIndex);
-  Result := Result and InchesOf(edInAlong.Text, usImperial, Spec.Inch, Spec.InAlong);
-  Result := Result and InchesOf(edInAcross.Text, usImperial, Spec.Inch, Spec.InAcross);
+  Result := Result and InchesOf(edInAlong.Text, FUnits, Spec.InAlong);
+  Result := Result and InchesOf(edInAcross.Text, FUnits, Spec.InAcross);
   if Spec.Floor = rfSlab then
   begin
-    Result := Result and InchesOf(edSlabThick.Text, usImperial, Spec.Inch, Spec.SlabThick);
+    Result := Result and InchesOf(edSlabThick.Text, FUnits, Spec.SlabThick);
     if Trim(edTubeDepth.Text) = '' then Spec.TubeDepth := 0
-    else Result := Result and InchesOf(edTubeDepth.Text, usImperial, Spec.Inch, Spec.TubeDepth);
+    else Result := Result and InchesOf(edTubeDepth.Text, FUnits, Spec.TubeDepth);
     Result := Result and TryStrToFloat(Trim(edUnderR.Text), Spec.UnderR);
   end
   else
   begin
-    Result := Result and InchesOf(edJoist.Text, usImperial, Spec.Inch, Spec.JoistSpacing);
+    Result := Result and InchesOf(edJoist.Text, FUnits, Spec.JoistSpacing);
+    Spec.RunsPerBay := Max(1, cbRunsPerBay.ItemIndex + 1);
+    { on a wood floor the tube runs along the joist bays, so the spacing
+      is the bay's width over the runs in it - not typed }
+    if Spec.RunsPerBay > 0 then Spec.Spacing := Spec.JoistSpacing / Spec.RunsPerBay;
     Spec.Plates := cbPlates.Checked;
-    Result := Result and InchesOf(edSubfloor.Text, usImperial, Spec.Inch, Spec.SubfloorThick);
+    Result := Result and InchesOf(edSubfloor.Text, FUnits, Spec.SubfloorThick);
     Result := Result and TryStrToFloat(Trim(edBelowR.Text), Spec.BelowR);
   end;
   Spec.Tag := Trim(edTag.Text);
@@ -231,7 +257,6 @@ end;
 
 procedure TRadiantForm.AnyChange(Sender: TObject);
 begin
-  edMaxLoop.Enabled := True;
   Recompute;
 end;
 

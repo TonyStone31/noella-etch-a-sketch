@@ -66,10 +66,23 @@ when something is done.  Bugs first, then the small things, then the big.
   having gone past the pole so that left and right swap.
 
 * **The surface guard canary** - something writes over a `TArtSurface`
-  (Windows, three sightings, twice the same value, always just after
-  "opened the example").  Three traced runs of that on Linux, 20
-  September: nothing.  Notes in `uSurface.Verify` and under *The surface
-  guard fired again* below.
+  (Windows, always just after "opened the example").  Three traced runs
+  of that on Linux, 20 September: nothing.  **Report of 23 September
+  (19:04, the Mannequin sheet, 15,846 things): three more hits, and this
+  time a crash** - an access violation while orbiting, no stack.  The
+  values: 3.78462 twice in the morning, 4.07615 in the evening - and
+  4.07615 is the number the 15 September report carried, on a different
+  drawing at a different zoom.  Twice the same double on different days
+  means it is a constant of the program, or something computed from the
+  machine (120 dpi, scaling 1.25 - the only Windows machine reporting),
+  not anything in the drawing.  One eight-byte write, one field, at the
+  moment a surface is resized: an `array of Double` written one past its
+  end, most likely, with the surface object sitting next on the heap.
+  Reproduced the state on Linux with the report's own replay - the block,
+  the cylinder, six hard orbits - and nothing fired.  The checked Windows
+  build (`heckers-sketch-checked.exe`, range checks on) would name the
+  line: that is the ask.  Notes in `uSurface.Verify` and under *The
+  surface guard fired again* below.
 * **Two solids' faces lying on each other**, three of them one solid
   holding the same face twice (grp 3, faces 748 and 37 in the 19
   September sheet) - a push/pull or rigid-move fault, worth `/holes` on
@@ -230,7 +243,25 @@ pixel by pixel.  What the pictures said:
 ### Big
 
 * **Radiant heat layout - the first version is in, 23 September, for a
-  real job (a barn) that needs it now.**  `uRadiantData.pas` carries the
+  real job (a barn) that needs it now; gone over cold the next morning
+  and six things fixed** (the runs were invisible on the sheet - soft
+  lines are hidden wherever they are not a face's edge, so they are
+  reference lines now, `ref = true`, in the tube's red; joins between
+  cells and leads to the manifold ran straight across the field, through
+  a column if that was nearest, so both now go the way a fitter runs
+  them, out to the wall band and along it, and the greedy choice of the
+  next cell puts a join through an obstacle last; a spacing tighter than
+  the tube's bend silently doubled the pitch and the ticket said the
+  asked-for spacing, so it lays what was asked and the ticket says which
+  PEX can make the turn; each loop's two leads count toward its length
+  and the cut re-checks itself; the runs keep a hand's width (6") off
+  every wall and obstacle; the area is the floor's own less its holes;
+  the manifold is drawn as a box with a note; a wood floor's spacing
+  follows its joists, so many runs per bay).  `TestRadiant` in geomtest
+  holds all of it against a 40 by 30 room with a 4 by 4 column: every
+  point inside, none in the column or its inset, no loop over 300 ft,
+  loops within a third of each other, four cells, zero joins through
+  the column.  `uRadiantData.pas` carries the
   sourced numbers - max loop length and minimum bend radius by tube size,
   the 6"-12" spacing range, slab and staple-up defaults - gathered that
   day and cited in its own header.  `uRadiant.pas` is the router: the
@@ -282,12 +313,21 @@ pixel by pixel.  What the pictures said:
     it, the way the source window does - `FTextPick`/`SourcePick` is
     the precedent to follow, not a new mechanism.
   * **Tight spacing that cannot turn on every row.**  Where the spacing
-    is less than twice the tube's minimum bend radius, the layout now
-    turns every `RowStep` rows instead of every row and says so on the
-    ticket - but nothing yet fills the rows that step skips.  The real
-    fix is what the trade calls doubling back: the rows between are
-    carried by a second interleaved pass, the same idea as a counterflow
-    spiral.  Not attempted yet.
+    is less than twice the tube's minimum bend radius (10" for 1/2"
+    PEX-B, 7 1/2" for PEX-A) the layout is laid as asked and the ticket
+    says which tube can make the turn and what to do when neither can.
+    The real fix for 6" on center is what the trade calls doubling back:
+    two interleaved passes, each turning at twice the spacing, the same
+    idea as a counterflow spiral.  Not attempted yet.
+  * **A wood floor's runs go along the outline's longest edge**, and the
+    ticket says to check that is the joist direction.  Marking which
+    edge the joists are parallel to is the same checklist the exterior
+    walls want, one row per edge - build them together.
+  * **Joins and leads keep to the wall band only on a rectangle.**  On
+    any other outline they are straight lines, and a straight line
+    through an obstacle is counted on the ticket rather than routed.
+    The general answer is a path round the obstacle's own inset outline;
+    the barn is a rectangle, so it waits.
   * Flow rate and pump sizing are deliberately not attempted - they come
     from a room-by-room heat loss calculation, which this tool does not
     do, and the ticket says so rather than guessing.

@@ -233,6 +233,25 @@ object RadiantForm: TRadiantForm
     OnChange = AnyChange
     Visible = False
   end
+  object lblRunsPerBay: TLabel
+    Left = 250
+    Height = 18
+    Top = 278
+    Width = 60
+    Caption = 'and'
+    Visible = False
+  end
+  object cbRunsPerBay: TComboBox
+    Left = 284
+    Height = 28
+    Top = 272
+    Width = 150
+    ItemHeight = 0
+    OnChange = AnyChange
+    Style = csDropDownList
+    TabOrder = 21
+    Visible = False
+  end
   object cbPlates: TCheckBox
     Left = 24
     Height = 22

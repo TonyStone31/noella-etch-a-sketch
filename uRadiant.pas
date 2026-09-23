@@ -14,19 +14,20 @@ unit uRadiant;
   where a hole in the selected face - an elevator shaft, a column, a
   chase - crosses a lane, the lane is cut around it, the way a hole
   already cuts a lane out of a face's own area everywhere else in this
-  program.  What is left is a set of short straight spans.  The tube is
-  then walked spans in the order that keeps it moving forward: from
-  wherever it is, to the nearest end of whichever span it has not yet
-  covered.  That is greedy nearest-neighbor routing, not a search over
-  every possible order - a true shortest round trip over disconnected
-  spans is the traveling salesman problem, which does not have a fast
-  exact answer for a floor with any real number of spans in it.  Greedy
-  is not blind, though: on an open floor with no obstacles it finds
-  exactly the serpentine a person would draw by hand, because the
-  nearest unwalked span is always the next row over.  Where a hole
-  breaks that up, it reaches for whichever piece is closest, which is
-  the same thing a person walking the floor with a tape measure would
-  do.
+  program.  What is left is a set of short straight spans, and those are
+  gathered into cells: a cell is a run of rows in which each span carries
+  straight on from the one below it, so a floor with a column in it has
+  a cell below the column, one either side of it, and one above.  That is
+  boustrophedon cellular decomposition, the usual answer to covering a
+  floor with things in the way.  Within a cell the tube is a plain
+  serpentine - every turn a short jog at the end of a row - and from the
+  end of one cell it goes into the nearest end of the nearest cell not yet
+  walked.  That last choice is greedy, not a search over every order: a
+  true shortest tour of the cells is the traveling salesman problem.  On
+  an open floor there is one cell and the walk is exactly the serpentine
+  a person would draw by hand.  A join between cells that would pass
+  straight through an obstacle is counted and said on the ticket rather
+  than drawn as if it were a route.
 
   A loop over 300 feet of 1/2" tube runs too much pressure drop to heat
   evenly - see uRadiantData for the whole table, by tube size.  So one
@@ -72,6 +73,7 @@ type
     UnderR: Double;
     { wood floor - staple-up or plated }
     JoistSpacing: Double;
+    RunsPerBay: Integer;      { the spacing is the bay over this, on a wood floor }
     Plates: Boolean;
     SubfloorThick: Double;
     BelowR: Double;
@@ -93,12 +95,18 @@ type
     ObstacleCount: Integer;
     TotalFt: Double;           { every loop, no waste }
     OrderFt: Double;           { with waste, rounded up }
-    { the tightest turn the layout asks the tube to make, and the tube's
-      own minimum - if Actual < Min, the spacing is tighter than the tube
-      can turn on every row, and RowStep says how many rows it actually
-      turns on instead (1 = every row) }
-    TurnActualIn, TurnMinIn: Double;
-    RowStep: Integer;
+    { the turn the layout asks of the tube at the end of every row - the
+      spacing, in inches - against what the tube can do: eight times its
+      outer diameter for PEX-B and PEX-C, six for PEX-A.  The layout is
+      laid at the spacing asked for either way; the ticket says which
+      tube can make the turn. }
+    TurnActualIn, TurnMinIn, TurnMinPexAIn: Double;
+    { how many of the joins between spans, and leads to the manifold,
+      run straight through an obstacle.  Zero on an open floor and on
+      most floors with a column or two; where it is not, those joins want
+      routing by hand, and the ticket says which count }
+    Crossings: Integer;
+    CellCount: Integer;
     Ok: Boolean;
     Why: string;
   end;
@@ -124,9 +132,9 @@ function RadiantProblem(const Outline: TP3Array; const Spec: TRadiantSpec): stri
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
   const Manifold: TP3; const Spec: TRadiantSpec): TRadiantResult;
 
-{ Writes the result into the drawing as one part per loop, soft lines on
-  their own tube-run ink, and a note on every hole that was routed
-  around.  Returns the first entity added. }
+{ Writes the result into the drawing as one part: the runs as reference
+  lines in the tube's ink, a box and a note for the manifold, and a note
+  on every hole that was routed around.  Returns the first entity added. }
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
   const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string): Integer;
 
@@ -141,6 +149,7 @@ type
     floor at sub-inch accuracy wants better than the Single precision the
     LCL's own TPointF carries for pixels }
   T2 = record X, Y: Double; end;
+  T2Array = array of T2;
   TSpan = record Lo, Hi: Double; end;
   TSpanArray = array of TSpan;
 
@@ -297,67 +306,196 @@ begin
 end;
 
 { ---------------------------------------------------------------------- }
-{ the walk: every span, in the order that keeps the tube moving forward  }
+{ the walk: cells first, then every span of each cell in turn             }
 { ---------------------------------------------------------------------- }
 
 type
-  TWalkSpan = record
-    V: Double;
-    Lo, Hi: Double;
-    { which end was walked from - so the point list comes out in order }
+  TFieldSpan = record
+    Row: Integer;          { which row, bottom to top }
+    V, Lo, Hi: Double;
+    Cell: Integer;         { which cell it belongs to, once decided }
+  end;
+  TFieldSpanArray = array of TFieldSpan;
+  TIntArray = array of Integer;
+
+{ Does the straight line from A to B pass through this polygon?  Either it
+  crosses one of the polygon's edges, or it lies wholly inside - which the
+  midpoint tells. }
+function SegCrossesPoly(const A, B: T2; const Poly: array of T2): Boolean;
+var
+  I, J, N: Integer;
+  Mid: T2;
+  Inside: Boolean;
+
+  function Orient(const P, Q, R: T2): Double;
+  begin
+    Result := (Q.X - P.X) * (R.Y - P.Y) - (Q.Y - P.Y) * (R.X - P.X);
   end;
 
-{ Greedy nearest-end routing over every span on every row, starting from
-  Start.  Returns the walk as a flat list of 2D points, and the point it
-  ended on. }
-procedure WalkSpans(const Rows: array of Double; const RowSpanList: array of TSpanArray;
-  Start: T2; var Pts: array of T2; out NPts: Integer; out EndAt: T2);
-var
-  Total, Done, I, J, BestI, BestJ: Integer;
-  Visited: array of array of Boolean;
-  Cur: T2;
-  D0, D1, BestD: Double;
-  FromLo: Boolean;
-begin
-  NPts := 0;
-  Cur := Start;
-  Total := 0;
-  SetLength(Visited, Length(Rows));
-  for I := 0 to High(Rows) do
+  function Crosses(const P1, P2, Q1, Q2: T2): Boolean;
+  var
+    D1, D2, D3, D4: Double;
   begin
-    SetLength(Visited[I], Length(RowSpanList[I]));
-    Inc(Total, Length(RowSpanList[I]));
+    D1 := Orient(Q1, Q2, P1); D2 := Orient(Q1, Q2, P2);
+    D3 := Orient(P1, P2, Q1); D4 := Orient(P1, P2, Q2);
+    Result := ((D1 > 1E-12) <> (D2 > 1E-12)) and ((D1 < -1E-12) <> (D2 < -1E-12)) and
+              ((D3 > 1E-12) <> (D4 > 1E-12)) and ((D3 < -1E-12) <> (D4 < -1E-12));
   end;
-  Done := 0;
-  while Done < Total do
+
+begin
+  Result := False;
+  N := Length(Poly);
+  if N < 3 then Exit;
+  for I := 0 to N - 1 do
+    if Crosses(A, B, Poly[I], Poly[(I + 1) mod N]) then Exit(True);
+  Mid := Point2((A.X + B.X) / 2, (A.Y + B.Y) / 2);
+  Inside := False;
+  J := N - 1;
+  for I := 0 to N - 1 do
   begin
-    BestD := 1E30; BestI := -1; BestJ := -1; FromLo := True;
-    for I := 0 to High(Rows) do
-      for J := 0 to High(RowSpanList[I]) do
-        if not Visited[I][J] then
-        begin
-          D0 := Sqr(RowSpanList[I][J].Lo - Cur.X) + Sqr(Rows[I] - Cur.Y);
-          D1 := Sqr(RowSpanList[I][J].Hi - Cur.X) + Sqr(Rows[I] - Cur.Y);
-          if D0 < BestD then begin BestD := D0; BestI := I; BestJ := J; FromLo := True; end;
-          if D1 < BestD then begin BestD := D1; BestI := I; BestJ := J; FromLo := False; end;
-        end;
-    if BestI < 0 then Break;
-    Visited[BestI][BestJ] := True;
-    Inc(Done);
-    if FromLo then
+    if ((Poly[I].Y > Mid.Y) <> (Poly[J].Y > Mid.Y)) and
+       (Mid.X < (Poly[J].X - Poly[I].X) * (Mid.Y - Poly[I].Y) / (Poly[J].Y - Poly[I].Y) + Poly[I].X) then
+      Inside := not Inside;
+    J := I;
+  end;
+  Result := Inside;
+end;
+
+{ The cells: a cell is a run of rows in which one span carries straight on
+  from the one below it - overlapping it in U, and neither of them
+  overlapping anything else.  Where a hole starts, one span becomes two
+  and both begin new cells; where it ends, two become one and that one
+  begins a new cell.  This is boustrophedon cellular decomposition, the
+  usual answer to covering a floor with obstacles in it, and it is what
+  keeps the tube from being drawn through a column: within a cell every
+  turn is a short jog at the end of a row, and a cell's boundary is
+  exactly where an obstacle's is. }
+function DecomposeCells(var Spans: TFieldSpanArray; NRows: Integer): Integer;
+var
+  I, J, K, Cells, NPrev, NNext: Integer;
+  Prev: Integer;
+  Overlap: Boolean;
+begin
+  Cells := 0;
+  for I := 0 to High(Spans) do Spans[I].Cell := -1;
+  for I := 0 to High(Spans) do
+  begin
+    { the spans on the row below that this one overlaps }
+    Prev := -1; NPrev := 0;
+    for J := 0 to High(Spans) do
+      if (Spans[J].Row = Spans[I].Row - 1) and
+         (Spans[J].Lo < Spans[I].Hi) and (Spans[J].Hi > Spans[I].Lo) then
+      begin
+        Prev := J; Inc(NPrev);
+      end;
+    if NPrev = 1 then
     begin
-      Pts[NPts] := Point2(RowSpanList[BestI][BestJ].Lo, Rows[BestI]); Inc(NPts);
-      Pts[NPts] := Point2(RowSpanList[BestI][BestJ].Hi, Rows[BestI]); Inc(NPts);
-      Cur := Pts[NPts - 1];
+      { and does that one carry on into only this span? }
+      NNext := 0;
+      for K := 0 to High(Spans) do
+        if (Spans[K].Row = Spans[I].Row) and
+           (Spans[Prev].Lo < Spans[K].Hi) and (Spans[Prev].Hi > Spans[K].Lo) then
+          Inc(NNext);
+      Overlap := NNext = 1;
     end
+    else Overlap := False;
+    if Overlap then Spans[I].Cell := Spans[Prev].Cell
     else
     begin
-      Pts[NPts] := Point2(RowSpanList[BestI][BestJ].Hi, Rows[BestI]); Inc(NPts);
-      Pts[NPts] := Point2(RowSpanList[BestI][BestJ].Lo, Rows[BestI]); Inc(NPts);
-      Cur := Pts[NPts - 1];
+      Spans[I].Cell := Cells;
+      Inc(Cells);
     end;
   end;
-  EndAt := Cur;
+  Result := Cells;
+end;
+
+{ The walk over the cells: from wherever the tube is, into the nearest
+  end of the nearest unwalked cell, serpentine through it, out the far
+  end, and on.  Each span is put out as its two ends in the order walked,
+  so the list is pairs and can be cut between any pair. }
+procedure WalkCells(const Spans: TFieldSpanArray; NCells: Integer; Start: T2;
+  const HolePoly: array of T2Array; var Pts: array of T2; out NPts: Integer);
+var
+  Members: array of TIntArray;   { each cell's spans, bottom row first }
+  Done: array of Boolean;
+  I, J, C, BestC, K, N, Cnt, H: Integer;
+  Cur: T2;
+  D, BestD: Double;
+  FromTop, FromLo, BestTop, BestLo: Boolean;
+  Sp: TFieldSpan;
+  Tmp: Integer;
+begin
+  NPts := 0;
+  SetLength(Members, NCells);
+  for I := 0 to High(Spans) do
+  begin
+    C := Spans[I].Cell;
+    SetLength(Members[C], Length(Members[C]) + 1);
+    Members[C][High(Members[C])] := I;
+  end;
+  { each cell's spans in row order - they were found in row order, but
+    say so }
+  for C := 0 to NCells - 1 do
+    for I := 1 to High(Members[C]) do
+    begin
+      K := I;
+      while (K > 0) and (Spans[Members[C][K - 1]].Row > Spans[Members[C][K]].Row) do
+      begin
+        Tmp := Members[C][K]; Members[C][K] := Members[C][K - 1]; Members[C][K - 1] := Tmp;
+        Dec(K);
+      end;
+    end;
+  SetLength(Done, NCells);
+  Cur := Start;
+  for Cnt := 1 to NCells do
+  begin
+    BestD := 1E30; BestC := -1; BestTop := False; BestLo := True;
+    for C := 0 to NCells - 1 do
+      if not Done[C] and (Length(Members[C]) > 0) then
+        for J := 0 to 3 do
+        begin
+          FromTop := J >= 2;
+          FromLo := (J mod 2) = 0;
+          if FromTop then Sp := Spans[Members[C][High(Members[C])]]
+          else Sp := Spans[Members[C][0]];
+          if FromLo then D := Sqr(Sp.Lo - Cur.X) + Sqr(Sp.V - Cur.Y)
+          else D := Sqr(Sp.Hi - Cur.X) + Sqr(Sp.V - Cur.Y);
+          { a join that would go straight through an obstacle is the last
+            resort, whatever its length: the far side of a column is near
+            as the crow flies and not as the tube runs }
+          for H := 0 to High(HolePoly) do
+            if SegCrossesPoly(Cur, Point2(IfThen(FromLo, Sp.Lo, Sp.Hi), Sp.V), HolePoly[H]) then
+            begin
+              D := D + 1E12;
+              Break;
+            end;
+          if D < BestD then
+          begin
+            BestD := D; BestC := C; BestTop := FromTop; BestLo := FromLo;
+          end;
+        end;
+    if BestC < 0 then Break;
+    Done[BestC] := True;
+    N := Length(Members[BestC]);
+    FromLo := BestLo;
+    for I := 0 to N - 1 do
+    begin
+      if BestTop then Sp := Spans[Members[BestC][N - 1 - I]]
+      else Sp := Spans[Members[BestC][I]];
+      if FromLo then
+      begin
+        Pts[NPts] := Point2(Sp.Lo, Sp.V); Inc(NPts);
+        Pts[NPts] := Point2(Sp.Hi, Sp.V); Inc(NPts);
+      end
+      else
+      begin
+        Pts[NPts] := Point2(Sp.Hi, Sp.V); Inc(NPts);
+        Pts[NPts] := Point2(Sp.Lo, Sp.V); Inc(NPts);
+      end;
+      Cur := Pts[NPts - 1];
+      FromLo := not FromLo;
+    end;
+  end;
 end;
 
 { ---------------------------------------------------------------------- }
@@ -380,6 +518,7 @@ begin
   Result.TubeDepth := 0;
   Result.UnderR := SLAB_UNDER_R_DEFAULT;
   Result.JoistSpacing := JOIST_SPACING_DEFAULT_IN * Result.Inch;
+  Result.RunsPerBay := RUNS_PER_BAY_DEFAULT;
   Result.Plates := True;
   Result.SubfloorThick := SUBFLOOR_THICK_DEFAULT_IN * Result.Inch;
   Result.BelowR := WOOD_BELOW_R_DEFAULT;
@@ -430,7 +569,22 @@ begin
   else
   begin
     if Spec.JoistSpacing <= 0 then Exit('The joist spacing has to read as a size.');
+    if (Spec.RunsPerBay < 1) or (Spec.RunsPerBay > 4) then Exit('One to four runs per bay.');
   end;
+end;
+
+{ the area of a 2D polygon, whichever way round it goes }
+function PolyArea2(const P: array of T2): Double;
+var
+  I, J: Integer;
+begin
+  Result := 0;
+  for I := 0 to High(P) do
+  begin
+    J := (I + 1) mod Length(P);
+    Result := Result + P[I].X * P[J].Y - P[J].X * P[I].Y;
+  end;
+  Result := Abs(Result) / 2;
 end;
 
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
@@ -438,41 +592,155 @@ function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3
 var
   F: TFrame;
   Poly2: array of T2;
-  HolePoly: array of array of T2;
-  I, J, K, M, Nr, Step: Integer;
-  Vmin, Vmax, V0: Double;
-  Rows: array of Double;
-  RowSpanList: array of TSpanArray;
+  HolePoly: array of T2Array;
+  I, J, K, M, Nr, NCells: Integer;
+  Vmin, Vmax, V0, V, Inset: Double;
   Outer, Cuts, HoleRow: TSpanArray;
-  EndPt, M2: T2;
+  Spans: TFieldSpanArray;
+  M2: T2;
   PtsBuf: array of T2;
   NPts: Integer;
-  Area: Double;
   MaxFt: Double;
   Cum: array of Double;
-  { the walked spans, split into loops at row boundaries }
-  procedure EmitLoop(FromIdx, ToIdx: Integer; var Loops: TRadiantLoopArray);
+  Loops: TRadiantLoopArray;
+  Start, Cur, NBreaks, Tries, LeadCrossings: Integer;
+  Target, RunningStart, Longest, Umin, Umax: Double;
+  IsRect: Boolean;
+  Join: T2Array;
+
+  function World(const P: T2): TP3;
+  begin
+    Result := From2(F, P.X, P.Y);
+  end;
+
+  { does this straight run pass through any obstacle? }
+  function ThroughAHole(const A, B: T2): Boolean;
+  var
+    H: Integer;
+  begin
+    Result := False;
+    for H := 0 to High(HolePoly) do
+      if SegCrossesPoly(A, B, HolePoly[H]) then Exit(True);
+  end;
+
+  { A lead from the manifold to where a loop starts or ends.  On a
+    rectangular floor it keeps to the band along the walls that the runs
+    already stay out of - along the manifold's own wall, then up the side
+    the run ends on - so it crosses nothing, the way a fitter runs leads.
+    On any other shape it is a straight line, and if that passes through
+    an obstacle the count on the ticket says so. }
+  function LeadPath(const T: T2): T2Array;
+  var
+    Band, Vb, Xs: Double;
+    Pts: T2Array;
+    N: Integer;
+    procedure Put(X, Y: Double);
+    begin
+      if (N > 0) and (Abs(Pts[N - 1].X - X) < 1E-9) and (Abs(Pts[N - 1].Y - Y) < 1E-9) then Exit;
+      Pts[N] := Point2(X, Y); Inc(N);
+    end;
+  begin
+    SetLength(Pts, 6);
+    N := 0;
+    Put(M2.X, M2.Y);
+    if IsRect and (Inset > 0) then
+    begin
+      Band := Inset / 2;
+      { the wall the manifold sits along, and the side the run ends on }
+      if M2.Y - Vmin < Vmax - M2.Y then Vb := Vmin + Band else Vb := Vmax - Band;
+      if T.X - Umin < Umax - T.X then Xs := Umin + Band else Xs := Umax + 0 - Band;
+      if Abs(M2.X - Xs) > Inset then
+      begin
+        Put(M2.X, Vb);
+        Put(Xs, Vb);
+      end;
+      Put(Xs, T.Y);
+    end;
+    Put(T.X, T.Y);
+    SetLength(Pts, N);
+    Result := Pts;
+  end;
+
+  { The join from the end of one span to the start of the next.  Next
+    row over, it is the jog at the end of the row and nothing more.  Any
+    further - the next cell, across the room - and on a rectangular floor
+    it goes the way a fitter would take it: out into the wall band, along
+    it, and in again, crossing no run on the way.  Elsewhere, straight. }
+  function JoinPath(const A, B: T2): T2Array;
+  var
+    Band, Vb, XsA, XsB: Double;
+    Pts: T2Array;
+    N: Integer;
+    procedure Put(X, Y: Double);
+    begin
+      if (N > 0) and (Abs(Pts[N - 1].X - X) < 1E-9) and (Abs(Pts[N - 1].Y - Y) < 1E-9) then Exit;
+      Pts[N] := Point2(X, Y); Inc(N);
+    end;
+  begin
+    SetLength(Pts, 8);
+    N := 0;
+    Put(A.X, A.Y);
+    if IsRect and (Inset > 0) and
+       (Sqr(A.X - B.X) + Sqr(A.Y - B.Y) > Sqr(1.5 * Spec.Spacing)) then
+    begin
+      Band := Inset / 2;
+      if A.X - Umin < Umax - A.X then XsA := Umin + Band else XsA := Umax - Band;
+      if B.X - Umin < Umax - B.X then XsB := Umin + Band else XsB := Umax - Band;
+      Put(XsA, A.Y);
+      if Abs(XsA - XsB) > 1E-9 then
+      begin
+        { round by whichever end wall is nearer where it starts }
+        if A.Y - Vmin < Vmax - A.Y then Vb := Vmin + Band else Vb := Vmax - Band;
+        Put(XsA, Vb);
+        Put(XsB, Vb);
+      end;
+      Put(XsB, B.Y);
+    end;
+    Put(B.X, B.Y);
+    SetLength(Pts, N);
+    Result := Pts;
+  end;
+
+  { one loop: the lead in, the walk from FromIdx to ToIdx, the lead out }
+  procedure EmitLoop(FromIdx, ToIdx: Integer);
   var
     L: TRadiantLoop;
-    N, P: Integer;
-    Pts3: TP3Array;
+    N, P, K, Q: Integer;
+    LeadIn, LeadOut, Join: T2Array;
   begin
     N := ToIdx - FromIdx + 1;
-    SetLength(Pts3, N + 2);
-    Pts3[0] := Manifold;
+    LeadIn := LeadPath(PtsBuf[FromIdx]);
+    LeadOut := LeadPath(PtsBuf[ToIdx]);
+    SetLength(L.Pts, Length(LeadIn) - 1 + N + Length(LeadOut) - 1);
+    K := 0;
+    for P := 0 to High(LeadIn) - 1 do begin L.Pts[K] := World(LeadIn[P]); Inc(K); end;
     for P := 0 to N - 1 do
-      Pts3[P + 1] := From2(F, PtsBuf[FromIdx + P].X, PtsBuf[FromIdx + P].Y);
-    Pts3[N + 1] := Manifold;
-    L.Pts := Pts3;
+    begin
+      { between the end of one span and the start of the next, the join's
+        own way round }
+      if (P > 0) and (P mod 2 = 0) then
+      begin
+        Join := JoinPath(PtsBuf[FromIdx + P - 1], PtsBuf[FromIdx + P]);
+        for Q := 1 to High(Join) - 1 do
+        begin
+          SetLength(L.Pts, Length(L.Pts) + 1);
+          L.Pts[K] := World(Join[Q]); Inc(K);
+        end;
+      end;
+      L.Pts[K] := World(PtsBuf[FromIdx + P]); Inc(K);
+    end;
+    for P := High(LeadOut) - 1 downto 0 do begin L.Pts[K] := World(LeadOut[P]); Inc(K); end;
     L.LenFt := 0;
-    for P := 1 to High(Pts3) do L.LenFt := L.LenFt + Dist(Pts3[P - 1], Pts3[P]);
+    for P := 1 to High(L.Pts) do L.LenFt := L.LenFt + Dist(L.Pts[P - 1], L.Pts[P]);
+    { the legs of both leads, against the obstacles }
+    for P := 1 to High(LeadIn) do
+      if ThroughAHole(LeadIn[P - 1], LeadIn[P]) then Inc(LeadCrossings);
+    for P := 1 to High(LeadOut) do
+      if ThroughAHole(LeadOut[P - 1], LeadOut[P]) then Inc(LeadCrossings);
     SetLength(Loops, Length(Loops) + 1);
     Loops[High(Loops)] := L;
   end;
-var
-  Loops: TRadiantLoopArray;
-  Start, Cur, NBreaks: Integer;
-  Target, RunningStart: Double;
+
 begin
   Result := Default(TRadiantResult);
   Result.Manifold := Manifold;
@@ -482,12 +750,19 @@ begin
 
   F := FrameOf(Outline);
   SetLength(Poly2, Length(Outline));
-  Vmin := 1E30; Vmax := -1E30;
+  Vmin := 1E30; Vmax := -1E30; Umin := 1E30; Umax := -1E30;
   for I := 0 to High(Outline) do
   begin
     Poly2[I] := To2(F, Outline[I]);
     Vmin := Min(Vmin, Poly2[I].Y); Vmax := Max(Vmax, Poly2[I].Y);
+    Umin := Min(Umin, Poly2[I].X); Umax := Max(Umax, Poly2[I].X);
   end;
+  { a rectangle: four corners, each on two of the four bounds }
+  IsRect := Length(Poly2) = 4;
+  for I := 0 to High(Poly2) do
+    if IsRect then
+      IsRect := ((Abs(Poly2[I].X - Umin) < 1E-6) or (Abs(Poly2[I].X - Umax) < 1E-6)) and
+                ((Abs(Poly2[I].Y - Vmin) < 1E-6) or (Abs(Poly2[I].Y - Vmax) < 1E-6));
   SetLength(HolePoly, Length(Holes));
   for I := 0 to High(Holes) do
   begin
@@ -496,57 +771,51 @@ begin
   end;
   Result.ObstacleCount := Length(Holes);
 
-  { the tube's own turning limit, worked in inches - a U-turn's two legs
-    have to be at least twice the minimum bend radius apart, or the tube
-    kinks.  Where the spacing is tighter than that, the tube can still be
-    laid at that spacing, it just cannot turn on every row - it turns
-    every RowStep rows instead, the rows between carried by another loop
-    or another pass, which this first version does not yet lay out; see
-    the note this puts on the ticket. }
-  Result.TurnMinIn := 2 * TubeOf(Spec.Tube).MinBendIn;
-  Result.TurnActualIn := Spec.Spacing / Spec.Inch;
-  Step := 1;
-  while (Step < 8) and (Result.TurnActualIn * Step < Result.TurnMinIn) do Inc(Step);
-  Result.RowStep := Step;
+  { the floor's real area, less its holes - what the ticket calls covered }
+  Result.AreaSqFt := PolyArea2(Poly2);
+  for I := 0 to High(HolePoly) do Result.AreaSqFt := Result.AreaSqFt - PolyArea2(HolePoly[I]);
 
-  Nr := Max(1, Round((Vmax - Vmin) / (Spec.Spacing * Step)));
-  V0 := Vmin + ((Vmax - Vmin) - (Nr - 1) * Spec.Spacing * Step) / 2;
-  SetLength(Rows, 0);
-  SetLength(RowSpanList, 0);
-  Area := 0;
+  { the turn at the end of every row is the spacing; whether the tube can
+    make it is said on the ticket, not decided here }
+  Result.TurnActualIn := Spec.Spacing / Spec.Inch;
+  Result.TurnMinIn := 2 * TubeOf(Spec.Tube).MinBendIn;
+  Result.TurnMinPexAIn := 2 * TubeOf(Spec.Tube).OdIn * 6;
+
+  { rows at the spacing, kept a hand's width off every wall - the same
+    inset at the row ends as at the first and last row }
+  Inset := EDGE_INSET_IN * Spec.Inch;
+  if (Vmax - Vmin) < 2 * Inset + Spec.Spacing then Inset := Max(0, ((Vmax - Vmin) - Spec.Spacing) / 2);
+  Nr := Max(1, Floor(((Vmax - Vmin) - 2 * Inset) / Spec.Spacing) + 1);
+  V0 := Vmin + Inset + (((Vmax - Vmin) - 2 * Inset) - (Nr - 1) * Spec.Spacing) / 2;
+  SetLength(Spans, 0);
   for I := 0 to Nr - 1 do
   begin
-    Outer := RowSpans(Poly2, V0 + I * Spec.Spacing * Step);
+    V := V0 + I * Spec.Spacing;
+    Outer := RowSpans(Poly2, V);
     if Length(Outer) = 0 then Continue;
     SetLength(Cuts, 0);
     for J := 0 to High(HolePoly) do
     begin
-      HoleRow := RowSpans(HolePoly[J], V0 + I * Spec.Spacing * Step);
+      HoleRow := RowSpans(HolePoly[J], V);
       K := Length(Cuts);
       SetLength(Cuts, K + Length(HoleRow));
+      { the inset off an obstacle is the same one taken off every span's
+        ends below, so the cut itself is the hole's own width }
       for M := 0 to High(HoleRow) do Cuts[K + M] := HoleRow[M];
     end;
-    { Cuts is not necessarily sorted once more than one hole crosses this
-      row; Subtract only needs each individual cut's own span to be right,
-      not the whole list ordered, so it is left as it is }
     Outer := Subtract(Outer, Cuts);
     for J := 0 to High(Outer) do
-      if Outer[J].Hi - Outer[J].Lo > 6 * Spec.Inch then
+      if (Outer[J].Hi - Inset) - (Outer[J].Lo + Inset) > 6 * Spec.Inch then
       begin
-        SetLength(Rows, Length(Rows) + 1);
-        SetLength(RowSpanList, Length(RowSpanList) + 1);
-        Rows[High(Rows)] := V0 + I * Spec.Spacing * Step;
-        SetLength(RowSpanList[High(RowSpanList)], 1);
-        RowSpanList[High(RowSpanList)][0] := Outer[J];
-        Area := Area + (Outer[J].Hi - Outer[J].Lo) * Spec.Spacing * Step;
+        SetLength(Spans, Length(Spans) + 1);
+        Spans[High(Spans)].Row := I;
+        Spans[High(Spans)].V := V;
+        Spans[High(Spans)].Lo := Outer[J].Lo + Inset;
+        Spans[High(Spans)].Hi := Outer[J].Hi - Inset;
       end;
   end;
-  Result.RowCount := Length(Rows);
-  { Area was accumulated in world units squared, which is already what
-    FormatArea wants }
-  Result.AreaSqFt := Area;
-
-  if Length(Rows) = 0 then
+  Result.RowCount := Nr;
+  if Length(Spans) = 0 then
   begin
     Result.Ok := False;
     Result.Why := 'Nothing is left to run tube through - check the obstacles ' +
@@ -554,43 +823,68 @@ begin
     Exit;
   end;
 
+  NCells := DecomposeCells(Spans, Nr);
+  Result.CellCount := NCells;
   M2 := To2(F, Manifold);
-  SetLength(PtsBuf, Result.RowCount * 4 + 4);
-  WalkSpans(Rows, RowSpanList, M2, PtsBuf, NPts, EndPt);
+  SetLength(PtsBuf, Length(Spans) * 2);
+  WalkCells(Spans, NCells, M2, HolePoly, PtsBuf, NPts);
 
-  { the walk's own running length, at each point, so it can be cut into
-    loops at row boundaries close to an even share of the whole }
+  { the walk's running length at each point - a join between spans
+    measured the way it will be run, not as the crow flies - so it can be
+    cut into loops at span ends close to an even share of the whole.  And
+    every leg of every join against the obstacles: a join that passes
+    through a column is not a route, and the ticket says how many }
+  Result.Crossings := 0;
   SetLength(Cum, NPts);
-  Cum[0] := Dist(Manifold, From2(F, PtsBuf[0].X, PtsBuf[0].Y));
+  Cum[0] := 0;
   for I := 1 to NPts - 1 do
-    Cum[I] := Cum[I - 1] + Dist(From2(F, PtsBuf[I - 1].X, PtsBuf[I - 1].Y),
-      From2(F, PtsBuf[I].X, PtsBuf[I].Y));
-  { the maximum, in world units (feet) - both Spec.MaxLoopFt and the
-    table's figure already are }
+    if I mod 2 = 0 then
+    begin
+      Join := JoinPath(PtsBuf[I - 1], PtsBuf[I]);
+      Cum[I] := Cum[I - 1];
+      for J := 1 to High(Join) do
+      begin
+        Cum[I] := Cum[I] + Dist(World(Join[J - 1]), World(Join[J]));
+        if ThroughAHole(Join[J - 1], Join[J]) then Inc(Result.Crossings);
+      end;
+    end
+    else
+      Cum[I] := Cum[I - 1] + Dist(World(PtsBuf[I - 1]), World(PtsBuf[I]));
   MaxFt := Spec.MaxLoopFt;
   if MaxFt <= 0 then MaxFt := TubeOf(Spec.Tube).MaxLoopFt;
 
-  NBreaks := Max(1, Ceil((Cum[NPts - 1] + Dist(From2(F, PtsBuf[NPts - 1].X, PtsBuf[NPts - 1].Y),
-    Manifold)) / MaxFt));
-  SetLength(Loops, 0);
-  Start := 0;
-  RunningStart := 0;
-  for I := 1 to NBreaks do
+  { Each piece gets its own two leads to the manifold, and those count.
+    So: cut, measure, and if any piece is still over, cut one more way
+    and try again. }
+  NBreaks := Max(1, Ceil((Cum[NPts - 1] + Dist(Manifold, World(PtsBuf[0])) +
+    Dist(World(PtsBuf[NPts - 1]), Manifold)) / MaxFt));
+  for Tries := 1 to 64 do
   begin
-    Target := RunningStart + (Cum[NPts - 1] - RunningStart) / (NBreaks - I + 1);
-    Cur := Start;
-    { snap to the nearest even point - point pairs are span ends, so
-      cutting on an odd index would leave one end of a span stranded }
-    while (Cur < NPts - 1) and ((Cur mod 2 = 1) or (Cum[Cur] < Target)) do Inc(Cur);
-    if Cur >= NPts then Cur := NPts - 1;
-    if Cur mod 2 = 1 then Dec(Cur);
-    if I = NBreaks then Cur := NPts - 1;
-    if Cur < Start then Cur := Start;
-    EmitLoop(Start, Cur, Loops);
-    RunningStart := Cum[Cur];
-    Start := Cur + 1;
-    if Start >= NPts then Break;
+    SetLength(Loops, 0);
+    LeadCrossings := 0;
+    Start := 0;
+    RunningStart := 0;
+    for I := 1 to NBreaks do
+    begin
+      Target := RunningStart + (Cum[NPts - 1] - RunningStart) / (NBreaks - I + 1);
+      Cur := Start;
+      { only ever between pairs: a pair is a span, and a span is walked
+        whole }
+      while (Cur < NPts - 1) and ((Cur mod 2 = 0) or (Cum[Cur] < Target)) do Inc(Cur);
+      if Cur mod 2 = 0 then Dec(Cur);
+      if Cur < Start + 1 then Cur := Start + 1;
+      if (I = NBreaks) or (Cur >= NPts - 1) then Cur := NPts - 1;
+      EmitLoop(Start, Cur);
+      RunningStart := Cum[Cur];
+      Start := Cur + 1;
+      if Start >= NPts then Break;
+    end;
+    Longest := 0;
+    for I := 0 to High(Loops) do Longest := Max(Longest, Loops[I].LenFt);
+    if (Longest <= MaxFt) or (NBreaks >= NPts div 2) then Break;
+    Inc(NBreaks);
   end;
+  Inc(Result.Crossings, LeadCrossings);
   Result.Loops := Loops;
   Result.TotalFt := 0;
   for I := 0 to High(Loops) do Result.TotalFt := Result.TotalFt + Loops[I].LenFt;
@@ -602,16 +896,23 @@ function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array o
 var
   I, J, G: Integer;
   Mid: TP3;
+  F: TFrame;
+  W, H: Double;
+  C: array[0..3] of TP3;
 begin
   Result := D.Live;
   G := D.NewPart(PartName, 0);
   D.Stamp := G;
+  { The runs are reference lines - Heck's "ref = true", the kind a
+    dimension's own line is.  They draw in full, in the tube's ink, and
+    the region finder leaves them alone: a hard line would close faces
+    with the floor's edges (a serpentine and its leads is one long closed
+    loop), and a soft one is hidden wherever it is not the edge of a face,
+    which on a flat floor is everywhere - the first build had them
+    invisible for exactly that reason. }
   for I := 0 to High(R.Loops) do
     for J := 1 to High(R.Loops[I].Pts) do
-    begin
-      D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], Ink, 1, False);
-      D.SetSoft(D.Live - 1, True);
-    end;
+      D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], Ink, 2, True);
   for I := 0 to High(Holes) do
     if Length(Holes[I]) > 0 then
     begin
@@ -621,6 +922,19 @@ begin
           Mid.Z + Holes[I][J].Z / Length(Holes[I]));
       D.AddNote(P3(Mid.X, Mid.Y, Mid.Z), Mid, 'no tube - obstacle', Ink);
     end;
+  { the manifold: a small box on the floor where it sits, square to the
+    outline's own frame, hard-edged so it reads as a thing and not a run }
+  F := FrameOf(Outline);
+  if (Spec.ManifoldW > 0) and (Spec.ManifoldH > 0) then
+  begin
+    W := Spec.ManifoldW / 2; H := Spec.ManifoldH / 2;
+    C[0] := P3(R.Manifold.X - F.U.X * W - F.V.X * H, R.Manifold.Y - F.U.Y * W - F.V.Y * H, R.Manifold.Z - F.U.Z * W - F.V.Z * H);
+    C[1] := P3(R.Manifold.X + F.U.X * W - F.V.X * H, R.Manifold.Y + F.U.Y * W - F.V.Y * H, R.Manifold.Z + F.U.Z * W - F.V.Z * H);
+    C[2] := P3(R.Manifold.X + F.U.X * W + F.V.X * H, R.Manifold.Y + F.U.Y * W + F.V.Y * H, R.Manifold.Z + F.U.Z * W + F.V.Z * H);
+    C[3] := P3(R.Manifold.X - F.U.X * W + F.V.X * H, R.Manifold.Y - F.U.Y * W + F.V.Y * H, R.Manifold.Z - F.U.Z * W + F.V.Z * H);
+    for I := 0 to 3 do D.AddLine(C[I], C[(I + 1) mod 4], Ink, 1, False);
+    D.AddNote(C[2], R.Manifold, 'manifold - ' + IntToStr(Length(R.Loops)) + ' loops', Ink);
+  end;
   D.Stamp := 0;
 end;
 
@@ -662,10 +976,23 @@ begin
   Result := Result + 'ties or staples (estimate, every ' + FormatFloat('0', TIE_SPACING_IN) +
     '"): about ' + IntToStr(Ties) + LineEnding;
   Result := Result + 'manifold ports needed: ' + IntToStr(Length(R.Loops)) + LineEnding;
-  if R.TurnActualIn < R.TurnMinIn then
-    Result := Result + Format('note: at %s" on center this tube cannot turn every row - ' +
-      'it needs %s" to bend, so it turns every %d rows instead', [FormatFloat('0.#', R.TurnActualIn),
-      FormatFloat('0.#', R.TurnMinIn), R.RowStep]) + LineEnding;
+  { the turn at the end of a row is the spacing.  PEX-B and PEX-C bend to
+    eight times their outer diameter, PEX-A to six; say which can make
+    this turn, and what to do when neither can }
+  if R.TurnActualIn < R.TurnMinPexAIn then
+    Result := Result + Format('note: the %s" turn at the end of each row is tighter than ' +
+      'this tube bends - PEX-A needs %s", PEX-B and PEX-C %s".  Double back (two ' +
+      'interleaved passes, turning at %s") or widen the spacing.',
+      [FormatFloat('0.#', R.TurnActualIn), FormatFloat('0.#', R.TurnMinPexAIn),
+       FormatFloat('0.#', R.TurnMinIn), FormatFloat('0.#', 2 * R.TurnActualIn)]) + LineEnding
+  else if R.TurnActualIn < R.TurnMinIn then
+    Result := Result + Format('note: the %s" turn at the end of each row is fine for PEX-A ' +
+      '(%s" minimum) but tighter than PEX-B or PEX-C bend (%s").',
+      [FormatFloat('0.#', R.TurnActualIn), FormatFloat('0.#', R.TurnMinPexAIn),
+       FormatFloat('0.#', R.TurnMinIn)]) + LineEnding;
+  if R.Crossings > 0 then
+    Result := Result + Format('WARNING: %d join(s) between runs, or leads, pass straight ' +
+      'through an obstacle - route those by hand.', [R.Crossings]) + LineEnding;
   if Spec.Floor = rfSlab then
   begin
     Result := Result + LineEnding + 'SLAB' + LineEnding;
@@ -677,7 +1004,10 @@ begin
   else
   begin
     Result := Result + LineEnding + 'WOOD FLOOR' + LineEnding;
-    Result := Result + 'joist spacing: ' + FormatFloat('0.##', Spec.JoistSpacing / Spec.Inch) + '"' + LineEnding;
+    Result := Result + 'joist spacing: ' + FormatFloat('0.##', Spec.JoistSpacing / Spec.Inch) +
+      '", ' + IntToStr(Spec.RunsPerBay) + ' run(s) per bay' + LineEnding;
+    Result := Result + 'runs are laid along the outline''s longest edge - check that is ' +
+      'the way the joists run' + LineEnding;
     Result := Result + 'transfer plates: ' + IfThen(Spec.Plates, 'yes', 'no - bare staple-up') + LineEnding;
     Result := Result + 'subfloor: ' + FormatFloat('0.##', Spec.SubfloorThick / Spec.Inch) + '"' + LineEnding;
     Result := Result + 'insulation below: R-' + FormatFloat('0', Spec.BelowR) + ' minimum' + LineEnding;
