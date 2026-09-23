@@ -52,6 +52,7 @@ uses
   Dialogs, ExtCtrls, StdCtrls, Menus, LCLType, LCLIntf, Printers, PrintersDlgs, Contnrs,
   uSurface, uSkin, uCube, uDlgSkin, uShoot, uRecord, uExport, uExample, uExamples, uWork, uSplash, uSysInfo, uTouch, uRegion, uUpdate, uUpdateForm, uWhatsNew, uPaths,
   uReport, uNet, uUnfold, uFlatView, uBore, uSendForm, uSourceView, uHello, uFormat2, uHeck, uJig, uJigFiles, uFittings, uTransition, uSpool, uPipe,
+  uRadiantData, uRadiant, uRadiantDlg,
   InkPage;
 
 type
@@ -1096,6 +1097,7 @@ type
     procedure ShowWhatsNew;
     procedure BuildTransitionWizard;
     procedure BuildSpoolWizard;
+    procedure BuildRadiantWizard;
     function ArcNormal(I: Integer): TP3;
     procedure DoRevolve(const AxisP, AxisDir: TP3; PathArc: Integer = -1);
     function IsProfileEdge(I: Integer): Boolean;
@@ -1516,7 +1518,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..82] of TCmdItem = (
+  CMD_LIST: array[0..83] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1579,6 +1581,7 @@ const
     (Name: 'protractor'; Hint: 'lay a guide at an angle';               Arg: False; Eg: ''; Also: 'angle'),
     (Name: 'push';       Hint: 'push or pull a face';                   Arg: False; Eg: ''; Also: 'pull pushpull p'),
     (Name: 'quick';      Hint: 'quick frames while the camera moves';   Arg: False),
+    (Name: 'radiant';    Hint: 'lay radiant tube out over the selected floor'; Arg: False; Eg: ''; Also: 'pex hydronic'),
     (Name: 'rebuild';    Hint: 'work the faces out again';              Arg: False),
     (Name: 'rect';       Hint: 'the rectangle tool';                    Arg: False; Eg: ''; Also: 'rectangle r'),
     (Name: 'redo';       Hint: 'put back what was undone';              Arg: False),
@@ -9945,6 +9948,55 @@ begin
   PlaceBuilt(First, P3(0, 0, 0));
 end;
 
+{ The radiant heat layout wizard.  Unlike a fitting or a spool it is not
+  built at the origin and moved into place - it fills the floor that is
+  already selected, exactly where that floor is, so nothing is placed
+  afterward; the new lines are simply selected, the way a push or a pull
+  leaves its own result selected. }
+procedure TMainForm.BuildRadiantWizard;
+var
+  Outline: TP3Array;
+  Holes: array of TP3Array;
+  I, First: Integer;
+  Spec: TRadiantSpec;
+  R: TRadiantResult;
+  M: TP3;
+begin
+  if (Length(FSel) <> 1) or (FD.Doc[FSel[0]].Kind <> ekFace) then
+  begin
+    FCmdMsg := 'Select the floor - one face, a rectangle or any shape - and run this again.';
+    pbCmd.Invalidate;
+    Exit;
+  end;
+  Outline := FD.Doc[FSel[0]].Poly;
+  SetLength(Holes, Length(FD.Doc[FSel[0]].Holes));
+  for I := 0 to High(Holes) do Holes[I] := FD.Doc[FSel[0]].Holes[I];
+  if not TRadiantForm.Ask(FD.Units, Outline, Holes, Spec) then Exit;
+  { the corner and the two offsets are the dialog's; the point itself is
+    worked out fresh here rather than carried across, since it is cheap
+    and this keeps the dialog from having to export a second function }
+  M := RadiantManifoldPoint(Outline, Spec);
+  R := ComputeRadiantLayout(Outline, Holes, M, Spec);
+  if not R.Ok then
+  begin
+    FCmdMsg := 'The layout did not build - ' + R.Why;
+    pbCmd.Invalidate;
+    Exit;
+  end;
+  PushUndo;
+  First := BuildRadiant(FD.Doc, Outline, Holes, R, Spec, FInkColor,
+    IfThen(Spec.Tag <> '', Spec.Tag, 'Radiant'));
+  SeedRegions;
+  RenderPro;
+  RecomposeAll;
+  SelectNone;
+  for I := First to FD.Doc.Live - 1 do SelectAdd(I);
+  FCmdMsg := Format('Radiant layout built: %d loop(s), %s.',
+    [Length(R.Loops), FormatLen(R.TotalFt, FD.Units)]);
+  pbScreen.Invalidate;
+  pbCmd.Invalidate;
+end;
+
 { Copy, cut and paste.
 
   From a note: "we need to be able to copy and paste a selection and copy and paste
@@ -15243,6 +15295,7 @@ begin
   else if (W = 'whatsnew') or (W = 'changes') then ShowWhatsNew
   else if (W = 'transition') or (W = 'trans') or (W = 'fitting') or (W = 'elbow') or (W = 'tee') then BuildTransitionWizard
   else if (W = 'spool') or (W = 'pipe') or (W = 'scratchpad') then BuildSpoolWizard
+  else if (W = 'radiant') or (W = 'pex') or (W = 'hydronic') then BuildRadiantWizard
   else if W = 'rendertime' then RenderTiming
   else if W = 'quick' then
   begin
@@ -17471,7 +17524,7 @@ begin
     POP_COLOR: Result := Length(PALETTE) + 1;
     POP_WIDTH: Result := PEN_STEPS;
     POP_HELP: Result := 7;
-    POP_SHOP: Result := 3;
+    POP_SHOP: Result := 4;
     POP_PREC: Result := Length(PREC_DENOMS);
     POP_MORE: Result := Length(MORE_TOOLS);
     POP_CMDS: Result := Length(CMD_LIST);
@@ -17494,6 +17547,7 @@ begin
         0: Result := 'Lay a selection out flat(incomplete)';
         1: Result := 'Build a duct fitting...';
         2: Result := 'Fitter''s ISO spool scratchpad';
+        3: Result := 'Radiant heat layout...';
       else
         Result := '';
       end;
@@ -17544,6 +17598,7 @@ begin
         0: StartUnfold;
         1: BuildTransitionWizard;
         2: BuildSpoolWizard;
+        3: BuildRadiantWizard;
       end;
     POP_PREC: SetLenPrecision(PREC_DENOMS[EnsureRange(I, 0, High(PREC_DENOMS))]);
     POP_MORE:

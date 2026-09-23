@@ -229,6 +229,69 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Radiant heat layout - the first version is in, 23 September, for a
+  real job (a barn) that needs it now.**  `uRadiantData.pas` carries the
+  sourced numbers - max loop length and minimum bend radius by tube size,
+  the 6"-12" spacing range, slab and staple-up defaults - gathered that
+  day and cited in its own header.  `uRadiant.pas` is the router: the
+  floor is cut into rows at the spacing, a hole already cut into the
+  selected face (an elevator shaft, a column) removes itself from every
+  row it crosses the way it already does for a face's own area, and the
+  tube is walked span to span by nearest-end greedy routing - a coverage
+  path, the family a lawnmower or a crop sprayer's routing belongs to,
+  not a search over every possible order.  One long walk of the whole
+  floor is then cut into loops at row boundaries, sized under the tube's
+  maximum and close to even with each other.  `uRadiantDlg.pas` is the
+  wizard, built the way the transition and spool ones are - plain
+  controls, no special skin, a live plan and a live material list beside
+  the numbers.  Proved end to end 23 September: drawn, selected, laid
+  out, built, and the source window read back a clean serpentine of
+  soft lines with exactly the length the ticket promised.
+
+  What was talked through but is not built yet:
+
+  * **Denser spacing along exterior walls.**  Confirmed 23 September as
+    real, common practice, not just an instinct: the coldest water is
+    kept nearest the coldest wall, run at 6" on center for the first few
+    passes before opening up to field spacing: "the warmest water is
+    sent to the perimeter of the outside wall first and returned at six
+    inches on center for the first four runs... before the spacing can
+    be widened to nine inches or beyond" - and "a 6-inch edge band along
+    exterior walls with 12-inch spacing in the middle often beats a
+    uniform 9 inches for the same tubing budget."  The shape of it: mark
+    which of the outline's own edges are exterior walls (a checklist,
+    one row per edge, since the geometry alone cannot tell a real
+    exterior wall from an edge that only happens to be this floor's
+    boundary), and the loop runs close to those marked edges at a
+    tighter spacing for the first few passes before it opens up to the
+    field spacing everywhere else - which is the same shape the
+    manifold's own leads already are, tight passes near the start of
+    the loop, not a separate circuit.
+  * **Circle it and reroute.**  The idea, from the same conversation: a
+    layout that looks wrong in one place should not have to be thrown
+    out whole.  `ComputeRadiantLayout` already takes any number of
+    holes and does not care whether they are real - so a rectangle
+    dragged on the plan preview, kept only in the dialog and never
+    written to the sheet unless Build is pressed with it still there,
+    is a temporary obstacle the same function already knows how to
+    route around.  What is missing is the dragging itself: a mouse-down,
+    drag, mouse-up on `pbPlan`, and a "clear marks" button.
+  * **Picking the manifold on the sheet.**  Today it is a corner of the
+    outline plus two typed offsets.  A true "click the spot" picker
+    wants the wizard to run alongside the sheet rather than in front of
+    it, the way the source window does - `FTextPick`/`SourcePick` is
+    the precedent to follow, not a new mechanism.
+  * **Tight spacing that cannot turn on every row.**  Where the spacing
+    is less than twice the tube's minimum bend radius, the layout now
+    turns every `RowStep` rows instead of every row and says so on the
+    ticket - but nothing yet fills the rows that step skips.  The real
+    fix is what the trade calls doubling back: the rows between are
+    carried by a second interleaved pass, the same idea as a counterflow
+    spiral.  Not attempted yet.
+  * Flow rate and pump sizing are deliberately not attempted - they come
+    from a room-by-room heat loss calculation, which this tool does not
+    do, and the ticket says so rather than guessing.
+
 * **Fabric on the mannequin.**  22 September: the program's first
   customer asked for the thing it was started for - to draw fabric, with
   patterns, and have it wave.  A mannequin is the first step and it is

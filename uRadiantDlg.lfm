@@ -1,0 +1,447 @@
+object RadiantForm: TRadiantForm
+  Left = 300
+  Height = 760
+  Top = 120
+  Width = 980
+  BorderStyle = bsDialog
+  Caption = 'Lay out the radiant tube'
+  ClientHeight = 760
+  ClientWidth = 980
+  Position = poMainFormCenter
+  OnCreate = FormCreate
+  OnShow = FormShow
+  object lblTitle: TLabel
+    Left = 24
+    Height = 24
+    Top = 16
+    Width = 400
+    Caption = 'Radiant heat layout'
+    Font.Height = -17
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblUnits: TLabel
+    Left = 24
+    Height = 18
+    Top = 44
+    Width = 460
+    Caption = 'Filling the selected floor - sizes in inches unless a foot mark says otherwise.'
+    Font.Color = clGrayText
+    ParentFont = False
+  end
+  object rgFloor: TRadioGroup
+    Left = 24
+    Height = 46
+    Top = 76
+    Width = 420
+    AutoFill = True
+    Caption = 'Floor'
+    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
+    ChildSizing.EnlargeVertical = crsHomogenousChildResize
+    ChildSizing.ShrinkHorizontal = crsScaleChilds
+    ChildSizing.ShrinkVertical = crsScaleChilds
+    ChildSizing.Layout = cclLeftToRightThenTopToBottom
+    ChildSizing.ControlsPerLine = 2
+    Columns = 2
+    ItemIndex = 0
+    Items.Strings = (
+      'Concrete slab'
+      'Wood floor - joists'
+    )
+    OnClick = FloorChange
+    TabOrder = 0
+  end
+  object lblTube: TLabel
+    Left = 24
+    Height = 18
+    Top = 134
+    Width = 60
+    Caption = 'Tube'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object cbTube: TComboBox
+    Left = 100
+    Height = 28
+    Top = 128
+    Width = 150
+    ItemHeight = 0
+    OnChange = AnyChange
+    Style = csDropDownList
+    TabOrder = 1
+  end
+  object lblSpacing: TLabel
+    Left = 270
+    Height = 18
+    Top = 134
+    Width = 110
+    Caption = 'Spacing, on center'
+  end
+  object edSpacing: TEdit
+    Left = 388
+    Height = 28
+    Top = 128
+    Width = 56
+    TabOrder = 2
+    Text = '9'
+    OnChange = AnyChange
+  end
+  object lblSpacingIn: TLabel
+    Left = 448
+    Height = 18
+    Top = 134
+    Width = 12
+    Caption = 'in'
+  end
+  object lblMaxLoop: TLabel
+    Left = 24
+    Height = 18
+    Top = 170
+    Width = 130
+    Caption = 'Maximum loop length'
+  end
+  object edMaxLoop: TEdit
+    Left = 170
+    Height = 28
+    Top = 164
+    Width = 70
+    TabOrder = 3
+    OnChange = AnyChange
+  end
+  object lblMaxLoopHint: TLabel
+    Left = 250
+    Height = 18
+    Top = 170
+    Width = 220
+    Caption = 'blank uses the tube''s own maximum'
+    Font.Color = clGray
+    ParentFont = False
+  end
+  object lblWaste: TLabel
+    Left = 24
+    Height = 18
+    Top = 206
+    Width = 90
+    Caption = 'Waste on the coil'
+  end
+  object edWaste: TEdit
+    Left = 170
+    Height = 28
+    Top = 200
+    Width = 56
+    TabOrder = 4
+    Text = '10'
+    OnChange = AnyChange
+  end
+  object lblWastePct: TLabel
+    Left = 230
+    Height = 18
+    Top = 206
+    Width = 12
+    Caption = '%'
+  end
+  object lblSlabHead: TLabel
+    Left = 24
+    Height = 18
+    Top = 246
+    Width = 200
+    Caption = 'Slab'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblSlabThick: TLabel
+    Left = 24
+    Height = 18
+    Top = 278
+    Width = 90
+    Caption = 'Thickness'
+  end
+  object edSlabThick: TEdit
+    Left = 170
+    Height = 28
+    Top = 272
+    Width = 70
+    TabOrder = 5
+    Text = '4'
+    OnChange = AnyChange
+  end
+  object lblTubeDepth: TLabel
+    Left = 24
+    Height = 18
+    Top = 314
+    Width = 90
+    Caption = 'Tube depth'
+  end
+  object edTubeDepth: TEdit
+    Left = 170
+    Height = 28
+    Top = 308
+    Width = 70
+    TabOrder = 6
+    OnChange = AnyChange
+  end
+  object lblTubeDepthHint: TLabel
+    Left = 250
+    Height = 18
+    Top = 314
+    Width = 170
+    Caption = 'blank centers it in the pour'
+    Font.Color = clGray
+    ParentFont = False
+  end
+  object lblUnderR: TLabel
+    Left = 24
+    Height = 18
+    Top = 350
+    Width = 130
+    Caption = 'Insulation under it, R-'
+  end
+  object edUnderR: TEdit
+    Left = 170
+    Height = 28
+    Top = 344
+    Width = 56
+    TabOrder = 7
+    Text = '15'
+    OnChange = AnyChange
+  end
+  object lblJoistHead: TLabel
+    Left = 24
+    Height = 18
+    Top = 246
+    Width = 200
+    Caption = 'Wood floor'
+    Font.Style = [fsBold]
+    ParentFont = False
+    Visible = False
+  end
+  object lblJoist: TLabel
+    Left = 24
+    Height = 18
+    Top = 278
+    Width = 100
+    Caption = 'Joist spacing'
+    Visible = False
+  end
+  object edJoist: TEdit
+    Left = 170
+    Height = 28
+    Top = 272
+    Width = 70
+    TabOrder = 8
+    Text = '16'
+    OnChange = AnyChange
+    Visible = False
+  end
+  object cbPlates: TCheckBox
+    Left = 24
+    Height = 22
+    Top = 310
+    Width = 300
+    Caption = 'Aluminum transfer plates'
+    Checked = True
+    State = cbChecked
+    OnChange = AnyChange
+    TabOrder = 9
+    Visible = False
+  end
+  object lblSubfloor: TLabel
+    Left = 24
+    Height = 18
+    Top = 344
+    Width = 90
+    Caption = 'Subfloor'
+    Visible = False
+  end
+  object edSubfloor: TEdit
+    Left = 170
+    Height = 28
+    Top = 338
+    Width = 70
+    TabOrder = 10
+    Text = '3/4'
+    OnChange = AnyChange
+    Visible = False
+  end
+  object lblBelowR: TLabel
+    Left = 24
+    Height = 18
+    Top = 380
+    Width = 130
+    Caption = 'Insulation below it, R-'
+    Visible = False
+  end
+  object edBelowR: TEdit
+    Left = 170
+    Height = 28
+    Top = 374
+    Width = 56
+    TabOrder = 11
+    Text = '19'
+    OnChange = AnyChange
+    Visible = False
+  end
+  object lblManifoldHead: TLabel
+    Left = 24
+    Height = 18
+    Top = 420
+    Width = 200
+    Caption = 'Manifold'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblCorner: TLabel
+    Left = 24
+    Height = 18
+    Top = 452
+    Width = 60
+    Caption = 'At corner'
+  end
+  object cbCorner: TComboBox
+    Left = 100
+    Height = 28
+    Top = 446
+    Width = 220
+    ItemHeight = 0
+    OnChange = AnyChange
+    Style = csDropDownList
+    TabOrder = 12
+  end
+  object lblInAlong: TLabel
+    Left = 24
+    Height = 18
+    Top = 488
+    Width = 110
+    Caption = 'In, along one edge'
+  end
+  object edInAlong: TEdit
+    Left = 170
+    Height = 28
+    Top = 482
+    Width = 70
+    TabOrder = 13
+    Text = '6'
+    OnChange = AnyChange
+  end
+  object lblInAcross: TLabel
+    Left = 24
+    Height = 18
+    Top = 524
+    Width = 110
+    Caption = 'In, along the other'
+  end
+  object edInAcross: TEdit
+    Left = 170
+    Height = 28
+    Top = 518
+    Width = 70
+    TabOrder = 14
+    Text = '6'
+    OnChange = AnyChange
+  end
+  object lblTag: TLabel
+    Left = 24
+    Height = 18
+    Top = 560
+    Width = 30
+    Caption = 'Tag'
+  end
+  object edTag: TEdit
+    Left = 100
+    Height = 28
+    Top = 554
+    Width = 340
+    TabOrder = 15
+    OnChange = AnyChange
+  end
+  object lblTagHint: TLabel
+    Left = 24
+    Height = 18
+    Top = 588
+    Width = 400
+    Caption = 'the name on the ticket - Zone 1, barn east bay'
+    Font.Color = clGray
+    ParentFont = False
+  end
+  object lblProblem: TLabel
+    Left = 24
+    Height = 36
+    Top = 616
+    Width = 440
+    AutoSize = False
+    WordWrap = True
+    Caption = ''
+    Font.Color = clRed
+    ParentFont = False
+  end
+  object btnBuild: TButton
+    Left = 24
+    Height = 32
+    Top = 712
+    Width = 120
+    Caption = 'Build it'
+    Default = True
+    ModalResult = 1
+    TabOrder = 16
+  end
+  object btnCancel: TButton
+    Left = 154
+    Height = 32
+    Top = 712
+    Width = 96
+    Cancel = True
+    Caption = 'Cancel'
+    ModalResult = 2
+    TabOrder = 17
+  end
+  object btnReport: TButton
+    Left = 280
+    Height = 32
+    Top = 712
+    Width = 150
+    Caption = 'Report a problem...'
+    OnClick = btnReportClick
+    TabOrder = 18
+  end
+  object pcRight: TPageControl
+    Left = 480
+    Height = 400
+    Top = 76
+    Width = 476
+    ActivePage = tsPlan
+    TabIndex = 0
+    TabOrder = 19
+    object tsPlan: TTabSheet
+      Caption = 'Plan'
+      ClientHeight = 366
+      ClientWidth = 468
+      object pbPlan: TPaintBox
+        Left = 0
+        Height = 366
+        Top = 0
+        Width = 468
+        Align = alClient
+        OnPaint = pbPlanPaint
+      end
+    end
+  end
+  object lblTicket: TLabel
+    Left = 480
+    Height = 18
+    Top = 486
+    Width = 200
+    Caption = 'Material list'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object memTicket: TMemo
+    Left = 480
+    Height = 250
+    Top = 512
+    Width = 476
+    Font.Name = 'monospace'
+    ReadOnly = True
+    ScrollBars = ssAutoVertical
+    TabOrder = 20
+  end
+end

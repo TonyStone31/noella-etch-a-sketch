@@ -10,6 +10,27 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Radiant heat layout, a new shop tool.**  Select the floor - a
+  rectangle, or any face with as many corners as the room has - and
+  *Shop > Radiant heat layout...* (or `/radiant`) asks the standard
+  things a design wants: concrete slab or wood floor, the tube size, the
+  spacing, and which corner of the room the manifold sits in.  It fills
+  the floor with a real coverage path - the same problem a lawnmower or
+  a crop sprayer solves - routes around any obstacle already cut into
+  the floor as a hole (an elevator shaft, a column), and cuts the run
+  into loops that come in under the tube's maximum length and close to
+  even with each other, the way a real design keeps circuits balanced.
+  The plan and a full material list - tube footage with waste, ties,
+  manifold ports - are shown before anything is built.  First version:
+  the manifold is placed by typing how far in from a corner it sits,
+  not yet by clicking the spot on the sheet; denser spacing along
+  marked exterior walls, and trying a different route around a spot
+  that looks wrong, are next.
+
 ## v2026.09.22.8
 
 ### New
