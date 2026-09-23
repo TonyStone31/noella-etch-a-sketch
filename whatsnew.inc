@@ -13,6 +13,27 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout, a new shop tool.**  Select the floor - a' + LineEnding +
+    '  rectangle, or any face with as many corners as the room has - and' + LineEnding +
+    '  *Shop > Radiant heat layout...* (or `/radiant`) asks the standard' + LineEnding +
+    '  things a design wants: concrete slab or wood floor, the tube size, the' + LineEnding +
+    '  spacing, and which corner of the room the manifold sits in.  It fills' + LineEnding +
+    '  the floor with a real coverage path - the same problem a lawnmower or' + LineEnding +
+    '  a crop sprayer solves - routes around any obstacle already cut into' + LineEnding +
+    '  the floor as a hole (an elevator shaft, a column), and cuts the run' + LineEnding +
+    '  into loops that come in under the tube''s maximum length and close to' + LineEnding +
+    '  even with each other, the way a real design keeps circuits balanced.' + LineEnding +
+    '  The plan and a full material list - tube footage with waste, ties,' + LineEnding +
+    '  manifold ports - are shown before anything is built.  First version:' + LineEnding +
+    '  the manifold is placed by typing how far in from a corner it sits,' + LineEnding +
+    '  not yet by clicking the spot on the sheet; denser spacing along' + LineEnding +
+    '  marked exterior walls, and trying a different route around a spot' + LineEnding +
+    '  that looks wrong, are next.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.8' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
