@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.22.7' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The point picker says so.**  Pressing *Pick* left the sheet looking' + LineEnding +
+    '  the same, and it was not clear a pick was on or what it was for.  Now' + LineEnding +
+    '  the sheet''s chip reads *PICKING* and names the part it is waiting for -' + LineEnding +
+    '  `click a point for <corner>` - and the sheet is not dragged in front of' + LineEnding +
+    '  the source window any more, so both stay where they were.  The pick' + LineEnding +
+    '  fills the `<part>` the caret is in, not always the first one; a' + LineEnding +
+    '  double-click on a `<part>` starts picking for it; and Esc in the editor' + LineEnding +
+    '  ends it, the same as Esc on the sheet.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.22.6' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
