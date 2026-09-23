@@ -1827,6 +1827,33 @@ nothing so far has looked for branches that can no longer be reached, or for
 rules that are still enforced somewhere after the reason for them has gone.
 That needs reading, and reading is easier in a file that fits on a screen.
 
+**Checked against an outside review, 23 September.**  ChatGPT was handed the
+repository and asked for an autopsy; it had not run the code, only read the
+GitHub tree, and said so.  Most of what it said checks out and is already
+here: `uMain.pas` really is 26,078 lines now and `uWork.pas` 13,257, both
+bigger again since 17 September, which is the point of writing this section
+down before either is a problem rather than after.  Its central worry -
+Pascal has no partial classes, so a form's code sediments into one file over
+hundreds of small changes - was already looked at above, and the finding
+holds up: the routines are not the problem, the file is, and the split is
+mechanical include files along seams the file already has, not new tool
+units.  Two of its other worries were already answered by code it didn't
+see: it called for timing instrumentation on the render path, and
+`NoteFrame` has broken a frame into paper/ink/composite/screen since before
+this section existed, throttled and folded into the bug report; it called
+for spatial indexing, and there are three of them already - `TPointSet`
+here, `TLoopIndex` in `uImply.pas`, and the `EdgeIx`/`PlaneIx`/`RegionIx`
+hash lookups `RebuildFlatFaces` keeps, each one built the same way, after a
+real drawing made a real operation slow enough to be reported, never ahead
+of one.  That is the one instinct of its five to keep and this codebase
+does not yet have: **it does not know whether `RebuildFlatFaces` recomputes
+the whole document or just the group being worked on**, and during a live
+drag (`FMoveRigid` off calls it, not `SeedRegions`) that scope matters more
+than anywhere else it is called.  Not measured, and not a task - the
+existing rule holds, fix what a report says is slow - but the next report
+that says orbiting or dragging is sluggish on a big drawing should start
+there before anywhere else.
+
 ---
 
 ## Python, on the way out
