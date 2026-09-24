@@ -12,6 +12,15 @@
 
 ## Next release
 
+### Fixed
+
+- **Radiant heat layout: a manifold routing around an obstacle could
+  draw tube crossing itself.**  Every candidate loop is now checked
+  against every loop already laid before it is kept, the same test
+  the finished ticket's own crossing warning already used - so a
+  manifold reaching around a no-go zone, especially one dragged off
+  its wall, no longer risks a run through itself to get there.
+
 ### Changed
 
 - **Radiant heat layout: dragging a manifold or obstacle is smoother.**

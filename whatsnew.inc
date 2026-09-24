@@ -15,6 +15,15 @@ const
     '' + LineEnding +
     '## Next release' + LineEnding +
     '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: a manifold routing around an obstacle could' + LineEnding +
+    '  draw tube crossing itself.**  Every candidate loop is now checked' + LineEnding +
+    '  against every loop already laid before it is kept, the same test' + LineEnding +
+    '  the finished ticket''s own crossing warning already used - so a' + LineEnding +
+    '  manifold reaching around a no-go zone, especially one dragged off' + LineEnding +
+    '  its wall, no longer risks a run through itself to get there.' + LineEnding +
+    '' + LineEnding +
     '### Changed' + LineEnding +
     '' + LineEnding +
     '- **Radiant heat layout: dragging a manifold or obstacle is smoother.**' + LineEnding +

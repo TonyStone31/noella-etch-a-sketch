@@ -936,30 +936,46 @@ var
     Limit allows, measured as laid - and home down its other port.
     Loop after loop outward from the manifold's own row, one side then
     the other, mirror image; and where there is a second direction too,
-    that runs entirely after the first and past every port and lane the
-    first used (`PortOff`, `LaneOff`), so a loop going one way is never
-    given the same connection as one going the other.  Every foot of it
-    is heater.  The ports are two inches apart and the grid a spacing,
-    so the tube out of each port opens out across a fan - straight, no
-    two fan lines crossing since ports and lanes are in the same order -
-    to a grid lane of its own, and goes up the lane to its rows: the
-    fan is the only tube off the grid, and it thins from the manifold
-    out instead of running as a bundle.
+    that runs entirely after the first and past every port the first
+    used (`PortOff`), so a loop going one way is never given the same
+    connection as one going the other.  Every foot of it is heater.
+    The ports are two inches apart and the grid a spacing, so the tube
+    out of each port opens out across a fan to a grid lane of its own,
+    and goes up the lane to its rows: the fan is the only tube off the
+    grid, and it thins from the manifold out instead of running as a
+    bundle.  Nothing about a fan's own straightness keeps two of them
+    from crossing - that is exactly what the crossing check below
+    catches, the same as it catches a lane crossing a row.
 
-    For no lane to cross a row, the loop nearest the manifold's own row
-    has the outermost pair of ports and lanes and the farthest the
-    innermost, so a lane only ever passes rows that begin beyond it -
-    which is why every loop's rows lie beyond every row of the loop
-    before, strictly in order outward, and why the far side of an
-    obstacle is reached by one loop and one only: out on a clear row
-    short of it, the far pieces beside it, home on the clear row past
-    it, and the near pieces under it on the way home.  A row cut by an
-    obstacle turns at it.
+    The loop nearest the manifold's own row is grown first and reaches
+    for the outermost lane its own row allows, so it is usually the
+    widest; each loop after it is grown the same way but is turned
+    away from any lane a loop before it already claimed, the same
+    check its port, its fan and its rows all answer to - so a lane
+    passing an earlier loop's own rows on its way out does not have
+    to be assumed clear by an ordering rule, it is walked and checked.
+    The far side of an obstacle is reached by one loop and one only:
+    out on a clear row short of it, the far pieces beside it, home on
+    the clear row past it, and the near pieces under it on the way
+    home.  A row cut by an obstacle turns at it.
 
-    Which ports and lanes a loop gets depends on how many loops the
-    side ends up with, so the side is laid with a guess at the count
-    and laid again until it settles. }
-  procedure LaySide(SideK, VDir: Integer; PortOff, LaneOff: Double; Limit: Double; NLGuess: Integer;
+    Which ports a loop gets only has to fall the same way its lane
+    does - the one thing here still taken on faith rather than
+    checked, since nothing walks past a port the way a lane walks
+    past a row - so a rank's own place in that fall is room enough;
+    it never has to be exactly right, only never fewer ranks than the
+    floor could really hold.  Which lane it gets is not: a lane has
+    to reach past whatever is really between it and the manifold, and
+    has to actually miss every run of tube laid before it, on this
+    side or the last.  So a lane is not assumed, it is grown - out as
+    far as the row it starts on can take it, exactly the way a loop
+    is grown along that lane once it has one - and checked against
+    every point of every loop already down, the same segment-by-
+    segment test the finished ticket's own crossing count uses,
+    before it is ever kept rather than after.  Too close to one
+    already laid, and the next position in is tried, out to in,
+    until one is found that is clean or the row has none to give. }
+  procedure LaySide(SideK, VDir: Integer; PortOff: Double; Limit: Double;
     var Got: TRadiantLoopArray; var Unf: Double; out NLOut: Integer);
   type
     TPlan = record
@@ -968,9 +984,8 @@ var
       Cut: array of Double;        { a near piece stopped short, here; 0 for the whole }
     end;
   var
-    C, N, Q, I2: Integer;
-    V, PortPitch, FanH, EdgeD, LaneStart, BoxLo, BoxHi, Band: Double;
-    I3, Pass: Integer;
+    C, N, Q, EstGuess: Integer;
+    V, PortPitch, FanH, EdgeD, CurD, AvgReach: Double;
     RowV, NLo, NHi, FLo, FHi, EdgeMax: array of Double;
     HasN, HasF, UsedN, UsedF, DeadN: array of Boolean;
     Plans: array of TPlan;
@@ -983,10 +998,24 @@ var
       side: the home port inside, the out port beside it.  PortOff
       moves the whole set past whatever the other direction, if there
       is one, already used - 0 when this is the only direction, or the
-      first of the two laid. }
+      first of the two laid.  Unlike a lane, a port carries no risk
+      from a guess: there is never more than one loop per rank, so
+      counting up from rank 0 with nothing held back is always enough,
+      whatever the true count turns out to be. }
     function PortHome(R: Integer): Double;
     begin
-      Result := (2 * Max(0, NLGuess - 1 - R) + 1) * PortPitch + PortOff;
+      { falling the same way the lane's own starting guess does, and
+        at the same pace - a port counting up while its lane counts
+        down was found the hard way: the crossing check below catches
+        the crossed fan that makes, correctly, but a lane has nowhere
+        left to search to fix it, since no position moves a port that
+        is already on the wrong side of another rank's own.  A guess
+        too small to tell two ranks' ports apart is no more than the
+        guess being wrong about the count again, exactly the failure
+        the lane search already recovers from below - whichever rank
+        it happens to stays unplaced rather than sharing a
+        connection, which the crossing check catches just the same. }
+      Result := (2 * Max(0, EstGuess - 1 - R) + 1) * PortPitch + PortOff;
     end;
 
     function PortOut(R: Integer): Double;
@@ -994,16 +1023,17 @@ var
       Result := PortHome(R) + PortPitch;
     end;
 
-    { the two grid lanes its tube takes from the fan up to its rows, in
-      the same order as the ports; LaneOff the same idea as PortOff }
+    { the lane the loop being tried right now takes from the fan up to
+      its rows - whatever the search below is currently trying, the
+      same for both directions of the one loop it belongs to }
     function LaneHome(R: Integer): Double;
     begin
-      Result := LaneStart + Spec.Spacing / 2 + (2 * Max(0, NLGuess - 1 - R)) * Spec.Spacing + LaneOff;
+      Result := CurD - Spec.Spacing;
     end;
 
     function LaneOut(R: Integer): Double;
     begin
-      Result := LaneHome(R) + Spec.Spacing;
+      Result := CurD;
     end;
 
     function AtD(D: Double): Double;   { back to U }
@@ -1091,13 +1121,10 @@ var
                 (HasF[Rr] and (D >= FLo[Rr] - 1E-6) and (D <= FHi[Rr] + 1E-6))) then Exit(False);
     end;
 
-    { the fan is the one piece of tube that is never checked against an
-      obstacle any other way - LaneStart moves the whole band of lanes
-      past whatever sits beside the manifold, but that is a guess by the
-      obstacle's reach along the wall, not by its height off it, and it
-      does not touch the port's own end of the diagonal.  So the two fan
-      segments of this loop, port to lane, are walked past every
-      obstacle's box directly. }
+    { the fan is the one piece of tube whose own row-bound checks never
+      touch it, since it runs at an angle rather than along a row - so
+      the two fan segments of this loop, port to lane, are walked past
+      every obstacle's box directly. }
     function FanClear(D0, V0, D1, V1: Double): Boolean;
     var
       A, B: T2;
@@ -1292,29 +1319,87 @@ var
       end;
     end;
 
+    { does the plan just built, laid at the lane the search above is
+      currently trying, meet a single point of anything already laid
+      for this manifold - the same segment-by-segment test the
+      finished ticket's own crossing count runs, called here before a
+      candidate is ever kept rather than after }
+    function PlanCrosses(const Pl: TPlan; R: Integer): Boolean;
+    var
+      Lt: TRadiantLoop;
+      SA, SB: array of T2;
+      I4, J4, A4: Integer;
+      P0, P1, Q0, Q1: T2;
+    begin
+      Result := False;
+      LayPlan(Pl, R, Lt);
+      SetLength(SA, Length(Lt.Pts));
+      for I4 := 0 to High(SA) do SA[I4] := RadiantTo2(F, Lt.Pts[I4]);
+      for A4 := 0 to High(Got) do
+      begin
+        SetLength(SB, Length(Got[A4].Pts));
+        for I4 := 0 to High(SB) do SB[I4] := RadiantTo2(F, Got[A4].Pts[I4]);
+        for I4 := 1 to High(SA) do
+          for J4 := 1 to High(SB) do
+          begin
+            P0 := SA[I4 - 1]; P1 := SA[I4]; Q0 := SB[J4 - 1]; Q1 := SB[J4];
+            if (Max(P0.X, P1.X) < Min(Q0.X, Q1.X) - 1E-6) or (Min(P0.X, P1.X) > Max(Q0.X, Q1.X) + 1E-6) or
+               (Max(P0.Y, P1.Y) < Min(Q0.Y, Q1.Y) - 1E-6) or (Min(P0.Y, P1.Y) > Max(Q0.Y, Q1.Y) + 1E-6) then Continue;
+            if SegsMeet(P0, P1, Q0, Q1) then Exit(True);
+          end;
+      end;
+    end;
+
+    { the loop of rank R, grown from row C: try the widest lane that
+      row can offer on its own - using nearly all of it, the way the
+      owner's own picture has the first snake out of a manifold
+      running as far as the floor allows - and if what grows there
+      either does not fit the floor or does fit but runs into tube
+      already down, the same row tried again one spacing further in,
+      until one is found that is both, or the row has nothing left to
+      give.  A rank already placed never has to be revisited: nothing
+      here changes what an earlier rank was laid at. }
+    function TryRowFrom(C, R: Integer; out Pl: TPlan): Boolean;
+    var
+      Start, Ceiling: Double;
+      Tries: Integer;
+    begin
+      Result := False;
+      if not HasN[C] then Exit;
+      Ceiling := NHi[C] - Spec.Spacing;
+      Start := Min(Ceiling, Spec.Spacing / 2 + 2 * Max(0, EstGuess - 1 - R) * Spec.Spacing);
+      CurD := Start;
+      Tries := 0;
+      while (CurD >= -1E-6) and (Tries <= 4000) do
+      begin
+        if PlanFrom(C, R, Pl) and not PlanCrosses(Pl, R) then Exit(True);
+        CurD := CurD - Spec.Spacing;
+        Inc(Tries);
+      end;
+      { the guess above was too shy of the manifold, not too bold -
+        an obstacle can swallow every reach the estimate ever tried,
+        with real room only past it, farther out than a modest guess
+        assumed anyone would need to go }
+      CurD := Start + Spec.Spacing;
+      Tries := 0;
+      while (CurD <= Ceiling + 1E-6) and (Tries <= 4000) do
+      begin
+        if PlanFrom(C, R, Pl) and not PlanCrosses(Pl, R) then Exit(True);
+        CurD := CurD + Spec.Spacing;
+        Inc(Tries);
+      end;
+      Result := False;
+    end;
+
   begin
     NLOut := 0;
     if SideK = 0 then Sign := -1 else Sign := 1;
     PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
-    { the fan: the ports are two inches apart and the lanes a spacing,
-      so the tube opens out from the one to the other over this height -
-      no more than the foot or so the owner allows tube to be closer
-      than the spacing at the manifold, a hand's width at least }
-    FanH := Max(Inset, Min(MANIFOLD_FAN_IN * Spec.Inch, NLGuess * (Spec.Spacing - PortPitch)));
-    { the lanes begin past any obstacle that sits in their way right
-      beside the manifold: the first lane or two, not the whole side's
-      eventual spread - a fixed, small reach, so a distant obstacle is
-      left to the ordinary near/far piece and excursion logic instead
-      of shoving every lane on the side out to clear it }
-    LaneStart := 0;
-    Band := 2 * Spec.Spacing;
-    for Pass := 1 to 8 do
-      for I3 := 0 to High(HoleB) do
-      begin
-        if Sign > 0 then begin BoxLo := HoleB[I3][0].X - M2.X; BoxHi := HoleB[I3][1].X - M2.X; end
-        else begin BoxLo := M2.X - HoleB[I3][1].X; BoxHi := M2.X - HoleB[I3][0].X; end;
-        if (BoxHi > LaneStart) and (BoxLo < LaneStart + Band) then LaneStart := BoxHi;
-      end;
+    { the fan: no more than the foot or so the owner allows tube to be
+      closer than the spacing at the manifold, a hand's width at
+      least - a fixed reach, the same for every loop regardless of
+      how many the side turns out to hold }
+    FanH := Max(Inset, MANIFOLD_FAN_IN * Spec.Inch);
     SetLength(RowV, 0);
     C := 0;
     repeat
@@ -1336,18 +1421,39 @@ var
     N := Length(RowV);
     if N < 2 then Exit;
     SetLength(UsedN, N); SetLength(UsedF, N); SetLength(DeadN, N);
+    { where the search below starts looking - not a promise, since
+      every rank's own lane is found by looking and checked against
+      every run of tube already down, so a bad guess here costs
+      coverage, never a crossed run.  A loop at full width holds
+      about Limit / (4 * how far a row reaches) rows; the count that
+      many loops takes to cover every row on this side is the guess
+      the first rank starts from, leaving that much less for itself
+      so the ranks after it have room to nest inside it. }
+    AvgReach := Spec.Spacing;
+    for C := 0 to N - 1 do
+      if HasN[C] then AvgReach := Max(AvgReach, NHi[C]);
+    EstGuess := Max(1, Ceil(N / Max(2, Limit / AvgReach)));
 
-    { the plans: from the wall outward, each taking what it can }
+    { the plans: from the wall outward, each taking what it can, and
+      each committed to Got the moment it is accepted - not gathered
+      and drawn afterward - so the next loop's own crossing check, and
+      the one after that, sees every run of tube actually down so far,
+      this side's own included, not only what an earlier side or
+      direction left behind }
     SetLength(Plans, 0);
     C := 0;
     while C <= High(RowV) do
     begin
-      if PlanFrom(C, Length(Plans), P) then
+      if TryRowFrom(C, Length(Plans), P) then
       begin
         for Q := 0 to High(P.Rows) do
           if P.Far[Q] then UsedF[P.Rows[Q]] := True else UsedN[P.Rows[Q]] := True;
         SetLength(Plans, Length(Plans) + 1);
         Plans[High(Plans)] := P;
+        LayPlan(P, High(Plans), L);
+        L.Manifold := MI;
+        SetLength(Got, Length(Got) + 1);
+        Got[High(Got)] := L;
         { the next unused near piece }
         Inc(C);
         while (C <= High(RowV)) and (not HasN[C] or UsedN[C]) do Inc(C);
@@ -1361,61 +1467,22 @@ var
       if HasF[C] and not UsedF[C] then Unf := Unf + (FHi[C] - FLo[C]) * Spec.Spacing;
     end;
     NLOut := Length(Plans);
-    for I2 := 0 to High(Plans) do
-    begin
-      LayPlan(Plans[I2], I2, L);
-      L.Manifold := MI;
-      SetLength(Got, Length(Got) + 1);
-      Got[High(Got)] := L;
-    end;
   end;
 
-  { One side, laid with the loop count it settles at.  More loops put
-    the lanes farther out, which shortens the rows, which lets a loop
-    take more of them, which makes fewer loops: the count that comes
-    out falls as the guess rises, so the guess climbs from one until
-    the count comes out as guessed - or falls below it, and then the
-    guess before is laid and its loops past the guess dropped, since
-    their lanes would be another loop's: the rows they would have had
-    go on the ticket as bare.  NLFinal, out, is how many loops this
-    direction actually settled on - what the other direction, if there
-    is one, offsets its own ports and lanes past. }
-  procedure LaySideSettled(SideK, VDir: Integer; PortOff, LaneOff, Limit: Double;
+  { One side, laid once - LaySide grows every loop it can on its own,
+    there is no guess to climb or settle any more, since each lane
+    answers for itself as it is grown rather than trusting a formula
+    to keep every rank apart.  NLFinal, out, is how many loops this
+    direction actually used - what the other direction, if there is
+    one, offsets its own ports past, so the two are never given the
+    same manifold connection. }
+  procedure LaySideSettled(SideK, VDir: Integer; PortOff, Limit: Double;
     var Got: TRadiantLoopArray; var Unf: Double; out NLFinal: Integer);
   var
-    Guess, NLOut, K0, I: Integer;
-    Unf0, UnfOver: Double;
-    Over: TRadiantLoopArray;
+    K0, NLOut: Integer;
   begin
-    K0 := Length(Got); Unf0 := Unf;
-    Guess := 1;
-    repeat
-      SetLength(Got, K0); Unf := Unf0;
-      LaySide(SideK, VDir, PortOff, LaneOff, Limit, Guess, Got, Unf, NLOut);
-      if NLOut <= Guess then Break;
-      Inc(Guess);
-    until Guess > 200;
-    if (NLOut < Guess) and (Guess > 1) then
-    begin
-      { no count comes out as guessed: either fewer loops than lanes,
-        which leaves the innermost lanes empty - a strip beside the
-        manifold, under the deepest loop's first row - or the guess
-        before, with its loops past the guess dropped.  Whichever
-        leaves less floor bare. }
-      Over := Got; UnfOver := Unf;
-      if Length(Over) > K0 then
-        UnfOver := UnfOver + 2 * (Guess - NLOut) * Spec.Spacing *
-          VDir * (RadiantTo2(F, Over[High(Over)].Pts[2]).Y - M2.Y);
-      Dec(Guess);
-      SetLength(Got, K0); Unf := Unf0;
-      LaySide(SideK, VDir, PortOff, LaneOff, Limit, Guess, Got, Unf, NLOut);
-      for I := K0 + Guess to High(Got) do Unf := Unf + Got[I].LenFt * Spec.Spacing;
-      SetLength(Got, K0 + Guess);
-      if UnfOver < Unf then
-      begin
-        Got := Over; Unf := UnfOver;
-      end;
-    end;
+    K0 := Length(Got);
+    LaySide(SideK, VDir, PortOff, Limit, Got, Unf, NLOut);
     NLFinal := Length(Got) - K0;
   end;
 
@@ -1446,10 +1513,14 @@ var
         { away from the manifold's own row first, exactly as always;
           then, when the manifold is off its wall and there is floor
           the other way too, back toward the wall it left - past every
-          port and lane the first direction used, so the two never
-          share a connection }
-        LaySideSettled(SideK, 1, 0, 0, T, Trial, Unf, NP);
-        LaySideSettled(SideK, -1, 2 * NP * PPitch, 2 * NP * Spec.Spacing, T, Trial, Unf, NP);
+          port the first direction used, so the two never share a
+          connection.  Their lanes need no such offset: the two
+          directions' rows never share a row to begin with, and a
+          lane that did somehow reach back across the manifold's own
+          row would be caught by the crossing check like anything
+          else. }
+        LaySideSettled(SideK, 1, 0, T, Trial, Unf, NP);
+        LaySideSettled(SideK, -1, 2 * NP * PPitch, T, Trial, Unf, NP);
       end;
       if Length(Trial) > 0 then
       begin

@@ -466,8 +466,102 @@ pixel by pixel.  What the pictures said:
   timer.  Driven live in Xephyr - a drag completes, the plan and
   material list update, no stall or crash.
 
+  **The lane-rank fix, for real this time - shipped.**  Told, again,
+  and pointed at the shape of the answer instead of the mechanism:
+  think of it as a game - a snake grown from the manifold as far as
+  it can go and back, the next snake covering what is left near the
+  manifold and reaching as far as it can past that, over and over,
+  never crossing a line already down, scored on coverage and on how
+  close the lengths come out - and go look at how games solve this
+  kind of thing (`softcube`'s own solver, right there in the same
+  directory, tries a search several times and keeps the shortest) for
+  ideas rather than keep patching a formula.  That reframing is what
+  the fix actually needed: everything below it (this entry and the
+  reverted one right after it) was still trying to make one lane
+  formula, tuned by a guessed count, provably safe for every rank at
+  once.  The working version does not try to prove that - it checks.
+
+  `PlanCrosses` builds a candidate loop's own points and walks them
+  against every point of every loop already laid for this manifold,
+  the identical segment-by-segment test `Meetings` already runs for
+  the finished ticket's own crossing count - called on a candidate
+  *before* it is ever kept, not after.  A lane is grown, not assumed:
+  for each rank, start near the widest reach a starting guess (`N`
+  rows over how many fit in the length limit at full width - a
+  starting point, not a promise, since nothing downstream trusts it)
+  says is safe, and walk inward a spacing at a time until a candidate
+  both fits the floor (the row-and-obstacle machinery below is
+  untouched - `PlanFrom`, `Excursion`, `NearOk`, `FarOk`, `Reserved`,
+  `LaneClear`, `EdgeMax`, all exactly as they were) and does not
+  cross anything already down.  A guess too small just means the
+  search finds real ground somewhere the formula would not have
+  looked; a guess too large costs coverage, never safety - the
+  crossing check is what makes correctness a property of the search
+  instead of the estimate feeding it.  Ports needed the same
+  direction as lanes (falling with rank, not rising) for a reason
+  found the hard way: a port counting up while its own lane counts
+  down turns two fans that ought to nest into two fans that cross,
+  and no amount of searching a lane fixes a port already on the wrong
+  side of another rank's own - so ports fall the same guess-shaped
+  way lanes start from, cheaply, since nothing about them needs
+  checking once their order agrees with the lanes they belong to.
+  Each accepted loop is committed to the shared loop list the moment
+  it is accepted, not gathered and drawn afterward - so the very next
+  candidate, on this side or a different one, sees every run of tube
+  actually down so far and not just what an earlier side left behind,
+  which was the second bug this pass found (the first: reusing a
+  single "current lane" variable for the loop just accepted and
+  every candidate still being tried drew the wrong geometry for
+  ranks already decided - caught immediately because the reported
+  length did not match what growing the plan had actually checked).
+  `LaySideSettled`'s guess-and-climb is gone outright - there is
+  nothing left for it to climb toward, since a lane no longer needs
+  the guess to be right, only a starting point to search from.
+
+  Verified the way every real claim this session has been verified,
+  not asserted: the full geometry suite (1490 of 1491 checks, the one
+  miss a sixteen-foot no-go zone dead center in a floor wanting under
+  30% bare and getting 45% - a genuinely hard case, not a crossing,
+  and the *only* failure anywhere); the region suite and command list
+  untouched at 98 and clean; both of the owner's own bug reports,
+  every zone, both the manifold positions `RadiantSuggestZoneManifold`
+  would pick and the real ones he actually dragged to and reported
+  against - zero crossings everywhere, all of it, where before this
+  pass a manifold reaching around an obstacle could and did draw
+  tube through itself.  Driven live in Xephyr on a clean sheet, not
+  the leftover scene this session used once before and was rightly
+  called out for - `BLANK=1`, not just an unlisted drawing, is what
+  that actually takes, since the tool loads whatever was last open
+  otherwise.  A manifold dragged into the middle of an empty room
+  routes out in all four directions, 92% coverage, no crossing drawn.
+
+  Coverage is not yet what the pre-existing formula reached on an
+  easy floor before this pass touched it - the owner's own dragged
+  position on report 2's zone 1 came back 32.7% bare against the old
+  code's 25.4%, and the suggested position on the same zone, 16.3%
+  against roughly 5% before.  Both are safe (zero crossings) and both
+  are worse coverage than a formula that, on exactly that obstacle,
+  could not be trusted not to cross tube at all.  The lever most
+  likely to close that gap is the starting guess for how far the
+  first rank's lane should reach (`N / (Limit / AvgReach)` in
+  `LaySide` - untuned, a first honest estimate, not fit against real
+  drawings the way `LOOP_EVEN_FT`/`UNFILLED_LOOP_FT` were); one
+  attempt at loosening it (`1.5 *` the guess) bought back some
+  coverage but reintroduced a crossing on the owner's own report and
+  was reverted on the spot, which is itself the point of building
+  correctness as a checked property rather than a trusted one - a bad
+  tuning pass now costs coverage or wastes a session finding the
+  right multiplier, never a crossed run shipped by mistake.  Next
+  real session on this: tune that estimate (and maybe let
+  `LayManifold`'s own T-sweep vary it the way it already varies the
+  loop-length limit, keeping whichever scores best, closer to what
+  the owner actually described) against the owner's own reports and
+  the geometry suite together, the crossing check standing guard the
+  whole time.
+
   **A real attempt at the lane-rank fix itself, not just another
-  diagnosis - got close, did not ship.**  Told plainly to stop
+  diagnosis - got close, did not ship, kept for the record below -
+  superseded by the entry above.**  Told plainly to stop
   documenting the problem and solve it.  Built the thing the entry two
   below calls for: `SafeLane`, a per-rank lane position found by
   looking at the actual floor (near piece, far piece, or neither) for
