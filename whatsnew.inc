@@ -56,7 +56,7 @@ const
     '  the ticket now counts every meeting of two runs, and it is zero.' + LineEnding +
     '- The loop limit is tried from the maximum down and the layout kept is' + LineEnding +
     '  the cheapest: a loop costs the same as fifteen feet of spread between' + LineEnding +
-    '  the longest and the shortest loop, or forty feet of row left bare.' + LineEnding +
+    '  the longest and the shortest loop, or twenty feet of row left bare.' + LineEnding +
     '- A manifold cannot be dragged out of its own zone.' + LineEnding +
     '' + LineEnding +
     '## v2026.09.23.8' + LineEnding +

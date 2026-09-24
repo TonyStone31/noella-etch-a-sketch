@@ -127,7 +127,7 @@ const
   LOOP_EVEN_FT = 15.0;
   { and how many feet of row left bare weigh the same as one more loop,
     when the layout is scored - a guess, the owner's to move }
-  UNFILLED_LOOP_FT = 40.0;
+  UNFILLED_LOOP_FT = 20.0;
 
 function TubeOf(S: TTubeSize): TTubeFacts;
 

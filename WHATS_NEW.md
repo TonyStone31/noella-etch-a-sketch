@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: a no-go zone beside the manifold.**  The
+  lanes out of the fan begin past any obstacle that sits in their way,
+  instead of running through it; and the rows on the far side of the
+  manifold found their near pieces again (they were read the wrong way
+  round, which left the floor past an obstacle on that side bare).
+- **Slanting walls.**  A triangle, or any wall that leans away from
+  the manifold, starts its rows at the floor's own edge, and a lane is
+  only used where it lies inside the floor the whole way up.  A
+  manifold in an acute corner cannot feed the rows above it and the
+  ticket says how much is bare - move the manifold to the middle of a
+  wall.
+- The whole of a home row's near part is taken on the way home round
+  an obstacle, so no row beside it is left bare for parity's sake.
+
 ## v2026.09.24.1
 
 ### Changed
@@ -53,7 +71,7 @@
   the ticket now counts every meeting of two runs, and it is zero.
 - The loop limit is tried from the maximum down and the layout kept is
   the cheapest: a loop costs the same as fifteen feet of spread between
-  the longest and the shortest loop, or forty feet of row left bare.
+  the longest and the shortest loop, or twenty feet of row left bare.
 - A manifold cannot be dragged out of its own zone.
 
 ## v2026.09.23.8

@@ -388,6 +388,17 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.2, 02:00 - the owner's two shapes, first go.**  A
+  triangle with the manifold mid-base lays out (9 of 1500 sq ft bare);
+  the same triangle with the manifold in a corner lays one loop and
+  gives up, because a lane cannot go up the corner - the ticket says
+  1918 bare.  A 16-ft circle in a 60x50 floor: 467 of 2801 bare (17%),
+  half of it the circle's box (289 sq ft) against its round (201), the
+  rest the rows the box's parity costs; the fix is row spans cut by
+  the polygon itself, widened a hand's width, not its box.  Lanes
+  begin past an obstacle beside the manifold.  Tests for both shapes
+  are in geomtest.
+
   **v2026.09.24, 01:00 - lanes.**  The stub wedge is gone: each port's
   tube fans (straight, ordered, so no two fan lines cross) onto a grid
   lane of its own, the nearest loop on the outermost lanes, and goes up

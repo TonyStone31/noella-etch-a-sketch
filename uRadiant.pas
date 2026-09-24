@@ -861,16 +861,17 @@ var
     manifold along this side - so both sides read the same way.  The
     floor's spans are pulled in a hand's width at their ends; an
     obstacle's box already stands that much bigger. }
-  procedure RowPieces(V: Double; Sign: Integer; out NearHi, FarLo, FarHi: Double;
+  procedure RowPieces(V: Double; Sign: Integer; out EdgeD, NearLo, NearHi, FarLo, FarHi: Double;
     out HasNear, HasFar: Boolean);
   var
     Pieces, Cuts, HoleRow, Outer: TSpanArray;
     P, Q, K0, K: Integer;
     T: TSpan;
-    Lo, Hi: Double;
+    Lo, Hi, StartU: Double;
+    CutEdge, First: Boolean;
   begin
     HasNear := False; HasFar := False;
-    NearHi := 0; FarLo := 0; FarHi := 0;
+    NearLo := 0; NearHi := 0; FarLo := 0; FarHi := 0; EdgeD := 1E300;
     Cuts := nil;
     for P := 0 to High(HoleB) do
     begin
@@ -890,24 +891,43 @@ var
     begin
       Outer[P].Lo := Outer[P].Lo + Inset; Outer[P].Hi := Outer[P].Hi - Inset;
     end;
-    Pieces := Subtract(Outer, Cuts);
-    { in D: the near piece holds the manifold, or begins at it; the far
-      piece is the last one on this side }
-    for P := 0 to High(Pieces) do
+    { where the floor's own edge is on this side, obstacles or not: the
+      first outer span on this side, or the one the manifold is in }
+    for P := 0 to High(Outer) do
     begin
-      if Sign > 0 then begin Lo := Pieces[P].Lo - M2.X; Hi := Pieces[P].Hi - M2.X; end
-      else begin Lo := M2.X - Pieces[P].Hi; Hi := M2.X - Pieces[P].Lo; end;
+      if Sign > 0 then begin Lo := Outer[P].Lo - M2.X; Hi := Outer[P].Hi - M2.X; end
+      else begin Lo := M2.X - Outer[P].Hi; Hi := M2.X - Outer[P].Lo; end;
+      if Hi <= 0 then Continue;
+      EdgeD := Min(EdgeD, Max(0, Lo));
+    end;
+    Pieces := Subtract(Outer, Cuts);
+    { in D: the near piece is the first on this side, when it begins at
+      the floor's own edge and not past an obstacle - a slanting wall
+      can put that edge a way out from the manifold; the far piece is
+      the last one, when an obstacle is what it begins past }
+    First := True;
+    for K := 0 to High(Pieces) do
+    begin
+      { in order of distance from the manifold: which is the other way
+        along U on the far side }
+      if Sign > 0 then P := K else P := High(Pieces) - K;
+      if Sign > 0 then begin Lo := Pieces[P].Lo - M2.X; Hi := Pieces[P].Hi - M2.X; StartU := Pieces[P].Lo; end
+      else begin Lo := M2.X - Pieces[P].Hi; Hi := M2.X - Pieces[P].Lo; StartU := Pieces[P].Hi; end;
       if Hi <= Spec.Spacing then Continue;
-      if Lo <= Spec.Spacing then
+      CutEdge := False;
+      for Q := 0 to High(Cuts) do
+        if (Abs(Cuts[Q].Hi - StartU) < 1E-6) or (Abs(Cuts[Q].Lo - StartU) < 1E-6) then CutEdge := True;
+      if First and not CutEdge then
       begin
-        NearHi := Hi;
+        NearLo := Max(0, Lo); NearHi := Hi;
         HasNear := True;
       end
-      else
+      else if CutEdge then
       begin
         FarLo := Lo; FarHi := Hi;
         HasFar := FarHi - FarLo > Spec.Spacing;
       end;
+      First := False;
     end;
   end;
 
@@ -943,11 +963,13 @@ var
     TPlan = record
       Rows: array of Integer;      { the rows, in walking order }
       Far: array of Boolean;       { the far piece of that row, not the near }
+      Cut: array of Double;        { a near piece stopped short, here; 0 for the whole }
     end;
   var
     C, N, Q, I2: Integer;
-    V, PortPitch, FanH: Double;
-    RowV, NHi, FLo, FHi: array of Double;
+    V, PortPitch, FanH, EdgeD, LaneStart, BoxLo, BoxHi, Band: Double;
+    I3, Pass: Integer;
+    RowV, NLo, NHi, FLo, FHi, EdgeMax: array of Double;
     HasN, HasF, UsedN, UsedF, DeadN: array of Boolean;
     Plans: array of TPlan;
     P: TPlan;
@@ -971,7 +993,7 @@ var
       the same order as the ports }
     function LaneHome(R: Integer): Double;
     begin
-      Result := Spec.Spacing / 2 + (2 * Max(0, NLGuess - 1 - R)) * Spec.Spacing;
+      Result := LaneStart + Spec.Spacing / 2 + (2 * Max(0, NLGuess - 1 - R)) * Spec.Spacing;
     end;
 
     function LaneOut(R: Integer): Double;
@@ -1011,9 +1033,10 @@ var
       begin
         Rr := Pl.Rows[J];
         if Pl.Far[J] then begin Lo[J] := Max(FLo[Rr], LaneOut(R)); Hi[J] := FHi[Rr]; end
-        else begin Lo[J] := LaneOut(R); Hi[J] := NHi[Rr]; end;
+        else begin Lo[J] := Max(LaneOut(R), NLo[Rr]); Hi[J] := NHi[Rr]; end;
+        if Pl.Cut[J] > 0 then Hi[J] := Min(Hi[J], Pl.Cut[J]);
       end;
-      Lo[High(Lo)] := LaneHome(R);
+      Lo[High(Lo)] := Max(LaneHome(R), NLo[Pl.Rows[High(Pl.Rows)]]);
       Back := False;
       for J := 0 to High(Pl.Rows) - 1 do
       begin
@@ -1039,18 +1062,35 @@ var
       Result := L.LenFt;
     end;
 
+    { is a lane at D clear of obstacles on every row below UpTo?  It is
+      where each row has a piece of floor at D. }
+    function LaneClear(D: Double; UpTo: Integer): Boolean;
+    var
+      Rr: Integer;
+    begin
+      Result := True;
+      for Rr := 0 to UpTo - 1 do
+        if not ((HasN[Rr] and (D >= NLo[Rr] - 1E-6) and (D <= NHi[Rr] + 1E-6)) or
+                (HasF[Rr] and (D >= FLo[Rr] - 1E-6) and (D <= FHi[Rr] + 1E-6))) then Exit(False);
+    end;
+
+    { under the limit, and both lanes inside the floor and clear of
+      obstacles up to their rows }
     function Fits(const Pl: TPlan; R: Integer): Boolean;
     var
       Lt: TRadiantLoop;
     begin
-      Result := LayPlan(Pl, R, Lt) <= Limit;
+      Result := (EdgeMax[Pl.Rows[0]] <= LaneOut(R) + 1E-6) and
+                (EdgeMax[Pl.Rows[High(Pl.Rows)]] <= LaneHome(R) + 1E-6) and
+                LaneClear(LaneOut(R), Pl.Rows[0]) and LaneClear(LaneHome(R), Pl.Rows[High(Pl.Rows)]) and
+                (LayPlan(Pl, R, Lt) <= Limit);
     end;
 
     { is there a run's worth of this piece beyond the loop's port? }
     function NearOk(C, R: Integer): Boolean;
     begin
       Result := (C >= 0) and (C <= High(RowV)) and HasN[C] and not UsedN[C] and not DeadN[C] and
-        (NHi[C] - LaneOut(R) >= Spec.Spacing - 1E-6);
+        (NHi[C] - Max(LaneOut(R), NLo[C]) >= Spec.Spacing - 1E-6);
     end;
 
     function FarOk(C, R: Integer): Boolean;
@@ -1064,10 +1104,16 @@ var
       Result := (C >= 0) and (C <= High(RowV)) and HasN[C] and not HasF[C];
     end;
 
-    procedure Add(var Pl: TPlan; C: Integer; IsFar: Boolean);
+    procedure Add(var Pl: TPlan; C: Integer; IsFar: Boolean; CutAt: Double = 0);
     begin
       SetLength(Pl.Rows, Length(Pl.Rows) + 1); SetLength(Pl.Far, Length(Pl.Far) + 1);
-      Pl.Rows[High(Pl.Rows)] := C; Pl.Far[High(Pl.Far)] := IsFar;
+      SetLength(Pl.Cut, Length(Pl.Cut) + 1);
+      Pl.Rows[High(Pl.Rows)] := C; Pl.Far[High(Pl.Far)] := IsFar; Pl.Cut[High(Pl.Cut)] := CutAt;
+    end;
+
+    procedure Trim(var Pl: TPlan; N: Integer);
+    begin
+      SetLength(Pl.Rows, N); SetLength(Pl.Far, N); SetLength(Pl.Cut, N);
     end;
 
     { a clear row with an obstacle's far side just past it is the way
@@ -1104,21 +1150,25 @@ var
         Trial := Pl;
         for Q := Home - J to Home - 1 do Add(Trial, Q, True);
         Add(Trial, Home, False);
+        NearN := J;
+        Was := Length(Trial.Rows);
         if J mod 2 = 1 then
         begin
+          { the home row was walked out from the obstacle: home on the
+            one after, and the near part of the home row, up to the
+            obstacle, comes with the near pieces - which makes their
+            count even }
           if not NearOk(Home + 1, R) or not Clear(Home + 1) then Exit;
           Add(Trial, Home + 1, False);
+          Was := Length(Trial.Rows);
+          Add(Trial, Home, False, FLo[Home - 1]);
+          NearN := J + 1;
         end;
         { the near pieces under the far pieces taken - all or none, an
           odd few could not come home }
-        NearN := J - (J mod 2);
-        Was := Length(Trial.Rows);
-        for Q := Home - 1 downto Home - NearN do
+        for Q := Home - 1 downto Home - J do
           if NearOk(Q, R) then Add(Trial, Q, False) else Break;
-        if Length(Trial.Rows) - Was < NearN then
-        begin
-          SetLength(Trial.Rows, Was); SetLength(Trial.Far, Was);
-        end;
+        if Length(Trial.Rows) - Was < NearN then Trim(Trial, Was);
         if Fits(Trial, R) then
         begin
           Pl := Trial;
@@ -1145,7 +1195,7 @@ var
       Trial: TPlan;
     begin
       Result := False;
-      SetLength(Pl.Rows, 0); SetLength(Pl.Far, 0);
+      Trim(Pl, 0);
       if not NearOk(C, R) then Exit;
       Add(Pl, C, False);
       Cc := C;
@@ -1195,7 +1245,7 @@ var
       { an odd number of rows cannot come home: drop the last }
       if Result and (Length(Pl.Rows) mod 2 = 1) then
       begin
-        SetLength(Pl.Rows, Length(Pl.Rows) - 1); SetLength(Pl.Far, Length(Pl.Far) - 1);
+        Trim(Pl, Length(Pl.Rows) - 1);
         Result := Length(Pl.Rows) >= 2;
       end;
     end;
@@ -1209,15 +1259,30 @@ var
       no more than the foot or so the owner allows tube to be closer
       than the spacing at the manifold, a hand's width at least }
     FanH := Max(Inset, Min(MANIFOLD_FAN_IN * Spec.Inch, NLGuess * (Spec.Spacing - PortPitch)));
+    { the lanes begin past any obstacle that sits in their way beside
+      the manifold: the band of lanes is moved out until no obstacle's
+      box overlaps it }
+    LaneStart := 0;
+    Band := (2 * Max(1, NLGuess)) * Spec.Spacing;
+    for Pass := 1 to 8 do
+      for I3 := 0 to High(HoleB) do
+      begin
+        if Sign > 0 then begin BoxLo := HoleB[I3][0].X - M2.X; BoxHi := HoleB[I3][1].X - M2.X; end
+        else begin BoxLo := M2.X - HoleB[I3][1].X; BoxHi := M2.X - HoleB[I3][0].X; end;
+        if (BoxHi > LaneStart) and (BoxLo < LaneStart + Band) then LaneStart := BoxHi;
+      end;
     SetLength(RowV, 0);
     C := 0;
     repeat
       V := M2.Y + Inset + C * Spec.Spacing;
       if V > Vmax - Inset + 1E-9 then Break;
-      SetLength(RowV, C + 1); SetLength(NHi, C + 1);
+      SetLength(RowV, C + 1); SetLength(NLo, C + 1); SetLength(NHi, C + 1); SetLength(EdgeMax, C + 1);
       SetLength(FLo, C + 1); SetLength(FHi, C + 1); SetLength(HasN, C + 1); SetLength(HasF, C + 1);
       RowV[C] := V;
-      RowPieces(V, Sign, NHi[C], FLo[C], FHi[C], HasN[C], HasF[C]);
+      RowPieces(V, Sign, EdgeD, NLo[C], NHi[C], FLo[C], FHi[C], HasN[C], HasF[C]);
+      { how far out the floor's edge has come by this row: a lane up to
+        a row must lie inside the floor the whole way }
+      if C = 0 then EdgeMax[C] := EdgeD else EdgeMax[C] := Max(EdgeMax[C - 1], EdgeD);
       { this side stops halfway to the next manifold along the wall }
       if Sign > 0 then NHi[C] := Min(NHi[C], LimHi - M2.X) else NHi[C] := Min(NHi[C], M2.X - LimLo);
       if HasN[C] and (NHi[C] <= Spec.Spacing) then HasN[C] := False;
@@ -1249,6 +1314,8 @@ var
     begin
       if HasN[C] and not UsedN[C] then Unf := Unf + NHi[C] * Spec.Spacing;
       if HasF[C] and not UsedF[C] then Unf := Unf + (FHi[C] - FLo[C]) * Spec.Spacing;
+      if (GetEnvironmentVariable('RADDBG') = '2') and ((HasN[C] and not UsedN[C]) or (HasF[C] and not UsedF[C])) then
+        WriteLn(Format('  side %d guess %d limit %.0f: row %d bare (near %d far %d dead %d)', [SideK, NLGuess, Limit, C, Ord(HasN[C] and not UsedN[C]), Ord(HasF[C] and not UsedF[C]), Ord(DeadN[C])]));
     end;
     NLOut := Length(Plans);
     for I2 := 0 to High(Plans) do
@@ -1271,7 +1338,8 @@ var
   procedure LaySideSettled(SideK: Integer; Limit: Double; var Got: TRadiantLoopArray; var Unf: Double);
   var
     Guess, NLOut, K0, I: Integer;
-    Unf0: Double;
+    Unf0, UnfOver: Double;
+    Over: TRadiantLoopArray;
   begin
     K0 := Length(Got); Unf0 := Unf;
     Guess := 1;
@@ -1283,11 +1351,24 @@ var
     until Guess > 200;
     if (NLOut < Guess) and (Guess > 1) then
     begin
+      { no count comes out as guessed: either fewer loops than lanes,
+        which leaves the innermost lanes empty - a strip beside the
+        manifold, under the deepest loop's first row - or the guess
+        before, with its loops past the guess dropped.  Whichever
+        leaves less floor bare. }
+      Over := Got; UnfOver := Unf;
+      if Length(Over) > K0 then
+        UnfOver := UnfOver + 2 * (Guess - NLOut) * Spec.Spacing *
+          (RadiantTo2(F, Over[High(Over)].Pts[2]).Y - M2.Y);
       Dec(Guess);
       SetLength(Got, K0); Unf := Unf0;
       LaySide(SideK, Limit, Guess, Got, Unf, NLOut);
       for I := K0 + Guess to High(Got) do Unf := Unf + Got[I].LenFt * Spec.Spacing;
       SetLength(Got, K0 + Guess);
+      if UnfOver < Unf then
+      begin
+        Got := Over; Unf := UnfOver;
+      end;
     end;
   end;
 
@@ -1323,6 +1404,8 @@ var
         end;
         Spread := Hi - Lo;
         Cost := Length(Trial) + Spread / LOOP_EVEN_FT + Unf / (Spec.Spacing * UNFILLED_LOOP_FT);
+        if GetEnvironmentVariable('RADDBG') <> '' then
+          WriteLn(Format('T=%.0f loops=%d spread=%.0f unf=%.0f cost=%.1f', [T, Length(Trial), Spread, Unf, Cost]));
         if Best = nil then Better := True
         else Better := Cost < BestCost - 1E-6;
         if Better then

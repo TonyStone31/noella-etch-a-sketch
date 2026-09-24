@@ -9179,6 +9179,45 @@ begin
     ticket, not hidden - a zone is meant to be drawn as a rectangle }
   Ok(Inside <= 2, Format('  no more than the notch corner leaves the floor: %d points', [Inside]));
   EqI(Over, 0, Format('  no loop over the maximum (%d loops)', [Length(R.Loops)]));
+
+  { a triangle, the manifold mid-base: slanting walls, the rows shorter
+    as they go, every lane inside the floor }
+  SetLength(Floor, 3);
+  Floor[0] := P3(0, 0, 0); Floor[1] := P3(60, 0, 0); Floor[2] := P3(30, 50, 0);
+  SetLength(Holes, 0);
+  Spec.Manifolds[0] := P3(30, 1, 0);
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok, 'a triangle lays out: ' + R.Why);
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.05, Format('  under a twentieth of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  EqI(R.Crossings, 0, '  nothing crosses');
+  Outside := 0;
+  for I := 0 to High(R.Loops) do
+    for J := 0 to High(R.Loops[I].Pts) do
+    begin
+      P := R.Loops[I].Pts[J];
+      if (P.Y < -1E-6) or (P.Y > 50 - 5 * Abs(P.X - 30) / 3 + 1E-6) then Inc(Outside);
+    end;
+  EqI(Outside, 0, '  every point inside the triangle');
+
+  { a sixteen-foot circle for a no-go zone in the middle of a floor: the
+    loops go round it, and what its box wastes over its round is said }
+  SetLength(Floor, 4);
+  Floor[0] := P3(0, 0, 0); Floor[1] := P3(60, 0, 0); Floor[2] := P3(60, 50, 0); Floor[3] := P3(0, 50, 0);
+  SetLength(Hole, 24);
+  for I := 0 to 23 do Hole[I] := P3(30 + 8 * Cos(I * 2 * Pi / 24), 25 + 8 * Sin(I * 2 * Pi / 24), 0);
+  SetLength(Holes, 1); Holes[0] := Hole;
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok, 'a floor with a round no-go zone lays out: ' + R.Why);
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.2, Format('  under a fifth of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  EqI(R.Crossings, 0, '  nothing crosses');
+  Inside := 0;
+  for I := 0 to High(R.Loops) do
+    for J := 0 to High(R.Loops[I].Pts) do
+    begin
+      P := R.Loops[I].Pts[J];
+      if Sqr(P.X - 30) + Sqr(P.Y - 25) < Sqr(8 + 0.4) then Inc(Inside);
+    end;
+  EqI(Inside, 0, '  no point in the circle or within a hand of it');
 end;
 
 begin
