@@ -13,6 +13,21 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.8' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: runs go the zone''s long way, straight out' + LineEnding +
+    '  from the manifold''s wall.**  The manifold hangs on the shorter wall of' + LineEnding +
+    '  its zone and every loop runs out along a column, turns into the next,' + LineEnding +
+    '  and comes back - as many pairs as the maximum allows - nearest the' + LineEnding +
+    '  manifold first, then outward, mirror image either side of it.  Fewer,' + LineEnding +
+    '  longer loops, and half the fan of leads along the wall that the last' + LineEnding +
+    '  release made with twenty short ones.  Every turn is level.  A column' + LineEnding +
+    '  cut by an obstacle turns at it; the far side is reached by a loop out' + LineEnding +
+    '  on a clear column past it and home on the next, where the pairing' + LineEnding +
+    '  lets it - what is not reached is on the ticket.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.7' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
