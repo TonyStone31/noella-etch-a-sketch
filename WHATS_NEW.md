@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: the fan by the manifold now dodges a no-go
+  zone too.**  Every other piece of tube was already checked against
+  every obstacle; the short fan from each port to its grid lane, right
+  beside the manifold, was not, and an obstacle sitting close enough to
+  the manifold could put a fan line through it.  It is checked now, the
+  same as everything else, and there is a permanent test for it.
+
 ## v2026.09.24.3
 
 ### Fixed

@@ -1089,15 +1089,40 @@ var
                 (HasF[Rr] and (D >= FLo[Rr] - 1E-6) and (D <= FHi[Rr] + 1E-6))) then Exit(False);
     end;
 
-    { under the limit, and both lanes inside the floor and clear of
-      obstacles up to their rows }
+    { the fan is the one piece of tube that is never checked against an
+      obstacle any other way - LaneStart moves the whole band of lanes
+      past whatever sits beside the manifold, but that is a guess by the
+      obstacle's reach along the wall, not by its height off it, and it
+      does not touch the port's own end of the diagonal.  So the two fan
+      segments of this loop, port to lane, are walked past every
+      obstacle's box directly. }
+    function FanClear(D0, V0, D1, V1: Double): Boolean;
+    var
+      A, B: T2;
+      I3, K3: Integer;
+    begin
+      A := Point2(AtD(D0), M2.Y + V0); B := Point2(AtD(D1), M2.Y + V1);
+      Result := True;
+      for I3 := 0 to High(HoleB) do
+        for K3 := 0 to 3 do
+          if SegsMeet(A, B, HoleB[I3][K3], HoleB[I3][(K3 + 1) mod 4]) then Exit(False);
+    end;
+
+    { under the limit, both lanes inside the floor and clear of
+      obstacles up to their rows, and both fans clear of every
+      obstacle along their own length }
     function Fits(const Pl: TPlan; R: Integer): Boolean;
     var
       Lt: TRadiantLoop;
+      V0, V1: Double;
     begin
+      V0 := Min(FanH, RowV[Pl.Rows[0]] - M2.Y);
+      V1 := Min(FanH, RowV[Pl.Rows[High(Pl.Rows)]] - M2.Y);
       Result := (EdgeMax[Pl.Rows[0]] <= LaneOut(R) + 1E-6) and
                 (EdgeMax[Pl.Rows[High(Pl.Rows)]] <= LaneHome(R) + 1E-6) and
                 LaneClear(LaneOut(R), Pl.Rows[0]) and LaneClear(LaneHome(R), Pl.Rows[High(Pl.Rows)]) and
+                FanClear(PortOut(R), 0, LaneOut(R), V0) and
+                FanClear(LaneHome(R), V1, PortHome(R), 0) and
                 (LayPlan(Pl, R, Lt) <= Limit);
     end;
 

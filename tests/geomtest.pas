@@ -9046,6 +9046,28 @@ var
     Result := (P.X >= X0 - 1E-6) and (P.X <= X1 + 1E-6) and (P.Y >= Y0 - 1E-6) and (P.Y <= Y1 + 1E-6);
   end;
 
+  { every segment of every laid loop, walked against every no-go
+    zone's own edges - the fan by the manifold included, which is the
+    one piece of tube nothing else here checks }
+  function TubeCrossesHole(const R: TRadiantResult; const Holes: array of TP3Array): Integer;
+  var
+    I, J, H, K: Integer;
+    A, B: T2;
+  begin
+    Result := 0;
+    for I := 0 to High(R.Loops) do
+      for J := 1 to High(R.Loops[I].Pts) do
+      begin
+        A := Point2(R.Loops[I].Pts[J - 1].X, R.Loops[I].Pts[J - 1].Y);
+        B := Point2(R.Loops[I].Pts[J].X, R.Loops[I].Pts[J].Y);
+        for H := 0 to High(Holes) do
+          for K := 0 to High(Holes[H]) do
+            if SegsMeet(A, B, Point2(Holes[H][K].X, Holes[H][K].Y),
+                 Point2(Holes[H][(K + 1) mod Length(Holes[H])].X, Holes[H][(K + 1) mod Length(Holes[H])].Y)) then
+              Inc(Result);
+      end;
+  end;
+
   { the room's corners, as the rect tool would leave them }
   procedure Room(W, H: Double);
   begin
@@ -9131,6 +9153,19 @@ begin
   Ok(Outside <= 8, Format('  no run is in the column; turns on its clearance line: %d', [Outside]));
   EqI(Over, 0, '  no loop over the maximum');
   EqI(R.Crossings, 0, '  nothing runs through it');
+  EqI(TubeCrossesHole(R, Holes), 0, '  and no tube, the fan included, crosses the column');
+
+  { a no-go zone hugging the wall right beside the manifold: the fan
+    from the ports has to dodge it too, not just the rows - a fault the
+    owner reported by hand before this check existed }
+  SetLength(Hole, 4);
+  Hole[0] := P3(1.5, 0.3, 0); Hole[1] := P3(3.5, 0.3, 0);
+  Hole[2] := P3(3.5, 1.3, 0); Hole[3] := P3(1.5, 1.3, 0);
+  SetLength(Holes, 1); Holes[0] := Hole;
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok, 'a no-go zone beside the manifold lays out: ' + R.Why);
+  EqI(R.Crossings, 0, '  nothing runs through it');
+  EqI(TubeCrossesHole(R, Holes), 0, '  and no tube, the fan included, crosses it');
 
   { the ticket reads, and says the things a fitter looks for }
   Ok(Pos('manifold ports needed, all told: ' + IntToStr(Length(R.Loops)), RadiantTicketText(Spec, R, usImperial)) > 0,
@@ -9138,7 +9173,10 @@ begin
   Ok(Pos('1 obstacle', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the obstacle');
 
   { two zones - the room split down the middle by a line - a manifold
-    each at the outer corners: each lays its own zone and nothing else }
+    each at the outer corners: each lays its own zone and nothing else.
+    No obstacle of its own - clear what the sections above left in
+    Holes, rather than lean on being run right after a room with none. }
+  SetLength(Holes, 0);
   SetLength(Spec.Manifolds, 1); SetLength(Spec.Ports, 1);
   Room(20, 30);
   Spec.Manifolds[0] := P3(1, 1, 0); Spec.Ports[0] := 6;
@@ -9218,6 +9256,7 @@ begin
       if Sqr(P.X - 30) + Sqr(P.Y - 25) < Sqr(8 + 0.4) then Inc(Inside);
     end;
   EqI(Inside, 0, '  no point in the circle or within a hand of it');
+  EqI(TubeCrossesHole(R, Holes), 0, '  and no tube, the fan included, crosses the circle');
 end;
 
 begin

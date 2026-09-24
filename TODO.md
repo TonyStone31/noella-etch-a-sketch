@@ -388,6 +388,76 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.4, 03:15 - a diagnosis, asked for by name, before touching
+  the algorithm again.**  The owner relayed ChatGPT's read of this same
+  struggle and asked for an honest inspection before any more rewriting.
+  Answered here rather than acted on blind, because the questions were
+  worth answering for real:
+
+  *Where does the current build actually stand against that list?*  Its
+  central claim - "every inch of tubing is active, so routing IS the
+  pattern, not something bolted onto it afterward" - is already how
+  this engine works, and has been since the lane change two versions
+  ago: a loop's whole path, port to rows to port, is one continuous
+  walk of the same grid, at the same spacing, laid by the same function
+  (`LayPlan`) and admitted by the same test (`Fits`).  There is no
+  separate "connect the loops to the manifold" pass to have a different
+  rule from the "cover the floor" pass - point 3 on the list, "different
+  stages using different collision rules," does not describe this code.
+  Rows are shared and interleaved by rank, not owned per loop territory
+  (point 4) - that has been true since the row-and-lane rewrite.  The
+  manifold congestion point (point 5) is handled: ports fan onto lanes
+  over a capped, shrinking wedge, not a long bundle.
+
+  *But inspecting for real found one real gap*, and it is the exact
+  shape of the owner's repeated "goes through the no-go zone" reports:
+  the fan from a port to its lane is a straight diagonal, and nothing
+  checked it against an obstacle - `Fits` checked the lanes and rows,
+  never the two short diagonals that join them to the ports.  A sweep
+  of a small obstacle over 130-odd positions near a manifold (kept as
+  `radobs3.pas` in the scratchpad, not the repo) found real crossings -
+  up to twelve in one layout - whenever the obstacle sat within about a
+  foot of the wall and a few feet of the manifold: precisely a
+  fitter-visible fault, precisely what was reported, and precisely a
+  bounded bug, not evidence the architecture is wrong.  Fixed by
+  `FanClear`: the two fan segments of every trial plan are now walked
+  against every obstacle's box before the plan is accepted, the same as
+  everything else already was.  A permanent test locks it in
+  (`TubeCrossesHole`, run against the column, a new no-go zone placed
+  deliberately beside the manifold, and the round zone).
+
+  *A, B, C, D, E, answered straight, for whoever reopens this next:*
+  (A) the bundling the owner saw in earlier releases came from two
+  since-fixed things - a stub wedge with no grid alignment (fixed by
+  the lane change), and rows blocked by an obstacle simply going unused
+  instead of routed around (fixed by the excursion); the obstacle
+  violation came from the one gap above, now closed.  (B) nearly
+  everything: the row/lane model, `RowPieces`, the excursion, the cost
+  search, `Meetings` - none of it assumed the bundling or the crossing,
+  they were bugs in code built the right way, not symptoms of the wrong
+  design.  (C) simplest to most sophisticated, if this is ever revisited:
+  keep tuning the current greedy row-by-row walk (what the last four
+  releases did); add backtracking so a bad early loop can be undone
+  once a later one proves it wrong, which is the owner's "game" and is
+  not built; or the ChatGPT/owner idea most worth trying on its own,
+  unforced by tonight's deadline - lay the whole floor's grid as one
+  continuous lattice first and cut it into manifold circuits after,
+  which sidesteps the acute-corner failure (a triangle with the
+  manifold in its point still lays one loop and gives up, 1918 of 1500
+  sq ft's worth of floor bare, because a lane cannot climb a corner no
+  matter how the loop-by-loop walk is tuned) but has not been tried
+  here at all.  (D) the backtracking game is the smallest change to
+  what exists; the lattice-first idea is a new engine beside this one,
+  not a patch to it.  (E) what exists now: `Meetings` (loop-vs-loop),
+  `TubeCrossesHole` (tube-vs-obstacle, new tonight), max-loop-length,
+  and the cost search's spread/unfilled numbers on the ticket.  Missing,
+  and worth building before the next big attempt rather than after: a
+  local-density check (a cell near a manifold or an obstacle corner
+  with more inches of tube than its neighbors, the thing a heat map
+  would show at a glance) - nothing here catches that today except a
+  human looking at the drawing, which is how every one of tonight's
+  real bugs was actually found.
+
   **v2026.09.24.3, 02:30 - the round no-go zone, by its own shape.**
   Row spans are now cut by an obstacle's own outline, sampled a hand's
   width above and below the row and widened a hand's width itself,
