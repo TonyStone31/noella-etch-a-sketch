@@ -429,38 +429,55 @@ pixel by pixel.  What the pictures said:
   neither hard floor available to test against has been helped by it
   even slightly.
 
-  **Found and bounded, not fixed: the dominant cause on the owner's
-  own floor is not obstacles at all.**  Traced with `WantTrace` and a
-  temporary row-state dump (removed before commit) against the exact
-  repro above.  One side of one manifold (`SideK=1, VDir=1` in this
-  run - the wide direction, ~97 ft of floor, no obstacle anywhere near
-  it) places five loops - ranks 0 through 4, eighteen rows - and then
-  **rank 5 fails outright on every one of the remaining forty-one
-  rows**, all of them plain open floor (`HasN=True`, no obstacle).
-  That is the whole 73.3%: not a fragment near a column, the entire
-  back two-thirds of the zone.  Instrumented rank 5's own search at
-  row 18 (T=300, the most generous trial): of 29 lane positions tried
-  before giving up on the first half of the search alone, 23 never
-  even produced a candidate to check - `PlanFrom` itself returned
-  nothing, not a crossing rejection - and the remaining 5 built a real
-  candidate that `PlanCrosses` then turned back.  So the search is not
-  quietly wasting rows the way a wide-open floor should let it use;
-  something in `PlanFrom`'s own row-pairing (`Fits`, `Excursion`,
-  `Reserved` - candidates, not confirmed) is refusing to build a plan
-  at most lane positions well before crossing ever gets a say, on a
-  floor with nothing in the way.  This is the search's own row-by-row
-  greed doing exactly what the session's earlier notes already named
-  and did not build a fix for (see "(C)" under v2026.09.24.4 below):
-  nothing here can undo an earlier rank's choice once a later one
-  proves it cost too much floor.  Whichever internal check is refusing
-  those 23 candidates needs to be pinned down by instrumenting `Fits`
-  itself (not yet done - time ran out on this pass) before touching
-  it; changing `Fits` or `PlanFrom` blind, on a guess, is exactly the
-  kind of change this file has already had to revert twice tonight.
-  The repro is exact and cheap to rerun: zone 1's outline and both
-  obstacle boxes are plain rectangles read straight out of the `.hsk`
-  above, no reconstruction needed, and the failure shows up in the
-  very first (most generous) T-trial, so it is not a search-budget
+  **Found, and now confirmed down to the mechanism: the dominant cause
+  on the owner's own floor is not obstacles at all.**  Traced with
+  `WantTrace` and a temporary row-state dump (both removed before
+  commit) against the exact repro above.  One side of one manifold
+  (`SideK=1, VDir=1` in this run - the wide direction, ~97 ft of
+  floor, no obstacle anywhere near it) places five loops - ranks 0
+  through 4, eighteen rows - and then **rank 5 fails outright on every
+  one of the remaining forty-one rows**, all of them plain open floor
+  (`HasN=True`, no obstacle).  That is the whole 73.3%: not a fragment
+  near a column, the entire back two-thirds of the zone.
+
+  Instrumented `Fits` itself (temporarily) for rank 5's own search at
+  row 18.  Every lane position from D=28.5 down to D=6.5 fails
+  `LaneClear` outright - the obstacle on *this* side blocks a run of
+  rows closer to the manifold, the same shape this session's far-piece
+  fix already handles, not news.  D=5.5 down to 1.5 build a real,
+  otherwise-valid two-row candidate that `PlanCrosses` turns back -
+  crossing the fan and ports of ranks 0-4, nested in tight near the
+  manifold, exactly as designed.  So far this all reads as "the near
+  ground is taken, try farther out" - and the search does: the upward
+  half runs D all the way to the ceiling, 95.93, and at D=94.5-95.5,
+  far from the manifold and from every rank's port, `Fits` says yes to
+  a real, generous, well-under-budget candidate spanning rows 18
+  through 35+.  **And `PlanCrosses` turns that one back too.**  Checked
+  directly: it is not the fan, not a port, it is the ROWS - ranks 0
+  through 4's own rows.  Every row a loop lays runs from that loop's
+  own lane out to the row's own far bound, the near-wall side, full
+  stop - nothing caps how far a row reaches based on what any other
+  rank might need to pass through later.  Eighteen rows, each owned by
+  one of five loops nested at five different (small) lane positions,
+  each one individually still reaching out to ~97 ft, between them
+  cover the *entire* width from ~1.5 to ~97 with tube.  There is no D
+  left, anywhere, for rank 5's lane to thread past all eighteen of
+  them to reach row 19 on.  Not a search bug, not a missing case - a
+  direct consequence of "a row reaches as far as it can" applied row
+  by row with nothing above it watching how much floor a whole side
+  has left to give away.  This is exactly the shape of "(C)" under
+  v2026.09.24.4 below, now with a floor and a number behind it rather
+  than a name: **a fix needs either backtracking (undo an early loop's
+  reach once a later one proves the floor needed it) or an early loop
+  that stops short of its own row's own far bound on purpose, leaving
+  a lane deeper ranks can use** - which is the T-pattern the owner
+  described from his own mental model at the start of tonight, in
+  different words.  Neither is a small change to `Fits` or `PlanFrom`
+  alone; both want their own attempt, not a patch bolted onto tonight's
+  session.  The repro is exact and cheap to rerun: zone 1's outline and
+  both obstacle boxes are plain rectangles read straight out of the
+  `.hsk` above, no reconstruction needed, and the failure shows up in
+  the very first (most generous) T-trial, so it is not a search-budget
   artifact either.
 
   **v2026.09.24.8 - the manifold left the wall.**  Asked for directly,
