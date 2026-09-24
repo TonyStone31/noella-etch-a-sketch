@@ -15,4 +15,4 @@ WS=${LCL_WS:-gtk3}
   -dLCL -dLCL$WS \
   -otests_geomtest tests/geomtest.pas >/tmp/geomtest-build.log 2>&1 \
   || { tail -25 /tmp/geomtest-build.log; exit 1; }
-exec /tmp/tests_geomtest
+exec /tmp/tests_geomtest "$@"

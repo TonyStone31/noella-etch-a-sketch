@@ -190,23 +190,6 @@ object RadiantForm: TRadiantForm
     TabOrder = 15
     Visible = False
   end
-  object lblPorts: TLabel
-    Left = 332
-    Height = 18
-    Top = 284
-    Width = 30
-    Caption = 'size'
-  end
-  object cbPorts: TComboBox
-    Left = 364
-    Height = 26
-    Top = 280
-    Width = 96
-    ItemHeight = 0
-    OnChange = cbPortsChange
-    Style = csDropDownList
-    TabOrder = 16
-  end
   object lblObsHead: TLabel
     Left = 24
     Height = 18

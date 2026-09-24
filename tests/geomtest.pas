@@ -9232,7 +9232,11 @@ begin
   Spec.Manifolds[0] := P3(30, 1, 0);
   R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'a triangle lays out: ' + R.Why);
-  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.05, Format('  under a twentieth of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  { Partial and very short rows now count too. An independent 20-pixel/ft
+    tube-footprint comparison found essentially unchanged coverage (14.82%
+    versus 14.88% bare including wall margins), while the old row-used
+    metric reported only 10.9 sq ft. Do not restore that false score. }
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.09, Format('  under nine percent of sampled rows bare, including partial rows: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
   EqI(R.Crossings, 0, '  nothing crosses');
   Outside := 0;
   for I := 0 to High(R.Loops) do
@@ -9256,15 +9260,8 @@ begin
   SetLength(Holes, 1); Holes[0] := Hole;
   R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'a floor with a round no-go zone lays out: ' + R.Why);
-  { under half, not under three tenths, since the lane-rank rewrite
-    that made every layout here provably free of a crossing (see
-    TODO.md) costs coverage against a floor this hard - a lane's own
-    starting reach is a first honest guess now, not a formula tuned
-    against real floors, and this one obstacle eats most of the room
-    it sits in.  Tightening this number is exactly the next work the
-    TODO entry calls for; loosening it here is not fixing the test,
-    it is telling the truth about where that work stands. }
-  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.5, Format('  under half of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.20,
+    Format('  under a fifth of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
   EqI(R.Crossings, 0, '  nothing crosses');
   Inside := 0;
   for I := 0 to High(R.Loops) do
@@ -9277,7 +9274,145 @@ begin
   EqI(TubeCrossesHole(R, Holes), 0, '  and no tube, the fan included, crosses the circle');
 end;
 
+procedure TestRadiantSearch;
+var
+  Floor: TP3Array;
+  Holes: TRadiantHoles;
+  Spec: TRadiantSpec;
+  R, Again: TRadiantResult;
+  I, J, K, H, Crossings, Outside, Over, Accepted, Q: Integer;
+  A, B, C, D: T2;
+  Sum, Measured: Double;
+  Seen: array[0..3] of Boolean;
+
+  procedure Rect(var P: TP3Array; X0, Y0, X1, Y1: Double);
+  begin
+    SetLength(P, 4);
+    P[0] := P3(X0, Y0, 0); P[1] := P3(X1, Y0, 0);
+    P[2] := P3(X1, Y1, 0); P[3] := P3(X0, Y1, 0);
+  end;
+
+  procedure CheckGeometry;
+  var
+    Other, Seg, I, J, H, K: Integer;
+  begin
+    Crossings := 0; Outside := 0; Over := 0; Sum := 0;
+    for I := 0 to High(R.Loops) do
+    begin
+      Measured := 0;
+      for J := 0 to High(R.Loops[I].Pts) do
+        if not RadiantInside(Floor, R.Loops[I].Pts[J]) then Inc(Outside);
+      for J := 1 to High(R.Loops[I].Pts) do
+      begin
+        Measured := Measured + Dist(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J]);
+        A := Point2(R.Loops[I].Pts[J - 1].X, R.Loops[I].Pts[J - 1].Y);
+        B := Point2(R.Loops[I].Pts[J].X, R.Loops[I].Pts[J].Y);
+        for H := 0 to High(Holes) do
+          for K := 0 to High(Holes[H]) do
+          begin
+            C := Point2(Holes[H][K].X, Holes[H][K].Y);
+            D := Point2(Holes[H][(K + 1) mod Length(Holes[H])].X,
+              Holes[H][(K + 1) mod Length(Holes[H])].Y);
+            if SegsMeet(A, B, C, D) then Inc(Crossings);
+          end;
+        for Other := I to High(R.Loops) do
+          for Seg := 1 to High(R.Loops[Other].Pts) do
+          begin
+            if (Other = I) and (Seg <= J + 1) then Continue;
+            C := Point2(R.Loops[Other].Pts[Seg - 1].X, R.Loops[Other].Pts[Seg - 1].Y);
+            D := Point2(R.Loops[Other].Pts[Seg].X, R.Loops[Other].Pts[Seg].Y);
+            if SegsMeet(A, B, C, D) then Inc(Crossings);
+          end;
+      end;
+      if Measured > 300 + 1E-6 then Inc(Over);
+      EqF(R.Loops[I].LenFt, Measured, '  circuit length includes its actual return', 1E-6);
+      Sum := Sum + Measured;
+    end;
+    EqI(Crossings, 0, '  independent check: no self, tube or obstacle crossings');
+    EqI(Outside, 0, '  all tube points remain inside the floor');
+    EqI(Over, 0, '  every complete circuit is within 300 feet');
+    EqF(R.TotalFt, Sum, '  total matches the drawn circuits', 1E-6);
+    EqI(R.Manifolds[0].LoopCount, Length(R.Loops), '  manifold count follows completed circuits');
+    Ok(R.Manifolds[0].Ports >= Length(R.Loops), '  enough ports for the actual result');
+  end;
+
 begin
+  WriteLn('Radiant search regressions');
+  Spec := DefaultRadiantSpec; Spec.Tube := tsHalf; Spec.Spacing := 1;
+  SetLength(Spec.Manifolds, 1);
+  { No port count is supplied. It is an output, not a prerequisite. }
+  Spec.Ports := nil;
+  { Exact floor and obstacle rectangles from the documented barn repro,
+    report-20260924-130538-f90d326164. The old engine left 4218.5 sq ft bare. }
+  Rect(Floor, 0.703125, 0.520833, 100.703125, 60.520833);
+  SetLength(Holes, 2);
+  Rect(Holes[0], 77.453125, 47.171875, 91.677083, 54.354167);
+  Rect(Holes[1], 8.447917, 47.171875, 28.484375, 54.354167);
+  Spec.Manifolds[0] := P3(98.135417, 60.049679, 0);
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok, 'barn routes without specifying manifold size: ' + R.Why);
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.36,
+    Format('  barn bare area below 36%%: %.1f of %.1f', [R.UnfilledSqFt, R.AreaSqFt]));
+  Ok(R.TotalFt > 4000, '  improvement is actual tube, not whole-row bookkeeping');
+  CheckGeometry;
+  SetLength(Spec.Ports, 1); Spec.Ports[0] := 2;
+  Again := ComputeRadiantLayout(Floor, Holes, Spec);
+  EqI(Length(Again.Loops), Length(R.Loops), '  a two-port hint cannot limit the layout');
+  EqF(Again.TotalFt, R.TotalFt, '  port hint does not change routing', 1E-6);
+  EqF(Again.UnfilledSqFt, R.UnfilledSqFt, '  repeat search is deterministic', 1E-6);
+
+  { The initial estimate used to stop at seven loops and leave a broad
+    empty strip even in an unobstructed square. More ranks must be tried. }
+  Rect(Floor, 0, 0, 40, 40); Holes := nil;
+  Spec.Spacing := 0.75; Spec.Manifolds[0] := P3(1, 1, 0);
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok, 'open square can outgrow its initial loop-count estimate');
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.08,
+    Format('  under 8%% bare after expanding the search: %.1f', [R.UnfilledSqFt]));
+  Ok(Length(R.Loops) >= 8, '  extra circuits are allowed beyond the initial estimate');
+  CheckGeometry;
+  Spec.Spacing := 1;
+
+  { A centered manifold and one ten feet off the wall. Both must heat
+    all four quadrants, including the floor behind the manifold. }
+  Rect(Floor, 0, 0, 40, 40); Holes := nil;
+  for Q := 0 to 1 do
+  begin
+    Spec.Manifolds[0] := P3(20, 20 - Q * 10, 0);
+    R := ComputeRadiantLayout(Floor, Holes, Spec, Q = 1);
+    Ok(R.Ok, Format('interior manifold at 20, %d routes', [20 - Q * 10]));
+    Ok(R.UnfilledSqFt < R.AreaSqFt * 0.15,
+      Format('  under 15%% bare: %.1f of %.1f', [R.UnfilledSqFt, R.AreaSqFt]));
+    FillChar(Seen, SizeOf(Seen), 0);
+    for I := 0 to High(R.Loops) do
+      for J := 0 to High(R.Loops[I].Pts) do
+      begin
+        A := Point2(R.Loops[I].Pts[J].X - Spec.Manifolds[0].X,
+          R.Loops[I].Pts[J].Y - Spec.Manifolds[0].Y);
+        if (Abs(A.X) < 3) or (Abs(A.Y) < 3) then Continue;
+        K := Ord(A.X > 0) + 2 * Ord(A.Y > 0); Seen[K] := True;
+      end;
+    Ok(Seen[0] and Seen[1] and Seen[2] and Seen[3], '  tube reaches all four quadrants');
+    CheckGeometry;
+    if Q = 1 then
+    begin
+      Accepted := 0;
+      for I := 0 to High(R.Trace) do if R.Trace[I].Accepted then Inc(Accepted);
+      EqI(Accepted, Length(R.Loops), '  replay accepts only the winning layout circuits');
+      Again := ComputeRadiantLayout(Floor, Holes, Spec);
+      EqF(Again.TotalFt, R.TotalFt, '  replay and normal preview choose the same layout', 1E-6);
+    end;
+  end;
+end;
+
+begin
+  if ParamStr(1) = 'radiant' then
+  begin
+    TestRadiant; TestRadiantSearch;
+    WriteLn(Checks, ' checks, ', Fails, ' failed');
+    if Fails <> 0 then Halt(1);
+    Halt(0);
+  end;
   WriteLn('Heckers Sketch - geometry checks');
   WriteLn;
   TestParsing;      WriteLn;
@@ -9393,6 +9528,7 @@ begin
   TestPrimitives;   WriteLn;
   TestImpliedFaces; WriteLn;
   TestRadiant;      WriteLn;
+  TestRadiantSearch; WriteLn;
   TestHeckRoundTrips; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);

@@ -37,3 +37,12 @@ What it has caught so far:
 * T-junctions never cutting the line they meet, so the outer edges of a grid
   had no midpoints
 * a circle on a slab never winning the pick against the slab
+
+## Radiant routing
+
+`./tests/run.sh radiant` runs just the radiant geometry and search checks.
+The full `./tests/run.sh` includes them too. Fixtures cover obstacles, the
+saved barn failure, derived manifold sizes, four-quadrant coverage from an
+interior manifold, complete return lengths, deterministic search and replay.
+See [the search notes](../docs/radiant-search.md) for measured improvements
+and the remaining coverage limits.

@@ -242,6 +242,18 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Radiant search follow-up, 24 September (working tree):** twelve
+  complete restarts across both axes, shorter-first-circuit budgets and
+  two manifold fan depths, plus larger lane allocations when the original
+  loop estimate runs short; partial-row coverage scoring; rejected-search
+  state restored; self/obstacle/floor checks before accepting a circuit;
+  manifold size is an output, not a required input. The barn improves from
+  5 circuits / 1,053 ft to 20 / 4,393 ft, but remains incomplete. See
+  [radiant-search.md](docs/radiant-search.md) for measurements, the independent
+  footprint comparison, regression fixtures and the remaining limits.
+  Keep the proposed remove-long/grow-short/reroute repair pass as the next
+  structural change, not a claim that today's restart search already does it.
+
 * **Radiant heat layout - the first version is in, 23 September, for a
   real job (a barn) that needs it now; gone over cold the next morning
   and six things fixed** (the runs were invisible on the sheet - soft

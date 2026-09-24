@@ -32,10 +32,11 @@ unit uRadiant;
   unless the person asks - keeps every loop clear of whatever was circled,
   and the rest of the floor is free to be laid out again around it.
 
-  What this does not yet do: choose where a loop reaches based on where
-  the floor still needs it, the way a person laying it out by eye would -
-  see TODO.md for the shape of the fix and why it is a different
-  foundation, not a tuning pass on this one.
+  The search restarts with both row directions and shorter first-loop
+  budgets, and scores the floor actually reached by the finished tube,
+  circuit count and length spread. A local fan may grow to three feet;
+  field rows keep their requested pitch. This remains a bounded heuristic,
+  not a guarantee that every reachable part of an arbitrary floor is filled.
 
   Copyright (c) 2021-2026 Noella Stone - MIT, see LICENSE. }
 
@@ -71,7 +72,7 @@ type
       loop goes to the nearest.  Extra is what the wizard added as
       obstacles over what the face already had as holes. }
     Manifolds: TP3Array;
-    Ports: TIntArray;
+    Ports: TIntArray;             { legacy hint only; routing sizes the manifold afterward }
     Extra: TRadiantHoles;
     ManifoldW, ManifoldH: Double;   { the little box drawn for each }
     { the slab }
@@ -579,7 +580,6 @@ begin
   if (Spec.Spacing < SPACING_MIN_IN * Spec.Inch * 0.5) then
     Exit('That spacing is tighter than any tube can run.');
   if Length(Spec.Manifolds) = 0 then Exit('Place a manifold - or press Suggest.');
-  if Length(Spec.Ports) <> Length(Spec.Manifolds) then Exit('Every manifold wants a size.');
   MaxFt := Spec.MaxLoopFt;
   if MaxFt <= 0 then MaxFt := TubeOf(Spec.Tube).MaxLoopFt;
   if MaxFt < 20 then Exit('The maximum loop length has to read as a size.');
@@ -634,10 +634,11 @@ begin
   end;
 end;
 
-function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
-  const Spec: TRadiantSpec; WantTrace: Boolean = False): TRadiantResult;
+function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
+  const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget, FanIn: Double; ExtraRanks: Integer): TRadiantResult;
 var
   F: TRadiantFrame;
+  SwapAxis: TP3;
   Poly2: T2Array;
   HolePoly: array of T2Array;
   I, J, K, MI, NM: Integer;
@@ -650,7 +651,6 @@ var
   Unfilled: Double;
   Pts: T2Array;
   NPts: Integer;
-  ThisSide: Integer;
   { every lane tried for the manifold currently being laid out, in
     order - LayManifold resets this once per T it tries and keeps a
     copy alongside whichever T wins; Trace is what actually survives,
@@ -660,6 +660,22 @@ var
   function World(const P: T2): TP3;
   begin
     Result := RadiantFrom2(F, P.X, P.Y);
+  end;
+
+  function InsidePoly(const Poly: T2Array; const P: T2): Boolean;
+  var
+    A, B: Integer;
+  begin
+    Result := False;
+    B := High(Poly);
+    for A := 0 to High(Poly) do
+    begin
+      if SegsMeet(P, P, Poly[A], Poly[B]) then Exit(True);
+      if ((Poly[A].Y > P.Y) <> (Poly[B].Y > P.Y)) and
+        (P.X < (Poly[B].X - Poly[A].X) * (P.Y - Poly[A].Y) /
+          (Poly[B].Y - Poly[A].Y) + Poly[A].X) then Result := not Result;
+      B := A;
+    end;
   end;
 
   procedure Put(X, Y: Double);
@@ -676,17 +692,13 @@ var
     manifold along this side - so both sides read the same way.  The
     floor's spans are pulled in a hand's width at their ends; an
     obstacle's box already stands that much bigger. }
-  procedure RowPieces(V: Double; Sign: Integer; out EdgeD, NearLo, NearHi, FarLo, FarHi: Double;
-    out HasNear, HasFar: Boolean);
+  { Shared by routing and scoring, including every piece between holes. }
+  procedure RowBounds(V: Double; out Outer, Cuts: TSpanArray);
   var
-    Pieces, Cuts, HoleRow, Outer: TSpanArray;
-    P, Q, K0, K: Integer;
+    P, Q, K, K0: Integer;
+    HoleRow: TSpanArray;
     T: TSpan;
-    Lo, Hi, StartU: Double;
-    CutEdge, First: Boolean;
   begin
-    HasNear := False; HasFar := False;
-    NearLo := 0; NearHi := 0; FarLo := 0; FarHi := 0; EdgeD := 1E300;
     { an obstacle cuts the row where its own outline does, a hand's
       width wider each way, and where it does within a hand's width
       above or below - sampled, so a round one is round and not its
@@ -721,6 +733,19 @@ var
     begin
       Outer[P].Lo := Outer[P].Lo + Inset; Outer[P].Hi := Outer[P].Hi - Inset;
     end;
+  end;
+
+  procedure RowPieces(V: Double; Sign: Integer; out EdgeD, NearLo, NearHi, FarLo, FarHi: Double;
+    out HasNear, HasFar: Boolean);
+  var
+    Pieces, Cuts, Outer: TSpanArray;
+    P, Q, K: Integer;
+    Lo, Hi, StartU: Double;
+    CutEdge, First: Boolean;
+  begin
+    HasNear := False; HasFar := False;
+    NearLo := 0; NearHi := 0; FarLo := 0; FarHi := 0; EdgeD := 1E300;
+    RowBounds(V, Outer, Cuts);
     { where the floor's own edge is on this side, obstacles or not: the
       first outer span on this side, or the one the manifold is in }
     for P := 0 to High(Outer) do
@@ -988,7 +1013,7 @@ var
                 LaneClear(LaneOut(R), Pl.Rows[0]) and LaneClear(LaneHome(R), Pl.Rows[High(Pl.Rows)]) and
                 FanClear(PortOut(R), 0, LaneOut(R), V0) and
                 FanClear(LaneHome(R), V1, PortHome(R), 0) and
-                (LayPlan(Pl, R, Lt) <= Limit);
+                (LayPlan(Pl, R, Lt) <= IfThen(R = 0, Limit * FirstBudget, Limit));
     end;
 
     { is there a run's worth of this piece beyond the loop's port? }
@@ -1176,16 +1201,42 @@ var
       Lt: TRadiantLoop;
       SA, SB: array of T2;
       I4, J4, A4: Integer;
+      Existing: TP3Array;
       P0, P1, Q0, Q1: T2;
     begin
       Result := False;
       LayPlan(Pl, R, Lt);
       SetLength(SA, Length(Lt.Pts));
       for I4 := 0 to High(SA) do SA[I4] := RadiantTo2(F, Lt.Pts[I4]);
-      for A4 := 0 to High(Got) do
+      for I4 := 0 to High(SA) do
       begin
-        SetLength(SB, Length(Got[A4].Pts));
-        for I4 := 0 to High(SB) do SB[I4] := RadiantTo2(F, Got[A4].Pts[I4]);
+        if not InsidePoly(Poly2, SA[I4]) then Result := True;
+        for A4 := 0 to High(HolePoly) do
+          if InsidePoly(HolePoly[A4], SA[I4]) then Result := True;
+      end;
+      for I4 := 1 to High(SA) do
+        for J4 := 0 to High(Poly2) do
+          if SegsMeet(SA[I4 - 1], SA[I4], Poly2[J4],
+            Poly2[(J4 + 1) mod Length(Poly2)]) then Result := True;
+      { A lane test samples rows; test the finished segments as well so
+        a connector cannot jump through a hole between those samples. }
+      for I4 := 1 to High(SA) do
+        for A4 := 0 to High(HolePoly) do
+          for J4 := 0 to High(HolePoly[A4]) do
+            if SegsMeet(SA[I4 - 1], SA[I4], HolePoly[A4][J4],
+              HolePoly[A4][(J4 + 1) mod Length(HolePoly[A4])]) then
+              Result := True;
+      { Non-adjacent segments of this candidate must not meet either. }
+      for I4 := 1 to High(SA) do
+        for J4 := I4 + 2 to High(SA) do
+          if SegsMeet(SA[I4 - 1], SA[I4], SA[J4 - 1], SA[J4]) then
+            Result := True;
+      for A4 := 0 to Length(Got) + Length(Loops) - 1 do
+      begin
+        if A4 < Length(Got) then Existing := Got[A4].Pts
+        else Existing := Loops[A4 - Length(Got)].Pts;
+        SetLength(SB, Length(Existing));
+        for I4 := 0 to High(SB) do SB[I4] := RadiantTo2(F, Existing[I4]);
         for I4 := 1 to High(SA) do
           for J4 := 1 to High(SB) do
           begin
@@ -1208,6 +1259,71 @@ var
       end;
     end;
 
+    { Measure what was actually laid, not whether a row appeared in a
+      plan. A short pass must not claim the unused rest of its row. }
+    function BareRows: Double;
+    var
+      Rr, Li, Si, Pn: Integer;
+      A, B: T2;
+      Available, Covered, Left, Outer, Cuts: TSpanArray;
+      X0, X1, T0, T1, Dy, HalfPitch: Double;
+    begin
+      Result := 0;
+      HalfPitch := Spec.Spacing / 2;
+      for Rr := 0 to High(RowV) do
+      begin
+        RowBounds(RowV[Rr], Outer, Cuts);
+        Available := Subtract(Outer, Cuts);
+        Left := nil;
+        for Pn := 0 to High(Available) do
+        begin
+          if Sign > 0 then
+          begin
+            X0 := Max(Available[Pn].Lo, Max(M2.X, LimLo)) - M2.X;
+            X1 := Min(Available[Pn].Hi, LimHi) - M2.X;
+          end
+          else
+          begin
+            X0 := M2.X - Min(Available[Pn].Hi, Min(M2.X, LimHi));
+            X1 := M2.X - Max(Available[Pn].Lo, LimLo);
+          end;
+          if X1 <= X0 then Continue;
+          Si := Length(Left); SetLength(Left, Si + 1);
+          Left[Si].Lo := X0; Left[Si].Hi := X1;
+        end;
+        SetLength(Covered, 1);
+        for Li := 0 to High(Got) do
+          for Si := 1 to High(Got[Li].Pts) do
+          begin
+            A := RadiantTo2(F, Got[Li].Pts[Si - 1]);
+            B := RadiantTo2(F, Got[Li].Pts[Si]);
+            Dy := B.Y - A.Y;
+            if Abs(Dy) < 1E-9 then
+            begin
+              if Abs(A.Y - RowV[Rr]) > HalfPitch + 1E-6 then Continue;
+              X0 := A.X; X1 := B.X;
+            end
+            else
+            begin
+              T0 := (RowV[Rr] - HalfPitch - A.Y) / Dy;
+              T1 := (RowV[Rr] + HalfPitch - A.Y) / Dy;
+              if T0 > T1 then begin X0 := T0; T0 := T1; T1 := X0; end;
+              T0 := Max(0, T0); T1 := Min(1, T1);
+              if T0 > T1 then Continue;
+              X0 := A.X + T0 * (B.X - A.X);
+              X1 := A.X + T1 * (B.X - A.X);
+            end;
+            X0 := Sign * (X0 - M2.X); X1 := Sign * (X1 - M2.X);
+            Covered[0].Lo := Min(X0, X1) - HalfPitch;
+            Covered[0].Hi := Max(X0, X1) + HalfPitch;
+            Left := Subtract(Left, Covered);
+            if Length(Left) = 0 then Break;
+          end;
+        for Pn := 0 to High(Left) do
+          Result := Result + (Left[Pn].Hi - Left[Pn].Lo) * Spec.Spacing;
+      end;
+    end;
+
     { the loop of rank R, grown from row C: try the widest lane that
       row can offer on its own - using nearly all of it, the way the
       owner's own picture has the first snake out of a manifold
@@ -1221,7 +1337,15 @@ var
     var
       Start, Ceiling: Double;
       Tries: Integer;
+      SavedDead: array of Boolean;
+
+      function Candidate: Boolean;
+      begin
+        DeadN := Copy(SavedDead);
+        Result := PlanFrom(C, R, Pl) and not PlanCrosses(Pl, R);
+      end;
     begin
+      SavedDead := Copy(DeadN);
       Result := False;
       if HasN[C] then Ceiling := NHi[C] - Spec.Spacing
       else if HasF[C] then Ceiling := FHi[C] - Spec.Spacing
@@ -1231,7 +1355,7 @@ var
       Tries := 0;
       while (CurD >= -1E-6) and (Tries <= 4000) do
       begin
-        if PlanFrom(C, R, Pl) and not PlanCrosses(Pl, R) then Exit(True);
+        if Candidate then Exit(True);
         CurD := CurD - Spec.Spacing;
         Inc(Tries);
       end;
@@ -1243,10 +1367,11 @@ var
       Tries := 0;
       while (CurD <= Ceiling + 1E-6) and (Tries <= 4000) do
       begin
-        if PlanFrom(C, R, Pl) and not PlanCrosses(Pl, R) then Exit(True);
+        if Candidate then Exit(True);
         CurD := CurD + Spec.Spacing;
         Inc(Tries);
       end;
+      DeadN := SavedDead;
       Result := False;
     end;
 
@@ -1254,11 +1379,9 @@ var
     NLOut := 0;
     if SideK = 0 then Sign := -1 else Sign := 1;
     PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
-    { the fan: no more than the foot or so the owner allows tube to be
-      closer than the spacing at the manifold, a hand's width at
-      least - a fixed reach, the same for every loop regardless of
-      how many the side turns out to hold }
-    FanH := Max(Inset, MANIFOLD_FAN_IN * Spec.Inch);
+    { The only off-grid allowance: thirteen inches normally, or three
+      feet in a restart. The field keeps the requested row spacing. }
+    FanH := Max(Inset, FanIn * Spec.Inch);
     SetLength(RowV, 0);
     C := 0;
     repeat
@@ -1278,7 +1401,11 @@ var
       Inc(C);
     until C > 4000;
     N := Length(RowV);
-    if N < 2 then Exit;
+    if N < 2 then
+    begin
+      Unf := Unf + BareRows;
+      Exit;
+    end;
     SetLength(UsedN, N); SetLength(UsedF, N); SetLength(DeadN, N);
     { where the search below starts looking - not a promise, since
       every rank's own lane is found by looking and checked against
@@ -1291,7 +1418,7 @@ var
     AvgReach := Spec.Spacing;
     for C := 0 to N - 1 do
       if HasN[C] then AvgReach := Max(AvgReach, NHi[C]);
-    EstGuess := Max(1, Ceil(N / Max(2, Limit / AvgReach)));
+    EstGuess := Max(1, Ceil(N / Max(2, Limit / AvgReach))) + ExtraRanks;
 
     { the plans: from the wall outward, each taking what it can, and
       each committed to Got the moment it is accepted - not gathered
@@ -1321,12 +1448,7 @@ var
       end
       else Inc(C);
     end;
-    { what nothing took }
-    for C := 0 to High(RowV) do
-    begin
-      if HasN[C] and not UsedN[C] then Unf := Unf + NHi[C] * Spec.Spacing;
-      if HasF[C] and not UsedF[C] then Unf := Unf + (FHi[C] - FLo[C]) * Spec.Spacing;
-    end;
+    Unf := Unf + BareRows;
     NLOut := Length(Plans);
   end;
 
@@ -1385,31 +1507,30 @@ var
         LaySideSettled(SideK, 1, 0, T, Trial, Unf, NP);
         LaySideSettled(SideK, -1, 2 * NP * PPitch, T, Trial, Unf, NP);
       end;
-      if Length(Trial) > 0 then
+      Lo := 1E300; Hi := 0;
+      if Length(Trial) = 0 then Lo := 0;
+      for I := 0 to High(Trial) do
       begin
-        Lo := 1E300; Hi := 0;
-        for I := 0 to High(Trial) do
-        begin
-          Lo := Min(Lo, Trial[I].LenFt); Hi := Max(Hi, Trial[I].LenFt);
-        end;
-        Spread := Hi - Lo;
-        Cost := Length(Trial) + Spread / LOOP_EVEN_FT + Unf / (Spec.Spacing * UNFILLED_LOOP_FT);
-        if Best = nil then Better := True
-        else Better := Cost < BestCost - 1E-6;
-        if Better then
-        begin
-          Best := Trial; BestUnf := Unf; BestCost := Cost;
-          if WantTrace then BestTrace := CurTrace;
-        end;
+        Lo := Min(Lo, Trial[I].LenFt); Hi := Max(Hi, Trial[I].LenFt);
       end;
-      T := T - 2;
+      Spread := Hi - Lo;
+      Cost := Length(Trial) + Spread / LOOP_EVEN_FT + Unf / (Spec.Spacing * UNFILLED_LOOP_FT);
+      if BestCost = 1E300 then Better := True
+      else Better := Cost < BestCost - 1E-6;
+      if Better then
+      begin
+        Best := Trial; BestUnf := Unf; BestCost := Cost;
+        if WantTrace then BestTrace := CurTrace;
+      end;
+      if (FirstBudget = 1) and (FanIn = MANIFOLD_FAN_IN) and (ExtraRanks = 0) then T := T - 2
+      else T := T - 12;
     end;
     for I := 0 to High(Best) do
     begin
       SetLength(Loops, Length(Loops) + 1);
       Loops[High(Loops)] := Best[I];
     end;
-    if Best <> nil then Unfilled := Unfilled + BestUnf;
+    Unfilled := Unfilled + BestUnf;
     if WantTrace then
       for I := 0 to High(BestTrace) do
       begin
@@ -1432,8 +1553,9 @@ var
     begin
       SetLength(SA, Length(Loops[A].Pts));
       for I := 0 to High(SA) do SA[I] := RadiantTo2(F, Loops[A].Pts[I]);
-      for B := A to High(Loops) do
+      for B := 0 to High(Loops) do
       begin
+        if (B < A) and (B >= FromLoop) then Continue;
         SetLength(SB, Length(Loops[B].Pts));
         for I := 0 to High(SB) do SB[I] := RadiantTo2(F, Loops[B].Pts[I]);
         for I := 1 to High(SA) do
@@ -1473,6 +1595,11 @@ begin
   begin
     Result.Manifolds[MI].At := Spec.Manifolds[MI];
     F := FrameAt(Outline, Spec.Manifolds[MI]);
+    if Turn then
+    begin
+      SwapAxis := F.U; F.U := F.V;
+      F.V := P3(-SwapAxis.X, -SwapAxis.Y, -SwapAxis.Z);
+    end;
     SetLength(Poly2, Length(Outline));
     Vmin := 1E30; Vmax := -1E30; Umin := 1E30; Umax := -1E30;
     for I := 0 to High(Outline) do
@@ -1548,6 +1675,81 @@ begin
     Result.Ok := False;
     Result.Why := 'No loop fits - the floor is narrower than a run and back, or the maximum is too short.';
   end;
+end;
+
+{ Restart from an empty floor: changing the first loop after a later loop
+  stalls must not leave any of the earlier trial's occupied rows behind.
+  Try both axes, a shorter first circuit, and a return fan of at most three
+  feet. Each attempt still lays all four quadrants of an interior manifold.
+  The requested port count is never a routing limit. }
+function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
+  const Spec: TRadiantSpec; WantTrace: Boolean = False): TRadiantResult;
+var
+  Alternative: TRadiantResult;
+  TurnIndex, BudgetIndex, FanIndex, BestTurn, RankTry, BestRanks: Integer;
+  FirstBudget, FanIn, BestBudget, BestFan, Cost, BestCost: Double;
+
+  function Score(const R: TRadiantResult): Double;
+  var
+    M, L: Integer;
+    Lo, Hi: Double;
+  begin
+    Result := R.UnfilledSqFt / (Spec.Spacing * UNFILLED_LOOP_FT) + Length(R.Loops);
+    for M := 0 to High(R.Manifolds) do
+    begin
+      Lo := 1E300; Hi := 0;
+      for L := 0 to High(R.Loops) do
+        if R.Loops[L].Manifold = M then
+        begin
+          Lo := Min(Lo, R.Loops[L].LenFt); Hi := Max(Hi, R.Loops[L].LenFt);
+        end;
+      if Hi > 0 then Result := Result + (Hi - Lo) / LOOP_EVEN_FT;
+    end;
+  end;
+
+begin
+  Result := Default(TRadiantResult);
+  Result.Why := RadiantProblem(Outline, Spec);
+  if Result.Why <> '' then Exit;
+  BestCost := 1E300; BestTurn := 0; BestBudget := 1; BestFan := MANIFOLD_FAN_IN; BestRanks := 0;
+  for TurnIndex := 0 to 1 do
+    for BudgetIndex := 0 to 2 do
+      for FanIndex := 0 to 1 do
+      begin
+        FirstBudget := 1 - BudgetIndex * 0.25;
+        if FanIndex = 0 then FanIn := MANIFOLD_FAN_IN else FanIn := 36;
+        Alternative := ComputeRadiantOriented(Outline, Holes, Spec, False,
+          TurnIndex = 1, FirstBudget, FanIn, 0);
+        Cost := Score(Alternative);
+        if (TurnIndex = 0) and (BudgetIndex = 0) and (FanIndex = 0) then Result := Alternative;
+        if Alternative.Ok and (Alternative.Crossings = 0) and (Cost < BestCost - 1E-6) then
+        begin
+          Result := Alternative; BestCost := Cost;
+          BestTurn := TurnIndex; BestBudget := FirstBudget; BestFan := FanIn; BestRanks := 0;
+        end;
+      end;
+  { A length-based estimate is only a starting point. Shortened circuits
+    and detours may need more connections. Restart with additional lane
+    ranks rather than silently stopping at that estimated manifold size. }
+  for TurnIndex := 0 to 1 do
+    for RankTry := 1 to 4 do
+    begin
+      Alternative := ComputeRadiantOriented(Outline, Holes, Spec, False,
+        TurnIndex = 1, 1, MANIFOLD_FAN_IN, RankTry * 2);
+      Cost := Score(Alternative);
+      if Alternative.Ok and (Alternative.Crossings = 0) and (Cost < BestCost - 1E-6) then
+      begin
+        Result := Alternative; BestCost := Cost;
+        BestTurn := TurnIndex; BestBudget := 1; BestFan := MANIFOLD_FAN_IN;
+        BestRanks := RankTry * 2;
+      end;
+      if Alternative.Ok and (Alternative.UnfilledSqFt < Alternative.AreaSqFt * 0.03) then Break;
+    end;
+  { Replay the winning strategy only, so discarded restarts cannot appear
+    as accepted loops in the animation. Normal preview allocates no trace. }
+  if WantTrace and Result.Ok then
+    Result := ComputeRadiantOriented(Outline, Holes, Spec, True,
+      BestTurn = 1, BestBudget, BestFan, BestRanks);
 end;
 
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
@@ -1640,7 +1842,7 @@ begin
   Result := Result + 'floor: concrete slab' + LineEnding;
   Result := Result + 'tube: ' + T.Name + ' PEX, ' + FormatFloat('0.#', Spec.Spacing / Spec.Inch) +
     '" on center' + LineEnding;
-  Result := Result + 'area covered: ' + FormatArea(R.AreaSqFt, U) + LineEnding;
+  Result := Result + 'floor area: ' + FormatArea(R.AreaSqFt, U) + LineEnding;
   Result := Result + 'loops: ' + IntToStr(Length(R.Loops)) + ', ' + FormatFloat('0', MaxFt) +
     ' ft maximum each, on ' + IntToStr(Length(R.Manifolds)) + ' manifold(s)' + LineEnding;
   for M := 0 to High(R.Manifolds) do

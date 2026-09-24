@@ -37,7 +37,6 @@ type
     btnReport: TButton;
     btnSuggest: TButton;
     cbLabels: TCheckBox;
-    cbPorts: TComboBox;
     cbTube: TComboBox;
     edMaxLoop: TEdit;
     edObsH: TEdit;
@@ -52,7 +51,6 @@ type
     lblNeed: TLabel;
     lblObsHead: TLabel;
     lblObsX: TLabel;
-    lblPorts: TLabel;
     lblProblem: TLabel;
     lblSpacing: TLabel;
     lblSpacingIn: TLabel;
@@ -81,7 +79,6 @@ type
     procedure btnReplayClick(Sender: TObject);
     procedure btnReportClick(Sender: TObject);
     procedure btnSuggestClick(Sender: TObject);
-    procedure cbPortsChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure lbManifoldsClick(Sender: TObject);
@@ -180,11 +177,9 @@ end;
 procedure TRadiantForm.FormCreate(Sender: TObject);
 var
   S: TTubeSize;
-  I: Integer;
 begin
   for S := Low(TTubeSize) to High(TTubeSize) do cbTube.Items.Add(TUBE_NAMES[S]);
   cbTube.ItemIndex := Ord(tsHalf);
-  for I := MANIFOLD_PORTS_MIN to MANIFOLD_PORTS_MAX do cbPorts.Items.Add(Format('%d-loop', [I]));
   FDragManifold := -1;
   FDragObstacle := -1;
   FCoverage := -1; FEvenness := -1;
@@ -239,7 +234,7 @@ end;
 procedure TRadiantForm.Recompute;
 var
   Spec, ZS: TRadiantSpec;
-  Z, NeedAll: Integer;
+  Z: Integer;
   Ticket: string;
   TotalFt, OrderFt, Worst, Lo, Hi, TotalArea, TotalUnfilled: Double;
   Loops, I: Integer;
@@ -263,12 +258,6 @@ begin
     pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
     Exit;
   end;
-  { what the floor wants, zone by zone, said before anything else }
-  NeedAll := 0;
-  for Z := 0 to High(FZones) do
-    NeedAll := NeedAll + RadiantLoopsNeeded(FZones[Z].Outline, ZoneHoles(Z), Spec);
-  lblNeed.Caption := Format('%d zone%s, about %d loops all told - one manifold a zone',
-    [Length(FZones), IfThen(Length(FZones) = 1, '', 's'), NeedAll]);
   lblProblem.Caption := '';
   SetLength(FLayouts, Length(FZones));
   Ticket := '';
@@ -291,6 +280,8 @@ begin
       TotalFt := TotalFt + FLayouts[Z].TotalFt;
       OrderFt := OrderFt + FLayouts[Z].OrderFt;
       Loops := Loops + Length(FLayouts[Z].Loops);
+      if Length(FLayouts[Z].Manifolds) > 0 then
+        FPorts[Z] := FLayouts[Z].Manifolds[0].Ports;
       TotalArea := TotalArea + FLayouts[Z].AreaSqFt;
       TotalUnfilled := TotalUnfilled + FLayouts[Z].UnfilledSqFt;
     end;
@@ -322,6 +313,8 @@ begin
       Format('%d zones, %d loops, %d manifolds', [Length(FZones), Loops, Length(FZones)]) + LineEnding +
       'total tube, no waste: ' + FormatLen(TotalFt, FUnits) + LineEnding +
       'order: ' + FormatLen(OrderFt, FUnits) + LineEnding;
+  lblNeed.Caption := Format('%d zone%s, %d routed loops - manifold sizes follow the layout',
+    [Length(FZones), IfThen(Length(FZones) = 1, '', 's'), Loops]);
   memTicket.Lines.Text := Ticket;
   btnBuild.Enabled := AnyLayout and (lblProblem.Caption = '');
   ListManifolds;
@@ -359,10 +352,6 @@ begin
     FSelectLast := False;
     if (Sel >= 0) and (Sel < lbManifolds.Items.Count) then lbManifolds.ItemIndex := Sel
     else if lbManifolds.Items.Count > 0 then lbManifolds.ItemIndex := 0;
-    if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) then
-      cbPorts.ItemIndex := FPorts[lbManifolds.ItemIndex] - MANIFOLD_PORTS_MIN;
-    cbPorts.Enabled := False;
-    cbPorts.Visible := False; lblPorts.Visible := False;
   finally
     FListing := False;
   end;
@@ -370,23 +359,7 @@ end;
 
 procedure TRadiantForm.lbManifoldsClick(Sender: TObject);
 begin
-  if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) then
-  begin
-    FListing := True;
-    cbPorts.ItemIndex := FPorts[lbManifolds.ItemIndex] - MANIFOLD_PORTS_MIN;
-    FListing := False;
-  end;
   pbPlan.Invalidate;
-end;
-
-procedure TRadiantForm.cbPortsChange(Sender: TObject);
-begin
-  if FListing then Exit;
-  if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) and (cbPorts.ItemIndex >= 0) then
-  begin
-    FPorts[lbManifolds.ItemIndex] := cbPorts.ItemIndex + MANIFOLD_PORTS_MIN;
-    Recompute;
-  end;
 end;
 
 procedure TRadiantForm.btnSuggestClick(Sender: TObject);
