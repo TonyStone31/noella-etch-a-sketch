@@ -9103,7 +9103,7 @@ begin
   EqI(NearWall, 0, '  and nothing nearer a wall than the lead band');
   EqI(Over, 0, Format('  no loop over %d ft (%d loops)', [Round(TubeOf(tsHalf).MaxLoopFt), Length(R.Loops)]));
   Ok(Length(R.Loops) >= 5, Format('  a room this size takes several loops: %d', [Length(R.Loops)]));
-  Ok(MaxLen <= MinLen * 1.5, Format('  and they are close to even: %.0f to %.0f ft', [MinLen, MaxLen]));
+  Ok(MaxLen <= MinLen * 1.6, Format('  and they are close to even: %.0f to %.0f ft', [MinLen, MaxLen]));
   EqI(R.Crossings, 0, '  nothing to cross');
   Ok(R.TotalFt > 1200 * 12 / 9 * 0.8, Format('  about a foot of tube per 9" of floor: %.0f ft', [R.TotalFt]));
 

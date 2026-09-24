@@ -120,7 +120,7 @@ type
       (0..) or nothing }
     FDragManifold, FDragObstacle: Integer;
     FDragOff: T2;
-    FListing: Boolean;
+    FListing, FSelectLast: Boolean;
     procedure ShowFloorKind;
     procedure Recompute;
     function Read(out Spec: TRadiantSpec): Boolean;
@@ -341,9 +341,11 @@ begin
         S := S + Format('  -  %d laid', [FLayout.Manifolds[I].LoopCount]);
       lbManifolds.Items.Add(S);
     end;
+    if FSelectLast then Sel := lbManifolds.Items.Count - 1;
+    FSelectLast := False;
     if (Sel >= 0) and (Sel < lbManifolds.Items.Count) then lbManifolds.ItemIndex := Sel
     else if lbManifolds.Items.Count > 0 then lbManifolds.ItemIndex := 0;
-    if lbManifolds.ItemIndex >= 0 then
+    if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) then
       cbPorts.ItemIndex := FPorts[lbManifolds.ItemIndex] - MANIFOLD_PORTS_MIN;
     cbPorts.Enabled := lbManifolds.ItemIndex >= 0;
     btnRemoveManifold.Enabled := lbManifolds.ItemIndex >= 0;
@@ -354,7 +356,7 @@ end;
 
 procedure TRadiantForm.lbManifoldsClick(Sender: TObject);
 begin
-  if lbManifolds.ItemIndex >= 0 then
+  if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) then
   begin
     FListing := True;
     cbPorts.ItemIndex := FPorts[lbManifolds.ItemIndex] - MANIFOLD_PORTS_MIN;
@@ -366,7 +368,7 @@ end;
 procedure TRadiantForm.cbPortsChange(Sender: TObject);
 begin
   if FListing then Exit;
-  if (lbManifolds.ItemIndex >= 0) and (cbPorts.ItemIndex >= 0) then
+  if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) and (cbPorts.ItemIndex >= 0) then
   begin
     FPorts[lbManifolds.ItemIndex] := cbPorts.ItemIndex + MANIFOLD_PORTS_MIN;
     Recompute;
@@ -398,9 +400,10 @@ begin
   SetLength(FPorts, Length(FPorts) + 1);
   FManifolds[High(FManifolds)] := Mid;
   FPorts[High(FPorts)] := 8;
-  lbManifolds.ItemIndex := High(FManifolds);
+  { the list does not have the new row until Recompute lists it; picking
+    a row it does not have raised the exception reported on 23 September }
+  FSelectLast := True;
   Recompute;
-  lbManifolds.ItemIndex := High(FManifolds);
 end;
 
 procedure TRadiantForm.btnRemoveManifoldClick(Sender: TObject);
@@ -512,7 +515,7 @@ begin
   FExtra[High(FExtra)][2] := RadiantFrom2(FFrame, U + W / 2, V + H / 2);
   FExtra[High(FExtra)][3] := RadiantFrom2(FFrame, U - W / 2, V + H / 2);
   ListObstacles;
-  lbObstacles.ItemIndex := lbObstacles.Items.Count - 1;
+  if lbObstacles.Items.Count > 0 then lbObstacles.ItemIndex := lbObstacles.Items.Count - 1;
   Recompute;
 end;
 

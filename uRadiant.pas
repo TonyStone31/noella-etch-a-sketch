@@ -691,9 +691,10 @@ var
   MaxFt: Double;
   Cum: array of Double;
   Loops: TRadiantLoopArray;
-  Start, Cur, NBreaks, Tries, LeadCrossings, JoinCross, Pass, NLanes, Back, Fwd, Best, LastCount: Integer;
+  Start, Cur, NBreaks, Tries, LeadCrossings, JoinCross, Pass, NLanes, Back, Fwd, Best, LastCount, Over, SegA, SegB: Integer;
+  LongJoin: Boolean;
   Target, RunningStart, Longest, Umin, Umax, CorrLo, CorrHi, CorrV0, CorrV1, HLo, HHi, HV0, HV1: Double;
-  IsRect, HasLanes: Boolean;
+  IsRect, HasLanes, Moved, BackOk, FwdOk: Boolean;
   Join: T2Array;
   Territory: TFieldSpanArray;
   Pieces: array of record A, B: Integer; end;
@@ -882,10 +883,17 @@ var
     end;
   end;
 
-  { is this span end on the corridor's edge? }
+  { is this span end on the corridor's edge - or, failing that, one a
+    lead could come straight to from the corridor without passing
+    through an obstacle? }
   function AtCorridor(const P: T2): Boolean;
   begin
     Result := (Abs(P.X - CorrLo) < 1E-6) or (Abs(P.X - CorrHi) < 1E-6);
+  end;
+
+  function Reachable(const P: T2): Boolean;
+  begin
+    Result := not ThroughAHole(Point2((CorrLo + CorrHi) / 2, P.Y), P);
   end;
 
   { one loop: the lead in, the walk from FromIdx to ToIdx, the lead out }
@@ -1115,71 +1123,102 @@ begin
         else
           Cum[I] := Cum[I - 1] + Dist(World(PtsBuf[I - 1]), World(PtsBuf[I]));
 
-      { cut into pieces under the maximum - each piece gets its own two
-        leads, and those count, so cut, measure, and cut one more way if
-        any piece is still over.  The leads are measured as they will
-        run: up a lane, then in. }
-      NBreaks := Max(1, Ceil((Cum[NPts - 1] + Dist(Manifold, World(PtsBuf[0])) +
-        Dist(World(PtsBuf[NPts - 1]), Manifold)) / MaxFt));
-      for Tries := 1 to 64 do
+      { Cut into pieces.  First at every long join - where the walk goes
+        from one cell to another the long way round, a fitter starts a
+        new loop rather than run a hundred feet of tube to link two
+        areas, so a join of more than a few rows' worth is a cut whatever
+        the length.  Then each stretch between those is cut into as many
+        even pieces as bring it under the maximum with its leads. }
+      SetLength(Pieces, 0);
+      SegA := 0;
+      for I := 1 to NPts do
       begin
-        SetLength(Pieces, 0);
-        Start := 0;
-        RunningStart := 0;
-        for I := 1 to NBreaks do
+        LongJoin := (I < NPts) and (I mod 2 = 0) and
+          (Cum[I] - Cum[I - 1] > 4 * Spec.Spacing + Abs(PtsBuf[I].Y - PtsBuf[I - 1].Y));
+        if (I = NPts) or LongJoin then
         begin
-          Target := RunningStart + (Cum[NPts - 1] - RunningStart) / (NBreaks - I + 1);
-          Cur := Start;
-          while (Cur < NPts - 1) and ((Cur mod 2 = 0) or (Cum[Cur] < Target)) do Inc(Cur);
-          if Cur mod 2 = 0 then Dec(Cur);
-          if Cur < Start + 1 then Cur := Start + 1;
-          { with a corridor, a piece wants to end where a span meets it,
-            so its lead turns straight into the row: the nearest such end
-            at or before the even cut, or after it if there is none }
-          if (Pass > 1) and HasLanes and (Cur < NPts - 1) then
+          SegB := I - 1;
+          NBreaks := Max(1, Ceil((Cum[SegB] - Cum[SegA] +
+            Abs(PtsBuf[SegA].Y - M2[MI].Y) + Abs(PtsBuf[SegA].X - M2[MI].X) +
+            Abs(PtsBuf[SegB].Y - M2[MI].Y) + Abs(PtsBuf[SegB].X - M2[MI].X)) / MaxFt));
+          Start := SegA;
+          RunningStart := Cum[SegA];
+          for J := 1 to NBreaks do
           begin
-            Back := Cur;
-            while (Back > Start + 1) and not AtCorridor(PtsBuf[Back]) do Dec(Back, 2);
-            Fwd := Cur;
-            while (Fwd < NPts - 1) and not AtCorridor(PtsBuf[Fwd]) do Inc(Fwd, 2);
-            if Fwd >= NPts - 1 then Fwd := NPts - 1;
-            if not AtCorridor(PtsBuf[Back]) then Best := Fwd
-            else if (Fwd >= NPts - 1) and not AtCorridor(PtsBuf[Fwd]) then Best := Back
-            else if Abs(Cum[Fwd] - Target) < Abs(Cum[Back] - Target) then Best := Fwd
-            else Best := Back;
-            { a corridor end a quarter of a loop away from where the
-              length wants the cut - a cell beyond a column has none -
-              is worse than a plain cut with a straight lead }
-            if Abs(Cum[Best] - Target) <= MaxFt / 4 then Cur := Best;
+            Target := RunningStart + (Cum[SegB] - RunningStart) / (NBreaks - J + 1);
+            Cur := Start;
+            while (Cur < SegB) and ((Cur mod 2 = 0) or (Cum[Cur] < Target)) do Inc(Cur);
+            if Cur mod 2 = 0 then Dec(Cur);
+            if Cur < Start + 1 then Cur := Start + 1;
+            if (Pass > 1) and HasLanes and (Cur < SegB) then
+            begin
+              Back := Cur;
+              while (Back > Start + 1) and not AtCorridor(PtsBuf[Back]) do Dec(Back, 2);
+              Fwd := Cur;
+              while (Fwd < SegB) and not AtCorridor(PtsBuf[Fwd]) do Inc(Fwd, 2);
+              if Fwd > SegB then Fwd := SegB;
+              if not AtCorridor(PtsBuf[Back]) then Best := Fwd
+              else if (Fwd >= SegB) and not AtCorridor(PtsBuf[Fwd]) then Best := Back
+              else if Abs(Cum[Fwd] - Target) < Abs(Cum[Back] - Target) then Best := Fwd
+              else Best := Back;
+              if Abs(Cum[Best] - Target) <= MaxFt / 4 then Cur := Best
+              else
+              begin
+                Back := Cur;
+                while (Back > Start + 1) and not Reachable(PtsBuf[Back]) do Dec(Back, 2);
+                Fwd := Cur;
+                while (Fwd < SegB) and not Reachable(PtsBuf[Fwd]) do Inc(Fwd, 2);
+                if Fwd > SegB then Fwd := SegB;
+                if Reachable(PtsBuf[Back]) and ((Cur - Back <= Fwd - Cur) or not Reachable(PtsBuf[Fwd])) then Cur := Back
+                else if Reachable(PtsBuf[Fwd]) then Cur := Fwd;
+              end;
+            end;
+            if (J = NBreaks) or (Cur >= SegB) then Cur := SegB;
+            SetLength(Pieces, Length(Pieces) + 1);
+            Pieces[High(Pieces)].A := Start;
+            Pieces[High(Pieces)].B := Cur;
+            RunningStart := Cum[Cur];
+            Start := Cur + 1;
+            if Start > SegB then Break;
           end;
-          if (I = NBreaks) or (Cur >= NPts - 1) then Cur := NPts - 1;
-          SetLength(Pieces, Length(Pieces) + 1);
-          Pieces[High(Pieces)].A := Start;
-          Pieces[High(Pieces)].B := Cur;
-          RunningStart := Cum[Cur];
-          Start := Cur + 1;
-          if Start >= NPts then Break;
+          SegA := I;
         end;
-        if (Pass > 1) or not HasLanes then
+      end;
+      if (Pass > 1) or not HasLanes then
+      begin
+        SetLength(Loops, K);
+        LayLoops;
+      end;
+
+      { a piece still over the maximum is split on its own, at the
+        reachable span end nearest its middle, without touching the
+        others - up to a few times }
+      if (Pass > 1) or not HasLanes then
+        for Tries := 1 to 8 do
         begin
-          { laid for real, leads and all, and measured as laid }
+          Over := -1;
+          for I := K to High(Loops) do
+            if (Loops[I].LenFt > MaxFt) and (I - K <= High(Pieces)) then begin Over := I - K; Break; end;
+          if Over < 0 then Break;
+          Target := (Cum[Pieces[Over].A] + Cum[Pieces[Over].B]) / 2;
+          Cur := Pieces[Over].A + 1;
+          while (Cur < Pieces[Over].B) and (Cum[Cur] < Target) do Inc(Cur, 2);
+          if Cur mod 2 = 0 then Dec(Cur);
+          Back := Cur; Fwd := Cur;
+          while (Back > Pieces[Over].A + 1) and not (AtCorridor(PtsBuf[Back]) or Reachable(PtsBuf[Back])) do Dec(Back, 2);
+          while (Fwd < Pieces[Over].B - 1) and not (AtCorridor(PtsBuf[Fwd]) or Reachable(PtsBuf[Fwd])) do Inc(Fwd, 2);
+          BackOk := (Back > Pieces[Over].A) and (Back < Pieces[Over].B) and (AtCorridor(PtsBuf[Back]) or Reachable(PtsBuf[Back]));
+          FwdOk := (Fwd > Pieces[Over].A) and (Fwd < Pieces[Over].B) and (AtCorridor(PtsBuf[Fwd]) or Reachable(PtsBuf[Fwd]));
+          if not BackOk and not FwdOk then Break;
+          if BackOk and (not FwdOk or (Cur - Back <= Fwd - Cur)) then Cur := Back else Cur := Fwd;
+          SetLength(Pieces, Length(Pieces) + 1);
+          for I := High(Pieces) downto Over + 2 do Pieces[I] := Pieces[I - 1];
+          Pieces[Over + 1].A := Cur + 1;
+          Pieces[Over + 1].B := Pieces[Over].B;
+          Pieces[Over].B := Cur;
           SetLength(Loops, K);
           LayLoops;
-          Longest := 0;
-          for I := K to High(Loops) do Longest := Max(Longest, Loops[I].LenFt);
-        end
-        else
-        begin
-          { the first pass only wants the count: near enough }
-          Longest := 0;
-          for I := 0 to High(Pieces) do
-            Longest := Max(Longest, Cum[Pieces[I].B] - Cum[Pieces[I].A] +
-              Abs(PtsBuf[Pieces[I].A].Y - M2[MI].Y) + Abs(PtsBuf[Pieces[I].A].X - M2[MI].X) +
-              Abs(PtsBuf[Pieces[I].B].Y - M2[MI].Y) + Abs(PtsBuf[Pieces[I].B].X - M2[MI].X));
         end;
-        if (Longest <= MaxFt) or (NBreaks >= NPts div 2) or (Tries >= 4) then Break;
-        Inc(NBreaks);
-      end;
 
       { the count settled - the corridor was sized for this many - so
         this pass's loops stand; otherwise size it again and go round }
@@ -1214,29 +1253,37 @@ begin
         { and clear of every obstacle it would run through: moved sideways
           past the nearer side of any it overlaps, and then kept inside
           the floor again }
-        for J := 0 to High(HolePoly) do
+        { until it is clear of every one - moving past one can land it on
+          the next }
+        for Tries := 1 to 2 * Length(HolePoly) + 1 do
         begin
-          HLo := 1E30; HHi := -1E30; HV0 := 1E30; HV1 := -1E30;
-          for I := 0 to High(HolePoly[J]) do
+          Moved := False;
+          for J := 0 to High(HolePoly) do
           begin
-            HLo := Min(HLo, HolePoly[J][I].X); HHi := Max(HHi, HolePoly[J][I].X);
-            HV0 := Min(HV0, HolePoly[J][I].Y); HV1 := Max(HV1, HolePoly[J][I].Y);
-          end;
-          if (HHi + Inset > CorrLo) and (HLo - Inset < CorrHi) and (HV1 > CorrV0) and (HV0 < CorrV1) then
-          begin
-            if (M2[MI].X - HLo) < (HHi - M2[MI].X) then
+            HLo := 1E30; HHi := -1E30; HV0 := 1E30; HV1 := -1E30;
+            for I := 0 to High(HolePoly[J]) do
             begin
-              CorrHi := HLo - Inset;
-              CorrLo := CorrHi - NLanes * Spec.Spacing;
-              if CorrLo < Umin + Inset then CorrLo := Umin + Inset;
-            end
-            else
+              HLo := Min(HLo, HolePoly[J][I].X); HHi := Max(HHi, HolePoly[J][I].X);
+              HV0 := Min(HV0, HolePoly[J][I].Y); HV1 := Max(HV1, HolePoly[J][I].Y);
+            end;
+            if (HHi + Inset > CorrLo) and (HLo - Inset < CorrHi) and (HV1 > CorrV0) and (HV0 < CorrV1) then
             begin
-              CorrLo := HHi + Inset;
-              CorrHi := CorrLo + NLanes * Spec.Spacing;
-              if CorrHi > Umax - Inset then CorrHi := Umax - Inset;
+              Moved := True;
+              if (M2[MI].X - HLo) < (HHi - M2[MI].X) then
+              begin
+                CorrHi := HLo - Inset;
+                CorrLo := CorrHi - NLanes * Spec.Spacing;
+                if CorrLo < Umin + Inset then CorrLo := Umin + Inset;
+              end
+              else
+              begin
+                CorrLo := HHi + Inset;
+                CorrHi := CorrLo + NLanes * Spec.Spacing;
+                if CorrHi > Umax - Inset then CorrHi := Umax - Inset;
+              end;
             end;
           end;
+          if not Moved then Break;
         end;
       end;
     end;

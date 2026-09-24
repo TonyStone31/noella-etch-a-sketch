@@ -10,6 +10,24 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: adding a manifold raised an exception** - the
+  new row was picked in the list before the list had it.  Fixed.
+- **The corridor of leads ran through obstacles** when there was more
+  than one in its way: it moved past the first and landed on the next.
+  It now moves until it is clear of all of them, and a loop's lead comes
+  into its row only where the corridor can see the row without an
+  obstacle between.
+- **No more hundred-foot joins.**  Where the walk went from one part of
+  the floor to another the long way round, the tube followed it - a
+  join of a hundred feet linking two areas, which put loops over the
+  maximum with nothing to cut.  A long join is now where one loop ends
+  and the next begins, each with its own lead from the manifold, and a
+  loop that still comes out over is split on its own.
+
 ## v2026.09.23.2
 
 ### Fixed
