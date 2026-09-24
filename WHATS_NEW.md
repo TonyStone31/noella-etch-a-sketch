@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: no more corridor at the manifold.**  The tube
+  out of each port no longer runs as a bundle, two inches from the
+  next, all the way to its rows.  It opens out across a short fan onto
+  a grid lane of its own - the ports are two inches apart and the grid
+  a spacing, so the fan makes up the difference over about half that
+  width, thinning from the manifold out - and goes up its lane to its
+  rows at the same spacing as everything else.  The fan is the only
+  tube off the grid.  Nothing crosses; the count on the ticket is
+  still zero.
+
 ## v2026.09.23.9
 
 ### Fixed

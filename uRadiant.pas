@@ -918,21 +918,25 @@ var
     again on the one after - as many pairs as Limit allows, measured as
     laid - and home down its other port.  Loop after loop outward from
     the wall, one side then the other, mirror image.  Every foot of it
-    is heater; the only tube off the grid is the stub out of each port,
-    two inches from the next.
+    is heater.  The ports are two inches apart and the grid a spacing,
+    so the tube out of each port opens out across a fan - straight, no
+    two fan lines crossing since ports and lanes are in the same order -
+    to a grid lane of its own, and goes up the lane to its rows: the
+    fan is the only tube off the grid, and it thins from the manifold
+    out instead of running as a bundle.
 
-    For no stub to cross a row, the loop nearest the wall has the
-    outermost pair of ports and the farthest the innermost, so a stub
-    only ever passes rows that begin beyond it - which is why every
-    loop's rows lie beyond every row of the loop before, strictly in
-    order outward, and why the far side of an obstacle is reached by one
-    loop and one only: out on a clear row short of it, the far pieces
-    beside it, home on the clear row past it, and the near pieces under
-    it on the way home.  A row cut by an obstacle turns at it.
+    For no lane to cross a row, the loop nearest the wall has the
+    outermost pair of ports and lanes and the farthest the innermost, so
+    a lane only ever passes rows that begin beyond it - which is why
+    every loop's rows lie beyond every row of the loop before, strictly
+    in order outward, and why the far side of an obstacle is reached by
+    one loop and one only: out on a clear row short of it, the far
+    pieces beside it, home on the clear row past it, and the near pieces
+    under it on the way home.  A row cut by an obstacle turns at it.
 
-    Which ports a loop gets depends on how many loops the side ends up
-    with, and the stub's length counts toward the limit, so the side is
-    laid with a guess at the count and laid again until it settles. }
+    Which ports and lanes a loop gets depends on how many loops the side
+    ends up with, so the side is laid with a guess at the count and laid
+    again until it settles. }
   procedure LaySide(SideK: Integer; Limit: Double; NLGuess: Integer;
     var Got: TRadiantLoopArray; var Unf: Double; out NLOut: Integer);
   type
@@ -942,7 +946,7 @@ var
     end;
   var
     C, N, Q, I2: Integer;
-    V, PortPitch: Double;
+    V, PortPitch, FanH: Double;
     RowV, NHi, FLo, FHi: array of Double;
     HasN, HasF, UsedN, UsedF, DeadN: array of Boolean;
     Plans: array of TPlan;
@@ -963,6 +967,18 @@ var
       Result := PortHome(R) + PortPitch;
     end;
 
+    { the two grid lanes its tube takes from the fan up to its rows, in
+      the same order as the ports }
+    function LaneHome(R: Integer): Double;
+    begin
+      Result := Spec.Spacing / 2 + (2 * Max(0, NLGuess - 1 - R)) * Spec.Spacing;
+    end;
+
+    function LaneOut(R: Integer): Double;
+    begin
+      Result := LaneHome(R) + Spec.Spacing;
+    end;
+
     function AtD(D: Double): Double;   { back to U }
     begin
       Result := M2.X + Sign * D;
@@ -979,20 +995,25 @@ var
       Back: Boolean;
     begin
       NPts := 0;
+      { out of the port and across the fan to the lane - straight, the
+        fan's height or the first row's, whichever is lower - then up
+        the lane to the row }
       Put(AtD(PortOut(R)), M2.Y);
+      Put(AtD(LaneOut(R)), M2.Y + Min(FanH, RowV[Pl.Rows[0]] - M2.Y));
       { each row's near and far end, then every turn leveled: going out
         the two rows turn at the nearer of their far ends, coming back at
         the farther of their near ends - a turn is always level.  A near
-        piece begins at the out port, the last at the home port; a far
-        piece past its obstacle. }
+        piece begins at the out lane, the last at the home lane; a far
+        piece past its obstacle, or at the out lane when the obstacle
+        sits nearer the manifold than that. }
       SetLength(Lo, Length(Pl.Rows)); SetLength(Hi, Length(Pl.Rows));
       for J := 0 to High(Pl.Rows) do
       begin
         Rr := Pl.Rows[J];
-        if Pl.Far[J] then begin Lo[J] := FLo[Rr]; Hi[J] := FHi[Rr]; end
-        else begin Lo[J] := PortOut(R); Hi[J] := NHi[Rr]; end;
+        if Pl.Far[J] then begin Lo[J] := Max(FLo[Rr], LaneOut(R)); Hi[J] := FHi[Rr]; end
+        else begin Lo[J] := LaneOut(R); Hi[J] := NHi[Rr]; end;
       end;
-      Lo[High(Lo)] := PortHome(R);
+      Lo[High(Lo)] := LaneHome(R);
       Back := False;
       for J := 0 to High(Pl.Rows) - 1 do
       begin
@@ -1009,6 +1030,7 @@ var
         Put(AtD(D1), RowV[Rr]);
         Back := not Back;
       end;
+      Put(AtD(LaneHome(R)), M2.Y + Min(FanH, RowV[Pl.Rows[High(Pl.Rows)]] - M2.Y));
       Put(AtD(PortHome(R)), M2.Y);
       SetLength(L.Pts, NPts);
       for J := 0 to NPts - 1 do L.Pts[J] := World(Pts[J]);
@@ -1028,12 +1050,13 @@ var
     function NearOk(C, R: Integer): Boolean;
     begin
       Result := (C >= 0) and (C <= High(RowV)) and HasN[C] and not UsedN[C] and not DeadN[C] and
-        (NHi[C] - PortOut(R) >= Spec.Spacing - 1E-6);
+        (NHi[C] - LaneOut(R) >= Spec.Spacing - 1E-6);
     end;
 
     function FarOk(C, R: Integer): Boolean;
     begin
-      Result := (C >= 0) and (C <= High(RowV)) and HasF[C] and not UsedF[C];
+      Result := (C >= 0) and (C <= High(RowV)) and HasF[C] and not UsedF[C] and
+        (FHi[C] - Max(FLo[C], LaneOut(R)) >= Spec.Spacing - 1E-6);
     end;
 
     function Clear(C: Integer): Boolean;   { a near piece to the far end }
@@ -1181,6 +1204,11 @@ var
     NLOut := 0;
     if SideK = 0 then Sign := -1 else Sign := 1;
     PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
+    { the fan: the ports are two inches apart and the lanes a spacing,
+      so the tube opens out from the one to the other over this height -
+      half the width it has to make up, so the outermost runs at about
+      one in two; a hand's width at least }
+    FanH := Max(Inset, NLGuess * (Spec.Spacing - PortPitch));
     SetLength(RowV, 0);
     C := 0;
     repeat
@@ -1232,29 +1260,35 @@ var
     end;
   end;
 
-  { one side, laid until its loop count comes out as guessed.  More
-    loops make more rows, which shorten the near columns, which can
-    take another loop - so the count can seesaw; then the higher guess
-    is laid, and any loop past it is dropped rather than put on a row
-    already taken, which would run it across the loop that has it. }
+  { One side, laid with the loop count it settles at.  More loops put
+    the lanes farther out, which shortens the rows, which lets a loop
+    take more of them, which makes fewer loops: the count that comes
+    out falls as the guess rises, so the guess climbs from one until
+    the count comes out as guessed - or falls below it, and then the
+    guess before is laid and its loops past the guess dropped, since
+    their lanes would be another loop's: the rows they would have had
+    go on the ticket as bare. }
   procedure LaySideSettled(SideK: Integer; Limit: Double; var Got: TRadiantLoopArray; var Unf: Double);
   var
-    Guess, NLOut, Tries, K0, Most: Integer;
+    Guess, NLOut, K0, I: Integer;
     Unf0: Double;
   begin
-    Guess := 0; Tries := 0; Most := 0;
     K0 := Length(Got); Unf0 := Unf;
+    Guess := 1;
     repeat
       SetLength(Got, K0); Unf := Unf0;
       LaySide(SideK, Limit, Guess, Got, Unf, NLOut);
-      if NLOut = Guess then Exit;
-      Most := Max(Most, NLOut);
-      Guess := NLOut;
-      Inc(Tries);
-    until Tries > 6;
-    SetLength(Got, K0); Unf := Unf0;
-    LaySide(SideK, Limit, Most, Got, Unf, NLOut);
-    if NLOut > Most then SetLength(Got, K0 + Most);
+      if NLOut <= Guess then Break;
+      Inc(Guess);
+    until Guess > 200;
+    if (NLOut < Guess) and (Guess > 1) then
+    begin
+      Dec(Guess);
+      SetLength(Got, K0); Unf := Unf0;
+      LaySide(SideK, Limit, Guess, Got, Unf, NLOut);
+      for I := K0 + Guess to High(Got) do Unf := Unf + Got[I].LenFt * Spec.Spacing;
+      SetLength(Got, K0 + Guess);
+    end;
   end;
 
   { Both sides under one limit per loop.  The owner's game: a loop

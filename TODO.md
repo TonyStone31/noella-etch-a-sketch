@@ -388,6 +388,20 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24, 01:00 - lanes.**  The stub wedge is gone: each port's
+  tube fans (straight, ordered, so no two fan lines cross) onto a grid
+  lane of its own, the nearest loop on the outermost lanes, and goes up
+  the lane to its rows; the rows begin at their lanes, a staircase.
+  The count settles by climbing the guess from one until the count
+  comes out as guessed (more loops push the lanes out, shorten the
+  rows, and make fewer loops - it always crosses).  A far piece begins
+  no nearer than the loop's out lane, so an obstacle at the manifold
+  does not put a row under the lanes.  Still open: the fan is a
+  triangle at up to twice the density right beside the manifold -
+  physics of thirty tube ends in five feet; the general lane router
+  (ChatGPT's PCB framing, the owner's snake) is the next step and would
+  spread it further.
+
   **v2026.09.23.9, 00:30 - the snake.**  The engine is now the owner's
   game of snake: rows parallel to the manifold's wall, a loop a snake
   of them out of its port and home down its other, the nearest loop on
