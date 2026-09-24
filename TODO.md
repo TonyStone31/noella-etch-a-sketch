@@ -388,6 +388,60 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **A real, severe bug found and run to ground against the owner's own
+  model - not fixed yet, and here is why not.**  His bug reports on
+  v2026.09.24.5 (a 100 x 120 barn, four zones, a rectangle obstacle
+  close to zone 1's own wall) were right: loaded his exact drawing
+  through `ComputeRadiantLayout` directly (no reconstruction, no
+  guessing - `FACE`/`HOLE` records straight out of his own `.hsk`),
+  zone 1 comes back **51.2% bare**.  Zero crossings, zero tube through
+  the obstacle - the tube that gets laid is clean, there is just far
+  too little of it.
+
+  Root cause, found by instrumenting `LaySideSettled`'s guess climb:
+  one loop's lane sits at a distance from the manifold that is a
+  function of `NLGuess`, the assumed final loop count - and for this
+  drawing, `NLGuess=6` happens to put that distance exactly on the
+  obstacle's near edge, which blocks every row behind the obstacle for
+  that one guess alone (every other nearby guess clears it by inches).
+  The climb hits that guess, the count collapses from a stable 11
+  loops (true for guesses 1 through 5, all in a row) to 0, and the
+  code reads the collapse as "we're past the right answer" and falls
+  back - but its fallback keeps only `Guess-1` (5) of the 11 loops
+  the immediately preceding guess had *already found and validated*,
+  and invents a bare-area number for the other 6 real, working loops
+  it threw away.  That invented number is most of the 51%.
+
+  Two fixes were tried tonight and both made it worse before either
+  was checked closely enough to trust: keeping every loop a guess
+  actually found, instead of truncating to match the guess, produced
+  a layout with over 800 tube-on-tube crossings, because the lane
+  formula (`Max(0, Guess - 1 - R)`) hands two or more loops the exact
+  same lane once their rank runs past `Guess - 1` - it goes flat at
+  zero instead of going negative, and nothing stops it there.  Letting
+  the climb run past the collapse and keep the best *valid* attempt
+  (`NLOut <= Guess`) fixed the crossings but made THIS zone worse
+  (74% bare) and broke two of tonight's other trial scenes outright
+  (one stopped finding any loop at all) - a large guess pushes every
+  lane out far enough that fewer rows are even reachable, and "least
+  bare among what was tried" does not reliably mean "actually good"
+  once the guess is far past what the floor needs.  Both attempts are
+  reverted; nothing of tonight's diff shipped.  `ComputeRadiantLayout`
+  is exactly the committed v2026.09.24.5 build.
+
+  What a real fix needs, for whoever picks this up: the lane-rank
+  formula itself has to stop collapsing ranks past `Guess - 1` onto
+  one lane (that is the crossing bug, independent of the search
+  strategy around it) - ranks past the assumed count need their own
+  room, not a shared floor of zero.  Once that is true, a guess that
+  undershoots the real count stops being *unsafe* to use outright, and
+  the search can be judged purely on coverage without a separate
+  correctness trap under it.  The owner's exact repro is
+  `reports/2026-09-24/report-20260924-065249-d18e0f5a05.hsk`, zone 1,
+  manifold at world (98.135417, 60.049679), 12" spacing - loaded
+  straight, no reconstruction needed, and it is now `loadbarn.pas` in
+  the scratchpad along with the instrumented trace that found this.
+
   **The owner's taste for the header fan, recorded, not acted on - he
   wants to test the current build first.**  Two different asks: (1)
   soon - the fan should snap onto the grid closer in than it does now;
