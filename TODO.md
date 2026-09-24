@@ -371,6 +371,23 @@ pixel by pixel.  What the pictures said:
   share a path.  Only the last few feet at the manifold may come off
   the grid to reach the ports.
 
+  **Built, 23:00 (v2026.09.23.6):** the out-and-back router as the
+  owner described it, replacing the corridor: rows parallel to the
+  manifold's wall (the longer wall when it is in a corner), a loop out
+  along the nearest row and back on its neighbor, as many pairs as the
+  maximum allows measured as laid, one side then the other, from the
+  wall outward.  Two zones with a no-go lay out clean and at right
+  angles.  Left for next: **the excursion** - a row cut short by an
+  obstacle turns there, and the far side of it is not reached; the
+  owner's rule is that a later loop, out on a clear row past the
+  obstacle, turns into the blocked row's far part and serpentines those
+  before coming home, so the floor behind a column is heated.  **The
+  game**: score the fill and the loop lengths, and when a greedy run
+  comes home badly, come home sooner and try again - a mirror image
+  either side of a mid-wall manifold is what a good result looks like.
+  And the manifold's row: a manifold not against a wall gets rows
+  below it too, laid down from it, which is in but not yet looked at.
+
   **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
   September - is the rule book the tool should come to apply on its own
   from the face it is handed: 12" on center as the slab default rather
