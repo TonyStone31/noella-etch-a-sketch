@@ -279,6 +279,41 @@ pixel by pixel.  What the pictures said:
   out, built, and the source window read back a clean serpentine of
   soft lines with exactly the length the ticket promised.
 
+  **Where it stands, evening of 23 September** (v2026.09.23.2):
+  manifolds placed by *Suggest* and dragged on the plan, or added and
+  dragged; the floor shared out between them along the halfway line;
+  each a zone in its own ink, loops thick and thin by turns and labeled
+  with their footage; obstacles added in the wizard and dragged; leads
+  in a corridor of lanes at the grid pitch, the corridor moved clear of
+  obstacles; the send window hang from inside a wizard fixed.  Known
+  and not done: **loops on one manifold are not yet balanced** - the cut
+  is even by walk length, then pulled to where a span meets the corridor,
+  and with a column in the way one loop can still come out over the
+  maximum (357 ft on the test floor with the manifold in line with the
+  column) - the ticket says OVER, and the fix is a balancing pass over
+  the cut points using the loops' real lengths as laid; joins between
+  cells still go round by the wall band, which on a floor with several
+  cells can run a join across the corridor's lanes; a manifold in the
+  middle of a floor gets a corridor running both ways from it but its
+  leads are not yet sorted by which way they go.  *Print* of the plan
+  and a ticket file are not built - the material list is in the dialog
+  only.
+
+  **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
+  September - is the rule book the tool should come to apply on its own
+  from the face it is handed: 12" on center as the slab default rather
+  than 9", 3/4" tube at 400-450 ft for a large slab, tighter spacing for
+  the first few feet along overhead doors and glass, R-10 under it, and
+  the per-square-foot tube figures as a cross-check on the ticket.
+  Three more asks recorded with it, for later, not now: the dialog should
+  **remember its settings** between runs the way the fitting wizard does
+  (`[fitting]` in the ini - the same LoadLast/SaveLast); it should
+  **compile a list per rectangle** as zones are laid one after another,
+  and **print a total** at the end - which wants the ticket kept per
+  build and a running document, the fitting wizard's export-to-files as
+  the pattern; and the counter-flow spiral, which the sheet names as the
+  evenest floor.
+
   What was talked through but is not built yet:
 
   * **Denser spacing along exterior walls.**  Confirmed 23 September as
