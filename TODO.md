@@ -361,6 +361,15 @@ pixel by pixel.  What the pictures said:
   simpler than what is built, not more - throw the corridor, the lanes,
   the cell walk and the balance pass away and keep the rows, the
   inset, the holes, the zones, the plan and the ticket.
+  `docs/media/radiant-leads-stacked-2026-09-23.jpg` is the owner's
+  photograph of the screen that settled it: sixteen leads of one zone
+  stacked into a solid bar - "you trying to melt concrete?" - beside a
+  neighbor zone's leads doing the same.  The rule the strips carry, in
+  his words: **every foot of tube lives on a grid point and a point is
+  used once** - leads are not a separate thing to bundle, they are tube
+  on the grid like everything else, so a lead is a row and no two can
+  share a path.  Only the last few feet at the manifold may come off
+  the grid to reach the ports.
 
   **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
   September - is the rule book the tool should come to apply on its own
