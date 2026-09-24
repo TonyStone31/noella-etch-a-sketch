@@ -424,26 +424,29 @@ pixel by pixel.  What the pictures said:
   worth fixing before the wizard is trusted to place manifolds
   unattended, but not attempted tonight.
 
-  A hand-written `.hsk` of the same building (raw LINE/ARC entities,
-  no FACE records) was also driven through the real app to get a
-  picture, not just numbers, and turned up a third thing, unconfirmed:
-  the round obstacle became a clean hole, but the triangle and the
-  rectangle each came back as their *own* small zone as well as a hole
-  in their parent - visible in the screenshot as a tiny second tube
-  pattern filling the no-go shape.  A real file this session already
-  proved clean with a rectangle obstacle in the same raw-LINE style
-  (`reports/2026-09-23/report-20260923-232050-20eb0344b6.hsk`), which
-  rules out "raw lines can't be a hole" as the explanation but does not
-  say what the real difference is - more zones, more obstacles, the
-  wing's non-rectangular shape, or something about loading a hand-typed
-  file rather than one the app's own tools produced live are all still
-  open.  Everything actually drawn interactively this session (every
-  `radzones.txt`-style script) has been clean, so this may be nothing
-  more than a gap in how a hand-typed file's faces get inferred at load
-  time, not a fault in normal use - genuinely not known yet, and worth
-  five minutes with the interactive tools before it is called either
-  way.  The barn drawing and the debug programs that isolated the two
-  confirmed findings are in the scratchpad, not the repo.
+  A hand-written `.hsk` of the same building (raw LINE/ARC entities, no
+  FACE records) was also driven through the real app to get a picture,
+  not just numbers, and the picture showed a real-looking third fault:
+  the triangle and the rectangle no-go zones each came back as their
+  *own* small zone as well as a hole in their parent, tube bunched
+  into the shape that was meant to stay empty.  Shown to the owner, who
+  called it correctly on sight as a failure regardless of cause - and
+  it was **run down and it is not the engine**: an isolated repro (draw
+  a rectangle, draw a triangle inside it with the LINE tool, erase the
+  triangle's face, select all, `/radiant` - all through the real tools,
+  nothing hand-typed) came back "1 zone, 3 loops," a clean hole, gray
+  triangle with no fill, no stray zone.  The difference was the drive
+  script, not the app: a hand-typed `.hsk` skips the auto-face-then-
+  erase step the interactive tools do for you, and loading raw
+  unfaced lines fresh apparently does not always reconstruct the same
+  parent/hole nesting that erasing a real face leaves behind.  That is
+  worth knowing for how this program's own test scenes get built - a
+  hand-typed obstacle needs to be built as draw-then-erase, or the
+  fault reported here can recur in a test that has nothing to do with
+  the engine - but it says nothing about what the owner draws by hand,
+  which has been clean every time this session.  The barn drawing and
+  the debug programs that isolated the two confirmed manifold-
+  suggestion findings are in the scratchpad, not the repo.
 
   **v2026.09.24.4, 03:15 - a diagnosis, asked for by name, before touching
   the algorithm again.**  The owner relayed ChatGPT's read of this same
