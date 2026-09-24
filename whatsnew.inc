@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: adding a manifold raised an exception** - the' + LineEnding +
+    '  new row was picked in the list before the list had it.  Fixed.' + LineEnding +
+    '- **The corridor of leads ran through obstacles** when there was more' + LineEnding +
+    '  than one in its way: it moved past the first and landed on the next.' + LineEnding +
+    '  It now moves until it is clear of all of them, and a loop''s lead comes' + LineEnding +
+    '  into its row only where the corridor can see the row without an' + LineEnding +
+    '  obstacle between.' + LineEnding +
+    '- **No more hundred-foot joins.**  Where the walk went from one part of' + LineEnding +
+    '  the floor to another the long way round, the tube followed it - a' + LineEnding +
+    '  join of a hundred feet linking two areas, which put loops over the' + LineEnding +
+    '  maximum with nothing to cut.  A long join is now where one loop ends' + LineEnding +
+    '  and the next begins, each with its own lead from the manifold, and a' + LineEnding +
+    '  loop that still comes out over is split on its own.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
