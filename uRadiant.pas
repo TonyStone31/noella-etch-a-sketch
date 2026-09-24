@@ -4,47 +4,38 @@ unit uRadiant;
   or any closed face with as many corners as the room has - and one point
   for the manifold, fill it with tube.
 
-  What "fill it with tube" means here is a coverage path, the same problem
-  a robot lawnmower or a crop sprayer solves: cover a bounded area with
-  parallel passes at a fixed spacing, in the fewest and straightest moves,
-  never leaving a strip uncovered.  A round trip from a manifold and back
-  is that problem with the extra rule that it has to end where it began.
-
-  The area is cut into rows at the tube's spacing.  Each row is a lane;
-  where a hole in the selected face - an elevator shaft, a column, a
-  chase - crosses a lane, the lane is cut around it, the way a hole
+  The area is cut into rows at the tube's spacing, out from the manifold's
+  own row in both directions when it is not pinned to a wall.  Where a
+  hole in the selected face - an elevator shaft, a column, a chase -
+  crosses a row, the row is cut around it, the near piece toward the
+  manifold and the far piece past the obstacle kept apart, the way a hole
   already cuts a lane out of a face's own area everywhere else in this
-  program.  What is left is a set of short straight spans, and those are
-  gathered into cells: a cell is a run of rows in which each span carries
-  straight on from the one below it, so a floor with a column in it has
-  a cell below the column, one either side of it, and one above.  That is
-  boustrophedon cellular decomposition, the usual answer to covering a
-  floor with things in the way.  Within a cell the tube is a plain
-  serpentine - every turn a short jog at the end of a row - and from the
-  end of one cell it goes into the nearest end of the nearest cell not yet
-  walked.  That last choice is greedy, not a search over every order: a
-  true shortest tour of the cells is the traveling salesman problem.  On
-  an open floor there is one cell and the walk is exactly the serpentine
-  a person would draw by hand.  A join between cells that would pass
-  straight through an obstacle is counted and said on the ticket rather
-  than drawn as if it were a route.
+  program.
 
   A loop over 300 feet of 1/2" tube runs too much pressure drop to heat
-  evenly - see uRadiantData for the whole table, by tube size.  So one
-  walk of the whole floor is cut into pieces at row boundaries - never
-  through the middle of a lane - sized to come in under the limit and
-  close to even with each other, the way a real design keeps circuits
-  within about ten percent of one another so the manifold's balancing
-  valves are not doing all the work alone.  Cut in half, that is also
-  what a big room "navigated from two ends" looks like: one loop serving
-  the near half, one the far half, both starting and ending at the same
-  manifold.
+  evenly - see uRadiantData for the whole table, by tube size - so every
+  loop is a manifold-to-manifold round trip built up a row-pair at a time
+  and checked against that limit as it grows, the return leg included, not
+  a coverage path cut apart afterward.  Which lane a loop takes from the
+  manifold to its rows is not assumed either: it is grown, outermost rank
+  first, and a candidate is kept only once it is checked - the identical
+  segment-by-segment test the finished ticket's own crossing count runs -
+  against every run of tube already laid for that manifold.  One turned
+  back for crossing tries the next position in, out to in, until one is
+  clean or the row has nothing left to give.  Loop after loop outward from
+  the manifold's own row this way, the shallowest reaching the least width
+  of its own row so the ranks after it have room to nest inside it.
 
   A layout that looks wrong in one spot does not have to be thrown out
   whole.  A temporary obstacle - drawn the same way a real one is read,
   as a hole, but kept only in the dialog and never written to the sheet
-  unless the person asks - routes the walk around whatever was circled,
+  unless the person asks - keeps every loop clear of whatever was circled,
   and the rest of the floor is free to be laid out again around it.
+
+  What this does not yet do: choose where a loop reaches based on where
+  the floor still needs it, the way a person laying it out by eye would -
+  see TODO.md for the shape of the fix and why it is a different
+  foundation, not a tuning pass on this one.
 
   Copyright (c) 2021-2026 Noella Stone - MIT, see LICENSE. }
 
@@ -378,31 +369,34 @@ begin
   end;
 end;
 
-{ ---------------------------------------------------------------------- }
-{ the walk: cells first, then every span of each cell in turn             }
-{ ---------------------------------------------------------------------- }
-
-type
-  TFieldSpan = record
-    Row: Integer;          { which row, bottom to top }
-    V, Lo, Hi: Double;
-    Cell: Integer;         { which cell it belongs to, once decided }
-  end;
-  TFieldSpanArray = array of TFieldSpan;
-
-{ Is the point inside the outline, seen from above? }
+{ Is the point inside the outline, seen from above the floor's own
+  plane - not the world's.  This used to test Outline[I].X/Y and P.X/Y
+  directly: invisible on an ordinary horizontal slab, since ray
+  casting does not care which way a flat polygon is rotated, but
+  wrong on a floor that is not flat in world X/Y (a sloped pour, or a
+  face picked by mistake) - the outline and the point could disagree
+  about which plane they are even in.  Working in the frame both the
+  layout and the plan already share removes the assumption instead of
+  relying on every floor happening to be flat the convenient way. }
 function RadiantInside(const Outline: TP3Array; const P: TP3): Boolean;
 var
+  F: TRadiantFrame;
+  Poly: T2Array;
+  Pt: T2;
   I, J, N: Integer;
 begin
   Result := False;
   N := Length(Outline);
   if N < 3 then Exit;
+  F := RadiantFrameOf(Outline);
+  SetLength(Poly, N);
+  for I := 0 to N - 1 do Poly[I] := RadiantTo2(F, Outline[I]);
+  Pt := RadiantTo2(F, P);
   J := N - 1;
   for I := 0 to N - 1 do
   begin
-    if ((Outline[I].Y > P.Y) <> (Outline[J].Y > P.Y)) and
-       (P.X < (Outline[J].X - Outline[I].X) * (P.Y - Outline[I].Y) / (Outline[J].Y - Outline[I].Y) + Outline[I].X) then
+    if ((Poly[I].Y > Pt.Y) <> (Poly[J].Y > Pt.Y)) and
+       (Pt.X < (Poly[J].X - Poly[I].X) * (Pt.Y - Poly[I].Y) / (Poly[J].Y - Poly[I].Y) + Poly[I].X) then
       Result := not Result;
     J := I;
   end;
@@ -438,186 +432,6 @@ begin
   if (Abs(D3) <= E) and OnSeg(P0, P1, Q0) then Exit(True);
   if (Abs(D4) <= E) and OnSeg(P0, P1, Q1) then Exit(True);
   Result := False;
-end;
-
-{ Does the straight line from A to B pass through this polygon?  Either it
-  crosses one of the polygon's edges, or it lies wholly inside - which the
-  midpoint tells. }
-function SegCrossesPoly(const A, B: T2; const Poly: array of T2): Boolean;
-var
-  I, J, N: Integer;
-  Mid: T2;
-  Inside: Boolean;
-
-  function Orient(const P, Q, R: T2): Double;
-  begin
-    Result := (Q.X - P.X) * (R.Y - P.Y) - (Q.Y - P.Y) * (R.X - P.X);
-  end;
-
-  function Crosses(const P1, P2, Q1, Q2: T2): Boolean;
-  var
-    D1, D2, D3, D4: Double;
-  begin
-    D1 := Orient(Q1, Q2, P1); D2 := Orient(Q1, Q2, P2);
-    D3 := Orient(P1, P2, Q1); D4 := Orient(P1, P2, Q2);
-    Result := ((D1 > 1E-12) <> (D2 > 1E-12)) and ((D1 < -1E-12) <> (D2 < -1E-12)) and
-              ((D3 > 1E-12) <> (D4 > 1E-12)) and ((D3 < -1E-12) <> (D4 < -1E-12));
-  end;
-
-begin
-  Result := False;
-  N := Length(Poly);
-  if N < 3 then Exit;
-  for I := 0 to N - 1 do
-    if Crosses(A, B, Poly[I], Poly[(I + 1) mod N]) then Exit(True);
-  Mid := Point2((A.X + B.X) / 2, (A.Y + B.Y) / 2);
-  Inside := False;
-  J := N - 1;
-  for I := 0 to N - 1 do
-  begin
-    if ((Poly[I].Y > Mid.Y) <> (Poly[J].Y > Mid.Y)) and
-       (Mid.X < (Poly[J].X - Poly[I].X) * (Mid.Y - Poly[I].Y) / (Poly[J].Y - Poly[I].Y) + Poly[I].X) then
-      Inside := not Inside;
-    J := I;
-  end;
-  Result := Inside;
-end;
-
-{ The cells: a cell is a run of rows in which one span carries straight on
-  from the one below it - overlapping it in U, and neither of them
-  overlapping anything else.  Where a hole starts, one span becomes two
-  and both begin new cells; where it ends, two become one and that one
-  begins a new cell.  This is boustrophedon cellular decomposition, the
-  usual answer to covering a floor with obstacles in it, and it is what
-  keeps the tube from being drawn through a column: within a cell every
-  turn is a short jog at the end of a row, and a cell's boundary is
-  exactly where an obstacle's is. }
-function DecomposeCells(var Spans: TFieldSpanArray; NRows: Integer): Integer;
-var
-  I, J, K, Cells, NPrev, NNext: Integer;
-  Prev: Integer;
-  Overlap: Boolean;
-begin
-  Cells := 0;
-  for I := 0 to High(Spans) do Spans[I].Cell := -1;
-  for I := 0 to High(Spans) do
-  begin
-    { the spans on the row below that this one overlaps }
-    Prev := -1; NPrev := 0;
-    for J := 0 to High(Spans) do
-      if (Spans[J].Row = Spans[I].Row - 1) and
-         (Spans[J].Lo < Spans[I].Hi) and (Spans[J].Hi > Spans[I].Lo) then
-      begin
-        Prev := J; Inc(NPrev);
-      end;
-    if NPrev = 1 then
-    begin
-      { and does that one carry on into only this span? }
-      NNext := 0;
-      for K := 0 to High(Spans) do
-        if (Spans[K].Row = Spans[I].Row) and
-           (Spans[Prev].Lo < Spans[K].Hi) and (Spans[Prev].Hi > Spans[K].Lo) then
-          Inc(NNext);
-      Overlap := NNext = 1;
-    end
-    else Overlap := False;
-    if Overlap then Spans[I].Cell := Spans[Prev].Cell
-    else
-    begin
-      Spans[I].Cell := Cells;
-      Inc(Cells);
-    end;
-  end;
-  Result := Cells;
-end;
-
-{ The walk over the cells: from wherever the tube is, into the nearest
-  end of the nearest unwalked cell, serpentine through it, out the far
-  end, and on.  Each span is put out as its two ends in the order walked,
-  so the list is pairs and can be cut between any pair. }
-procedure WalkCells(const Spans: TFieldSpanArray; NCells: Integer; Start: T2;
-  const HolePoly: array of T2Array; var Pts: array of T2; out NPts: Integer);
-var
-  Members: array of TIntArray;   { each cell's spans, bottom row first }
-  Done: array of Boolean;
-  I, J, C, BestC, K, N, Cnt, H: Integer;
-  Cur: T2;
-  D, BestD: Double;
-  FromTop, FromLo, BestTop, BestLo: Boolean;
-  Sp: TFieldSpan;
-  Tmp: Integer;
-begin
-  NPts := 0;
-  SetLength(Members, NCells);
-  for I := 0 to High(Spans) do
-  begin
-    C := Spans[I].Cell;
-    SetLength(Members[C], Length(Members[C]) + 1);
-    Members[C][High(Members[C])] := I;
-  end;
-  { each cell's spans in row order - they were found in row order, but
-    say so }
-  for C := 0 to NCells - 1 do
-    for I := 1 to High(Members[C]) do
-    begin
-      K := I;
-      while (K > 0) and (Spans[Members[C][K - 1]].Row > Spans[Members[C][K]].Row) do
-      begin
-        Tmp := Members[C][K]; Members[C][K] := Members[C][K - 1]; Members[C][K - 1] := Tmp;
-        Dec(K);
-      end;
-    end;
-  SetLength(Done, NCells);
-  Cur := Start;
-  for Cnt := 1 to NCells do
-  begin
-    BestD := 1E30; BestC := -1; BestTop := False; BestLo := True;
-    for C := 0 to NCells - 1 do
-      if not Done[C] and (Length(Members[C]) > 0) then
-        for J := 0 to 3 do
-        begin
-          FromTop := J >= 2;
-          FromLo := (J mod 2) = 0;
-          if FromTop then Sp := Spans[Members[C][High(Members[C])]]
-          else Sp := Spans[Members[C][0]];
-          if FromLo then D := Sqr(Sp.Lo - Cur.X) + Sqr(Sp.V - Cur.Y)
-          else D := Sqr(Sp.Hi - Cur.X) + Sqr(Sp.V - Cur.Y);
-          { a join that would go straight through an obstacle is the last
-            resort, whatever its length: the far side of a column is near
-            as the crow flies and not as the tube runs }
-          for H := 0 to High(HolePoly) do
-            if SegCrossesPoly(Cur, Point2(IfThen(FromLo, Sp.Lo, Sp.Hi), Sp.V), HolePoly[H]) then
-            begin
-              D := D + 1E12;
-              Break;
-            end;
-          if D < BestD then
-          begin
-            BestD := D; BestC := C; BestTop := FromTop; BestLo := FromLo;
-          end;
-        end;
-    if BestC < 0 then Break;
-    Done[BestC] := True;
-    N := Length(Members[BestC]);
-    FromLo := BestLo;
-    for I := 0 to N - 1 do
-    begin
-      if BestTop then Sp := Spans[Members[BestC][N - 1 - I]]
-      else Sp := Spans[Members[BestC][I]];
-      if FromLo then
-      begin
-        Pts[NPts] := Point2(Sp.Lo, Sp.V); Inc(NPts);
-        Pts[NPts] := Point2(Sp.Hi, Sp.V); Inc(NPts);
-      end
-      else
-      begin
-        Pts[NPts] := Point2(Sp.Hi, Sp.V); Inc(NPts);
-        Pts[NPts] := Point2(Sp.Lo, Sp.V); Inc(NPts);
-      end;
-      Cur := Pts[NPts - 1];
-      FromLo := not FromLo;
-    end;
-  end;
 end;
 
 { ---------------------------------------------------------------------- }
