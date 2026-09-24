@@ -13,6 +13,27 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.9' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: every loop is a snake.**  Out of its port' + LineEnding +
+    '  straight to its row, along the row to the far end of the floor, a' + LineEnding +
+    '  turn into the next row and back, out again on the one after, as many' + LineEnding +
+    '  pairs as the maximum allows, and home down its other port - loop after' + LineEnding +
+    '  loop outward from the manifold''s wall, one side of the manifold then' + LineEnding +
+    '  the other.  Every foot of it is heater on the grid; the only tube off' + LineEnding +
+    '  the grid is the two-inch stub out of each port.  A row cut by an' + LineEnding +
+    '  obstacle turns at it, and the far side of the obstacle is reached by' + LineEnding +
+    '  one loop that goes out on the clear row before it, round the far' + LineEnding +
+    '  pieces, and home on the clear row past it, taking the near pieces' + LineEnding +
+    '  under the obstacle on the way.  Nothing crosses and nothing touches -' + LineEnding +
+    '  the ticket now counts every meeting of two runs, and it is zero.' + LineEnding +
+    '- The loop limit is tried from the maximum down and the layout kept is' + LineEnding +
+    '  the cheapest: a loop costs the same as fifteen feet of spread between' + LineEnding +
+    '  the longest and the shortest loop, or forty feet of row left bare.' + LineEnding +
+    '- A manifold cannot be dragged out of its own zone.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.8' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
