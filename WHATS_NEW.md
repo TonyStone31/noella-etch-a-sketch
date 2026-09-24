@@ -10,6 +10,16 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Radiant heat layout: dragging a manifold or obstacle is smoother.**
+  It used to relay out the whole floor on every twitch of the mouse;
+  now it waits for the drag to settle before it recalculates, so the
+  drag itself does not stutter.  The manifold still moves with the
+  pointer right away - only the tube layout catches up a moment later.
+
 ## v2026.09.24.7
 
 ### Changed

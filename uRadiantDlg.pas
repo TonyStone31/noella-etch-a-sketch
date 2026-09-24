@@ -69,6 +69,7 @@ type
     pbEven: TPaintBox;
     pbPlan: TPaintBox;
     pcRight: TPageControl;
+    tmrDragSettle: TTimer;
     tsPlan: TTabSheet;
     procedure AnyChange(Sender: TObject);
     procedure btnAddManifoldClick(Sender: TObject);
@@ -88,6 +89,7 @@ type
     procedure pbPlanMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbPlanMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure pbPlanPaint(Sender: TObject);
+    procedure tmrDragSettleTimer(Sender: TObject);
   private
     FUnits: TUnitSystem;
     FZones: TRadiantZones;           { every face selected, with its holes }
@@ -605,14 +607,34 @@ begin
     FManifolds[FDragManifold] := RadiantFrom2(FFrame, M.X, M.Y);
   end
   else MoveObstacle(FDragObstacle, M);
-  Recompute;
+  { the marker itself is drawn from FManifolds/FExtra directly, so it
+    tracks the pointer right away; the engine is the expensive part and
+    only gets asked once the pointer has sat still for a moment, not on
+    every one of a drag's hundred mouse-move events }
+  pbPlan.Invalidate;
   if FDragObstacle >= 0 then ListObstacles;
+  tmrDragSettle.Enabled := False;
+  tmrDragSettle.Enabled := True;
 end;
 
 procedure TRadiantForm.pbPlanMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  WasDragging: Boolean;
 begin
+  WasDragging := (FDragManifold >= 0) or (FDragObstacle >= 0);
   FDragManifold := -1;
   FDragObstacle := -1;
+  if WasDragging then
+  begin
+    tmrDragSettle.Enabled := False;
+    Recompute;
+  end;
+end;
+
+procedure TRadiantForm.tmrDragSettleTimer(Sender: TObject);
+begin
+  tmrDragSettle.Enabled := False;
+  Recompute;
 end;
 
 { A gauge, painted the same way on both boxes: a bordered bar, filled

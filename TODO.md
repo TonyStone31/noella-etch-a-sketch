@@ -448,6 +448,135 @@ pixel by pixel.  What the pictures said:
   separate idea for later, once there is a concrete floor shape that
   asks for it.
 
+  **Dragging a manifold or obstacle no longer relays out the floor on
+  every mouse-move.**  Asked for in the same message as the two bug
+  reports below: "the performance sucks while moving the manifold...
+  wait for the mouse to settle then redraw it."  `pbPlanMouseMove`
+  used to call `Recompute` - the full engine, every zone - on every
+  single move event a drag produces, which on a real floor is the slow
+  part.  The marker itself (manifold or obstacle) was already drawn
+  straight from `FManifolds`/`FExtra`, not from the computed layout,
+  so it can move with the pointer for free; only the routing needs to
+  wait.  A `TTimer` (`tmrDragSettle`, 150 ms, added to the `.lfm` by
+  hand - non-visual, no layout to get wrong) is reset on every
+  mouse-move instead of calling `Recompute` directly, and fires it
+  once the pointer has sat still; `pbPlanMouseUp` cancels the pending
+  timer and calls `Recompute` immediately, so letting go always shows
+  the true, current layout rather than a stale one waiting on the
+  timer.  Driven live in Xephyr - a drag completes, the plan and
+  material list update, no stall or crash.
+
+  **A real attempt at the lane-rank fix itself, not just another
+  diagnosis - got close, did not ship.**  Told plainly to stop
+  documenting the problem and solve it.  Built the thing the entry two
+  below calls for: `SafeLane`, a per-rank lane position found by
+  looking at the actual floor (near piece, far piece, or neither) for
+  every row on the side, outermost rank first, instead of a formula
+  keyed to a guessed total loop count.  Ports keep the old formula -
+  they carry no obstacle risk, only `N + 1` ranks' worth of them are
+  ever real, so a ceiling that generous never has to be exact.
+  `LaySideSettled`'s own guess-and-climb loop is untouched.
+
+  What it actually fixed, confirmed against the geometry suite
+  (1490 of 1491 checks, up from 1491 of 1491 before touching
+  anything, and every failure understood, see below): the false
+  total collapse a guess landing on an obstacle's own gap used to
+  cause (an open room going from 8 loops to "no loop fits" was the
+  first sign something was still wrong, caught immediately because
+  the whole suite runs in seconds); a manifold's fan needing to route
+  around an obstacle beside it, which the removed `LaneStart` used to
+  handle narrowly and `SafeLane` now handles as one case of looking
+  for real ground rather than assuming it; and a wall that tapers
+  (the triangle test) needing its own fix along the way - a row too
+  narrow to be anyone's OWN row is not the same as a row an obstacle
+  has actually cut a gap into, and `RowLimAt` was treating the two the
+  same until a row's own `HasF` (an obstacle actually leaves a far
+  piece behind it; a taper does not) became the test.
+
+  What it did not fix, and why nothing shipped: verified against the
+  owner's own report (`report-20260924-095546-e57c46aaa1.hsk`, zone 1,
+  the manifold at its real, dragged position) at every stage, not just
+  the synthetic suite, because the synthetic suite alone had already
+  been wrong once tonight.  Bare area did fall - from the owner's
+  25.4% as far down as 8.6% at one point - but every version that got
+  the number that low also drew tube-on-tube, once as high as 30
+  crossings.  Chased it through three distinct causes, each real, each
+  fixed, each uncovering the next: first, a rank whose own formula
+  position was blocked room needed a real search for open ground
+  rather than sliding to the rank ahead of it by a token fraction of
+  an inch - fixed, but only for the first rank to hit this, since nothing
+  stops a second rank finding the identical dead end and needing the
+  identical fix at the identical spot as the first (verified: doing this
+  for every rank, not just the first, was what put crossings into the
+  round-obstacle test that had none). Second, once several ranks in a
+  row all had to search for room, the gap kept between them (meant only
+  to tell apart two ranks whose formula had merely collapsed, a rank or
+  two beyond what the guess could tell apart - harmless, since a wider
+  guess either separates them for real or drops the extra as waste
+  before either is built) was being used between ranks that had ACTUALLY
+  searched and found real, separate ground - a hair's width where a
+  whole spacing, and then a whole rank's worth of it (`2 * Spacing`, not
+  one - a rank is a pair of lines, home and out, not a single line), was
+  owed.  Fixed, checked against the full suite each time (down to one
+  failure of 1491, the round no-go-zone test's own coverage, not a
+  crossing). Third, even with the geometry suite entirely clean, the
+  owner's own drawing still crossed - twice, both right at the manifold,
+  both between loops that turned out to belong to different SIDES of it
+  (`SideK` 0 and 1), which offset their own ports and lanes past each
+  other by a count (`NP`) computed before this session touched anything
+  and never re-examined against what a `SafeLane`-driven side actually
+  settles on.  Not run to ground - this is where the session's time ran
+  out, not where the trail did.
+
+  Reverted in full rather than ship two known crossings on the owner's
+  own floor - a bare patch of floor is a worse ticket, not a worse
+  install; tube laid through itself is not a worse ticket, it is not
+  buildable.  `uRadiant.pas` is exactly the committed build this
+  session started from; regression is the full 1491 + 98, unchanged.
+  For whoever picks this up: the `SafeLane` design itself - look at
+  every row's real near/far pieces, outermost rank first, rather than
+  trust a formula keyed to a guessed total - is sound and gets close;
+  what is still owed is (a) enforcing the full `2 * Spacing` gap
+  between EVERY pair of ranks that both had to search, not assumed
+  from the formula alone as harmless, wherever they were found, not
+  only consecutive ones, and (b) re-deriving `NP`, the count each
+  side hands the other to offset past, from what `SafeLane` actually
+  settles a side on rather than a number computed the old way and
+  carried over unchanged. The owner's exact repro and the position
+  that reaches it are already on record two entries below - this
+  entry adds nothing there, only the trail past the diagnosis.
+
+  **Two more bug reports, same evening, same root cause - not the
+  manifold-off-wall work, the lane-rank fix still owed from two
+  entries below.**  The owner: "you can come off the back of the
+  manifold also - specially when it's far enough off a wall."  Traced
+  both (`report-20260924-095434-b2ce7b9578.hsk`,
+  `report-20260924-095546-e57c46aaa1.hsk`) rather than guess - loaded
+  zone 1 of the second one through `ComputeRadiantLayout` at its real,
+  built position (world 64.26, 57.03): 25.4% bare, zero crossings.
+  Same mechanism as the barn case below, confirmed by re-running the
+  same guess-climb instrumentation: side0's rank-0 lane sits at a
+  distance from the manifold set by `NLGuess`, and past a guess of 7
+  that distance lands inside the obstacle's own shadow (past where its
+  near piece is cut short, short of where its far piece resumes) and
+  every row on the side fails at once - not just the rows the obstacle
+  actually touches.  The climb had already found 17 clean, validated
+  loops reaching two-thirds of the way up the side at guess 7; the
+  collapse at guess 8 throws all but 7 of them away and books the rest
+  as bare.  `loadreport2.pas` in the scratchpad holds this repro
+  (extracted manifold position, not `RadiantSuggestZoneManifold`'s -
+  the suggested position for the same zone comes back 1.6%-7.5% bare,
+  which is why this only shows up once a manifold is actually dragged
+  off where *Suggest* would have put it).  No code changed - this is
+  the same fix already called out below ("what a real fix needs"), not
+  a new one, and the two attempts already tried and reverted this
+  session apply here too: keeping every loop a guess finds crosses
+  tube over tube once rank runs past the guessed count, and just
+  letting the climb run further past a collapse picks a worse layout,
+  not a better one, once the guess is past what the floor can use.
+  Recorded so the next attempt at the real fix has two more real
+  drawings to check itself against, not just the barn.
+
   **v2026.09.24.7 - told to slow down and reevaluate; researched real
   radiant design software, simplified the dialog to just the engine,
   and gave it two live gauges instead of one line of small print.**

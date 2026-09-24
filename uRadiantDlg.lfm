@@ -382,4 +382,11 @@ object RadiantForm: TRadiantForm
     ScrollBars = ssAutoVertical
     TabOrder = 20
   end
+  object tmrDragSettle: TTimer
+    Enabled = False
+    Interval = 150
+    OnTimer = tmrDragSettleTimer
+    Left = 8
+    Top = 8
+  end
 end

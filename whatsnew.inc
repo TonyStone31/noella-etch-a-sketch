@@ -13,6 +13,16 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: dragging a manifold or obstacle is smoother.**' + LineEnding +
+    '  It used to relay out the whole floor on every twitch of the mouse;' + LineEnding +
+    '  now it waits for the drag to settle before it recalculates, so the' + LineEnding +
+    '  drag itself does not stutter.  The manifold still moves with the' + LineEnding +
+    '  pointer right away - only the tube layout catches up a moment later.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.7' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
