@@ -101,6 +101,17 @@ type
   end;
   TRadiantLoopArray = array of TRadiantLoop;
 
+  { one lane the search tried, in the order it tried them, for whoever
+    wants to watch it work rather than just see what it settled on -
+    kept only when asked for (see WantTrace on ComputeRadiantLayout
+    below), since building it costs a real search's worth of geometry
+    a second time over }
+  TRadiantTraceStep = record
+    Pts: TP3Array;             { the candidate loop, exactly as it would be kept }
+    Accepted: Boolean;         { kept, or turned back for crossing tube already down }
+  end;
+  TRadiantTrace = array of TRadiantTraceStep;
+
   TManifoldResult = record
     At: TP3;
     Ports: Integer;            { as chosen }
@@ -133,6 +144,9 @@ type
     UnfilledSqFt: Double;
     Ok: Boolean;
     Why: string;
+    { every lane the search tried to reach this - empty unless asked
+      for with WantTrace }
+    Trace: TRadiantTrace;
   end;
 
   { a zone: one face of the drawing and the holes cut into it, each with
@@ -194,9 +208,12 @@ function RadiantProblem(const Outline: TP3Array; const Spec: TRadiantSpec): stri
   dialog's live preview and the real build call the same code and can
   never disagree.  Holes are the obstacles: a solid's own (an elevator
   shaft, a column) and, appended to them, whatever the dialog is trying
-  as a temporary one while the person tries a different route. }
+  as a temporary one while the person tries a different route.
+  WantTrace fills Result.Trace with every lane the search tried, not
+  just the ones it kept - off by default, since it costs a search's
+  worth of extra geometry, and nothing wants it but a person watching. }
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
-  const Spec: TRadiantSpec): TRadiantResult;
+  const Spec: TRadiantSpec; WantTrace: Boolean = False): TRadiantResult;
 
 { Writes the result into the drawing as one part: the runs as reference
   lines in the tube's ink, a box and a note for the manifold, and a note
@@ -804,7 +821,7 @@ begin
 end;
 
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
-  const Spec: TRadiantSpec): TRadiantResult;
+  const Spec: TRadiantSpec; WantTrace: Boolean = False): TRadiantResult;
 var
   F: TRadiantFrame;
   Poly2: T2Array;
@@ -820,6 +837,11 @@ var
   Pts: T2Array;
   NPts: Integer;
   ThisSide: Integer;
+  { every lane tried for the manifold currently being laid out, in
+    order - LayManifold resets this once per T it tries and keeps a
+    copy alongside whichever T wins; Trace is what actually survives,
+    across every manifold this call lays out }
+  CurTrace, Trace: TRadiantTrace;
 
   function World(const P: T2): TP3;
   begin
@@ -1345,8 +1367,19 @@ var
             P0 := SA[I4 - 1]; P1 := SA[I4]; Q0 := SB[J4 - 1]; Q1 := SB[J4];
             if (Max(P0.X, P1.X) < Min(Q0.X, Q1.X) - 1E-6) or (Min(P0.X, P1.X) > Max(Q0.X, Q1.X) + 1E-6) or
                (Max(P0.Y, P1.Y) < Min(Q0.Y, Q1.Y) - 1E-6) or (Min(P0.Y, P1.Y) > Max(Q0.Y, Q1.Y) + 1E-6) then Continue;
-            if SegsMeet(P0, P1, Q0, Q1) then Exit(True);
+            if SegsMeet(P0, P1, Q0, Q1) then
+            begin
+              Result := True;
+              if not WantTrace then Break;
+            end;
           end;
+        if Result and not WantTrace then Break;
+      end;
+      if WantTrace then
+      begin
+        SetLength(CurTrace, Length(CurTrace) + 1);
+        CurTrace[High(CurTrace)].Pts := Lt.Pts;
+        CurTrace[High(CurTrace)].Accepted := not Result;
       end;
     end;
 
@@ -1498,16 +1531,18 @@ var
   procedure LayManifold;
   var
     Trial, Best: TRadiantLoopArray;
+    BestTrace: TRadiantTrace;
     Unf, BestUnf, T, Lo, Hi, Spread, Cost, BestCost, PPitch: Double;
     I, SideK, NP: Integer;
     Better: Boolean;
   begin
     PPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
-    Best := nil; BestUnf := 1E300; BestCost := 1E300;
+    Best := nil; BestUnf := 1E300; BestCost := 1E300; BestTrace := nil;
     T := MaxFt;
     while T >= MaxFt / 2 do
     begin
       Trial := nil; Unf := 0;
+      if WantTrace then CurTrace := nil;
       for SideK := 0 to 1 do
       begin
         { away from the manifold's own row first, exactly as always;
@@ -1536,6 +1571,7 @@ var
         if Better then
         begin
           Best := Trial; BestUnf := Unf; BestCost := Cost;
+          if WantTrace then BestTrace := CurTrace;
         end;
       end;
       T := T - 2;
@@ -1546,6 +1582,12 @@ var
       Loops[High(Loops)] := Best[I];
     end;
     if Best <> nil then Unfilled := Unfilled + BestUnf;
+    if WantTrace then
+      for I := 0 to High(BestTrace) do
+      begin
+        SetLength(Trace, Length(Trace) + 1);
+        Trace[High(Trace)] := BestTrace[I];
+      end;
   end;
 
   { where any two runs of tube meet - a crossing, or a touch, which is
@@ -1667,6 +1709,7 @@ begin
   end;
 
   Result.Loops := Loops;
+  Result.Trace := Trace;
   Result.CellCount := 0;
   Result.UnfilledSqFt := Unfilled;
   Result.TotalFt := 0;

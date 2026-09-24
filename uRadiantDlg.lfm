@@ -361,6 +361,14 @@ object RadiantForm: TRadiantForm
         OnMouseUp = pbPlanMouseUp
         OnPaint = pbPlanPaint
       end
+      object btnReplay: TButton
+        Left = 344
+        Height = 24
+        Top = 4
+        Width = 116
+        Caption = 'Replay search'
+        OnClick = btnReplayClick
+      end
     end
   end
   object lblTicket: TLabel
@@ -387,6 +395,13 @@ object RadiantForm: TRadiantForm
     Interval = 150
     OnTimer = tmrDragSettleTimer
     Left = 8
+    Top = 8
+  end
+  object tmrReplay: TTimer
+    Enabled = False
+    Interval = 30
+    OnTimer = tmrReplayTimer
+    Left = 40
     Top = 8
   end
 end

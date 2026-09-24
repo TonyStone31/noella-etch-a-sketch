@@ -33,6 +33,7 @@ type
     btnCancel: TButton;
     btnRemoveManifold: TButton;
     btnRemoveObstacle: TButton;
+    btnReplay: TButton;
     btnReport: TButton;
     btnSuggest: TButton;
     cbLabels: TCheckBox;
@@ -70,12 +71,14 @@ type
     pbPlan: TPaintBox;
     pcRight: TPageControl;
     tmrDragSettle: TTimer;
+    tmrReplay: TTimer;
     tsPlan: TTabSheet;
     procedure AnyChange(Sender: TObject);
     procedure btnAddManifoldClick(Sender: TObject);
     procedure btnAddObstacleClick(Sender: TObject);
     procedure btnRemoveManifoldClick(Sender: TObject);
     procedure btnRemoveObstacleClick(Sender: TObject);
+    procedure btnReplayClick(Sender: TObject);
     procedure btnReportClick(Sender: TObject);
     procedure btnSuggestClick(Sender: TObject);
     procedure cbPortsChange(Sender: TObject);
@@ -90,6 +93,7 @@ type
     procedure pbPlanMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure pbPlanPaint(Sender: TObject);
     procedure tmrDragSettleTimer(Sender: TObject);
+    procedure tmrReplayTimer(Sender: TObject);
   private
     FUnits: TUnitSystem;
     FZones: TRadiantZones;           { every face selected, with its holes }
@@ -112,6 +116,13 @@ type
     { the two gauges, kept from the last Recompute for the bars to paint
       from - -1 means nothing to show yet }
     FCoverage, FEvenness: Double;
+    { the search behind whichever zone Replay search last ran for - -1
+      means nothing is playing, so the plan paints the settled layout
+      the ordinary way; FReplayPerTick steps more than one candidate a
+      tick on a long search, so watching it never takes more than a
+      few seconds regardless of how many lanes it tried }
+    FReplayZone, FReplayStep, FReplayPerTick: Integer;
+    FReplayTrace: TRadiantTrace;
     procedure Recompute;
     function Read(out Spec: TRadiantSpec): Boolean;
     function ZoneHoles(Z: Integer): TRadiantHoles;
@@ -177,6 +188,7 @@ begin
   FDragManifold := -1;
   FDragObstacle := -1;
   FCoverage := -1; FEvenness := -1;
+  FReplayZone := -1;
 end;
 
 procedure TRadiantForm.FormShow(Sender: TObject);
@@ -402,6 +414,50 @@ begin
   Recompute;
 end;
 
+{ Runs the zone currently selected (or the first, with none) a second
+  time, this once asking for the trace of every lane the search tried
+  - not just what it kept - and plays that back a few candidates a
+  tick, capped so a long search is never more than a few seconds to
+  watch: red for one turned back for crossing tube already down,
+  green for the one that settled it, before it takes the ordinary
+  color and stays.  The settled layout beneath it is untouched; this
+  only changes what the plan paints while it is running. }
+procedure TRadiantForm.btnReplayClick(Sender: TObject);
+var
+  Spec, ZS: TRadiantSpec;
+  Z: Integer;
+  R: TRadiantResult;
+begin
+  if not Read(Spec) or (Length(FZones) = 0) then Exit;
+  Z := lbManifolds.ItemIndex;
+  if (Z < 0) or (Z > High(FZones)) then Z := 0;
+  ZS := Spec;
+  SetLength(ZS.Manifolds, 1); SetLength(ZS.Ports, 1);
+  ZS.Manifolds[0] := FManifolds[Z]; ZS.Ports[0] := FPorts[Z];
+  R := ComputeRadiantLayout(FZones[Z].Outline, ZoneHoles(Z), ZS, True);
+  FReplayTrace := R.Trace;
+  FReplayStep := 0;
+  FReplayPerTick := Max(1, Ceil(Length(FReplayTrace) / 200));
+  if Length(FReplayTrace) > 0 then
+  begin
+    FReplayZone := Z;
+    tmrReplay.Enabled := True;
+  end
+  else FReplayZone := -1;
+  pbPlan.Invalidate;
+end;
+
+procedure TRadiantForm.tmrReplayTimer(Sender: TObject);
+begin
+  Inc(FReplayStep, FReplayPerTick);
+  if FReplayStep >= Length(FReplayTrace) then
+  begin
+    tmrReplay.Enabled := False;
+    FReplayZone := -1;
+  end;
+  pbPlan.Invalidate;
+end;
+
 procedure TRadiantForm.btnAddManifoldClick(Sender: TObject);
 begin
   { one manifold a zone: to have two, draw a line across the zone on the
@@ -564,6 +620,9 @@ var
   D, Best: Double;
 begin
   if (Button <> mbLeft) or (Length(FOutline) < 3) or (FSc <= 0) then Exit;
+  { a stale search is worse than none - a fresh drag means whatever
+    position it was tried at is already out of date }
+  if FReplayZone >= 0 then begin tmrReplay.Enabled := False; FReplayZone := -1; end;
   M := Point2(PlanU(X), PlanV(Y));
   { a manifold under the pointer, nearest first; then an obstacle }
   Best := Sqr(12 / FSc); FDragManifold := -1; FDragObstacle := -1;
@@ -744,7 +803,35 @@ begin
   end;
   C.Brush.Style := bsClear;
   for Z := 0 to High(FLayouts) do
-    if FLayouts[Z].Ok then
+    if Z = FReplayZone then
+    begin
+      { every lane tried, up to the one the timer is currently on: one
+        already kept paints in the zone's own color and stays: one
+        turned back paints only for its own moment, in red, and is
+        skipped from here on - it never became part of the floor }
+      for I := 0 to Min(FReplayStep, High(FReplayTrace)) do
+      begin
+        if I = FReplayStep then
+        begin
+          if FReplayTrace[I].Accepted then C.Pen.Color := clLime else C.Pen.Color := clRed;
+          C.Pen.Width := 3;
+        end
+        else if FReplayTrace[I].Accepted then
+        begin
+          C.Pen.Color := ZoneInk(Z);
+          C.Pen.Width := 1;
+        end
+        else Continue;
+        for J := 1 to High(FReplayTrace[I].Pts) do
+        begin
+          P := RadiantTo2(FFrame, FReplayTrace[I].Pts[J - 1]);
+          C.MoveTo(PlanX(P.X), PlanY(P.Y));
+          P := RadiantTo2(FFrame, FReplayTrace[I].Pts[J]);
+          C.LineTo(PlanX(P.X), PlanY(P.Y));
+        end;
+      end;
+    end
+    else if FLayouts[Z].Ok then
       for I := 0 to High(FLayouts[Z].Loops) do
       begin
         { the zone's color, thick and thin by turns - what the build draws }

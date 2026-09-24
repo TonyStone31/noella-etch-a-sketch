@@ -10,6 +10,17 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Radiant heat layout: watch the search itself.** A "Replay search"
+  button above the plan re-runs the currently selected zone and plays
+  back every lane it tried getting there - red for one turned back
+  because it crossed tube already laid, green for the one that
+  settled it - so a hard floor's routing can be watched candidate by
+  candidate instead of only seeing what it ended up with.
+
 ## v2026.09.24.8
 
 ### Fixed

@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: watch the search itself.** A "Replay search"' + LineEnding +
+    '  button above the plan re-runs the currently selected zone and plays' + LineEnding +
+    '  back every lane it tried getting there - red for one turned back' + LineEnding +
+    '  because it crossed tube already laid, green for the one that' + LineEnding +
+    '  settled it - so a hard floor''s routing can be watched candidate by' + LineEnding +
+    '  candidate instead of only seeing what it ended up with.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.8' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

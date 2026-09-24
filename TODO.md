@@ -466,6 +466,45 @@ pixel by pixel.  What the pictures said:
   timer.  Driven live in Xephyr - a drag completes, the plan and
   material list update, no stall or crash.
 
+  **A way to watch the search, and confirmation from a real report
+  that coverage tuning is exactly where it was left.**  v2026.09.24.8
+  went out and the owner tried it on a real barn (report
+  `report-20260924-130538-f90d326164`, 4 zones, manifolds each near a
+  wall): "make the path finder smarter. it needs to reach the far
+  ends of the slabs" - and a screenshot showing exactly that, tube
+  filling the end of each zone near its manifold and stopping well
+  short of the far wall.  Checked against the real drawing, not just
+  read off the picture: zero crossings in all four zones, bare
+  fraction 14-46% depending on the zone - the same shape of shortfall
+  already on record two entries below, now with a second real floor
+  confirming it is not particular to the first.
+
+  Also asked for, in the same message, and built the same session: a
+  way to watch the search find its answer, not just see what it
+  settled on, specifically so the owner can watch where it struggles
+  and suggest what to try differently.  `ComputeRadiantLayout` takes
+  an optional `WantTrace`; when true, every candidate `TryRowFrom`
+  tries - kept or turned back - is recorded into `Result.Trace`
+  before the geometry that built it is thrown away, the same points a
+  kept loop would have.  Off by default, since building it costs a
+  second full search's worth of geometry that nothing else wants.  A
+  "Replay search" button on the plan re-runs the selected zone once
+  with it on and plays the trace back a few candidates a tick - capped
+  so a long search (the round no-go-zone test finds 634 candidates,
+  624 of them turned back) is never more than a few seconds to watch
+  - red for a turned-back candidate, shown only for its own moment,
+  green for the one that settles it and stays.  Verified the
+  recording itself directly (634 steps, 624 rejected, 10 kept, on the
+  round-no-go-zone case - matches the loop count exactly); the button
+  and the live redraw were driven in Xephyr and did not crash or hang,
+  though a clean multi-frame screenshot of the animation itself was
+  not gotten this session - the scratch scenes built to force enough
+  rejected candidates to be worth watching kept hitting unrelated
+  setup trouble (a stray field edit, an obstacle placed on top of the
+  manifold) rather than anything wrong with the feature.  Next
+  session, or the owner's own hands, can confirm the animation reads
+  right on a real hard floor.
+
   **The lane-rank fix, for real this time - shipped.**  Told, again,
   and pointed at the shape of the answer instead of the mechanism:
   think of it as a game - a snake grown from the manifold as far as
