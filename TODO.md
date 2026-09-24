@@ -480,6 +480,34 @@ pixel by pixel.  What the pictures said:
   the very first (most generous) T-trial, so it is not a search-budget
   artifact either.
 
+  **The "early loop stops short" half tried, for real, against the
+  repro above - and it does not pay off.**  Told to build the fix now
+  that the mechanism was understood.  Pulled a row's own far end in by
+  the same amount `LaneOut`/`LaneHome` already pull the near end in
+  for a shallow rank (mirrored at the wall side, in `LayPlan`, never
+  pulled past a spacing so a row is never made unusable), tried it
+  both with and without per `T` in `LayManifold` and kept whichever
+  costs less - so an easy floor, which never needed the lane, keeps
+  costing nothing: **all 1491 + 98 checks stayed green, unlike the
+  first two attempts at this file tonight.**  But forcing it on for
+  the owner's own repro made it *worse*, not better - 75.4% bare
+  and down to four loops, not five - and the cost search never once
+  chose it on its own across the whole `T` range either, meaning it
+  never even paid for itself once.  So the mechanism diagnosis holds
+  but this particular fix for it does not: pulling every early rank's
+  own row in costs real floor on rows that mostly never needed the
+  lane at all, and rank 5 still could not use what little got freed -
+  the near-manifold half of its own search is separately blocked by
+  the obstacle and the fan/port cluster (see above), so the reserved
+  strip near the wall was never reached by anything that tried.
+  Reverted in full, nothing of it shipped.  Worth knowing before
+  trying this shape of fix again: capping *every* row's reach by a
+  formula, uniformly, is the wrong lever - what actually wants
+  capping is only the specific row(s) a specific later rank turns out
+  to need to get past, which means knowing that before laying the
+  earlier rank down, which is backtracking or lookahead by another
+  name, not a formula applied row by row as each one is laid.
+
   **v2026.09.24.8 - the manifold left the wall.**  Asked for directly,
   twice, across two sessions: "we need to be able to remove that
   manifold off the edge of its bounding shape... or the wall."  Done -
