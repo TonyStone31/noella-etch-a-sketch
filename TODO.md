@@ -480,6 +480,56 @@ pixel by pixel.  What the pictures said:
   the very first (most generous) T-trial, so it is not a search-budget
   artifact either.
 
+  **The owner's own game, described a second time and tried for
+  real: run every row out first, ignoring the limit, then cut into
+  loops by length after.**  His words: the first loop off a
+  mid-wall manifold should run the full wall out to the corner, then
+  the next wall out to its own far end, and still make it home; and
+  more generally, fill the whole grid regardless of length, then look
+  at what came out short and even it against its neighbors until
+  close to perfect.  Checked cheaply before touching the real engine,
+  the way the row-capping idea above should have been checked first
+  too: a standalone script (`spinecheck.pas` in the scratchpad, not
+  the repo) built one continuous path across every row of the owner's
+  own zone 1, ignoring the limit, then cut it into loops by length
+  only.  **Every row covered, zero bare, 38 loops of 220-336 ft each**
+  - against today's 18 of 59 rows.  A strong result, and the reason a
+  real attempt followed immediately rather than waiting.
+
+  Wired a real version into `uRadiant.pas` - `SpineLoops`, a new
+  procedure beside `LaySide`'s existing row-by-row search, tried
+  both ways per `T` in `LayManifold` and kept whichever costs less,
+  the same safety net the row-capping attempt used.  It compiled and
+  ran, but two things came back wrong on the very first full
+  regression, not just short of ideal: the simple open-room test
+  collapsed to **one loop** instead of several, and the column test
+  - the one that exists specifically to catch tube routed through an
+  obstacle - came back with **tube through the obstacle, 24
+  crossings where there must be zero**.  That second one is not a
+  coverage shortfall, it is the exact fault this whole session's
+  lane-rank rewrite exists to prevent, so this was reverted
+  immediately rather than debugged live: `SpineLoops` walks a row's
+  near piece then its far piece as one flat sequence and never asks
+  `Excursion`'s own question about which piece is actually safe to
+  reach from which side of an obstacle, and the leveling `LayPlan`
+  already does between adjacent rows in one loop was never checked
+  against what that means when the two rows on either side of the
+  join are on opposite sides of a column.  Reverted in full, nothing
+  shipped; v2026.09.24.10 stands unchanged.
+
+  The idea is right - the cheap check proved that before any of this
+  was attempted, which is exactly why it is still worth building -
+  but it needs the same obstacle-awareness `Excursion` already has,
+  not a flattened row list that assumes every piece is safe to walk
+  into from wherever the path happens to arrive.  Next attempt:
+  either teach `SpineLoops` to route around a column the way
+  `Excursion` does before it ever tries connecting two pieces that
+  straddle one, or - simpler, and worth trying first - keep the
+  continuous-path idea only for the *unobstructed* stretch of a side
+  and fall back to today's row-by-row search the moment an obstacle
+  is in play, so the two never have to be taught to agree with each
+  other in the same pass.
+
   **The "early loop stops short" half tried, for real, against the
   repro above - and it does not pay off.**  Told to build the fix now
   that the mechanism was understood.  Pulled a row's own far end in by
