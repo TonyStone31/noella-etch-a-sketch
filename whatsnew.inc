@@ -13,6 +13,18 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.7' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: ports and stubs, and labels by choice.**  Each' + LineEnding +
+    '  loop leaves and returns by its own two connections on the manifold,' + LineEnding +
+    '  two inches apart along its body, with a short stub at its own height -' + LineEnding +
+    '  the one place tube is off the grid - so the connections can be' + LineEnding +
+    '  followed by eye.  The loop and manifold notes are off unless *Label' + LineEnding +
+    '  the loops and manifolds on the drawing* is ticked: they were landing' + LineEnding +
+    '  over the runs while the paths were being measured by hand.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.6' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
