@@ -388,8 +388,78 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.6 - the real cause was upstream of the guess climb,
+  and one root cause is fixed; a second, deeper one is found and
+  documented but not.**  Told to take the time and get it right (no
+  crunch this round).  Re-instrumented from scratch rather than trust
+  the previous entry's diagnosis, and it was wrong about where the
+  fault actually starts:
+
+  The guess-collapse below (guess 6 losing every row past a stable 11)
+  is real, but it is a SYMPTOM.  Its actual cause is `LaneStart` - the
+  fix from v2026.09.24.2 that moves a side's lanes past an obstacle
+  beside the manifold - which sizes the band it checks as
+  `2 * NLGuess * Spacing`: the WHOLE side's eventual spread, not just
+  the lane or two actually near the manifold.  Once `NLGuess` grows
+  enough for that band to reach an obstacle's near edge at all, the fix
+  fires and jumps `LaneStart` to the obstacle's FAR edge - for this
+  drawing, from 0 straight to 34 ft - which then adds onto every rank's
+  offset for every larger guess from then on, and rank 0's own offset
+  (the one every other rank's plan depends on being found first) never
+  comes back down.  Once past that guess, nothing recovers, all the way
+  out to a guess of 30 and almost certainly beyond.  **Fixed**: the
+  band checked is now a fixed, small reach (two lane-widths) rather
+  than the whole assumed side, so a distant obstacle is left to the
+  ordinary near/far piece and excursion logic instead of shoving every
+  lane out to clear it.  Verified: zone 1 of the owner's own drawing
+  goes from 51.2% bare to 40.4%, crossings and obstacle-hits stay at
+  zero, every other trial scene this session is unchanged or improved,
+  a 130-case adversarial sweep for the earlier fan-crossing fix still
+  finds none, and all 1491 geometry checks plus the region and command
+  suites stay green.
+
+  **Found, not fixed: the bare-area count itself has a blind spot.**
+  Two loops that share a shortened turn (levelled to the shorter of a
+  pair, which turns always are) both get marked as having used their
+  ROW in full, even though one of them only walked part of it - the
+  rest is quietly not on the ticket as bare, because nothing marks it
+  bare anymore.  Confirmed real: replacing the running per-row tally
+  with an honest one (total heatable area for a side, less what the
+  laid tube's own geometry actually covers, measured directly rather
+  than bookkept) is a **more accurate** number, checked by hand against
+  known cases - but simply reporting the truer number, with nothing
+  else changed, made several trial scenes noticeably worse (the round
+  no-go zone test's own bare count roughly doubled) and the owner's
+  zone worse too.  That is because the whole search - both the guess
+  climb inside one side and the maximum-loop-length search across a
+  manifold - already leans on the undercounted number to decide what
+  counts as a good result, tuned (`LOOP_EVEN_FT`, `UNFILLED_LOOP_FT`)
+  against years of it being wrong in the same direction.  Swap the
+  yardstick and the search's own judgment goes with it, until the
+  search itself is redone against the true one - which this session
+  tried twice, each attempt visibly worse than not touching it, and
+  reverted both times rather than ship a guess.  This needs its own
+  session: fix the accounting, then rebuild the search around it and
+  retune the constants together, not the accounting alone.  Nothing of
+  this half is shipped - `uRadiant.pas` carries only the `LaneStart`
+  fix above.
+
+  **What is still open on the owner's own zone even with the fix**:
+  40.4% bare is real progress, not a resolution - the fan/lane fixes
+  this session close specific, found faults; they do not add up to a
+  general guarantee of good coverage.  The right general fix (the
+  lane-rank formula should stop letting ranks past `Guess - 1` share a
+  lane, so an undershooting guess stops being *unsafe* to use as-is,
+  and the search can be judged on coverage without a correctness trap
+  under it) is still the right target, and is still not done.  The
+  owner's exact repro stays
+  `reports/2026-09-24/report-20260924-065249-d18e0f5a05.hsk`, zone 1,
+  manifold at world (98.135417, 60.049679), 12" spacing, `loadbarn.pas`
+  in the scratchpad loads it straight off the `FACE`/`HOLE` records, no
+  reconstruction needed.
+
   **A real, severe bug found and run to ground against the owner's own
-  model - not fixed yet, and here is why not.**  His bug reports on
+  model - superseded above, kept for the record.**  His bug reports on
   v2026.09.24.5 (a 100 x 120 barn, four zones, a rectangle obstacle
   close to zone 1's own wall) were right: loaded his exact drawing
   through `ComputeRadiantLayout` directly (no reconstruction, no

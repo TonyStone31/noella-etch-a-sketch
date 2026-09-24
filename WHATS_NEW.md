@@ -10,6 +10,23 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: an obstacle near the manifold no longer
+  pushes every lane on that side out of the way.**  When a no-go zone
+  sat close to the manifold, the whole set of lanes for that side used
+  to jump past its far edge - not just the one or two lanes that
+  actually needed to - wasting everything in between.  That push now
+  only reaches the first lane or two, right at the manifold; an
+  obstacle farther out is left to the ordinary routing around it.
+  Confirmed against an owner-reported drawing that was leaving over
+  half a zone bare: the same zone now covers noticeably more of the
+  floor, with nothing crossed and nothing run through the obstacle.
+  Coverage there is still not complete - real work remains, tracked in
+  the project notes.
+
 ## v2026.09.24.4
 
 ### Fixed

@@ -1299,11 +1299,13 @@ var
       no more than the foot or so the owner allows tube to be closer
       than the spacing at the manifold, a hand's width at least }
     FanH := Max(Inset, Min(MANIFOLD_FAN_IN * Spec.Inch, NLGuess * (Spec.Spacing - PortPitch)));
-    { the lanes begin past any obstacle that sits in their way beside
-      the manifold: the band of lanes is moved out until no obstacle's
-      box overlaps it }
+    { the lanes begin past any obstacle that sits in their way right
+      beside the manifold: the first lane or two, not the whole side's
+      eventual spread - a fixed, small reach, so a distant obstacle is
+      left to the ordinary near/far piece and excursion logic instead
+      of shoving every lane on the side out to clear it }
     LaneStart := 0;
-    Band := (2 * Max(1, NLGuess)) * Spec.Spacing;
+    Band := 2 * Spec.Spacing;
     for Pass := 1 to 8 do
       for I3 := 0 to High(HoleB) do
       begin
