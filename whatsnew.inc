@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.6' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: the tube is laid the way a fitter lays it.**' + LineEnding +
+    '  The rows run parallel to the wall the manifold hangs on.  A loop runs' + LineEnding +
+    '  out along the row nearest the manifold as far as it can, turns into' + LineEnding +
+    '  the neighbor and comes back; while it can afford another out-and-back' + LineEnding +
+    '  under the maximum it keeps going up, and when it cannot it comes' + LineEnding +
+    '  home.  Loops fill one side of the manifold and then the other, from' + LineEnding +
+    '  the wall outward; every loop starts and ends at the manifold, and the' + LineEnding +
+    '  run out of the manifold is floor heat like the rest - the only tube' + LineEnding +
+    '  off the grid is the short climb at the manifold''s column to a loop''s' + LineEnding +
+    '  first row.  Nothing crosses, nothing shares a path, everything is at' + LineEnding +
+    '  right angles.  A row cut short by an obstacle turns there; what is' + LineEnding +
+    '  beyond an obstacle, or a lone row with no neighbor to come back on,' + LineEnding +
+    '  is said on the ticket as not reached.  The corridors, lanes and' + LineEnding +
+    '  leads of the last three releases are gone.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.5' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
