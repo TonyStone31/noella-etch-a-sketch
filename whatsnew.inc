@@ -13,6 +13,30 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.24.6' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: two gauges above the plan, live while a' + LineEnding +
+    '  manifold is dragged.**  Coverage says how much of the floor the' + LineEnding +
+    '  layout actually reaches; evenness says how close the loop lengths' + LineEnding +
+    '  come to each other.  Both are bars now, not a line of small print -' + LineEnding +
+    '  colored green, amber or red, and each says its own number in plain' + LineEnding +
+    '  words.' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: wood floor - joists is gone for now.**  The' + LineEnding +
+    '  engine is being built and proved out against a concrete slab alone;' + LineEnding +
+    '  carrying a second floor type through every part of it added work' + LineEnding +
+    '  without adding anything to test with.  It will come back once the' + LineEnding +
+    '  slab case is solid.  The slab''s own thickness, tube depth and' + LineEnding +
+    '  under-slab insulation are off the dialog the same way, for the same' + LineEnding +
+    '  reason - concrete slab, ordinary defaults, while the layout itself is' + LineEnding +
+    '  what is being worked on.' + LineEnding +
+    '- The label checkbox and the two new gauges no longer sit under the' + LineEnding +
+    '  plan preview, unreadable - a real layout bug, not a hidden setting.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.5' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
