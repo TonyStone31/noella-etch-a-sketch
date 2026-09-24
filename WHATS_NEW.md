@@ -10,6 +10,27 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: every loop is a snake.**  Out of its port
+  straight to its row, along the row to the far end of the floor, a
+  turn into the next row and back, out again on the one after, as many
+  pairs as the maximum allows, and home down its other port - loop after
+  loop outward from the manifold's wall, one side of the manifold then
+  the other.  Every foot of it is heater on the grid; the only tube off
+  the grid is the two-inch stub out of each port.  A row cut by an
+  obstacle turns at it, and the far side of the obstacle is reached by
+  one loop that goes out on the clear row before it, round the far
+  pieces, and home on the clear row past it, taking the near pieces
+  under the obstacle on the way.  Nothing crosses and nothing touches -
+  the ticket now counts every meeting of two runs, and it is zero.
+- The loop limit is tried from the maximum down and the layout kept is
+  the cheapest: a loop costs the same as fifteen feet of spread between
+  the longest and the shortest loop, or forty feet of row left bare.
+- A manifold cannot be dragged out of its own zone.
+
 ## v2026.09.23.8
 
 ### Fixed

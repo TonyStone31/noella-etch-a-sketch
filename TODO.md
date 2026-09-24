@@ -388,6 +388,25 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.23.9, 00:30 - the snake.**  The engine is now the owner's
+  game of snake: rows parallel to the manifold's wall, a loop a snake
+  of them out of its port and home down its other, the nearest loop on
+  the outermost pair of ports so no stub crosses a row, loops strictly
+  in order outward - which is what makes the far side of an obstacle
+  one loop's job (out on the clear row before, the far pieces, home on
+  the clear row past, near pieces on the way; an odd count of far
+  pieces takes two home rows).  The near piece of the first blocked
+  row is lost when the count is odd - one short gap beside the
+  obstacle.  A real crossing count (`Meetings`) is on the ticket and
+  is zero on every trial floor.  The loop limit is searched from the
+  maximum down and scored (loops + spread/15 + bare/40).  Open: the
+  stubs are a wedge at two inches beside the manifold, as deep as the
+  farthest loop's row - the owner allows "the first couple feet" close
+  together, and on a deep zone this is more than a couple; a manifold
+  mid-wall halves it.  Not done: remembering the wizard's settings,
+  per-zone lists with a total, the cheat-sheet rules, denser rows along
+  outside walls.
+
   **v2026.09.23.8, 23:40 - columns, and the fan is physics.**  Runs
   are columns straight out from the manifold's wall - the shorter wall
   of the zone, so the runs go the long way - loop after loop outward,

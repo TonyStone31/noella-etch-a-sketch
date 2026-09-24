@@ -649,7 +649,12 @@ var
 begin
   if (FDragManifold < 0) and (FDragObstacle < 0) then Exit;
   M := Point2(PlanU(X) + FDragOff.X, PlanV(Y) + FDragOff.Y);
-  if FDragManifold >= 0 then FManifolds[FDragManifold] := RadiantFrom2(FFrame, M.X, M.Y)
+  if FDragManifold >= 0 then
+  begin
+    { a manifold stays in its own zone: a drag out of it is ignored }
+    if not RadiantInside(FZones[FDragManifold].Outline, RadiantFrom2(FFrame, M.X, M.Y)) then Exit;
+    FManifolds[FDragManifold] := RadiantFrom2(FFrame, M.X, M.Y);
+  end
   else MoveObstacle(FDragObstacle, M);
   Recompute;
   if FDragObstacle >= 0 then ListObstacles;

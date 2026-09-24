@@ -152,6 +152,8 @@ type
 
 function DefaultRadiantSpec: TRadiantSpec;
 function Point2(X, Y: Double): T2;
+function SegsMeet(const P0, P1, Q0, Q1: T2): Boolean;
+function RadiantInside(const Outline: TP3Array; const P: TP3): Boolean;
 
 { Where a zone's manifold goes when nothing better is known: at the
   zone's corner nearest Toward - the middle of all the zones, so the
@@ -377,6 +379,56 @@ type
     Cell: Integer;         { which cell it belongs to, once decided }
   end;
   TFieldSpanArray = array of TFieldSpan;
+
+{ Is the point inside the outline, seen from above? }
+function RadiantInside(const Outline: TP3Array; const P: TP3): Boolean;
+var
+  I, J, N: Integer;
+begin
+  Result := False;
+  N := Length(Outline);
+  if N < 3 then Exit;
+  J := N - 1;
+  for I := 0 to N - 1 do
+  begin
+    if ((Outline[I].Y > P.Y) <> (Outline[J].Y > P.Y)) and
+       (P.X < (Outline[J].X - Outline[I].X) * (P.Y - Outline[I].Y) / (Outline[J].Y - Outline[I].Y) + Outline[I].X) then
+      Result := not Result;
+    J := I;
+  end;
+end;
+
+{ Do the closed segments P0-P1 and Q0-Q1 share any point - a crossing, a
+  touch, or a length run together?  Two runs of tube in a slab may do
+  none of them. }
+function SegsMeet(const P0, P1, Q0, Q1: T2): Boolean;
+const
+  E = 1E-7;
+
+  function Orient(const P, Q, R: T2): Double;
+  begin
+    Result := (Q.X - P.X) * (R.Y - P.Y) - (Q.Y - P.Y) * (R.X - P.X);
+  end;
+
+  function OnSeg(const P, Q, R: T2): Boolean;   { R on P-Q, given collinear }
+  begin
+    Result := (R.X >= Min(P.X, Q.X) - E) and (R.X <= Max(P.X, Q.X) + E) and
+              (R.Y >= Min(P.Y, Q.Y) - E) and (R.Y <= Max(P.Y, Q.Y) + E);
+  end;
+
+var
+  D1, D2, D3, D4: Double;
+begin
+  D1 := Orient(Q0, Q1, P0); D2 := Orient(Q0, Q1, P1);
+  D3 := Orient(P0, P1, Q0); D4 := Orient(P0, P1, Q1);
+  if (((D1 > E) and (D2 < -E)) or ((D1 < -E) and (D2 > E))) and
+     (((D3 > E) and (D4 < -E)) or ((D3 < -E) and (D4 > E))) then Exit(True);
+  if (Abs(D1) <= E) and OnSeg(Q0, Q1, P0) then Exit(True);
+  if (Abs(D2) <= E) and OnSeg(Q0, Q1, P1) then Exit(True);
+  if (Abs(D3) <= E) and OnSeg(P0, P1, Q0) then Exit(True);
+  if (Abs(D4) <= E) and OnSeg(P0, P1, Q1) then Exit(True);
+  Result := False;
+end;
 
 { Does the straight line from A to B pass through this polygon?  Either it
   crosses one of the polygon's edges, or it lies wholly inside - which the
@@ -784,8 +836,7 @@ var
   Loops: TRadiantLoopArray;
   { the rows, and on each row the one span this side of the manifold
     column - the piece the loop's pass covers }
-  PolyT: T2Array;
-  HoleT: array of T2Array;
+  HoleB: array of T2Array;
   Unfilled: Double;
   Pts: T2Array;
   NPts: Integer;
@@ -803,122 +854,162 @@ var
     Pts[NPts] := Point2(X, Y); Inc(NPts);
   end;
 
-  { The pieces of column U on this side, straight out from the manifold's
-    wall: the near piece, from the wall to the far wall or the first
-    obstacle; and the far piece, from the last obstacle to the far wall,
-    when an obstacle cuts the column.  Columns are lines of constant U;
-    the polygon is turned on its side so RowSpans can walk them. }
-  procedure ColumnPieces(U: Double; out NearLo, NearHi, FarLo, FarHi: Double;
+  { The pieces of row V on this side of the manifold, along the wall:
+    the near piece, from the manifold out to the far end of the floor or
+    the first obstacle; and the far piece, from the last obstacle to the
+    far end, when an obstacle cuts the row.  In D - distance from the
+    manifold along this side - so both sides read the same way.  The
+    floor's spans are pulled in a hand's width at their ends; an
+    obstacle's box already stands that much bigger. }
+  procedure RowPieces(V: Double; Sign: Integer; out NearHi, FarLo, FarHi: Double;
     out HasNear, HasFar: Boolean);
   var
-    Pieces, Cuts, HoleRow: TSpanArray;
-    P, Q, K0: Integer;
+    Pieces, Cuts, HoleRow, Outer: TSpanArray;
+    P, Q, K0, K: Integer;
+    T: TSpan;
+    Lo, Hi: Double;
   begin
     HasNear := False; HasFar := False;
-    NearLo := 0; NearHi := 0; FarLo := 0; FarHi := 0;
+    NearHi := 0; FarLo := 0; FarHi := 0;
     Cuts := nil;
-    for P := 0 to High(HoleT) do
+    for P := 0 to High(HoleB) do
     begin
-      HoleRow := RowSpans(HoleT[P], U);
+      HoleRow := RowSpans(HoleB[P], V);
       K0 := Length(Cuts);
       SetLength(Cuts, K0 + Length(HoleRow));
       for Q := 0 to High(HoleRow) do Cuts[K0 + Q] := HoleRow[Q];
     end;
-    Pieces := Subtract(RowSpans(PolyT, U), Cuts);
+    for P := 1 to High(Cuts) do
+    begin
+      T := Cuts[P]; K := P;
+      while (K > 0) and (Cuts[K - 1].Lo > T.Lo) do begin Cuts[K] := Cuts[K - 1]; Dec(K); end;
+      Cuts[K] := T;
+    end;
+    Outer := RowSpans(Poly2, V);
+    for P := 0 to High(Outer) do
+    begin
+      Outer[P].Lo := Outer[P].Lo + Inset; Outer[P].Hi := Outer[P].Hi - Inset;
+    end;
+    Pieces := Subtract(Outer, Cuts);
+    { in D: the near piece holds the manifold, or begins at it; the far
+      piece is the last one on this side }
     for P := 0 to High(Pieces) do
     begin
-      if (Pieces[P].Lo <= M2.Y + Inset) and (Pieces[P].Hi > M2.Y + Inset) then
+      if Sign > 0 then begin Lo := Pieces[P].Lo - M2.X; Hi := Pieces[P].Hi - M2.X; end
+      else begin Lo := M2.X - Pieces[P].Hi; Hi := M2.X - Pieces[P].Lo; end;
+      if Hi <= Spec.Spacing then Continue;
+      if Lo <= Spec.Spacing then
       begin
-        NearLo := Max(Pieces[P].Lo, M2.Y) + Inset;
-        if Pieces[P].Hi >= Vmax - 1E-6 then NearHi := Pieces[P].Hi - Inset else NearHi := Pieces[P].Hi;
-        HasNear := NearHi - NearLo > Spec.Spacing;
+        NearHi := Hi;
+        HasNear := True;
       end
-      else if Pieces[P].Hi >= Vmax - 1E-6 then
+      else
       begin
-        FarLo := Pieces[P].Lo;
-        FarHi := Pieces[P].Hi - Inset;
+        FarLo := Lo; FarHi := Hi;
         HasFar := FarHi - FarLo > Spec.Spacing;
       end;
     end;
-    { a clear column is one near piece to the far wall: no far piece then }
-    if HasNear and (NearHi >= Vmax - Inset - 1E-6) then HasFar := False;
   end;
 
-  { Lay one side of the manifold: columns out from its wall, the first a
-    half spacing off the manifold, loop after loop outward; each loop as
-    many pairs of columns - out on one, back on the next - as the
-    maximum allows, measured as laid.  A column cut by an obstacle turns
-    at it; the far side of the obstacle is reached the way the owner
-    described: a loop out on a clear column past it turns into the
-    blocked column's far piece, serpentines the far pieces of the
-    blocked columns beside it, and comes home down the next clear
-    column; the near pieces below the obstacle are paired by a loop of
-    their own after.  Every loop leaves by its own port, runs along the
-    wall in the fan to its first column, and comes home the same way;
-    the fan is the only tube off the grid.  Laterals are stacked by how
-    far out the loop's columns are - the nearest highest - so a lateral
-    passes only under columns nearer the manifold than its own, above
-    their laterals and below where they start. }
-  procedure LaySide(SideK: Integer);
+  { Lay one side of the manifold: the game of snake.  The rows run along
+    the manifold's wall, the first a hand's width off it, and a loop is
+    a snake of them: out of its port straight to its first row, along it
+    to the far end of the floor, a turn into the next row and back, out
+    again on the one after - as many pairs as Limit allows, measured as
+    laid - and home down its other port.  Loop after loop outward from
+    the wall, one side then the other, mirror image.  Every foot of it
+    is heater; the only tube off the grid is the stub out of each port,
+    two inches from the next.
+
+    For no stub to cross a row, the loop nearest the wall has the
+    outermost pair of ports and the farthest the innermost, so a stub
+    only ever passes rows that begin beyond it - which is why every
+    loop's rows lie beyond every row of the loop before, strictly in
+    order outward, and why the far side of an obstacle is reached by one
+    loop and one only: out on a clear row short of it, the far pieces
+    beside it, home on the clear row past it, and the near pieces under
+    it on the way home.  A row cut by an obstacle turns at it.
+
+    Which ports a loop gets depends on how many loops the side ends up
+    with, and the stub's length counts toward the limit, so the side is
+    laid with a guess at the count and laid again until it settles. }
+  procedure LaySide(SideK: Integer; Limit: Double; NLGuess: Integer;
+    var Got: TRadiantLoopArray; var Unf: Double; out NLOut: Integer);
   type
     TPlan = record
-      Cols: array of Integer;      { the columns, in walking order }
-      Far: array of Boolean;       { the far piece of that column, not the near }
-      FirstCol: Integer;
-      Rank: Integer;
+      Rows: array of Integer;      { the rows, in walking order }
+      Far: array of Boolean;       { the far piece of that row, not the near }
     end;
   var
-    C, N, Loop, NL, Q, Dir, R, M, I2: Integer;
-    U, PortU, PortR, VUp, VDn, VStart, PortPitch, Y0, Y1, Turn: Double;
-    ColU, NLo, NHi, FLo, FHi: array of Double;
-    HasN, HasF, UsedN, UsedF: array of Boolean;
+    C, N, Q, I2: Integer;
+    V, PortPitch: Double;
+    RowV, NHi, FLo, FHi: array of Double;
+    HasN, HasF, UsedN, UsedF, DeadN: array of Boolean;
     Plans: array of TPlan;
     P: TPlan;
     L: TRadiantLoop;
     Sign: Integer;
-    FitsMore: Boolean;
 
-    { the length of a plan as laid from this lateral height }
-    function LayPlan(const Pl: TPlan; PortU_, PortR_, VUp_, VDn_, VStart_: Double; out L: TRadiantLoop): Double;
+    { where the loop of rank R - R = 0 nearest the wall - leaves and
+      comes home, as distance from the manifold along this side: the
+      home port inside, the out port beside it }
+    function PortHome(R: Integer): Double;
+    begin
+      Result := (2 * Max(0, NLGuess - 1 - R) + 1) * PortPitch;
+    end;
+
+    function PortOut(R: Integer): Double;
+    begin
+      Result := PortHome(R) + PortPitch;
+    end;
+
+    function AtD(D: Double): Double;   { back to U }
+    begin
+      Result := M2.X + Sign * D;
+    end;
+
+    { the loop as laid: out of its port to its first row, the rows,
+      home from the last down its other port; every turn leveled.  The
+      length is the result. }
+    function LayPlan(const Pl: TPlan; R: Integer; out L: TRadiantLoop): Double;
     var
-      J, Cc: Integer;
-      Y0_, Y1_: Double;
-      Bot, Top: array of Double;
-      Down: Boolean;
+      J, Rr: Integer;
+      D0, D1: Double;
+      Lo, Hi: array of Double;
+      Back: Boolean;
     begin
       NPts := 0;
-      Put(PortU_, M2.Y);
-      Put(PortU_, VUp_);
-      Put(ColU[Pl.Cols[0]], VUp_);
-      { each column's bottom and top, then every turn leveled: going out
-        the two columns turn at the lower of their tops, coming back at
-        the higher of their bottoms - a turn is always level }
-      SetLength(Bot, Length(Pl.Cols)); SetLength(Top, Length(Pl.Cols));
-      for J := 0 to High(Pl.Cols) do
+      Put(AtD(PortOut(R)), M2.Y);
+      { each row's near and far end, then every turn leveled: going out
+        the two rows turn at the nearer of their far ends, coming back at
+        the farther of their near ends - a turn is always level.  A near
+        piece begins at the out port, the last at the home port; a far
+        piece past its obstacle. }
+      SetLength(Lo, Length(Pl.Rows)); SetLength(Hi, Length(Pl.Rows));
+      for J := 0 to High(Pl.Rows) do
       begin
-        Cc := Pl.Cols[J];
-        if Pl.Far[J] then begin Bot[J] := FLo[Cc]; Top[J] := FHi[Cc]; end
-        else begin Bot[J] := Max(VStart_, NLo[Cc]); Top[J] := NHi[Cc]; end;
+        Rr := Pl.Rows[J];
+        if Pl.Far[J] then begin Lo[J] := FLo[Rr]; Hi[J] := FHi[Rr]; end
+        else begin Lo[J] := PortOut(R); Hi[J] := NHi[Rr]; end;
       end;
-      Down := False;
-      for J := 0 to High(Pl.Cols) - 1 do
+      Lo[High(Lo)] := PortHome(R);
+      Back := False;
+      for J := 0 to High(Pl.Rows) - 1 do
       begin
-        if not Down then begin Top[J] := Min(Top[J], Top[J + 1]); Top[J + 1] := Top[J]; end
-        else begin Bot[J] := Max(Bot[J], Bot[J + 1]); Bot[J + 1] := Bot[J]; end;
-        Down := not Down;
+        if not Back then begin Hi[J] := Min(Hi[J], Hi[J + 1]); Hi[J + 1] := Hi[J]; end
+        else begin Lo[J] := Max(Lo[J], Lo[J + 1]); Lo[J + 1] := Lo[J]; end;
+        Back := not Back;
       end;
-      Down := False;   { the first column is walked out, away from the wall }
-      for J := 0 to High(Pl.Cols) do
+      Back := False;   { the first row is walked out, away from the manifold }
+      for J := 0 to High(Pl.Rows) do
       begin
-        Cc := Pl.Cols[J];
-        if Down then begin Y0_ := Top[J]; Y1_ := Bot[J]; end else begin Y0_ := Bot[J]; Y1_ := Top[J]; end;
-        Put(ColU[Cc], Y0_);
-        Put(ColU[Cc], Y1_);
-        Down := not Down;
+        Rr := Pl.Rows[J];
+        if Back then begin D0 := Hi[J]; D1 := Lo[J]; end else begin D0 := Lo[J]; D1 := Hi[J]; end;
+        Put(AtD(D0), RowV[Rr]);
+        Put(AtD(D1), RowV[Rr]);
+        Back := not Back;
       end;
-      Put(ColU[Pl.Cols[High(Pl.Cols)]], VDn_);
-      Put(PortR_, VDn_);
-      Put(PortR_, M2.Y);
+      Put(AtD(PortHome(R)), M2.Y);
       SetLength(L.Pts, NPts);
       for J := 0 to NPts - 1 do L.Pts[J] := World(Pts[J]);
       L.LenFt := 0;
@@ -926,165 +1017,329 @@ var
       Result := L.LenFt;
     end;
 
-    { the plan from column C: out on C; then either the excursion round
-      an obstacle, or pairs of near pieces, as many as fit }
-    function PlanFrom(C: Integer; out Pl: TPlan): Boolean;
+    function Fits(const Pl: TPlan; R: Integer): Boolean;
     var
-      Cc, M, J: Integer;
       Lt: TRadiantLoop;
+    begin
+      Result := LayPlan(Pl, R, Lt) <= Limit;
+    end;
+
+    { is there a run's worth of this piece beyond the loop's port? }
+    function NearOk(C, R: Integer): Boolean;
+    begin
+      Result := (C >= 0) and (C <= High(RowV)) and HasN[C] and not UsedN[C] and not DeadN[C] and
+        (NHi[C] - PortOut(R) >= Spec.Spacing - 1E-6);
+    end;
+
+    function FarOk(C, R: Integer): Boolean;
+    begin
+      Result := (C >= 0) and (C <= High(RowV)) and HasF[C] and not UsedF[C];
+    end;
+
+    function Clear(C: Integer): Boolean;   { a near piece to the far end }
+    begin
+      Result := (C >= 0) and (C <= High(RowV)) and HasN[C] and not HasF[C];
+    end;
+
+    procedure Add(var Pl: TPlan; C: Integer; IsFar: Boolean);
+    begin
+      SetLength(Pl.Rows, Length(Pl.Rows) + 1); SetLength(Pl.Far, Length(Pl.Far) + 1);
+      Pl.Rows[High(Pl.Rows)] := C; Pl.Far[High(Pl.Far)] := IsFar;
+    end;
+
+    { a clear row with an obstacle's far side just past it is the way
+      out to those far pieces: no loop may end on it }
+    function Reserved(C: Integer): Boolean;
+    begin
+      Result := Clear(C) and (C + 1 <= High(RowV)) and HasF[C + 1] and not UsedF[C + 1];
+    end;
+
+    { The excursion round an obstacle, from row Cc, the last in Pl and
+      walked out: the far pieces beside it, all of them, then home on
+      the clear row past them - or, when an odd count of far pieces
+      leaves that row walked out, along it from the obstacle to the end
+      and home on the one after - and the near pieces under the obstacle
+      on the way, an even number of them from the far end.  Too long,
+      and the far pieces come off from the near end, and the near pieces
+      under those are lost: a loop of their own would sit between this
+      one's rows and cross its way home. }
+    function Excursion(Cc, R: Integer; var Pl: TPlan): Boolean;
+    var
+      First, Home, M, J, Q, NearN, Was: Integer;
       Trial: TPlan;
     begin
       Result := False;
-      SetLength(Pl.Cols, 0); SetLength(Pl.Far, 0);
-      if not HasN[C] or UsedN[C] then Exit;
-      Pl.FirstCol := C;
-      SetLength(Pl.Cols, 1); SetLength(Pl.Far, 1);
-      Pl.Cols[0] := C; Pl.Far[0] := False;
+      First := Cc + 1;
+      M := 0;
+      while FarOk(First + M, R) do Inc(M);
+      if M < 1 then Exit;
+      Home := First + M;
+      if not NearOk(Home, R) or not Clear(Home) then Exit;
+      J := M;
+      while J >= 1 do
+      begin
+        Trial := Pl;
+        for Q := Home - J to Home - 1 do Add(Trial, Q, True);
+        Add(Trial, Home, False);
+        if J mod 2 = 1 then
+        begin
+          if not NearOk(Home + 1, R) or not Clear(Home + 1) then Exit;
+          Add(Trial, Home + 1, False);
+        end;
+        { the near pieces under the far pieces taken - all or none, an
+          odd few could not come home }
+        NearN := J - (J mod 2);
+        Was := Length(Trial.Rows);
+        for Q := Home - 1 downto Home - NearN do
+          if NearOk(Q, R) then Add(Trial, Q, False) else Break;
+        if Length(Trial.Rows) - Was < NearN then
+        begin
+          SetLength(Trial.Rows, Was); SetLength(Trial.Far, Was);
+        end;
+        if Fits(Trial, R) then
+        begin
+          Pl := Trial;
+          for Q := First to Home - 1 do
+            if HasN[Q] and not UsedN[Q] then
+            begin
+              Was := 0;
+              for NearN := 0 to High(Trial.Rows) do
+                if (Trial.Rows[NearN] = Q) and not Trial.Far[NearN] then Was := 1;
+              if Was = 0 then DeadN[Q] := True;
+            end;
+          Exit(True);
+        end;
+        Dec(J);
+      end;
+    end;
+
+    { the plan of the loop of rank R from row C: out on C; then the
+      excursion round an obstacle, or pairs of near pieces, as many as
+      fit under Limit }
+    function PlanFrom(C, R: Integer; out Pl: TPlan): Boolean;
+    var
+      Cc: Integer;
+      Trial: TPlan;
+    begin
+      Result := False;
+      SetLength(Pl.Rows, 0); SetLength(Pl.Far, 0);
+      if not NearOk(C, R) then Exit;
+      Add(Pl, C, False);
       Cc := C;
       repeat
-        { the column after Cc }
-        if Cc + 1 > High(ColU) then Break;
-        if not Pl.Far[High(Pl.Far)] and (NHi[Cc] >= Vmax - Inset - 1E-6) then
+        if Cc + 1 > High(RowV) then Break;
+        if Length(Pl.Rows) mod 2 = 1 then
         begin
-          { we are at the far wall on a clear column: an obstacle's far
-            side beside us?  even so many far pieces, then a clear column
-            home }
-          M := 0;
-          while (Cc + 1 + M <= High(ColU)) and HasF[Cc + 1 + M] and not UsedF[Cc + 1 + M] do Inc(M);
-          if M mod 2 = 1 then Dec(M);
-          if (M >= 2) and (Cc + 1 + M <= High(ColU)) and HasN[Cc + 1 + M] and not UsedN[Cc + 1 + M] and
-             (NHi[Cc + 1 + M] >= Vmax - Inset - 1E-6) then
+          { on a row walked out: round an obstacle, or the next row back }
+          if Clear(Cc) and Excursion(Cc, R, Pl) then begin Result := True; Break; end;
+          if NearOk(Cc + 1, R) and not Reserved(Cc + 1) then
           begin
             Trial := Pl;
-            SetLength(Trial.Cols, Length(Pl.Cols) + M + 1);
-            SetLength(Trial.Far, Length(Pl.Far) + M + 1);
-            for J := 1 to M do
+            Add(Trial, Cc + 1, False);
+            if Fits(Trial, R) then
             begin
-              Trial.Cols[High(Pl.Cols) + J] := Cc + J; Trial.Far[High(Pl.Far) + J] := True;
-            end;
-            Trial.Cols[High(Trial.Cols)] := Cc + 1 + M; Trial.Far[High(Trial.Far)] := False;
-            if LayPlan(Trial, M2.X, M2.X, M2.Y + Inset / 2, M2.Y + Inset / 2 + PortPitch,
-                 M2.Y + Inset / 2 + 2 * PortPitch, Lt) <= MaxFt then
-            begin
-              Pl := Trial;
-              Cc := Cc + 1 + M;
-              Result := True;
+              Pl := Trial; Cc := Cc + 1; Result := True;
               Continue;
             end;
           end;
-        end;
-        { a plain pair: the next near piece back, if it fits }
-        if (Cc + 1 <= High(ColU)) and HasN[Cc + 1] and not UsedN[Cc + 1] and
-           (Length(Pl.Cols) mod 2 = 1) then
+          Break;
+        end
+        else
         begin
-          Trial := Pl;
-          SetLength(Trial.Cols, Length(Pl.Cols) + 1); SetLength(Trial.Far, Length(Pl.Far) + 1);
-          Trial.Cols[High(Trial.Cols)] := Cc + 1; Trial.Far[High(Trial.Far)] := False;
-          if LayPlan(Trial, M2.X, M2.X, M2.Y + Inset / 2, M2.Y + Inset / 2 + PortPitch,
-               M2.Y + Inset / 2 + 2 * PortPitch, Lt) <= MaxFt then
+          { on a row walked back: out again on the next, if it is the
+            way out round an obstacle or the pair after it fits }
+          if Reserved(Cc + 1) and NearOk(Cc + 1, R) then
           begin
-            Pl := Trial; Cc := Cc + 1; Result := True;
-            { and out again on the one after, if that pair would fit - but
-              not onto a clear column that has an obstacle's far side just
-              beyond it: that column is the next loop's way out to those
-              far pieces, and it must go out on it, not come back on it }
-            if (Cc + 2 <= High(ColU)) and HasN[Cc + 1] and not UsedN[Cc + 1] and HasN[Cc + 2] and not UsedN[Cc + 2] and
-               not ((NHi[Cc + 2] >= Vmax - Inset - 1E-6) and (Cc + 3 <= High(ColU)) and HasF[Cc + 3] and not UsedF[Cc + 3]) then
-            begin
-              Trial := Pl;
-              SetLength(Trial.Cols, Length(Pl.Cols) + 2); SetLength(Trial.Far, Length(Pl.Far) + 2);
-              Trial.Cols[High(Trial.Cols) - 1] := Cc + 1; Trial.Far[High(Trial.Far) - 1] := False;
-              Trial.Cols[High(Trial.Cols)] := Cc + 2; Trial.Far[High(Trial.Far)] := False;
-              if LayPlan(Trial, M2.X, M2.X, M2.Y + Inset / 2, M2.Y + Inset / 2 + PortPitch,
-                   M2.Y + Inset / 2 + 2 * PortPitch, Lt) <= MaxFt then
-              begin
-                Pl := Trial; Cc := Cc + 2;
-                Continue;
-              end;
-            end;
+            Trial := Pl;
+            Add(Trial, Cc + 1, False);
+            if Excursion(Cc + 1, R, Trial) then begin Pl := Trial; Result := True; end;
             Break;
           end;
+          if NearOk(Cc + 1, R) and NearOk(Cc + 2, R) and not Reserved(Cc + 2) then
+          begin
+            Trial := Pl;
+            Add(Trial, Cc + 1, False);
+            Add(Trial, Cc + 2, False);
+            if Fits(Trial, R) then
+            begin
+              Pl := Trial; Cc := Cc + 2;
+              Continue;
+            end;
+          end;
+          Break;
         end;
-        Break;
       until False;
-      { an odd number of near columns cannot come home: drop the last }
-      if Result and (Length(Pl.Cols) mod 2 = 1) then
+      { an odd number of rows cannot come home: drop the last }
+      if Result and (Length(Pl.Rows) mod 2 = 1) then
       begin
-        SetLength(Pl.Cols, Length(Pl.Cols) - 1); SetLength(Pl.Far, Length(Pl.Far) - 1);
-        Result := Length(Pl.Cols) >= 2;
+        SetLength(Pl.Rows, Length(Pl.Rows) - 1); SetLength(Pl.Far, Length(Pl.Far) - 1);
+        Result := Length(Pl.Rows) >= 2;
       end;
     end;
 
   begin
+    NLOut := 0;
     if SideK = 0 then Sign := -1 else Sign := 1;
     PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
-    SetLength(ColU, 0);
+    SetLength(RowV, 0);
     C := 0;
     repeat
-      U := M2.X + Sign * (Spec.Spacing / 2 + C * Spec.Spacing);
-      if (U < Umin + Inset) or (U > Umax - Inset) then Break;
-      SetLength(ColU, C + 1); SetLength(NLo, C + 1); SetLength(NHi, C + 1);
+      V := M2.Y + Inset + C * Spec.Spacing;
+      if V > Vmax - Inset + 1E-9 then Break;
+      SetLength(RowV, C + 1); SetLength(NHi, C + 1);
       SetLength(FLo, C + 1); SetLength(FHi, C + 1); SetLength(HasN, C + 1); SetLength(HasF, C + 1);
-      ColU[C] := U;
-      ColumnPieces(U, NLo[C], NHi[C], FLo[C], FHi[C], HasN[C], HasF[C]);
+      RowV[C] := V;
+      RowPieces(V, Sign, NHi[C], FLo[C], FHi[C], HasN[C], HasF[C]);
+      { this side stops halfway to the next manifold along the wall }
+      if Sign > 0 then NHi[C] := Min(NHi[C], LimHi - M2.X) else NHi[C] := Min(NHi[C], M2.X - LimLo);
+      if HasN[C] and (NHi[C] <= Spec.Spacing) then HasN[C] := False;
       Inc(C);
     until C > 4000;
-    N := Length(ColU);
+    N := Length(RowV);
     if N < 2 then Exit;
-    SetLength(UsedN, N); SetLength(UsedF, N);
+    SetLength(UsedN, N); SetLength(UsedF, N); SetLength(DeadN, N);
 
-    { the plans: from the manifold outward, each taking what it can }
+    { the plans: from the wall outward, each taking what it can }
     SetLength(Plans, 0);
     C := 0;
-    while C <= High(ColU) do
+    while C <= High(RowV) do
     begin
-      if PlanFrom(C, P) then
+      if PlanFrom(C, Length(Plans), P) then
       begin
-        for Q := 0 to High(P.Cols) do
-          if P.Far[Q] then UsedF[P.Cols[Q]] := True else UsedN[P.Cols[Q]] := True;
+        for Q := 0 to High(P.Rows) do
+          if P.Far[Q] then UsedF[P.Rows[Q]] := True else UsedN[P.Rows[Q]] := True;
         SetLength(Plans, Length(Plans) + 1);
         Plans[High(Plans)] := P;
         { the next unused near piece }
         Inc(C);
-        while (C <= High(ColU)) and (not HasN[C] or UsedN[C]) do Inc(C);
+        while (C <= High(RowV)) and (not HasN[C] or UsedN[C]) do Inc(C);
       end
       else Inc(C);
     end;
     { what nothing took }
-    for C := 0 to High(ColU) do
+    for C := 0 to High(RowV) do
     begin
-      if HasN[C] and not UsedN[C] then Unfilled := Unfilled + (NHi[C] - NLo[C]) * Spec.Spacing;
-      if HasF[C] and not UsedF[C] then Unfilled := Unfilled + (FHi[C] - FLo[C]) * Spec.Spacing;
+      if HasN[C] and not UsedN[C] then Unf := Unf + NHi[C] * Spec.Spacing;
+      if HasF[C] and not UsedF[C] then Unf := Unf + (FHi[C] - FLo[C]) * Spec.Spacing;
     end;
-
-    { laterals by how far out each plan's first column is: the nearest
-      the highest }
-    NL := Length(Plans);
-    for I2 := 0 to NL - 1 do
+    NLOut := Length(Plans);
+    for I2 := 0 to High(Plans) do
     begin
-      R := 0;
-      for M := 0 to NL - 1 do
-        if (M <> I2) and ((Plans[M].FirstCol < Plans[I2].FirstCol) or
-           ((Plans[M].FirstCol = Plans[I2].FirstCol) and (M < I2))) then Inc(R);
-      Plans[I2].Rank := R;
-    end;
-    for I2 := 0 to NL - 1 do
-    begin
-      R := Plans[I2].Rank;
-      VUp := M2.Y + Inset / 2 + (2 * (NL - 1 - R)) * PortPitch;
-      VDn := VUp + PortPitch;
-      VStart := VDn + PortPitch;
-      PortU := M2.X + Sign * (2 * R + 1) * PortPitch;
-      PortR := M2.X + Sign * (2 * R + 2) * PortPitch;
-      LayPlan(Plans[I2], PortU, PortR, VUp, VDn, VStart, L);
+      LayPlan(Plans[I2], I2, L);
       L.Manifold := MI;
+      SetLength(Got, Length(Got) + 1);
+      Got[High(Got)] := L;
+    end;
+  end;
+
+  { one side, laid until its loop count comes out as guessed.  More
+    loops make more rows, which shorten the near columns, which can
+    take another loop - so the count can seesaw; then the higher guess
+    is laid, and any loop past it is dropped rather than put on a row
+    already taken, which would run it across the loop that has it. }
+  procedure LaySideSettled(SideK: Integer; Limit: Double; var Got: TRadiantLoopArray; var Unf: Double);
+  var
+    Guess, NLOut, Tries, K0, Most: Integer;
+    Unf0: Double;
+  begin
+    Guess := 0; Tries := 0; Most := 0;
+    K0 := Length(Got); Unf0 := Unf;
+    repeat
+      SetLength(Got, K0); Unf := Unf0;
+      LaySide(SideK, Limit, Guess, Got, Unf, NLOut);
+      if NLOut = Guess then Exit;
+      Most := Max(Most, NLOut);
+      Guess := NLOut;
+      Inc(Tries);
+    until Tries > 6;
+    SetLength(Got, K0); Unf := Unf0;
+    LaySide(SideK, Limit, Most, Got, Unf, NLOut);
+    if NLOut > Most then SetLength(Got, K0 + Most);
+  end;
+
+  { Both sides under one limit per loop.  The owner's game: a loop
+    that takes all the maximum allows leaves the last loop on the side
+    with the scraps, so the limit is tried from the maximum down, and
+    the layout kept is the one that costs least: a loop counts the same
+    as LOOP_EVEN_FT of spread between the longest and the shortest, and
+    the same as UNFILLED_LOOP_FT of row left unfilled.  Whole rows come
+    in pairs, so on a wide floor the spread cannot always come down
+    without doubling the loops, and the cost is the middle ground: an
+    even dozen short loops are not an answer either. }
+  procedure LayManifold;
+  var
+    Trial, Best: TRadiantLoopArray;
+    Unf, BestUnf, T, Lo, Hi, Spread, Cost, BestCost: Double;
+    I: Integer;
+    Better: Boolean;
+  begin
+    Best := nil; BestUnf := 1E300; BestCost := 1E300;
+    T := MaxFt;
+    while T >= MaxFt / 2 do
+    begin
+      Trial := nil; Unf := 0;
+      LaySideSettled(0, T, Trial, Unf);
+      LaySideSettled(1, T, Trial, Unf);
+      if Length(Trial) > 0 then
+      begin
+        Lo := 1E300; Hi := 0;
+        for I := 0 to High(Trial) do
+        begin
+          Lo := Min(Lo, Trial[I].LenFt); Hi := Max(Hi, Trial[I].LenFt);
+        end;
+        Spread := Hi - Lo;
+        Cost := Length(Trial) + Spread / LOOP_EVEN_FT + Unf / (Spec.Spacing * UNFILLED_LOOP_FT);
+        if Best = nil then Better := True
+        else Better := Cost < BestCost - 1E-6;
+        if Better then
+        begin
+          Best := Trial; BestUnf := Unf; BestCost := Cost;
+        end;
+      end;
+      T := T - 2;
+    end;
+    for I := 0 to High(Best) do
+    begin
       SetLength(Loops, Length(Loops) + 1);
-      Loops[High(Loops)] := L;
+      Loops[High(Loops)] := Best[I];
+    end;
+    if Best <> nil then Unfilled := Unfilled + BestUnf;
+  end;
+
+  { where any two runs of tube meet - a crossing, or a touch, which is
+    as bad in a slab.  Counted in the manifold's own frame; a loop's
+    consecutive segments share a corner and are not counted. }
+  function Meetings(FromLoop: Integer): Integer;
+  var
+    A, B, I, J: Integer;
+    P0, P1, Q0, Q1: T2;
+    SA, SB: array of T2;
+  begin
+    Result := 0;
+    for A := FromLoop to High(Loops) do
+    begin
+      SetLength(SA, Length(Loops[A].Pts));
+      for I := 0 to High(SA) do SA[I] := RadiantTo2(F, Loops[A].Pts[I]);
+      for B := A to High(Loops) do
+      begin
+        SetLength(SB, Length(Loops[B].Pts));
+        for I := 0 to High(SB) do SB[I] := RadiantTo2(F, Loops[B].Pts[I]);
+        for I := 1 to High(SA) do
+          for J := 1 to High(SB) do
+          begin
+            if (A = B) and (J <= I + 1) then Continue;
+            P0 := SA[I - 1]; P1 := SA[I]; Q0 := SB[J - 1]; Q1 := SB[J];
+            if (Max(P0.X, P1.X) < Min(Q0.X, Q1.X) - 1E-6) or (Min(P0.X, P1.X) > Max(Q0.X, Q1.X) + 1E-6) or
+               (Max(P0.Y, P1.Y) < Min(Q0.Y, Q1.Y) - 1E-6) or (Min(P0.Y, P1.Y) > Max(Q0.Y, Q1.Y) + 1E-6) then Continue;
+            if SegsMeet(P0, P1, Q0, Q1) then Inc(Result);
+          end;
+      end;
     end;
   end;
 
 begin
   Result := Default(TRadiantResult);
+  Result.Crossings := 0;
   Result.Why := RadiantProblem(Outline, Spec);
   Result.Ok := Result.Why = '';
   if not Result.Ok then Exit;
@@ -1134,18 +1389,13 @@ begin
       if I <> MI then
       begin
         O2 := RadiantTo2(F, Spec.Manifolds[I]);
-        if O2.X < M2.X then LimLo := Max(LimLo, (O2.X + M2.X) / 2 - Inset / 2)
-        else if O2.X > M2.X then LimHi := Min(LimHi, (O2.X + M2.X) / 2 + Inset / 2);
+        if O2.X < M2.X then LimLo := Max(LimLo, (O2.X + M2.X) / 2 + Spec.Spacing / 2)
+        else if O2.X > M2.X then LimHi := Min(LimHi, (O2.X + M2.X) / 2 - Spec.Spacing / 2);
       end;
 
-    { the polygon and the holes turned on their side, so a column is a
-      row to RowSpans }
-    SetLength(PolyT, Length(Poly2));
-    for I := 0 to High(Poly2) do PolyT[I] := Point2(Poly2[I].Y, Poly2[I].X);
-    { each obstacle as its box, a hand's width bigger all round, turned
-      on its side - so a column keeps off it sideways as well as at the
-      end of its run }
-    SetLength(HoleT, Length(HolePoly));
+    { each obstacle as its box, a hand's width bigger all round - so a
+      row keeps off it at its end and beside it alike }
+    SetLength(HoleB, Length(HolePoly));
     for I := 0 to High(HolePoly) do
     begin
       HLo := 1E300; HHi := -1E300; HV0 := 1E300; HV1 := -1E300;
@@ -1154,18 +1404,18 @@ begin
         HLo := Min(HLo, HolePoly[I][J].X); HHi := Max(HHi, HolePoly[I][J].X);
         HV0 := Min(HV0, HolePoly[I][J].Y); HV1 := Max(HV1, HolePoly[I][J].Y);
       end;
-      SetLength(HoleT[I], 4);
-      HoleT[I][0] := Point2(HV0 - Inset, HLo - Inset);
-      HoleT[I][1] := Point2(HV1 + Inset, HLo - Inset);
-      HoleT[I][2] := Point2(HV1 + Inset, HHi + Inset);
-      HoleT[I][3] := Point2(HV0 - Inset, HHi + Inset);
+      SetLength(HoleB[I], 4);
+      HoleB[I][0] := Point2(HLo - Inset, HV0 - Inset);
+      HoleB[I][1] := Point2(HHi + Inset, HV0 - Inset);
+      HoleB[I][2] := Point2(HHi + Inset, HV1 + Inset);
+      HoleB[I][3] := Point2(HLo - Inset, HV1 + Inset);
     end;
     { the manifold hangs on its wall: its line is the wall's inset }
     M2.Y := Vmin;
-    Result.RowCount := Max(1, Floor(((Umax - Umin) - 2 * Inset) / Spec.Spacing));
+    Result.RowCount := Max(1, Floor(((Vmax - Vmin) - 2 * Inset) / Spec.Spacing));
     K := Length(Loops);
-    LaySide(0);
-    LaySide(1);
+    LayManifold;
+    Inc(Result.Crossings, Meetings(K));
     Result.Manifolds[MI].LoopCount := Length(Loops) - K;
     Result.Manifolds[MI].Ports := Max(MANIFOLD_PORTS_MIN, Length(Loops) - K);
     Result.Manifolds[MI].Ft := 0;
@@ -1174,7 +1424,6 @@ begin
 
   Result.Loops := Loops;
   Result.CellCount := 0;
-  Result.Crossings := 0;
   Result.UnfilledSqFt := Unfilled;
   Result.TotalFt := 0;
   for I := 0 to High(Loops) do Result.TotalFt := Result.TotalFt + Loops[I].LenFt;

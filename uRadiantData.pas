@@ -116,6 +116,14 @@ const
     connections can be followed by eye }
   MANIFOLD_PORT_PITCH_IN = 2.0;
   LOOP_AREA_FACTOR = 0.7;
+  { how far apart in length the loops on one manifold may be before the
+    layout is tried again - the owner's rule of thumb: loops within ten
+    or fifteen feet of each other balance; a 300 ft loop beside a 50 ft
+    one never will. }
+  LOOP_EVEN_FT = 15.0;
+  { and how many feet of row left bare weigh the same as one more loop,
+    when the layout is scored - a guess, the owner's to move }
+  UNFILLED_LOOP_FT = 40.0;
 
 function TubeOf(S: TTubeSize): TTubeFacts;
 
