@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.24' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: no more corridor at the manifold.**  The tube' + LineEnding +
+    '  out of each port no longer runs as a bundle, two inches from the' + LineEnding +
+    '  next, all the way to its rows.  It opens out across a short fan onto' + LineEnding +
+    '  a grid lane of its own - the ports are two inches apart and the grid' + LineEnding +
+    '  a spacing, so the fan makes up the difference over about half that' + LineEnding +
+    '  width, thinning from the manifold out - and goes up its lane to its' + LineEnding +
+    '  rows at the same spacing as everything else.  The fan is the only' + LineEnding +
+    '  tube off the grid.  Nothing crosses; the count on the ticket is' + LineEnding +
+    '  still zero.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.9' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
