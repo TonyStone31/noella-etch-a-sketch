@@ -388,6 +388,16 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.3, 02:30 - the round no-go zone, by its own shape.**
+  Row spans are now cut by an obstacle's own outline, sampled a hand's
+  width above and below the row and widened a hand's width itself,
+  instead of by its bounding box - the fix .2 called out.  The
+  16-ft-circle test's bare count moved from 467 to 493 sq ft (the box
+  undercounted the rows the round shape's corners still reach); the
+  honest number is worse before the manifold-in-a-corner fan and the
+  general lane router close the rest.  Debug tracing (RADDBG env var)
+  taken back out before shipping.
+
   **v2026.09.24.2, 02:00 - the owner's two shapes, first go.**  A
   triangle with the manifold mid-base lays out (9 of 1500 sq ft bare);
   the same triangle with the manifold in a corner lays one loop and

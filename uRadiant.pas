@@ -872,20 +872,35 @@ var
   begin
     HasNear := False; HasFar := False;
     NearLo := 0; NearHi := 0; FarLo := 0; FarHi := 0; EdgeD := 1E300;
+    { an obstacle cuts the row where its own outline does, a hand's
+      width wider each way, and where it does within a hand's width
+      above or below - sampled, so a round one is round and not its
+      box }
     Cuts := nil;
-    for P := 0 to High(HoleB) do
-    begin
-      HoleRow := RowSpans(HoleB[P], V);
-      K0 := Length(Cuts);
-      SetLength(Cuts, K0 + Length(HoleRow));
-      for Q := 0 to High(HoleRow) do Cuts[K0 + Q] := HoleRow[Q];
-    end;
+    for P := 0 to High(HolePoly) do
+      for K := -2 to 2 do
+      begin
+        HoleRow := RowSpans(HolePoly[P], V + K * Inset / 2);
+        K0 := Length(Cuts);
+        SetLength(Cuts, K0 + Length(HoleRow));
+        for Q := 0 to High(HoleRow) do
+        begin
+          Cuts[K0 + Q].Lo := HoleRow[Q].Lo - Inset;
+          Cuts[K0 + Q].Hi := HoleRow[Q].Hi + Inset;
+        end;
+      end;
     for P := 1 to High(Cuts) do
     begin
       T := Cuts[P]; K := P;
       while (K > 0) and (Cuts[K - 1].Lo > T.Lo) do begin Cuts[K] := Cuts[K - 1]; Dec(K); end;
       Cuts[K] := T;
     end;
+    { and overlapping cuts made one, so a piece's edge is a real edge }
+    K := 0;
+    for P := 1 to High(Cuts) do
+      if Cuts[P].Lo <= Cuts[K].Hi + 1E-9 then Cuts[K].Hi := Max(Cuts[K].Hi, Cuts[P].Hi)
+      else begin Inc(K); Cuts[K] := Cuts[P]; end;
+    if Length(Cuts) > 0 then SetLength(Cuts, K + 1);
     Outer := RowSpans(Poly2, V);
     for P := 0 to High(Outer) do
     begin
@@ -1314,8 +1329,6 @@ var
     begin
       if HasN[C] and not UsedN[C] then Unf := Unf + NHi[C] * Spec.Spacing;
       if HasF[C] and not UsedF[C] then Unf := Unf + (FHi[C] - FLo[C]) * Spec.Spacing;
-      if (GetEnvironmentVariable('RADDBG') = '2') and ((HasN[C] and not UsedN[C]) or (HasF[C] and not UsedF[C])) then
-        WriteLn(Format('  side %d guess %d limit %.0f: row %d bare (near %d far %d dead %d)', [SideK, NLGuess, Limit, C, Ord(HasN[C] and not UsedN[C]), Ord(HasF[C] and not UsedF[C]), Ord(DeadN[C])]));
     end;
     NLOut := Length(Plans);
     for I2 := 0 to High(Plans) do
@@ -1404,8 +1417,6 @@ var
         end;
         Spread := Hi - Lo;
         Cost := Length(Trial) + Spread / LOOP_EVEN_FT + Unf / (Spec.Spacing * UNFILLED_LOOP_FT);
-        if GetEnvironmentVariable('RADDBG') <> '' then
-          WriteLn(Format('T=%.0f loops=%d spread=%.0f unf=%.0f cost=%.1f', [T, Length(Trial), Spread, Unf, Cost]));
         if Best = nil then Better := True
         else Better := Cost < BestCost - 1E-6;
         if Better then

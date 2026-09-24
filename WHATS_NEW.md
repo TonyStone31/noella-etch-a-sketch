@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: a round no-go zone wastes less floor.**  A row
+  is cut by the obstacle's own outline now, a hand's width wider all
+  round, instead of by its bounding box - so a circular no-go zone
+  costs the floor its own shape, not a square around it.
+
 ## v2026.09.24.2
 
 ### Fixed
