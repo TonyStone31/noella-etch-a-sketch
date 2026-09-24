@@ -27,10 +27,6 @@ unit uRadiantData;
     is worth going before the floor's response to the thermostat gets
     sluggish.  A heated slab wants R-15 under it at least, commonly R-10
     to R-20 by climate, with the edge run at twice the field R-value.
-  * Staple-up is built around 1/2" tube, because that is the size the
-    aluminum transfer plates are made for; it needs insulation under it
-    or the heat goes down into the joist bay instead of up through the
-    floor.
 
   Estimates, not sourced the same way, and said so on the ticket: waste
   on the coil (10%), and how far apart a run is tied down or stapled.
@@ -46,7 +42,6 @@ interface
 
 type
   TTubeSize = (tsThreeEighth, tsHalf, tsFiveEighth, tsThreeQuarter);
-  TRadiantFloor = (rfSlab, rfWood);
 
   TTubeFacts = record
     Name: string;         { what the trade calls it - the nominal size }
@@ -75,10 +70,6 @@ const
     never under a sill plate or a column's base }
   EDGE_INSET_IN = 6.0;
 
-  { a staple-up floor runs its tube along the joist bays: this many runs
-    in each bay, so the spacing is the bay width over it }
-  RUNS_PER_BAY_DEFAULT = 2;
-
   { a coil's worth of waste - cutting losses and the length left on the
     spool that is never quite enough for one more run.  A trade rule, not
     a measured one. }
@@ -87,11 +78,6 @@ const
   { slab defaults }
   SLAB_THICK_DEFAULT_IN = 4.0;
   SLAB_UNDER_R_DEFAULT = 15.0;
-
-  { wood floor defaults }
-  JOIST_SPACING_DEFAULT_IN = 16.0;
-  SUBFLOOR_THICK_DEFAULT_IN = 0.75;
-  WOOD_BELOW_R_DEFAULT = 19.0;
 
   { how a tie or a staple is spaced along a run - trade practice, not a
     printed spec; the ticket says so. }

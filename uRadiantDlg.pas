@@ -36,26 +36,15 @@ type
     btnReport: TButton;
     btnSuggest: TButton;
     cbLabels: TCheckBox;
-    cbPlates: TCheckBox;
     cbPorts: TComboBox;
-    cbRunsPerBay: TComboBox;
     cbTube: TComboBox;
-    edBelowR: TEdit;
-    edJoist: TEdit;
     edMaxLoop: TEdit;
     edObsH: TEdit;
     edObsW: TEdit;
-    edSlabThick: TEdit;
     edSpacing: TEdit;
-    edSubfloor: TEdit;
     edTag: TEdit;
-    edTubeDepth: TEdit;
-    edUnderR: TEdit;
     edWaste: TEdit;
     lbManifolds: TListBox;
-    lblBelowR: TLabel;
-    lblJoist: TLabel;
-    lblJoistHead: TLabel;
     lblManifoldHead: TLabel;
     lblMaxLoop: TLabel;
     lblMaxLoopHint: TLabel;
@@ -64,28 +53,22 @@ type
     lblObsX: TLabel;
     lblPorts: TLabel;
     lblProblem: TLabel;
-    lblRunsPerBay: TLabel;
-    lblSlabHead: TLabel;
-    lblSlabThick: TLabel;
     lblSpacing: TLabel;
     lblSpacingIn: TLabel;
-    lblSubfloor: TLabel;
     lblTag: TLabel;
     lblTagHint: TLabel;
     lblTicket: TLabel;
     lblTitle: TLabel;
     lblTube: TLabel;
-    lblTubeDepth: TLabel;
-    lblTubeDepthHint: TLabel;
-    lblUnderR: TLabel;
     lblUnits: TLabel;
     lblWaste: TLabel;
     lblWastePct: TLabel;
     lbObstacles: TListBox;
     memTicket: TMemo;
+    pbCoverage: TPaintBox;
+    pbEven: TPaintBox;
     pbPlan: TPaintBox;
     pcRight: TPageControl;
-    rgFloor: TRadioGroup;
     tsPlan: TTabSheet;
     procedure AnyChange(Sender: TObject);
     procedure btnAddManifoldClick(Sender: TObject);
@@ -95,11 +78,12 @@ type
     procedure btnReportClick(Sender: TObject);
     procedure btnSuggestClick(Sender: TObject);
     procedure cbPortsChange(Sender: TObject);
-    procedure FloorChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure lbManifoldsClick(Sender: TObject);
     procedure lbObstaclesClick(Sender: TObject);
+    procedure pbCoveragePaint(Sender: TObject);
+    procedure pbEvenPaint(Sender: TObject);
     procedure pbPlanMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure pbPlanMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure pbPlanMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -123,7 +107,9 @@ type
     FDragManifold, FDragObstacle: Integer;
     FDragOff: T2;
     FListing, FSelectLast: Boolean;
-    procedure ShowFloorKind;
+    { the two gauges, kept from the last Recompute for the bars to paint
+      from - -1 means nothing to show yet }
+    FCoverage, FEvenness: Double;
     procedure Recompute;
     function Read(out Spec: TRadiantSpec): Boolean;
     function ZoneHoles(Z: Integer): TRadiantHoles;
@@ -185,40 +171,10 @@ var
 begin
   for S := Low(TTubeSize) to High(TTubeSize) do cbTube.Items.Add(TUBE_NAMES[S]);
   cbTube.ItemIndex := Ord(tsHalf);
-  cbRunsPerBay.Items.Add('1 run per bay');
-  cbRunsPerBay.Items.Add('2 runs per bay');
-  cbRunsPerBay.Items.Add('3 runs per bay');
-  cbRunsPerBay.Items.Add('4 runs per bay');
-  cbRunsPerBay.ItemIndex := RUNS_PER_BAY_DEFAULT - 1;
   for I := MANIFOLD_PORTS_MIN to MANIFOLD_PORTS_MAX do cbPorts.Items.Add(Format('%d-loop', [I]));
   FDragManifold := -1;
   FDragObstacle := -1;
-  ShowFloorKind;
-end;
-
-procedure TRadiantForm.ShowFloorKind;
-var
-  Slab: Boolean;
-begin
-  Slab := rgFloor.ItemIndex = 0;
-  { the spacing is typed on a slab; on a wood floor it follows the joists }
-  edSpacing.Enabled := Slab;
-  lblRunsPerBay.Visible := not Slab; cbRunsPerBay.Visible := not Slab;
-  lblSlabHead.Visible := Slab;
-  lblSlabThick.Visible := Slab; edSlabThick.Visible := Slab;
-  lblTubeDepth.Visible := Slab; edTubeDepth.Visible := Slab; lblTubeDepthHint.Visible := Slab;
-  lblUnderR.Visible := Slab; edUnderR.Visible := Slab;
-  lblJoistHead.Visible := not Slab;
-  lblJoist.Visible := not Slab; edJoist.Visible := not Slab;
-  cbPlates.Visible := not Slab;
-  lblSubfloor.Visible := not Slab; edSubfloor.Visible := not Slab;
-  lblBelowR.Visible := not Slab; edBelowR.Visible := not Slab;
-end;
-
-procedure TRadiantForm.FloorChange(Sender: TObject);
-begin
-  ShowFloorKind;
-  AnyChange(nil);
+  FCoverage := -1; FEvenness := -1;
 end;
 
 procedure TRadiantForm.FormShow(Sender: TObject);
@@ -252,30 +208,14 @@ var
   I: Integer;
 begin
   Spec := DefaultRadiantSpec;
-  Spec.Floor := TRadiantFloor(Max(0, rgFloor.ItemIndex));
   Spec.Tube := TTubeSize(Max(0, cbTube.ItemIndex));
   Result := InchesOf(edSpacing.Text, FUnits, Spec.Spacing);
   if Trim(edMaxLoop.Text) = '' then Spec.MaxLoopFt := 0
   else Result := Result and FeetOf(edMaxLoop.Text, FUnits, Spec.MaxLoopFt);
   Result := Result and TryStrToFloat(Trim(edWaste.Text), Spec.WastePct);
-  if Spec.Floor = rfSlab then
-  begin
-    Result := Result and InchesOf(edSlabThick.Text, FUnits, Spec.SlabThick);
-    if Trim(edTubeDepth.Text) = '' then Spec.TubeDepth := 0
-    else Result := Result and InchesOf(edTubeDepth.Text, FUnits, Spec.TubeDepth);
-    Result := Result and TryStrToFloat(Trim(edUnderR.Text), Spec.UnderR);
-  end
-  else
-  begin
-    Result := Result and InchesOf(edJoist.Text, FUnits, Spec.JoistSpacing);
-    Spec.RunsPerBay := Max(1, cbRunsPerBay.ItemIndex + 1);
-    { on a wood floor the tube runs along the joist bays, so the spacing
-      is the bay's width over the runs in it - not typed }
-    if Spec.RunsPerBay > 0 then Spec.Spacing := Spec.JoistSpacing / Spec.RunsPerBay;
-    Spec.Plates := cbPlates.Checked;
-    Result := Result and InchesOf(edSubfloor.Text, FUnits, Spec.SubfloorThick);
-    Result := Result and TryStrToFloat(Trim(edBelowR.Text), Spec.BelowR);
-  end;
+  { the slab itself is not asked about yet - concrete, default thickness,
+    tube centered, R-15 under it, while the engine underneath it is what
+    is being worked on }
   SetLength(Spec.Extra, Length(FExtra));
   for I := 0 to High(FExtra) do Spec.Extra[I] := Copy(FExtra[I]);
   Spec.Tag := Trim(edTag.Text);
@@ -285,17 +225,19 @@ end;
 procedure TRadiantForm.Recompute;
 var
   Spec, ZS: TRadiantSpec;
-  Z, Need, NeedAll: Integer;
+  Z, NeedAll: Integer;
   Ticket: string;
-  TotalFt, OrderFt, Worst, Lo, Hi: Double;
+  TotalFt, OrderFt, Worst, Lo, Hi, TotalArea, TotalUnfilled: Double;
   Loops, I: Integer;
+  HasEven: Boolean;
 begin
   if not Read(Spec) then
   begin
     lblProblem.Caption := 'A size did not read - 9, 9.5, or a foot mark.';
     memTicket.Lines.Text := '';
     SetLength(FLayouts, 0);
-    pbPlan.Invalidate;
+    FCoverage := -1; FEvenness := -1;
+    pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
     Exit;
   end;
   if Length(FZones) = 0 then
@@ -303,7 +245,8 @@ begin
     lblProblem.Caption := 'Nothing is selected to fill - select the floor and run this again.';
     memTicket.Lines.Text := '';
     SetLength(FLayouts, 0);
-    pbPlan.Invalidate;
+    FCoverage := -1; FEvenness := -1;
+    pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
     Exit;
   end;
   { what the floor wants, zone by zone, said before anything else }
@@ -316,7 +259,7 @@ begin
   SetLength(FLayouts, Length(FZones));
   Ticket := '';
   if Spec.Tag <> '' then Ticket := Spec.Tag + LineEnding + LineEnding;
-  TotalFt := 0; OrderFt := 0; Loops := 0;
+  TotalFt := 0; OrderFt := 0; Loops := 0; TotalArea := 0; TotalUnfilled := 0;
   for Z := 0 to High(FZones) do
   begin
     ZS := Spec;
@@ -334,26 +277,32 @@ begin
       TotalFt := TotalFt + FLayouts[Z].TotalFt;
       OrderFt := OrderFt + FLayouts[Z].OrderFt;
       Loops := Loops + Length(FLayouts[Z].Loops);
+      TotalArea := TotalArea + FLayouts[Z].AreaSqFt;
+      TotalUnfilled := TotalUnfilled + FLayouts[Z].UnfilledSqFt;
     end;
   end;
-  { the gauge: how close the loops of each zone are to one another,
-    green when they are, red when they are not - the thing to watch
-    while a manifold is dragged }
-  Worst := 0;
+  { the two gauges to watch while a manifold is dragged: how much of
+    the floor the layout actually reaches, and how close the loops of
+    each zone come to one another in length - green when they are,
+    red when they are not }
+  if TotalArea > 0 then FCoverage := Max(0, Min(1, 1 - TotalUnfilled / TotalArea))
+  else FCoverage := -1;
+  Worst := 0; HasEven := False;
   for Z := 0 to High(FLayouts) do
-    if FLayouts[Z].Ok and (Length(FLayouts[Z].Loops) > 1) then
+    if FLayouts[Z].Ok and (Length(FLayouts[Z].Loops) > 0) then
     begin
-      Lo := 1E300; Hi := 0;
-      for I := 0 to High(FLayouts[Z].Loops) do
+      HasEven := True;
+      if Length(FLayouts[Z].Loops) > 1 then
       begin
-        Lo := Min(Lo, FLayouts[Z].Loops[I].LenFt); Hi := Max(Hi, FLayouts[Z].Loops[I].LenFt);
+        Lo := 1E300; Hi := 0;
+        for I := 0 to High(FLayouts[Z].Loops) do
+        begin
+          Lo := Min(Lo, FLayouts[Z].Loops[I].LenFt); Hi := Max(Hi, FLayouts[Z].Loops[I].LenFt);
+        end;
+        if Hi > 0 then Worst := Max(Worst, (Hi - Lo) / Hi);
       end;
-      if Hi > 0 then Worst := Max(Worst, (Hi - Lo) / Hi);
     end;
-  lblNeed.Caption := lblNeed.Caption + Format('  -  loops within %d%% of each other', [Round(Worst * 100)]);
-  if Worst <= 0.15 then lblNeed.Font.Color := $00308030
-  else if Worst <= 0.35 then lblNeed.Font.Color := $000080C0
-  else lblNeed.Font.Color := $002020C0;
+  if HasEven then FEvenness := 1 - Worst else FEvenness := -1;
   if Length(FZones) > 1 then
     Ticket := Ticket + '===== ALL ZONES =====' + LineEnding +
       Format('%d zones, %d loops, %d manifolds', [Length(FZones), Loops, Length(FZones)]) + LineEnding +
@@ -362,7 +311,7 @@ begin
   memTicket.Lines.Text := Ticket;
   btnBuild.Enabled := AnyLayout and (lblProblem.Caption = '');
   ListManifolds;
-  pbPlan.Invalidate;
+  pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
 end;
 
 procedure TRadiantForm.AnyChange(Sender: TObject);
@@ -666,6 +615,49 @@ begin
   FDragObstacle := -1;
 end;
 
+{ A gauge, painted the same way on both boxes: a bordered bar, filled
+  from the left to Frac (0..1) of its width, in a color that says how
+  good that fraction is - green well up, amber part way, red poor -
+  with the caption centered over it.  Frac < 0 means nothing has been
+  worked out yet, and the bar says so instead of guessing. }
+procedure PaintGauge(PB: TPaintBox; Frac: Double; const Cap: string);
+var
+  C: TCanvas;
+  W, H, FillW, TW: Integer;
+begin
+  C := PB.Canvas;
+  W := PB.Width; H := PB.Height;
+  C.Brush.Color := $00E8E8E8;
+  C.FillRect(0, 0, W, H);
+  if Frac >= 0 then
+  begin
+    FillW := Round(W * Frac);
+    if Frac >= 0.85 then C.Brush.Color := $00308030
+    else if Frac >= 0.65 then C.Brush.Color := $000080C0
+    else C.Brush.Color := $002020C0;
+    C.FillRect(0, 0, FillW, H);
+  end;
+  C.Brush.Style := bsClear;
+  C.Pen.Color := clSilver;
+  C.Rectangle(0, 0, W, H);
+  C.Brush.Style := bsSolid;
+  C.Font.Color := clBlack;
+  TW := C.TextWidth(Cap);
+  C.TextOut((W - TW) div 2, (H - C.TextHeight(Cap)) div 2, Cap);
+end;
+
+procedure TRadiantForm.pbCoveragePaint(Sender: TObject);
+begin
+  if FCoverage < 0 then PaintGauge(pbCoverage, -1, 'Coverage - drag a manifold, or press Suggest')
+  else PaintGauge(pbCoverage, FCoverage, Format('Coverage: %d%% of the floor reached', [Round(FCoverage * 100)]));
+end;
+
+procedure TRadiantForm.pbEvenPaint(Sender: TObject);
+begin
+  if FEvenness < 0 then PaintGauge(pbEven, -1, 'Evenness - how close the loop lengths come')
+  else PaintGauge(pbEven, FEvenness, Format('Evenness: loops within %d%% of each other', [Round((1 - FEvenness) * 100)]));
+end;
+
 { The plan: the outline, its holes shaded, every loop in its own color so
   a long run is easy to follow by eye, and the manifolds as numbered
   squares that can be taken hold of. }
@@ -770,7 +762,7 @@ end;
 procedure TRadiantForm.btnReportClick(Sender: TObject);
 begin
   MainForm.ReportFromDialog('Radiant heat layout',
-    'floor: ' + rgFloor.Items[Max(0, rgFloor.ItemIndex)] + LineEnding +
+    'floor: concrete slab' + LineEnding +
     'tube: ' + cbTube.Text + ', spacing ' + edSpacing.Text + LineEnding +
     'manifolds: ' + IntToStr(Length(FManifolds)) + ', obstacles added: ' + IntToStr(Length(FExtra)) + LineEnding +
     'problem shown: ' + lblProblem.Caption);

@@ -388,6 +388,69 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.7 - told to slow down and reevaluate; researched real
+  radiant design software, simplified the dialog to just the engine,
+  and gave it two live gauges instead of one line of small print.**
+  Two of the owner's own bug reports, plus a direct ask: look at how
+  real radiant layout tools are built and improve on what is here.
+  Researched it (LoopCAD, h2x, Radiantec, and the trade forums) rather
+  than guess: real tools hold loops within 5-10% by design, some claim
+  1% with hand adjustment; a manifold's first placement rule is a
+  *central* spot that minimizes loop length, not a wall - "there is no
+  reason a manifold has to be near the boiler, or against a wall" is a
+  quote from the search, not the owner, and it lines up exactly with
+  what he has been saying about a manifold pinned to an edge.  Reverse
+  return (stagger the connection order so paired loops' combined length
+  evens out) is the one established balancing technique found that
+  this program does not use in any form yet.
+
+  Found, separately, a real dialog bug: the label checkbox and the
+  "loops within N% of each other" line were both being painted
+  underneath the plan preview panel - not hidden by a setting, actually
+  behind another control, exactly matching "I don't see the checkbox."
+  Fixed by moving both, and while in there: two live gauges (coverage,
+  evenness) replace the one line of colored text, each its own bar,
+  updating on every Recompute - the same call already wired to fire on
+  every manifold or obstacle drag, so dragging a manifold now shows
+  both numbers move in real time, which is what was asked for.  A
+  real accounting gap on the way: an all-zero layout (bad spacing, no
+  loop fits at all) was showing "evenness 100%" - green - because
+  nothing to compare reads the same as everything matching.  Fixed:
+  both gauges show a plain "nothing to show yet" until there is
+  something to show.
+
+  Wood floor - joists is gone from the dialog and the engine both, not
+  hidden - `TRadiantFloor`, `JoistSpacing`, `RunsPerBay`, `Plates`,
+  `SubfloorThick`, `BelowR` and every branch on them, removed from
+  `uRadiantData.pas` and `uRadiant.pas` outright.  The owner's words:
+  "don't even bother with that equation... stripping that kind of
+  thing out of the code might help us simplify this."  The slab's
+  own thickness, tube depth and under-slab insulation came off the
+  dialog the same way, on the same instruction, one message later:
+  "the concrete thickness doesn't even need to be in the calculations
+  at this point" - default concrete, ordinary numbers, while the
+  engine underneath is what is being built.  Waste-on-the-coil stays:
+  the owner was explicit that it must never be allowed to *limit* a
+  layout ("we can't let avoiding waste on a 500 foot coil prevent a
+  quality layout") - checked, and it already can't: `WastePct` is read
+  once, multiplies the already-decided total into an order quantity,
+  and touches nothing upstream of that.  Both left as informational
+  fields for later, not reasons to compromise the routing.
+
+  Regression: 1491 + 98 checks, command list, all green.  Not touched
+  this pass, both explicitly reaffirmed as the real priority by the
+  owner and both large enough to want their own dedicated attempt
+  rather than a rushed one bolted onto tonight's dialog work: a
+  manifold that is not pinned to a wall (mid-zone placement, per
+  "a manifold could actually be out in the middle of a zone if
+  desired" and "sometimes a manifold can be moved several feet out
+  into the floor to attempt to get better more even length paths"),
+  and the loop-balance search itself ("we have loops that are 300 feet
+  and other loops that are 100 feet - that will not be acceptable...
+  the engine should be trying a few different paths until everything
+  is close together").  The evenness gauge just built is the instrument
+  for judging that work when it happens, not a substitute for it.
+
   **v2026.09.24.6 - the real cause was upstream of the guess climb,
   and one root cause is fixed; a second, deeper one is found and
   documented but not.**  Told to take the time and get it right (no

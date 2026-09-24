@@ -72,7 +72,6 @@ type
   end;
 
   TRadiantSpec = record
-    Floor: TRadiantFloor;
     Tube: TTubeSize;
     Spacing: Double;          { world units (feet) - on center }
     MaxLoopFt: Double;        { 0 = the tube's own table maximum }
@@ -84,16 +83,10 @@ type
     Ports: TIntArray;
     Extra: TRadiantHoles;
     ManifoldW, ManifoldH: Double;   { the little box drawn for each }
-    { concrete slab }
+    { the slab }
     SlabThick: Double;
     TubeDepth: Double;        { 0 = centered in the slab }
     UnderR: Double;
-    { wood floor - staple-up or plated }
-    JoistSpacing: Double;
-    RunsPerBay: Integer;      { the spacing is the bay over this, on a wood floor }
-    Plates: Boolean;
-    SubfloorThick: Double;
-    BelowR: Double;
     Tag: string;
     Labels: Boolean;          { the loop and manifold notes on the drawing - off
                                 while the paths are being inspected by hand, the
@@ -626,7 +619,6 @@ end;
 function DefaultRadiantSpec: TRadiantSpec;
 begin
   Result := Default(TRadiantSpec);
-  Result.Floor := rfSlab;
   Result.Tube := tsHalf;
   Result.Inch := 1 / 12;
   Result.Spacing := SPACING_DEFAULT_IN * Result.Inch;
@@ -637,11 +629,6 @@ begin
   Result.SlabThick := SLAB_THICK_DEFAULT_IN * Result.Inch;
   Result.TubeDepth := 0;
   Result.UnderR := SLAB_UNDER_R_DEFAULT;
-  Result.JoistSpacing := JOIST_SPACING_DEFAULT_IN * Result.Inch;
-  Result.RunsPerBay := RUNS_PER_BAY_DEFAULT;
-  Result.Plates := True;
-  Result.SubfloorThick := SUBFLOOR_THICK_DEFAULT_IN * Result.Inch;
-  Result.BelowR := WOOD_BELOW_R_DEFAULT;
 end;
 
 { the area of a 2D polygon, whichever way round it goes }
@@ -765,15 +752,7 @@ begin
   MaxFt := Spec.MaxLoopFt;
   if MaxFt <= 0 then MaxFt := TubeOf(Spec.Tube).MaxLoopFt;
   if MaxFt < 20 then Exit('The maximum loop length has to read as a size.');
-  if Spec.Floor = rfSlab then
-  begin
-    if Spec.SlabThick <= 0 then Exit('The slab thickness has to read as a size.');
-  end
-  else
-  begin
-    if Spec.JoistSpacing <= 0 then Exit('The joist spacing has to read as a size.');
-    if (Spec.RunsPerBay < 1) or (Spec.RunsPerBay > 4) then Exit('One to four runs per bay.');
-  end;
+  if Spec.SlabThick <= 0 then Exit('The slab thickness has to read as a size.');
 end;
 
 { The frame the layout is worked in, for one manifold: U along the wall
@@ -1677,7 +1656,7 @@ begin
   Result := '';
   if Spec.Tag <> '' then Result := Result + Spec.Tag + LineEnding + LineEnding;
   Result := Result + 'RADIANT HEAT LAYOUT' + LineEnding;
-  Result := Result + 'floor: ' + IfThen(Spec.Floor = rfSlab, 'concrete slab', 'wood joist') + LineEnding;
+  Result := Result + 'floor: concrete slab' + LineEnding;
   Result := Result + 'tube: ' + T.Name + ' PEX, ' + FormatFloat('0.#', Spec.Spacing / Spec.Inch) +
     '" on center' + LineEnding;
   Result := Result + 'area covered: ' + FormatArea(R.AreaSqFt, U) + LineEnding;
@@ -1720,25 +1699,11 @@ begin
   if R.Crossings > 0 then
     Result := Result + Format('WARNING: %d join(s) between runs, or leads, pass straight ' +
       'through an obstacle - route those by hand.', [R.Crossings]) + LineEnding;
-  if Spec.Floor = rfSlab then
-  begin
-    Result := Result + LineEnding + 'SLAB' + LineEnding;
-    Result := Result + 'thickness: ' + FormatFloat('0.##', Spec.SlabThick / Spec.Inch) + '"' + LineEnding;
-    Result := Result + 'tube depth: ' + IfThen(Spec.TubeDepth <= 0, 'centered in the pour',
-      FormatFloat('0.##', Spec.TubeDepth / Spec.Inch) + '"') + LineEnding;
-    Result := Result + 'insulation under the slab: R-' + FormatFloat('0', Spec.UnderR) + ' minimum' + LineEnding;
-  end
-  else
-  begin
-    Result := Result + LineEnding + 'WOOD FLOOR' + LineEnding;
-    Result := Result + 'joist spacing: ' + FormatFloat('0.##', Spec.JoistSpacing / Spec.Inch) +
-      '", ' + IntToStr(Spec.RunsPerBay) + ' run(s) per bay' + LineEnding;
-    Result := Result + 'runs are laid along the outline''s longest edge - check that is ' +
-      'the way the joists run' + LineEnding;
-    Result := Result + 'transfer plates: ' + IfThen(Spec.Plates, 'yes', 'no - bare staple-up') + LineEnding;
-    Result := Result + 'subfloor: ' + FormatFloat('0.##', Spec.SubfloorThick / Spec.Inch) + '"' + LineEnding;
-    Result := Result + 'insulation below: R-' + FormatFloat('0', Spec.BelowR) + ' minimum' + LineEnding;
-  end;
+  Result := Result + LineEnding + 'SLAB' + LineEnding;
+  Result := Result + 'thickness: ' + FormatFloat('0.##', Spec.SlabThick / Spec.Inch) + '"' + LineEnding;
+  Result := Result + 'tube depth: ' + IfThen(Spec.TubeDepth <= 0, 'centered in the pour',
+    FormatFloat('0.##', Spec.TubeDepth / Spec.Inch) + '"') + LineEnding;
+  Result := Result + 'insulation under the slab: R-' + FormatFloat('0', Spec.UnderR) + ' minimum' + LineEnding;
   if R.ObstacleCount > 0 then
     Result := Result + LineEnding + IntToStr(R.ObstacleCount) + ' obstacle(s) routed around.' + LineEnding;
   if R.UnfilledSqFt > 1 then

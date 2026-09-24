@@ -1,11 +1,11 @@
 object RadiantForm: TRadiantForm
   Left = 300
-  Height = 760
+  Height = 788
   Top = 120
   Width = 980
   BorderStyle = bsDialog
   Caption = 'Lay out the radiant tube'
-  ClientHeight = 760
+  ClientHeight = 788
   ClientWidth = 980
   Position = poMainFormCenter
   OnCreate = FormCreate
@@ -29,32 +29,10 @@ object RadiantForm: TRadiantForm
     Font.Color = clGrayText
     ParentFont = False
   end
-  object rgFloor: TRadioGroup
-    Left = 24
-    Height = 46
-    Top = 76
-    Width = 420
-    AutoFill = True
-    Caption = 'Floor'
-    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
-    ChildSizing.EnlargeVertical = crsHomogenousChildResize
-    ChildSizing.ShrinkHorizontal = crsScaleChilds
-    ChildSizing.ShrinkVertical = crsScaleChilds
-    ChildSizing.Layout = cclLeftToRightThenTopToBottom
-    ChildSizing.ControlsPerLine = 2
-    Columns = 2
-    ItemIndex = 0
-    Items.Strings = (
-      'Concrete slab'
-      'Wood floor - joists'
-    )
-    OnClick = FloorChange
-    TabOrder = 0
-  end
   object lblTube: TLabel
     Left = 24
     Height = 18
-    Top = 134
+    Top = 76
     Width = 60
     Caption = 'Tube'
     Font.Style = [fsBold]
@@ -63,7 +41,7 @@ object RadiantForm: TRadiantForm
   object cbTube: TComboBox
     Left = 100
     Height = 28
-    Top = 128
+    Top = 70
     Width = 150
     ItemHeight = 0
     OnChange = AnyChange
@@ -73,14 +51,14 @@ object RadiantForm: TRadiantForm
   object lblSpacing: TLabel
     Left = 270
     Height = 18
-    Top = 134
+    Top = 76
     Width = 110
     Caption = 'Spacing, on center'
   end
   object edSpacing: TEdit
     Left = 388
     Height = 28
-    Top = 128
+    Top = 70
     Width = 56
     TabOrder = 2
     Text = '9'
@@ -89,21 +67,21 @@ object RadiantForm: TRadiantForm
   object lblSpacingIn: TLabel
     Left = 448
     Height = 18
-    Top = 134
+    Top = 76
     Width = 12
     Caption = 'in'
   end
   object lblMaxLoop: TLabel
     Left = 24
     Height = 18
-    Top = 170
+    Top = 112
     Width = 130
     Caption = 'Maximum loop length'
   end
   object edMaxLoop: TEdit
     Left = 170
     Height = 28
-    Top = 164
+    Top = 106
     Width = 70
     TabOrder = 3
     OnChange = AnyChange
@@ -111,7 +89,7 @@ object RadiantForm: TRadiantForm
   object lblMaxLoopHint: TLabel
     Left = 250
     Height = 18
-    Top = 170
+    Top = 112
     Width = 220
     Caption = 'blank uses the tube''s own maximum'
     Font.Color = clGray
@@ -120,14 +98,14 @@ object RadiantForm: TRadiantForm
   object lblWaste: TLabel
     Left = 24
     Height = 18
-    Top = 206
+    Top = 148
     Width = 90
     Caption = 'Waste on the coil'
   end
   object edWaste: TEdit
     Left = 170
     Height = 28
-    Top = 200
+    Top = 142
     Width = 56
     TabOrder = 4
     Text = '10'
@@ -136,192 +114,48 @@ object RadiantForm: TRadiantForm
   object lblWastePct: TLabel
     Left = 230
     Height = 18
-    Top = 206
+    Top = 148
     Width = 12
     Caption = '%'
-  end
-  object lblSlabHead: TLabel
-    Left = 24
-    Height = 18
-    Top = 246
-    Width = 200
-    Caption = 'Slab'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object lblSlabThick: TLabel
-    Left = 24
-    Height = 18
-    Top = 278
-    Width = 90
-    Caption = 'Thickness'
-  end
-  object edSlabThick: TEdit
-    Left = 170
-    Height = 28
-    Top = 272
-    Width = 70
-    TabOrder = 5
-    Text = '4'
-    OnChange = AnyChange
-  end
-  object lblTubeDepth: TLabel
-    Left = 24
-    Height = 18
-    Top = 314
-    Width = 90
-    Caption = 'Tube depth'
-  end
-  object edTubeDepth: TEdit
-    Left = 170
-    Height = 28
-    Top = 308
-    Width = 70
-    TabOrder = 6
-    OnChange = AnyChange
-  end
-  object lblTubeDepthHint: TLabel
-    Left = 250
-    Height = 18
-    Top = 314
-    Width = 170
-    Caption = 'blank centers it in the pour'
-    Font.Color = clGray
-    ParentFont = False
-  end
-  object lblUnderR: TLabel
-    Left = 24
-    Height = 18
-    Top = 350
-    Width = 130
-    Caption = 'Insulation under it, R-'
-  end
-  object edUnderR: TEdit
-    Left = 170
-    Height = 28
-    Top = 344
-    Width = 56
-    TabOrder = 7
-    Text = '15'
-    OnChange = AnyChange
-  end
-  object lblJoistHead: TLabel
-    Left = 24
-    Height = 18
-    Top = 246
-    Width = 200
-    Caption = 'Wood floor'
-    Font.Style = [fsBold]
-    ParentFont = False
-    Visible = False
-  end
-  object lblJoist: TLabel
-    Left = 24
-    Height = 18
-    Top = 278
-    Width = 100
-    Caption = 'Joist spacing'
-    Visible = False
-  end
-  object edJoist: TEdit
-    Left = 170
-    Height = 28
-    Top = 272
-    Width = 70
-    TabOrder = 8
-    Text = '16'
-    OnChange = AnyChange
-    Visible = False
-  end
-  object lblRunsPerBay: TLabel
-    Left = 250
-    Height = 18
-    Top = 278
-    Width = 60
-    Caption = 'and'
-    Visible = False
-  end
-  object cbRunsPerBay: TComboBox
-    Left = 284
-    Height = 28
-    Top = 272
-    Width = 150
-    ItemHeight = 0
-    OnChange = AnyChange
-    Style = csDropDownList
-    TabOrder = 21
-    Visible = False
-  end
-  object cbPlates: TCheckBox
-    Left = 24
-    Height = 22
-    Top = 310
-    Width = 300
-    Caption = 'Aluminum transfer plates'
-    Checked = True
-    State = cbChecked
-    OnChange = AnyChange
-    TabOrder = 9
-    Visible = False
-  end
-  object lblSubfloor: TLabel
-    Left = 24
-    Height = 18
-    Top = 344
-    Width = 90
-    Caption = 'Subfloor'
-    Visible = False
-  end
-  object edSubfloor: TEdit
-    Left = 170
-    Height = 28
-    Top = 338
-    Width = 70
-    TabOrder = 10
-    Text = '3/4'
-    OnChange = AnyChange
-    Visible = False
-  end
-  object lblBelowR: TLabel
-    Left = 24
-    Height = 18
-    Top = 380
-    Width = 130
-    Caption = 'Insulation below it, R-'
-    Visible = False
-  end
-  object edBelowR: TEdit
-    Left = 170
-    Height = 28
-    Top = 374
-    Width = 56
-    TabOrder = 11
-    Text = '19'
-    OnChange = AnyChange
-    Visible = False
   end
   object lblManifoldHead: TLabel
     Left = 24
     Height = 18
-    Top = 420
+    Top = 200
     Width = 80
     Caption = 'Manifolds'
     Font.Style = [fsBold]
     ParentFont = False
   end
   object lblNeed: TLabel
-    Left = 110
+    Left = 480
     Height = 18
-    Top = 420
-    Width = 560
+    Top = 44
+    Width = 476
+    AutoSize = False
+    WordWrap = True
     Caption = ''
     Font.Color = clGrayText
     ParentFont = False
   end
+  object pbCoverage: TPaintBox
+    Left = 480
+    Height = 20
+    Top = 64
+    Width = 476
+    OnPaint = pbCoveragePaint
+  end
+  object pbEven: TPaintBox
+    Left = 480
+    Height = 20
+    Top = 88
+    Width = 476
+    OnPaint = pbEvenPaint
+  end
   object lbManifolds: TListBox
     Left = 24
     Height = 74
-    Top = 444
+    Top = 224
     Width = 300
     ItemHeight = 0
     OnClick = lbManifoldsClick
@@ -330,7 +164,7 @@ object RadiantForm: TRadiantForm
   object btnSuggest: TButton
     Left = 332
     Height = 26
-    Top = 444
+    Top = 224
     Width = 128
     Caption = 'Suggest manifolds'
     OnClick = btnSuggestClick
@@ -339,7 +173,7 @@ object RadiantForm: TRadiantForm
   object btnAddManifold: TButton
     Left = 332
     Height = 26
-    Top = 472
+    Top = 252
     Width = 62
     Caption = 'Add'
     OnClick = btnAddManifoldClick
@@ -349,7 +183,7 @@ object RadiantForm: TRadiantForm
   object btnRemoveManifold: TButton
     Left = 398
     Height = 26
-    Top = 472
+    Top = 252
     Width = 62
     Caption = 'Remove'
     OnClick = btnRemoveManifoldClick
@@ -359,14 +193,14 @@ object RadiantForm: TRadiantForm
   object lblPorts: TLabel
     Left = 332
     Height = 18
-    Top = 504
+    Top = 284
     Width = 30
     Caption = 'size'
   end
   object cbPorts: TComboBox
     Left = 364
     Height = 26
-    Top = 500
+    Top = 280
     Width = 96
     ItemHeight = 0
     OnChange = cbPortsChange
@@ -376,7 +210,7 @@ object RadiantForm: TRadiantForm
   object lblObsHead: TLabel
     Left = 24
     Height = 18
-    Top = 528
+    Top = 308
     Width = 300
     Caption = 'Obstacles - a column, a shaft, a chase'
     Font.Style = [fsBold]
@@ -385,7 +219,7 @@ object RadiantForm: TRadiantForm
   object lbObstacles: TListBox
     Left = 24
     Height = 56
-    Top = 550
+    Top = 330
     Width = 300
     ItemHeight = 0
     OnClick = lbObstaclesClick
@@ -394,7 +228,7 @@ object RadiantForm: TRadiantForm
   object edObsW: TEdit
     Left = 332
     Height = 26
-    Top = 550
+    Top = 330
     Width = 50
     TabOrder = 18
     Text = '4'''
@@ -402,14 +236,14 @@ object RadiantForm: TRadiantForm
   object lblObsX: TLabel
     Left = 386
     Height = 18
-    Top = 554
+    Top = 334
     Width = 10
     Caption = 'x'
   end
   object edObsH: TEdit
     Left = 400
     Height = 26
-    Top = 550
+    Top = 330
     Width = 50
     TabOrder = 19
     Text = '4'''
@@ -417,7 +251,7 @@ object RadiantForm: TRadiantForm
   object btnAddObstacle: TButton
     Left = 332
     Height = 26
-    Top = 580
+    Top = 360
     Width = 62
     Caption = 'Add'
     OnClick = btnAddObstacleClick
@@ -426,39 +260,39 @@ object RadiantForm: TRadiantForm
   object btnRemoveObstacle: TButton
     Left = 398
     Height = 26
-    Top = 580
+    Top = 360
     Width = 62
     Caption = 'Remove'
     OnClick = btnRemoveObstacleClick
     TabOrder = 22
   end
+  object cbLabels: TCheckBox
+    Left = 24
+    Height = 22
+    Top = 390
+    Width = 420
+    Caption = 'Label the loops and manifolds on the drawing'
+    TabOrder = 23
+  end
   object lblTag: TLabel
     Left = 24
     Height = 18
-    Top = 620
+    Top = 428
     Width = 30
     Caption = 'Tag'
   end
   object edTag: TEdit
     Left = 100
     Height = 28
-    Top = 614
+    Top = 422
     Width = 340
     TabOrder = 15
     OnChange = AnyChange
   end
-  object cbLabels: TCheckBox
-    Left = 480
-    Height = 22
-    Top = 460
-    Width = 300
-    Caption = 'Label the loops and manifolds on the drawing'
-    TabOrder = 23
-  end
   object lblTagHint: TLabel
     Left = 24
     Height = 18
-    Top = 646
+    Top = 454
     Width = 400
     Caption = 'the name on the ticket - Zone 1, barn east bay'
     Font.Color = clGray
@@ -467,7 +301,7 @@ object RadiantForm: TRadiantForm
   object lblProblem: TLabel
     Left = 24
     Height = 36
-    Top = 668
+    Top = 476
     Width = 440
     AutoSize = False
     WordWrap = True
@@ -478,7 +312,7 @@ object RadiantForm: TRadiantForm
   object btnBuild: TButton
     Left = 24
     Height = 32
-    Top = 712
+    Top = 520
     Width = 120
     Caption = 'Build it'
     Default = True
@@ -488,7 +322,7 @@ object RadiantForm: TRadiantForm
   object btnCancel: TButton
     Left = 154
     Height = 32
-    Top = 712
+    Top = 520
     Width = 96
     Cancel = True
     Caption = 'Cancel'
@@ -498,7 +332,7 @@ object RadiantForm: TRadiantForm
   object btnReport: TButton
     Left = 280
     Height = 32
-    Top = 712
+    Top = 520
     Width = 150
     Caption = 'Report a problem...'
     OnClick = btnReportClick
@@ -506,8 +340,8 @@ object RadiantForm: TRadiantForm
   end
   object pcRight: TPageControl
     Left = 480
-    Height = 400
-    Top = 76
+    Height = 364
+    Top = 112
     Width = 476
     ActivePage = tsPlan
     TabIndex = 0
