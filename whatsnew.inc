@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.24.10' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: floor blocked off by an obstacle right next' + LineEnding +
+    '  to the manifold could never get tube, even when there was room' + LineEnding +
+    '  past it.** That floor is now reachable when the layout can safely' + LineEnding +
+    '  route to it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.9' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +
