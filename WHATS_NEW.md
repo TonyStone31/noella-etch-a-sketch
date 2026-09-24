@@ -10,6 +10,21 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: runs go the zone's long way, straight out
+  from the manifold's wall.**  The manifold hangs on the shorter wall of
+  its zone and every loop runs out along a column, turns into the next,
+  and comes back - as many pairs as the maximum allows - nearest the
+  manifold first, then outward, mirror image either side of it.  Fewer,
+  longer loops, and half the fan of leads along the wall that the last
+  release made with twenty short ones.  Every turn is level.  A column
+  cut by an obstacle turns at it; the far side is reached by a loop out
+  on a clear column past it and home on the next, where the pairing
+  lets it - what is not reached is on the ticket.
+
 ## v2026.09.23.7
 
 ### New

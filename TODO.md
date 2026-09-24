@@ -388,6 +388,25 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.23.8, 23:40 - columns, and the fan is physics.**  Runs
+  are columns straight out from the manifold's wall - the shorter wall
+  of the zone, so the runs go the long way - loop after loop outward,
+  each as many pairs as fit, measured as laid, every turn leveled.  The
+  fan of leads along the wall is not a fault to fix: N loops from one
+  manifold is 2N tubes leaving it past the nearer loops, at two inches,
+  and it is on every big slab; what keeps it small is fewer loops per
+  manifold (long runs, a manifold mid-wall so it fans both ways, more
+  manifolds).  `docs/media/radiant-fan-2026-09-23.jpg` is the owner's
+  photograph of twenty short loops from a corner - the fan at its
+  worst - which is what moved the manifold to the short wall.  Open:
+  the excursion round an obstacle (out on a clear column past it, the
+  far pieces, home on the next clear one) only happens when the clear
+  column before the obstacle falls as an *out* column - a parity that
+  the pairing from the manifold decides - so the far side of an obstacle
+  is often still unreached; the owner's game (try orderings, score the
+  fill) is the honest answer to that.  And the near pieces below an
+  obstacle pair among themselves, which they do.
+
   **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
   September - is the rule book the tool should come to apply on its own
   from the face it is handed: 12" on center as the slab default rather
