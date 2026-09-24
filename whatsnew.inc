@@ -13,6 +13,24 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.24.2' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: a no-go zone beside the manifold.**  The' + LineEnding +
+    '  lanes out of the fan begin past any obstacle that sits in their way,' + LineEnding +
+    '  instead of running through it; and the rows on the far side of the' + LineEnding +
+    '  manifold found their near pieces again (they were read the wrong way' + LineEnding +
+    '  round, which left the floor past an obstacle on that side bare).' + LineEnding +
+    '- **Slanting walls.**  A triangle, or any wall that leans away from' + LineEnding +
+    '  the manifold, starts its rows at the floor''s own edge, and a lane is' + LineEnding +
+    '  only used where it lies inside the floor the whole way up.  A' + LineEnding +
+    '  manifold in an acute corner cannot feed the rows above it and the' + LineEnding +
+    '  ticket says how much is bare - move the manifold to the middle of a' + LineEnding +
+    '  wall.' + LineEnding +
+    '- The whole of a home row''s near part is taken on the way home round' + LineEnding +
+    '  an obstacle, so no row beside it is left bare for parity''s sake.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.1' + LineEnding +
     '' + LineEnding +
     '### Changed' + LineEnding +
