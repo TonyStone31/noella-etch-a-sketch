@@ -13,6 +13,37 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.2' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A report sent from inside a wizard could not be closed.**  The' + LineEnding +
+    '  "Sending your report" window, opened from the radiant layout''s own' + LineEnding +
+    '  *Report a problem* button, would not take Close or the X on Windows and' + LineEnding +
+    '  the program looked hung.  It was shown while the wizard was up, and a' + LineEnding +
+    '  window shown while another is modal is disabled with everything else' + LineEnding +
+    '  unless it is that window''s own - which it is now.  The duct fitting' + LineEnding +
+    '  wizard had the same fault.' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: manifolds where you want them, zones, and the' + LineEnding +
+    '  leads the way a fitter runs them.**  The wizard now says, the moment' + LineEnding +
+    '  the floor is selected, how many loops it wants and how many manifolds' + LineEnding +
+    '  of what size (two to twelve loops, what every maker sells), and puts' + LineEnding +
+    '  them along the long wall - *Suggest*.  Drag any of them on the plan to' + LineEnding +
+    '  where the mechanical room really is; *Add* another; give each its' + LineEnding +
+    '  size.  The floor is shared out between them by distance, so each is a' + LineEnding +
+    '  zone in its own color, its loops thick and thin by turns so two side' + LineEnding +
+    '  by side can be told apart, and each loop carries its number and its' + LineEnding +
+    '  footage on the drawing.  Obstacles can be added in the wizard too - a' + LineEnding +
+    '  column, a shaft - and dragged into place; on Build they go onto the' + LineEnding +
+    '  floor as a ring the program reads as a hole.  The leads no longer stack' + LineEnding +
+    '  along a wall: they run out from the manifold in a corridor of lanes at' + LineEnding +
+    '  the grid spacing, the outer lanes serving the nearest rows, and the' + LineEnding +
+    '  corridor keeps clear of any obstacle.  A loop the layout cannot bring' + LineEnding +
+    '  under the maximum is said on the ticket.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.1' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
