@@ -343,6 +343,25 @@ pixel by pixel.  What the pictures said:
   retry: fill greedily, farthest first, and when it is ugly shuffle
   and go again.  That is the next real piece of work, not polish.
 
+  **The verdict, 22:10, and the next attempt.**  The four-zone report
+  (221004) shows the corridor approach failing on a real slab: sixteen
+  lanes the full length of each zone, half the zone given over to
+  leads, far loops at 399 and 481 ft, returns to the manifold that no
+  fitter would run.  The leads are the fault, and the trade's answer is
+  to have none: **divide each zone into strips running away from the
+  manifold wall, one strip per loop.**  Supply runs out along one edge
+  of the strip to the far end and serpentines back inside it - the
+  counterflow pattern the cheat sheet names as the evenest floor.
+  Every loop begins and ends at the manifold wall by construction: no
+  corridor, no leads, no crossing, and equal strips are equal lengths.
+  Strip width comes from the maximum: out-and-back plus the serpentine
+  at the spacing must come in under it; the loop count is the zone's
+  width over the strip width; the manifold's size is that count.  An
+  obstacle inside a strip is walked round within the strip.  This is
+  simpler than what is built, not more - throw the corridor, the lanes,
+  the cell walk and the balance pass away and keep the rows, the
+  inset, the holes, the zones, the plan and the ticket.
+
   **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
   September - is the rule book the tool should come to apply on its own
   from the face it is handed: 12" on center as the slab default rather
