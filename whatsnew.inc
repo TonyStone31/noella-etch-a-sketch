@@ -13,6 +13,31 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.23.4' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: zones.**  Draw the floor as one big rectangle,' + LineEnding +
+    '  draw lines across it where the heat zones divide, take out the faces' + LineEnding +
+    '  that are no-go - then select everything and run the wizard.  Every' + LineEnding +
+    '  face is a zone with a manifold of its own, in its own color; every' + LineEnding +
+    '  removed face is a no-go; the manifolds are suggested at each zone''s' + LineEnding +
+    '  corner nearest the middle of the building, so they end up near each' + LineEnding +
+    '  other and the boiler, and each can be dragged.  The ticket is per zone' + LineEnding +
+    '  with a total at the end.  One manifold a zone - to have two, draw a' + LineEnding +
+    '  line across the zone.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Leads on any floor, not only a rectangle.**  On a floor that was not' + LineEnding +
+    '  four-cornered every lead was a straight line back to the manifold' + LineEnding +
+    '  over the top of every run.  The corridor of lanes now works on any' + LineEnding +
+    '  outline, and a lead that leaves the floor or clips an obstacle is' + LineEnding +
+    '  counted on the ticket.' + LineEnding +
+    '- **Loops on a manifold are balanced**: the cuts between them are walked' + LineEnding +
+    '  back and forth until the longest and shortest are as close as the' + LineEnding +
+    '  rows allow, never over the maximum.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
