@@ -10,6 +10,15 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **Radiant heat layout: floor blocked off by an obstacle right next
+  to the manifold could never get tube, even when there was room
+  past it.** That floor is now reachable when the layout can safely
+  route to it.
+
 ## v2026.09.24.9
 
 ### New
