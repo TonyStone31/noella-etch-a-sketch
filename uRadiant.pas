@@ -926,12 +926,19 @@ var
   end;
 
   { Lay one side of the manifold: the game of snake.  The rows run along
-    the manifold's wall, the first a hand's width off it, and a loop is
-    a snake of them: out of its port straight to its first row, along it
-    to the far end of the floor, a turn into the next row and back, out
-    again on the one after - as many pairs as Limit allows, measured as
-    laid - and home down its other port.  Loop after loop outward from
-    the wall, one side then the other, mirror image.  Every foot of it
+    the manifold's own row - the wall's inset, when it hangs on a wall,
+    but a manifold dragged off the wall has rows both ways from it, and
+    VDir says which: +1 the way this has always run, -1 back toward the
+    wall it left.  The first row a hand's width off the manifold either
+    way, and a loop is a snake of them: out of its port straight to its
+    first row, along it to the far end of the floor, a turn into the
+    next row and back, out again on the one after - as many pairs as
+    Limit allows, measured as laid - and home down its other port.
+    Loop after loop outward from the manifold's own row, one side then
+    the other, mirror image; and where there is a second direction too,
+    that runs entirely after the first and past every port and lane the
+    first used (`PortOff`, `LaneOff`), so a loop going one way is never
+    given the same connection as one going the other.  Every foot of it
     is heater.  The ports are two inches apart and the grid a spacing,
     so the tube out of each port opens out across a fan - straight, no
     two fan lines crossing since ports and lanes are in the same order -
@@ -939,19 +946,20 @@ var
     fan is the only tube off the grid, and it thins from the manifold
     out instead of running as a bundle.
 
-    For no lane to cross a row, the loop nearest the wall has the
-    outermost pair of ports and lanes and the farthest the innermost, so
-    a lane only ever passes rows that begin beyond it - which is why
-    every loop's rows lie beyond every row of the loop before, strictly
-    in order outward, and why the far side of an obstacle is reached by
-    one loop and one only: out on a clear row short of it, the far
-    pieces beside it, home on the clear row past it, and the near pieces
-    under it on the way home.  A row cut by an obstacle turns at it.
+    For no lane to cross a row, the loop nearest the manifold's own row
+    has the outermost pair of ports and lanes and the farthest the
+    innermost, so a lane only ever passes rows that begin beyond it -
+    which is why every loop's rows lie beyond every row of the loop
+    before, strictly in order outward, and why the far side of an
+    obstacle is reached by one loop and one only: out on a clear row
+    short of it, the far pieces beside it, home on the clear row past
+    it, and the near pieces under it on the way home.  A row cut by an
+    obstacle turns at it.
 
-    Which ports and lanes a loop gets depends on how many loops the side
-    ends up with, so the side is laid with a guess at the count and laid
-    again until it settles. }
-  procedure LaySide(SideK: Integer; Limit: Double; NLGuess: Integer;
+    Which ports and lanes a loop gets depends on how many loops the
+    side ends up with, so the side is laid with a guess at the count
+    and laid again until it settles. }
+  procedure LaySide(SideK, VDir: Integer; PortOff, LaneOff: Double; Limit: Double; NLGuess: Integer;
     var Got: TRadiantLoopArray; var Unf: Double; out NLOut: Integer);
   type
     TPlan = record
@@ -970,12 +978,15 @@ var
     L: TRadiantLoop;
     Sign: Integer;
 
-    { where the loop of rank R - R = 0 nearest the wall - leaves and
-      comes home, as distance from the manifold along this side: the
-      home port inside, the out port beside it }
+    { where the loop of rank R - R = 0 nearest the manifold's own row -
+      leaves and comes home, as distance from the manifold along this
+      side: the home port inside, the out port beside it.  PortOff
+      moves the whole set past whatever the other direction, if there
+      is one, already used - 0 when this is the only direction, or the
+      first of the two laid. }
     function PortHome(R: Integer): Double;
     begin
-      Result := (2 * Max(0, NLGuess - 1 - R) + 1) * PortPitch;
+      Result := (2 * Max(0, NLGuess - 1 - R) + 1) * PortPitch + PortOff;
     end;
 
     function PortOut(R: Integer): Double;
@@ -984,10 +995,10 @@ var
     end;
 
     { the two grid lanes its tube takes from the fan up to its rows, in
-      the same order as the ports }
+      the same order as the ports; LaneOff the same idea as PortOff }
     function LaneHome(R: Integer): Double;
     begin
-      Result := LaneStart + Spec.Spacing / 2 + (2 * Max(0, NLGuess - 1 - R)) * Spec.Spacing;
+      Result := LaneStart + Spec.Spacing / 2 + (2 * Max(0, NLGuess - 1 - R)) * Spec.Spacing + LaneOff;
     end;
 
     function LaneOut(R: Integer): Double;
@@ -998,6 +1009,18 @@ var
     function AtD(D: Double): Double;   { back to U }
     begin
       Result := M2.X + Sign * D;
+    end;
+
+    { the fan's signed height toward TargetV, capped at FanH either way }
+    function FanHt(TargetV: Double): Double;
+    begin
+      Result := VDir * Min(FanH, VDir * (TargetV - M2.Y));
+    end;
+
+    { the V the fan reaches on its way to the row at TargetV }
+    function FanTop(TargetV: Double): Double;
+    begin
+      Result := M2.Y + FanHt(TargetV);
     end;
 
     { the loop as laid: out of its port to its first row, the rows,
@@ -1015,7 +1038,7 @@ var
         fan's height or the first row's, whichever is lower - then up
         the lane to the row }
       Put(AtD(PortOut(R)), M2.Y);
-      Put(AtD(LaneOut(R)), M2.Y + Min(FanH, RowV[Pl.Rows[0]] - M2.Y));
+      Put(AtD(LaneOut(R)), FanTop(RowV[Pl.Rows[0]]));
       { each row's near and far end, then every turn leveled: going out
         the two rows turn at the nearer of their far ends, coming back at
         the farther of their near ends - a turn is always level.  A near
@@ -1047,7 +1070,7 @@ var
         Put(AtD(D1), RowV[Rr]);
         Back := not Back;
       end;
-      Put(AtD(LaneHome(R)), M2.Y + Min(FanH, RowV[Pl.Rows[High(Pl.Rows)]] - M2.Y));
+      Put(AtD(LaneHome(R)), FanTop(RowV[Pl.Rows[High(Pl.Rows)]]));
       Put(AtD(PortHome(R)), M2.Y);
       SetLength(L.Pts, NPts);
       for J := 0 to NPts - 1 do L.Pts[J] := World(Pts[J]);
@@ -1095,8 +1118,8 @@ var
       Lt: TRadiantLoop;
       V0, V1: Double;
     begin
-      V0 := Min(FanH, RowV[Pl.Rows[0]] - M2.Y);
-      V1 := Min(FanH, RowV[Pl.Rows[High(Pl.Rows)]] - M2.Y);
+      V0 := FanHt(RowV[Pl.Rows[0]]);
+      V1 := FanHt(RowV[Pl.Rows[High(Pl.Rows)]]);
       Result := (EdgeMax[Pl.Rows[0]] <= LaneOut(R) + 1E-6) and
                 (EdgeMax[Pl.Rows[High(Pl.Rows)]] <= LaneHome(R) + 1E-6) and
                 LaneClear(LaneOut(R), Pl.Rows[0]) and LaneClear(LaneHome(R), Pl.Rows[High(Pl.Rows)]) and
@@ -1295,8 +1318,9 @@ var
     SetLength(RowV, 0);
     C := 0;
     repeat
-      V := M2.Y + Inset + C * Spec.Spacing;
-      if V > Vmax - Inset + 1E-9 then Break;
+      V := M2.Y + VDir * (Inset + C * Spec.Spacing);
+      if VDir > 0 then begin if V > Vmax - Inset + 1E-9 then Break; end
+      else begin if V < Vmin + Inset - 1E-9 then Break; end;
       SetLength(RowV, C + 1); SetLength(NLo, C + 1); SetLength(NHi, C + 1); SetLength(EdgeMax, C + 1);
       SetLength(FLo, C + 1); SetLength(FHi, C + 1); SetLength(HasN, C + 1); SetLength(HasF, C + 1);
       RowV[C] := V;
@@ -1353,8 +1377,11 @@ var
     the count comes out as guessed - or falls below it, and then the
     guess before is laid and its loops past the guess dropped, since
     their lanes would be another loop's: the rows they would have had
-    go on the ticket as bare. }
-  procedure LaySideSettled(SideK: Integer; Limit: Double; var Got: TRadiantLoopArray; var Unf: Double);
+    go on the ticket as bare.  NLFinal, out, is how many loops this
+    direction actually settled on - what the other direction, if there
+    is one, offsets its own ports and lanes past. }
+  procedure LaySideSettled(SideK, VDir: Integer; PortOff, LaneOff, Limit: Double;
+    var Got: TRadiantLoopArray; var Unf: Double; out NLFinal: Integer);
   var
     Guess, NLOut, K0, I: Integer;
     Unf0, UnfOver: Double;
@@ -1364,7 +1391,7 @@ var
     Guess := 1;
     repeat
       SetLength(Got, K0); Unf := Unf0;
-      LaySide(SideK, Limit, Guess, Got, Unf, NLOut);
+      LaySide(SideK, VDir, PortOff, LaneOff, Limit, Guess, Got, Unf, NLOut);
       if NLOut <= Guess then Break;
       Inc(Guess);
     until Guess > 200;
@@ -1378,10 +1405,10 @@ var
       Over := Got; UnfOver := Unf;
       if Length(Over) > K0 then
         UnfOver := UnfOver + 2 * (Guess - NLOut) * Spec.Spacing *
-          (RadiantTo2(F, Over[High(Over)].Pts[2]).Y - M2.Y);
+          VDir * (RadiantTo2(F, Over[High(Over)].Pts[2]).Y - M2.Y);
       Dec(Guess);
       SetLength(Got, K0); Unf := Unf0;
-      LaySide(SideK, Limit, Guess, Got, Unf, NLOut);
+      LaySide(SideK, VDir, PortOff, LaneOff, Limit, Guess, Got, Unf, NLOut);
       for I := K0 + Guess to High(Got) do Unf := Unf + Got[I].LenFt * Spec.Spacing;
       SetLength(Got, K0 + Guess);
       if UnfOver < Unf then
@@ -1389,6 +1416,7 @@ var
         Got := Over; Unf := UnfOver;
       end;
     end;
+    NLFinal := Length(Got) - K0;
   end;
 
   { Both sides under one limit per loop.  The owner's game: a loop
@@ -1403,17 +1431,26 @@ var
   procedure LayManifold;
   var
     Trial, Best: TRadiantLoopArray;
-    Unf, BestUnf, T, Lo, Hi, Spread, Cost, BestCost: Double;
-    I: Integer;
+    Unf, BestUnf, T, Lo, Hi, Spread, Cost, BestCost, PPitch: Double;
+    I, SideK, NP: Integer;
     Better: Boolean;
   begin
+    PPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
     Best := nil; BestUnf := 1E300; BestCost := 1E300;
     T := MaxFt;
     while T >= MaxFt / 2 do
     begin
       Trial := nil; Unf := 0;
-      LaySideSettled(0, T, Trial, Unf);
-      LaySideSettled(1, T, Trial, Unf);
+      for SideK := 0 to 1 do
+      begin
+        { away from the manifold's own row first, exactly as always;
+          then, when the manifold is off its wall and there is floor
+          the other way too, back toward the wall it left - past every
+          port and lane the first direction used, so the two never
+          share a connection }
+        LaySideSettled(SideK, 1, 0, 0, T, Trial, Unf, NP);
+        LaySideSettled(SideK, -1, 2 * NP * PPitch, 2 * NP * Spec.Spacing, T, Trial, Unf, NP);
+      end;
       if Length(Trial) > 0 then
       begin
         Lo := 1E300; Hi := 0;
@@ -1544,8 +1581,10 @@ begin
       HoleB[I][2] := Point2(HHi + Inset, HV1 + Inset);
       HoleB[I][3] := Point2(HLo - Inset, HV1 + Inset);
     end;
-    { the manifold hangs on its wall: its line is the wall's inset }
-    M2.Y := Vmin;
+    { the manifold no longer has to hang on the wall it was framed
+      from - M2.Y keeps wherever it was dragged to, clamped inside the
+      floor above, and LayManifold lays rows away from it in both
+      directions when there is floor both ways }
     Result.RowCount := Max(1, Floor(((Vmax - Vmin) - 2 * Inset) / Spec.Spacing));
     K := Length(Loops);
     LayManifold;

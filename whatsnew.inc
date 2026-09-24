@@ -13,6 +13,19 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: a manifold can finally leave the wall.**  It' + LineEnding +
+    '  used to hang on the nearest wall no matter where it was dragged; now' + LineEnding +
+    '  it stays wherever it is let go, and the rows run outward from it in' + LineEnding +
+    '  every direction that has floor - both ways along the wall, same as' + LineEnding +
+    '  always, and now both ways across the room too when it is out in the' + LineEnding +
+    '  open.  A manifold nearer the middle of a zone routinely reaches more' + LineEnding +
+    '  of the floor, and the two gauges above the plan make the difference' + LineEnding +
+    '  visible while dragging.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.6' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

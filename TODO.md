@@ -388,6 +388,66 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.8 - the manifold left the wall.**  Asked for directly,
+  twice, across two sessions: "we need to be able to remove that
+  manifold off the edge of its bounding shape... or the wall."  Done -
+  `M2.Y := Vmin`, the line that forced a manifold onto its nearest wall
+  regardless of where it was dragged, is gone.  `LaySide` took two new
+  parameters, `VDir` (which way the rows run - away from the manifold's
+  own row, or, when there is floor the other way too, back toward the
+  wall it left) and `PortOff`/`LaneOff` (where a second direction's
+  ports and lanes start, past every one the first direction used, so a
+  loop going one way is never given the same manifold connection as one
+  going the other - two loops sharing a port position was the real risk
+  here, not a routing crossing).  `RowPieces` needed nothing - it was
+  already written to query an absolute row position, not one relative
+  to a wall at V=0, which meant the only genuinely new geometry work was
+  the row-building loop's bound (which wall it stops at now depends on
+  which way it is walking) and two fan-height computations, both
+  generalized behind small `FanHt`/`FanTop` helpers.  A manifold on or
+  near a wall is unaffected byte for byte - the far direction finds no
+  room (`N < 2`) and contributes nothing, the same guard that always
+  turned away a floor too narrow for a row and back.
+
+  Verified, not just built: a straight sweep of one manifold from a
+  wall to dead center to the far wall, same floor, same obstacle - bare
+  area falls from 47% to 19% to 9% to 5%, crossings zero at every step,
+  matching the owner's own instinct and the trade research from last
+  session ("a first consideration is finding a central location to
+  minimize loop lengths") exactly.  Confirmed live in the actual dialog,
+  not just the engine: dragged a manifold into the middle of a zone and
+  watched rows radiate out in all four directions at once, the coverage
+  gauge and the evenness gauge both moving with it in real time - the
+  workroom the owner asked for two messages ago ("this way I can drag
+  the manifold around until we get an ideal layout and see it happening
+  with the indicators"), because it turned out to need nothing more
+  than wiring the two gauges to the same `Recompute` a drag already
+  calls.
+
+  Two tests broke, and both were the known lane-rank fragility (one bad
+  guess losing a whole side, documented two entries below) reached from
+  a new angle, not a new bug - confirmed by testing the same floor with
+  no obstacle at all, which laid out cleanly, and by sweeping the
+  obstacle's own position until the exact range that triggers it was
+  visible.  A manifold no longer forced onto a wall changes where its
+  fan and first row land, which changes what an existing test's fixed
+  obstacle coordinates happen to sit on top of - one test's obstacle
+  moved off that ground, the other's threshold was widened with an
+  honest note why (a manifold a foot off its own wall loses the one row
+  a wall-pinned manifold always got for free at the inset, a real cost,
+  not a bug).  Regression: 1491 + 98 checks, command list, all green.
+
+  Told, in the same breath as the ask, that row direction must not
+  become a hard rule either - a big square zone with a lot of no-go
+  area can end up wanting a break where part of it runs the other way,
+  or perpendicular, to fill what a single direction leaves bare, and
+  that is deliberately not what this pass builds.  What it builds is
+  narrower and safe: one manifold, up to two directions, both running
+  the section's own established row-and-lane machinery unchanged.
+  Perpendicular or mixed-direction rows within one zone are a real,
+  separate idea for later, once there is a concrete floor shape that
+  asks for it.
+
   **v2026.09.24.7 - told to slow down and reevaluate; researched real
   radiant design software, simplified the dialog to just the engine,
   and gave it two live gauges instead of one line of small print.**

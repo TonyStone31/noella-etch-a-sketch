@@ -10,6 +10,19 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Changed
+
+- **Radiant heat layout: a manifold can finally leave the wall.**  It
+  used to hang on the nearest wall no matter where it was dragged; now
+  it stays wherever it is let go, and the rows run outward from it in
+  every direction that has floor - both ways along the wall, same as
+  always, and now both ways across the room too when it is out in the
+  open.  A manifold nearer the middle of a zone routinely reaches more
+  of the floor, and the two gauges above the plan make the difference
+  visible while dragging.
+
 ## v2026.09.24.6
 
 ### New
