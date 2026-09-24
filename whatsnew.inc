@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.24.4' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: the fan by the manifold now dodges a no-go' + LineEnding +
+    '  zone too.**  Every other piece of tube was already checked against' + LineEnding +
+    '  every obstacle; the short fan from each port to its grid lane, right' + LineEnding +
+    '  beside the manifold, was not, and an obstacle sitting close enough to' + LineEnding +
+    '  the manifold could put a fan line through it.  It is checked now, the' + LineEnding +
+    '  same as everything else, and there is a permanent test for it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.3' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
