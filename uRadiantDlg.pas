@@ -35,6 +35,7 @@ type
     btnRemoveObstacle: TButton;
     btnReport: TButton;
     btnSuggest: TButton;
+    cbLabels: TCheckBox;
     cbPlates: TCheckBox;
     cbPorts: TComboBox;
     cbRunsPerBay: TComboBox;
@@ -278,6 +279,7 @@ begin
   SetLength(Spec.Extra, Length(FExtra));
   for I := 0 to High(FExtra) do Spec.Extra[I] := Copy(FExtra[I]);
   Spec.Tag := Trim(edTag.Text);
+  Spec.Labels := cbLabels.Checked;
 end;
 
 procedure TRadiantForm.Recompute;

@@ -95,6 +95,9 @@ type
     SubfloorThick: Double;
     BelowR: Double;
     Tag: string;
+    Labels: Boolean;          { the loop and manifold notes on the drawing - off
+                                while the paths are being inspected by hand, the
+                                notes land over them }
     Inch: Double;             { the drawing's own inch, as TTransitionSpec keeps it }
   end;
 
@@ -839,7 +842,7 @@ var
   procedure LaySide(SideK: Integer; FromRow, ToRow, Step: Integer);
   var
     R, A, B, Cnt, Lane, NL: Integer;
-    Len, PassLen, Up, Dn, LaneUp, LaneDn, Far: Double;
+    Len, PassLen, Up, Dn, LaneUp, LaneDn, Far, PortPitch, PortUp, PortDn, StubUp, StubDn: Double;
     L: TRadiantLoop;
     Dir: Integer;
     Q: Integer;
@@ -893,10 +896,26 @@ var
       end;
       { laid and measured as it will run; over the maximum, a pair of
         rows comes off and it is laid again }
+      { the loop's own two ports on the manifold, counted out from its
+        middle on this side, and a stub off each at its own height }
+      PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
+      if SideK = 0 then
+      begin
+        PortUp := M2.X - (2 * Lane + 1) * PortPitch;
+        PortDn := M2.X - (2 * Lane + 2) * PortPitch;
+      end
+      else
+      begin
+        PortUp := M2.X + (2 * Lane + 1) * PortPitch;
+        PortDn := M2.X + (2 * Lane + 2) * PortPitch;
+      end;
+      StubUp := M2.Y + (2 * Lane + 1) * PortPitch;
+      StubDn := M2.Y + (2 * Lane + 2) * PortPitch;
       repeat
         NPts := 0;
-        Put(M2.X, M2.Y);
-        Put(LaneUp, M2.Y);
+        Put(PortUp, M2.Y);
+        Put(PortUp, StubUp);
+        Put(LaneUp, StubUp);
         Put(LaneUp, RowV[A]);
         Dir := SideK * 2 - 1;      { -1 runs to the left, +1 to the right }
         Q := A;
@@ -936,8 +955,9 @@ var
           Q := Q + Step;
         end;
         Put(LaneDn, RowV[B]);
-        Put(LaneDn, M2.Y);
-        Put(M2.X, M2.Y);
+        Put(LaneDn, StubDn);
+        Put(PortDn, StubDn);
+        Put(PortDn, M2.Y);
         SetLength(L.Pts, NPts);
         for Q := 0 to NPts - 1 do L.Pts[Q] := World(Pts[Q]);
         L.LenFt := 0;
@@ -1099,7 +1119,7 @@ begin
     M := R.Loops[I].Manifold;
     for J := 1 to High(R.Loops[I].Pts) do
       D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], ZoneInk(Zone + M), LoopWeight(Nth[M]), True);
-    if Length(R.Loops[I].Pts) > 3 then
+    if Spec.Labels and (Length(R.Loops[I].Pts) > 3) then
     begin
       Mid := R.Loops[I].Pts[Length(R.Loops[I].Pts) div 2];
       D.AddNote(Mid, Mid, Format('Z%d L%d  %s', [Zone + M + 1, Nth[M] + 1,
@@ -1114,7 +1134,7 @@ begin
       for J := 0 to High(Holes[I]) do
         Mid := P3(Mid.X + Holes[I][J].X / Length(Holes[I]), Mid.Y + Holes[I][J].Y / Length(Holes[I]),
           Mid.Z + Holes[I][J].Z / Length(Holes[I]));
-      D.AddNote(P3(Mid.X, Mid.Y, Mid.Z), Mid, 'no tube - obstacle', Ink);
+      if Spec.Labels then D.AddNote(P3(Mid.X, Mid.Y, Mid.Z), Mid, 'no tube - obstacle', Ink);
     end;
   { each manifold: a small box on the floor where it sits, square to the
     outline's own frame, hard-edged so it reads as a thing and not a run }
@@ -1122,15 +1142,18 @@ begin
   for M := 0 to High(R.Manifolds) do
     if (Spec.ManifoldW > 0) and (Spec.ManifoldH > 0) then
     begin
-      W := Spec.ManifoldW / 2; H := Spec.ManifoldH / 2;
+      { wide enough for its ports, two a loop at the port pitch each side }
+      W := Max(Spec.ManifoldW, (2 * R.Manifolds[M].LoopCount + 2) * MANIFOLD_PORT_PITCH_IN * Spec.Inch) / 2;
+      H := Spec.ManifoldH / 2;
       Mid := R.Manifolds[M].At;
       C[0] := P3(Mid.X - F.U.X * W - F.V.X * H, Mid.Y - F.U.Y * W - F.V.Y * H, Mid.Z - F.U.Z * W - F.V.Z * H);
       C[1] := P3(Mid.X + F.U.X * W - F.V.X * H, Mid.Y + F.U.Y * W - F.V.Y * H, Mid.Z + F.U.Z * W - F.V.Z * H);
       C[2] := P3(Mid.X + F.U.X * W + F.V.X * H, Mid.Y + F.U.Y * W + F.V.Y * H, Mid.Z + F.U.Z * W + F.V.Z * H);
       C[3] := P3(Mid.X - F.U.X * W + F.V.X * H, Mid.Y - F.U.Y * W + F.V.Y * H, Mid.Z - F.U.Z * W + F.V.Z * H);
       for I := 0 to 3 do D.AddLine(C[I], C[(I + 1) mod 4], ZoneInk(Zone + M), 2, False);
-      D.AddNote(C[2], Mid, Format('zone %d manifold - %d of %d loops', [Zone + M + 1,
-        R.Manifolds[M].LoopCount, R.Manifolds[M].Ports]), ZoneInk(Zone + M));
+      if Spec.Labels then
+        D.AddNote(C[2], Mid, Format('zone %d manifold - %d loops', [Zone + M + 1,
+          R.Manifolds[M].LoopCount]), ZoneInk(Zone + M));
     end;
   { an obstacle added in the wizard goes onto the floor as a ring of plain
     lines; lying flat inside the face, the program's own rule makes it a

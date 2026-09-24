@@ -447,6 +447,14 @@ object RadiantForm: TRadiantForm
     TabOrder = 15
     OnChange = AnyChange
   end
+  object cbLabels: TCheckBox
+    Left = 480
+    Height = 22
+    Top = 460
+    Width = 300
+    Caption = 'Label the loops and manifolds on the drawing'
+    TabOrder = 23
+  end
   object lblTagHint: TLabel
     Left = 24
     Height = 18

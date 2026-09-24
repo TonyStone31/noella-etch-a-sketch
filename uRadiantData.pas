@@ -110,6 +110,11 @@ const
     manifold has a port to spare over it. }
   MANIFOLD_PORTS_MIN = 2;
   MANIFOLD_PORTS_MAX = 12;
+  { how far apart the connections sit along a manifold's body, and the
+    only place tube is allowed off the grid: the first foot out of the
+    manifold, where every loop's stub takes its own height so the
+    connections can be followed by eye }
+  MANIFOLD_PORT_PITCH_IN = 2.0;
   LOOP_AREA_FACTOR = 0.7;
 
 function TubeOf(S: TTubeSize): TTubeFacts;
