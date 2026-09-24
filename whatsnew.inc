@@ -13,6 +13,15 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## v2026.09.24.3' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: a round no-go zone wastes less floor.**  A row' + LineEnding +
+    '  is cut by the obstacle''s own outline now, a hand''s width wider all' + LineEnding +
+    '  round, instead of by its bounding box - so a circular no-go zone' + LineEnding +
+    '  costs the floor its own shape, not a square around it.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.2' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
