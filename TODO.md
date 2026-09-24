@@ -388,6 +388,81 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **Not shipped as a version, 24 September, later still - one real fix,
+  one real cause found and bounded but not fixed.**  Told, bluntly, to
+  build something that works.  Started from the ChatGPT critique the
+  owner relayed and a fresh look at the crossing-safe engine that
+  shipped as v2026.09.24.9 (the trace/replay work is not written up
+  above yet either - owed, not done here):
+
+  **Fixed: `RadiantInside` used world X/Y against a frame outline
+  instead of converting through it first** (invisible on a flat floor,
+  wrong on a tilted one) **and the dead cellular-decomposition code
+  from before the lane-rank rewrite** (`SegCrossesPoly`,
+  `DecomposeCells`, `WalkCells`, `TFieldSpan` - zero call sites,
+  confirmed by grep) **is gone.**  Neither changes a single number on
+  any test.
+
+  **Fixed, real but narrow: a run of rows can end up with no near
+  piece at all** - an obstacle sitting close enough to the manifold's
+  own column blocks the piece nearest it outright, leaving only a far
+  piece, for every row it touches.  `TryRowFrom`/`PlanFrom` only ever
+  started a loop from a near piece; a far piece was only ever reached
+  as a continuation of an already-started loop via `Excursion`, and a
+  whole band with no near piece anywhere in it has no near row to
+  continue from.  Those rows were unreachable, full stop, not merely
+  hard.  Fixed by letting `PlanFrom` reach such a row directly through
+  `Excursion` when there is nothing nearer to start from, and by
+  making the "next row to try" walk in `LaySide` stop on an unused far
+  piece the same as an unused near one.  Safe by construction - every
+  candidate it builds still goes through the same `PlanCrosses` check
+  as anything else - and 1491 + 98 checks stay green.  Measured on the
+  16-ft-circle test (bare count unchanged, 1259 of 2801 sq ft: that
+  circle sits centered on the manifold's own row *and* column, so the
+  rows it blocks need a lane threaded past the earlier loops too, not
+  just a starting point - see below) and on zone 1 of the owner's own
+  barn report, `report-20260924-130538-f90d326164.hsk`, floor and both
+  obstacles loaded straight from the file, real manifold
+  (98.135417, 60.049679), 12" spacing: **also unchanged, 4218.5 of
+  5753.9 sq ft bare (73.3%).**  A real fix for a real, previously-
+  impossible case, worth keeping - but not the fix that matters, since
+  neither hard floor available to test against has been helped by it
+  even slightly.
+
+  **Found and bounded, not fixed: the dominant cause on the owner's
+  own floor is not obstacles at all.**  Traced with `WantTrace` and a
+  temporary row-state dump (removed before commit) against the exact
+  repro above.  One side of one manifold (`SideK=1, VDir=1` in this
+  run - the wide direction, ~97 ft of floor, no obstacle anywhere near
+  it) places five loops - ranks 0 through 4, eighteen rows - and then
+  **rank 5 fails outright on every one of the remaining forty-one
+  rows**, all of them plain open floor (`HasN=True`, no obstacle).
+  That is the whole 73.3%: not a fragment near a column, the entire
+  back two-thirds of the zone.  Instrumented rank 5's own search at
+  row 18 (T=300, the most generous trial): of 29 lane positions tried
+  before giving up on the first half of the search alone, 23 never
+  even produced a candidate to check - `PlanFrom` itself returned
+  nothing, not a crossing rejection - and the remaining 5 built a real
+  candidate that `PlanCrosses` then turned back.  So the search is not
+  quietly wasting rows the way a wide-open floor should let it use;
+  something in `PlanFrom`'s own row-pairing (`Fits`, `Excursion`,
+  `Reserved` - candidates, not confirmed) is refusing to build a plan
+  at most lane positions well before crossing ever gets a say, on a
+  floor with nothing in the way.  This is the search's own row-by-row
+  greed doing exactly what the session's earlier notes already named
+  and did not build a fix for (see "(C)" under v2026.09.24.4 below):
+  nothing here can undo an earlier rank's choice once a later one
+  proves it cost too much floor.  Whichever internal check is refusing
+  those 23 candidates needs to be pinned down by instrumenting `Fits`
+  itself (not yet done - time ran out on this pass) before touching
+  it; changing `Fits` or `PlanFrom` blind, on a guess, is exactly the
+  kind of change this file has already had to revert twice tonight.
+  The repro is exact and cheap to rerun: zone 1's outline and both
+  obstacle boxes are plain rectangles read straight out of the `.hsk`
+  above, no reconstruction needed, and the failure shows up in the
+  very first (most generous) T-trial, so it is not a search-budget
+  artifact either.
+
   **v2026.09.24.8 - the manifold left the wall.**  Asked for directly,
   twice, across two sessions: "we need to be able to remove that
   manifold off the edge of its bounding shape... or the wall."  Done -

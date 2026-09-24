@@ -1101,7 +1101,18 @@ var
     begin
       Result := False;
       Trim(Pl, 0);
-      if not NearOk(C, R) then Exit;
+      if not NearOk(C, R) then
+      begin
+        { nothing here to walk out from - an obstacle sitting right at
+          the manifold's own column blocks every near piece for a whole
+          run of rows, with no clear row anywhere among them to anchor
+          an excursion the way one usually starts mid-row.  Its far
+          piece, past that obstacle, is reached the same way an
+          excursion already reaches the far side of one met partway
+          out a row - starting there instead of arriving there. }
+        if FarOk(C, R) then Result := Excursion(C - 1, R, Pl);
+        Exit;
+      end;
       Add(Pl, C, False);
       Cc := C;
       repeat
@@ -1212,8 +1223,9 @@ var
       Tries: Integer;
     begin
       Result := False;
-      if not HasN[C] then Exit;
-      Ceiling := NHi[C] - Spec.Spacing;
+      if HasN[C] then Ceiling := NHi[C] - Spec.Spacing
+      else if HasF[C] then Ceiling := FHi[C] - Spec.Spacing
+      else Exit;
       Start := Min(Ceiling, Spec.Spacing / 2 + 2 * Max(0, EstGuess - 1 - R) * Spec.Spacing);
       CurD := Start;
       Tries := 0;
@@ -1301,9 +1313,11 @@ var
         L.Manifold := MI;
         SetLength(Got, Length(Got) + 1);
         Got[High(Got)] := L;
-        { the next unused near piece }
+        { the next row with a piece still unused - a near one, or, with
+          nothing nearer to reach it by, a far one on its own }
         Inc(C);
-        while (C <= High(RowV)) and (not HasN[C] or UsedN[C]) do Inc(C);
+        while (C <= High(RowV)) and ((not HasN[C]) or UsedN[C]) and
+              ((not HasF[C]) or UsedF[C]) do Inc(C);
       end
       else Inc(C);
     end;
