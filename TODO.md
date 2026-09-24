@@ -388,6 +388,63 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **v2026.09.24.5, 04:00 - the owner's barn, asked for by name: 100 x 120,
+  a cross split into four 50x60 zones, a triangular wing off the east
+  wall, a 20-ft circle in one zone, a triangle in another, a rectangle
+  in a third.**  Run twice - by hand-placed manifolds and by the
+  wizard's own `RadiantSuggestZoneManifold` toward the building's
+  overall centroid, both times through `ComputeRadiantLayout` and
+  `Meetings`/the crossing walk directly, the same as every other trial
+  this session, so the numbers are the real engine, not a guess:
+
+  By hand (a sensible spot near the shared wall in each zone): every
+  zone lays out, nothing crosses, nothing runs through an obstacle.
+  SW/circle 20.8% bare, SE/triangle 29.8%, NW/rect 22.5%, NE/clear 0%,
+  the wing/clear 1.3% - the open items already on this list (an
+  obstacle square in a loop's path costs real floor; a corridor-shaped
+  zone bare at the tip) accounting for the rest.
+
+  By the wizard's own suggestion: two real findings, not a testing
+  artifact - (1) toward a whole-building centroid, the two zones
+  nearest the building's own middle (SW, SE) get manifolds hung a foot
+  off the *shared interior wall*, which is a corner of each zone, not
+  its middle - bare area roughly doubles (45.2%, 51.3%) for the exact
+  same obstacles a sensible placement handled at 20-30%.  (2) the
+  wing's suggested manifold lands on one of its two base corners -
+  the acute-corner failure already on this list, reproduced for real
+  this time - one loop, 68 of the 757 ft a decent placement lays, and
+  `UnfilledSqFt` comes back *larger than the zone's own area* (828 of
+  600 sq ft).  That second number is not just bad coverage, it is
+  wrong: isolated in `radwing.pas`, the estimator that turns a dropped
+  loop's length into a bare-area penalty (`LaySideSettled`'s fallback,
+  `Got[I].LenFt * Spec.Spacing`) is never capped against what floor is
+  actually left, and a corner that forces many short loops can push it
+  past the zone's whole area.  Both are `RadiantSuggestZoneManifold`
+  and the bare-area estimate, not `ComputeRadiantLayout`'s routing -
+  worth fixing before the wizard is trusted to place manifolds
+  unattended, but not attempted tonight.
+
+  A hand-written `.hsk` of the same building (raw LINE/ARC entities,
+  no FACE records) was also driven through the real app to get a
+  picture, not just numbers, and turned up a third thing, unconfirmed:
+  the round obstacle became a clean hole, but the triangle and the
+  rectangle each came back as their *own* small zone as well as a hole
+  in their parent - visible in the screenshot as a tiny second tube
+  pattern filling the no-go shape.  A real file this session already
+  proved clean with a rectangle obstacle in the same raw-LINE style
+  (`reports/2026-09-23/report-20260923-232050-20eb0344b6.hsk`), which
+  rules out "raw lines can't be a hole" as the explanation but does not
+  say what the real difference is - more zones, more obstacles, the
+  wing's non-rectangular shape, or something about loading a hand-typed
+  file rather than one the app's own tools produced live are all still
+  open.  Everything actually drawn interactively this session (every
+  `radzones.txt`-style script) has been clean, so this may be nothing
+  more than a gap in how a hand-typed file's faces get inferred at load
+  time, not a fault in normal use - genuinely not known yet, and worth
+  five minutes with the interactive tools before it is called either
+  way.  The barn drawing and the debug programs that isolated the two
+  confirmed findings are in the scratchpad, not the repo.
+
   **v2026.09.24.4, 03:15 - a diagnosis, asked for by name, before touching
   the algorithm again.**  The owner relayed ChatGPT's read of this same
   struggle and asked for an honest inspection before any more rewriting.
