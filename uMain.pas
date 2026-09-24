@@ -9955,64 +9955,68 @@ end;
   leaves its own result selected. }
 procedure TMainForm.BuildRadiantWizard;
 var
-  Outline: TP3Array;
+  Zones: TRadiantZones;
   Holes: TRadiantHoles;
-  I, First, Face, NFaces: Integer;
+  I, J, First, Z: Integer;
   Spec: TRadiantSpec;
+  Manifolds: TP3Array;
+  Ports: TIntArray;
   R: TRadiantResult;
+  Loops: Integer;
+  Ft: Double;
 begin
-  { the floor is the one face in the selection - on its own, or with its
-    own lines round it after Ctrl+A or a drag; two faces is a question }
-  Face := -1; NFaces := 0;
+  { every face in the selection is a zone with a manifold of its own -
+    the barn drawn as one big rectangle with lines across it is four
+    faces, four zones; a face taken out of it is a hole, and a hole is a
+    no-go.  Ctrl+A and a drag both work: the lines come along and are
+    ignored. }
+  SetLength(Zones, 0);
   for I := 0 to High(FSel) do
     if (FSel[I] >= 0) and (FSel[I] < FD.Doc.Live) and (FD.Doc[FSel[I]].Kind = ekFace) then
     begin
-      Face := FSel[I];
-      Inc(NFaces);
+      SetLength(Zones, Length(Zones) + 1);
+      Zones[High(Zones)].Outline := FD.Doc[FSel[I]].Poly;
+      SetLength(Zones[High(Zones)].Holes, Length(FD.Doc[FSel[I]].Holes));
+      for J := 0 to High(FD.Doc[FSel[I]].Holes) do
+        Zones[High(Zones)].Holes[J] := FD.Doc[FSel[I]].Holes[J];
     end;
-  if NFaces <> 1 then
+  if Length(Zones) = 0 then
   begin
-    if NFaces = 0 then
-      FCmdMsg := 'Select the floor first - one face, a rectangle or any shape - then Radiant heat layout.'
-    else
-      FCmdMsg := Format('%d faces are selected - select just the floor, one face, and run this again.', [NFaces]);
-    pbCmd.Invalidate;
-    { the shop menu is a deliberate click: a refusal that only goes to the
-      bar reads as a button that does nothing }
-    ShowMessage(FCmdMsg);
-    Exit;
-  end;
-  Outline := FD.Doc[Face].Poly;
-  SetLength(Holes, Length(FD.Doc[Face].Holes));
-  for I := 0 to High(Holes) do Holes[I] := FD.Doc[Face].Holes[I];
-  if not TRadiantForm.Ask(FD.Units, Outline, Holes, Spec) then Exit;
-  { the obstacles added in the wizard count with the face's own holes }
-  for I := 0 to High(Spec.Extra) do
-  begin
-    SetLength(Holes, Length(Holes) + 1);
-    Holes[High(Holes)] := Spec.Extra[I];
-  end;
-  R := ComputeRadiantLayout(Outline, Holes, Spec);
-  if not R.Ok then
-  begin
-    FCmdMsg := 'The layout did not build - ' + R.Why;
+    FCmdMsg := 'Select the floor first - a face for each zone, or everything - then Radiant heat layout.';
     pbCmd.Invalidate;
     ShowMessage(FCmdMsg);
     Exit;
   end;
+  if not TRadiantForm.Ask(FD.Units, Zones, Spec, Manifolds, Ports) then Exit;
   PushUndo;
-  { in the tube's own red, whatever pen is up - a run is not a line of
-    the drawing, and should not look like one }
-  First := BuildRadiant(FD.Doc, Outline, Holes, R, Spec, RGBToColor(200, 48, 32),
-    IfThen(Spec.Tag <> '', Spec.Tag, 'Radiant'));
+  First := FD.Doc.Live;
+  Loops := 0; Ft := 0;
+  for Z := 0 to High(Zones) do
+  begin
+    Holes := Copy(Zones[Z].Holes);
+    for I := 0 to High(Spec.Extra) do
+    begin
+      SetLength(Holes, Length(Holes) + 1);
+      Holes[High(Holes)] := Spec.Extra[I];
+    end;
+    SetLength(Spec.Manifolds, 1); SetLength(Spec.Ports, 1);
+    Spec.Manifolds[0] := Manifolds[Z]; Spec.Ports[0] := Ports[Z];
+    R := ComputeRadiantLayout(Zones[Z].Outline, Holes, Spec);
+    if not R.Ok then Continue;
+    BuildRadiant(FD.Doc, Zones[Z].Outline, Zones[Z].Holes, R, Spec, RGBToColor(200, 48, 32),
+      IfThen(Spec.Tag <> '', Spec.Tag + ' ', 'Radiant ') + 'zone ' + IntToStr(Z + 1), Z);
+    Inc(Loops, Length(R.Loops));
+    Ft := Ft + R.TotalFt;
+  end;
+  { the obstacles added in the wizard, once, not once a zone }
   RebuildFlatFaces;
   SeedRegions;
   RenderPro;
   RecomposeAll;
   SelectNone;
   for I := First to FD.Doc.Live - 1 do SelectAdd(I);
-  FCmdMsg := Format('Radiant layout built: %d loop(s) on %d manifold(s), %s.',
-    [Length(R.Loops), Length(R.Manifolds), FormatLen(R.TotalFt, FD.Units)]);
+  FCmdMsg := Format('Radiant layout built: %d zone(s), %d loop(s), %s.',
+    [Length(Zones), Loops, FormatLen(Ft, FD.Units)]);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
 end;

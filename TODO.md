@@ -299,6 +299,34 @@ pixel by pixel.  What the pictures said:
   and a ticket file are not built - the material list is in the dialog
   only.
 
+  **Later that evening (v2026.09.23.4):** zones - every selected face
+  is a zone with one manifold, a removed face a no-go, the manifolds
+  suggested at each zone's corner nearest the middle of all of them;
+  lanes on any outline; loops balanced by walking the cuts; lead
+  crossings counted (they were not being added before - one lead on the
+  column test floor clips the column, and the ticket now says so).
+
+  **The engine as the owner sees it** (three reports, 23 September, the
+  words worth keeping): no crow-flying back to the header over the
+  runs; everything at right angles; the field is a virtual grid of
+  points at the spacing and a run is connect-the-dots through them;
+  fill each zone as full as the grid allows, the farthest runs first,
+  then the shorter ones, keeping them all the same length - "a game of
+  tetris"; the long runs mostly in one direction; near an obstacle the
+  grid may be allowed extra points at half the spacing so a few more
+  loops can get through; a run may share another zone's edge on its way
+  out if it must, but should avoid it; manifolds kept in their own zones
+  and close to each other; and when a layout is not liked, retries with
+  some randomness until the lengths come out close.  What is built is
+  most of the way to this - rows at the spacing are the grid, the cells
+  and the corridor are the connect-the-dots, the balance pass is the
+  retry - and what is not: the half-pitch grid near obstacles, a lead
+  that detours a column's rows instead of clipping it, and randomness
+  in the cut.  Also seen: loop ends of one zone butting against the
+  next zone's with no space between - that was the old one-face,
+  many-manifolds split, cut at the halfway line with no inset; zones as
+  faces each keep their own six inches off their own edge.
+
   **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
   September - is the rule book the tool should come to apply on its own
   from the face it is handed: 12" on center as the slab default rather

@@ -105,12 +105,13 @@ type
     procedure pbPlanPaint(Sender: TObject);
   private
     FUnits: TUnitSystem;
-    FOutline: TP3Array;
-    FHoles: array of TP3Array;       { the face's own }
-    FExtra: array of TP3Array;       { added here, as rectangles }
-    FManifolds: TP3Array;
+    FZones: TRadiantZones;           { every face selected, with its holes }
+    FExtra: array of TP3Array;       { obstacles added here, as rectangles }
+    FManifolds: TP3Array;            { one per zone }
     FPorts: TIntArray;
-    FLayout: TRadiantResult;
+    FLayouts: array of TRadiantResult;
+    { the outline of everything, for the plan's frame and the fit }
+    FOutline: TP3Array;
     { the plan's own projection, worked out at paint time and kept for the
       mouse: the outline's frame, and how its plane maps to pixels }
     FFrame: TRadiantFrame;
@@ -124,7 +125,8 @@ type
     procedure ShowFloorKind;
     procedure Recompute;
     function Read(out Spec: TRadiantSpec): Boolean;
-    function AllHoles: TRadiantHoles;
+    function ZoneHoles(Z: Integer): TRadiantHoles;
+    function AnyLayout: Boolean;
     procedure ListManifolds;
     procedure ListObstacles;
     function PlanX(U: Double): Integer;
@@ -133,9 +135,10 @@ type
     function PlanV(Y: Integer): Double;
     procedure MoveObstacle(I: Integer; const ToMid: T2);
     function ObstacleMid(I: Integer): T2;
+    function FirstExtraRow: Integer;
   public
-    class function Ask(Units: TUnitSystem; const Outline: TP3Array;
-      const Holes: array of TP3Array; out Spec: TRadiantSpec): Boolean;
+    class function Ask(Units: TUnitSystem; const Zones: TRadiantZones;
+      out Spec: TRadiantSpec; out Manifolds: TP3Array; out Ports: TIntArray): Boolean;
   end;
 
 implementation
@@ -225,13 +228,22 @@ begin
   else AnyChange(nil);
 end;
 
-function TRadiantForm.AllHoles: TRadiantHoles;
+function TRadiantForm.ZoneHoles(Z: Integer): TRadiantHoles;
+var
+  I, N: Integer;
+begin
+  N := Length(FZones[Z].Holes);
+  SetLength(Result, N + Length(FExtra));
+  for I := 0 to N - 1 do Result[I] := FZones[Z].Holes[I];
+  for I := 0 to High(FExtra) do Result[N + I] := FExtra[I];
+end;
+
+function TRadiantForm.AnyLayout: Boolean;
 var
   I: Integer;
 begin
-  SetLength(Result, Length(FHoles) + Length(FExtra));
-  for I := 0 to High(FHoles) do Result[I] := FHoles[I];
-  for I := 0 to High(FExtra) do Result[Length(FHoles) + I] := FExtra[I];
+  Result := False;
+  for I := 0 to High(FLayouts) do if FLayouts[I].Ok then Exit(True);
 end;
 
 function TRadiantForm.Read(out Spec: TRadiantSpec): Boolean;
@@ -263,8 +275,6 @@ begin
     Result := Result and InchesOf(edSubfloor.Text, FUnits, Spec.SubfloorThick);
     Result := Result and TryStrToFloat(Trim(edBelowR.Text), Spec.BelowR);
   end;
-  Spec.Manifolds := Copy(FManifolds);
-  Spec.Ports := Copy(FPorts);
   SetLength(Spec.Extra, Length(FExtra));
   for I := 0 to High(FExtra) do Spec.Extra[I] := Copy(FExtra[I]);
   Spec.Tag := Trim(edTag.Text);
@@ -272,43 +282,65 @@ end;
 
 procedure TRadiantForm.Recompute;
 var
-  Spec: TRadiantSpec;
-  Need, NM: Integer;
+  Spec, ZS: TRadiantSpec;
+  Z, Need, NeedAll: Integer;
+  Ticket: string;
+  TotalFt, OrderFt: Double;
+  Loops: Integer;
 begin
   if not Read(Spec) then
   begin
     lblProblem.Caption := 'A size did not read - 9, 9.5, or a foot mark.';
     memTicket.Lines.Text := '';
-    FLayout.Ok := False;
+    SetLength(FLayouts, 0);
     pbPlan.Invalidate;
     Exit;
   end;
-  if Length(FOutline) < 3 then
+  if Length(FZones) = 0 then
   begin
-    lblProblem.Caption := 'Nothing is selected to fill - select a face and run this again.';
+    lblProblem.Caption := 'Nothing is selected to fill - select the floor and run this again.';
     memTicket.Lines.Text := '';
-    FLayout.Ok := False;
+    SetLength(FLayouts, 0);
     pbPlan.Invalidate;
     Exit;
   end;
-  { what the floor wants, said before anything else, from its size alone }
-  Need := RadiantLoopsNeeded(FOutline, AllHoles, Spec);
-  NM := Max(1, Ceil(Need / MANIFOLD_PORTS_MAX));
-  lblNeed.Caption := Format('This floor wants about %d loops - %d manifold%s of %d',
-    [Need, NM, IfThen(NM = 1, '', 's'), Max(MANIFOLD_PORTS_MIN, Ceil(Need / NM))]);
-  lblProblem.Caption := RadiantProblem(FOutline, Spec);
-  if lblProblem.Caption <> '' then
+  { what the floor wants, zone by zone, said before anything else }
+  NeedAll := 0;
+  for Z := 0 to High(FZones) do
+    NeedAll := NeedAll + RadiantLoopsNeeded(FZones[Z].Outline, ZoneHoles(Z), Spec);
+  lblNeed.Caption := Format('%d zone%s, about %d loops all told - one manifold a zone',
+    [Length(FZones), IfThen(Length(FZones) = 1, '', 's'), NeedAll]);
+  lblProblem.Caption := '';
+  SetLength(FLayouts, Length(FZones));
+  Ticket := '';
+  if Spec.Tag <> '' then Ticket := Spec.Tag + LineEnding + LineEnding;
+  TotalFt := 0; OrderFt := 0; Loops := 0;
+  for Z := 0 to High(FZones) do
   begin
-    memTicket.Lines.Text := '';
-    FLayout.Ok := False;
-    btnBuild.Enabled := False;
-    pbPlan.Invalidate;
-    Exit;
+    ZS := Spec;
+    SetLength(ZS.Manifolds, 1); SetLength(ZS.Ports, 1);
+    ZS.Manifolds[0] := FManifolds[Z]; ZS.Ports[0] := FPorts[Z];
+    ZS.Tag := '';
+    if lblProblem.Caption = '' then lblProblem.Caption := RadiantProblem(FZones[Z].Outline, ZS);
+    FLayouts[Z] := ComputeRadiantLayout(FZones[Z].Outline, ZoneHoles(Z), ZS);
+    if not FLayouts[Z].Ok and (lblProblem.Caption = '') then
+      lblProblem.Caption := Format('Zone %d: %s', [Z + 1, FLayouts[Z].Why]);
+    Ticket := Ticket + Format('===== ZONE %d =====', [Z + 1]) + LineEnding +
+      RadiantTicketText(ZS, FLayouts[Z], FUnits) + LineEnding;
+    if FLayouts[Z].Ok then
+    begin
+      TotalFt := TotalFt + FLayouts[Z].TotalFt;
+      OrderFt := OrderFt + FLayouts[Z].OrderFt;
+      Loops := Loops + Length(FLayouts[Z].Loops);
+    end;
   end;
-  FLayout := ComputeRadiantLayout(FOutline, AllHoles, Spec);
-  if not FLayout.Ok then lblProblem.Caption := FLayout.Why;
-  memTicket.Lines.Text := RadiantTicketText(Spec, FLayout, FUnits);
-  btnBuild.Enabled := FLayout.Ok;
+  if Length(FZones) > 1 then
+    Ticket := Ticket + '===== ALL ZONES =====' + LineEnding +
+      Format('%d zones, %d loops, %d manifolds', [Length(FZones), Loops, Length(FZones)]) + LineEnding +
+      'total tube, no waste: ' + FormatLen(TotalFt, FUnits) + LineEnding +
+      'order: ' + FormatLen(OrderFt, FUnits) + LineEnding;
+  memTicket.Lines.Text := Ticket;
+  btnBuild.Enabled := AnyLayout and (lblProblem.Caption = '');
   ListManifolds;
   pbPlan.Invalidate;
 end;
@@ -335,10 +367,10 @@ begin
     for I := 0 to High(FManifolds) do
     begin
       P := RadiantTo2(FFrame, FManifolds[I]);
-      S := Format('%d:  %d-loop  at %s along, %s in', [I + 1, FPorts[I],
+      S := Format('zone %d:  %d-loop  at %s along, %s in', [I + 1, FPorts[I],
         FormatLen(P.X, FUnits), FormatLen(P.Y, FUnits)]);
-      if FLayout.Ok and (I <= High(FLayout.Manifolds)) then
-        S := S + Format('  -  %d laid', [FLayout.Manifolds[I].LoopCount]);
+      if (I <= High(FLayouts)) and FLayouts[I].Ok and (Length(FLayouts[I].Manifolds) > 0) then
+        S := S + Format('  -  %d laid', [FLayouts[I].Manifolds[0].LoopCount]);
       lbManifolds.Items.Add(S);
     end;
     if FSelectLast then Sel := lbManifolds.Items.Count - 1;
@@ -348,7 +380,6 @@ begin
     if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) then
       cbPorts.ItemIndex := FPorts[lbManifolds.ItemIndex] - MANIFOLD_PORTS_MIN;
     cbPorts.Enabled := lbManifolds.ItemIndex >= 0;
-    btnRemoveManifold.Enabled := lbManifolds.ItemIndex >= 0;
   finally
     FListing := False;
   end;
@@ -378,56 +409,45 @@ end;
 procedure TRadiantForm.btnSuggestClick(Sender: TObject);
 var
   Spec: TRadiantSpec;
+  Z, I, N: Integer;
+  Mid: TP3;
 begin
-  if not Read(Spec) or (Length(FOutline) < 3) then begin Recompute; Exit; end;
-  RadiantSuggestManifolds(FOutline, AllHoles, Spec, FManifolds, FPorts);
+  if not Read(Spec) or (Length(FZones) = 0) then begin Recompute; Exit; end;
+  { the middle of everything - where the boiler most likely is - and each
+    zone's manifold at its corner nearest that }
+  Mid := P3(0, 0, 0); N := 0;
+  for Z := 0 to High(FZones) do
+    for I := 0 to High(FZones[Z].Outline) do
+    begin
+      Mid := P3(Mid.X + FZones[Z].Outline[I].X, Mid.Y + FZones[Z].Outline[I].Y, Mid.Z + FZones[Z].Outline[I].Z);
+      Inc(N);
+    end;
+  if N > 0 then Mid := P3(Mid.X / N, Mid.Y / N, Mid.Z / N);
+  SetLength(FManifolds, Length(FZones));
+  SetLength(FPorts, Length(FZones));
+  for Z := 0 to High(FZones) do
+    RadiantSuggestZoneManifold(FZones[Z], Mid, Spec, FManifolds[Z], FPorts[Z]);
   lbManifolds.ItemIndex := -1;
   Recompute;
 end;
 
 procedure TRadiantForm.btnAddManifoldClick(Sender: TObject);
-var
-  Mid: TP3;
-  I: Integer;
 begin
-  { in the middle of the floor, to be dragged to the wall it hangs on }
-  Mid := P3(0, 0, 0);
-  if Length(FOutline) = 0 then Exit;
-  for I := 0 to High(FOutline) do
-    Mid := P3(Mid.X + FOutline[I].X / Length(FOutline), Mid.Y + FOutline[I].Y / Length(FOutline),
-      Mid.Z + FOutline[I].Z / Length(FOutline));
-  SetLength(FManifolds, Length(FManifolds) + 1);
-  SetLength(FPorts, Length(FPorts) + 1);
-  FManifolds[High(FManifolds)] := Mid;
-  FPorts[High(FPorts)] := 8;
-  { the list does not have the new row until Recompute lists it; picking
-    a row it does not have raised the exception reported on 23 September }
-  FSelectLast := True;
-  Recompute;
+  { one manifold a zone: to have two, draw a line across the zone on the
+    sheet and it is two zones }
+  lblProblem.Caption := 'One manifold a zone - draw a line across the floor to make two zones.';
 end;
 
 procedure TRadiantForm.btnRemoveManifoldClick(Sender: TObject);
-var
-  I, K: Integer;
 begin
-  K := lbManifolds.ItemIndex;
-  if (K < 0) or (K > High(FManifolds)) then Exit;
-  for I := K to High(FManifolds) - 1 do
-  begin
-    FManifolds[I] := FManifolds[I + 1];
-    FPorts[I] := FPorts[I + 1];
-  end;
-  SetLength(FManifolds, Length(FManifolds) - 1);
-  SetLength(FPorts, Length(FPorts) - 1);
-  lbManifolds.ItemIndex := -1;
-  Recompute;
+  lblProblem.Caption := 'One manifold a zone - it cannot be taken away.';
 end;
 
 { ---- obstacles ---- }
 
 procedure TRadiantForm.ListObstacles;
 var
-  I: Integer;
+  I, Z, N: Integer;
   P: T2;
   Sel: Integer;
 begin
@@ -435,26 +455,36 @@ begin
   try
     Sel := lbObstacles.ItemIndex;
     lbObstacles.Items.Clear;
-    for I := 0 to High(FHoles) do
-      lbObstacles.Items.Add(Format('%d:  in the drawing already, %d corners', [I + 1, Length(FHoles[I])]));
+    N := 0;
+    for Z := 0 to High(FZones) do N := N + Length(FZones[Z].Holes);
+    if N > 0 then lbObstacles.Items.Add(Format('%d in the drawing already - removed faces', [N]));
+    N := Min(1, N);
     if Length(FOutline) >= 3 then FFrame := RadiantFrameOf(FOutline);
     for I := 0 to High(FExtra) do
     begin
       P := ObstacleMid(I);
-      lbObstacles.Items.Add(Format('%d:  %s x %s at %s along, %s in', [Length(FHoles) + I + 1,
+      lbObstacles.Items.Add(Format('%d:  %s x %s at %s along, %s in', [N + I + 1,
         FormatLen(Dist(FExtra[I][0], FExtra[I][1]), FUnits), FormatLen(Dist(FExtra[I][1], FExtra[I][2]), FUnits),
         FormatLen(P.X, FUnits), FormatLen(P.Y, FUnits)]));
     end;
     if (Sel >= 0) and (Sel < lbObstacles.Items.Count) then lbObstacles.ItemIndex := Sel;
-    btnRemoveObstacle.Enabled := lbObstacles.ItemIndex >= Length(FHoles);
+    btnRemoveObstacle.Enabled := lbObstacles.ItemIndex >= N;
   finally
     FListing := False;
   end;
 end;
 
+function TRadiantForm.FirstExtraRow: Integer;
+var
+  Z: Integer;
+begin
+  Result := 0;
+  for Z := 0 to High(FZones) do if Length(FZones[Z].Holes) > 0 then Exit(1);
+end;
+
 procedure TRadiantForm.lbObstaclesClick(Sender: TObject);
 begin
-  btnRemoveObstacle.Enabled := lbObstacles.ItemIndex >= Length(FHoles);
+  btnRemoveObstacle.Enabled := lbObstacles.ItemIndex >= FirstExtraRow;
   pbPlan.Invalidate;
 end;
 
@@ -523,7 +553,7 @@ procedure TRadiantForm.btnRemoveObstacleClick(Sender: TObject);
 var
   I, K: Integer;
 begin
-  K := lbObstacles.ItemIndex - Length(FHoles);
+  K := lbObstacles.ItemIndex - FirstExtraRow;
   if (K < 0) or (K > High(FExtra)) then Exit;
   for I := K to High(FExtra) - 1 do FExtra[I] := FExtra[I + 1];
   SetLength(FExtra, Length(FExtra) - 1);
@@ -586,7 +616,7 @@ begin
     begin
       FDragObstacle := I;
       FDragOff := Point2(P.X - M.X, P.Y - M.Y);
-      lbObstacles.ItemIndex := Length(FHoles) + I;
+      lbObstacles.ItemIndex := FirstExtraRow + I;
       lbObstaclesClick(nil);
       Exit;
     end;
@@ -619,7 +649,7 @@ type
   TPtArr = array of TPoint;
 var
   C: TCanvas;
-  W, H, I, J, Nth: Integer;
+  W, H, I, J, Z, Loops: Integer;
   MaxX, MaxY: Double;
   P: T2;
   S: string;
@@ -649,50 +679,52 @@ begin
   FFrame := RadiantFrameOf(FOutline);
   FMargin := 30;
   FMinX := 1E30; MaxX := -1E30; FMinY := 1E30; MaxY := -1E30;
-  for I := 0 to High(FOutline) do
-  begin
-    P := RadiantTo2(FFrame, FOutline[I]);
-    FMinX := Min(FMinX, P.X); MaxX := Max(MaxX, P.X);
-    FMinY := Min(FMinY, P.Y); MaxY := Max(MaxY, P.Y);
-  end;
+  for Z := 0 to High(FZones) do
+    for I := 0 to High(FZones[Z].Outline) do
+    begin
+      P := RadiantTo2(FFrame, FZones[Z].Outline[I]);
+      FMinX := Min(FMinX, P.X); MaxX := Max(MaxX, P.X);
+      FMinY := Min(FMinY, P.Y); MaxY := Max(MaxY, P.Y);
+    end;
   FSc := Min((W - 2 * FMargin) / Max(MaxX - FMinX, 1E-6), (H - 2 * FMargin) / Max(MaxY - FMinY, 1E-6));
 
-  C.Pen.Color := clBlack; C.Pen.Width := 2; C.Brush.Style := bsClear;
-  C.Polygon(Poly(FOutline));
-  C.Pen.Width := 1;
-  C.Brush.Style := bsSolid; C.Brush.Color := $00D0D0D0;
-  for I := 0 to High(FHoles) do
-    if Length(FHoles[I]) >= 3 then C.Polygon(Poly(FHoles[I]));
+  for Z := 0 to High(FZones) do
+  begin
+    C.Pen.Color := clBlack; C.Pen.Width := 2; C.Brush.Style := bsClear;
+    C.Polygon(Poly(FZones[Z].Outline));
+    C.Pen.Width := 1;
+    C.Brush.Style := bsSolid; C.Brush.Color := $00D0D0D0;
+    for I := 0 to High(FZones[Z].Holes) do
+      if Length(FZones[Z].Holes[I]) >= 3 then C.Polygon(Poly(FZones[Z].Holes[I]));
+  end;
   for I := 0 to High(FExtra) do
   begin
-    if lbObstacles.ItemIndex = Length(FHoles) + I then C.Pen.Color := clBlue else C.Pen.Color := clBlack;
+    if lbObstacles.ItemIndex = FirstExtraRow + I then C.Pen.Color := clBlue else C.Pen.Color := clBlack;
     C.Brush.Color := $00E0D0C0;
     C.Polygon(Poly(FExtra[I]));
   end;
   C.Brush.Style := bsClear;
-  if FLayout.Ok then
-    for I := 0 to High(FLayout.Loops) do
-    begin
-      { the zone's color, thick and thin by turns - what the build draws }
-      C.Pen.Color := ZoneInk(FLayout.Loops[I].Manifold);
-      Nth := 0;
-      for J := 0 to I - 1 do
-        if FLayout.Loops[J].Manifold = FLayout.Loops[I].Manifold then Inc(Nth);
-      C.Pen.Width := Round(LoopWeight(Nth));
-      for J := 1 to High(FLayout.Loops[I].Pts) do
+  for Z := 0 to High(FLayouts) do
+    if FLayouts[Z].Ok then
+      for I := 0 to High(FLayouts[Z].Loops) do
       begin
-        P := RadiantTo2(FFrame, FLayout.Loops[I].Pts[J - 1]);
-        C.MoveTo(PlanX(P.X), PlanY(P.Y));
-        P := RadiantTo2(FFrame, FLayout.Loops[I].Pts[J]);
-        C.LineTo(PlanX(P.X), PlanY(P.Y));
+        { the zone's color, thick and thin by turns - what the build draws }
+        C.Pen.Color := ZoneInk(Z);
+        C.Pen.Width := Round(LoopWeight(I));
+        for J := 1 to High(FLayouts[Z].Loops[I].Pts) do
+        begin
+          P := RadiantTo2(FFrame, FLayouts[Z].Loops[I].Pts[J - 1]);
+          C.MoveTo(PlanX(P.X), PlanY(P.Y));
+          P := RadiantTo2(FFrame, FLayouts[Z].Loops[I].Pts[J]);
+          C.LineTo(PlanX(P.X), PlanY(P.Y));
+        end;
       end;
-    end;
   { the manifolds last, on top: a filled square with its number }
   C.Pen.Width := 1;
   for I := 0 to High(FManifolds) do
   begin
     P := RadiantTo2(FFrame, FManifolds[I]);
-    if lbManifolds.ItemIndex = I then C.Brush.Color := clYellow else C.Brush.Color := clWhite;
+      if lbManifolds.ItemIndex = I then C.Brush.Color := clYellow else C.Brush.Color := clWhite;
     C.Brush.Style := bsSolid;
     C.Pen.Color := ZoneInk(I);
     C.Pen.Width := 2;
@@ -703,9 +735,11 @@ begin
   end;
   C.Brush.Style := bsClear;
   C.Font.Color := clGray;
-  if not FLayout.Ok then C.TextOut(8, H - 20, 'not yet a valid layout - drag a manifold, or press Suggest')
-  else C.TextOut(8, H - 20, Format('%d loop(s) on %d manifold(s), %d row(s) - drag a manifold or an obstacle',
-    [Length(FLayout.Loops), Length(FLayout.Manifolds), FLayout.RowCount]));
+  Loops := 0;
+  for Z := 0 to High(FLayouts) do if FLayouts[Z].Ok then Loops := Loops + Length(FLayouts[Z].Loops);
+  if not AnyLayout then C.TextOut(8, H - 20, 'not yet a valid layout - drag a manifold, or press Suggest')
+  else C.TextOut(8, H - 20, Format('%d zone(s), %d loop(s) - drag a manifold or an obstacle',
+    [Length(FZones), Loops]));
 end;
 
 procedure TRadiantForm.btnReportClick(Sender: TObject);
@@ -717,22 +751,25 @@ begin
     'problem shown: ' + lblProblem.Caption);
 end;
 
-class function TRadiantForm.Ask(Units: TUnitSystem; const Outline: TP3Array;
-  const Holes: array of TP3Array; out Spec: TRadiantSpec): Boolean;
+class function TRadiantForm.Ask(Units: TUnitSystem; const Zones: TRadiantZones;
+  out Spec: TRadiantSpec; out Manifolds: TP3Array; out Ports: TIntArray): Boolean;
 var
   F: TRadiantForm;
-  I: Integer;
 begin
   Result := False;
   F := TRadiantForm.Create(nil);
   try
     F.FUnits := Units;
-    F.FOutline := Outline;
-    SetLength(F.FHoles, Length(Holes));
-    for I := 0 to High(Holes) do F.FHoles[I] := Holes[I];
+    F.FZones := Zones;
+    { the frame the plan is drawn in is the first zone's - the biggest is
+      usually first, and any one will do as long as it is the same one
+      every time }
+    if Length(Zones) > 0 then F.FOutline := Zones[0].Outline;
     F.ListObstacles;
     if F.ShowModal <> mrOK then Exit;
-    Result := F.Read(Spec) and (RadiantProblem(Outline, Spec) = '');
+    Result := F.Read(Spec) and (Length(F.FManifolds) = Length(Zones));
+    Manifolds := Copy(F.FManifolds);
+    Ports := Copy(F.FPorts);
   finally
     F.Free;
   end;

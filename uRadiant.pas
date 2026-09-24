@@ -136,8 +136,24 @@ type
     Why: string;
   end;
 
+  { a zone: one face of the drawing and the holes cut into it, each with
+    a manifold of its own }
+  TRadiantZone = record
+    Outline: TP3Array;
+    Holes: TRadiantHoles;
+  end;
+  TRadiantZones = array of TRadiantZone;
+
 function DefaultRadiantSpec: TRadiantSpec;
 function Point2(X, Y: Double): T2;
+
+{ Where a zone's manifold goes when nothing better is known: at the
+  zone's corner nearest Toward - the middle of all the zones, so the
+  manifolds of a building end up near each other and the boiler - a
+  foot in along both edges; and how many loops it takes, with one to
+  spare. }
+procedure RadiantSuggestZoneManifold(const Zone: TRadiantZone; const Toward: TP3;
+  const Spec: TRadiantSpec; out At: TP3; out Ports: Integer);
 
 const
   { a color for each manifold - its zone - and every loop of it in that
@@ -185,7 +201,8 @@ function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3
   lines in the tube's ink, a box and a note for the manifold, and a note
   on every hole that was routed around.  Returns the first entity added. }
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
-  const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string): Integer;
+  const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string;
+  Zone: Integer = 0): Integer;
 
 { The material list and the numbers behind it, as words - the ticket. }
 function RadiantTicketText(const Spec: TRadiantSpec; const R: TRadiantResult;
@@ -648,6 +665,33 @@ begin
   end;
 end;
 
+procedure RadiantSuggestZoneManifold(const Zone: TRadiantZone; const Toward: TP3;
+  const Spec: TRadiantSpec; out At: TP3; out Ports: Integer);
+var
+  I, N, Best, Prev, Next: Integer;
+  D, BestD, LN, LP: Double;
+  ToNext, ToPrev: TP3;
+begin
+  At := P3(0, 0, 0); Ports := MANIFOLD_PORTS_MIN;
+  N := Length(Zone.Outline);
+  if N < 3 then Exit;
+  Best := 0; BestD := 1E300;
+  for I := 0 to N - 1 do
+  begin
+    D := Dist(Zone.Outline[I], Toward);
+    if D < BestD then begin BestD := D; Best := I; end;
+  end;
+  Next := (Best + 1) mod N; Prev := (Best - 1 + N) mod N;
+  ToNext := P3(Zone.Outline[Next].X - Zone.Outline[Best].X, Zone.Outline[Next].Y - Zone.Outline[Best].Y, 0);
+  ToPrev := P3(Zone.Outline[Prev].X - Zone.Outline[Best].X, Zone.Outline[Prev].Y - Zone.Outline[Best].Y, 0);
+  LN := Max(1E-9, Sqrt(Sqr(ToNext.X) + Sqr(ToNext.Y)));
+  LP := Max(1E-9, Sqrt(Sqr(ToPrev.X) + Sqr(ToPrev.Y)));
+  At := P3(Zone.Outline[Best].X + ToNext.X / LN + ToPrev.X / LP,
+           Zone.Outline[Best].Y + ToNext.Y / LN + ToPrev.Y / LP, Zone.Outline[Best].Z);
+  Ports := Min(MANIFOLD_PORTS_MAX, Max(MANIFOLD_PORTS_MIN,
+    RadiantLoopsNeeded(Zone.Outline, Zone.Holes, Spec) + 1));
+end;
+
 function RadiantProblem(const Outline: TP3Array; const Spec: TRadiantSpec): string;
 var
   MaxFt: Double;
@@ -691,8 +735,9 @@ var
   MaxFt: Double;
   Cum: array of Double;
   Loops: TRadiantLoopArray;
-  Start, Cur, NBreaks, Tries, LeadCrossings, JoinCross, Pass, NLanes, Back, Fwd, Best, LastCount, Over, SegA, SegB: Integer;
+  Start, Cur, NBreaks, Tries, LeadCrossings, JoinCross, Pass, NLanes, Back, Fwd, Best, LastCount, Over, SegA, SegB, SaveB, Step, Dir: Integer;
   LongJoin: Boolean;
+  Spread0: Double;
   Target, RunningStart, Longest, Umin, Umax, CorrLo, CorrHi, CorrV0, CorrV1, HLo, HHi, HV0, HV1: Double;
   IsRect, HasLanes, Moved, BackOk, FwdOk: Boolean;
   Join: T2Array;
@@ -703,6 +748,45 @@ var
   function World(const P: T2): TP3;
   begin
     Result := RadiantFrom2(F, P.X, P.Y);
+  end;
+
+  { does this straight run cross the outline - leave the floor? }
+  function LeavesFloor(const A, B: T2): Boolean;
+  var
+    I, N: Integer;
+    D1, D2, D3, D4: Double;
+    P1, P2: T2;
+    function Orient(const P, Q, R: T2): Double;
+    begin
+      Result := (Q.X - P.X) * (R.Y - P.Y) - (Q.Y - P.Y) * (R.X - P.X);
+    end;
+  var
+    Mid: T2;
+    Inside: Boolean;
+    J: Integer;
+  begin
+    Result := False;
+    N := Length(Poly2);
+    for I := 0 to N - 1 do
+    begin
+      P1 := Poly2[I]; P2 := Poly2[(I + 1) mod N];
+      D1 := Orient(P1, P2, A); D2 := Orient(P1, P2, B);
+      D3 := Orient(A, B, P1); D4 := Orient(A, B, P2);
+      if ((D1 > 1E-9) <> (D2 > 1E-9)) and ((D1 < -1E-9) <> (D2 < -1E-9)) and
+         ((D3 > 1E-9) <> (D4 > 1E-9)) and ((D3 < -1E-9) <> (D4 < -1E-9)) then Exit(True);
+    end;
+    { or lying wholly outside - up an L's notch, parallel to its edge }
+    Mid := Point2((A.X + B.X) / 2, (A.Y + B.Y) / 2);
+    Inside := False;
+    J := N - 1;
+    for I := 0 to N - 1 do
+    begin
+      if ((Poly2[I].Y > Mid.Y) <> (Poly2[J].Y > Mid.Y)) and
+         (Mid.X < (Poly2[J].X - Poly2[I].X) * (Mid.Y - Poly2[I].Y) / (Poly2[J].Y - Poly2[I].Y) + Poly2[I].X) then
+        Inside := not Inside;
+      J := I;
+    end;
+    Result := not Inside;
   end;
 
   { does this straight run pass through any obstacle? }
@@ -927,11 +1011,33 @@ var
     for P := 1 to High(L.Pts) do L.LenFt := L.LenFt + Dist(L.Pts[P - 1], L.Pts[P]);
     L.Manifold := MI;
     for P := 1 to High(LeadIn) do
-      if ThroughAHole(LeadIn[P - 1], LeadIn[P]) then Inc(LeadCrossings);
+      if ThroughAHole(LeadIn[P - 1], LeadIn[P]) or LeavesFloor(LeadIn[P - 1], LeadIn[P]) then Inc(LeadCrossings);
     for P := 1 to High(LeadOut) do
-      if ThroughAHole(LeadOut[P - 1], LeadOut[P]) then Inc(LeadCrossings);
+      if ThroughAHole(LeadOut[P - 1], LeadOut[P]) or LeavesFloor(LeadOut[P - 1], LeadOut[P]) then Inc(LeadCrossings);
     SetLength(Loops, Length(Loops) + 1);
     Loops[High(Loops)] := L;
+  end;
+
+  { the longest less the shortest of the loops laid from index From on }
+  function Spread(From: Integer): Double;
+  var
+    I: Integer;
+    Lo, Hi: Double;
+  begin
+    Lo := 1E300; Hi := 0;
+    for I := From to High(Loops) do
+    begin
+      Lo := Min(Lo, Loops[I].LenFt); Hi := Max(Hi, Loops[I].LenFt);
+    end;
+    if Hi = 0 then Result := 0 else Result := Hi - Lo;
+  end;
+
+  function Longest_(From: Integer): Double;
+  var
+    I: Integer;
+  begin
+    Result := 0;
+    for I := From to High(Loops) do Result := Max(Result, Loops[I].LenFt);
   end;
 
   { the lanes for every lead of every piece, and the loops laid with
@@ -1071,7 +1177,11 @@ begin
       of the field, so the runs stop at its edge and the leads have it to
       themselves.  On a floor that is not a rectangle there is no
       corridor and the leads are straight. }
-    HasLanes := IsRect;
+    { the corridor wants nothing of the outline's shape: it is a strip
+      at the manifold's U cut out of whatever rows are there.  A lane leg
+      that would leave the floor - a notch in an L-shaped room - is
+      counted with the crossings. }
+    HasLanes := True;
     CorrLo := M2[MI].X; CorrHi := M2[MI].X; CorrV0 := M2[MI].Y; CorrV1 := M2[MI].Y;
     K := Length(Loops);
     LastCount := 0;
@@ -1220,6 +1330,49 @@ begin
           LayLoops;
         end;
 
+      { Balance: the loops on one manifold want to be close to even.
+        Each boundary between two neighboring pieces of the same stretch
+        is tried a span or two either way, and the move is kept when it
+        narrows the spread between the longest and shortest of this
+        manifold's loops without putting any over; round and round until
+        nothing improves.  Not every order - that is the traveling
+        salesman again - but a walk downhill from an even cut, which is
+        what a fitter does with a tape and a pencil. }
+      if (Pass > 1) or not HasLanes then
+        for Tries := 1 to 40 do
+        begin
+          Moved := False;
+          for I := 0 to High(Pieces) - 1 do
+          begin
+            if Pieces[I + 1].A <> Pieces[I].B + 1 then Continue;   { a forced cut - a long join - stays }
+            for Step := 1 to 2 do
+              for Dir := -1 to 1 do
+              begin
+                if Dir = 0 then Continue;
+                Cur := Pieces[I].B + Dir * 2 * Step;
+                if (Cur <= Pieces[I].A) or (Cur >= Pieces[I + 1].B) then Continue;
+                if not (AtCorridor(PtsBuf[Cur]) or Reachable(PtsBuf[Cur])) then Continue;
+                Spread0 := Spread(K);
+                SaveB := Pieces[I].B;
+                Pieces[I].B := Cur; Pieces[I + 1].A := Cur + 1;
+                SetLength(Loops, K);
+                LayLoops;
+                if (Spread(K) < Spread0 - 1E-6) and (Longest_(K) <= MaxFt) then
+                begin
+                  Moved := True;
+                  Break;
+                end
+                else
+                begin
+                  Pieces[I].B := SaveB; Pieces[I + 1].A := SaveB + 1;
+                  SetLength(Loops, K);
+                  LayLoops;
+                end;
+              end;
+          end;
+          if not Moved then Break;
+        end;
+
       { the count settled - the corridor was sized for this many - so
         this pass's loops stand; otherwise size it again and go round }
       if not HasLanes or ((Pass > 1) and (Length(Pieces) <= LastCount)) then Break;
@@ -1290,6 +1443,7 @@ begin
     if Length(Spans) = 0 then Continue;
     Inc(Result.CellCount, NCells);
     Inc(Result.Crossings, JoinCross);
+    Inc(Result.Crossings, LeadCrossings);
 
     Result.Manifolds[MI].LoopCount := Length(Loops) - K;
     Result.Manifolds[MI].Ft := 0;
@@ -1303,7 +1457,8 @@ begin
 end;
 
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
-  const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string): Integer;
+  const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string;
+  Zone: Integer = 0): Integer;
 var
   I, J, G, M: Integer;
   Mid: TP3;
@@ -1331,12 +1486,12 @@ begin
   begin
     M := R.Loops[I].Manifold;
     for J := 1 to High(R.Loops[I].Pts) do
-      D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], ZoneInk(M), LoopWeight(Nth[M]), True);
+      D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], ZoneInk(Zone + M), LoopWeight(Nth[M]), True);
     if Length(R.Loops[I].Pts) > 3 then
     begin
       Mid := R.Loops[I].Pts[Length(R.Loops[I].Pts) div 2];
-      D.AddNote(Mid, Mid, Format('M%d L%d  %s', [M + 1, Nth[M] + 1,
-        FormatLen(R.Loops[I].LenFt, usImperial)]), ZoneInk(M));
+      D.AddNote(Mid, Mid, Format('Z%d L%d  %s', [Zone + M + 1, Nth[M] + 1,
+        FormatLen(R.Loops[I].LenFt, usImperial)]), ZoneInk(Zone + M));
     end;
     Inc(Nth[M]);
   end;
@@ -1361,16 +1516,17 @@ begin
       C[1] := P3(Mid.X + F.U.X * W - F.V.X * H, Mid.Y + F.U.Y * W - F.V.Y * H, Mid.Z + F.U.Z * W - F.V.Z * H);
       C[2] := P3(Mid.X + F.U.X * W + F.V.X * H, Mid.Y + F.U.Y * W + F.V.Y * H, Mid.Z + F.U.Z * W + F.V.Z * H);
       C[3] := P3(Mid.X - F.U.X * W + F.V.X * H, Mid.Y - F.U.Y * W + F.V.Y * H, Mid.Z - F.U.Z * W + F.V.Z * H);
-      for I := 0 to 3 do D.AddLine(C[I], C[(I + 1) mod 4], ZoneInk(M), 2, False);
-      D.AddNote(C[2], Mid, Format('manifold %d - %d of %d loops', [M + 1,
-        R.Manifolds[M].LoopCount, R.Manifolds[M].Ports]), ZoneInk(M));
+      for I := 0 to 3 do D.AddLine(C[I], C[(I + 1) mod 4], ZoneInk(Zone + M), 2, False);
+      D.AddNote(C[2], Mid, Format('zone %d manifold - %d of %d loops', [Zone + M + 1,
+        R.Manifolds[M].LoopCount, R.Manifolds[M].Ports]), ZoneInk(Zone + M));
     end;
   { an obstacle added in the wizard goes onto the floor as a ring of plain
     lines; lying flat inside the face, the program's own rule makes it a
     hole, the same as one drawn by hand }
-  for I := 0 to High(Spec.Extra) do
-    for J := 0 to High(Spec.Extra[I]) do
-      D.AddLine(Spec.Extra[I][J], Spec.Extra[I][(J + 1) mod Length(Spec.Extra[I])], Ink, 1, False);
+  if Zone = 0 then
+    for I := 0 to High(Spec.Extra) do
+      for J := 0 to High(Spec.Extra[I]) do
+        D.AddLine(Spec.Extra[I][J], Spec.Extra[I][(J + 1) mod Length(Spec.Extra[I])], Ink, 1, False);
   D.Stamp := 0;
 end;
 

@@ -10,6 +10,31 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Radiant heat layout: zones.**  Draw the floor as one big rectangle,
+  draw lines across it where the heat zones divide, take out the faces
+  that are no-go - then select everything and run the wizard.  Every
+  face is a zone with a manifold of its own, in its own color; every
+  removed face is a no-go; the manifolds are suggested at each zone's
+  corner nearest the middle of the building, so they end up near each
+  other and the boiler, and each can be dragged.  The ticket is per zone
+  with a total at the end.  One manifold a zone - to have two, draw a
+  line across the zone.
+
+### Fixed
+
+- **Leads on any floor, not only a rectangle.**  On a floor that was not
+  four-cornered every lead was a straight line back to the manifold
+  over the top of every run.  The corridor of lanes now works on any
+  outline, and a lead that leaves the floor or clips an obstacle is
+  counted on the ticket.
+- **Loops on a manifold are balanced**: the cuts between them are walked
+  back and forth until the longest and shortest are as close as the
+  rows allow, never over the maximum.
+
 ## v2026.09.23.3
 
 ### Fixed

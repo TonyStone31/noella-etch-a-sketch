@@ -332,7 +332,7 @@ object RadiantForm: TRadiantForm
     Height = 26
     Top = 444
     Width = 128
-    Caption = 'Suggest'
+    Caption = 'Suggest manifolds'
     OnClick = btnSuggestClick
     TabOrder = 13
   end
@@ -344,6 +344,7 @@ object RadiantForm: TRadiantForm
     Caption = 'Add'
     OnClick = btnAddManifoldClick
     TabOrder = 14
+    Visible = False
   end
   object btnRemoveManifold: TButton
     Left = 398
@@ -353,6 +354,7 @@ object RadiantForm: TRadiantForm
     Caption = 'Remove'
     OnClick = btnRemoveManifoldClick
     TabOrder = 15
+    Visible = False
   end
   object lblPorts: TLabel
     Left = 332
