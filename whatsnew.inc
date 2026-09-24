@@ -13,6 +13,22 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **The report window really closes now, from inside a wizard, on' + LineEnding +
+    '  Linux too.**  The earlier fix reached Windows and not GTK; the window' + LineEnding +
+    '  is modal once the report has gone, so its Close is its own.' + LineEnding +
+    '- **Radiant heat layout:** the leads near a manifold run bundled at' + LineEnding +
+    '  half the spacing, as they do in a slab, so the strip they take is half' + LineEnding +
+    '  what it was and a zone no longer looks to empty out as its manifold' + LineEnding +
+    '  is dragged; the loops are one line weight - thick and thin by turns' + LineEnding +
+    '  read as doubled tube; the manifold''s size is a result now, on the' + LineEnding +
+    '  ticket and in the list, not a box to fill in; and the Manifolds line' + LineEnding +
+    '  is a gauge - how close the loops of each zone are to one another,' + LineEnding +
+    '  green when they are - to watch while a manifold is dragged.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.23.4' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

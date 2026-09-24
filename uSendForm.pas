@@ -377,18 +377,18 @@ begin
   Repaint_;
   Page.ScrollTo(0);
   btnClose.Enabled := True;
-  btnClose.SetFocus;
-  Application.ProcessMessages;
-  while Visible and not Application.Terminated do
-  begin
-    Application.ProcessMessages;
-    Sleep(10);
-  end;
+  { From here the window is modal: its close is then the modal loop's
+    own, which works inside another modal loop - a wizard's - where a
+    plain shown window's does not.  Naming a popup parent was enough on
+    Windows and not on GTK (23 September, still stuck at 21:59), so the
+    loop that waited on Visible is gone. }
+  Hide;
+  ShowModal;
 end;
 
 procedure TSendForm.btnCloseClick(Sender: TObject);
 begin
-  Close;
+  ModalResult := mrOK;
 end;
 
 end.

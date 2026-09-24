@@ -313,7 +313,7 @@ object RadiantForm: TRadiantForm
     Left = 110
     Height = 18
     Top = 420
-    Width = 360
+    Width = 560
     Caption = ''
     Font.Color = clGrayText
     ParentFont = False

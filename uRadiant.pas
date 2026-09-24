@@ -561,7 +561,8 @@ end;
 
 function LoopWeight(LoopOfManifold: Integer): Single;
 begin
-  if LoopOfManifold mod 2 = 0 then Result := 3 else Result := 1.5;
+  { one weight: thick and thin by turns read as doubled tube on the plan }
+  Result := 2;
 end;
 
 function DefaultRadiantSpec: TRadiantSpec;
@@ -1070,7 +1071,7 @@ var
         - and never past the corridor's far edge }
       NSide := 0;
       for K2 := 0 to NLanes - 1 do if LeadLane[K2].Left = LeadLane[I].Left then Inc(NSide);
-      Pitch := Spec.Spacing;
+      Pitch := Spec.Spacing / 2;
       if NSide * Pitch > (CorrHi - CorrLo) then Pitch := (CorrHi - CorrLo) / NSide;
       if LeadLane[I].Left then LeadLane[I].X := CorrLo + Pitch / 2 + J * Pitch
       else LeadLane[I].X := CorrHi - Pitch / 2 - J * Pitch;
@@ -1388,9 +1389,12 @@ begin
         end;
         CorrV0 := CorrV0 - Spec.Spacing / 2;
         CorrV1 := CorrV1 + Spec.Spacing / 2;
+        { the leads run bundled at half the spacing, as they do near a
+          real manifold - twelve loops is twenty-four lanes, and at the
+          full spacing that strip was wider than the zone it served }
         NLanes := 2 * Length(Pieces);
-        CorrLo := M2[MI].X - NLanes * Spec.Spacing / 2;
-        CorrHi := M2[MI].X + NLanes * Spec.Spacing / 2;
+        CorrLo := M2[MI].X - NLanes * Spec.Spacing / 4;
+        CorrHi := M2[MI].X + NLanes * Spec.Spacing / 4;
         { kept inside the floor: a manifold by a side wall has all its
           lanes on the one side of it }
         if CorrLo < Umin + Inset then
@@ -1446,6 +1450,8 @@ begin
     Inc(Result.Crossings, LeadCrossings);
 
     Result.Manifolds[MI].LoopCount := Length(Loops) - K;
+    { the manifold's size is what the zone came to want }
+    Result.Manifolds[MI].Ports := Max(MANIFOLD_PORTS_MIN, Length(Loops) - K);
     Result.Manifolds[MI].Ft := 0;
     for I := K to High(Loops) do Result.Manifolds[MI].Ft := Result.Manifolds[MI].Ft + Loops[I].LenFt;
   end;
@@ -1558,10 +1564,9 @@ begin
     ' ft maximum each, on ' + IntToStr(Length(R.Manifolds)) + ' manifold(s)' + LineEnding;
   for M := 0 to High(R.Manifolds) do
   begin
-    Result := Result + Format('manifold %d: %d-loop, %d laid%s', [M + 1, R.Manifolds[M].Ports,
-      R.Manifolds[M].LoopCount,
-      IfThen(R.Manifolds[M].LoopCount > R.Manifolds[M].Ports, '  - SHORT ' +
-        IntToStr(R.Manifolds[M].LoopCount - R.Manifolds[M].Ports) + ' port(s): a bigger manifold, or another',
+    Result := Result + Format('manifold %d: a %d-loop%s', [M + 1, R.Manifolds[M].Ports,
+      IfThen(R.Manifolds[M].Ports > MANIFOLD_PORTS_MAX, ' - MORE THAN ' + IntToStr(MANIFOLD_PORTS_MAX) +
+        ': split the zone with a line',
       IfThen(R.Manifolds[M].LoopCount = 0, '  - nothing near it', ''))]) + LineEnding;
     for I := 0 to High(R.Loops) do
       if R.Loops[I].Manifold = M then

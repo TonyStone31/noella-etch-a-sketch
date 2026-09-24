@@ -285,8 +285,8 @@ var
   Spec, ZS: TRadiantSpec;
   Z, Need, NeedAll: Integer;
   Ticket: string;
-  TotalFt, OrderFt: Double;
-  Loops: Integer;
+  TotalFt, OrderFt, Worst, Lo, Hi: Double;
+  Loops, I: Integer;
 begin
   if not Read(Spec) then
   begin
@@ -334,6 +334,24 @@ begin
       Loops := Loops + Length(FLayouts[Z].Loops);
     end;
   end;
+  { the gauge: how close the loops of each zone are to one another,
+    green when they are, red when they are not - the thing to watch
+    while a manifold is dragged }
+  Worst := 0;
+  for Z := 0 to High(FLayouts) do
+    if FLayouts[Z].Ok and (Length(FLayouts[Z].Loops) > 1) then
+    begin
+      Lo := 1E300; Hi := 0;
+      for I := 0 to High(FLayouts[Z].Loops) do
+      begin
+        Lo := Min(Lo, FLayouts[Z].Loops[I].LenFt); Hi := Max(Hi, FLayouts[Z].Loops[I].LenFt);
+      end;
+      if Hi > 0 then Worst := Max(Worst, (Hi - Lo) / Hi);
+    end;
+  lblNeed.Caption := lblNeed.Caption + Format('  -  loops within %d%% of each other', [Round(Worst * 100)]);
+  if Worst <= 0.15 then lblNeed.Font.Color := $00308030
+  else if Worst <= 0.35 then lblNeed.Font.Color := $000080C0
+  else lblNeed.Font.Color := $002020C0;
   if Length(FZones) > 1 then
     Ticket := Ticket + '===== ALL ZONES =====' + LineEnding +
       Format('%d zones, %d loops, %d manifolds', [Length(FZones), Loops, Length(FZones)]) + LineEnding +
@@ -367,10 +385,9 @@ begin
     for I := 0 to High(FManifolds) do
     begin
       P := RadiantTo2(FFrame, FManifolds[I]);
-      S := Format('zone %d:  %d-loop  at %s along, %s in', [I + 1, FPorts[I],
-        FormatLen(P.X, FUnits), FormatLen(P.Y, FUnits)]);
+      S := Format('zone %d:  at %s along, %s in', [I + 1, FormatLen(P.X, FUnits), FormatLen(P.Y, FUnits)]);
       if (I <= High(FLayouts)) and FLayouts[I].Ok and (Length(FLayouts[I].Manifolds) > 0) then
-        S := S + Format('  -  %d laid', [FLayouts[I].Manifolds[0].LoopCount]);
+        S := S + Format('  -  a %d-loop manifold', [FLayouts[I].Manifolds[0].Ports]);
       lbManifolds.Items.Add(S);
     end;
     if FSelectLast then Sel := lbManifolds.Items.Count - 1;
@@ -379,7 +396,8 @@ begin
     else if lbManifolds.Items.Count > 0 then lbManifolds.ItemIndex := 0;
     if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FPorts)) then
       cbPorts.ItemIndex := FPorts[lbManifolds.ItemIndex] - MANIFOLD_PORTS_MIN;
-    cbPorts.Enabled := lbManifolds.ItemIndex >= 0;
+    cbPorts.Enabled := False;
+    cbPorts.Visible := False; lblPorts.Visible := False;
   finally
     FListing := False;
   end;

@@ -10,6 +10,22 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **The report window really closes now, from inside a wizard, on
+  Linux too.**  The earlier fix reached Windows and not GTK; the window
+  is modal once the report has gone, so its Close is its own.
+- **Radiant heat layout:** the leads near a manifold run bundled at
+  half the spacing, as they do in a slab, so the strip they take is half
+  what it was and a zone no longer looks to empty out as its manifold
+  is dragged; the loops are one line weight - thick and thin by turns
+  read as doubled tube; the manifold's size is a result now, on the
+  ticket and in the list, not a box to fill in; and the Manifolds line
+  is a gauge - how close the loops of each zone are to one another,
+  green when they are - to watch while a manifold is dragged.
+
 ## v2026.09.23.4
 
 ### New
