@@ -327,6 +327,22 @@ pixel by pixel.  What the pictures said:
   many-manifolds split, cut at the halfway line with no inset; zones as
   faces each keep their own six inches off their own edge.
 
+  **Two things from the last look, 23 September, late:** the thick and
+  thin loops read as *doubled tube* on the plan - a thick line looks
+  like two - so the alternation by weight is the wrong signal on a
+  drawing whose whole point is to show where tube is; tell loops apart
+  by a short dash on every other one, or by the labels alone.  And
+  **the manifold's size is a result, not an input**: the zone's area,
+  the spacing and the maximum loop give the loop count, and that is
+  the manifold - the ticket should say "zone 2 wants an 8-loop" and the
+  size box go, or stay only as an override for a manifold already in
+  hand.  The virtual grid the owner keeps coming back to is what the
+  rows already are, in one direction; what it adds is the other
+  direction - a run that can go *up* a column of points past an
+  obstacle, which is the lead that today clips a column - and the
+  retry: fill greedily, farthest first, and when it is ugly shuffle
+  and go again.  That is the next real piece of work, not polish.
+
   **The owner's cheat sheet** - `docs/radiant-cheat-sheet.md`, 23
   September - is the rule book the tool should come to apply on its own
   from the face it is handed: 12" on center as the slab default rather
