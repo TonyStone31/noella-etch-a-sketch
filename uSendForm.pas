@@ -137,6 +137,17 @@ begin
   Page.Color := clWhite;
   Page.Font.Color := clBlack;
   Page.TextFormat := itfHTML;
+  { This window is shown, not shown modal, and Finish waits in a loop for
+    it to be closed.  Opened from inside a wizard - a report sent from the
+    radiant layout's own button, 23 September - the wizard is modal, and
+    on Windows a plain window shown while a modal one is up is disabled
+    with everything else: Close and the X did nothing, the loop never
+    ended, and the program looked hung.  A window that names the active
+    form as its popup parent is that form's own and stays enabled, which
+    is what the source window does to live beside the sheet. }
+  PopupMode := pmExplicit;
+  if Screen.ActiveForm <> nil then PopupParent := Screen.ActiveForm
+  else if AOwner is TCustomForm then PopupParent := TCustomForm(AOwner);
   Repaint_;
   Show;
   Application.ProcessMessages;
@@ -368,7 +379,7 @@ begin
   btnClose.Enabled := True;
   btnClose.SetFocus;
   Application.ProcessMessages;
-  while Visible do
+  while Visible and not Application.Terminated do
   begin
     Application.ProcessMessages;
     Sleep(10);

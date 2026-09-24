@@ -304,71 +304,143 @@ object RadiantForm: TRadiantForm
     Left = 24
     Height = 18
     Top = 420
-    Width = 200
-    Caption = 'Manifold'
+    Width = 80
+    Caption = 'Manifolds'
     Font.Style = [fsBold]
     ParentFont = False
   end
-  object lblCorner: TLabel
-    Left = 24
+  object lblNeed: TLabel
+    Left = 110
     Height = 18
-    Top = 452
-    Width = 60
-    Caption = 'At corner'
+    Top = 420
+    Width = 360
+    Caption = ''
+    Font.Color = clGrayText
+    ParentFont = False
   end
-  object cbCorner: TComboBox
-    Left = 100
-    Height = 28
-    Top = 446
-    Width = 220
+  object lbManifolds: TListBox
+    Left = 24
+    Height = 74
+    Top = 444
+    Width = 300
     ItemHeight = 0
-    OnChange = AnyChange
-    Style = csDropDownList
+    OnClick = lbManifoldsClick
     TabOrder = 12
   end
-  object lblInAlong: TLabel
-    Left = 24
-    Height = 18
-    Top = 488
-    Width = 110
-    Caption = 'In, along one edge'
-  end
-  object edInAlong: TEdit
-    Left = 170
-    Height = 28
-    Top = 482
-    Width = 70
+  object btnSuggest: TButton
+    Left = 332
+    Height = 26
+    Top = 444
+    Width = 128
+    Caption = 'Suggest'
+    OnClick = btnSuggestClick
     TabOrder = 13
-    Text = '6'
-    OnChange = AnyChange
   end
-  object lblInAcross: TLabel
+  object btnAddManifold: TButton
+    Left = 332
+    Height = 26
+    Top = 472
+    Width = 62
+    Caption = 'Add'
+    OnClick = btnAddManifoldClick
+    TabOrder = 14
+  end
+  object btnRemoveManifold: TButton
+    Left = 398
+    Height = 26
+    Top = 472
+    Width = 62
+    Caption = 'Remove'
+    OnClick = btnRemoveManifoldClick
+    TabOrder = 15
+  end
+  object lblPorts: TLabel
+    Left = 332
+    Height = 18
+    Top = 504
+    Width = 30
+    Caption = 'size'
+  end
+  object cbPorts: TComboBox
+    Left = 364
+    Height = 26
+    Top = 500
+    Width = 96
+    ItemHeight = 0
+    OnChange = cbPortsChange
+    Style = csDropDownList
+    TabOrder = 16
+  end
+  object lblObsHead: TLabel
     Left = 24
     Height = 18
-    Top = 524
-    Width = 110
-    Caption = 'In, along the other'
+    Top = 528
+    Width = 300
+    Caption = 'Obstacles - a column, a shaft, a chase'
+    Font.Style = [fsBold]
+    ParentFont = False
   end
-  object edInAcross: TEdit
-    Left = 170
-    Height = 28
-    Top = 518
-    Width = 70
-    TabOrder = 14
-    Text = '6'
-    OnChange = AnyChange
+  object lbObstacles: TListBox
+    Left = 24
+    Height = 56
+    Top = 550
+    Width = 300
+    ItemHeight = 0
+    OnClick = lbObstaclesClick
+    TabOrder = 17
+  end
+  object edObsW: TEdit
+    Left = 332
+    Height = 26
+    Top = 550
+    Width = 50
+    TabOrder = 18
+    Text = '4'''
+  end
+  object lblObsX: TLabel
+    Left = 386
+    Height = 18
+    Top = 554
+    Width = 10
+    Caption = 'x'
+  end
+  object edObsH: TEdit
+    Left = 400
+    Height = 26
+    Top = 550
+    Width = 50
+    TabOrder = 19
+    Text = '4'''
+  end
+  object btnAddObstacle: TButton
+    Left = 332
+    Height = 26
+    Top = 580
+    Width = 62
+    Caption = 'Add'
+    OnClick = btnAddObstacleClick
+    TabOrder = 20
+  end
+  object btnRemoveObstacle: TButton
+    Left = 398
+    Height = 26
+    Top = 580
+    Width = 62
+    Caption = 'Remove'
+    OnClick = btnRemoveObstacleClick
+    TabOrder = 22
   end
   object lblTag: TLabel
     Left = 24
     Height = 18
-    Top = 560
+    Top = 620
     Width = 30
     Caption = 'Tag'
   end
   object edTag: TEdit
     Left = 100
     Height = 28
-    Top = 554
+    Top = 614
     Width = 340
     TabOrder = 15
     OnChange = AnyChange
@@ -376,7 +448,7 @@ object RadiantForm: TRadiantForm
   object lblTagHint: TLabel
     Left = 24
     Height = 18
-    Top = 588
+    Top = 646
     Width = 400
     Caption = 'the name on the ticket - Zone 1, barn east bay'
     Font.Color = clGray
@@ -385,7 +457,7 @@ object RadiantForm: TRadiantForm
   object lblProblem: TLabel
     Left = 24
     Height = 36
-    Top = 616
+    Top = 668
     Width = 440
     AutoSize = False
     WordWrap = True
@@ -440,6 +512,9 @@ object RadiantForm: TRadiantForm
         Top = 0
         Width = 468
         Align = alClient
+        OnMouseDown = pbPlanMouseDown
+        OnMouseMove = pbPlanMouseMove
+        OnMouseUp = pbPlanMouseUp
         OnPaint = pbPlanPaint
       end
     end

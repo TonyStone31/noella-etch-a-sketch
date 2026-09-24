@@ -97,9 +97,20 @@ const
     printed spec; the ticket says so. }
   TIE_SPACING_IN = 15.0;
 
-  { one manifold port, or fitting-adapter allowance, per loop plus the two
-    for the feed and return mains - a placeholder count, not a substitute
-    for the fitter's own parts list. }
+  { A manifold is sold by how many loops it takes: two through twelve is
+    the range every maker offers (MrPEX, Uponor, SharkBite, PEXworx all
+    stop at twelve), so a floor that wants more loops than that wants
+    more manifolds.  A loop covers about its maximum length times the
+    spacing, less the turns and the two leads to the manifold - which
+    can be forty feet each on a big floor - and LOOP_AREA_FACTOR is the
+    share of the maximum that is left to cover floor with.  Measured
+    against the layouts this program makes, 0.7 lands within one loop
+    of what is laid; 0.85 guessed four where six were needed.  That is
+    how many a floor wants before anything is placed, and a suggested
+    manifold has a port to spare over it. }
+  MANIFOLD_PORTS_MIN = 2;
+  MANIFOLD_PORTS_MAX = 12;
+  LOOP_AREA_FACTOR = 0.7;
 
 function TubeOf(S: TTubeSize): TTubeFacts;
 

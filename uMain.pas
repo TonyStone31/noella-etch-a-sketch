@@ -9956,31 +9956,48 @@ end;
 procedure TMainForm.BuildRadiantWizard;
 var
   Outline: TP3Array;
-  Holes: array of TP3Array;
-  I, First: Integer;
+  Holes: TRadiantHoles;
+  I, First, Face, NFaces: Integer;
   Spec: TRadiantSpec;
   R: TRadiantResult;
-  M: TP3;
 begin
-  if (Length(FSel) <> 1) or (FD.Doc[FSel[0]].Kind <> ekFace) then
+  { the floor is the one face in the selection - on its own, or with its
+    own lines round it after Ctrl+A or a drag; two faces is a question }
+  Face := -1; NFaces := 0;
+  for I := 0 to High(FSel) do
+    if (FSel[I] >= 0) and (FSel[I] < FD.Doc.Live) and (FD.Doc[FSel[I]].Kind = ekFace) then
+    begin
+      Face := FSel[I];
+      Inc(NFaces);
+    end;
+  if NFaces <> 1 then
   begin
-    FCmdMsg := 'Select the floor - one face, a rectangle or any shape - and run this again.';
+    if NFaces = 0 then
+      FCmdMsg := 'Select the floor first - one face, a rectangle or any shape - then Radiant heat layout.'
+    else
+      FCmdMsg := Format('%d faces are selected - select just the floor, one face, and run this again.', [NFaces]);
     pbCmd.Invalidate;
+    { the shop menu is a deliberate click: a refusal that only goes to the
+      bar reads as a button that does nothing }
+    ShowMessage(FCmdMsg);
     Exit;
   end;
-  Outline := FD.Doc[FSel[0]].Poly;
-  SetLength(Holes, Length(FD.Doc[FSel[0]].Holes));
-  for I := 0 to High(Holes) do Holes[I] := FD.Doc[FSel[0]].Holes[I];
+  Outline := FD.Doc[Face].Poly;
+  SetLength(Holes, Length(FD.Doc[Face].Holes));
+  for I := 0 to High(Holes) do Holes[I] := FD.Doc[Face].Holes[I];
   if not TRadiantForm.Ask(FD.Units, Outline, Holes, Spec) then Exit;
-  { the corner and the two offsets are the dialog's; the point itself is
-    worked out fresh here rather than carried across, since it is cheap
-    and this keeps the dialog from having to export a second function }
-  M := RadiantManifoldPoint(Outline, Spec);
-  R := ComputeRadiantLayout(Outline, Holes, M, Spec);
+  { the obstacles added in the wizard count with the face's own holes }
+  for I := 0 to High(Spec.Extra) do
+  begin
+    SetLength(Holes, Length(Holes) + 1);
+    Holes[High(Holes)] := Spec.Extra[I];
+  end;
+  R := ComputeRadiantLayout(Outline, Holes, Spec);
   if not R.Ok then
   begin
     FCmdMsg := 'The layout did not build - ' + R.Why;
     pbCmd.Invalidate;
+    ShowMessage(FCmdMsg);
     Exit;
   end;
   PushUndo;
@@ -9988,13 +10005,14 @@ begin
     the drawing, and should not look like one }
   First := BuildRadiant(FD.Doc, Outline, Holes, R, Spec, RGBToColor(200, 48, 32),
     IfThen(Spec.Tag <> '', Spec.Tag, 'Radiant'));
+  RebuildFlatFaces;
   SeedRegions;
   RenderPro;
   RecomposeAll;
   SelectNone;
   for I := First to FD.Doc.Live - 1 do SelectAdd(I);
-  FCmdMsg := Format('Radiant layout built: %d loop(s), %s.',
-    [Length(R.Loops), FormatLen(R.TotalFt, FD.Units)]);
+  FCmdMsg := Format('Radiant layout built: %d loop(s) on %d manifold(s), %s.',
+    [Length(R.Loops), Length(R.Manifolds), FormatLen(R.TotalFt, FD.Units)]);
   pbScreen.Invalidate;
   pbCmd.Invalidate;
 end;

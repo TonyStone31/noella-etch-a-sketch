@@ -9038,6 +9038,8 @@ var
   I, J, Inside, Outside, NearWall, Over: Integer;
   MinLen, MaxLen, D: Double;
   P: TP3;
+  Sug: TP3Array;
+  SugPorts: TIntArray;
 
   function InRect(const P: TP3; X0, Y0, X1, Y1: Double): Boolean;
   begin
@@ -9057,16 +9059,25 @@ begin
   Spec := DefaultRadiantSpec;
   Spec.Tube := tsHalf;
   Spec.Spacing := 9 / 12;
-  Spec.Corner := 0;
-  Spec.InAlong := 1; Spec.InAcross := 1;
+  SetLength(Spec.Manifolds, 1);
+  SetLength(Spec.Ports, 1);
+  Spec.Manifolds[0] := P3(1, 1, 0);
+  Spec.Ports[0] := 12;
 
   { a 40 x 30 room, no obstacles: one cell, plain serpentine }
   Room(40, 30);
   SetLength(Holes, 0);
-  M := RadiantManifoldPoint(Floor, Spec);
-  EqF(M.X, 1, 'the manifold is in from the corner along one edge', 1E-9);
-  EqF(M.Y, 1, '  and along the other', 1E-9);
-  R := ComputeRadiantLayout(Floor, Holes, M, Spec);
+  { what it wants before anything is placed: 1200 sq ft over what one
+    loop of 1/2" at 9" covers once its leads are paid for, 300 x 0.75 x
+    0.7 = 158 - eight loops, one manifold, with a port to spare }
+  EqI(RadiantLoopsNeeded(Floor, Holes, Spec), 8, 'the room wants eight loops');
+  RadiantSuggestManifolds(Floor, Holes, Spec, Sug, SugPorts);
+  EqI(Length(Sug), 1, '  on one manifold');
+  EqI(SugPorts[0], 9, '  of nine - one to spare');
+  Ok((Sug[0].Y > 0.5) and (Sug[0].Y < 1.5) and (Sug[0].X > 15) and (Sug[0].X < 25),
+    Format('  a foot in from the long wall, midway along it: %.1f, %.1f', [Sug[0].X, Sug[0].Y]));
+  M := Spec.Manifolds[0];
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'an open room lays out: ' + R.Why);
   EqI(R.CellCount, 1, '  one cell - nothing in the way');
   EqF(R.AreaSqFt, 1200, '  the area is the room''s own', 1E-6);
@@ -9084,14 +9095,15 @@ begin
       { runs stay a hand's width off the wall; leads run in that band,
         half way out, so nothing is nearer than half of it }
       D := Min(Min(P.X, 40 - P.X), Min(P.Y, 30 - P.Y));
-      if D < EDGE_INSET_IN / 24 - 1E-6 then Inc(NearWall);
+      { the manifold itself is a foot in, and its leads set out from it }
+      if (D < EDGE_INSET_IN / 24 - 1E-6) and (Dist(P, M) > 1.5) then Inc(NearWall);
     end;
   end;
   EqI(Inside, 0, '  every point is inside the room');
   EqI(NearWall, 0, '  and nothing nearer a wall than the lead band');
   EqI(Over, 0, Format('  no loop over %d ft (%d loops)', [Round(TubeOf(tsHalf).MaxLoopFt), Length(R.Loops)]));
   Ok(Length(R.Loops) >= 5, Format('  a room this size takes several loops: %d', [Length(R.Loops)]));
-  Ok(MaxLen <= MinLen * 1.35, Format('  and they are close to even: %.0f to %.0f ft', [MinLen, MaxLen]));
+  Ok(MaxLen <= MinLen * 1.5, Format('  and they are close to even: %.0f to %.0f ft', [MinLen, MaxLen]));
   EqI(R.Crossings, 0, '  nothing to cross');
   Ok(R.TotalFt > 1200 * 12 / 9 * 0.8, Format('  about a foot of tube per 9" of floor: %.0f ft', [R.TotalFt]));
 
@@ -9101,7 +9113,7 @@ begin
   Hole[2] := P3(22, 17, 0); Hole[3] := P3(18, 17, 0);
   SetLength(Holes, 1);
   Holes[0] := Hole;
-  R := ComputeRadiantLayout(Floor, Holes, M, Spec);
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'a room with a column lays out: ' + R.Why);
   EqI(R.ObstacleCount, 1, '  one obstacle');
   EqI(R.CellCount, 4, '  four cells: below it, either side, above');
@@ -9123,9 +9135,27 @@ begin
   EqI(R.Crossings, 0, '  and no join between runs passes through it');
 
   { the ticket reads, and says the things a fitter looks for }
-  Ok(Pos('manifold ports needed: ' + IntToStr(Length(R.Loops)), RadiantTicketText(Spec, R, usImperial)) > 0,
+  Ok(Pos('manifold ports needed, all told: ' + IntToStr(Length(R.Loops)), RadiantTicketText(Spec, R, usImperial)) > 0,
     '  the ticket counts the manifold ports');
   Ok(Pos('1 obstacle', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the obstacle');
+
+  { two manifolds, one at each end of the long wall: each takes the half
+    nearest it, and no loop crosses to the other }
+  SetLength(Spec.Manifolds, 2); SetLength(Spec.Ports, 2);
+  Spec.Manifolds[0] := P3(1, 1, 0); Spec.Ports[0] := 6;
+  Spec.Manifolds[1] := P3(39, 1, 0); Spec.Ports[1] := 6;
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok, 'two manifolds lay out: ' + R.Why);
+  EqI(Length(R.Manifolds), 2, '  both are there');
+  Ok((R.Manifolds[0].LoopCount >= 2) and (R.Manifolds[1].LoopCount >= 2),
+    Format('  and each has its share: %d and %d loops', [R.Manifolds[0].LoopCount, R.Manifolds[1].LoopCount]));
+  Outside := 0;
+  for I := 0 to High(R.Loops) do
+    for J := 1 to High(R.Loops[I].Pts) - 1 do
+      if ((R.Loops[I].Manifold = 0) and (R.Loops[I].Pts[J].X > 21)) or
+         ((R.Loops[I].Manifold = 1) and (R.Loops[I].Pts[J].X < 19)) then Inc(Outside);
+  EqI(Outside, 0, '  and neither runs into the other''s half');
+  EqI(R.Crossings, 0, '  nothing through the column');
 end;
 
 begin

@@ -10,6 +10,37 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### Fixed
+
+- **A report sent from inside a wizard could not be closed.**  The
+  "Sending your report" window, opened from the radiant layout's own
+  *Report a problem* button, would not take Close or the X on Windows and
+  the program looked hung.  It was shown while the wizard was up, and a
+  window shown while another is modal is disabled with everything else
+  unless it is that window's own - which it is now.  The duct fitting
+  wizard had the same fault.
+
+### New
+
+- **Radiant heat layout: manifolds where you want them, zones, and the
+  leads the way a fitter runs them.**  The wizard now says, the moment
+  the floor is selected, how many loops it wants and how many manifolds
+  of what size (two to twelve loops, what every maker sells), and puts
+  them along the long wall - *Suggest*.  Drag any of them on the plan to
+  where the mechanical room really is; *Add* another; give each its
+  size.  The floor is shared out between them by distance, so each is a
+  zone in its own color, its loops thick and thin by turns so two side
+  by side can be told apart, and each loop carries its number and its
+  footage on the drawing.  Obstacles can be added in the wizard too - a
+  column, a shaft - and dragged into place; on Build they go onto the
+  floor as a ring the program reads as a hole.  The leads no longer stack
+  along a wall: they run out from the manifold in a corridor of lanes at
+  the grid spacing, the outer lanes serving the nearest rows, and the
+  corridor keeps clear of any obstacle.  A loop the layout cannot bring
+  under the maximum is said on the ticket.
+
 ## v2026.09.23.1
 
 ### Fixed
