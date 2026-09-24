@@ -388,6 +388,22 @@ pixel by pixel.  What the pictures said:
   And the manifold's row: a manifold not against a wall gets rows
   below it too, laid down from it, which is in but not yet looked at.
 
+  **The owner's taste for the header fan, recorded, not acted on - he
+  wants to test the current build first.**  Two different asks: (1)
+  soon - the fan should snap onto the grid closer in than it does now;
+  `MANIFOLD_FAN_IN` (13") is a one-line, low-risk number to shrink once
+  he says so, but changing it now would change what he is about to
+  test, so it stays at 13" until asked.  (2) eventually, a harder rule,
+  not a taste - pipefitters hate an angled run, everything should
+  ideally break in 90-degree bends, and that includes the fan itself,
+  which is one straight diagonal today.  A couple of feet right at the
+  header is where the heat-grid spacing may be broken (tube closer
+  together than the 9" confinement) to make that possible, same as it
+  already is; what changes is the fan's *shape* there, diagonal to
+  stepped, which is a real change to `LayPlan`'s fan segment, not a
+  constant - not started, and not to be started without him asking for
+  it by name.
+
   **v2026.09.24.5, 04:00 - the owner's barn, asked for by name: 100 x 120,
   a cross split into four 50x60 zones, a triangular wing off the east
   wall, a 20-ft circle in one zone, a triangle in another, a rectangle
