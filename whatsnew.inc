@@ -13,6 +13,17 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### Changed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout: the manifold box is gone, and the fan is a' + LineEnding +
+    '  foot.**  The manifold hangs on the wall above the slab; the fan of' + LineEnding +
+    '  tube out of its ports says where it is, and that fan now opens out' + LineEnding +
+    '  onto the grid lanes within about thirteen inches of the wall - the' + LineEnding +
+    '  only tube anywhere closer together than the spacing.  A label marks' + LineEnding +
+    '  the manifold when labels are asked for.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

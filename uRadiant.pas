@@ -1206,9 +1206,9 @@ var
     PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
     { the fan: the ports are two inches apart and the lanes a spacing,
       so the tube opens out from the one to the other over this height -
-      half the width it has to make up, so the outermost runs at about
-      one in two; a hand's width at least }
-    FanH := Max(Inset, NLGuess * (Spec.Spacing - PortPitch));
+      no more than the foot or so the owner allows tube to be closer
+      than the spacing at the manifold, a hand's width at least }
+    FanH := Max(Inset, Min(MANIFOLD_FAN_IN * Spec.Inch, NLGuess * (Spec.Spacing - PortPitch)));
     SetLength(RowV, 0);
     C := 0;
     repeat
@@ -1476,8 +1476,6 @@ var
   I, J, G, M: Integer;
   Mid: TP3;
   F: TRadiantFrame;
-  W, H: Double;
-  C: array[0..3] of TP3;
   Nth: TIntArray;
 begin
   Result := D.Live;
@@ -1517,24 +1515,16 @@ begin
           Mid.Z + Holes[I][J].Z / Length(Holes[I]));
       if Spec.Labels then D.AddNote(P3(Mid.X, Mid.Y, Mid.Z), Mid, 'no tube - obstacle', Ink);
     end;
-  { each manifold: a small box on the floor where it sits, square to the
-    outline's own frame, hard-edged so it reads as a thing and not a run }
+  { the manifold itself is not drawn: it hangs on the wall above the
+    slab, and the fan of tube out of the ports says where.  A label
+    only when asked. }
   F := RadiantFrameOf(Outline);
   for M := 0 to High(R.Manifolds) do
-    if (Spec.ManifoldW > 0) and (Spec.ManifoldH > 0) then
+    if Spec.Labels then
     begin
-      { wide enough for its ports, two a loop at the port pitch each side }
-      W := Max(Spec.ManifoldW, (2 * R.Manifolds[M].LoopCount + 2) * MANIFOLD_PORT_PITCH_IN * Spec.Inch) / 2;
-      H := Spec.ManifoldH / 2;
       Mid := R.Manifolds[M].At;
-      C[0] := P3(Mid.X - F.U.X * W - F.V.X * H, Mid.Y - F.U.Y * W - F.V.Y * H, Mid.Z - F.U.Z * W - F.V.Z * H);
-      C[1] := P3(Mid.X + F.U.X * W - F.V.X * H, Mid.Y + F.U.Y * W - F.V.Y * H, Mid.Z + F.U.Z * W - F.V.Z * H);
-      C[2] := P3(Mid.X + F.U.X * W + F.V.X * H, Mid.Y + F.U.Y * W + F.V.Y * H, Mid.Z + F.U.Z * W + F.V.Z * H);
-      C[3] := P3(Mid.X - F.U.X * W + F.V.X * H, Mid.Y - F.U.Y * W + F.V.Y * H, Mid.Z - F.U.Z * W + F.V.Z * H);
-      for I := 0 to 3 do D.AddLine(C[I], C[(I + 1) mod 4], ZoneInk(Zone + M), 2, False);
-      if Spec.Labels then
-        D.AddNote(C[2], Mid, Format('zone %d manifold - %d loops', [Zone + M + 1,
-          R.Manifolds[M].LoopCount]), ZoneInk(Zone + M));
+      D.AddNote(P3(Mid.X + F.V.X * 2, Mid.Y + F.V.Y * 2, Mid.Z + F.V.Z * 2), Mid,
+        Format('zone %d manifold - %d loops', [Zone + M + 1, R.Manifolds[M].LoopCount]), ZoneInk(Zone + M));
     end;
   { an obstacle added in the wizard goes onto the floor as a ring of plain
     lines; lying flat inside the face, the program's own rule makes it a

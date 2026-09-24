@@ -115,6 +115,10 @@ const
     manifold, where every loop's stub takes its own height so the
     connections can be followed by eye }
   MANIFOLD_PORT_PITCH_IN = 2.0;
+  { how far out from the manifold the tube may be closer together than
+    the spacing - the fan from the ports onto the grid.  The owner's
+    number: about a foot. }
+  MANIFOLD_FAN_IN = 13.0;
   LOOP_AREA_FACTOR = 0.7;
   { how far apart in length the loops on one manifold may be before the
     layout is tried again - the owner's rule of thumb: loops within ten
