@@ -242,6 +242,99 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Radiant, 25 September - numbers first, then the owner's odd floor
+  (report 161037: "a weird odd shape that i bet you will struggle").**
+  - **A benchmark corpus**, the idea from a second opinion the owner
+    brought: `tests/run-bench.sh` lays 27 floors - rectangles, L, T,
+    hallway, triangle, round room, columns, a big hole, channels, the
+    barn's zones, the circle bumps and now the odd floor's four zones -
+    and compares each with `tests/radiant-baseline.txt` (coverage, loops,
+    spread, bends, straights, crossings, tube, time); `--save` keeps a new
+    baseline, `ONLY=name` runs one floor.  Every change below was judged
+    by it.
+  - **The even-rows cheat is a fallback now** ("ideally yes i want 12 inch
+    spacing... it should allow cheating the far edges in by 1 inch or so
+    or just enough to get an extra lane... something it would try to do if
+    its strugling").  `RowPlan` evens a side up only when a try asks
+    (`EvenRows`): the last row `EVEN_EDGE_IN` nearer the far wall, then an
+    inch a gap (`EVEN_GAP_SHARE`) off as many far gaps as it takes.  Every
+    try with an odd side, short of the goals or under `EVEN_TRY_BELOW`
+    covered, gets an evened twin; the ranking keeps whichever is better
+    (the cheat costs a point on a tie).  Tried once on the best alone it
+    came too late - the ladder had gone a breakout wider.
+  - **Floor bare past the coverage goal still counts** in the ranking,
+    twice a point of evenness ("the engine seems to favor leaving
+    unheated space rather than cheating in a close run").  And the
+    most-cover rule no longer refuses a try that covers as much as the
+    layout actually kept.  Barn zone B back to 100%.
+  - **Suggest keeps off curved walls**: edges running straight on are one
+    wall; a wall turning less than `SUGGEST_ARC_TURN` into a neighbor
+    about as long is a piece of a curve.  The odd floor's arc zone went
+    from its manifold on the circle (69.6%, the rows at a slant) to the
+    flat left wall: 98.3%.
+  - **Fingers went straight through rows on a floor turned off the
+    square**: `Room` stopped scanning at a room a rounding error under
+    enough, and the caller took it as enough.  Every layout that grew a
+    finger crossed itself and was thrown away.  The odd triangle from
+    its diagonal 67% -> 91%; the round room 87.7% -> 95.5%, loops within
+    7% instead of 28%.
+  - **Speed**: `PlanCrosses` boxes every test first and stops at the
+    first fault (4x a try on the arc zone); a way of turning the rows
+    that trails the other by `TURN_WEAK` at its first try is dropped at
+    that breakout; more ranks stop when they cover less.  The old corpus
+    68 s -> 52 s, same layouts.  Still slow: the arc zone climbs the
+    ladder to twelve feet at half a second a try (18 s); `RowBare` and
+    `RadiantTo2` are the next hot spots.  The owner: "i am not super
+    concerned about speed at this point... quality layouts are more
+    important."
+  - **GUI**: the busy window lists what the search has kept, best first,
+    live - click one to keep it, double-click to stop and keep it; the
+    wizard remembers its settings (`[radiant]` in the config); the
+    ticket gives each manifold's wall space (`RadiantManifoldWallIn`:
+    supply and return side by side at the port pitch, and
+    `MANIFOLD_ENDS_IN` for valves and caps).
+  - `TestRadiantOdd` holds the odd floor's triangle and arc.
+  - **Next, the owner's asks, in his words where they matter:**
+    - *The manifold's allowed place*: "when we place a manifold in a
+      drawing we should probably be able to draw a rectangle of where it
+      is allowed to go so the engine can shift the manifold... it should
+      always prefer being right against walls but a user could still put
+      it out in the middle... a thick long vertical line that shows a
+      measurement of the allowed length".  Shorter than the manifold
+      needs (`RadiantManifoldWallIn`): "you CAN WIDEN THE MAINFOLD
+      PLACEMENT LINE, never modify the drawing" - evenly each side.
+    - *Last-resort tries when struggling* - never the same failed try
+      twice (a seen-set of tries), and: "eliminate some random loops...
+      like 3 or 4 next to each other and then try in opposite orders to
+      fill"; "shift the manifold a random number one way or another";
+      "put a turn in the lanes of the first few tube loops along the
+      walls even if it makes it longer or stop them shorter and see if the
+      next set of loops can fill it"; on one or two loops near the outside
+      walls, "throw an extra few feet when lengthening see if it gets it
+      to the wall end and able to make a turn" - so only a couple of
+      the loops are awkward for the installer.
+    - *Short fingers or a zigzag when struggling* - a circle, a short run
+      up a corridor or narrow path: `FINGER_MIN_SPACINGS` relaxed late.
+    - *An unused lane at an outside wall*, "a one off thing to make a
+      lane full... it should sneak it in".
+    - *Installer friendliness, measured and shown* - thinking first, no
+      code yet: "a layout where each loop could be easily measured with
+      2 reference measurements is great... more than 2 reference
+      measurements... its gonna lose its friendliness"; lots of turns
+      hurt; "cutting too far with a loop into another loops projected
+      areas gets unfriendly like if a loop is almost perfectly square but
+      part of it has to run out 18 feet further then a bunch of other
+      loops have to fill in what that loop missed".  Candidate measures:
+      distinct reference offsets a loop's corners need from the walls,
+      bends, and how much of a loop lies outside its own bounding
+      rectangle's core (or overlaps its neighbors' boxes).
+    - *Get back into a built radiant from the drawing* - Heck needs a
+      way to keep data on a group (the spec, the manifolds and headings,
+      the goals, which solution) so the wizard can reopen it.
+    - The corpus's weak floors: `odd-wedge-bump` 79.6% (its manifold near
+      a corner runs out of loops), `odd-arc-on-circle` 83.7%, big-hole
+      91.1%, four-columns 92.1%.
+
 * **Radiant, 24 September, night - the owner's 120 x 100 barn (report
   222131: "its not bad but we can do better").**  Reproduced exactly in a
   scratch harness that lays his four zones with his own manifolds and

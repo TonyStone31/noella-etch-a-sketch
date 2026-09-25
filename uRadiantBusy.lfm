@@ -1,20 +1,21 @@
 object RadiantBusyForm: TRadiantBusyForm
   Left = 520
-  Height = 170
-  Top = 300
-  Width = 520
+  Height = 430
+  Top = 240
+  Width = 700
   BorderIcons = []
-  BorderStyle = bsDialog
   Caption = 'Searching for a layout'
-  ClientHeight = 170
-  ClientWidth = 520
+  ClientHeight = 430
+  ClientWidth = 700
+  Constraints.MinHeight = 300
+  Constraints.MinWidth = 480
   Position = poOwnerFormCenter
   OnShow = FormShow
   object lblStage: TLabel
     Left = 24
     Height = 26
     Top = 18
-    Width = 472
+    Width = 652
     Anchors = [akTop, akLeft, akRight]
     AutoSize = False
     Caption = 'Searching'
@@ -26,7 +27,7 @@ object RadiantBusyForm: TRadiantBusyForm
     Left = 24
     Height = 36
     Top = 48
-    Width = 472
+    Width = 652
     Anchors = [akTop, akLeft, akRight]
     AutoSize = False
     WordWrap = True
@@ -35,15 +36,38 @@ object RadiantBusyForm: TRadiantBusyForm
     Left = 24
     Height = 22
     Top = 88
-    Width = 472
+    Width = 652
     Anchors = [akTop, akLeft, akRight]
     Max = 100
     TabOrder = 0
   end
+  object lblFound: TLabel
+    Left = 24
+    Height = 36
+    Top = 120
+    Width = 652
+    Anchors = [akTop, akLeft, akRight]
+    AutoSize = False
+    WordWrap = True
+    Caption = 'Found so far, best first - apart is how far the shortest loop falls short of the longest.  Click one to keep it; double-click to stop and keep it.'
+  end
+  object lbFound: TListBox
+    Left = 24
+    Height = 208
+    Top = 160
+    Width = 652
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Font.Name = 'Monospace'
+    ItemHeight = 0
+    OnClick = lbFoundClick
+    OnDblClick = lbFoundDblClick
+    ParentFont = False
+    TabOrder = 3
+  end
   object btnStopAll: TButton
-    Left = 186
+    Left = 366
     Height = 32
-    Top = 124
+    Top = 384
     Width = 100
     Anchors = [akRight, akBottom]
     Caption = 'Stop all'
@@ -53,9 +77,9 @@ object RadiantBusyForm: TRadiantBusyForm
     TabOrder = 2
   end
   object btnStop: TButton
-    Left = 296
+    Left = 476
     Height = 32
-    Top = 124
+    Top = 384
     Width = 200
     Anchors = [akRight, akBottom]
     Cancel = True
@@ -70,6 +94,6 @@ object RadiantBusyForm: TRadiantBusyForm
     Interval = 30
     OnTimer = tmrStartTimer
     Left = 8
-    Top = 124
+    Top = 384
   end
 end

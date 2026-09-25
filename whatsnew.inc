@@ -13,6 +13,35 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **See what the radiant search has found while it works.**  The search' + LineEnding +
+    '  window lists every layout found so far, best first - how much of the' + LineEnding +
+    '  floor it covers, how close the loops come in length, loops, bends and' + LineEnding +
+    '  tube.  Click one to keep it, or double-click to stop and keep it.' + LineEnding +
+    '- **The radiant wizard remembers your settings** - tube, spacing,' + LineEnding +
+    '  maximum loop, waste, goals and labels come back as you left them.' + LineEnding +
+    '- **The ticket gives each manifold''s wall space** - roughly how much' + LineEnding +
+    '  wall it wants for its connections, valves and end caps.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Rows stay at the spacing you asked for.**  Closing up the rows at a' + LineEnding +
+    '  far wall so every row has a partner is now something the search' + LineEnding +
+    '  tries only when a layout falls short of the goals or leaves floor' + LineEnding +
+    '  bare - the last row an inch nearer the wall and an inch off each gap' + LineEnding +
+    '  there, as few gaps as it takes - and keeps only when it is better.' + LineEnding +
+    '  The ticket says when it did.' + LineEnding +
+    '- **Suggest keeps manifolds off curved walls** - a manifold hangs on a' + LineEnding +
+    '  flat wall, so the pieces of an arc or a circle are passed over.' + LineEnding +
+    '- **Rooms laid at an angle, and round ones, are covered far better.**' + LineEnding +
+    '  Where the manifold''s wall ran at a slant, the hairpins that fill bare' + LineEnding +
+    '  floor could run straight through the rows beside them, and every' + LineEnding +
+    '  such layout was thrown away.' + LineEnding +
+    '- **Faster on floors with curved walls.**' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.11' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

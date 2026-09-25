@@ -139,6 +139,9 @@ type
       many zones it is on }
     FBusy: TRadiantBusyForm;
     FBusyIndex, FBusyCount: Integer;
+    { the solutions the search has kept so far, best first, kept up to
+      date by it as it goes - for the busy window's list }
+    FLiveFound: TRadiantResults;
     { what SearchWork is to search: set by Search, which shows the busy
       window and has it run SearchWork }
     FWorkSpec: TRadiantSpec;
@@ -175,6 +178,8 @@ type
     procedure ShowSolution(Z, Idx: Integer);
     procedure ListSolution;
     procedure Summarize;
+    procedure LoadLast;
+    procedure SaveLast;
     procedure ClearZone(Z: Integer);
     procedure ClearAll;
     function ZoneSpec(Z: Integer; const Spec: TRadiantSpec): TRadiantSpec;
@@ -185,6 +190,8 @@ type
     procedure Search(const Which: array of Integer; WantTrace: Boolean = False);
     procedure SearchWork(Sender: TObject);
     procedure SearchProgress(Done, Total: Integer; const Best: TRadiantResult; var Stop: Boolean);
+    { one kept solution as a line of the busy window's list }
+    function FoundLine(const R: TRadiantResult): string;
     function Read(out Spec: TRadiantSpec): Boolean;
     function ZoneHoles(Z: Integer): TRadiantHoles;
     function AnyLayout: Boolean;
@@ -210,7 +217,7 @@ implementation
 {$R *.lfm}
 
 uses
-  uMain;
+  IniFiles, uPaths, uMain;
 
 { A bare number is inches - the trade says 9, not 9" - and a mark makes it
   the drawing's own notation, the same rule the fitting wizard keeps. }
@@ -251,6 +258,68 @@ begin
   FDragObstacle := -1;
   FCoverage := -1; FEvenness := -1;
   FReplayZone := -1;
+  LoadLast;
+end;
+
+{ Every edit, combo and check box on the form, by name, under [radiant] in
+  the settings - the tube, the spacing, the goals as they were last left,
+  so they are not set again every time (the owner, 25 September).  The tag
+  is left out: it names one job. }
+procedure TRadiantForm.SaveLast;
+var
+  Ini: TIniFile;
+  I: Integer;
+  C: TComponent;
+begin
+  try
+    Ini := TIniFile.Create(ConfigFile);
+    try
+      for I := 0 to ComponentCount - 1 do
+      begin
+        C := Components[I];
+        if C = edTag then Continue;
+        if C is TEdit then Ini.WriteString('radiant', C.Name, TEdit(C).Text)
+        else if C is TComboBox then Ini.WriteInteger('radiant', C.Name, TComboBox(C).ItemIndex)
+        else if C is TCheckBox then Ini.WriteBool('radiant', C.Name, TCheckBox(C).Checked);
+      end;
+    finally
+      Ini.Free;
+    end;
+  except
+    { a settings file that will not take it is not a reason to stop }
+  end;
+end;
+
+procedure TRadiantForm.LoadLast;
+var
+  Ini: TIniFile;
+  I: Integer;
+  C: TComponent;
+begin
+  FListing := True;
+  try
+    try
+      Ini := TIniFile.Create(ConfigFile);
+      try
+        if not Ini.SectionExists('radiant') then Exit;
+        for I := 0 to ComponentCount - 1 do
+        begin
+          C := Components[I];
+          if C = edTag then Continue;
+          if not Ini.ValueExists('radiant', C.Name) then Continue;
+          if C is TEdit then TEdit(C).Text := Ini.ReadString('radiant', C.Name, TEdit(C).Text)
+          else if C is TComboBox then
+            TComboBox(C).ItemIndex := EnsureRange(Ini.ReadInteger('radiant', C.Name, 0), 0, TComboBox(C).Items.Count - 1)
+          else if C is TCheckBox then TCheckBox(C).Checked := Ini.ReadBool('radiant', C.Name, TCheckBox(C).Checked);
+        end;
+      finally
+        Ini.Free;
+      end;
+    except
+    end;
+  finally
+    FListing := False;
+  end;
 end;
 
 procedure TRadiantForm.FormShow(Sender: TObject);
@@ -585,6 +654,7 @@ begin
   SetLength(FWorkZones, Length(Which));
   for K := 0 to High(Which) do FWorkZones[K] := Which[K];
   FWorkTrace := WantTrace;
+  SaveLast;
   { the search runs inside the busy window, shown modal over this one -
     see uRadiantBusy for why it cannot be the other way round }
   FBusy := TRadiantBusyForm.CreateBusy(Self);
@@ -601,9 +671,9 @@ end;
 { the zones asked for, one after another, the busy window up the while }
 procedure TRadiantForm.SearchWork(Sender: TObject);
 var
-  K, Z: Integer;
+  K, Z, I: Integer;
   R: TRadiantResult;
-  Found: TRadiantResults;
+  Picked: string;
 begin
   FBusyCount := Length(FWorkZones);
   for K := 0 to High(FWorkZones) do
@@ -615,15 +685,27 @@ begin
     FBusy.Stage(Format('Zone %d%s', [Z + 1, IfThen(FBusyCount > 1,
       Format(' - %d of %d', [K + 1, FBusyCount]), '')]), 'Starting the search...',
       Round(100 * K / FBusyCount));
-    Found := nil;
+    FLiveFound := nil;
     R := ComputeRadiantLayout(FZones[Z].Outline, ZoneHoles(Z), ZoneSpec(Z, FWorkSpec),
-      FWorkTrace, @SearchProgress, @Found);
+      FWorkTrace, @SearchProgress, @FLiveFound);
     SetLength(FSolutions, Length(FZones)); SetLength(FSolIdx, Length(FZones));
-    FSolutions[Z] := Found; FSolIdx[Z] := 0;
+    FSolutions[Z] := FLiveFound; FSolIdx[Z] := 0;
+    FLiveFound := nil;
     { what the search hands back is its best, and the first of the ones it
       kept is the same layout - but the one handed back carries the
       replay's trace, so it stands for the first }
     if Length(FSolutions[Z]) > 0 then FSolutions[Z][0] := R;
+    { one picked from the busy window's list is the one shown - the
+      replay, if asked for, is of the best }
+    Picked := FBusy.Picked;
+    if Picked <> '' then
+      for I := 0 to High(FSolutions[Z]) do
+        if FoundLine(FSolutions[Z][I]) = Picked then
+        begin
+          FSolIdx[Z] := I;
+          if I > 0 then R := FSolutions[Z][I];
+          Break;
+        end;
     { stopped, it hands back the best it had - kept, and the ticket says
       if it fell short of the goals }
     FLayouts[Z] := R;
@@ -651,8 +733,15 @@ procedure TRadiantForm.SearchProgress(Done, Total: Integer; const Best: TRadiant
 var
   Cover, Spread: Double;
   Now_: string;
+  Lines: array of string;
+  I: Integer;
 begin
   if FBusy = nil then Exit;
+  { what it has kept so far, best first, for the owner to pick from -
+    before the stage line, which paints the window }
+  SetLength(Lines, Length(FLiveFound));
+  for I := 0 to High(FLiveFound) do Lines[I] := FoundLine(FLiveFound[I]);
+  FBusy.ShowFound(Lines);
   RadiantMeasure(Best, Cover, Spread);
   if Best.Ok then
     Now_ := Format('best so far: %s%% covered, loops within %s%%, %d loops',
@@ -667,6 +756,16 @@ begin
       Format('Still after the goals - layout %d tried.  %s.  Stop keeps it.', [Done, Now_]),
       Round(100 * Cover));
   Stop := FBusy.Stopping;
+end;
+
+function TRadiantForm.FoundLine(const R: TRadiantResult): string;
+var
+  Cover, Spread: Double;
+begin
+  RadiantMeasure(R, Cover, Spread);
+  Result := Format('%5s%% covered  %4s%% apart  %2d loops  %4d bends  %5s ft%s',
+    [FormatFloat('0.0', Cover * 100), FormatFloat('0.0', Spread * 100), Length(R.Loops), R.Bends,
+     FormatFloat('0', R.TotalFt), IfThen(RadiantMeetsGoals(R, FWorkSpec), '  goals met', '')]);
 end;
 
 procedure TRadiantForm.btnSearchZoneClick(Sender: TObject);
@@ -1382,6 +1481,7 @@ begin
     if Length(Zones) > 0 then F.FOutline := Zones[0].Outline;
     F.ListObstacles;
     if F.ShowModal <> mrOK then Exit;
+    F.SaveLast;
     Result := F.Read(Spec) and (Length(F.FManifolds) = Length(Zones));
     Manifolds := Copy(F.FManifolds);
     Ports := Copy(F.FPorts);

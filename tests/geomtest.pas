@@ -9441,16 +9441,19 @@ var
           end;
         end;
       end;
-    { Half a spacing, not a whole one: since 24 September a side with an
-      odd count of rows gets one more, the last two gaps against the far
-      wall shared between them - half a spacing to a whole one - so every
-      row pairs up (the owner: "on an exterior wall we dont care if we
-      are closer").  Two lanes a spacing apart the whole way out would
-      still fail it: that fault ran 3.6 inches apart. }
+    { Half a spacing, not a whole one, and the hand's width less an inch:
+      a side with an odd count of rows, when the search is struggling, is
+      evened up with one more - its last row an inch closer to the far
+      wall and the gaps before it closed up, down to half a spacing at
+      worst - so every row pairs up (the owner: "on an exterior wall we
+      dont care if we are closer", 24 September; "cheating the far edges
+      in by 1 inch or so", 25 September).  Two lanes a spacing apart the
+      whole way out would still fail it: that fault ran 3.6 inches
+      apart. }
     Ok(Near >= Spec.Spacing / 2 - 1E-6,
       Format('  no two straight runs closer than half a spacing: %.3f', [Near]));
-    Ok(Wall >= 0.5 - 1E-6,
-      Format('  straight runs a hand''s width off walls and obstacles: %.3f', [Wall]));
+    Ok(Wall >= (EDGE_INSET_IN - EVEN_EDGE_IN) * Spec.Inch - 1E-6,
+      Format('  straight runs a hand''s width (less the inch) off walls and obstacles: %.3f', [Wall]));
   end;
 
   procedure CheckGeometry;
@@ -9810,10 +9813,88 @@ begin
   EqI(R.Crossings, 0, '  nothing crosses');
 end;
 
+{ The owner's odd floor, report 20260925-161037: a triangle whose long
+  side is a diagonal, and a big arc with a circle bumped out of it. }
+procedure TestRadiantOdd;
+var
+  Z: TRadiantZone;
+  Spec: TRadiantSpec;
+  R: TRadiantResult;
+  Cover, Spread, D, BestD: Double;
+  I, Ports, Nearest: Integer;
+  F: TRadiantFrame;
+  H: TP3;
+
+  function Poly(const XY: array of Double): TP3Array;
+  var
+    K: Integer;
+  begin
+    SetLength(Result, Length(XY) div 2);
+    for K := 0 to High(Result) do Result[K] := P3(XY[2 * K], XY[2 * K + 1], 0);
+  end;
+
+  function SegD(const P, A, B: TP3): Double;
+  var
+    T, L: Double;
+  begin
+    L := Sqr(B.X - A.X) + Sqr(B.Y - A.Y);
+    if L < 1E-12 then T := 0
+    else T := Max(0, Min(1, ((P.X - A.X) * (B.X - A.X) + (P.Y - A.Y) * (B.Y - A.Y)) / L));
+    Result := Hypot(P.X - A.X - T * (B.X - A.X), P.Y - A.Y - T * (B.Y - A.Y));
+  end;
+
+begin
+  WriteLn('Radiant, the owner''s odd floor');
+  Spec := DefaultRadiantSpec; Spec.Tube := tsThreeQuarter; Spec.Spacing := 1;
+  SetLength(Spec.Manifolds, 1);
+
+  { The triangle, its manifold on the diagonal, facing along it: rows
+    parallel to the diagonal, the frame turned off the square.  Every
+    finger grown there went straight through the rows beside it - a
+    room a rounding error under enough was taken as enough and the rest
+    never looked at - so every layout that grew one crossed itself, and
+    only the one grown without fingers was left: 67% covered. }
+  Z.Outline := Poly([15.943, 55.536, 15.943, 5.536, 105.943, 55.536, 75.943, 55.536]); Z.Holes := nil;
+  Spec.Manifolds[0] := P3(60.46, 31.41, 0);
+  F := RadiantFrameOf(Z.Outline);
+  H := P3(Cos(ArcTan2(50, 90)), Sin(ArcTan2(50, 90)), 0);
+  SetLength(Spec.ManifoldAngles, 1);
+  Spec.ManifoldAngles[0] := RadToDeg(ArcTan2(Dot3(H, F.V), Dot3(H, F.U)));
+  R := ComputeRadiantLayout(Z.Outline, Z.Holes, Spec);
+  RadiantMeasure(R, Cover, Spread);
+  Ok(R.Ok and (R.Crossings = 0), 'the triangle, from its diagonal, lays out with nothing crossing: ' + R.Why);
+  Ok(Cover >= 0.9, Format('  and its fingers heat it: %.1f%% covered', [Cover * 100]));
+  Spec.ManifoldAngles := nil;
+
+  { The arc: Suggest hung the manifold on the circle's side, the tubes
+    fanned off a chord of it at a slant and 30% of the zone lay bare.
+    A cabinet hangs on a flat wall: the arc's pieces are passed over. }
+  Z.Outline := Poly([75.943, 105.536, 75.943, 55.536, 105.943, 55.536, 135.943, 55.536, 135.943, 65.464,
+    142.274, 61.481, 149.641, 60.187, 156.950, 61.774, 163.117, 66.007, 167.226, 72.257, 168.667, 79.597,
+    167.226, 86.936, 163.117, 93.186, 156.950, 97.419, 149.641, 99.006, 142.274, 97.713, 135.943, 93.729,
+    135.943, 105.536, 131.474, 108.478, 126.719, 110.931, 121.732, 112.868, 116.568, 114.267, 111.285, 115.113,
+    105.943, 115.396, 100.600, 115.113, 95.317, 114.267, 90.153, 112.868, 85.166, 110.931, 80.412, 108.478]);
+  RadiantSuggestZoneManifold(Z, P3(90, 60, 0), Spec, Spec.Manifolds[0], Ports);
+  Nearest := -1; BestD := 1E300;
+  for I := 0 to High(Z.Outline) do
+  begin
+    D := SegD(Spec.Manifolds[0], Z.Outline[I], Z.Outline[(I + 1) mod Length(Z.Outline)]);
+    if D < BestD then begin BestD := D; Nearest := I; end;
+  end;
+  { the flat walls: the left, the two along the bottom, and the short
+    ones either side of the circle }
+  Ok(Nearest in [0, 1, 2, 3, 16], Format('the arc: Suggest hangs it on a flat wall, not the circle (%.1f, %.1f, wall %d)',
+    [Spec.Manifolds[0].X, Spec.Manifolds[0].Y, Nearest]));
+
+  { and the ticket says how much wall it wants }
+  Ok(Pos('wall space: about', RadiantTicketText(Spec, R, usImperial)) > 0, 'the ticket gives the manifold''s wall space');
+  EqF(RadiantManifoldWallIn(8), 44, '  eight loops: sixteen connections at 2", and a foot for the ends', 1E-9);
+end;
+
 begin
   if ParamStr(1) = 'radiant' then
   begin
-    TestRadiant; TestRadiantSearch; TestRadiantBuild; TestRadiantBarn2;
+    TestRadiant; TestRadiantSearch; TestRadiantBuild; TestRadiantBarn2; TestRadiantOdd;
     WriteLn(Checks, ' checks, ', Fails, ' failed');
     if Fails <> 0 then Halt(1);
     Halt(0);
@@ -9936,6 +10017,7 @@ begin
   TestRadiantSearch; WriteLn;
   TestRadiantBuild; WriteLn;
   TestRadiantBarn2; WriteLn;
+  TestRadiantOdd; WriteLn;
   TestHeckRoundTrips; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);

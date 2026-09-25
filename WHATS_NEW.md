@@ -10,6 +10,35 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **See what the radiant search has found while it works.**  The search
+  window lists every layout found so far, best first - how much of the
+  floor it covers, how close the loops come in length, loops, bends and
+  tube.  Click one to keep it, or double-click to stop and keep it.
+- **The radiant wizard remembers your settings** - tube, spacing,
+  maximum loop, waste, goals and labels come back as you left them.
+- **The ticket gives each manifold's wall space** - roughly how much
+  wall it wants for its connections, valves and end caps.
+
+### Fixed
+
+- **Rows stay at the spacing you asked for.**  Closing up the rows at a
+  far wall so every row has a partner is now something the search
+  tries only when a layout falls short of the goals or leaves floor
+  bare - the last row an inch nearer the wall and an inch off each gap
+  there, as few gaps as it takes - and keeps only when it is better.
+  The ticket says when it did.
+- **Suggest keeps manifolds off curved walls** - a manifold hangs on a
+  flat wall, so the pieces of an arc or a circle are passed over.
+- **Rooms laid at an angle, and round ones, are covered far better.**
+  Where the manifold's wall ran at a slant, the hairpins that fill bare
+  floor could run straight through the rows beside them, and every
+  such layout was thrown away.
+- **Faster on floors with curved walls.**
+
 ## v2026.09.24.11
 
 ### New

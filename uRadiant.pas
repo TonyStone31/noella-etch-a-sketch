@@ -162,6 +162,12 @@ type
     { floor no loop could take: a lone row with no neighbor to come back
       on, or the far side of an obstacle - said on the ticket }
     UnfilledSqFt: Double;
+    { a side whose rows came out odd at the spacing - one row with no
+      partner, what EvenRows changes (see RowPlan) - and where they were
+      evened up, the closest two rows came, the spacing when they were
+      not }
+    OddRows: Boolean;
+    TightestGap: Double;
     Ok: Boolean;
     Why: string;
     { every lane the search tried to reach this - empty unless asked
@@ -250,8 +256,10 @@ function RadiantProblem(const Outline: TP3Array; const Spec: TRadiantSpec): stri
   WantTrace fills Result.Trace with every lane the search tried, not
   just the ones it kept - off by default, since it costs a search's
   worth of extra geometry, and nothing wants it but a person watching.
-  Progress, when given, is called between restarts; a search it stops
-  comes back not Ok, saying so, rather than half done. }
+  Progress, when given, is called after every layout tried, and a
+  search it stops hands back the best it had.  Found, when given, gets
+  the distinct solutions kept, best first - brought up to date after
+  every layout tried, so Progress can list them as they come. }
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace: Boolean = False;
   Progress: TRadiantProgress = nil; Found: PRadiantResults = nil): TRadiantResult;
@@ -268,6 +276,11 @@ function RadiantMeetsGoals(const R: TRadiantResult; const Spec: TRadiantSpec): B
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
   const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string;
   Zone: Integer = 0): Integer;
+
+{ About how much wall a manifold of this many loops wants, inches: its
+  connections, supply and return side by side a port pitch apart the way
+  the layout lays them, and the ends past them (MANIFOLD_ENDS_IN). }
+function RadiantManifoldWallIn(Ports: Integer): Double;
 
 { The material list and the numbers behind it, as words - the ticket. }
 function RadiantTicketText(const Spec: TRadiantSpec; const R: TRadiantResult;
@@ -615,30 +628,75 @@ end;
 function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget: Double; ExtraRanks: Integer;
   BreakFt: Double; Seed: Cardinal; RowOff: Double = 0; Fingers: Boolean = True;
-  Quick: Boolean = False): TRadiantResult; forward;
+  Quick: Boolean = False; EvenRows: Boolean = False): TRadiantResult; forward;
 
 procedure RadiantSuggestZoneManifold(const Zone: TRadiantZone; const Toward: TP3;
   const Spec: TRadiantSpec; out At: TP3; out Ports: Integer);
+type
+  { A wall: the run of the outline's edges that go straight on - where a
+    line from the next zone meets a wall is no corner of the room - and
+    whether it is one piece of a curve.  A manifold is a flat cabinet
+    that hangs on a flat wall: the owner's odd floor (25 September) had
+    it suggested on a circle's side, the tubes fanned off at a slant
+    from a chord of it and half the zone was left bare - "it should have
+    never suggested putting the manifold in that circle wall".  A piece
+    of a curve is a wall that turns only a little into a neighbor about
+    as long as itself; a straight wall running on into an arc is far
+    longer than the arc's pieces and stays a wall. }
+  TWall = record
+    First, Count: Integer;
+    Len: Double;
+    Curved: Boolean;
+  end;
 var
-  I, N, Best: Integer;
-  BestD, BestL, L, BestCover, Spread: Double;
-  Mid, Q, Here: TP3;
-  Cov, Dst: array of Double;
+  I, J, K, N, Best, Start: Integer;
+  BestD, BestL, BestCover, Spread: Double;
+  Here: TP3;
+  Cov, Dst, EdgeLen: array of Double;
+  Walls: array of TWall;
   Trial: TRadiantSpec;
   R: TRadiantResult;
 
-  { a foot in from the middle of wall I, square to it, on the floor's side }
-  function MidWall(I: Integer): TP3;
+  { the turn at corner I, from edge I-1 into edge I, degrees, 0 to 180 }
+  function TurnAt(I: Integer): Double;
+  var
+    A, B, C: TP3;
+  begin
+    A := Zone.Outline[(I + N - 1) mod N]; B := Zone.Outline[I]; C := Zone.Outline[(I + 1) mod N];
+    Result := Abs(RadToDeg(ArcTan2((B.X - A.X) * (C.Y - B.Y) - (B.Y - A.Y) * (C.X - B.X),
+      (B.X - A.X) * (C.X - B.X) + (B.Y - A.Y) * (C.Y - B.Y))));
+  end;
+
+  { a foot in from the point T of the way along edge I, square to it,
+    on the floor's side }
+  function OffWall(I: Integer; T: Double): TP3;
   var
     A, B, M, Nrm: TP3;
     Len: Double;
   begin
     A := Zone.Outline[I]; B := Zone.Outline[(I + 1) mod N];
-    M := P3((A.X + B.X) / 2, (A.Y + B.Y) / 2, (A.Z + B.Z) / 2);
+    M := P3(A.X + T * (B.X - A.X), A.Y + T * (B.Y - A.Y), A.Z + T * (B.Z - A.Z));
     Len := Max(1E-9, Hypot(B.X - A.X, B.Y - A.Y));
     Nrm := P3(-(B.Y - A.Y) / Len, (B.X - A.X) / Len, 0);
     Result := P3(M.X + Nrm.X, M.Y + Nrm.Y, M.Z);
     if not RadiantInside(Zone.Outline, Result) then Result := P3(M.X - Nrm.X, M.Y - Nrm.Y, M.Z);
+  end;
+
+  { a foot in from the middle of wall W, measured along it }
+  function MidWall(const W: TWall): TP3;
+  var
+    K, E: Integer;
+    Along: Double;
+  begin
+    Along := W.Len / 2;
+    for K := 0 to W.Count - 1 do
+    begin
+      E := (W.First + K) mod N;
+      if (Along <= EdgeLen[E] + 1E-9) or (K = W.Count - 1) then
+        Exit(OffWall(E, Min(1, Along / Max(1E-9, EdgeLen[E]))));
+      Along := Along - EdgeLen[E];
+    end;
+    Result := OffWall(W.First, 0.5);
   end;
 
   { an obstacle inside the breakout round P - the four feet every tube
@@ -665,14 +723,52 @@ var
     end;
   end;
 
+  { two walls about as long as one another }
+  function Alike(A, B: Double): Boolean;
+  begin
+    Result := (A <= SUGGEST_ARC_RATIO * B) and (B <= SUGGEST_ARC_RATIO * A);
+  end;
+
 begin
   At := P3(0, 0, 0); Ports := MANIFOLD_PORTS_MIN;
   N := Length(Zone.Outline);
   if N < 3 then Exit;
-  { the wall whose middle is nearest Toward - the longer of two as near -
-    passing over any wall with an obstacle in the breakout, unless every
-    wall has one }
-  { Every wall's middle tried with one quick layout - no search, the
+  SetLength(EdgeLen, N);
+  for I := 0 to N - 1 do EdgeLen[I] := Dist(Zone.Outline[I], Zone.Outline[(I + 1) mod N]);
+  { the walls, from a real corner round: an edge that goes straight on
+    from the one before joins its wall }
+  Start := 0;
+  for I := 0 to N - 1 do
+    if TurnAt(I) >= 1 then begin Start := I; Break; end;
+  Walls := nil;
+  for K := 0 to N - 1 do
+  begin
+    I := (Start + K) mod N;
+    if EdgeLen[I] < 1E-9 then Continue;
+    if (Length(Walls) = 0) or (TurnAt(I) >= 1) then
+    begin
+      SetLength(Walls, Length(Walls) + 1);
+      Walls[High(Walls)].First := I; Walls[High(Walls)].Count := 0; Walls[High(Walls)].Len := 0;
+    end;
+    Inc(Walls[High(Walls)].Count);
+    Walls[High(Walls)].Len := Walls[High(Walls)].Len + EdgeLen[I];
+  end;
+  if Length(Walls) = 0 then Exit;
+  { a piece of a curve: a gentle turn at either end into a wall about as
+    long - and while any wall is not, only the ones that are not }
+  J := 0;
+  for I := 0 to High(Walls) do
+  begin
+    K := (Walls[I].First + Walls[I].Count) mod N;
+    Walls[I].Curved := (Length(Walls) > 1) and
+      (((TurnAt(Walls[I].First) < SUGGEST_ARC_TURN) and
+        Alike(Walls[I].Len, Walls[(I + Length(Walls) - 1) mod Length(Walls)].Len)) or
+       ((TurnAt(K) < SUGGEST_ARC_TURN) and Alike(Walls[I].Len, Walls[(I + 1) mod Length(Walls)].Len)));
+    if not Walls[I].Curved then Inc(J);
+  end;
+  if J = 0 then
+    for I := 0 to High(Walls) do Walls[I].Curved := False;
+  { Every flat wall's middle tried with one quick layout - no search, the
     breakout at eight feet - and the one that heats most of the floor
     kept: of any within a point of that, the nearest Toward.  An obstacle
     a few feet in front of a manifold blocks most of its lanes whether or
@@ -682,42 +778,39 @@ begin
     the next wall along covered it.  A wall with an obstacle inside the
     breakout is passed over while any other will do. }
   Best := -1; BestCover := -1;
-  SetLength(Cov, N); SetLength(Dst, N);
-  for I := 0 to N - 1 do
+  SetLength(Cov, Length(Walls)); SetLength(Dst, Length(Walls));
+  for I := 0 to High(Walls) do
   begin
     Cov[I] := -1;
-    Q := Zone.Outline[(I + 1) mod N];
-    L := Dist(Zone.Outline[I], Q);
-    if L < 1E-9 then Continue;
-    Here := MidWall(I);
-    Mid := P3((Zone.Outline[I].X + Q.X) / 2, (Zone.Outline[I].Y + Q.Y) / 2, (Zone.Outline[I].Z + Q.Z) / 2);
-    Dst[I] := Dist(Mid, Toward);
+    Here := MidWall(Walls[I]);
+    Dst[I] := Dist(Here, Toward);
+    if Walls[I].Curved then Continue;
     Trial := Spec;
     SetLength(Trial.Manifolds, 1); Trial.Manifolds[0] := Here;
     Trial.ManifoldAngles := nil; Trial.Ports := nil;
-    R := ComputeRadiantOriented(Zone.Outline, Zone.Holes, Trial, False, False, 1, 0, 8, 0, 0, False, True);
+    { rows evened up at the far wall: the most the search can make of the
+      wall, the cheat included, not what the plain grid leaves }
+    R := ComputeRadiantOriented(Zone.Outline, Zone.Holes, Trial, False, False, 1, 0, 8, 0, 0, False, True, True);
     if not R.Ok then Continue;
     RadiantMeasure(R, Cov[I], Spread);
     if Crowded(Here) then Cov[I] := Cov[I] - 0.5;
     BestCover := Max(BestCover, Cov[I]);
   end;
   BestD := 1E300; BestL := 0;
-  for I := 0 to N - 1 do
+  for I := 0 to High(Walls) do
   begin
     if (Cov[I] < 0) or (Cov[I] < BestCover - 0.01) then Continue;
-    L := Dist(Zone.Outline[I], Zone.Outline[(I + 1) mod N]);
-    if (Dst[I] < BestD - 1E-6) or ((Abs(Dst[I] - BestD) <= 1E-6) and (L > BestL)) then
+    if (Dst[I] < BestD - 1E-6) or ((Abs(Dst[I] - BestD) <= 1E-6) and (Walls[I].Len > BestL)) then
     begin
-      BestD := Dst[I]; Best := I; BestL := L;
+      BestD := Dst[I]; Best := I; BestL := Walls[I].Len;
     end;
   end;
-  { nothing laid anywhere - the old rule: the nearest middle }
+  { nothing laid anywhere - the old rule: the nearest flat wall's middle }
   if Best < 0 then
-    for I := 0 to N - 1 do
-      if Dist(Zone.Outline[I], Zone.Outline[(I + 1) mod N]) > 1E-9 then
-        if (Best < 0) or (Dst[I] < Dst[Best]) then Best := I;
+    for I := 0 to High(Walls) do
+      if not Walls[I].Curved and ((Best < 0) or (Dst[I] < Dst[Best])) then Best := I;
   if Best < 0 then Exit;
-  At := MidWall(Best);
+  At := MidWall(Walls[Best]);
   Ports := Min(MANIFOLD_PORTS_MAX, Max(MANIFOLD_PORTS_MIN,
     RadiantLoopsNeeded(Zone.Outline, Zone.Holes, Spec) + 1));
 end;
@@ -828,7 +921,7 @@ end;
 function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget: Double; ExtraRanks: Integer;
   BreakFt: Double; Seed: Cardinal; RowOff: Double = 0; Fingers: Boolean = True;
-  Quick: Boolean = False): TRadiantResult;
+  Quick: Boolean = False; EvenRows: Boolean = False): TRadiantResult;
 var
   { with a seed, every loop its own share of the limit and its lane's
     first guess nudged - the same seed, the same layout, so a winner can
@@ -840,6 +933,10 @@ var
   TargetFt: Double;
   { the floor left bare, on FloorBare's fixed grid }
   FloorUnf: Double;
+  { what RowPlan found: a side's rows odd, and the closest it brought
+    two together evening them up - see OddRows on the result }
+  OddSeen: Boolean;
+  Tightest: Double;
   F: TRadiantFrame;
   SwapAxis: TP3;
   Poly2: T2Array;
@@ -873,7 +970,11 @@ var
     B := High(Poly);
     for A := 0 to High(Poly) do
     begin
-      if SegsMeet(P, P, Poly[A], Poly[B]) then Exit(True);
+      { on the edge counts as in; the box first, since this is asked of
+        every point of every loop tried }
+      if (P.X >= Min(Poly[A].X, Poly[B].X) - 1E-6) and (P.X <= Max(Poly[A].X, Poly[B].X) + 1E-6) and
+         (P.Y >= Min(Poly[A].Y, Poly[B].Y) - 1E-6) and (P.Y <= Max(Poly[A].Y, Poly[B].Y) + 1E-6) and
+         SegsMeet(P, P, Poly[A], Poly[B]) then Exit(True);
       if ((Poly[A].Y > P.Y) <> (Poly[B].Y > P.Y)) and
         (P.X < (Poly[B].X - Poly[A].X) * (P.Y - Poly[A].Y) /
           (Poly[B].Y - Poly[A].Y) + Poly[A].X) then Result := not Result;
@@ -1049,23 +1150,30 @@ var
 
   { The rows of one direction from the manifold, as distances from its
     own row: a spacing apart from a hand's width off it (and the row grid's
-    slide) out to a hand's width off the far wall - and always an even
-    number of them.  A loop takes rows in pairs, out and back, so an odd
-    count leaves the last row with nobody to pair with, a strip bare the
-    length of the far wall (the owner's barn, 24 September).  The owner's
-    answer: "cheat or shift the grid to get one more row at the edges...
-    often times on an exterior wall we dont care if we are closer".  So
-    an odd count gets one row more, and the last two gaps - against the
-    far wall - share what the one spacing too few left over, each half a
-    spacing to a whole one, every gap before them the spacing asked for.
-    The near end keeps its spacing: that is where the manifold's
-    breakout runs its tracks, a port pitch apart, and a first gap closed
-    up brought the second row down among them - on the owner's barn a
-    zone lost half its loops to it. }
+    slide) out to a hand's width off the far wall - and an even number of
+    them when EvenRows is asked for.  A loop takes rows in pairs, out and
+    back, so an odd count leaves the last row with nobody to pair with, a
+    strip bare the length of the far wall (the owner's barn, 24
+    September).  The owner's answer: "cheat or shift the grid to get one
+    more row at the edges... often times on an exterior wall we dont care
+    if we are closer" - and then, 25 September, the grid he asks for
+    first, the cheat only when the search is struggling, and no more of
+    it than it takes: "cheating the far edges in by 1 inch or so or just
+    enough to get an extra lane".  So an odd count gets one row more, found
+    the cheapest way there is: the last row an inch closer to the far
+    wall, then what is still short taken from the gaps at the far wall,
+    an inch a gap on a foot's spacing, over as many gaps as that needs
+    (EVEN_EDGE_IN, EVEN_GAP_SHARE) - a border a little tighter along the
+    outside wall, which is where a floor loses its heat anyway.  Past that, down
+    to half a spacing a gap over every one.  The first gap keeps its
+    spacing: that is where the manifold's breakout runs its tracks, a
+    port pitch apart, and a first gap closed up brought the second row
+    down among them - on the owner's barn a zone lost half its loops to
+    it. }
   function RowPlan(VDir: Integer): TDoubleArray;
   var
-    A, B, L, D, G: Double;
-    N, K: Integer;
+    A, B, L, Short, Cut: Double;
+    N, K, Gaps, Squeezed: Integer;
   begin
     Result := nil;
     A := Inset + RowOff * Spec.Spacing;
@@ -1073,22 +1181,34 @@ var
     L := B - A;
     if L < -1E-9 then Exit;
     N := Trunc(L / Spec.Spacing + 1E-9) + 1;
-    if (N mod 2 = 1) and ((N > 1) or (L >= Spec.Spacing / 2 - 1E-9)) then
+    Squeezed := -1;
+    if N mod 2 = 1 then OddSeen := True;
+    if EvenRows and (N mod 2 = 1) then
     begin
-      D := L - (N - 1) * Spec.Spacing;
-      G := (Spec.Spacing + D) / 2;
-      SetLength(Result, N + 1);
-      for K := 0 to N - 2 do Result[K] := A + K * Spec.Spacing;
-      Result[N] := B;
-      Result[N - 1] := B - G;
-      { a single row stretched to two: at either end of the band }
-      if N = 1 then begin Result[0] := A; Result[1] := B; end;
-    end
-    else
+      { N rows and one more make N gaps: Short is what the band lacks for
+        them all at the spacing, less what the far wall gives up }
+      Short := Max(0, N * Spec.Spacing - L - EVEN_EDGE_IN * Spec.Inch);
+      { the far gaps that give up the rest - never the first, when there
+        is another }
+      Gaps := Max(1, N - 1);
+      Squeezed := 0;
+      if Short > 1E-9 then Squeezed := Min(Gaps, Ceil(Short / (EVEN_GAP_SHARE * Spec.Spacing) - 1E-9));
+      Cut := 0;
+      if Squeezed > 0 then Cut := Short / Squeezed;
+      if Cut > Spec.Spacing / 2 + 1E-9 then Squeezed := -1;
+    end;
+    if Squeezed < 0 then
     begin
       SetLength(Result, N);
       for K := 0 to N - 1 do Result[K] := A + K * Spec.Spacing;
+      Exit;
     end;
+    SetLength(Result, N + 1);
+    Result[0] := A;
+    for K := 1 to N do
+      if K > N - Squeezed then Result[K] := Result[K - 1] + Spec.Spacing - Cut
+      else Result[K] := Result[K - 1] + Spec.Spacing;
+    Tightest := Min(Tightest, Spec.Spacing - Cut);
   end;
 
   { Lay one side of the manifold: the game of snake.  The rows run along
@@ -1626,42 +1746,60 @@ var
     var
       Lt: TRadiantLoop;
       SA: array of T2;
-      I4, J4, A4: Integer;
+
+      { the boxes of P0-P1 and Q0-Q1 apart: they cannot meet }
+      function Apart(const P0, P1, Q0, Q1: T2): Boolean;
+      begin
+        Result := (Max(P0.X, P1.X) < Min(Q0.X, Q1.X) - 1E-6) or (Min(P0.X, P1.X) > Max(Q0.X, Q1.X) + 1E-6) or
+          (Max(P0.Y, P1.Y) < Min(Q0.Y, Q1.Y) - 1E-6) or (Min(P0.Y, P1.Y) > Max(Q0.Y, Q1.Y) + 1E-6);
+      end;
+
+      { The candidate leaves the floor, enters an obstacle, crosses
+        itself or crosses tube already down - said at the first it is
+        found.  Every test boxed first: this is asked of every lane and
+        limit the search tries, and on a floor of many edges - an arc is
+        a dozen - the tests against every edge were most of a search's
+        time (the owner's odd floor, 25 September, 25 seconds a zone). }
+      function Crosses: Boolean;
+      var
+        I4, J4, A4: Integer;
+      begin
+        Result := True;
+        for I4 := 0 to High(SA) do
+        begin
+          if not InsidePoly(Poly2, SA[I4]) then Exit;
+          for A4 := 0 to High(HolePoly) do
+            if InsidePoly(HolePoly[A4], SA[I4]) then Exit;
+        end;
+        for I4 := 1 to High(SA) do
+          for J4 := 0 to High(Poly2) do
+            if not Apart(SA[I4 - 1], SA[I4], Poly2[J4], Poly2[(J4 + 1) mod Length(Poly2)]) and
+               SegsMeet(SA[I4 - 1], SA[I4], Poly2[J4], Poly2[(J4 + 1) mod Length(Poly2)]) then Exit;
+        { A lane test samples rows; test the finished segments as well so
+          a connector cannot jump through a hole between those samples. }
+        for I4 := 1 to High(SA) do
+          for A4 := 0 to High(HolePoly) do
+            for J4 := 0 to High(HolePoly[A4]) do
+              if not Apart(SA[I4 - 1], SA[I4], HolePoly[A4][J4], HolePoly[A4][(J4 + 1) mod Length(HolePoly[A4])]) and
+                 SegsMeet(SA[I4 - 1], SA[I4], HolePoly[A4][J4],
+                   HolePoly[A4][(J4 + 1) mod Length(HolePoly[A4])]) then Exit;
+        { Non-adjacent segments of this candidate must not meet either. }
+        for I4 := 1 to High(SA) do
+          for J4 := I4 + 2 to High(SA) do
+            if not Apart(SA[I4 - 1], SA[I4], SA[J4 - 1], SA[J4]) and
+               SegsMeet(SA[I4 - 1], SA[I4], SA[J4 - 1], SA[J4]) then Exit;
+        for I4 := 1 to High(SA) do
+          if MeetsIndexed(SA[I4 - 1], SA[I4]) then Exit;
+        Result := False;
+      end;
+
+    var
+      I4: Integer;
     begin
-      Result := False;
       LayPlan(Pl, R, Lt);
       SetLength(SA, Length(Lt.Pts));
       for I4 := 0 to High(SA) do SA[I4] := RadiantTo2(F, Lt.Pts[I4]);
-      for I4 := 0 to High(SA) do
-      begin
-        if not InsidePoly(Poly2, SA[I4]) then Result := True;
-        for A4 := 0 to High(HolePoly) do
-          if InsidePoly(HolePoly[A4], SA[I4]) then Result := True;
-      end;
-      for I4 := 1 to High(SA) do
-        for J4 := 0 to High(Poly2) do
-          if SegsMeet(SA[I4 - 1], SA[I4], Poly2[J4],
-            Poly2[(J4 + 1) mod Length(Poly2)]) then Result := True;
-      { A lane test samples rows; test the finished segments as well so
-        a connector cannot jump through a hole between those samples. }
-      for I4 := 1 to High(SA) do
-        for A4 := 0 to High(HolePoly) do
-          for J4 := 0 to High(HolePoly[A4]) do
-            if SegsMeet(SA[I4 - 1], SA[I4], HolePoly[A4][J4],
-              HolePoly[A4][(J4 + 1) mod Length(HolePoly[A4])]) then
-              Result := True;
-      { Non-adjacent segments of this candidate must not meet either. }
-      for I4 := 1 to High(SA) do
-        for J4 := I4 + 2 to High(SA) do
-          if SegsMeet(SA[I4 - 1], SA[I4], SA[J4 - 1], SA[J4]) then
-            Result := True;
-      if not Result or WantTrace then
-        for I4 := 1 to High(SA) do
-          if MeetsIndexed(SA[I4 - 1], SA[I4]) then
-          begin
-            Result := True;
-            Break;
-          end;
+      Result := Crosses;
       if WantTrace and not Compacting then
       begin
         SetLength(CurTrace, Length(CurTrace) + 1);
@@ -2193,7 +2331,14 @@ var
         begin
           if (Lj = Li) and (K - 1 >= SkipLo) and (K - 1 <= SkipHi) then Continue;
           Result := Min(Result, Rise(Q[Lj][K - 1], Q[Lj][K], Ax, Sg, A0, B0, C0, Spec.Spacing) - Spec.Spacing);
-          if Result < Enough then Exit;
+          { short by more than the callers' own tolerance: a room a hair
+            under Enough, stopped at here, was taken as enough by a
+            caller that allows 1E-9 - and every run past it went
+            unchecked.  On a floor turned off the square the rows land
+            a rounding error under whole spacings, and the fingers of
+            the owner's odd floor (25 September) went straight through
+            four rows of tube. }
+          if Result < Enough - 1E-6 then Exit;
         end;
       for K := 0 to High(Poly2) do
         Result := Min(Result, Rise(Poly2[K], Poly2[(K + 1) mod Length(Poly2)], Ax, Sg, A0, B0, C0, Inset) - Inset);
@@ -2445,6 +2590,7 @@ var
 
 begin
   TargetFt := 0; FloorUnf := 0;
+  OddSeen := False; Tightest := Spec.Spacing;
   RandState := Seed;
   for I := 0 to 63 do
     if Seed = 0 then begin RankBudget[I] := 1; RankJit[I] := 0; end
@@ -2556,6 +2702,8 @@ begin
   Result.CellCount := 0;
   { reported on the fixed grid, not the rows' own - see FloorBare }
   Result.UnfilledSqFt := FloorUnf;
+  Result.OddRows := OddSeen;
+  Result.TightestGap := Tightest;
   Result.Bends := RadiantBends(Loops, Result.StraightPct, STRAIGHT_RUN_SPACINGS * Spec.Spacing);
   Result.TotalFt := 0;
   for I := 0 to High(Loops) do Result.TotalFt := Result.TotalFt + Loops[I].LenFt;
@@ -2618,13 +2766,17 @@ type
     { no fingers grown, only turns pushed out - see the try after the
       row offsets }
     NoFingers: Boolean;
+    { every side's rows evened up at the far wall - see RowPlan }
+    EvenRows: Boolean;
   end;
 const
   { a search nobody stops is not left running for ever }
   MAX_TRIES = 20000;
 var
   TurnIndex, TurnLo, TurnHi, BudgetIndex, RankTry, Done, Total, Level: Integer;
-  BestRank, Cover, Spread, BreakFt, MostCover: Double;
+  BestRank, Cover, Spread, BreakFt, MostCover, FirstCover, LastCover: Double;
+  { a way of turning the rows given up on at this breakout }
+  Weak: array[0..1] of Boolean;
   { the solutions kept for the wizard to show - see Offer }
   Kept: TRadiantResults;
   KeptRank: array of Double;
@@ -2660,7 +2812,9 @@ var
     layout at all.  Weighed a point for a point, as they were at first,
     a search left running traded coverage away for evenness one step at
     a time - the owner watched it settle on loops perfectly even over
-    five percent of the floor (24 September).  Then the old cost, then a
+    five percent of the floor (24 September).  Past the coverage goal,
+    what is still bare counts twice a point of evenness.  Then the old
+    cost, then a
     little for every foot of breakout past the owner's four, so of two
     layouts that both meet the goals the closer breakout wins. }
   function RankOf(const R: TRadiantResult; BreakFt: Double): Double;
@@ -2670,7 +2824,15 @@ var
     if not R.Ok or (R.Crossings > 0) then Exit(1E300);
     RadiantMeasure(R, Cv, Sp);
     Short := 0;
-    if Spec.GoalCoverPct > 0 then Short := Short + 10 * Max(0, Spec.GoalCoverPct - Cv * 100)
+    if Spec.GoalCoverPct > 0 then
+      Short := Short + 10 * Max(0, Spec.GoalCoverPct - Cv * 100)
+        { and past the goal the floor still bare counts, twice what a
+          point of evenness does: a layout at the goal with a strip left
+          along a wall is not as good as the one that heats it with the
+          loops a little less even (the owner, 25 September: "the engine
+          seems to favor leaving unheated space rather than cheating in
+          a close run") }
+        + 2 * Min(100 - Cv * 100, 100 - Spec.GoalCoverPct)
     { with no coverage goal, coverage still leads: every point of it
       missing from a whole floor }
     else Short := Short + 10 * (100 - Cv * 100);
@@ -2720,27 +2882,38 @@ var
     whether to go on }
   function Consider(const T: TTry; out R: TRadiantResult): Boolean;
   var
-    Rk, Cv, Sp: Double;
+    Rk, Cv, Sp, Cv2, Sp2: Double;
   begin
     R := ComputeRadiantOriented(Outline, Holes, Spec, False, T.Turn, T.Budget, T.Ranks,
-      T.BreakFt, T.Seed, T.RowOff, not T.NoFingers);
+      T.BreakFt, T.Seed, T.RowOff, not T.NoFingers, False, T.EvenRows);
     R.BreakoutFt := T.BreakFt;
     Rk := RankOf(R, T.BreakFt);
+    { the rows closed up at a wall are a cheat: of two as good, the true
+      grid }
+    if T.EvenRows and (Rk < 1E299) then Rk := Rk + 1;
     { the first answer stands until a better one comes, so a floor with
       no layout still says why }
     if Done = 0 then Best := R;
     { and a layout covering more than two points less than the most any
       layout has covered is not a better one, whatever else it does
       better - against the most seen, not the one kept, so coverage
-      cannot walk down two points at a time }
+      cannot walk down two points at a time.  Unless it covers as much
+      as the one kept: a layout the ranking passed over for its
+      evenness, covering more, is no reason to refuse one that betters
+      the one kept at its own coverage (the barn's zone B, 25 September:
+      its rows slid along were refused for covering less than a layout
+      that was never kept). }
     if R.Ok and (R.Crossings = 0) then
     begin
       RadiantMeasure(R, Cv, Sp);
-      if Cv < MostCover - 0.02 then Rk := 1E300;
+      RadiantMeasure(Best, Cv2, Sp2);
+      if (Cv < MostCover - 0.02) and not (Best.Ok and (Cv >= Cv2 - 1E-9)) then Rk := 1E300;
       MostCover := Max(MostCover, Cv);
     end;
     R.Tries := Done + 1;
     Offer(R, Rk);
+    { kept up to date as it goes, for a watcher to list }
+    if Found <> nil then Found^ := Copy(Kept);
     if Rk < BestRank - 1E-6 then
     begin
       Best := R; BestRank := Rk; BestTry := T;
@@ -2749,6 +2922,32 @@ var
     Stop := False;
     if Assigned(Progress) then Progress(Done, Total, Best, Stop);
     Result := not Stop;
+  end;
+
+  { A try whose rows came out odd somewhere, laid again with them evened
+    up at the far wall (see RowPlan) - the owner's cheat, for a layout
+    struggling: short of the goals, or floor left bare.  A twin, not a
+    last resort for the best alone: tried on the best only, it came too
+    late - the ladder had gone a breakout wider for coverage the cheat
+    would have found closer in (the barn's zone B, 25 September). }
+  procedure Twin(const T: TTry; const R: TRadiantResult);
+  var
+    T2: TTry;
+    R2: TRadiantResult;
+    Cv, Sp: Double;
+  begin
+    { refused for covering too little is no reason not to: evened up, it
+      covers more }
+    if Stop or T.EvenRows or not R.Ok or (R.Crossings > 0) or not R.OddRows then Exit;
+    RadiantMeasure(R, Cv, Sp);
+    if RadiantMeetsGoals(R, Spec) and (Cv >= EVEN_TRY_BELOW) then Exit;
+    { nor one so far short of the best seen that a row more will not
+      bring it near }
+    if Cv < MostCover - EVEN_TWIN_WITHIN then Exit;
+    Inc(Total);
+    T2 := T;
+    T2.EvenRows := True;
+    Consider(T2, R2);
   end;
 
   function Rnd: Double;
@@ -2798,32 +2997,54 @@ begin
     if Stop then Break;
     BreakFt := MANIFOLD_BREAKOUT_FT + 2 * Level;
     Probe := True;
+    Weak[0] := False; Weak[1] := False; FirstCover := 0;
     for TurnIndex := TurnLo to TurnHi do
       for BudgetIndex := 0 to 2 do
       begin
-        if Stop or not Probe then Continue;
+        if Stop or not Probe or Weak[TurnIndex] then Continue;
         T := Default(TTry);
         T.Turn := TurnIndex = 1; T.Budget := 1 - BudgetIndex * 0.25; T.BreakFt := BreakFt;
         if not Consider(T, R) then Break;
-        if (TurnIndex = TurnLo) and (BudgetIndex = 0) and (Level < BREAKOUT_LEVELS - 1) then
+        if BudgetIndex = 0 then
         begin
           RadiantMeasure(R, Cover, Spread);
-          if not R.Ok or (Cover < Max(BREAKOUT_COVER, Spec.GoalCoverPct / 100) - 0.1) then Probe := False;
+          if not R.Ok then Cover := 0;
+          if (TurnIndex = TurnLo) and (Level < BREAKOUT_LEVELS - 1) and
+             (Cover < Max(BREAKOUT_COVER, Spec.GoalCoverPct / 100) - 0.1) then Probe := False;
+          { The rows turned the other way, far behind the first way at
+            its first try: no more of them at this breakout.  On the
+            owner's odd floor (25 September) the turned rows trailed by
+            fifteen to thirty points at every breakout, and their other
+            tries were a third of a search that took 25 seconds. }
+          if TurnIndex = TurnLo then FirstCover := Cover
+          else if Cover < FirstCover - TURN_WEAK then Weak[TurnIndex] := True;
         end;
+        if Probe then Twin(T, R);
       end;
     { A length-based estimate is only a starting point. Shortened circuits
       and detours may need more connections. Restart with additional lane
       ranks rather than silently stopping at that estimated manifold size. }
     if Probe then
       for TurnIndex := TurnLo to TurnHi do
+      begin
+        if Weak[TurnIndex] then Continue;
+        LastCover := -1;
         for RankTry := 1 to 4 do
         begin
           if Stop then Break;
           T := Default(TTry);
           T.Turn := TurnIndex = 1; T.Budget := 1; T.Ranks := RankTry * 2; T.BreakFt := BreakFt;
           if not Consider(T, R) then Break;
+          Twin(T, R);
           if R.Ok and (R.UnfilledSqFt < R.AreaSqFt * 0.03) then Break;
+          { more ranks covering less than fewer did: more will not turn
+            it round }
+          RadiantMeasure(R, Cover, Spread);
+          if not R.Ok then Cover := 0;
+          if Cover < LastCover - 0.02 then Break;
+          LastCover := Cover;
         end;
+      end;
     { Covered from this close in: no wider.  Coverage alone decides it -
       the owner's four feet give way to heat the floor, not to even the
       loops a little more; evenness is sought at the breakout the floor
@@ -2848,6 +3069,7 @@ begin
     begin
       T.RowOff := Level * 0.25;
       if not Consider(T, R) then Break;
+      Twin(T, R);
     end;
   end;
   { And the best laid again without fingers - its turns pushed out, but
@@ -2886,6 +3108,7 @@ begin
       T.BreakFt := MANIFOLD_BREAKOUT_FT + 2 * Trunc(Rnd * BREAKOUT_LEVELS);
       T.RowOff := Trunc(Rnd * 4) * 0.25;
       T.NoFingers := Rnd < 0.25;
+      T.EvenRows := Rnd < 0.5;
       T.Seed := Seed;
       if not Consider(T, R) then Break;
       Met := RadiantMeetsGoals(Best, Spec);
@@ -2899,7 +3122,7 @@ begin
   begin
     Result := ComputeRadiantOriented(Outline, Holes, Spec, True,
       BestTry.Turn, BestTry.Budget, BestTry.Ranks, BestTry.BreakFt, BestTry.Seed, BestTry.RowOff,
-      not BestTry.NoFingers);
+      not BestTry.NoFingers, False, BestTry.EvenRows);
     Result.BreakoutFt := BestTry.BreakFt;
   end;
   Result.Tries := Done;
@@ -3021,6 +3244,11 @@ begin
   D.Stamp := 0;
 end;
 
+function RadiantManifoldWallIn(Ports: Integer): Double;
+begin
+  Result := Ceil(2 * Max(Ports, MANIFOLD_PORTS_MIN) * MANIFOLD_PORT_PITCH_IN + MANIFOLD_ENDS_IN);
+end;
+
 function RadiantTicketText(const Spec: TRadiantSpec; const R: TRadiantResult;
   U: TUnitSystem): string;
 var
@@ -3053,6 +3281,11 @@ begin
       IfThen(R.Manifolds[M].Ports > MANIFOLD_PORTS_MAX, ' - MORE THAN ' + IntToStr(MANIFOLD_PORTS_MAX) +
         ': split the zone with a line',
       IfThen(R.Manifolds[M].LoopCount = 0, '  - nothing near it', ''))]) + LineEnding;
+    { the owner, 25 September: "in the final notes it should tell roughly
+      the wall space required for the manifold" }
+    Result := Result + Format('  wall space: about %s along the wall - supply and return side by side %s" apart, ' +
+      'and %s" for the valves and end caps', [FormatLen(RadiantManifoldWallIn(R.Manifolds[M].Ports) * Spec.Inch, U),
+      FormatFloat('0.#', MANIFOLD_PORT_PITCH_IN), FormatFloat('0', MANIFOLD_ENDS_IN)]) + LineEnding;
     for I := 0 to High(R.Loops) do
       if R.Loops[I].Manifold = M then
         Result := Result + Format('  loop %d: %s%s', [I + 1, FormatLen(R.Loops[I].LenFt, U),
@@ -3063,6 +3296,11 @@ begin
       [FormatFloat('0.#', Spec.Spacing / Spec.Inch), FormatFloat('0', R.BreakoutFt),
        IfThen(R.BreakoutFt > MANIFOLD_BREAKOUT_FT + 1E-6,
          Format(' - wider than %s ft to cover the floor', [FormatFloat('0', MANIFOLD_BREAKOUT_FT)]), '')]) + LineEnding;
+  { the owner's cheat, where it was taken: said, since a fitter chalking
+    the rows out at the spacing would come up a row short }
+  if (Length(R.Loops) > 0) and (R.TightestGap < Spec.Spacing - 1E-6) then
+    Result := Result + Format('rows at the far wall closed up to %s" (from %s") so every row pairs with another',
+      [FormatFloat('0.#', R.TightestGap / Spec.Inch), FormatFloat('0.#', Spec.Spacing / Spec.Inch)]) + LineEnding;
   if R.ShortOfGoals then
   begin
     RadiantMeasure(R, Cover, Spread);

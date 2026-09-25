@@ -29,13 +29,21 @@ type
     btnStop: TButton;
     btnStopAll: TButton;
     lblDetail: TLabel;
+    lblFound: TLabel;
     lblStage: TLabel;
+    lbFound: TListBox;
     pbProgress: TProgressBar;
     tmrStart: TTimer;
     procedure btnStopClick(Sender: TObject);
     procedure btnStopAllClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure lbFoundClick(Sender: TObject);
+    procedure lbFoundDblClick(Sender: TObject);
     procedure tmrStartTimer(Sender: TObject);
+  private
+    { the line picked, by its words - the list is laid again, reordered,
+      every time the search finds another, and the pick follows it }
+    FPicked: string;
   public
     { Stop: the zone being searched keeps the best it has and the next zone
       starts - the search reads it between tries, and the caller clears it
@@ -48,6 +56,14 @@ type
     { ready for the next zone: Stop can be pressed again }
     procedure NextZone;
     procedure Stage(const AStage, ADetail: string; Percent: Integer);
+    { The solutions found so far, best first, one line each - the owner,
+      25 September: "we sort of need a selection list in the progress
+      dialog showing what it has found with the best at the top".  The
+      line picked stays picked while the list changes under it. }
+    procedure ShowFound(const Lines: array of string);
+    { the line picked, '' for none - the caller matches it to what it
+      kept }
+    function Picked: string;
     { pump messages this long, so what was just put up is painted }
     procedure Settle(Milliseconds: QWord);
   end;
@@ -60,6 +76,7 @@ constructor TRadiantBusyForm.CreateBusy(AOwner: TCustomForm);
 begin
   inherited Create(AOwner);
   Stopping := False; StoppingAll := False;
+  FPicked := '';
   PopupMode := pmExplicit;
   PopupParent := AOwner;
 end;
@@ -107,6 +124,46 @@ procedure TRadiantBusyForm.NextZone;
 begin
   Stopping := StoppingAll;
   btnStop.Enabled := not StoppingAll;
+  FPicked := '';
+  lbFound.Items.Clear;
+end;
+
+procedure TRadiantBusyForm.ShowFound(const Lines: array of string);
+var
+  I: Integer;
+  Same: Boolean;
+begin
+  Same := lbFound.Items.Count = Length(Lines);
+  if Same then
+    for I := 0 to High(Lines) do
+      if lbFound.Items[I] <> Lines[I] then begin Same := False; Break; end;
+  if Same then Exit;
+  lbFound.Items.BeginUpdate;
+  try
+    lbFound.Items.Clear;
+    for I := 0 to High(Lines) do lbFound.Items.Add(Lines[I]);
+    lbFound.ItemIndex := lbFound.Items.IndexOf(FPicked);
+  finally
+    lbFound.Items.EndUpdate;
+  end;
+end;
+
+function TRadiantBusyForm.Picked: string;
+begin
+  Result := FPicked;
+end;
+
+procedure TRadiantBusyForm.lbFoundClick(Sender: TObject);
+begin
+  if lbFound.ItemIndex >= 0 then FPicked := lbFound.Items[lbFound.ItemIndex]
+  else FPicked := '';
+end;
+
+{ this one, and no more searching this zone }
+procedure TRadiantBusyForm.lbFoundDblClick(Sender: TObject);
+begin
+  lbFoundClick(Sender);
+  if FPicked <> '' then btnStopClick(Sender);
 end;
 
 procedure TRadiantBusyForm.btnStopAllClick(Sender: TObject);

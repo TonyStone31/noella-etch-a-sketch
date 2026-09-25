@@ -70,6 +70,20 @@ const
     never under a sill plate or a column's base }
   EDGE_INSET_IN = 6.0;
 
+  { The cheat that evens a side's rows up at its far wall, when the
+    search is struggling (see RowPlan): the last row this much closer to
+    the wall than the inset, then each far gap closed up by this share of
+    the spacing, an inch a gap on a foot's spacing, over as many gaps as
+    it takes.  The owner's own figure, 25 September: "cheating the far
+    edges in by 1 inch or so". }
+  EVEN_EDGE_IN = 1.0;
+  EVEN_GAP_SHARE = 1 / 12;
+  { and the search tries it on a layout that meets its goals as well,
+    while this much of the floor or less is covered }
+  EVEN_TRY_BELOW = 0.99;
+  { and not on a try covering this much less than the best seen }
+  EVEN_TWIN_WITHIN = 0.1;
+
   { a coil's worth of waste - cutting losses and the length left on the
     spool that is never quite enough for one more run.  A trade rule, not
     a measured one. }
@@ -101,6 +115,10 @@ const
     manifold, where every loop's stub takes its own height so the
     connections can be followed by eye }
   MANIFOLD_PORT_PITCH_IN = 2.0;
+  { and what a manifold wants along its wall past its connections - the
+    ball valves, the end caps and the air vent.  A rule of thumb, for
+    the ticket's "wall space" line, not a maker's figure. }
+  MANIFOLD_ENDS_IN = 12.0;
   { how far out from the manifold the tube may be closer together than
     the spacing - the fan from the ports onto the grid.  The owner's
     number: about a foot. }
@@ -150,6 +168,17 @@ const
   STRAIGHT_RUN_SPACINGS = 6;
   { how many solutions a search keeps for the wizard to step through }
   SOLUTIONS_KEPT = 24;
+
+  { the rows turned the other way given up on at a breakout when their
+    first try covers this much less than the first way's did }
+  TURN_WEAK = 0.05;
+
+  { where the manifold is suggested: a wall that turns less than this,
+    degrees, into a neighbor no more than this many times longer or
+    shorter than itself is one piece of a curve, and no place to hang a
+    flat cabinet - see RadiantSuggestZoneManifold }
+  SUGGEST_ARC_TURN = 40.0;
+  SUGGEST_ARC_RATIO = 2.0;
   { and how many feet of row left bare weigh the same as one more loop,
     when the layout is scored - a guess, the owner's to move }
   UNFILLED_LOOP_FT = 20.0;
