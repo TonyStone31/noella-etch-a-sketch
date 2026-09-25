@@ -316,6 +316,15 @@ pixel by pixel.  What the pictures said:
     instead, moved along their own line while one would land on another.
     A north of the drawing's own (a building not square to the page) when
     something needs it.
+  - **A report from inside a dialog grabbed the whole screen** (report
+    173001, from the wizard: both of the owner's monitors, his cameras and
+    other programs).  `WindowShot` now cuts the screen grab to our own
+    visible top-level forms, title bars and all.  Report 173001 also asks
+    for fixed orientations on the manifold's right-click - 0, 45, 90 -
+    since Suggest on a round zone hangs it on an arc's chord at an odd
+    angle; not done, asked about.
+  - The spread in feet beside the percent everywhere it is shown
+    (`RadiantSpreadFt`).
   - Later, his words: "we should let moving manifolds around snap to the
     walls and let me select the allowed distance from there" - with the
     placement line below.

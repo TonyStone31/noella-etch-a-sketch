@@ -277,6 +277,11 @@ function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3
   falls short of its longest (the worst manifold), as fractions; and
   whether that meets the spec's goals. }
 procedure RadiantMeasure(const R: TRadiantResult; out Cover, Spread: Double);
+{ The same spread as a length: how much shorter the shortest loop is than
+  the longest, feet, on the manifold whose loops are furthest apart - the
+  owner, 25 September: "it should also show it as total feet apart...
+  like put it in parenthesis". }
+function RadiantSpreadFt(const R: TRadiantResult): Double;
 function RadiantMeetsGoals(const R: TRadiantResult; const Spec: TRadiantSpec): Boolean;
 
 { Writes the result into the drawing as one part: the runs as reference
@@ -2766,6 +2771,28 @@ begin
   end;
 end;
 
+function RadiantSpreadFt(const R: TRadiantResult): Double;
+var
+  M, L: Integer;
+  Lo, Hi, Worst: Double;
+begin
+  Result := 0; Worst := -1;
+  for M := 0 to High(R.Manifolds) do
+  begin
+    Lo := 1E300; Hi := 0;
+    for L := 0 to High(R.Loops) do
+      if R.Loops[L].Manifold = M then
+      begin
+        Lo := Min(Lo, R.Loops[L].LenFt); Hi := Max(Hi, R.Loops[L].LenFt);
+      end;
+    if (Hi > 0) and ((Hi - Lo) / Hi > Worst) then
+    begin
+      Worst := (Hi - Lo) / Hi;
+      Result := Hi - Lo;
+    end;
+  end;
+end;
+
 function RadiantMeetsGoals(const R: TRadiantResult; const Spec: TRadiantSpec): Boolean;
 var
   Cover, Spread: Double;
@@ -3329,9 +3356,10 @@ begin
   if R.ShortOfGoals then
   begin
     RadiantMeasure(R, Cover, Spread);
-    Result := Result + Format('SHORT OF THE GOALS: %s%% covered (goal %s%%), loops within %s%% (goal %s%%) - ' +
+    Result := Result + Format('SHORT OF THE GOALS: %s%% covered (goal %s%%), loops within %s%% (%s) (goal %s%%) - ' +
       'the best of %d layouts tried', [FormatFloat('0.0', Cover * 100), FormatFloat('0', Spec.GoalCoverPct),
-      FormatFloat('0', Spread * 100), FormatFloat('0', Spec.GoalEvenPct), R.Tries]) + LineEnding;
+      FormatFloat('0', Spread * 100), FormatLen(RadiantSpreadFt(R), U), FormatFloat('0', Spec.GoalEvenPct),
+      R.Tries]) + LineEnding;
   end;
   { the breakout lets out only so many tubes at the spacing: a floor that
     wants more loops than that is left bare, and the fix is not here }

@@ -10,6 +10,20 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **How far apart the loops are, in feet as well** - beside the
+  percentage in the search window, the solution arrows, the evenness bar
+  and the ticket: the longest loop less the shortest.
+
+### Fixed
+
+- **A problem report sent from inside a dialog took a picture of the
+  whole screen** - every monitor and every other program on them.  Now it
+  is only this program's own windows.
+
 ## v2026.09.25.1
 
 ### New

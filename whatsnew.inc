@@ -13,6 +13,20 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **How far apart the loops are, in feet as well** - beside the' + LineEnding +
+    '  percentage in the search window, the solution arrows, the evenness bar' + LineEnding +
+    '  and the ticket: the longest loop less the shortest.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **A problem report sent from inside a dialog took a picture of the' + LineEnding +
+    '  whole screen** - every monitor and every other program on them.  Now it' + LineEnding +
+    '  is only this program''s own windows.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.25.1' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

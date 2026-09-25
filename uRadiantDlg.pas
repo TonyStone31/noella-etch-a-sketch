@@ -142,6 +142,9 @@ type
     { the solutions the search has kept so far, best first, kept up to
       date by it as it goes - for the busy window's list }
     FLiveFound: TRadiantResults;
+    { the evenness gauge's worst zone as a length: its longest loop less
+      its shortest, feet }
+    FEvenFt: Double;
     { what SearchWork is to search: set by Search, which shows the busy
       window and has it run SearchWork }
     FWorkSpec: TRadiantSpec;
@@ -449,7 +452,7 @@ begin
     not }
   if TotalArea > 0 then FCoverage := Max(0, Min(1, 1 - TotalUnfilled / TotalArea))
   else FCoverage := -1;
-  Worst := 0; HasEven := False;
+  Worst := 0; HasEven := False; FEvenFt := 0;
   for Z := 0 to High(FLayouts) do
     if FSearched[Z] and FLayouts[Z].Ok and (Length(FLayouts[Z].Loops) > 0) then
     begin
@@ -461,7 +464,11 @@ begin
         begin
           Lo := Min(Lo, FLayouts[Z].Loops[I].LenFt); Hi := Max(Hi, FLayouts[Z].Loops[I].LenFt);
         end;
-        if Hi > 0 then Worst := Max(Worst, (Hi - Lo) / Hi);
+        if (Hi > 0) and ((Hi - Lo) / Hi >= Worst) then
+        begin
+          Worst := (Hi - Lo) / Hi;
+          FEvenFt := Hi - Lo;
+        end;
       end;
     end;
   if HasEven then FEvenness := 1 - Worst else FEvenness := -1;
@@ -745,8 +752,9 @@ begin
   FBusy.ShowFound(Lines);
   RadiantMeasure(Best, Cover, Spread);
   if Best.Ok then
-    Now_ := Format('best so far: %s%% covered, loops within %s%%, %d loops',
-      [FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100), Length(Best.Loops)])
+    Now_ := Format('best so far: %s%% covered, loops within %s%% (%s ft), %d loops',
+      [FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100), FormatFloat('0', RadiantSpreadFt(Best)),
+       Length(Best.Loops)])
   else Now_ := 'no layout yet';
   if Total > 0 then
     FBusy.Stage(FBusy.lblStage.Caption,
@@ -764,9 +772,9 @@ var
   Cover, Spread: Double;
 begin
   RadiantMeasure(R, Cover, Spread);
-  Result := Format('%5s%% covered  %4s%% apart  %2d loops  %4d bends  %5s ft%s',
-    [FormatFloat('0.0', Cover * 100), FormatFloat('0.0', Spread * 100), Length(R.Loops), R.Bends,
-     FormatFloat('0', R.TotalFt), IfThen(RadiantMeetsGoals(R, FWorkSpec), '  goals met', '')]);
+  Result := Format('%5s%% covered  %4s%% apart (%3s ft)  %2d loops  %4d bends  %5s ft%s',
+    [FormatFloat('0.0', Cover * 100), FormatFloat('0.0', Spread * 100), FormatFloat('0', RadiantSpreadFt(R)),
+     Length(R.Loops), R.Bends, FormatFloat('0', R.TotalFt), IfThen(RadiantMeetsGoals(R, FWorkSpec), '  goals met', '')]);
 end;
 
 procedure TRadiantForm.btnSearchZoneClick(Sender: TObject);
@@ -945,13 +953,14 @@ begin
   R := FSolutions[Z][FSolIdx[Z]];
   RadiantMeasure(R, Cover, Spread);
   { short, to sit beside the arrows; the whole sentence on the hint }
-  lblSol.Caption := Format('%d/%d  %s%%  %s%% spread  %d bends%s',
-    [FSolIdx[Z] + 1, N, FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100), R.Bends,
-     IfThen(R.ShortOfGoals, '', '  ok')]);
+  lblSol.Caption := Format('%d/%d  %s%%  %s%% spread (%s ft)  %d bends%s',
+    [FSolIdx[Z] + 1, N, FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100),
+     FormatFloat('0', RadiantSpreadFt(R)), R.Bends, IfThen(R.ShortOfGoals, '', '  ok')]);
   lblSol.Hint := Format('Solution %d of the %d this zone''s search kept: %s%% of the floor covered, ' +
-    'the loops within %s%% of each other, %d bends, %s%% of the tube in long straights - %s.  ' +
+    'the loops within %s%% (%s ft) of each other, %d bends, %s%% of the tube in long straights - %s.  ' +
     'The arrows step through them; the one showing is the one built.',
-    [FSolIdx[Z] + 1, N, FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100), R.Bends,
+    [FSolIdx[Z] + 1, N, FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100),
+     FormatFloat('0', RadiantSpreadFt(R)), R.Bends,
      FormatFloat('0', R.StraightPct), IfThen(R.ShortOfGoals, 'the nearest it came to the goals', 'it meets the goals')]);
   lblSol.ShowHint := True;
 end;
@@ -1273,7 +1282,8 @@ end;
 procedure TRadiantForm.pbEvenPaint(Sender: TObject);
 begin
   if FEvenness < 0 then PaintGauge(pbEven, -1, 'Evenness - how close the loop lengths come')
-  else PaintGauge(pbEven, FEvenness, Format('Evenness: loops within %d%% of each other', [Round((1 - FEvenness) * 100)]));
+  else PaintGauge(pbEven, FEvenness, Format('Evenness: loops within %d%% (%s ft) of each other',
+    [Round((1 - FEvenness) * 100), FormatFloat('0', FEvenFt)]));
 end;
 
 { The plan: the outline, its holes shaded, every loop in its own color so

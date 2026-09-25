@@ -1124,7 +1124,7 @@ type
     function DocThings(const DocFile: string): Integer;
     procedure Quiesce;
     function WindowShot(out B: TBitmap): Boolean;
-    procedure DrawPointerOn(B: TBitmap; ScreenCoords: Boolean);
+    procedure DrawPointerOn(B: TBitmap; ScreenCoords: Boolean; const Org: TPoint);
     function CaptureShot(Wait: Boolean; out Bmp: TBitmap): Boolean;
     procedure ShotCountdown(Seconds: Integer);
     procedure PaintShotOverlay(C: TCanvas);
@@ -10473,10 +10473,58 @@ function TMainForm.WindowShot(out B: TBitmap): Boolean;
 var
   DC: HDC;
   Grabbed: Boolean;
+  Org: TPoint;
+
+  { The screen cut down to this program's own windows - the main one and
+    whatever dialog is up over it, their title bars with them.  The screen
+    is every monitor and everything else on them: on the owner's two
+    screens a report from the radiant wizard went off with his cameras,
+    his other programs and his chat in it (25 September - "it took a
+    screen shot of the entire screen instead of just the program").  What
+    else overlaps our windows is still in it; nothing beside them is. }
+  procedure OursOnly;
+  const
+    FRAME = 8;
+    TITLE = 40;
+  var
+    I: Integer;
+    R, F: TRect;
+    Cut: TBitmap;
+    Any: Boolean;
+  begin
+    Any := False;
+    R := Rect(0, 0, 0, 0);
+    for I := 0 to Screen.FormCount - 1 do
+    begin
+      if not Screen.Forms[I].Visible or (Screen.Forms[I].Parent <> nil) then Continue;
+      F := Screen.Forms[I].BoundsRect;
+      F := Rect(F.Left - FRAME, F.Top - TITLE, F.Right + FRAME, F.Bottom + FRAME);
+      if not Any then R := F
+      else R := Rect(Min(R.Left, F.Left), Min(R.Top, F.Top), Max(R.Right, F.Right), Max(R.Bottom, F.Bottom));
+      Any := True;
+    end;
+    if not Any then Exit;
+    R := Rect(Max(0, R.Left), Max(0, R.Top), Min(B.Width, R.Right), Min(B.Height, R.Bottom));
+    if (R.Right - R.Left < 8) or (R.Bottom - R.Top < 8) then Exit;
+    Cut := TBitmap.Create;
+    try
+      Cut.SetSize(R.Right - R.Left, R.Bottom - R.Top);
+      Cut.Canvas.CopyRect(Rect(0, 0, Cut.Width, Cut.Height), B.Canvas, R);
+    except
+      Cut.Free;
+      Exit;
+    end;
+    B.Free;
+    B := Cut;
+    Org := R.TopLeft;
+  end;
+
 begin
   { From inside a dialog the picture is of the screen, because a picture of
-    this window alone would leave out the one thing being reported. }
+    this window alone would leave out the one thing being reported - cut
+    down to our own windows. }
   Grabbed := False;
+  Org := Point(0, 0);
   if FReportExtra <> '' then
   begin
     B := TBitmap.Create;
@@ -10488,6 +10536,7 @@ begin
         ReleaseDC(0, DC);
       end;
       Grabbed := True;
+      OursOnly;
     except
       FreeAndNil(B);
     end;
@@ -10504,7 +10553,7 @@ begin
     B := nil;
   end
   else
-    DrawPointerOn(B, Grabbed);
+    DrawPointerOn(B, Grabbed, Org);
 end;
 
 { Neither a screen grab nor a form image brings the mouse pointer with it, and
@@ -10515,7 +10564,7 @@ end;
 
   Screen shots are in screen coordinates and a form image is in the window's,
   which is the one thing this has to get right. }
-procedure TMainForm.DrawPointerOn(B: TBitmap; ScreenCoords: Boolean);
+procedure TMainForm.DrawPointerOn(B: TBitmap; ScreenCoords: Boolean; const Org: TPoint);
 var
   P: TPoint;
   Arrow: array[0..6] of TPoint;
@@ -10524,7 +10573,9 @@ begin
   if B = nil then Exit;
   try
     P := Mouse.CursorPos;
-    if not ScreenCoords then P := ScreenToClient(P);
+    { a screen shot cut down to our windows starts at Org on the screen }
+    if ScreenCoords then P := Point(P.X - Org.X, P.Y - Org.Y)
+    else P := ScreenToClient(P);
   except
     Exit;
   end;
