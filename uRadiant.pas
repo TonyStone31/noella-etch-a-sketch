@@ -75,6 +75,12 @@ type
     Ports: TIntArray;             { legacy hint only; routing sizes the manifold afterward }
     Extra: TRadiantHoles;
     ManifoldW, ManifoldH: Double;   { the little box drawn for each }
+    { each manifold's own heading in its zone's frame (RadiantFrameOf of
+      the zone's outline), degrees - the way its long side, and the row of ports along it,
+      runs.  Set by the wizard, where the manifold is a box turned by
+      hand; not read by the search yet, which still takes its bearing
+      from the nearest wall - kept so a search that wants it has it. }
+    ManifoldAngles: array of Double;
     { the slab }
     SlabThick: Double;
     TubeDepth: Double;        { 0 = centered in the slab }
@@ -84,6 +90,11 @@ type
                                 while the paths are being inspected by hand, the
                                 notes land over them }
     Inch: Double;             { the drawing's own inch, as TTransitionSpec keeps it }
+    { What the search is after: this much of the floor covered, and every
+      loop of a manifold within this much of its longest, percent.  0 for
+      either is no goal.  A search watched in the wizard keeps trying
+      other layouts until both are met or it is stopped. }
+    GoalCoverPct, GoalEvenPct: Double;
   end;
 
   TRadiantLoop = record
@@ -109,6 +120,9 @@ type
     Ports: Integer;            { as chosen }
     LoopCount: Integer;        { as laid }
     Ft: Double;
+    { which way it hangs, degrees in the zone's frame (RadiantFrameOf) -
+      Spec.ManifoldAngles as asked, 0 when not }
+    Heading: Double;
   end;
 
   TRadiantResult = record
@@ -131,6 +145,20 @@ type
       routing by hand, and the ticket says which count }
     Crossings: Integer;
     CellCount: Integer;
+    { how far along the manifold its tubes run closer than the spacing
+      before they are all out on the grid, feet: MANIFOLD_BREAKOUT_FT when
+      that was enough, more when the floor could not be covered from it }
+    BreakoutFt: Double;
+    { how many layouts the search tried, and whether it was stopped short
+      of its goals - the ticket says so }
+    Tries: Integer;
+    ShortOfGoals: Boolean;
+    { for whoever lays it: every change of direction of the tube, and how
+      much of it runs in straights of STRAIGHT_RUN_SPACINGS spacings or
+      more, percent - long parallel runs are what a fitter wants, and a
+      zigzag is what they curse }
+    Bends: Integer;
+    StraightPct: Double;
     { floor no loop could take: a lone row with no neighbor to come back
       on, or the far side of an obstacle - said on the ticket }
     UnfilledSqFt: Double;
@@ -148,17 +176,29 @@ type
     Holes: TRadiantHoles;
   end;
   TRadiantZones = array of TRadiantZone;
+  TRadiantResults = array of TRadiantResult;
+  PRadiantResults = ^TRadiantResults;
+
+  { told between tries how far a search has got - Done of Total, Total 0
+    once it is past the fixed restarts and trying other layouts until its
+    goals are met - with the best it has so far, and free to end it by
+    setting Stop, which keeps that best }
+  TRadiantProgress = procedure(Done, Total: Integer; const Best: TRadiantResult;
+    var Stop: Boolean) of object;
 
 function DefaultRadiantSpec: TRadiantSpec;
 function Point2(X, Y: Double): T2;
 function SegsMeet(const P0, P1, Q0, Q1: T2): Boolean;
 function RadiantInside(const Outline: TP3Array; const P: TP3): Boolean;
 
-{ Where a zone's manifold goes when nothing better is known: at the
-  zone's corner nearest Toward - the middle of all the zones, so the
-  manifolds of a building end up near each other and the boiler - a
-  foot in along both edges; and how many loops it takes, with one to
-  spare. }
+{ Where a zone's manifold goes when nothing better is known: a foot in
+  from the middle of the zone's wall nearest Toward - the middle of all
+  the zones, so the manifolds of a building end up toward the boiler.
+  The middle of a wall and not a corner, since 24 September: every tube
+  out of a manifold has to be on the grid within four feet of it, and a
+  corner has half the edge to let them out through - a corner manifold
+  can take four loops that way, a mid-wall one eight.  And how many
+  loops it takes, with one to spare. }
 procedure RadiantSuggestZoneManifold(const Zone: TRadiantZone; const Toward: TP3;
   const Spec: TRadiantSpec; out At: TP3; out Ports: Integer);
 
@@ -171,6 +211,12 @@ const
 
 function ZoneInk(Manifold: Integer): TColor;
 function LoopWeight(LoopOfManifold: Integer): Single;
+{ Every loop its own color, so one run can be followed by eye from port
+  to port among forty others - the zone's color was one color for all of
+  them, and there was no following a loop at all.  Neighbors never share
+  one; each zone starts at a different place in the list, so zone 2's
+  first loop is not zone 1's. }
+function LoopInk(Zone, Loop: Integer): TColor;
 
 { The frame, and the way in and out of it - shared by the layout and the
   dialog's plan, so a point dragged on the plan lands where the layout
@@ -203,9 +249,18 @@ function RadiantProblem(const Outline: TP3Array; const Spec: TRadiantSpec): stri
   as a temporary one while the person tries a different route.
   WantTrace fills Result.Trace with every lane the search tried, not
   just the ones it kept - off by default, since it costs a search's
-  worth of extra geometry, and nothing wants it but a person watching. }
+  worth of extra geometry, and nothing wants it but a person watching.
+  Progress, when given, is called between restarts; a search it stops
+  comes back not Ok, saying so, rather than half done. }
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
-  const Spec: TRadiantSpec; WantTrace: Boolean = False): TRadiantResult;
+  const Spec: TRadiantSpec; WantTrace: Boolean = False;
+  Progress: TRadiantProgress = nil; Found: PRadiantResults = nil): TRadiantResult;
+
+{ How much of its floor a layout covers and how far its shortest loop
+  falls short of its longest (the worst manifold), as fractions; and
+  whether that meets the spec's goals. }
+procedure RadiantMeasure(const R: TRadiantResult; out Cover, Spread: Double);
+function RadiantMeetsGoals(const R: TRadiantResult; const Spec: TRadiantSpec): Boolean;
 
 { Writes the result into the drawing as one part: the runs as reference
   lines in the tube's ink, a box and a note for the manifold, and a note
@@ -223,6 +278,7 @@ implementation
 type
   TSpan = record Lo, Hi: Double; end;
   TSpanArray = array of TSpan;
+  TDoubleArray = array of Double;
 
 function Point2(X, Y: Double): T2;
 begin
@@ -442,6 +498,17 @@ begin
   Result := ZONE_INKS[Manifold mod Length(ZONE_INKS)];
 end;
 
+const
+  { twelve strong colors that stay apart on white and on the dark
+    theme, none of them gray - $00BBGGRR }
+  LOOP_INKS: array[0..11] of TColor = ($00B4771F, $000E7FFF, $002CA02C, $002827D6,
+    $00BD6794, $004B568C, $00C277E3, $0022BDBC, $00CFBE17, $00793B39, $00397963, $00393C84);
+
+function LoopInk(Zone, Loop: Integer): TColor;
+begin
+  Result := LOOP_INKS[(Zone * 5 + Loop) mod Length(LOOP_INKS)];
+end;
+
 function LoopWeight(LoopOfManifold: Integer): Single;
 begin
   { one weight: thick and thin by turns read as doubled tube on the plan }
@@ -453,6 +520,8 @@ begin
   Result := Default(TRadiantSpec);
   Result.Tube := tsHalf;
   Result.Inch := 1 / 12;
+  Result.GoalCoverPct := 97;
+  Result.GoalEvenPct := 10;
   Result.Spacing := SPACING_DEFAULT_IN * Result.Inch;
   Result.MaxLoopFt := 0;
   Result.WastePct := WASTE_PCT_DEFAULT;
@@ -543,29 +612,112 @@ begin
   end;
 end;
 
+function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
+  const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget: Double; ExtraRanks: Integer;
+  BreakFt: Double; Seed: Cardinal; RowOff: Double = 0; Fingers: Boolean = True;
+  Quick: Boolean = False): TRadiantResult; forward;
+
 procedure RadiantSuggestZoneManifold(const Zone: TRadiantZone; const Toward: TP3;
   const Spec: TRadiantSpec; out At: TP3; out Ports: Integer);
 var
-  I, N, Best, Prev, Next: Integer;
-  D, BestD, LN, LP: Double;
-  ToNext, ToPrev: TP3;
+  I, N, Best: Integer;
+  BestD, BestL, L, BestCover, Spread: Double;
+  Mid, Q, Here: TP3;
+  Cov, Dst: array of Double;
+  Trial: TRadiantSpec;
+  R: TRadiantResult;
+
+  { a foot in from the middle of wall I, square to it, on the floor's side }
+  function MidWall(I: Integer): TP3;
+  var
+    A, B, M, Nrm: TP3;
+    Len: Double;
+  begin
+    A := Zone.Outline[I]; B := Zone.Outline[(I + 1) mod N];
+    M := P3((A.X + B.X) / 2, (A.Y + B.Y) / 2, (A.Z + B.Z) / 2);
+    Len := Max(1E-9, Hypot(B.X - A.X, B.Y - A.Y));
+    Nrm := P3(-(B.Y - A.Y) / Len, (B.X - A.X) / Len, 0);
+    Result := P3(M.X + Nrm.X, M.Y + Nrm.Y, M.Z);
+    if not RadiantInside(Zone.Outline, Result) then Result := P3(M.X - Nrm.X, M.Y - Nrm.Y, M.Z);
+  end;
+
+  { an obstacle inside the breakout round P - the four feet every tube
+    has to get onto the grid within - leaves the tubes nowhere to go }
+  function Crowded(const P: TP3): Boolean;
+  var
+    H, K: Integer;
+    A, B: TP3;
+    T, Lh: Double;
+  begin
+    Result := False;
+    for H := 0 to High(Zone.Holes) do
+    begin
+      if RadiantInside(Zone.Holes[H], P) then Exit(True);
+      for K := 0 to High(Zone.Holes[H]) do
+      begin
+        A := Zone.Holes[H][K]; B := Zone.Holes[H][(K + 1) mod Length(Zone.Holes[H])];
+        Lh := Sqr(B.X - A.X) + Sqr(B.Y - A.Y);
+        if Lh < 1E-12 then T := 0
+        else T := Max(0, Min(1, ((P.X - A.X) * (B.X - A.X) + (P.Y - A.Y) * (B.Y - A.Y)) / Lh));
+        if Hypot(P.X - A.X - T * (B.X - A.X), P.Y - A.Y - T * (B.Y - A.Y)) < MANIFOLD_BREAKOUT_FT then
+          Exit(True);
+      end;
+    end;
+  end;
+
 begin
   At := P3(0, 0, 0); Ports := MANIFOLD_PORTS_MIN;
   N := Length(Zone.Outline);
   if N < 3 then Exit;
-  Best := 0; BestD := 1E300;
+  { the wall whose middle is nearest Toward - the longer of two as near -
+    passing over any wall with an obstacle in the breakout, unless every
+    wall has one }
+  { Every wall's middle tried with one quick layout - no search, the
+    breakout at eight feet - and the one that heats most of the floor
+    kept: of any within a point of that, the nearest Toward.  An obstacle
+    a few feet in front of a manifold blocks most of its lanes whether or
+    not it is inside the breakout, and there is no telling that from the
+    outline alone: on the owner's barn a column six feet in front of the
+    nearest wall's middle left 43% of the zone bare (24 September), where
+    the next wall along covered it.  A wall with an obstacle inside the
+    breakout is passed over while any other will do. }
+  Best := -1; BestCover := -1;
+  SetLength(Cov, N); SetLength(Dst, N);
   for I := 0 to N - 1 do
   begin
-    D := Dist(Zone.Outline[I], Toward);
-    if D < BestD then begin BestD := D; Best := I; end;
+    Cov[I] := -1;
+    Q := Zone.Outline[(I + 1) mod N];
+    L := Dist(Zone.Outline[I], Q);
+    if L < 1E-9 then Continue;
+    Here := MidWall(I);
+    Mid := P3((Zone.Outline[I].X + Q.X) / 2, (Zone.Outline[I].Y + Q.Y) / 2, (Zone.Outline[I].Z + Q.Z) / 2);
+    Dst[I] := Dist(Mid, Toward);
+    Trial := Spec;
+    SetLength(Trial.Manifolds, 1); Trial.Manifolds[0] := Here;
+    Trial.ManifoldAngles := nil; Trial.Ports := nil;
+    R := ComputeRadiantOriented(Zone.Outline, Zone.Holes, Trial, False, False, 1, 0, 8, 0, 0, False, True);
+    if not R.Ok then Continue;
+    RadiantMeasure(R, Cov[I], Spread);
+    if Crowded(Here) then Cov[I] := Cov[I] - 0.5;
+    BestCover := Max(BestCover, Cov[I]);
   end;
-  Next := (Best + 1) mod N; Prev := (Best - 1 + N) mod N;
-  ToNext := P3(Zone.Outline[Next].X - Zone.Outline[Best].X, Zone.Outline[Next].Y - Zone.Outline[Best].Y, 0);
-  ToPrev := P3(Zone.Outline[Prev].X - Zone.Outline[Best].X, Zone.Outline[Prev].Y - Zone.Outline[Best].Y, 0);
-  LN := Max(1E-9, Sqrt(Sqr(ToNext.X) + Sqr(ToNext.Y)));
-  LP := Max(1E-9, Sqrt(Sqr(ToPrev.X) + Sqr(ToPrev.Y)));
-  At := P3(Zone.Outline[Best].X + ToNext.X / LN + ToPrev.X / LP,
-           Zone.Outline[Best].Y + ToNext.Y / LN + ToPrev.Y / LP, Zone.Outline[Best].Z);
+  BestD := 1E300; BestL := 0;
+  for I := 0 to N - 1 do
+  begin
+    if (Cov[I] < 0) or (Cov[I] < BestCover - 0.01) then Continue;
+    L := Dist(Zone.Outline[I], Zone.Outline[(I + 1) mod N]);
+    if (Dst[I] < BestD - 1E-6) or ((Abs(Dst[I] - BestD) <= 1E-6) and (L > BestL)) then
+    begin
+      BestD := Dst[I]; Best := I; BestL := L;
+    end;
+  end;
+  { nothing laid anywhere - the old rule: the nearest middle }
+  if Best < 0 then
+    for I := 0 to N - 1 do
+      if Dist(Zone.Outline[I], Zone.Outline[(I + 1) mod N]) > 1E-9 then
+        if (Best < 0) or (Dst[I] < Dst[Best]) then Best := I;
+  if Best < 0 then Exit;
+  At := MidWall(Best);
   Ports := Min(MANIFOLD_PORTS_MAX, Max(MANIFOLD_PORTS_MIN,
     RadiantLoopsNeeded(Zone.Outline, Zone.Holes, Spec) + 1));
 end;
@@ -634,9 +786,60 @@ begin
   end;
 end;
 
-function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
-  const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget, FanIn: Double; ExtraRanks: Integer): TRadiantResult;
+{ The bends in these loops - every point where the tube changes
+  direction, not the points along a straight - and the share of the tube,
+  percent, in straights of at least LongFt feet. }
+function RadiantBends(const Lps: TRadiantLoopArray; out StraightPct: Double;
+  LongFt: Double = 6): Integer;
 var
+  I, J: Integer;
+  A, B, C: TP3;
+  Cr, Tot, Long, Run: Double;
+begin
+  Result := 0; Tot := 0; Long := 0;
+  for I := 0 to High(Lps) do
+  begin
+    Run := 0;
+    for J := 1 to High(Lps[I].Pts) do
+    begin
+      A := Lps[I].Pts[J - 1]; B := Lps[I].Pts[J];
+      Run := Run + Dist(A, B);
+      Tot := Tot + Dist(A, B);
+      { a bend at B when the next segment turns off this one's line }
+      if J < High(Lps[I].Pts) then
+      begin
+        C := Lps[I].Pts[J + 1];
+        Cr := Abs((B.X - A.X) * (C.Y - B.Y) - (B.Y - A.Y) * (C.X - B.X)) +
+              Abs((B.Y - A.Y) * (C.Z - B.Z) - (B.Z - A.Z) * (C.Y - B.Y)) +
+              Abs((B.Z - A.Z) * (C.X - B.X) - (B.X - A.X) * (C.Z - B.Z));
+        if Cr > 1E-9 * Max(1, Dist(A, B) * Dist(B, C)) then
+        begin
+          Inc(Result);
+          if Run >= LongFt - 1E-9 then Long := Long + Run;
+          Run := 0;
+        end;
+      end;
+    end;
+    if Run >= LongFt - 1E-9 then Long := Long + Run;
+  end;
+  if Tot > 0 then StraightPct := 100 * Long / Tot else StraightPct := 0;
+end;
+
+function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
+  const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget: Double; ExtraRanks: Integer;
+  BreakFt: Double; Seed: Cardinal; RowOff: Double = 0; Fingers: Boolean = True;
+  Quick: Boolean = False): TRadiantResult;
+var
+  { with a seed, every loop its own share of the limit and its lane's
+    first guess nudged - the same seed, the same layout, so a winner can
+    be laid again for the replay; seed 0 is the plain search }
+  RankBudget: array[0..63] of Double;
+  RankJit: array[0..63] of Integer;
+  RandState: Cardinal;
+  { the length every loop is laid toward, 0 for none - see LayManifold }
+  TargetFt: Double;
+  { the floor left bare, on FloorBare's fixed grid }
+  FloorUnf: Double;
   F: TRadiantFrame;
   SwapAxis: TP3;
   Poly2: T2Array;
@@ -786,6 +989,108 @@ var
     end;
   end;
 
+  { How much of row V between ULo and UHi no tube in Lps heats: the
+    floor's pieces on that row, less half a spacing either side of every
+    run that passes along it or across it.  Measures what was actually
+    laid, not whether a row appeared in a plan - a short pass must not
+    claim the unused rest of its row. }
+  function RowBare(V, ULo, UHi: Double; const Lps: TRadiantLoopArray): Double;
+  var
+    Li, Si, Pn: Integer;
+    A, B: T2;
+    Available, Covered, Left, Outer, Cuts: TSpanArray;
+    X0, X1, T0, T1, Dy, HalfPitch: Double;
+  begin
+    Result := 0;
+    HalfPitch := Spec.Spacing / 2;
+    RowBounds(V, Outer, Cuts);
+    Available := Subtract(Outer, Cuts);
+    Left := nil;
+    for Pn := 0 to High(Available) do
+    begin
+      X0 := Max(Available[Pn].Lo, ULo); X1 := Min(Available[Pn].Hi, UHi);
+      if X1 <= X0 then Continue;
+      Si := Length(Left); SetLength(Left, Si + 1);
+      Left[Si].Lo := X0; Left[Si].Hi := X1;
+    end;
+    SetLength(Covered, 1);
+    for Li := 0 to High(Lps) do
+    begin
+      if Length(Left) = 0 then Break;
+      for Si := 1 to High(Lps[Li].Pts) do
+      begin
+        A := RadiantTo2(F, Lps[Li].Pts[Si - 1]);
+        B := RadiantTo2(F, Lps[Li].Pts[Si]);
+        Dy := B.Y - A.Y;
+        if Abs(Dy) < 1E-9 then
+        begin
+          if Abs(A.Y - V) > HalfPitch + 1E-6 then Continue;
+          X0 := A.X; X1 := B.X;
+        end
+        else
+        begin
+          T0 := (V - HalfPitch - A.Y) / Dy;
+          T1 := (V + HalfPitch - A.Y) / Dy;
+          if T0 > T1 then begin X0 := T0; T0 := T1; T1 := X0; end;
+          T0 := Max(0, T0); T1 := Min(1, T1);
+          if T0 > T1 then Continue;
+          X0 := A.X + T0 * (B.X - A.X);
+          X1 := A.X + T1 * (B.X - A.X);
+        end;
+        Covered[0].Lo := Min(X0, X1) - HalfPitch;
+        Covered[0].Hi := Max(X0, X1) + HalfPitch;
+        Left := Subtract(Left, Covered);
+        if Length(Left) = 0 then Break;
+      end;
+    end;
+    for Pn := 0 to High(Left) do
+      Result := Result + (Left[Pn].Hi - Left[Pn].Lo) * Spec.Spacing;
+  end;
+
+  { The rows of one direction from the manifold, as distances from its
+    own row: a spacing apart from a hand's width off it (and the row grid's
+    slide) out to a hand's width off the far wall - and always an even
+    number of them.  A loop takes rows in pairs, out and back, so an odd
+    count leaves the last row with nobody to pair with, a strip bare the
+    length of the far wall (the owner's barn, 24 September).  The owner's
+    answer: "cheat or shift the grid to get one more row at the edges...
+    often times on an exterior wall we dont care if we are closer".  So
+    an odd count gets one row more, and the last two gaps - against the
+    far wall - share what the one spacing too few left over, each half a
+    spacing to a whole one, every gap before them the spacing asked for.
+    The near end keeps its spacing: that is where the manifold's
+    breakout runs its tracks, a port pitch apart, and a first gap closed
+    up brought the second row down among them - on the owner's barn a
+    zone lost half its loops to it. }
+  function RowPlan(VDir: Integer): TDoubleArray;
+  var
+    A, B, L, D, G: Double;
+    N, K: Integer;
+  begin
+    Result := nil;
+    A := Inset + RowOff * Spec.Spacing;
+    if VDir > 0 then B := Vmax - Inset - M2.Y else B := M2.Y - (Vmin + Inset);
+    L := B - A;
+    if L < -1E-9 then Exit;
+    N := Trunc(L / Spec.Spacing + 1E-9) + 1;
+    if (N mod 2 = 1) and ((N > 1) or (L >= Spec.Spacing / 2 - 1E-9)) then
+    begin
+      D := L - (N - 1) * Spec.Spacing;
+      G := (Spec.Spacing + D) / 2;
+      SetLength(Result, N + 1);
+      for K := 0 to N - 2 do Result[K] := A + K * Spec.Spacing;
+      Result[N] := B;
+      Result[N - 1] := B - G;
+      { a single row stretched to two: at either end of the band }
+      if N = 1 then begin Result[0] := A; Result[1] := B; end;
+    end
+    else
+    begin
+      SetLength(Result, N);
+      for K := 0 to N - 1 do Result[K] := A + K * Spec.Spacing;
+    end;
+  end;
+
   { Lay one side of the manifold: the game of snake.  The rows run along
     the manifold's own row - the wall's inset, when it hangs on a wall,
     but a manifold dragged off the wall has rows both ways from it, and
@@ -843,16 +1148,25 @@ var
       Rows: array of Integer;      { the rows, in walking order }
       Far: array of Boolean;       { the far piece of that row, not the near }
       Cut: array of Double;        { a near piece stopped short, here; 0 for the whole }
+      LaneD: Double;               { where its lane was found - CurD when it was kept }
     end;
   var
     C, N, Q, EstGuess: Integer;
-    V, PortPitch, FanH, EdgeD, CurD, AvgReach: Double;
+    Plan: TDoubleArray;
+    V, PortPitch, BreakD, EdgeD, CurD, AvgReach: Double;
     RowV, NLo, NHi, FLo, FHi, EdgeMax: array of Double;
     HasN, HasF, UsedN, UsedF, DeadN: array of Boolean;
     Plans: array of TPlan;
-    P: TPlan;
-    L: TRadiantLoop;
+    GotFrom: Integer;
+    { while Compact re-lays: the tube's own maximum is the limit, and no
+      lane tried is kept for the replay }
+    Compacting: Boolean;
     Sign: Integer;
+    { the index of tube already down - see BuildIndex }
+    IdxA, IdxB: array of T2;
+    IdxN, NEnt, GW, GH, SeenStamp: Integer;
+    CellHead, EntSeg, EntNext, SegSeen: array of Integer;
+    GX0, GY0, GCell: Double;
 
     { where the loop of rank R - R = 0 nearest the manifold's own row -
       leaves and comes home, as distance from the manifold along this
@@ -902,16 +1216,17 @@ var
       Result := M2.X + Sign * D;
     end;
 
-    { the fan's signed height toward TargetV, capped at FanH either way }
-    function FanHt(TargetV: Double): Double;
+    { The breakout, square: a tube leaves its port straight out from
+      the manifold, turns once to run along it to its lane, and turns
+      again up the lane - no diagonal fan, the owner's rule of 24
+      September.  Each tube runs along on a track of its own, a port
+      pitch apart: the loop whose lane is farthest out on the lowest
+      track, so no track crosses a lane or a port it passes - the out
+      tube of rank R below its home tube, rank R below rank R + 1.
+      Signed, the way this direction runs from the manifold's row. }
+    function JogHt(R, Home: Integer): Double;
     begin
-      Result := VDir * Min(FanH, VDir * (TargetV - M2.Y));
-    end;
-
-    { the V the fan reaches on its way to the row at TargetV }
-    function FanTop(TargetV: Double): Double;
-    begin
-      Result := M2.Y + FanHt(TargetV);
+      Result := VDir * (2 * R + Home + 1) * PortPitch;
     end;
 
     { the loop as laid: out of its port to its first row, the rows,
@@ -925,11 +1240,11 @@ var
       Back: Boolean;
     begin
       NPts := 0;
-      { out of the port and across the fan to the lane - straight, the
-        fan's height or the first row's, whichever is lower - then up
+      { out of the port square, along its track to the lane, then up
         the lane to the row }
       Put(AtD(PortOut(R)), M2.Y);
-      Put(AtD(LaneOut(R)), FanTop(RowV[Pl.Rows[0]]));
+      Put(AtD(PortOut(R)), M2.Y + JogHt(R, 0));
+      Put(AtD(LaneOut(R)), M2.Y + JogHt(R, 0));
       { each row's near and far end, then every turn leveled: going out
         the two rows turn at the nearer of their far ends, coming back at
         the farther of their near ends - a turn is always level.  A near
@@ -961,7 +1276,8 @@ var
         Put(AtD(D1), RowV[Rr]);
         Back := not Back;
       end;
-      Put(AtD(LaneHome(R)), FanTop(RowV[Pl.Rows[High(Pl.Rows)]]));
+      Put(AtD(LaneHome(R)), M2.Y + JogHt(R, 1));
+      Put(AtD(PortHome(R)), M2.Y + JogHt(R, 1));
       Put(AtD(PortHome(R)), M2.Y);
       SetLength(L.Pts, NPts);
       for J := 0 to NPts - 1 do L.Pts[J] := World(Pts[J]);
@@ -982,38 +1298,40 @@ var
                 (HasF[Rr] and (D >= FLo[Rr] - 1E-6) and (D <= FHi[Rr] + 1E-6))) then Exit(False);
     end;
 
-    { the fan is the one piece of tube whose own row-bound checks never
-      touch it, since it runs at an angle rather than along a row - so
-      the two fan segments of this loop, port to lane, are walked past
-      every obstacle's box directly. }
-    function FanClear(D0, V0, D1, V1: Double): Boolean;
+    { the breakout is the one piece of tube whose own row-bound checks
+      never touch it, since it runs below the first row - so both of
+      its legs, out of the port and along the track to the lane, are
+      walked past every obstacle's box directly }
+    function JogClear(DPort, DLane, H: Double): Boolean;
     var
-      A, B: T2;
+      A, B, C3: T2;
       I3, K3: Integer;
     begin
-      A := Point2(AtD(D0), M2.Y + V0); B := Point2(AtD(D1), M2.Y + V1);
+      A := Point2(AtD(DPort), M2.Y); B := Point2(AtD(DPort), M2.Y + H);
+      C3 := Point2(AtD(DLane), M2.Y + H);
       Result := True;
       for I3 := 0 to High(HoleB) do
         for K3 := 0 to 3 do
-          if SegsMeet(A, B, HoleB[I3][K3], HoleB[I3][(K3 + 1) mod 4]) then Exit(False);
+          if SegsMeet(A, B, HoleB[I3][K3], HoleB[I3][(K3 + 1) mod 4]) or
+             SegsMeet(B, C3, HoleB[I3][K3], HoleB[I3][(K3 + 1) mod 4]) then Exit(False);
     end;
 
     { under the limit, both lanes inside the floor and clear of
-      obstacles up to their rows, and both fans clear of every
-      obstacle along their own length }
+      obstacles up to their rows, both breakouts clear of every
+      obstacle, and both lanes starting inside the breakout - every
+      tube on the grid within four feet of the manifold }
     function Fits(const Pl: TPlan; R: Integer): Boolean;
     var
       Lt: TRadiantLoop;
-      V0, V1: Double;
     begin
-      V0 := FanHt(RowV[Pl.Rows[0]]);
-      V1 := FanHt(RowV[Pl.Rows[High(Pl.Rows)]]);
-      Result := (EdgeMax[Pl.Rows[0]] <= LaneOut(R) + 1E-6) and
+      Result := (LaneOut(R) <= BreakD + 1E-6) and
+                (EdgeMax[Pl.Rows[0]] <= LaneOut(R) + 1E-6) and
                 (EdgeMax[Pl.Rows[High(Pl.Rows)]] <= LaneHome(R) + 1E-6) and
                 LaneClear(LaneOut(R), Pl.Rows[0]) and LaneClear(LaneHome(R), Pl.Rows[High(Pl.Rows)]) and
-                FanClear(PortOut(R), 0, LaneOut(R), V0) and
-                FanClear(LaneHome(R), V1, PortHome(R), 0) and
-                (LayPlan(Pl, R, Lt) <= IfThen(R = 0, Limit * FirstBudget, Limit));
+                JogClear(PortOut(R), LaneOut(R), JogHt(R, 0)) and
+                JogClear(PortHome(R), LaneHome(R), JogHt(R, 1)) and
+                (LayPlan(Pl, R, Lt) <= IfThen(Compacting, MaxFt,
+                  IfThen(R = 0, Limit * FirstBudget, Limit) * RankBudget[Min(R, 63)]));
     end;
 
     { is there a run's worth of this piece beyond the loop's port? }
@@ -1116,6 +1434,23 @@ var
       end;
     end;
 
+    { Laid to a length and not a limit (see LayManifold): the pair of rows
+      that would take the loop further past the target than it now falls
+      short of it is not taken - the loop stops nearest the target, over
+      or under, where to a limit every loop but the last is as long as it
+      can be and the last has the scraps. }
+    function PastTarget(const Now_, Next: TPlan; R: Integer): Boolean;
+    var
+      Lt: TRadiantLoop;
+      A, B: Double;
+    begin
+      Result := False;
+      if TargetFt <= 0 then Exit;
+      A := LayPlan(Now_, R, Lt);
+      B := LayPlan(Next, R, Lt);
+      Result := (B > TargetFt) and (B - TargetFt > TargetFt - A);
+    end;
+
     { the plan of the loop of rank R from row C: out on C; then the
       excursion round an obstacle, or pairs of near pieces, as many as
       fit under Limit }
@@ -1174,7 +1509,7 @@ var
             Trial := Pl;
             Add(Trial, Cc + 1, False);
             Add(Trial, Cc + 2, False);
-            if Fits(Trial, R) then
+            if Fits(Trial, R) and not PastTarget(Pl, Trial, R) then
             begin
               Pl := Trial; Cc := Cc + 2;
               Continue;
@@ -1196,13 +1531,102 @@ var
       for this manifold - the same segment-by-segment test the
       finished ticket's own crossing count runs, called here before a
       candidate is ever kept rather than after }
+    { the cells the box round P-Q covers, clamped to the grid }
+    procedure CellsOf(const P, Q: T2; out X0, Y0, X1, Y1: Integer);
+    begin
+      X0 := Max(0, Min(GW - 1, Trunc((Min(P.X, Q.X) - 1E-6 - GX0) / GCell)));
+      X1 := Max(0, Min(GW - 1, Trunc((Max(P.X, Q.X) + 1E-6 - GX0) / GCell)));
+      Y0 := Max(0, Min(GH - 1, Trunc((Min(P.Y, Q.Y) - 1E-6 - GY0) / GCell)));
+      Y1 := Max(0, Min(GH - 1, Trunc((Max(P.Y, Q.Y) + 1E-6 - GY0) / GCell)));
+    end;
+
+    { Every run of tube already down, this side's and every earlier
+      manifold's, in this frame and filed by the cells of a coarse grid
+      it passes through - so a candidate is tested against the runs near
+      it and not against every run on the floor, which was nine tenths
+      of the time a search took.  Built once for each loop being placed:
+      nothing is laid while its lanes are being tried. }
+    procedure BuildIndex;
+    var
+      A4, I4, N4, X, Y, X0, X1, Y0, Y1: Integer;
+      P: TP3Array;
+    begin
+      IdxN := 0;
+      N4 := 0;
+      for A4 := 0 to Length(Got) + Length(Loops) - 1 do
+        if A4 < Length(Got) then Inc(N4, Length(Got[A4].Pts))
+        else Inc(N4, Length(Loops[A4 - Length(Got)].Pts));
+      SetLength(IdxA, N4); SetLength(IdxB, N4);
+      for A4 := 0 to Length(Got) + Length(Loops) - 1 do
+      begin
+        if A4 < Length(Got) then P := Got[A4].Pts else P := Loops[A4 - Length(Got)].Pts;
+        for I4 := 1 to High(P) do
+        begin
+          IdxA[IdxN] := RadiantTo2(F, P[I4 - 1]);
+          IdxB[IdxN] := RadiantTo2(F, P[I4]);
+          Inc(IdxN);
+        end;
+      end;
+      GCell := Max(Spec.Spacing * 2, Max(Umax - Umin, Vmax - Vmin) / 48);
+      GX0 := Umin - GCell; GY0 := Vmin - GCell;
+      GW := Trunc((Umax - Umin) / GCell) + 3; GH := Trunc((Vmax - Vmin) / GCell) + 3;
+      SetLength(CellHead, GW * GH);
+      for I4 := 0 to High(CellHead) do CellHead[I4] := -1;
+      SetLength(EntSeg, 0); SetLength(EntNext, 0);
+      NEnt := 0;
+      SetLength(SegSeen, IdxN);
+      for I4 := 0 to IdxN - 1 do
+      begin
+        SegSeen[I4] := 0;
+        CellsOf(IdxA[I4], IdxB[I4], X0, Y0, X1, Y1);
+        for Y := Y0 to Y1 do
+          for X := X0 to X1 do
+          begin
+            if NEnt >= Length(EntSeg) then
+            begin
+              SetLength(EntSeg, NEnt * 2 + 64); SetLength(EntNext, NEnt * 2 + 64);
+            end;
+            EntSeg[NEnt] := I4;
+            EntNext[NEnt] := CellHead[Y * GW + X];
+            CellHead[Y * GW + X] := NEnt;
+            Inc(NEnt);
+          end;
+      end;
+      SeenStamp := 0;
+    end;
+
+    { does P-Q meet any run of tube in the index? }
+    function MeetsIndexed(const P0, P1: T2): Boolean;
+    var
+      X, Y, X0, X1, Y0, Y1, E, G4: Integer;
+      Q0, Q1: T2;
+    begin
+      Result := False;
+      Inc(SeenStamp);
+      CellsOf(P0, P1, X0, Y0, X1, Y1);
+      for Y := Y0 to Y1 do
+        for X := X0 to X1 do
+        begin
+          E := CellHead[Y * GW + X];
+          while E >= 0 do
+          begin
+            G4 := EntSeg[E];
+            E := EntNext[E];
+            if SegSeen[G4] = SeenStamp then Continue;
+            SegSeen[G4] := SeenStamp;
+            Q0 := IdxA[G4]; Q1 := IdxB[G4];
+            if (Max(P0.X, P1.X) < Min(Q0.X, Q1.X) - 1E-6) or (Min(P0.X, P1.X) > Max(Q0.X, Q1.X) + 1E-6) or
+               (Max(P0.Y, P1.Y) < Min(Q0.Y, Q1.Y) - 1E-6) or (Min(P0.Y, P1.Y) > Max(Q0.Y, Q1.Y) + 1E-6) then Continue;
+            if SegsMeet(P0, P1, Q0, Q1) then Exit(True);
+          end;
+        end;
+    end;
+
     function PlanCrosses(const Pl: TPlan; R: Integer): Boolean;
     var
       Lt: TRadiantLoop;
-      SA, SB: array of T2;
+      SA: array of T2;
       I4, J4, A4: Integer;
-      Existing: TP3Array;
-      P0, P1, Q0, Q1: T2;
     begin
       Result := False;
       LayPlan(Pl, R, Lt);
@@ -1231,27 +1655,14 @@ var
         for J4 := I4 + 2 to High(SA) do
           if SegsMeet(SA[I4 - 1], SA[I4], SA[J4 - 1], SA[J4]) then
             Result := True;
-      for A4 := 0 to Length(Got) + Length(Loops) - 1 do
-      begin
-        if A4 < Length(Got) then Existing := Got[A4].Pts
-        else Existing := Loops[A4 - Length(Got)].Pts;
-        SetLength(SB, Length(Existing));
-        for I4 := 0 to High(SB) do SB[I4] := RadiantTo2(F, Existing[I4]);
+      if not Result or WantTrace then
         for I4 := 1 to High(SA) do
-          for J4 := 1 to High(SB) do
+          if MeetsIndexed(SA[I4 - 1], SA[I4]) then
           begin
-            P0 := SA[I4 - 1]; P1 := SA[I4]; Q0 := SB[J4 - 1]; Q1 := SB[J4];
-            if (Max(P0.X, P1.X) < Min(Q0.X, Q1.X) - 1E-6) or (Min(P0.X, P1.X) > Max(Q0.X, Q1.X) + 1E-6) or
-               (Max(P0.Y, P1.Y) < Min(Q0.Y, Q1.Y) - 1E-6) or (Min(P0.Y, P1.Y) > Max(Q0.Y, Q1.Y) + 1E-6) then Continue;
-            if SegsMeet(P0, P1, Q0, Q1) then
-            begin
-              Result := True;
-              if not WantTrace then Break;
-            end;
+            Result := True;
+            Break;
           end;
-        if Result and not WantTrace then Break;
-      end;
-      if WantTrace then
+      if WantTrace and not Compacting then
       begin
         SetLength(CurTrace, Length(CurTrace) + 1);
         CurTrace[High(CurTrace)].Pts := Lt.Pts;
@@ -1259,69 +1670,15 @@ var
       end;
     end;
 
-    { Measure what was actually laid, not whether a row appeared in a
-      plan. A short pass must not claim the unused rest of its row. }
+    { this side's rows, as laid so far }
     function BareRows: Double;
     var
-      Rr, Li, Si, Pn: Integer;
-      A, B: T2;
-      Available, Covered, Left, Outer, Cuts: TSpanArray;
-      X0, X1, T0, T1, Dy, HalfPitch: Double;
+      Rr: Integer;
     begin
       Result := 0;
-      HalfPitch := Spec.Spacing / 2;
       for Rr := 0 to High(RowV) do
-      begin
-        RowBounds(RowV[Rr], Outer, Cuts);
-        Available := Subtract(Outer, Cuts);
-        Left := nil;
-        for Pn := 0 to High(Available) do
-        begin
-          if Sign > 0 then
-          begin
-            X0 := Max(Available[Pn].Lo, Max(M2.X, LimLo)) - M2.X;
-            X1 := Min(Available[Pn].Hi, LimHi) - M2.X;
-          end
-          else
-          begin
-            X0 := M2.X - Min(Available[Pn].Hi, Min(M2.X, LimHi));
-            X1 := M2.X - Max(Available[Pn].Lo, LimLo);
-          end;
-          if X1 <= X0 then Continue;
-          Si := Length(Left); SetLength(Left, Si + 1);
-          Left[Si].Lo := X0; Left[Si].Hi := X1;
-        end;
-        SetLength(Covered, 1);
-        for Li := 0 to High(Got) do
-          for Si := 1 to High(Got[Li].Pts) do
-          begin
-            A := RadiantTo2(F, Got[Li].Pts[Si - 1]);
-            B := RadiantTo2(F, Got[Li].Pts[Si]);
-            Dy := B.Y - A.Y;
-            if Abs(Dy) < 1E-9 then
-            begin
-              if Abs(A.Y - RowV[Rr]) > HalfPitch + 1E-6 then Continue;
-              X0 := A.X; X1 := B.X;
-            end
-            else
-            begin
-              T0 := (RowV[Rr] - HalfPitch - A.Y) / Dy;
-              T1 := (RowV[Rr] + HalfPitch - A.Y) / Dy;
-              if T0 > T1 then begin X0 := T0; T0 := T1; T1 := X0; end;
-              T0 := Max(0, T0); T1 := Min(1, T1);
-              if T0 > T1 then Continue;
-              X0 := A.X + T0 * (B.X - A.X);
-              X1 := A.X + T1 * (B.X - A.X);
-            end;
-            X0 := Sign * (X0 - M2.X); X1 := Sign * (X1 - M2.X);
-            Covered[0].Lo := Min(X0, X1) - HalfPitch;
-            Covered[0].Hi := Max(X0, X1) + HalfPitch;
-            Left := Subtract(Left, Covered);
-            if Length(Left) = 0 then Break;
-          end;
-        for Pn := 0 to High(Left) do
-          Result := Result + (Left[Pn].Hi - Left[Pn].Lo) * Spec.Spacing;
-      end;
+        if Sign > 0 then Result := Result + RowBare(RowV[Rr], Max(M2.X, LimLo), LimHi, Got)
+        else Result := Result + RowBare(RowV[Rr], LimLo, Min(M2.X, LimHi), Got);
     end;
 
     { the loop of rank R, grown from row C: try the widest lane that
@@ -1346,11 +1703,24 @@ var
       end;
     begin
       SavedDead := Copy(DeadN);
+      BuildIndex;
       Result := False;
       if HasN[C] then Ceiling := NHi[C] - Spec.Spacing
       else if HasF[C] then Ceiling := FHi[C] - Spec.Spacing
       else Exit;
-      Start := Min(Ceiling, Spec.Spacing / 2 + 2 * Max(0, EstGuess - 1 - R) * Spec.Spacing);
+      { on the lanes' own lattice, half a spacing and whole spacings out -
+        a ceiling off it put one rank's lane 3.6 inches from the next
+        rank's, the whole way out, on the barn }
+      Ceiling := Spec.Spacing / 2 + Floor((Ceiling - Spec.Spacing / 2) / Spec.Spacing + 1E-9) * Spec.Spacing;
+      { the innermost loop's lanes a spacing and a half and half a spacing
+        out - its home lane, a spacing inside its out lane, just clear of
+        the manifold.  Half a spacing and less, as it was, put that home
+        lane on the far side of the manifold, where no row of this side
+        is: the innermost slot was never used, and a strip two lanes wide
+        lay bare from every manifold straight to the far wall (24
+        September, the owner's barn: "missing entire 2 foot lengths") }
+      Start := Min(Ceiling, 3 * Spec.Spacing / 2 +
+        Max(0, 2 * Max(0, EstGuess - 1 - R) + RankJit[Min(R, 63)]) * Spec.Spacing);
       CurD := Start;
       Tries := 0;
       while (CurD >= -1E-6) and (Tries <= 4000) do
@@ -1375,19 +1745,118 @@ var
       Result := False;
     end;
 
+    { the plans: from the wall outward, each taking what it can, and
+      each committed to Got the moment it is accepted - not gathered
+      and drawn afterward - so the next loop's own crossing check, and
+      the one after that, sees every run of tube actually down so far,
+      this side's own included, not only what an earlier side or
+      direction left behind }
+    procedure PlaceAll;
+    var
+      C, Q: Integer;
+      P: TPlan;
+      L: TRadiantLoop;
+    begin
+      SetLength(Plans, 0);
+      C := 0;
+      while C <= High(RowV) do
+      begin
+        if TryRowFrom(C, Length(Plans), P) then
+        begin
+          for Q := 0 to High(P.Rows) do
+            if P.Far[Q] then UsedF[P.Rows[Q]] := True else UsedN[P.Rows[Q]] := True;
+          SetLength(Plans, Length(Plans) + 1);
+          P.LaneD := CurD;
+          Plans[High(Plans)] := P;
+          LayPlan(P, High(Plans), L);
+          L.Manifold := MI;
+          SetLength(Got, Length(Got) + 1);
+          Got[High(Got)] := L;
+          { the next row with a piece still unused - a near one, or, with
+            nothing nearer to reach it by, a far one on its own }
+          Inc(C);
+          while (C <= High(RowV)) and ((not HasN[C]) or UsedN[C]) and
+                ((not HasF[C]) or UsedF[C]) do Inc(C);
+        end
+        else Inc(C);
+      end;
+    end;
+
+    { Every lane of this side slid in toward the manifold, the same whole
+      number of spacings, when the innermost is not in the slot beside it.
+      The lanes are spaced for the loops the side was guessed to want, the
+      first farthest out; a guess one too many leaves the slot nearest the
+      manifold empty - a strip two lanes wide, bare from the manifold
+      straight up the middle of the floor to the far wall (the owner's
+      barn, 24 September: "missing entire 2 foot lengths").  Slid in, every
+      row reaches in with its lane and the strip is gone.  Each loop laid
+      again goes through the same checks as the first time, with the
+      tube's own maximum for the limit - rows reaching further in make a
+      loop longer; any that fails, and the slide is tried a spacing less,
+      and at none the side stays as it was. }
+    procedure Compact;
+    var
+      I: Integer;
+      MinD, Shift: Double;
+      Old: TRadiantLoopArray;
+      Lt: TRadiantLoop;
+      Ok: Boolean;
+    begin
+      if Length(Plans) = 0 then Exit;
+      MinD := 1E300;
+      for I := 0 to High(Plans) do MinD := Min(MinD, Plans[I].LaneD);
+      Shift := Floor((MinD - 3 * Spec.Spacing / 2) / Spec.Spacing + 1E-9) * Spec.Spacing;
+      Old := Copy(Got, GotFrom, Length(Got) - GotFrom);
+      Compacting := True;
+      try
+        while Shift >= Spec.Spacing - 1E-9 do
+        begin
+          SetLength(Got, GotFrom);
+          Ok := True;
+          for I := 0 to High(Plans) do
+          begin
+            CurD := Plans[I].LaneD - Shift;
+            { the crossing index is of the tube down now - this side's
+              loops laid again so far, not the ones they replace }
+            BuildIndex;
+            if not Fits(Plans[I], I) or PlanCrosses(Plans[I], I) then begin Ok := False; Break; end;
+            LayPlan(Plans[I], I, Lt);
+            Lt.Manifold := MI;
+            SetLength(Got, Length(Got) + 1);
+            Got[High(Got)] := Lt;
+          end;
+          if Ok then
+          begin
+            for I := 0 to High(Plans) do Plans[I].LaneD := Plans[I].LaneD - Shift;
+            Exit;
+          end;
+          Shift := Shift - Spec.Spacing;
+        end;
+        { no slide would do: as it was }
+        SetLength(Got, GotFrom);
+        for I := 0 to High(Old) do
+        begin
+          SetLength(Got, Length(Got) + 1);
+          Got[High(Got)] := Old[I];
+        end;
+      finally
+        Compacting := False;
+      end;
+    end;
+
   begin
     NLOut := 0;
+    Compacting := False;
     if SideK = 0 then Sign := -1 else Sign := 1;
     PortPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
-    { The only off-grid allowance: thirteen inches normally, or three
-      feet in a restart. The field keeps the requested row spacing. }
-    FanH := Max(Inset, FanIn * Spec.Inch);
+    { how far out along the manifold a lane may start: the breakout -
+      the tubes' only way off the grid }
+    BreakD := BreakFt * 12 * Spec.Inch;
     SetLength(RowV, 0);
-    C := 0;
-    repeat
-      V := M2.Y + VDir * (Inset + C * Spec.Spacing);
-      if VDir > 0 then begin if V > Vmax - Inset + 1E-9 then Break; end
-      else begin if V < Vmin + Inset - 1E-9 then Break; end;
+    Plan := RowPlan(VDir);
+    for C := 0 to High(Plan) do
+    begin
+      V := M2.Y + VDir * Plan[C];
       SetLength(RowV, C + 1); SetLength(NLo, C + 1); SetLength(NHi, C + 1); SetLength(EdgeMax, C + 1);
       SetLength(FLo, C + 1); SetLength(FHi, C + 1); SetLength(HasN, C + 1); SetLength(HasF, C + 1);
       RowV[C] := V;
@@ -1398,8 +1867,7 @@ var
       { this side stops halfway to the next manifold along the wall }
       if Sign > 0 then NHi[C] := Min(NHi[C], LimHi - M2.X) else NHi[C] := Min(NHi[C], M2.X - LimLo);
       if HasN[C] and (NHi[C] <= Spec.Spacing) then HasN[C] := False;
-      Inc(C);
-    until C > 4000;
+    end;
     N := Length(RowV);
     if N < 2 then
     begin
@@ -1420,34 +1888,9 @@ var
       if HasN[C] then AvgReach := Max(AvgReach, NHi[C]);
     EstGuess := Max(1, Ceil(N / Max(2, Limit / AvgReach))) + ExtraRanks;
 
-    { the plans: from the wall outward, each taking what it can, and
-      each committed to Got the moment it is accepted - not gathered
-      and drawn afterward - so the next loop's own crossing check, and
-      the one after that, sees every run of tube actually down so far,
-      this side's own included, not only what an earlier side or
-      direction left behind }
-    SetLength(Plans, 0);
-    C := 0;
-    while C <= High(RowV) do
-    begin
-      if TryRowFrom(C, Length(Plans), P) then
-      begin
-        for Q := 0 to High(P.Rows) do
-          if P.Far[Q] then UsedF[P.Rows[Q]] := True else UsedN[P.Rows[Q]] := True;
-        SetLength(Plans, Length(Plans) + 1);
-        Plans[High(Plans)] := P;
-        LayPlan(P, High(Plans), L);
-        L.Manifold := MI;
-        SetLength(Got, Length(Got) + 1);
-        Got[High(Got)] := L;
-        { the next row with a piece still unused - a near one, or, with
-          nothing nearer to reach it by, a far one on its own }
-        Inc(C);
-        while (C <= High(RowV)) and ((not HasN[C]) or UsedN[C]) and
-              ((not HasF[C]) or UsedF[C]) do Inc(C);
-      end
-      else Inc(C);
-    end;
+    GotFrom := Length(Got);
+    PlaceAll;
+    Compact;
     Unf := Unf + BareRows;
     NLOut := Length(Plans);
   end;
@@ -1482,16 +1925,17 @@ var
   var
     Trial, Best: TRadiantLoopArray;
     BestTrace: TRadiantTrace;
-    Unf, BestUnf, T, Lo, Hi, Spread, Cost, BestCost, PPitch: Double;
-    I, SideK, NP: Integer;
-    Better: Boolean;
-  begin
-    PPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
-    Best := nil; BestUnf := 1E300; BestCost := 1E300; BestTrace := nil;
-    T := MaxFt;
-    while T >= MaxFt / 2 do
+    Unf, BestUnf, T, BestT, Lo, Hi, Spread, Cost, BestCost, PPitch, Total: Double;
+    I, NBest: Integer;
+
+    { the whole manifold laid under one limit - or toward one length,
+      Target, under the tube's own - kept if it costs less }
+    procedure TryLimit(T: Double; Target: Double = 0);
+    var
+      I, SideK, NP: Integer;
     begin
       Trial := nil; Unf := 0;
+      TargetFt := Target;
       if WantTrace then CurTrace := nil;
       for SideK := 0 to 1 do
       begin
@@ -1515,15 +1959,60 @@ var
       end;
       Spread := Hi - Lo;
       Cost := Length(Trial) + Spread / LOOP_EVEN_FT + Unf / (Spec.Spacing * UNFILLED_LOOP_FT);
-      if BestCost = 1E300 then Better := True
-      else Better := Cost < BestCost - 1E-6;
-      if Better then
+      TargetFt := 0;
+      if Cost < BestCost - 1E-6 then
       begin
-        Best := Trial; BestUnf := Unf; BestCost := Cost;
+        Best := Trial; BestUnf := Unf; BestCost := Cost; BestT := T;
         if WantTrace then BestTrace := CurTrace;
       end;
-      if (FirstBudget = 1) and (FanIn = MANIFOLD_FAN_IN) and (ExtraRanks = 0) then T := T - 2
-      else T := T - 12;
+    end;
+
+  begin
+    PPitch := MANIFOLD_PORT_PITCH_IN * Spec.Inch;
+    Best := nil; BestUnf := 1E300; BestCost := 1E300; BestTrace := nil; BestT := MaxFt;
+    { Every twelve feet from the maximum down to half of it, then every
+      two either side of the best of those - the same answer as trying
+      every two feet from the start nearly always, at a quarter of the
+      layouts.  Only the first restart refines; the others were only
+      ever tried every twelve. }
+    { a quick look - Suggest weighing one wall against another - lays the
+      tube's own maximum and nothing more }
+    if Quick then
+    begin
+      TryLimit(MaxFt);
+      T := 0;
+    end
+    else T := MaxFt;
+    while T >= MaxFt / 2 do
+    begin
+      TryLimit(T);
+      T := T - 12;
+    end;
+    if (FirstBudget = 1) and (ExtraRanks = 0) and not Quick then
+    begin
+      T := Min(MaxFt, BestT + 10);
+      while T >= Max(MaxFt / 2, BestT - 10) do
+      begin
+        if Abs(Frac((MaxFt - T) / 12)) > 1E-9 then TryLimit(T);
+        T := T - 2;
+      end;
+    end;
+    { Then balanced: the best of those has N loops and S feet of tube
+      between them, and laid again toward S/N a loop - or a loop fewer
+      or more, S/(N-1) and S/(N+1), in case one less or one more is what
+      evens them - every loop stops nearest that length rather than as
+      long as the limit lets it.  Weighed by the same cost, so it can
+      only help: the idea is Warm's, a split of the rows into loops by
+      their total, where filling each loop to the limit left the last
+      with the scraps (24 September, 11% on the owner's barn). }
+    NBest := Length(Best);
+    if (NBest > 0) and not Quick then
+    begin
+      Total := 0;
+      for I := 0 to High(Best) do Total := Total + Best[I].LenFt;
+      for I := -1 to 1 do
+        if (NBest + I >= 1) and (Total / (NBest + I) <= MaxFt) then
+          TryLimit(MaxFt, Total / (NBest + I));
     end;
     for I := 0 to High(Best) do
     begin
@@ -1571,7 +2060,403 @@ var
     end;
   end;
 
+  { The floor of this manifold as the loops in Lps leave it: every row
+    both ways from the manifold, out to the halfway lines. }
+  function RegionBare(const Lps: TRadiantLoopArray): Double;
+  var
+    VDir, C: Integer;
+    Plan: TDoubleArray;
+  begin
+    Result := 0;
+    for VDir := -1 to 1 do
+    begin
+      if VDir = 0 then Continue;
+      Plan := RowPlan(VDir);
+      for C := 0 to High(Plan) do
+        Result := Result + RowBare(M2.Y + VDir * Plan[C], LimLo, LimHi, Lps);
+    end;
+  end;
+
+  { The floor of this manifold as the loops leave it, sampled every half
+    spacing from the wall's own inset and not at the rows - so a layout
+    whose rows sit a quarter spacing further along is measured on the
+    same floor as one whose rows do not, and the strip a row grid leaves
+    against the far wall is counted, where sampled at the rows it never
+    was.  What a layout is finally said to leave bare; the searching
+    inside measures at the rows, which is cheaper and all it needs. }
+  function FloorBare(const Lps: TRadiantLoopArray): Double;
+  var
+    K: Integer;
+    V: Double;
+  begin
+    Result := 0;
+    K := 0;
+    repeat
+      V := Vmin + Inset + K * Spec.Spacing / 2;
+      if V > Vmax - Inset + 1E-9 then Break;
+      Result := Result + RowBare(V, LimLo, LimHi, Lps) / 2;
+      Inc(K);
+    until K > 20000;
+  end;
+
+  { The first step of the repair pass: grow the loops laid short of the
+    maximum into bare floor beside them.  The search stops a loop at
+    whole pairs of rows under the limit it is trying, and keeps the
+    limit that makes the loops most even, so most loops come home with
+    length to spare while floor lies bare next to them.  Growing is a
+    finger - a hairpin one spacing wide, pushed out square from a
+    straight run of the loop: the run is cut, the tube goes out, across
+    and back, and carries on.  Fingers a spacing apart make a comb, the
+    same serpentine the rows are, turned; a finger's own side can put
+    out another, so a pocket fills from its edge in.  Never less than two
+    spacings deep: a notch one spacing deep is three bends in a foot, a
+    crenellation no fitter would lay for a foot of floor.  A finger rises
+    only as far as it keeps a spacing off every other run of tube, this
+    loop's own included, and a hand's width off the walls and the
+    obstacles, and only as far as the loop's own length allows - which
+    is the tube's maximum, not the limit the search settled on.  Each
+    finger is new floor heated, never floor another run already heats,
+    since nothing is let within a spacing of anything else.  Kept only
+    when it costs less by the same measure the search uses. }
+  procedure GrowLoops(FromLoop: Integer);
+  var
+    Q, BestQ: array of T2Array;
+    Len, BestLen: array of Double;
+    Moved, BestMoved: array of Boolean;
+    Order: TIntArray;
+    Bare0, BestBare, BestCost, Cap, Hi, MinFinger: Double;
+    I, J, CapTry, Tmp: Integer;
+    Changed: Boolean;
+
+    function Cost(const Lens: array of Double; Bare: Double): Double;
+    var
+      Li: Integer;
+      Lo, Hi: Double;
+    begin
+      Lo := 1E300; Hi := 0;
+      for Li := FromLoop to High(Lens) do
+      begin
+        Lo := Min(Lo, Lens[Li]); Hi := Max(Hi, Lens[Li]);
+      end;
+      if Hi = 0 then Lo := 0;
+      Result := (Hi - Lo) / LOOP_EVEN_FT + Bare / (Spec.Spacing * UNFILLED_LOOP_FT);
+    end;
+
+    function Along(const P: T2; Ax: Integer): Double;
+    begin
+      if Ax = 0 then Result := P.X else Result := P.Y;
+    end;
+
+    function Across(const P: T2; Ax: Integer): Double;
+    begin
+      if Ax = 0 then Result := P.Y else Result := P.X;
+    end;
+
+    { how high above the base line, rising Sg, the segment P-Q comes
+      while it is within W of the base's own stretch A0..B0 along it:
+      1E300 when it never does, 0 when it reaches the base line }
+    function Rise(const P, Qp: T2; Ax, Sg: Integer; A0, B0, C0, W: Double): Double;
+    var
+      Pa, Qa, Pc, Qc, Lo, Hi, T0, T1, S0, S1: Double;
+    begin
+      Result := 1E300;
+      Pa := Along(P, Ax); Qa := Along(Qp, Ax);
+      Lo := A0 - W + 1E-6; Hi := B0 + W - 1E-6;
+      if (Max(Pa, Qa) <= Lo) or (Min(Pa, Qa) >= Hi) then Exit;
+      Pc := Sg * (Across(P, Ax) - C0); Qc := Sg * (Across(Qp, Ax) - C0);
+      if Abs(Qa - Pa) < 1E-12 then begin T0 := 0; T1 := 1; end
+      else
+      begin
+        T0 := (Lo - Pa) / (Qa - Pa); T1 := (Hi - Pa) / (Qa - Pa);
+        if T0 > T1 then begin S0 := T0; T0 := T1; T1 := S0; end;
+        T0 := Max(0, T0); T1 := Min(1, T1);
+      end;
+      S0 := Pc + T0 * (Qc - Pc); S1 := Pc + T1 * (Qc - Pc);
+      if Max(S0, S1) < -1E-6 then Exit;
+      if Min(S0, S1) <= 1E-6 then Exit(0);
+      Result := Min(S0, S1);
+    end;
+
+    { how far a finger on loop Li's segment Seg, over A0..B0 of it, can
+      rise Sg before it comes within a spacing of tube or a hand's width
+      of a wall or an obstacle - leaving out this loop's own segments
+      SkipLo to SkipHi, the one it grows from and, for a turn pushed
+      out, the two runs either side of it; less than Enough is as good as
+      none, and said as soon as it is known }
+    function Room(Li, SkipLo, SkipHi, Ax, Sg: Integer; A0, B0, C0, Enough: Double): Double;
+    var
+      Lj, K, H2: Integer;
+    begin
+      Result := 1E300;
+      for Lj := 0 to High(Q) do
+        for K := 1 to High(Q[Lj]) do
+        begin
+          if (Lj = Li) and (K - 1 >= SkipLo) and (K - 1 <= SkipHi) then Continue;
+          Result := Min(Result, Rise(Q[Lj][K - 1], Q[Lj][K], Ax, Sg, A0, B0, C0, Spec.Spacing) - Spec.Spacing);
+          if Result < Enough then Exit;
+        end;
+      for K := 0 to High(Poly2) do
+        Result := Min(Result, Rise(Poly2[K], Poly2[(K + 1) mod Length(Poly2)], Ax, Sg, A0, B0, C0, Inset) - Inset);
+      for H2 := 0 to High(HolePoly) do
+        for K := 0 to High(HolePoly[H2]) do
+          Result := Min(Result, Rise(HolePoly[H2][K], HolePoly[H2][(K + 1) mod Length(HolePoly[H2])],
+            Ax, Sg, A0, B0, C0, Inset) - Inset);
+      { and not past the halfway line to the next manifold }
+      if Ax = 1 then
+      begin
+        if Sg > 0 then Result := Min(Result, LimHi - C0) else Result := Min(Result, C0 - LimLo);
+      end
+      else if (A0 < LimLo) or (B0 > LimHi) then Result := 0;
+    end;
+
+    { One pass over loop Li: every turn pushed out as far as the floor in
+      front of it is bare.  A turn - a run with the runs either side of it
+      square to it and on the same side, the end of a serpentine's pair of
+      rows - moved outward lengthens those two runs and adds not one bend:
+      the tube goes further the way it was already going.  Tried before
+      any finger, since the fitter's first choice is a longer straight,
+      and rows that stopped short of a wall or of bare floor are the
+      commonest bare there is. }
+    function PushOne(Li: Integer): Boolean;
+    var
+      Seg, Ax, Sg, SPrev, SNext: Integer;
+      P0, P1, Pp, Pn: T2;
+      A0, B0, C0, H: Double;
+    begin
+      Result := False;
+      for Seg := 1 to High(Q[Li]) - 2 do
+      begin
+        if Cap - Len[Li] < 2 * PUSH_MIN * Spec.Spacing then Exit;
+        P0 := Q[Li][Seg]; P1 := Q[Li][Seg + 1];
+        Pp := Q[Li][Seg - 1]; Pn := Q[Li][Seg + 2];
+        if Abs(P1.Y - P0.Y) < 1E-9 then Ax := 0
+        else if Abs(P1.X - P0.X) < 1E-9 then Ax := 1
+        else Continue;
+        { both neighbors square to it: straight in the other axis }
+        if Abs(Along(Pp, Ax) - Along(P0, Ax)) > 1E-9 then Continue;
+        if Abs(Along(Pn, Ax) - Along(P1, Ax)) > 1E-9 then Continue;
+        C0 := Across(P0, Ax);
+        SPrev := Sign(Across(Pp, Ax) - C0); SNext := Sign(Across(Pn, Ax) - C0);
+        if (SPrev = 0) or (SPrev <> SNext) then Continue;
+        Sg := -SPrev;
+        A0 := Min(Along(P0, Ax), Along(P1, Ax)); B0 := Max(Along(P0, Ax), Along(P1, Ax));
+        H := Min(Room(Li, Seg - 1, Seg + 1, Ax, Sg, A0, B0, C0, PUSH_MIN * Spec.Spacing),
+          (Cap - Len[Li]) / 2 - 1E-6);
+        if H < PUSH_MIN * Spec.Spacing - 1E-9 then Continue;
+        if Ax = 0 then
+        begin
+          Q[Li][Seg].Y := C0 + Sg * H; Q[Li][Seg + 1].Y := C0 + Sg * H;
+        end
+        else
+        begin
+          Q[Li][Seg].X := C0 + Sg * H; Q[Li][Seg + 1].X := C0 + Sg * H;
+        end;
+        Len[Li] := Len[Li] + 2 * H;
+        Moved[Li] := True;
+        Result := True;
+      end;
+    end;
+
+    { one pass over loop Li: a finger wherever a straight run has room }
+    function GrowOne(Li: Integer): Boolean;
+    var
+      Seg, Ax, Dir, Sg, N: Integer;
+      P0, P1: T2;
+      SegLen, T, A0, B0, C0, H: Double;
+      Placed: Boolean;
+    begin
+      Result := False;
+      Seg := 0;
+      while Seg < High(Q[Li]) do
+      begin
+        if Cap - Len[Li] < 2 * MinFinger then Exit;
+        P0 := Q[Li][Seg]; P1 := Q[Li][Seg + 1];
+        if Abs(P1.Y - P0.Y) < 1E-9 then Ax := 0
+        else if Abs(P1.X - P0.X) < 1E-9 then Ax := 1
+        else begin Inc(Seg); Continue; end;
+        SegLen := Abs(Along(P1, Ax) - Along(P0, Ax));
+        if Along(P1, Ax) > Along(P0, Ax) then Dir := 1 else Dir := -1;
+        C0 := Across(P0, Ax);
+        Placed := False;
+        T := Spec.Spacing;
+        while (T + 2 * Spec.Spacing <= SegLen + 1E-9) and not Placed do
+        begin
+          A0 := Along(P0, Ax) + Dir * T;
+          B0 := A0 + Dir * Spec.Spacing;
+          for Sg := 1 downto -1 do
+          begin
+            if Sg = 0 then Continue;
+            H := Min(Room(Li, Seg, Seg, Ax, Sg, Min(A0, B0), Max(A0, B0), C0, MinFinger),
+              (Cap - Len[Li]) / 2 - 1E-6);
+            if H < MinFinger - 1E-9 then Continue;
+            { out, across, back - after P0, before P1 }
+            N := Length(Q[Li]);
+            SetLength(Q[Li], N + 4);
+            Move(Q[Li][Seg + 1], Q[Li][Seg + 5], (N - Seg - 1) * SizeOf(T2));
+            if Ax = 0 then
+            begin
+              Q[Li][Seg + 1] := Point2(A0, C0);
+              Q[Li][Seg + 2] := Point2(A0, C0 + Sg * H);
+              Q[Li][Seg + 3] := Point2(B0, C0 + Sg * H);
+              Q[Li][Seg + 4] := Point2(B0, C0);
+            end
+            else
+            begin
+              Q[Li][Seg + 1] := Point2(C0, A0);
+              Q[Li][Seg + 2] := Point2(C0 + Sg * H, A0);
+              Q[Li][Seg + 3] := Point2(C0 + Sg * H, B0);
+              Q[Li][Seg + 4] := Point2(C0, B0);
+            end;
+            Len[Li] := Len[Li] + 2 * H;
+            Moved[Li] := True;
+            Result := True; Placed := True;
+            Break;
+          end;
+          T := T + Spec.Spacing;
+        end;
+        { the rest of this run, from the finger on, is the next segment }
+        if Placed then Seg := Seg + 4 else Inc(Seg);
+      end;
+    end;
+
+    { a loop grown here is the loop kept: what the replay shows as laid
+      is what it finally is }
+    procedure Retrace(const Was: TP3Array; const Now: TP3Array);
+    var
+      S, P: Integer;
+      Same: Boolean;
+    begin
+      for S := High(Trace) downto 0 do
+      begin
+        if not Trace[S].Accepted or (Length(Trace[S].Pts) <> Length(Was)) then Continue;
+        Same := True;
+        for P := 0 to High(Was) do
+          if Dist(Trace[S].Pts[P], Was[P]) > 1E-9 then begin Same := False; Break; end;
+        if Same then begin Trace[S].Pts := Now; Exit; end;
+      end;
+    end;
+
+    procedure Keep(const From: array of T2Array; const Lens: array of Double;
+      const FromMoved: array of Boolean);
+    var
+      Li, P: Integer;
+      Was: TP3Array;
+    begin
+      for Li := FromLoop to High(Loops) do
+      begin
+        if not FromMoved[Li] then Continue;
+        Was := Loops[Li].Pts;
+        SetLength(Loops[Li].Pts, Length(From[Li]));
+        for P := 0 to High(From[Li]) do Loops[Li].Pts[P] := World(From[Li][P]);
+        Loops[Li].LenFt := 0;
+        for P := 1 to High(Loops[Li].Pts) do
+          Loops[Li].LenFt := Loops[Li].LenFt + Dist(Loops[Li].Pts[P - 1], Loops[Li].Pts[P]);
+        if WantTrace then Retrace(Was, Loops[Li].Pts);
+      end;
+    end;
+
+    function Snapshot: TRadiantLoopArray;
+    var
+      Li, P: Integer;
+    begin
+      Result := Copy(Loops);
+      for Li := FromLoop to High(Loops) do
+        if Moved[Li] then
+        begin
+          SetLength(Result[Li].Pts, Length(Q[Li]));
+          for P := 0 to High(Q[Li]) do Result[Li].Pts[P] := World(Q[Li][P]);
+        end;
+    end;
+
+  begin
+    if FromLoop > High(Loops) then Exit;
+    { a finger is a hairpin out of a straight run and back: four bends.
+      Only a long one earns them - a comb of two-foot teeth heated a few
+      square feet for every four bends, and on 3/4" PEX at twelve inches
+      it could hardly be laid (the owner's barn, 24 September) }
+    MinFinger := FINGER_MIN_SPACINGS * Spec.Spacing;
+    SetLength(Len, Length(Loops));
+    Hi := 0;
+    for I := 0 to High(Loops) do
+    begin
+      Len[I] := Loops[I].LenFt;
+      if I >= FromLoop then Hi := Max(Hi, Len[I]);
+    end;
+    Bare0 := RegionBare(Loops);
+    BestCost := Cost(Len, Bare0); BestBare := Bare0;
+    BestQ := nil; BestLen := nil;
+    { the shortest loops grow first: they have the most to give, and
+      the spread between longest and shortest is what closes }
+    SetLength(Order, Length(Loops) - FromLoop);
+    for I := 0 to High(Order) do Order[I] := FromLoop + I;
+    for I := 1 to High(Order) do
+    begin
+      J := I;
+      while (J > 0) and (Len[Order[J - 1]] > Len[Order[J]]) do
+      begin
+        Tmp := Order[J]; Order[J] := Order[J - 1]; Order[J - 1] := Tmp; Dec(J);
+      end;
+    end;
+    { grown no longer than the longest loop already is, so the spread
+      can only close; and grown to the tube's own maximum, which heats
+      more floor but can widen it - whichever costs less }
+    for CapTry := 0 to 1 do
+    begin
+      if CapTry = 0 then Cap := Hi else Cap := MaxFt;
+      if (CapTry = 1) and (MaxFt <= Hi + 1E-6) then Break;
+      SetLength(Q, Length(Loops));
+      SetLength(Moved, Length(Loops));
+      for I := 0 to High(Loops) do
+      begin
+        SetLength(Q[I], Length(Loops[I].Pts));
+        for J := 0 to High(Loops[I].Pts) do Q[I][J] := RadiantTo2(F, Loops[I].Pts[J]);
+        Len[I] := Loops[I].LenFt;
+        Moved[I] := False;
+      end;
+      { the turns pushed out first - longer straights, no new bend - then
+        fingers, long ones only }
+      J := 0;
+      repeat
+        Changed := False;
+        for I := 0 to High(Order) do
+          if PushOne(Order[I]) then Changed := True;
+        Inc(J);
+      until not Changed or (J >= 8);
+      J := 0;
+      if Fingers then
+        repeat
+          Changed := False;
+          for I := 0 to High(Order) do
+            if GrowOne(Order[I]) then Changed := True;
+          Inc(J);
+        until not Changed or (J >= 8);
+      Bare0 := RegionBare(Snapshot);
+      if Cost(Len, Bare0) < BestCost - 1E-6 then
+      begin
+        BestCost := Cost(Len, Bare0);
+        BestQ := Copy(Q); BestLen := Copy(Len); BestMoved := Copy(Moved);
+        for I := 0 to High(Q) do BestQ[I] := Copy(Q[I]);
+        Unfilled := Unfilled - (BestBare - Bare0);
+        BestBare := Bare0;
+      end;
+    end;
+    if BestQ <> nil then Keep(BestQ, BestLen, BestMoved);
+  end;
+
 begin
+  TargetFt := 0; FloorUnf := 0;
+  RandState := Seed;
+  for I := 0 to 63 do
+    if Seed = 0 then begin RankBudget[I] := 1; RankJit[I] := 0; end
+    else
+    begin
+      { a small generator of our own, so a seed means the same on every
+        machine and every build }
+      RandState := Cardinal((QWord(RandState) * 1664525 + 1013904223) and $FFFFFFFF);
+      RankBudget[I] := 0.9 + 0.1 * ((RandState shr 8) and $FFFF) / 65535;
+      RandState := Cardinal((QWord(RandState) * 1664525 + 1013904223) and $FFFFFFFF);
+      RankJit[I] := Integer((RandState shr 8) mod 5) - 2;
+    end;
   Result := Default(TRadiantResult);
   Result.Crossings := 0;
   Result.Why := RadiantProblem(Outline, Spec);
@@ -1594,6 +2479,7 @@ begin
   for MI := 0 to NM - 1 do
   begin
     Result.Manifolds[MI].At := Spec.Manifolds[MI];
+    if MI <= High(Spec.ManifoldAngles) then Result.Manifolds[MI].Heading := Spec.ManifoldAngles[MI];
     F := FrameAt(Outline, Spec.Manifolds[MI]);
     if Turn then
     begin
@@ -1656,6 +2542,8 @@ begin
     Result.RowCount := Max(1, Floor(((Vmax - Vmin) - 2 * Inset) / Spec.Spacing));
     K := Length(Loops);
     LayManifold;
+    if not Quick then GrowLoops(K);
+    FloorUnf := FloorUnf + FloorBare(Loops);
     Inc(Result.Crossings, Meetings(K));
     Result.Manifolds[MI].LoopCount := Length(Loops) - K;
     Result.Manifolds[MI].Ports := Max(MANIFOLD_PORTS_MIN, Length(Loops) - K);
@@ -1666,7 +2554,9 @@ begin
   Result.Loops := Loops;
   Result.Trace := Trace;
   Result.CellCount := 0;
-  Result.UnfilledSqFt := Unfilled;
+  { reported on the fixed grid, not the rows' own - see FloorBare }
+  Result.UnfilledSqFt := FloorUnf;
+  Result.Bends := RadiantBends(Loops, Result.StraightPct, STRAIGHT_RUN_SPACINGS * Spec.Spacing);
   Result.TotalFt := 0;
   for I := 0 to High(Loops) do Result.TotalFt := Result.TotalFt + Loops[I].LenFt;
   Result.OrderFt := Result.TotalFt * (1 + Spec.WastePct / 100);
@@ -1682,12 +2572,69 @@ end;
   Try both axes, a shorter first circuit, and a return fan of at most three
   feet. Each attempt still lays all four quadrants of an interior manifold.
   The requested port count is never a routing limit. }
-function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
-  const Spec: TRadiantSpec; WantTrace: Boolean = False): TRadiantResult;
+{ how much of its floor R covers, and how far its shortest loop falls
+  short of its longest, worst manifold, both as fractions }
+procedure RadiantMeasure(const R: TRadiantResult; out Cover, Spread: Double);
 var
-  Alternative: TRadiantResult;
-  TurnIndex, BudgetIndex, FanIndex, BestTurn, RankTry, BestRanks: Integer;
-  FirstBudget, FanIn, BestBudget, BestFan, Cost, BestCost: Double;
+  M, L: Integer;
+  Lo, Hi: Double;
+begin
+  if R.AreaSqFt > 0 then Cover := Max(0, 1 - R.UnfilledSqFt / R.AreaSqFt) else Cover := 0;
+  Spread := 0;
+  for M := 0 to High(R.Manifolds) do
+  begin
+    Lo := 1E300; Hi := 0;
+    for L := 0 to High(R.Loops) do
+      if R.Loops[L].Manifold = M then
+      begin
+        Lo := Min(Lo, R.Loops[L].LenFt); Hi := Max(Hi, R.Loops[L].LenFt);
+      end;
+    if Hi > 0 then Spread := Max(Spread, (Hi - Lo) / Hi);
+  end;
+end;
+
+function RadiantMeetsGoals(const R: TRadiantResult; const Spec: TRadiantSpec): Boolean;
+var
+  Cover, Spread: Double;
+begin
+  RadiantMeasure(R, Cover, Spread);
+  Result := R.Ok and (R.Crossings = 0) and
+    ((Spec.GoalCoverPct <= 0) or (Cover * 100 >= Spec.GoalCoverPct - 1E-9)) and
+    ((Spec.GoalEvenPct <= 0) or (Spread * 100 <= Spec.GoalEvenPct + 1E-9));
+end;
+
+function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
+  const Spec: TRadiantSpec; WantTrace: Boolean = False;
+  Progress: TRadiantProgress = nil; Found: PRadiantResults = nil): TRadiantResult;
+type
+  { everything a layout is laid from - enough to lay it again, the same }
+  TTry = record
+    Turn: Boolean;
+    Budget, BreakFt: Double;
+    Ranks: Integer;
+    Seed: Cardinal;
+    { the row grid slid this fraction of a spacing off the wall }
+    RowOff: Double;
+    { no fingers grown, only turns pushed out - see the try after the
+      row offsets }
+    NoFingers: Boolean;
+  end;
+const
+  { a search nobody stops is not left running for ever }
+  MAX_TRIES = 20000;
+var
+  TurnIndex, TurnLo, TurnHi, BudgetIndex, RankTry, Done, Total, Level: Integer;
+  BestRank, Cover, Spread, BreakFt, MostCover: Double;
+  { the solutions kept for the wizard to show - see Offer }
+  Kept: TRadiantResults;
+  KeptRank: array of Double;
+  KeptMeet: Boolean;
+  Stop, Met, Probe, Goals: Boolean;
+  RF, WF: TRadiantFrame;
+  H: TP3;
+  Best, R: TRadiantResult;
+  BestTry, T: TTry;
+  Seed, RandState: Cardinal;
 
   function Score(const R: TRadiantResult): Double;
   var
@@ -1707,63 +2654,299 @@ var
     end;
   end;
 
+  { Lower is better.  How far short of the goals it falls counts first -
+    coverage ten times evenness, a point for a point: the floor heated is
+    what the layout is for, and even loops over a bare floor are no
+    layout at all.  Weighed a point for a point, as they were at first,
+    a search left running traded coverage away for evenness one step at
+    a time - the owner watched it settle on loops perfectly even over
+    five percent of the floor (24 September).  Then the old cost, then a
+    little for every foot of breakout past the owner's four, so of two
+    layouts that both meet the goals the closer breakout wins. }
+  function RankOf(const R: TRadiantResult; BreakFt: Double): Double;
+  var
+    Cv, Sp, Short: Double;
+  begin
+    if not R.Ok or (R.Crossings > 0) then Exit(1E300);
+    RadiantMeasure(R, Cv, Sp);
+    Short := 0;
+    if Spec.GoalCoverPct > 0 then Short := Short + 10 * Max(0, Spec.GoalCoverPct - Cv * 100)
+    { with no coverage goal, coverage still leads: every point of it
+      missing from a whole floor }
+    else Short := Short + 10 * (100 - Cv * 100);
+    if Spec.GoalEvenPct > 0 then Short := Short + Max(0, Sp * 100 - Spec.GoalEvenPct);
+    Result := 5 * Short + Score(R) + 0.25 * (BreakFt - MANIFOLD_BREAKOUT_FT) + BEND_WEIGHT * R.Bends;
+  end;
+
+  { A try kept among the solutions to show: every distinct one that meets
+    the goals, best first - or, while none has, the few nearest them - for
+    the wizard's arrows to step through.  Two tries that lay the same
+    layout are one solution. }
+  procedure Offer(const R: TRadiantResult; Rk: Double);
+  var
+    I, J: Integer;
+    Cv, Sp, Cv2, Sp2: Double;
+    Meets: Boolean;
+  begin
+    if (Found = nil) or (Rk >= 1E299) then Exit;
+    Meets := RadiantMeetsGoals(R, Spec);
+    { the first to meet the goals clears out the near misses kept so far }
+    if Meets and (Length(Kept) > 0) and not KeptMeet then SetLength(Kept, 0);
+    if not Meets and KeptMeet then Exit;
+    KeptMeet := KeptMeet or Meets;
+    RadiantMeasure(R, Cv, Sp);
+    for I := 0 to High(Kept) do
+    begin
+      RadiantMeasure(Kept[I], Cv2, Sp2);
+      if (Length(Kept[I].Loops) = Length(R.Loops)) and (Abs(Kept[I].TotalFt - R.TotalFt) < 0.5) and
+         (Abs(Cv2 - Cv) < 1E-4) then Exit;
+    end;
+    I := Length(Kept);
+    while (I > 0) and (KeptRank[I - 1] > Rk) do Dec(I);
+    if I >= SOLUTIONS_KEPT then Exit;
+    SetLength(Kept, Length(Kept) + 1); SetLength(KeptRank, Length(Kept));
+    for J := High(Kept) downto I + 1 do
+    begin
+      Kept[J] := Kept[J - 1]; KeptRank[J] := KeptRank[J - 1];
+    end;
+    Kept[I] := R; KeptRank[I] := Rk;
+    if Length(Kept) > SOLUTIONS_KEPT then
+    begin
+      SetLength(Kept, SOLUTIONS_KEPT); SetLength(KeptRank, SOLUTIONS_KEPT);
+    end;
+  end;
+
+  { one layout tried, kept if it is the best yet; says so and asks
+    whether to go on }
+  function Consider(const T: TTry; out R: TRadiantResult): Boolean;
+  var
+    Rk, Cv, Sp: Double;
+  begin
+    R := ComputeRadiantOriented(Outline, Holes, Spec, False, T.Turn, T.Budget, T.Ranks,
+      T.BreakFt, T.Seed, T.RowOff, not T.NoFingers);
+    R.BreakoutFt := T.BreakFt;
+    Rk := RankOf(R, T.BreakFt);
+    { the first answer stands until a better one comes, so a floor with
+      no layout still says why }
+    if Done = 0 then Best := R;
+    { and a layout covering more than two points less than the most any
+      layout has covered is not a better one, whatever else it does
+      better - against the most seen, not the one kept, so coverage
+      cannot walk down two points at a time }
+    if R.Ok and (R.Crossings = 0) then
+    begin
+      RadiantMeasure(R, Cv, Sp);
+      if Cv < MostCover - 0.02 then Rk := 1E300;
+      MostCover := Max(MostCover, Cv);
+    end;
+    R.Tries := Done + 1;
+    Offer(R, Rk);
+    if Rk < BestRank - 1E-6 then
+    begin
+      Best := R; BestRank := Rk; BestTry := T;
+    end;
+    Inc(Done);
+    Stop := False;
+    if Assigned(Progress) then Progress(Done, Total, Best, Stop);
+    Result := not Stop;
+  end;
+
+  function Rnd: Double;
+  begin
+    RandState := Cardinal((QWord(RandState) * 1664525 + 1013904223) and $FFFFFFFF);
+    Result := ((RandState shr 8) and $FFFFFF) / 16777216;
+  end;
+
 begin
   Result := Default(TRadiantResult);
   Result.Why := RadiantProblem(Outline, Spec);
   if Result.Why <> '' then Exit;
-  BestCost := 1E300; BestTurn := 0; BestBudget := 1; BestFan := MANIFOLD_FAN_IN; BestRanks := 0;
-  for TurnIndex := 0 to 1 do
-    for BudgetIndex := 0 to 2 do
-      for FanIndex := 0 to 1 do
+  Goals := (Spec.GoalCoverPct > 0) or (Spec.GoalEvenPct > 0);
+  { Which way the ports run.  A manifold given a heading - the box turned
+    on the wizard's plan - is laid the way it faces: ports along the
+    wall it hangs on, tubes out square from it, or turned a quarter so
+    they run out along the wall.  With no heading both are tried, as
+    they always were. }
+  TurnLo := 0; TurnHi := 1;
+  if (Length(Spec.ManifoldAngles) > 0) and (Length(Spec.Manifolds) > 0) then
+  begin
+    RF := RadiantFrameOf(Outline);
+    WF := FrameAt(Outline, Spec.Manifolds[0]);
+    H := P3(RF.U.X * Cos(DegToRad(Spec.ManifoldAngles[0])) + RF.V.X * Sin(DegToRad(Spec.ManifoldAngles[0])),
+            RF.U.Y * Cos(DegToRad(Spec.ManifoldAngles[0])) + RF.V.Y * Sin(DegToRad(Spec.ManifoldAngles[0])),
+            RF.U.Z * Cos(DegToRad(Spec.ManifoldAngles[0])) + RF.V.Z * Sin(DegToRad(Spec.ManifoldAngles[0])));
+    if Abs(Dot3(H, WF.U)) >= Abs(Dot3(H, WF.V)) then TurnHi := 0 else TurnLo := 1;
+  end;
+  Best := Default(TRadiantResult); BestRank := 1E300; MostCover := 0;
+  Kept := nil; KeptRank := nil; KeptMeet := False;
+  BestTry := Default(TTry); BestTry.Budget := 1; BestTry.BreakFt := MANIFOLD_BREAKOUT_FT;
+  Done := 0; Total := BREAKOUT_LEVELS * (TurnHi - TurnLo + 1) * (3 + 4); Stop := False;
+
+  { The fixed restarts, at the breakout first the owner's four feet,
+    where every tube is out on the grid within four feet of the
+    manifold.  A manifold's tubes can only leave that square through its
+    edge at the spacing, and today's lanes use the top of it, not its
+    sides - so where four feet cannot meet the goals, six, then eight,
+    and on to twelve: a floor that wants one loop more than eight feet
+    can let out - every loop at the tube's maximum and the far rows bare
+    (24 September, two zones of the owner's barn) - is better served
+    closing in a little further out than left bare.
+    The first try at a breakout far short of the floor is enough to move
+    on: the others at the same breakout will not make up ten percent. }
+  for Level := 0 to BREAKOUT_LEVELS - 1 do
+  begin
+    if Stop then Break;
+    BreakFt := MANIFOLD_BREAKOUT_FT + 2 * Level;
+    Probe := True;
+    for TurnIndex := TurnLo to TurnHi do
+      for BudgetIndex := 0 to 2 do
       begin
-        FirstBudget := 1 - BudgetIndex * 0.25;
-        if FanIndex = 0 then FanIn := MANIFOLD_FAN_IN else FanIn := 36;
-        Alternative := ComputeRadiantOriented(Outline, Holes, Spec, False,
-          TurnIndex = 1, FirstBudget, FanIn, 0);
-        Cost := Score(Alternative);
-        if (TurnIndex = 0) and (BudgetIndex = 0) and (FanIndex = 0) then Result := Alternative;
-        if Alternative.Ok and (Alternative.Crossings = 0) and (Cost < BestCost - 1E-6) then
+        if Stop or not Probe then Continue;
+        T := Default(TTry);
+        T.Turn := TurnIndex = 1; T.Budget := 1 - BudgetIndex * 0.25; T.BreakFt := BreakFt;
+        if not Consider(T, R) then Break;
+        if (TurnIndex = TurnLo) and (BudgetIndex = 0) and (Level < BREAKOUT_LEVELS - 1) then
         begin
-          Result := Alternative; BestCost := Cost;
-          BestTurn := TurnIndex; BestBudget := FirstBudget; BestFan := FanIn; BestRanks := 0;
+          RadiantMeasure(R, Cover, Spread);
+          if not R.Ok or (Cover < Max(BREAKOUT_COVER, Spec.GoalCoverPct / 100) - 0.1) then Probe := False;
         end;
       end;
-  { A length-based estimate is only a starting point. Shortened circuits
-    and detours may need more connections. Restart with additional lane
-    ranks rather than silently stopping at that estimated manifold size. }
-  for TurnIndex := 0 to 1 do
-    for RankTry := 1 to 4 do
+    { A length-based estimate is only a starting point. Shortened circuits
+      and detours may need more connections. Restart with additional lane
+      ranks rather than silently stopping at that estimated manifold size. }
+    if Probe then
+      for TurnIndex := TurnLo to TurnHi do
+        for RankTry := 1 to 4 do
+        begin
+          if Stop then Break;
+          T := Default(TTry);
+          T.Turn := TurnIndex = 1; T.Budget := 1; T.Ranks := RankTry * 2; T.BreakFt := BreakFt;
+          if not Consider(T, R) then Break;
+          if R.Ok and (R.UnfilledSqFt < R.AreaSqFt * 0.03) then Break;
+        end;
+    { Covered from this close in: no wider.  Coverage alone decides it -
+      the owner's four feet give way to heat the floor, not to even the
+      loops a little more; evenness is sought at the breakout the floor
+      needed, by the tries below. }
+    if Best.Ok then
     begin
-      Alternative := ComputeRadiantOriented(Outline, Holes, Spec, False,
-        TurnIndex = 1, 1, MANIFOLD_FAN_IN, RankTry * 2);
-      Cost := Score(Alternative);
-      if Alternative.Ok and (Alternative.Crossings = 0) and (Cost < BestCost - 1E-6) then
-      begin
-        Result := Alternative; BestCost := Cost;
-        BestTurn := TurnIndex; BestBudget := 1; BestFan := MANIFOLD_FAN_IN;
-        BestRanks := RankTry * 2;
-      end;
-      if Alternative.Ok and (Alternative.UnfilledSqFt < Alternative.AreaSqFt * 0.03) then Break;
+      RadiantMeasure(Best, Cover, Spread);
+      if Cover >= IfThen(Spec.GoalCoverPct > 0, Spec.GoalCoverPct / 100, BREAKOUT_COVER) - 1E-9 then Break;
     end;
-  { Replay the winning strategy only, so discarded restarts cannot appear
-    as accepted loops in the animation. Normal preview allocates no trace. }
+  end;
+
+  { The row grid slid along: the best so far laid again with every row a
+    quarter, a half and three quarters of a spacing further from the
+    manifold.  Where the rows fall against a slanting wall, an obstacle
+    or the far wall changes what is left bare - heizkreis-planer's panel
+    offset, pointed at the floor instead of the panels. }
+  if not Stop and Best.Ok and not RadiantMeetsGoals(Best, Spec) then
+  begin
+    Inc(Total, 3);
+    T := BestTry;
+    for Level := 1 to 3 do
+    begin
+      T.RowOff := Level * 0.25;
+      if not Consider(T, R) then Break;
+    end;
+  end;
+  { And the best laid again without fingers - its turns pushed out, but
+    no hairpins grown off its straights.  The ranking weighs the bends
+    against the floor they heated: where the goals were met without them
+    the plainer layout is kept. }
+  if not Stop and Best.Ok and not BestTry.NoFingers then
+  begin
+    Inc(Total);
+    T := BestTry;
+    T.NoFingers := True;
+    Consider(T, R);
+  end;
+
+  { Then, with somebody watching, other layouts until the goals are met
+    or they say stop: every loop a random share of the limit - some short
+    ones first, the owner's idea - its lane nudged, the breakout and the
+    turn of the rows drawn at random.  Each one is its seed, so the one
+    kept can be laid again exactly. }
+  Met := RadiantMeetsGoals(Best, Spec);
+  if Assigned(Progress) and Goals and not Stop and not Met then
+  begin
+    Total := 0;
+    Seed := 0;
+    while not Stop and not Met and (Done < MAX_TRIES) do
+    begin
+      Inc(Seed);
+      RandState := Cardinal((QWord(Seed) * 2654435761) and $FFFFFFFF);
+      T := Default(TTry);
+      T.Turn := (TurnLo = 1) or ((TurnHi = 1) and (Rnd < 0.5));
+      { a loop cut well short of the limit is one more loop and a wide
+        spread - tried on the barn, every such layout was worse - so
+        the shares stay near the whole of it }
+      T.Budget := 0.85 + 0.15 * Rnd;
+      T.Ranks := 2 * Trunc(Rnd * 5);
+      T.BreakFt := MANIFOLD_BREAKOUT_FT + 2 * Trunc(Rnd * BREAKOUT_LEVELS);
+      T.RowOff := Trunc(Rnd * 4) * 0.25;
+      T.NoFingers := Rnd < 0.25;
+      T.Seed := Seed;
+      if not Consider(T, R) then Break;
+      Met := RadiantMeetsGoals(Best, Spec);
+    end;
+  end;
+
+  Result := Best;
+  { Replay the winning layout only, so discarded tries cannot appear as
+    accepted loops in the animation. Normal preview allocates no trace. }
   if WantTrace and Result.Ok then
+  begin
     Result := ComputeRadiantOriented(Outline, Holes, Spec, True,
-      BestTurn = 1, BestBudget, BestFan, BestRanks);
+      BestTry.Turn, BestTry.Budget, BestTry.Ranks, BestTry.BreakFt, BestTry.Seed, BestTry.RowOff,
+      not BestTry.NoFingers);
+    Result.BreakoutFt := BestTry.BreakFt;
+  end;
+  Result.Tries := Done;
+  Result.ShortOfGoals := Goals and not RadiantMeetsGoals(Result, Spec);
+  if Found <> nil then
+  begin
+    for Level := 0 to High(Kept) do
+    begin
+      Kept[Level].Tries := Done;
+      Kept[Level].ShortOfGoals := Goals and not RadiantMeetsGoals(Kept[Level], Spec);
+    end;
+    Found^ := Kept;
+  end;
 end;
 
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
   const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string;
   Zone: Integer = 0): Integer;
 var
-  I, J, G, M: Integer;
-  Mid: TP3;
+  I, J, G, M, LoopG, LabelG, ManG, K: Integer;
+  Mid, C, Ax, Ay: TP3;
   F: TRadiantFrame;
   Nth: TIntArray;
+  Box: array[0..3] of TP3;
+  Ca, Sa, W, H: Double;
+  Summary: string;
+const
+  SX: array[0..3] of Integer = (-1, 1, 1, -1);
+  SY: array[0..3] of Integer = (-1, -1, 1, 1);
 begin
   Result := D.Live;
-  G := D.NewPart(PartName, 0);
-  D.Stamp := G;
+  { A zone is a group, named for the system it is - tube, spacing, loops,
+    footage - so the entity panel says what was laid without a ticket to
+    hand.  Inside it, nothing special to radiant: every loop a group of
+    its own, so a click takes the whole run from port to port and the
+    ordinary panel gives its length and its box; the manifold a group;
+    and every label in one more group, so "/hide labels" puts a zone's
+    notes away - every zone's at once - and "/show labels" brings them
+    back.  The standard tools do the rest. }
+  { the spacing as the trade says it - 9", not 0'-9" }
+  Summary := Format('%s at %s" o.c. - %d loop%s, %s', [StringReplace(TUBE_NAMES[Spec.Tube], '  ', ' ', [rfReplaceAll]),
+    FormatFloat('0.##', Spec.Spacing / Spec.Inch), Length(R.Loops), IfThen(Length(R.Loops) = 1, '', 's'),
+    FormatLen(R.TotalFt, usImperial)]);
+  G := D.NewPart(PartName + ' - ' + Summary, 0);
+  LabelG := D.NewPart(PartName + ' labels', G);
+  { unticked, the labels are there all the same, put away }
+  if not Spec.Labels then D.SetPartHidden(LabelG, True);
   { The runs are reference lines - Heck's "ref = true", the kind a
     dimension's own line is.  They draw in full, in the tube's ink, and
     the region finder leaves them alone: a hard line would close faces
@@ -1773,22 +2956,27 @@ begin
     invisible for exactly that reason. }
   { each manifold is a zone in its own color; its loops alternate thick
     and thin so two side by side can be told apart; and each carries its
-    number and length where it enters the field, since a plan with the
-    footage on it is the plan a fitter wants }
+    number and length, since a plan with the footage on it is the plan a
+    fitter wants }
   SetLength(Nth, Length(R.Manifolds));
   for I := 0 to High(R.Loops) do
   begin
     M := R.Loops[I].Manifold;
+    LoopG := D.NewPart(Format('Z%d L%d  %s', [Zone + M + 1, Nth[M] + 1,
+      FormatLen(R.Loops[I].LenFt, usImperial)]), G);
+    D.Stamp := LoopG;
     for J := 1 to High(R.Loops[I].Pts) do
-      D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], ZoneInk(Zone + M), LoopWeight(Nth[M]), True);
-    if Spec.Labels and (Length(R.Loops[I].Pts) > 3) then
+      D.AddLine(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], LoopInk(Zone + M, Nth[M]), LoopWeight(Nth[M]), True);
+    if Length(R.Loops[I].Pts) > 3 then
     begin
+      D.Stamp := LabelG;
       Mid := R.Loops[I].Pts[Length(R.Loops[I].Pts) div 2];
       D.AddNote(Mid, Mid, Format('Z%d L%d  %s', [Zone + M + 1, Nth[M] + 1,
-        FormatLen(R.Loops[I].LenFt, usImperial)]), ZoneInk(Zone + M));
+        FormatLen(R.Loops[I].LenFt, usImperial)]), LoopInk(Zone + M, Nth[M]));
     end;
     Inc(Nth[M]);
   end;
+  D.Stamp := LabelG;
   for I := 0 to High(Holes) do
     if Length(Holes[I]) > 0 then
     begin
@@ -1796,22 +2984,36 @@ begin
       for J := 0 to High(Holes[I]) do
         Mid := P3(Mid.X + Holes[I][J].X / Length(Holes[I]), Mid.Y + Holes[I][J].Y / Length(Holes[I]),
           Mid.Z + Holes[I][J].Z / Length(Holes[I]));
-      if Spec.Labels then D.AddNote(P3(Mid.X, Mid.Y, Mid.Z), Mid, 'no tube - obstacle', Ink);
+      D.AddNote(P3(Mid.X, Mid.Y, Mid.Z), Mid, 'no tube - obstacle', Ink);
     end;
-  { the manifold itself is not drawn: it hangs on the wall above the
-    slab, and the fan of tube out of the ports says where.  A label
-    only when asked. }
+  { The manifold: the box it is, turned the way it hangs, in a group of
+    its own - and the zone's summary on a note beside it. }
   F := RadiantFrameOf(Outline);
   for M := 0 to High(R.Manifolds) do
-    if Spec.Labels then
-    begin
-      Mid := R.Manifolds[M].At;
-      D.AddNote(P3(Mid.X + F.V.X * 2, Mid.Y + F.V.Y * 2, Mid.Z + F.V.Z * 2), Mid,
-        Format('zone %d manifold - %d loops', [Zone + M + 1, R.Manifolds[M].LoopCount]), ZoneInk(Zone + M));
-    end;
+  begin
+    ManG := D.NewPart(Format('Z%d manifold - %d loop%s', [Zone + M + 1, R.Manifolds[M].LoopCount,
+      IfThen(R.Manifolds[M].LoopCount = 1, '', 's')]), G);
+    D.Stamp := ManG;
+    C := R.Manifolds[M].At;
+    Ca := Cos(DegToRad(R.Manifolds[M].Heading)); Sa := Sin(DegToRad(R.Manifolds[M].Heading));
+    Ax := P3(F.U.X * Ca + F.V.X * Sa, F.U.Y * Ca + F.V.Y * Sa, F.U.Z * Ca + F.V.Z * Sa);
+    Ay := P3(-F.U.X * Sa + F.V.X * Ca, -F.U.Y * Sa + F.V.Y * Ca, -F.U.Z * Sa + F.V.Z * Ca);
+    W := Spec.ManifoldW / 2; H := Spec.ManifoldH / 2;
+    for K := 0 to 3 do
+      Box[K] := P3(C.X + SX[K] * W * Ax.X + SY[K] * H * Ay.X,
+        C.Y + SX[K] * W * Ax.Y + SY[K] * H * Ay.Y,
+        C.Z + SX[K] * W * Ax.Z + SY[K] * H * Ay.Z);
+    for K := 0 to 3 do
+      D.AddLine(Box[K], Box[(K + 1) mod 4], ZoneInk(Zone + M), 2, True);
+    D.Stamp := LabelG;
+    D.AddNote(P3(C.X + F.V.X * 2, C.Y + F.V.Y * 2, C.Z + F.V.Z * 2), C,
+      Format('Zone %d manifold - %s', [Zone + M + 1, Summary]),
+      ZoneInk(Zone + M));
+  end;
   { an obstacle added in the wizard goes onto the floor as a ring of plain
     lines; lying flat inside the face, the program's own rule makes it a
     hole, the same as one drawn by hand }
+  D.Stamp := G;
   if Zone = 0 then
     for I := 0 to High(Spec.Extra) do
       for J := 0 to High(Spec.Extra[I]) do
@@ -1825,7 +3027,7 @@ var
   I, M: Integer;
   T: TTubeFacts;
   Ties: Integer;
-  MaxFt: Double;
+  MaxFt, Cover, Spread: Double;
 begin
   { World units are feet throughout this program, so a length already in
     world units - LenFt, TotalFt, OrderFt, the table's MaxLoopFt, and
@@ -1856,6 +3058,27 @@ begin
         Result := Result + Format('  loop %d: %s%s', [I + 1, FormatLen(R.Loops[I].LenFt, U),
           IfThen(R.Loops[I].LenFt > MaxFt, '  - OVER the maximum for this tube', '')]) + LineEnding;
   end;
+  if R.BreakoutFt > 0 then
+    Result := Result + Format('breakout: every tube on the %s" grid within %s ft of its manifold%s',
+      [FormatFloat('0.#', Spec.Spacing / Spec.Inch), FormatFloat('0', R.BreakoutFt),
+       IfThen(R.BreakoutFt > MANIFOLD_BREAKOUT_FT + 1E-6,
+         Format(' - wider than %s ft to cover the floor', [FormatFloat('0', MANIFOLD_BREAKOUT_FT)]), '')]) + LineEnding;
+  if R.ShortOfGoals then
+  begin
+    RadiantMeasure(R, Cover, Spread);
+    Result := Result + Format('SHORT OF THE GOALS: %s%% covered (goal %s%%), loops within %s%% (goal %s%%) - ' +
+      'the best of %d layouts tried', [FormatFloat('0.0', Cover * 100), FormatFloat('0', Spec.GoalCoverPct),
+      FormatFloat('0', Spread * 100), FormatFloat('0', Spec.GoalEvenPct), R.Tries]) + LineEnding;
+  end;
+  { the breakout lets out only so many tubes at the spacing: a floor that
+    wants more loops than that is left bare, and the fix is not here }
+  if (R.BreakoutFt > 0) and (R.AreaSqFt > 0) and (R.UnfilledSqFt > R.AreaSqFt * (1 - BREAKOUT_COVER)) then
+    Result := Result + Format('NOT COVERED: %s of the floor is bare - more loops than one manifold can let out ' +
+      'at this spacing.  A second manifold, a bigger tube or a wider spacing.',
+      [FormatArea(R.UnfilledSqFt, U)]) + LineEnding;
+  if Length(R.Loops) > 0 then
+    Result := Result + Format('to lay: %d bends, %s%% of the tube in straights of %s or more',
+      [R.Bends, FormatFloat('0', R.StraightPct), FormatLen(STRAIGHT_RUN_SPACINGS * Spec.Spacing, U)]) + LineEnding;
   Result := Result + 'total tube, no waste: ' + FormatLen(R.TotalFt, U) + LineEnding;
   Result := Result + 'order (with ' + FormatFloat('0', Spec.WastePct) + '% waste): ' +
     FormatLen(R.OrderFt, U) + LineEnding;

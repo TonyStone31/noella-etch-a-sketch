@@ -8,6 +8,7 @@ object RadiantForm: TRadiantForm
   ClientHeight = 788
   ClientWidth = 980
   Position = poMainFormCenter
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnShow = FormShow
   object lblTitle: TLabel
@@ -44,7 +45,7 @@ object RadiantForm: TRadiantForm
     Top = 70
     Width = 150
     ItemHeight = 0
-    OnChange = AnyChange
+    OnChange = RoutingChange
     Style = csDropDownList
     TabOrder = 1
   end
@@ -62,7 +63,7 @@ object RadiantForm: TRadiantForm
     Width = 56
     TabOrder = 2
     Text = '9'
-    OnChange = AnyChange
+    OnChange = RoutingChange
   end
   object lblSpacingIn: TLabel
     Left = 448
@@ -84,7 +85,7 @@ object RadiantForm: TRadiantForm
     Top = 106
     Width = 70
     TabOrder = 3
-    OnChange = AnyChange
+    OnChange = RoutingChange
   end
   object lblMaxLoopHint: TLabel
     Left = 250
@@ -118,10 +119,49 @@ object RadiantForm: TRadiantForm
     Width = 12
     Caption = '%'
   end
+  object lblGoal: TLabel
+    Left = 24
+    Height = 18
+    Top = 180
+    Width = 130
+    Caption = 'Search until'
+  end
+  object edGoalCover: TEdit
+    Left = 170
+    Height = 26
+    Top = 174
+    Width = 44
+    TabOrder = 26
+    Text = '97'
+    OnChange = AnyChange
+  end
+  object lblGoalCover: TLabel
+    Left = 218
+    Height = 18
+    Top = 180
+    Width = 150
+    Caption = '% covered, loops within'
+  end
+  object edGoalEven: TEdit
+    Left = 372
+    Height = 26
+    Top = 174
+    Width = 44
+    TabOrder = 27
+    Text = '10'
+    OnChange = AnyChange
+  end
+  object lblGoalEven: TLabel
+    Left = 420
+    Height = 18
+    Top = 180
+    Width = 12
+    Caption = '%'
+  end
   object lblManifoldHead: TLabel
     Left = 24
     Height = 18
-    Top = 200
+    Top = 206
     Width = 80
     Caption = 'Manifolds'
     Font.Style = [fsBold]
@@ -154,11 +194,13 @@ object RadiantForm: TRadiantForm
   end
   object lbManifolds: TListBox
     Left = 24
-    Height = 74
+    Height = 104
     Top = 224
     Width = 300
     ItemHeight = 0
     OnClick = lbManifoldsClick
+    OnMouseDown = lbManifoldsMouseDown
+    PopupMenu = pmZone
     TabOrder = 12
   end
   object btnSuggest: TButton
@@ -169,6 +211,24 @@ object RadiantForm: TRadiantForm
     Caption = 'Suggest manifolds'
     OnClick = btnSuggestClick
     TabOrder = 13
+  end
+  object btnSearchZone: TButton
+    Left = 332
+    Height = 24
+    Top = 254
+    Width = 128
+    Caption = 'Search this zone'
+    OnClick = btnSearchZoneClick
+    TabOrder = 24
+  end
+  object btnSearchAll: TButton
+    Left = 332
+    Height = 24
+    Top = 280
+    Width = 128
+    Caption = 'Search all zones'
+    OnClick = btnSearchAllClick
+    TabOrder = 25
   end
   object btnAddManifold: TButton
     Left = 332
@@ -193,7 +253,7 @@ object RadiantForm: TRadiantForm
   object lblObsHead: TLabel
     Left = 24
     Height = 18
-    Top = 308
+    Top = 338
     Width = 300
     Caption = 'Obstacles - a column, a shaft, a chase'
     Font.Style = [fsBold]
@@ -202,7 +262,7 @@ object RadiantForm: TRadiantForm
   object lbObstacles: TListBox
     Left = 24
     Height = 56
-    Top = 330
+    Top = 360
     Width = 300
     ItemHeight = 0
     OnClick = lbObstaclesClick
@@ -211,7 +271,7 @@ object RadiantForm: TRadiantForm
   object edObsW: TEdit
     Left = 332
     Height = 26
-    Top = 330
+    Top = 360
     Width = 50
     TabOrder = 18
     Text = '4'''
@@ -219,14 +279,14 @@ object RadiantForm: TRadiantForm
   object lblObsX: TLabel
     Left = 386
     Height = 18
-    Top = 334
+    Top = 364
     Width = 10
     Caption = 'x'
   end
   object edObsH: TEdit
     Left = 400
     Height = 26
-    Top = 330
+    Top = 360
     Width = 50
     TabOrder = 19
     Text = '4'''
@@ -234,7 +294,7 @@ object RadiantForm: TRadiantForm
   object btnAddObstacle: TButton
     Left = 332
     Height = 26
-    Top = 360
+    Top = 390
     Width = 62
     Caption = 'Add'
     OnClick = btnAddObstacleClick
@@ -243,7 +303,7 @@ object RadiantForm: TRadiantForm
   object btnRemoveObstacle: TButton
     Left = 398
     Height = 26
-    Top = 360
+    Top = 390
     Width = 62
     Caption = 'Remove'
     OnClick = btnRemoveObstacleClick
@@ -252,22 +312,22 @@ object RadiantForm: TRadiantForm
   object cbLabels: TCheckBox
     Left = 24
     Height = 22
-    Top = 390
+    Top = 420
     Width = 420
-    Caption = 'Label the loops and manifolds on the drawing'
+    Caption = 'Show the labels - /hide labels and /show labels later'
     TabOrder = 23
   end
   object lblTag: TLabel
     Left = 24
     Height = 18
-    Top = 428
+    Top = 458
     Width = 30
     Caption = 'Tag'
   end
   object edTag: TEdit
     Left = 100
     Height = 28
-    Top = 422
+    Top = 452
     Width = 340
     TabOrder = 15
     OnChange = AnyChange
@@ -275,7 +335,7 @@ object RadiantForm: TRadiantForm
   object lblTagHint: TLabel
     Left = 24
     Height = 18
-    Top = 454
+    Top = 484
     Width = 400
     Caption = 'the name on the ticket - Zone 1, barn east bay'
     Font.Color = clGray
@@ -284,7 +344,7 @@ object RadiantForm: TRadiantForm
   object lblProblem: TLabel
     Left = 24
     Height = 36
-    Top = 476
+    Top = 506
     Width = 440
     AutoSize = False
     WordWrap = True
@@ -295,7 +355,7 @@ object RadiantForm: TRadiantForm
   object btnBuild: TButton
     Left = 24
     Height = 32
-    Top = 520
+    Top = 550
     Width = 120
     Caption = 'Build it'
     Default = True
@@ -305,7 +365,7 @@ object RadiantForm: TRadiantForm
   object btnCancel: TButton
     Left = 154
     Height = 32
-    Top = 520
+    Top = 550
     Width = 96
     Cancel = True
     Caption = 'Cancel'
@@ -315,7 +375,7 @@ object RadiantForm: TRadiantForm
   object btnReport: TButton
     Left = 280
     Height = 32
-    Top = 520
+    Top = 550
     Width = 150
     Caption = 'Report a problem...'
     OnClick = btnReportClick
@@ -343,6 +403,7 @@ object RadiantForm: TRadiantForm
         OnMouseMove = pbPlanMouseMove
         OnMouseUp = pbPlanMouseUp
         OnPaint = pbPlanPaint
+        PopupMenu = pmZone
       end
       object btnReplay: TButton
         Left = 344
@@ -351,6 +412,37 @@ object RadiantForm: TRadiantForm
         Width = 116
         Caption = 'Replay search'
         OnClick = btnReplayClick
+      end
+      object btnSolPrev: TButton
+        Left = 4
+        Height = 24
+        Top = 4
+        Width = 28
+        Caption = '<'
+        Hint = 'the solution before - of those the search found that met the goals'
+        OnClick = btnSolPrevClick
+        ShowHint = True
+      end
+      object btnSolNext: TButton
+        Left = 34
+        Height = 24
+        Top = 4
+        Width = 28
+        Caption = '>'
+        Hint = 'the next solution the search found'
+        OnClick = btnSolNextClick
+        ShowHint = True
+      end
+      object lblSol: TLabel
+        Left = 68
+        Height = 18
+        Top = 8
+        Width = 270
+        AutoSize = False
+        Caption = ''
+        Font.Height = -11
+        ParentFont = False
+        Transparent = True
       end
     end
   end
@@ -373,12 +465,33 @@ object RadiantForm: TRadiantForm
     ScrollBars = ssAutoVertical
     TabOrder = 20
   end
-  object tmrDragSettle: TTimer
-    Enabled = False
-    Interval = 150
-    OnTimer = tmrDragSettleTimer
+  object pmZone: TPopupMenu
+    OnPopup = pmZonePopup
     Left = 8
     Top = 8
+    object miSearchZone: TMenuItem
+      Caption = 'Search this zone'
+      OnClick = miSearchZoneClick
+    end
+    object miSearchAll: TMenuItem
+      Caption = 'Search all zones'
+      OnClick = btnSearchAllClick
+    end
+    object miRotate: TMenuItem
+      Caption = 'Rotate manifold 90 degrees'
+      OnClick = miRotateClick
+    end
+    object miSep: TMenuItem
+      Caption = '-'
+    end
+    object miClearZone: TMenuItem
+      Caption = 'Clear this zone'
+      OnClick = miClearZoneClick
+    end
+    object miClearAll: TMenuItem
+      Caption = 'Clear all zones'
+      OnClick = miClearAllClick
+    end
   end
   object tmrReplay: TTimer
     Enabled = False

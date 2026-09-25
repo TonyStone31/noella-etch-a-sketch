@@ -242,6 +242,260 @@ pixel by pixel.  What the pictures said:
 
 ### Big
 
+* **Radiant, 24 September, night - the owner's 120 x 100 barn (report
+  222131: "its not bad but we can do better").**  Reproduced exactly in a
+  scratch harness that lays his four zones with his own manifolds and
+  paints the bare floor, then fixed what it showed.  3/4" at 12", his
+  manifolds, all four zones: **91.9% covered -> 96.9%**; with Suggest's
+  manifolds **97.1%**, three zones meeting both goals (97% covered, loops
+  within 10%).
+  - **The combs were the growth pass**: two-foot fingers, four bends each,
+    336 bends in one zone.  Growth now pushes a *turn* out first - the end
+    of a pair of rows moved on into bare floor, two straights longer and
+    not one bend more - and grows a finger only `FINGER_MIN_SPACINGS` (6)
+    spacings long or more.  Zone D 336 -> 220 bends; 94-97% of the tube in
+    straights of six feet or more.
+  - **The two-foot strip up the middle** (his "missing entire 2 foot
+    lengths") was two faults.  The lane lattice started half a spacing
+    out, so the innermost slot's home lane fell across the manifold and
+    that slot was never used; now a spacing and a half.  And a side
+    guessing one loop too many left its innermost slot empty: `Compact`
+    slides every lane of a side in by whole spacings, each loop laid
+    again through the same checks - it found nothing at first because
+    the crossing index was stale (the side's own old loops in it).  Zone B
+    94% -> 97.3%.
+  - **Breakouts to twelve feet**, climbed only while *coverage* is short -
+    evenness never widens it.  Zones C and D each wanted one loop more
+    than eight feet lets out: 86.7% -> 97.4%, 95.2% -> 97.5%.
+  - **Bends in the ranking** (`BEND_WEIGHT`, 0.2 a bend): under the coverage
+    goal the floor wins, over it a finger has to be about eight feet to
+    earn its bends; every best is also tried with no fingers.  The ticket
+    says "to lay: N bends, X% of the tube in straights of 6' or more".
+  - **Solutions to step through**: every distinct layout that met the goals
+    (or the nearest few), best first, `SOLUTIONS_KEPT` of them; ◀ ▶ on the
+    wizard's plan, and the one showing is the one built.
+  - **Stop keeps this zone's best and goes on to the next; Stop all ends it.**
+  - **Suggest lays a quick layout from every wall's middle** and hangs the
+    manifold on the one that heats most (then nearest the boiler) - an
+    obstacle six feet in front of the nearest wall had left 43% bare.
+    Quick: one layout at the tube's maximum, no search - 0.02 s a zone.
+  - **A manifold's box came back as a face** - `EdgeSegments` let reference
+    lines into the region finder, which nothing else does.  Fixed; the
+    report's sheet had eight faces for four zones.
+  - **The lone row at a far wall, fixed the owner's way** ("try to always
+    make the grid be even"): `RowPlan` gives every side an even count of
+    rows, the last two gaps against the far wall sharing what an odd count
+    left over (half a spacing to a whole one).  Squeezed at the manifold's
+    end first, it pulled the second row down among the breakout's tracks
+    and zone A lost half its loops - so the far end only.  His own
+    manifolds: 96.9% -> **98.5%**, zones B and D 100%.
+  - **Still open:** a manifold well off-center on its wall gives a short loop on
+    the short side (zone C, 194 ft - loops cannot take rows across the
+    manifold); report 134023's replay plays only the winning layout's own
+    search, by design since the replay change - worth saying in the
+    wizard.  `tests/geomtest.pas` `TestRadiantBarn2` holds the barn.
+
+* **Radiant engine, 24 September, late - square breakout, mid-wall
+  manifolds, a search that runs to goals.**  Measured on the owner's own
+  barn as he lays it (four 50 x 60 zones, 3/4" PEX at 12"), before and
+  after:
+
+  | | before | after |
+  |---|---|---|
+  | loops a zone | 8-10 | 6 |
+  | covered | 95.2% | 95.3% |
+  | loops' spread | 20-47% | 8-12% |
+  | longest diagonal fan | 13-17 ft | none |
+  | four zones | 10.2 s | 5.2 s |
+
+  - **The breakout** (owner: "at the 4 foot mark around the manifold it
+    can be allowed to shrink down to 2 inch spacing ... neatly bring them
+    in with all 90 degree breaks").  No fan: a tube leaves its port
+    square, runs along the manifold on a track of its own a port pitch
+    apart, turns up its lane; the deepest lane on the lowest track, so
+    nothing crosses.  Every lane has to start within the breakout -
+    `MANIFOLD_BREAKOUT_FT`, four feet, then six, then eight when four
+    cannot cover the floor; the ticket says which.  **The arithmetic
+    that decides it:** tubes leave the breakout through its edge at the
+    spacing.  A corner manifold's four-foot square has eight feet of
+    edge - four loops at 12"; a mid-wall one sixteen - eight loops.  So
+    **Suggest now hangs a manifold mid-wall** (the wall nearest the
+    building's middle, passing over a wall with an obstacle inside the
+    breakout), and a corner manifold on a big floor is not covered -
+    the ticket says NOT COVERED and why, where it used to fan tube twenty
+    feet down the wall.
+  - **The lanes use the top of the breakout, not its sides.**  Four feet
+    covers 65% of a barn zone, six 95%.  The sides are the other half of
+    the capacity: loops whose leads run out along the wall on the first
+    rows and turn off into their own block.  The router cannot say that
+    - a loop is one lane out from the wall, then rows in order - and it
+    is the next structural change.  Until it is, the breakout widens.
+  - **The manifold's heading** (the box turned on the plan) now decides
+    which way the rows run instead of the search trying both.
+  - **Goals.**  Search until N% covered, loops within M% (97 and 10 by
+    default, in the wizard).  After the fixed restarts, watched, it tries
+    layouts at random - each loop a random share of the limit, its lane
+    nudged, the breakout and the turn drawn - until the goals are met or
+    Stop, which keeps the best; the ticket says SHORT OF THE GOALS and
+    how many were tried.  **Honest finding:** on the barn the random
+    tries land on the same few answers the fixed ones do (96.9% / 11%,
+    or 95% / 7%) - nudging this router does not change its structure.
+    Meeting 97/10 there wants the side exits above, or the repair pass
+    trading length between neighbors.
+  - **Speed:** the limit swept every twelve feet then refined round the
+    best, the fan-depth restarts gone, a first probe of a breakout that
+    is far short skips the rest of it.  A lane search spends its time in
+    how many lanes it tries, not in the crossing check (an index was
+    added, which caps a big floor's cost, and did not move the barn).
+  - **Every loop its own color** (`LoopInk`), in the plan and on the
+    sheet: the zone's one color left no following a loop.
+  - **The busy window runs the search, shown modal** - shown plain over
+    the modal wizard, GTK gave it no input and Stop could not be pressed.
+  - **Ideas 2 and 3 below, built the same night.**  *Balanced cuts*:
+    after the limit sweep, the manifold is laid again toward S/N feet a
+    loop (and S/(N-1), S/(N+1)), each loop stopping at the row pair
+    nearest that length.  It wins some restarts but rarely the layout:
+    on the barn a row pair is ~48 ft and 10% of a 380 ft loop is 38 -
+    **evenness there is set by the row-pair step**, not by where the
+    cuts fall; finer wants a loop that can end part way along a pair.
+    *Row grid slid* a quarter, a half, three quarters of a spacing: small
+    wins (the barn's zone went 7.5% to 6.9% spread).  And **coverage is
+    now measured on a fixed half-spacing grid from the walls**, not at
+    the rows, so offsets compare fairly and the strip a grid leaves at
+    the far wall counts.  On it the barn zone reads 96.1% covered, 6.9%
+    spread at a six-foot breakout, six loops - or 98.4% / 11.1% at eight
+    feet and eight loops.  Each meets one goal and misses the other by a
+    point; meeting both wants the side exits or the part-pair end.
+  - **Coverage first in the search's ranking** (the owner, the same
+    night: left running, it "came up with solutions where the evenness
+    was like 0 percent but coverage was like 5 percent" and kept them).
+    The goals' shortfalls were added a point for a point, so every trade
+    of floor for evenness looked like progress.  Now a point of coverage
+    weighs ten of evenness, and nothing more than two points under the
+    most covered yet can be kept.  The barn zone now keeps 98.7% / 11.1%
+    at eight feet over 96.1% / 6.9% at six.
+  - **Read, 24 September: every tool in `radiant-layout-tools/`** (the
+    owner's folder of eleven clones).  Most are drawing aids - loops and
+    leads drawn by hand, one spiral per hand-drawn room - and several
+    READMEs claim far more than the code does (AGK's engine is a stub,
+    Hexrox's layout a placeholder, opti-pipe's heat simulation is only a
+    picture).  What is worth building, best first:
+    1. **Loops from 2 x 2 cells joined along a spanning tree** - Warm,
+       `engine-unified.js` `rectangularCycle`.  Every 2 x 2 block of grid
+       points is a little closed square; joining neighbors along a tree
+       makes one closed counterflow loop, square turns only, supply and
+       return side by side - a comb tree is a snake, a peeling order a
+       square spiral.  The structural router this engine lacks: split the
+       zone's cells into N connected regions of equal count (equal cells
+       is equal length, within a cell), a one-cell corridor is a lead,
+       and obstacles are just missing cells.  Three readers came to the
+       same shape separately.  Rectangles only in Warm; half-cells along
+       odd walls need a local fix.
+    2. **A balanced split by dynamic programming** - Warm's older engine,
+       `engine-core-v120.js` `balancedContiguousGroupsV5`: the rows in
+       order, cut into k runs minimizing the squared miss from the
+       target.  Fits today's router as it is: choose the loop count
+       first, then the cuts, instead of filling each loop to the limit
+       and leaving the last the scraps.  Add each loop's lead to its
+       weight, which Warm did not.
+    3. **The row grid's offset searched** - heizkreis-planer
+       `optimizeLayout`: slide the whole grid through one spacing, a dozen
+       steps, keep what leaves least bare against the walls.  Cheap.
+    4. **Leads by a turn-aware A\*** - Warm `connector`: right angles
+       only, a minimum straight between turns, a cost a turn, clear of
+       tube already down, the farthest loop attached first; each block
+       shrunk by a lead corridor.  The side exits of the breakout, with a
+       cost added for time off the grid.
+    5. **Pocket repair** - opti-pipe `HeuristicRouter`: find each pocket
+       of bare floor and lengthen the neighboring loop through it - our
+       growth pass, aimed.
+    6. Smaller: supply and return as one center line offset either side
+       (HRouting, ArendJanKramer); the turn at the shallower of two row
+       ends (heizkreis); coverage as the tube's own footprint over the
+       floor (AGK `MetricsCalculator`), not a generous sample.  And from
+       HRouting's DIN EN 1264 sums: loops are balanced by pressure drop
+       and the valves take up the rest, so a longer lead is not a fault
+       if the valve can absorb it.
+  - **Read, 24 September: ArendJanKramer's underfloor-heating-designer**
+    (TypeScript).  One counterflow spiral per hand-drawn zone - no holes,
+    no splitting into loops, no balancing, leads drawn by hand with no
+    crossing check.  Worth taking: build the return lane as the supply
+    inset by a spacing (spacing and no-crossing by construction); rotate
+    everything into one frame with the manifold at the bottom; trim each
+    straight to the room along its own scanline; the bend radius as a
+    hard limit on short straights.  Nothing there on partitioning,
+    balancing or leads.
+
+* **Radiant, 24 September, evening - built as groups, groups can be put
+  away, and the wizard searches only when asked.**  The owner, after the
+  search work stalled: "just add labels and groups ... this way all the
+  standard drawing tools will work as they are and not need special
+  functionality for radiant."  So a built zone is nothing but groups:
+
+  - the zone a group named for its system (`Radiant zone 1 - 1/2" PEX at
+    9" o.c. - 23 loops, 4226'-8 9/16"`), and inside it every loop a group
+    of its own (`Z1 L17  185'-11 3/8"`), the manifold a group (a box of
+    four lines, turned the way it was turned in the wizard), and every
+    label in a `... labels` group - put away unless the wizard's box was
+    ticked.  Open the zone, click a loop: the whole run lights from port
+    to port, and the entity panel says its length and its box.
+  - **Groups can be put away** - `TWorkEnt.Hidden` on the group record,
+    `HIDDEN id` in v1 (a line of its own, like JIG, so an old reader shows
+    the group), `hidden = true` in Heck.  A group put away, and every group
+    in it, is not drawn, picked or snapped to: `EntHidden` is asked by
+    `InSlice`, which every render and hit pass already asks, and by the
+    snap passes that do not.  One walk of the list per edit, cached.
+    `/hide` puts the picked groups away, `/hide labels` every group with
+    "labels" in its name, `/show` brings everything back, `/show labels`
+    those.  The entity panel has Put away beside Lock, and for any group
+    now Lines (count and footage, reference lines included) and Size.
+  - The wizard: no search on opening, on a drag or on a keystroke - a
+    moved manifold clears its zone, an obstacle or the tube, spacing or
+    maximum clears them all; Search this zone, Search all zones, or the
+    plan's and list's right-click; a window with a bar and a Stop while it
+    runs (`uRadiantBusy`); Build uses the layouts searched rather than
+    searching them all again.  Manifolds are boxes on the plan, turned
+    with the right-click; the heading reaches the result and the build,
+    **not the search yet**.
+
+  **What the idea still wants, in the order it would pay:**
+
+  - **A group panel** - the tree of groups, sub-groups under them, a
+    check box each to put it away and bring it back.  The structure is in
+    (nested groups, Hidden, saved both ways); this is the window, and
+    wants an LFM laid out in Lazarus.  `/hide` and `/show` by name are the
+    stopgap.
+  - **Labels that do not pile up.**  A loop's label sits at the middle of
+    its points, which on nested loops is the inside corner of every L, so
+    82 labels on the barn stack along one diagonal.  Place each at the
+    far end of its own run, and step one aside when it would land on
+    another.
+  - **Dimensions from the loops to the walls** - a `... dimensions` group
+    of ordinary dimensions, each loop's outer run to the nearest wall,
+    put away by default like the labels.  Ordinary dimensions, so the
+    dimension tools edit them.
+  - **What a zone is, kept as data and not only in its name** - tube,
+    spacing, maximum, manifold, each loop's length - so a later tool can
+    read it back rather than parse a name.  Heck's group wants properties
+    beyond `locked`/`hidden`/`jig`; this is a format question, and
+    belongs with `docs/format2.md`, not bolted onto radiant.
+  - **Put away is per drawing, not per view** - SketchUp has both (hidden
+    geometry, and per-scene layer visibility).  Per drawing is what was
+    asked; per view can come later if scenes do.
+
+  **Still open in the router itself:** the fans.  The diagonal from a port
+  to its lane runs up to 38 ft on the barn - 34 of 40 fans over 3 ft -
+  and the owner is right that it overheats the floor by the manifold.  A
+  cap alone leaves room for two or three loops a side.  The fix is a
+  rewrite of how a loop leaves the manifold: on the grid within 3 ft,
+  then a lead along the wall on a track of its own at the spacing, the
+  deepest lane nearest the wall so no lead crosses a lane, and the rows
+  past the tracks.  Proposed, not started - it wants the owner's go.
+  Also in the working tree: the first half of the repair pass (loops
+  grown into bare floor beside them, fingers two spacings deep at the
+  least, a spacing off everything - barn 1995 to 1817 sq ft bare) and a
+  lane-lattice fix (two ranks' leads had run 3.6" apart for 65 ft).
+
 * **Radiant search follow-up, 24 September (working tree):** twelve
   complete restarts across both axes, shorter-first-circuit budgets and
   two manifold fan depths, plus larger lane allocations when the original

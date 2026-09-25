@@ -344,7 +344,7 @@ without `=` opens a block, and `end` closes it.
 | `face` | `face = ` its outline | `points`, `hole` (as many as there are), `paint` (the solid's), `ink` |
 | `solid` | - | `paint` (none) - what its faces are made of unless they say otherwise; then its `points`, `face`s and `line`s |
 | `bore` | - | inside a solid: `points`, `goes` (a step) |
-| `group` | - | `locked` (false), and everything inside it, groups included |
+| `group` | - | `locked` (false), `hidden` (false - put away: not drawn, picked or snapped to), and everything inside it, groups included |
 | `dim` | - | `from`, `to`, `off` (a step); `label` (the measured length), `ink` |
 | `note` | - | `at`, `text` (one line each, repeated); `to` (nowhere), `size` (1), `ink` |
 | `guide` | `guide = ` two places - or one, which is a guide point | - |

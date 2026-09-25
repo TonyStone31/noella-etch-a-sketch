@@ -10,6 +10,59 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Radiant heat layout searches only when you ask.**  Opening the
+  wizard, dragging a manifold or typing a spacing no longer sets it
+  off.  Search one zone, or all of them, from the buttons or by
+  right-clicking a manifold.  A window shows how it is going, with
+  **Stop - keep the best** (that zone keeps the best layout found and
+  the next zone starts) and **Stop all**.
+- **Goals.**  Tell it how much of the floor to cover and how close the
+  loops should be in length (97% and 10% to start with).  It keeps
+  trying different layouts until it gets there or you stop it, and
+  the ticket says if it fell short.
+- **Step through the solutions.**  The arrows above the plan show each
+  layout the search found that met your goals, best first; the one
+  showing is the one that gets built.
+- **Manifolds are boxes you can turn.**  Drag them on the plan and
+  right-click to turn one a quarter turn - the rows follow the way it
+  faces.
+- **Every loop its own color**, on the plan and on the drawing, so one
+  run can be followed from the manifold out and back.
+- **A built layout is made of groups.**  Each zone is a group named for
+  its tube, spacing, loops and footage; inside it every loop is its own
+  group, and all the labels are in one more.  Open a zone and click a
+  loop to see its whole length and size in the panel.
+- **Groups can be put away.**  `/hide` puts the picked groups away,
+  `/hide labels` every group with "labels" in its name, and `/show`
+  brings them back.  Put away groups are saved with the drawing.  The
+  panel also shows any group's total line length and size.
+- **The ticket tells the installer** how many bends there are and how
+  much of the tube runs in long straights.
+
+### Fixed
+
+- **Radiant layouts cover far more of the floor.**  No more bare strip
+  running up the middle from the manifold, no more single row left bare
+  along a far wall (the row count is now always even - the last two rows
+  at the wall sit a little closer), and loops reach the ends of the
+  walls.
+- **Much less zigzag.**  Loops now fill bare floor by running their rows
+  further, not with combs of short hairpins, and fewer bends is
+  preferred once the floor is covered.
+- **Tube leaves the manifold square**, with no long diagonal fan - every
+  tube is on the grid within a few feet, wider only when the floor
+  needs it, and the ticket says how wide.
+- **Suggest puts each manifold in the middle of the wall that covers
+  its zone best**, clear of obstacles in front of it.
+- **Searching is faster**, and building uses the layout you searched
+  instead of searching again.
+- **A built manifold's box no longer turns into a face** - selecting
+  the floor again gave it an extra tiny zone.
+
 ## v2026.09.24.10
 
 ### Fixed

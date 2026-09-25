@@ -8888,7 +8888,9 @@ procedure TestGroups;
 var
   D, B: TWorkDoc;
   L: TStringList;
-  G, H, I, Idx, N, NIn: Integer;
+  G, H, I, Idx, N, NIn, ErrLine: Integer;
+  Err: string;
+  First, Last, LineThing: TIntArrayW;
   M: TIntArrayW;
   Pts: TP3Array;
   Lo, Hi: TP3;
@@ -8954,6 +8956,35 @@ begin
     D.SetPartLocked(H, False);
     Ok(not D.PartLockedUp(G), 'and off again');
 
+    { --- put away -------------------------------------------------------- }
+    Ok(not D.EntHidden(0), 'nothing is put away to begin with');
+    D.SetPartHidden(H, True);
+    Ok(D.PartHidden(H), 'the toy is put away');
+    Ok(not D.PartHidden(G), 'the knob inside it is not, itself');
+    Ok(D.EntHidden(0), 'but its members are out of sight with the toy');
+    Ok(D.EntHidden(D.PartEnt(G)), 'and so is the knob''s own record');
+    Ok(not D.InSlice(0), 'what is put away is out of the drawing');
+    Ok(not D.EntHidden(N), 'the loose line across is not');
+    D.SaveTo(L);
+    Ok(L.IndexOf('HIDDEN ' + IntToStr(H)) >= 0, 'HIDDEN written');
+    Ok(L.IndexOf('HIDDEN ' + IntToStr(G)) < 0, 'for the toy only');
+    Idx := 0;
+    B.LoadFrom(L, Idx);
+    Ok(B.PartHidden(H) and B.EntHidden(0), 'and read back, members out of sight');
+    L.Clear;
+    WriteFormat2(D, 'Toy', usImperial, L, First, Last, LineThing);
+    Ok(Pos('hidden = true', L.Text) > 0, 'Heck says it: hidden = true');
+    B.Clear;
+    Ok(ReadHeck(L, B, usImperial, ErrLine, Err), 'Heck read back: ' + Err);
+    NIn := 0;
+    for I := 0 to B.Live - 1 do
+      if (B[I].Kind = ekPart) and B[I].Hidden then Inc(NIn);
+    EqI(NIn, 1, 'one group put away in the Heck read back');
+    D.SetPartHidden(H, False);
+    Ok(not D.EntHidden(0) and D.InSlice(0), 'brought back, it is drawn again');
+    L.Clear;
+    B.Clear;
+
     { --- moving: nothing in another group stretches ----------------------- }
     { the loose line across shares no corner, so add a loose line that ends
       exactly on the square's corner, then move that corner - the loose line
@@ -9016,6 +9047,10 @@ begin
     Ok(SnapsTo(D, V, P3(7, 4, 4), Hit) = False, 'a flat group''s crate has no height to snap above');
     D.Context := G;
     Ok(not SnapsTo(D, V, P3(7, 2, 0), Hit), 'inside the group, its own crate is not offered');
+    D.Context := 0;
+    D.SetPartHidden(G, True);
+    Ok(not (SnapsTo(D, V, P3(7, 2, 0), Hit) and (Hit.Kind = snCenter)), 'a group put away offers no crate');
+    Ok(not (SnapsTo(D, V, P3(4, 4, 0), Hit) and (Hit.Kind = snEndpoint)), 'nor its corners');
   finally
     D.Free;
   end;
@@ -9236,7 +9271,10 @@ begin
     tube-footprint comparison found essentially unchanged coverage (14.82%
     versus 14.88% bare including wall margins), while the old row-used
     metric reported only 10.9 sq ft. Do not restore that false score. }
-  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.09, Format('  under nine percent of sampled rows bare, including partial rows: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  { 24 September: 9.9% once every tube has to be on the grid within the
+    breakout round its manifold - the lanes that used to fan out along
+    the base to the far corners start closer in now }
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.11, Format('  under eleven percent of sampled rows bare, including partial rows: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
   EqI(R.Crossings, 0, '  nothing crosses');
   Outside := 0;
   for I := 0 to High(R.Loops) do
@@ -9260,8 +9298,16 @@ begin
   SetLength(Holes, 1); Holes[0] := Hole;
   R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'a floor with a round no-go zone lays out: ' + R.Why);
-  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.20,
-    Format('  under a fifth of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  { The circle stands square in front of the manifold, and since 24
+    September every lane has to start within the breakout - eight feet
+    at the most - which is the circle's own width: no lane out of the
+    breakout gets past it, and the floor behind it is not reached from
+    this manifold.  Before, the fans ran twenty feet along the wall to
+    get round it.  Now the ticket says so instead. }
+  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.35,
+    Format('  under a third of it bare: %.0f of %.0f sq ft', [R.UnfilledSqFt, R.AreaSqFt]));
+  Ok(Pos('NOT COVERED', RadiantTicketText(Spec, R, usImperial)) > 0,
+    '  and the ticket says the floor behind the circle is not covered');
   EqI(R.Crossings, 0, '  nothing crosses');
   Inside := 0;
   for I := 0 to High(R.Loops) do
@@ -9274,6 +9320,20 @@ begin
   EqI(TubeCrossesHole(R, Holes), 0, '  and no tube, the fan included, crosses the circle');
 end;
 
+type
+  { stands in for the person at the wizard: presses Stop after N
+    layouts tried, and counts them }
+  TStopAfter = class
+    N, Seen: Integer;
+    procedure Watch(Done, Total: Integer; const Best: TRadiantResult; var Stop: Boolean);
+  end;
+
+procedure TStopAfter.Watch(Done, Total: Integer; const Best: TRadiantResult; var Stop: Boolean);
+begin
+  Seen := Done;
+  Stop := Done >= N;
+end;
+
 procedure TestRadiantSearch;
 var
   Floor: TP3Array;
@@ -9282,14 +9342,115 @@ var
   R, Again: TRadiantResult;
   I, J, K, H, Crossings, Outside, Over, Accepted, Q: Integer;
   A, B, C, D: T2;
-  Sum, Measured: Double;
+  Sum, Measured, Cover, Spread: Double;
   Seen: array[0..3] of Boolean;
+  Zone: TRadiantZone;
+  Diag: Integer;
+  Watcher: TStopAfter;
+  Fixed: TRadiantResult;
 
   procedure Rect(var P: TP3Array; X0, Y0, X1, Y1: Double);
   begin
     SetLength(P, 4);
     P[0] := P3(X0, Y0, 0); P[1] := P3(X1, Y0, 0);
     P[2] := P3(X1, Y1, 0); P[3] := P3(X0, Y1, 0);
+  end;
+
+  function PointSeg(const P, A, B: TP3): Double;
+  var
+    T, L: Double;
+  begin
+    L := Sqr(B.X - A.X) + Sqr(B.Y - A.Y);
+    if L < 1E-12 then T := 0
+    else T := Max(0, Min(1, ((P.X - A.X) * (B.X - A.X) + (P.Y - A.Y) * (B.Y - A.Y)) / L));
+    Result := Hypot(P.X - (A.X + T * (B.X - A.X)), P.Y - (A.Y + T * (B.Y - A.Y)));
+  end;
+
+  function SegGap(const A, B, C, D: TP3): Double;
+  begin
+    if SegsMeet(Point2(A.X, A.Y), Point2(B.X, B.Y), Point2(C.X, C.Y), Point2(D.X, D.Y)) then Exit(0);
+    Result := Min(Min(PointSeg(A, C, D), PointSeg(B, C, D)), Min(PointSeg(C, A, B), PointSeg(D, A, B)));
+  end;
+
+  function Straight(const A, B: TP3): Boolean;
+  begin
+    Result := (Abs(A.X - B.X) < 1E-9) or (Abs(A.Y - B.Y) < 1E-9);
+  end;
+
+  { what of a straight run lies outside the breakout - the square round
+    the manifold where the tubes run a port pitch apart on purpose: none,
+    all of it, or the one or two ends either side }
+  procedure OutsideBreakout(const A, B: TP3; out N: Integer; out PA, PB: array of TP3);
+  var
+    M: TP3;
+    H, Lo, Hi: Double;
+  begin
+    M := Spec.Manifolds[0];
+    H := R.BreakoutFt + Spec.Spacing;
+    N := 0;
+    if Abs(A.Y - B.Y) < 1E-9 then
+    begin
+      if Abs(A.Y - M.Y) > H then begin PA[0] := A; PB[0] := B; N := 1; Exit; end;
+      Lo := Min(A.X, B.X); Hi := Max(A.X, B.X);
+      if Lo < M.X - H then begin PA[N] := P3(Lo, A.Y, A.Z); PB[N] := P3(Min(Hi, M.X - H), A.Y, A.Z); Inc(N); end;
+      if Hi > M.X + H then begin PA[N] := P3(Max(Lo, M.X + H), A.Y, A.Z); PB[N] := P3(Hi, A.Y, A.Z); Inc(N); end;
+    end
+    else
+    begin
+      if Abs(A.X - M.X) > H then begin PA[0] := A; PB[0] := B; N := 1; Exit; end;
+      Lo := Min(A.Y, B.Y); Hi := Max(A.Y, B.Y);
+      if Lo < M.Y - H then begin PA[N] := P3(A.X, Lo, A.Z); PB[N] := P3(A.X, Min(Hi, M.Y - H), A.Z); Inc(N); end;
+      if Hi > M.Y + H then begin PA[N] := P3(A.X, Max(Lo, M.Y + H), A.Z); PB[N] := P3(A.X, Hi, A.Z); Inc(N); end;
+    end;
+  end;
+
+  { Every straight run, outside the breakout - where the tubes close to
+    the port pitch on purpose, the owner's four feet or what the ticket
+    says instead - a spacing off every other run and a hand's width off
+    the walls and the obstacles.  Square to a wall, so only on floors
+    whose walls run the same way as the rows. }
+  procedure CheckClearance;
+  var
+    I, J, K, L, W, NA, NB, X, Y: Integer;
+    Near, Wall: Double;
+    Edge: TP3Array;
+    AA, AB, BA, BB: array[0..1] of TP3;
+  begin
+    Near := 1E300; Wall := 1E300;
+    for I := 0 to High(R.Loops) do
+      for J := 1 to High(R.Loops[I].Pts) do
+      begin
+        if not Straight(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J]) then Continue;
+        OutsideBreakout(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J], NA, AA, AB);
+        for X := 0 to NA - 1 do
+        begin
+          for K := I to High(R.Loops) do
+            for L := 1 to High(R.Loops[K].Pts) do
+            begin
+              if (K = I) and (L <= J + 1) then Continue;
+              if not Straight(R.Loops[K].Pts[L - 1], R.Loops[K].Pts[L]) then Continue;
+              OutsideBreakout(R.Loops[K].Pts[L - 1], R.Loops[K].Pts[L], NB, BA, BB);
+              for Y := 0 to NB - 1 do
+                Near := Min(Near, SegGap(AA[X], AB[X], BA[Y], BB[Y]));
+            end;
+          for W := -1 to High(Holes) do
+          begin
+            if W < 0 then Edge := Floor else Edge := Holes[W];
+            for K := 0 to High(Edge) do
+              Wall := Min(Wall, SegGap(AA[X], AB[X], Edge[K], Edge[(K + 1) mod Length(Edge)]));
+          end;
+        end;
+      end;
+    { Half a spacing, not a whole one: since 24 September a side with an
+      odd count of rows gets one more, the last two gaps against the far
+      wall shared between them - half a spacing to a whole one - so every
+      row pairs up (the owner: "on an exterior wall we dont care if we
+      are closer").  Two lanes a spacing apart the whole way out would
+      still fail it: that fault ran 3.6 inches apart. }
+    Ok(Near >= Spec.Spacing / 2 - 1E-6,
+      Format('  no two straight runs closer than half a spacing: %.3f', [Near]));
+    Ok(Wall >= 0.5 - 1E-6,
+      Format('  straight runs a hand''s width off walls and obstacles: %.3f', [Wall]));
   end;
 
   procedure CheckGeometry;
@@ -9324,16 +9485,17 @@ var
             if SegsMeet(A, B, C, D) then Inc(Crossings);
           end;
       end;
-      if Measured > 300 + 1E-6 then Inc(Over);
+      if Measured > TubeOf(Spec.Tube).MaxLoopFt + 1E-6 then Inc(Over);
       EqF(R.Loops[I].LenFt, Measured, '  circuit length includes its actual return', 1E-6);
       Sum := Sum + Measured;
     end;
     EqI(Crossings, 0, '  independent check: no self, tube or obstacle crossings');
     EqI(Outside, 0, '  all tube points remain inside the floor');
-    EqI(Over, 0, '  every complete circuit is within 300 feet');
+    EqI(Over, 0, '  every complete circuit is within the tube''s maximum');
     EqF(R.TotalFt, Sum, '  total matches the drawn circuits', 1E-6);
     EqI(R.Manifolds[0].LoopCount, Length(R.Loops), '  manifold count follows completed circuits');
     Ok(R.Manifolds[0].Ports >= Length(R.Loops), '  enough ports for the actual result');
+    CheckClearance;
   end;
 
 begin
@@ -9351,9 +9513,16 @@ begin
   Spec.Manifolds[0] := P3(98.135417, 60.049679, 0);
   R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'barn routes without specifying manifold size: ' + R.Why);
-  Ok(R.UnfilledSqFt < R.AreaSqFt * 0.36,
-    Format('  barn bare area below 36%%: %.1f of %.1f', [R.UnfilledSqFt, R.AreaSqFt]));
-  Ok(R.TotalFt > 4000, '  improvement is actual tube, not whole-row bookkeeping');
+  { This manifold is in the barn's corner.  Since 24 September every tube
+    has to be on the grid within the breakout round it, and a corner's
+    breakout lets out half the tubes a mid-wall one does - a hundred by
+    sixty foot floor at 1/2" and 12" wants twenty loops and a corner can
+    let out a few.  So the floor is not covered, and the ticket has to
+    say so rather than fan tube twenty feet down the wall as it used to.
+    The same barn with its manifolds mid-wall is below. }
+  Ok(R.UnfilledSqFt > R.AreaSqFt * 0.05, Format('  a corner manifold cannot cover the barn: %.1f of %.1f bare',
+    [R.UnfilledSqFt, R.AreaSqFt]));
+  Ok(Pos('NOT COVERED', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the ticket says so');
   CheckGeometry;
   SetLength(Spec.Ports, 1); Spec.Ports[0] := 2;
   Again := ComputeRadiantLayout(Floor, Holes, Spec);
@@ -9361,10 +9530,75 @@ begin
   EqF(Again.TotalFt, R.TotalFt, '  port hint does not change routing', 1E-6);
   EqF(Again.UnfilledSqFt, R.UnfilledSqFt, '  repeat search is deterministic', 1E-6);
 
+  { The owner's barn as he lays it: 3/4" at 12", one zone of the four,
+    the manifold where Suggest puts it - mid-wall, on the wall nearest the
+    middle of the building.  Every tube square out of the manifold and on
+    the grid within the breakout; the loops close to even. }
+  Rect(Floor, 50.338542, 0.234375, 100.338542, 60.234375); Holes := nil;
+  Spec.Tube := tsThreeQuarter; Spec.Spacing := 1;
+  Zone.Outline := Floor; Zone.Holes := nil;
+  RadiantSuggestZoneManifold(Zone, P3(50.338542, 60.234375, 0), Spec, Spec.Manifolds[0], Q);
+  { mid-wall, a foot in: the middle of one wall or the other - Suggest
+    weighs them by laying each, and since 24 September takes the long wall
+    here (97.1%, loops within 9%) over the short one it used to (98.5%,
+    within 11% - one goal missed) }
+  Ok(((Abs(Spec.Manifolds[0].X - 75.338542) < 1E-6) and (Abs(Spec.Manifolds[0].Y - 59.234375) < 1E-6)) or
+     ((Abs(Spec.Manifolds[0].X - 51.338542) < 1E-6) and (Abs(Spec.Manifolds[0].Y - 30.234375) < 1E-6)),
+    Format('the barn zone''s manifold is mid-wall: %.2f, %.2f', [Spec.Manifolds[0].X, Spec.Manifolds[0].Y]));
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  RadiantMeasure(R, Cover, Spread);
+  { both of the owner's goals met, from where Suggest hangs it }
+  Ok(Cover >= 0.97, Format('  at least 97%% covered: %.1f%%', [Cover * 100]));
+  Ok(Spread <= 0.10, Format('  loops within 10%% of each other: %.1f%%', [Spread * 100]));
+  Ok(R.BreakoutFt <= 8, Format('  every tube on the grid within %.0f ft of the manifold', [R.BreakoutFt]));
+  Diag := 0;
+  for I := 0 to High(R.Loops) do
+    for J := 1 to High(R.Loops[I].Pts) do
+      if not Straight(R.Loops[I].Pts[J - 1], R.Loops[I].Pts[J]) then Inc(Diag);
+  EqI(Diag, 0, '  no diagonal anywhere - the breakout is square');
+  CheckGeometry;
+
+  { Goals it cannot meet, watched: the search goes past its fixed
+    restarts into layouts at random, until Stop - and hands back the best
+    it had, said to be short, and no worse than the fixed restarts found.
+    Laid again, the same; replayed, the same. }
+  Watcher := TStopAfter.Create;
+  try
+    Fixed := R;
+    Spec.GoalCoverPct := 99.5; Spec.GoalEvenPct := 1;
+    Watcher.N := 60;
+    R := ComputeRadiantLayout(Floor, Holes, Spec, False, @Watcher.Watch);
+    EqI(R.Tries, 60, '  watched, it tries layouts until Stop');
+    Ok(R.Ok and R.ShortOfGoals, '  stopped, it keeps its best and says it is short');
+    Ok(Pos('SHORT OF THE GOALS', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the ticket says so');
+    { Evenness asked to within 1%, which only a floor mostly bare can
+      give: the search must not trade the floor away for it.  Left
+      running in the wizard, it once did - loops perfectly even over five
+      percent of the floor, each trade a step better a point for a
+      point.  Coverage now counts ten to one, and nothing more than two
+      points under the most covered so far can be kept. }
+    RadiantMeasure(R, Cover, Spread);
+    RadiantMeasure(Fixed, Measured, Sum);
+    Ok(Cover >= Measured - 0.02 - 1E-9,
+      Format('  evenness is not bought with the floor: %.1f%% covered, %.1f%% spread, against %.1f%% / %.1f%%',
+      [Cover * 100, Spread * 100, Measured * 100, Sum * 100]));
+    Watcher.N := 60;
+    Again := ComputeRadiantLayout(Floor, Holes, Spec, False, @Watcher.Watch);
+    EqF(Again.TotalFt, R.TotalFt, '  the same search twice lays the same', 1E-6);
+    Watcher.N := 60;
+    Again := ComputeRadiantLayout(Floor, Holes, Spec, True, @Watcher.Watch);
+    EqF(Again.TotalFt, R.TotalFt, '  and its replay lays the one it kept', 1E-6);
+  finally
+    Watcher.Free;
+  end;
+  Spec.GoalCoverPct := 97; Spec.GoalEvenPct := 10;
+  Spec.Tube := tsHalf;
+
   { The initial estimate used to stop at seven loops and leave a broad
     empty strip even in an unobstructed square. More ranks must be tried. }
   Rect(Floor, 0, 0, 40, 40); Holes := nil;
-  Spec.Spacing := 0.75; Spec.Manifolds[0] := P3(1, 1, 0);
+  { mid-wall: a corner manifold's breakout cannot let out eight loops }
+  Spec.Spacing := 0.75; Spec.Manifolds[0] := P3(20, 1, 0);
   R := ComputeRadiantLayout(Floor, Holes, Spec);
   Ok(R.Ok, 'open square can outgrow its initial loop-count estimate');
   Ok(R.UnfilledSqFt < R.AreaSqFt * 0.08,
@@ -9405,10 +9639,181 @@ begin
   end;
 end;
 
+{ What Build puts on the sheet: a zone a group named for its system, and
+  inside it every loop a group of its own whose lines are that loop's
+  length, the manifold a box of four lines in a group, and the labels a
+  group of their own - put away when the labels are not asked for. }
+procedure TestRadiantBuild;
+var
+  Floor: TP3Array;
+  Holes: TRadiantHoles;
+  Spec: TRadiantSpec;
+  R: TRadiantResult;
+  D: TWorkDoc;
+  I, K, G, LabelG, ManG, LoopGroups, Notes, Bad: Integer;
+  Len: Double;
+  Nm: string;
+begin
+  WriteLn('Radiant build: groups and labels');
+  SetLength(Floor, 4);
+  Floor[0] := P3(0, 0, 0); Floor[1] := P3(20, 0, 0); Floor[2] := P3(20, 15, 0); Floor[3] := P3(0, 15, 0);
+  Holes := nil;
+  Spec := DefaultRadiantSpec; Spec.Tube := tsHalf; Spec.Spacing := 1;
+  SetLength(Spec.Manifolds, 1); Spec.Manifolds[0] := P3(1, 0.5, 0);
+  SetLength(Spec.ManifoldAngles, 1); Spec.ManifoldAngles[0] := 90;
+  Spec.Labels := False;
+  R := ComputeRadiantLayout(Floor, Holes, Spec);
+  Ok(R.Ok and (Length(R.Loops) > 0), 'a floor to build: ' + R.Why);
+  EqF(R.Manifolds[0].Heading, 90, 'the result keeps the manifold''s heading');
+  D := TWorkDoc.Create;
+  try
+    BuildRadiant(D, Floor, Holes, R, Spec, 0, 'Radiant zone 1', 0);
+    G := 0; LabelG := 0; ManG := 0; LoopGroups := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekPart then
+      begin
+        Nm := D.PartName(D[I].Grp);
+        if D.PartParent(D[I].Grp) = 0 then G := D[I].Grp
+        else if Pos('labels', Nm) > 0 then LabelG := D[I].Grp
+        else if Pos('manifold', Nm) > 0 then ManG := D[I].Grp
+        else if Copy(Nm, 1, 4) = 'Z1 L' then Inc(LoopGroups);
+      end;
+    Ok(G > 0, 'the zone is a group');
+    Ok(Pos('PEX', D.PartName(G)) > 0, '  named for its system: ' + D.PartName(G));
+    EqI(LoopGroups, Length(R.Loops), '  every loop a group of its own');
+    Bad := 0;
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekPart) and (Copy(D.PartName(D[I].Grp), 1, 4) = 'Z1 L') then
+      begin
+        Len := 0;
+        for K := 0 to D.Live - 1 do
+          if (D[K].Kind = ekLine) and (D[K].Part = D[I].Grp) then Len := Len + Dist(D[K].A, D[K].B);
+        { the loop numbered in the name is the one of that length }
+        if Pos(FormatLen(Len, usImperial), D.PartName(D[I].Grp)) = 0 then Inc(Bad);
+      end;
+    EqI(Bad, 0, '  each loop group''s lines come to the length its name says');
+    K := 0;
+    for I := 0 to D.Live - 1 do if (D[I].Kind = ekLine) and (D[I].Part = ManG) then Inc(K);
+    EqI(K, 4, '  the manifold a box of four lines');
+    Notes := 0;
+    for I := 0 to D.Live - 1 do if (D[I].Kind = ekText) and (D[I].Part = LabelG) then Inc(Notes);
+    EqI(Notes, Length(R.Loops) + 1, '  a label a loop and one for the manifold, all in the labels group');
+    Ok(D.PartHidden(LabelG), '  labels not asked for are there, put away');
+    for I := 0 to D.Live - 1 do
+      if (D[I].Kind = ekLine) and (D[I].Part <> ManG) and (D[I].Part <> 0) then
+      begin
+        Ok(not D.EntHidden(I), '  the tube itself is not put away with them');
+        Break;
+      end;
+  finally
+    D.Free;
+  end;
+end;
+
+{ The owner's 120 x 100 barn from report 20260924-222131, four 60 x 50
+  zones, 3/4" PEX at 12", the manifolds where he put them and turned them.
+  What that report showed, held to: no strip left bare up the middle
+  between a manifold's two sides; no comb of short fingers - few bends for
+  the floor; the solutions a search keeps; and Suggest keeping a manifold
+  away from an obstacle it could not lay past. }
+procedure TestRadiantBarn2;
+var
+  Z: TRadiantZone;
+  Spec: TRadiantSpec;
+  R: TRadiantResult;
+  Found: TRadiantResults;
+  Cover, Spread, C2, S2: Double;
+  I, J, Same: Integer;
+  F: TRadiantFrame;
+  Ports: Integer;
+
+  procedure Rect(var P: TP3Array; X0, Y0, X1, Y1: Double);
+  begin
+    SetLength(P, 4);
+    P[0] := P3(X0, Y0, 0); P[1] := P3(X1, Y0, 0); P[2] := P3(X1, Y1, 0); P[3] := P3(X0, Y1, 0);
+  end;
+
+  { the wizard's heading, degrees in the plan, into the zone's own frame }
+  procedure Heading(Deg: Double);
+  var
+    H: TP3;
+  begin
+    F := RadiantFrameOf(Z.Outline);
+    H := P3(Cos(DegToRad(Deg)), Sin(DegToRad(Deg)), 0);
+    SetLength(Spec.ManifoldAngles, 1);
+    Spec.ManifoldAngles[0] := RadToDeg(ArcTan2(Dot3(H, F.V), Dot3(H, F.U)));
+  end;
+
+begin
+  WriteLn('Radiant, the owner''s 120 x 100 barn');
+  Spec := DefaultRadiantSpec; Spec.Tube := tsThreeQuarter; Spec.Spacing := 1;
+  SetLength(Spec.Manifolds, 1);
+
+  { zone B: the manifold on the top wall, fourteen feet off center.  The
+    innermost lane slot of each side stood empty - the slot's own home
+    lane fell across the manifold - and a two-foot strip lay bare from
+    the manifold to the far wall: 94% covered }
+  Rect(Z.Outline, 60, 0, 120, 50); Z.Holes := nil;
+  Spec.Manifolds[0] := P3(87.086957, 49.637681, 0); Heading(0);
+  Found := nil;
+  R := ComputeRadiantLayout(Z.Outline, Z.Holes, Spec, False, nil, @Found);
+  RadiantMeasure(R, Cover, Spread);
+  Ok(R.Ok and (R.Crossings = 0), 'zone B lays out: ' + R.Why);
+  { 97.3% once the middle strip was gone; 100% once every side's rows
+    came to an even count, the odd one left at the far wall paired up }
+  Ok(Cover >= 0.99, Format('  no bare strip up the middle, none at the far wall: %.1f%% covered', [Cover * 100]));
+
+  { the solutions kept: the first is the layout handed back, all differ,
+    and all meet the goals if the first does }
+  Ok(Length(Found) >= 1, Format('  the search keeps its solutions: %d', [Length(Found)]));
+  if Length(Found) > 0 then
+    EqF(Found[0].TotalFt, R.TotalFt, '  the first kept is the one handed back', 1E-6);
+  Same := 0;
+  for I := 0 to High(Found) do
+    for J := I + 1 to High(Found) do
+      if (Length(Found[I].Loops) = Length(Found[J].Loops)) and (Abs(Found[I].TotalFt - Found[J].TotalFt) < 0.5) then
+      begin
+        RadiantMeasure(Found[I], C2, S2);
+        RadiantMeasure(Found[J], Cover, Spread);
+        if Abs(C2 - Cover) < 1E-4 then Inc(Same);
+      end;
+  EqI(Same, 0, '  and no two of them are the same layout');
+  if (Length(Found) > 0) and not Found[0].ShortOfGoals then
+  begin
+    Same := 0;
+    for I := 0 to High(Found) do if Found[I].ShortOfGoals then Inc(Same);
+    EqI(Same, 0, '  once one meets the goals, only those that do are kept');
+  end;
+
+  { zone D: the manifold on its bottom wall.  Grown into bare floor with
+    two-foot fingers, it came to 336 bends - a comb nobody could lay in
+    3/4" at twelve inches }
+  Rect(Z.Outline, 0, 50, 60, 100); Z.Holes := nil;
+  Spec.Manifolds[0] := P3(42.333333, 50.362319, 0); Heading(0);
+  R := ComputeRadiantLayout(Z.Outline, Z.Holes, Spec);
+  RadiantMeasure(R, Cover, Spread);
+  Ok(Cover >= 0.99, Format('zone D: %.1f%% covered', [Cover * 100]));
+  Ok(R.Bends <= 250, Format('  with few bends for the floor - no comb: %d', [R.Bends]));
+  Ok(R.StraightPct >= 90, Format('  most of the tube in long straights: %.0f%%', [R.StraightPct]));
+  Ok(Pos('to lay:', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the ticket tells the fitter');
+
+  { zone A, with the obstacle: Suggest's manifold.  The nearest wall's
+    middle had the obstacle six feet in front of it and covered 57% }
+  Rect(Z.Outline, 0, 0, 60, 50);
+  SetLength(Z.Holes, 1); Rect(Z.Holes[0], 49.677083, 11.572917, 53.083333, 29.640625);
+  RadiantSuggestZoneManifold(Z, P3(60, 50, 0), Spec, Spec.Manifolds[0], Ports);
+  Spec.ManifoldAngles := nil;
+  R := ComputeRadiantLayout(Z.Outline, Z.Holes, Spec);
+  RadiantMeasure(R, Cover, Spread);
+  Ok(Cover >= 0.95, Format('zone A, where Suggest hangs it (%.1f, %.1f): %.1f%% covered',
+    [Spec.Manifolds[0].X, Spec.Manifolds[0].Y, Cover * 100]));
+  EqI(R.Crossings, 0, '  nothing crosses');
+end;
+
 begin
   if ParamStr(1) = 'radiant' then
   begin
-    TestRadiant; TestRadiantSearch;
+    TestRadiant; TestRadiantSearch; TestRadiantBuild; TestRadiantBarn2;
     WriteLn(Checks, ' checks, ', Fails, ' failed');
     if Fails <> 0 then Halt(1);
     Halt(0);
@@ -9529,6 +9934,8 @@ begin
   TestImpliedFaces; WriteLn;
   TestRadiant;      WriteLn;
   TestRadiantSearch; WriteLn;
+  TestRadiantBuild; WriteLn;
+  TestRadiantBarn2; WriteLn;
   TestHeckRoundTrips; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);

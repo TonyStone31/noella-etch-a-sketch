@@ -1435,9 +1435,10 @@ begin
   PushScope;
   try
     while (Cur < Src.Count) and SplitProp(Src[Cur], Key, V) and
-          ((Key = 'locked') or (Key = 'jig')) do
+          ((Key = 'locked') or (Key = 'hidden') or (Key = 'jig')) do
     begin
       if Key = 'locked' then D.SetPartLocked(Id, ReadBool(V))
+      else if Key = 'hidden' then D.SetPartHidden(Id, ReadBool(V))
       else D.SetPartJig(Id, V);
       Inc(Cur);
     end;

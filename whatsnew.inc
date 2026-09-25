@@ -13,6 +13,59 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant heat layout searches only when you ask.**  Opening the' + LineEnding +
+    '  wizard, dragging a manifold or typing a spacing no longer sets it' + LineEnding +
+    '  off.  Search one zone, or all of them, from the buttons or by' + LineEnding +
+    '  right-clicking a manifold.  A window shows how it is going, with' + LineEnding +
+    '  **Stop - keep the best** (that zone keeps the best layout found and' + LineEnding +
+    '  the next zone starts) and **Stop all**.' + LineEnding +
+    '- **Goals.**  Tell it how much of the floor to cover and how close the' + LineEnding +
+    '  loops should be in length (97% and 10% to start with).  It keeps' + LineEnding +
+    '  trying different layouts until it gets there or you stop it, and' + LineEnding +
+    '  the ticket says if it fell short.' + LineEnding +
+    '- **Step through the solutions.**  The arrows above the plan show each' + LineEnding +
+    '  layout the search found that met your goals, best first; the one' + LineEnding +
+    '  showing is the one that gets built.' + LineEnding +
+    '- **Manifolds are boxes you can turn.**  Drag them on the plan and' + LineEnding +
+    '  right-click to turn one a quarter turn - the rows follow the way it' + LineEnding +
+    '  faces.' + LineEnding +
+    '- **Every loop its own color**, on the plan and on the drawing, so one' + LineEnding +
+    '  run can be followed from the manifold out and back.' + LineEnding +
+    '- **A built layout is made of groups.**  Each zone is a group named for' + LineEnding +
+    '  its tube, spacing, loops and footage; inside it every loop is its own' + LineEnding +
+    '  group, and all the labels are in one more.  Open a zone and click a' + LineEnding +
+    '  loop to see its whole length and size in the panel.' + LineEnding +
+    '- **Groups can be put away.**  `/hide` puts the picked groups away,' + LineEnding +
+    '  `/hide labels` every group with "labels" in its name, and `/show`' + LineEnding +
+    '  brings them back.  Put away groups are saved with the drawing.  The' + LineEnding +
+    '  panel also shows any group''s total line length and size.' + LineEnding +
+    '- **The ticket tells the installer** how many bends there are and how' + LineEnding +
+    '  much of the tube runs in long straights.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Radiant layouts cover far more of the floor.**  No more bare strip' + LineEnding +
+    '  running up the middle from the manifold, no more single row left bare' + LineEnding +
+    '  along a far wall (the row count is now always even - the last two rows' + LineEnding +
+    '  at the wall sit a little closer), and loops reach the ends of the' + LineEnding +
+    '  walls.' + LineEnding +
+    '- **Much less zigzag.**  Loops now fill bare floor by running their rows' + LineEnding +
+    '  further, not with combs of short hairpins, and fewer bends is' + LineEnding +
+    '  preferred once the floor is covered.' + LineEnding +
+    '- **Tube leaves the manifold square**, with no long diagonal fan - every' + LineEnding +
+    '  tube is on the grid within a few feet, wider only when the floor' + LineEnding +
+    '  needs it, and the ticket says how wide.' + LineEnding +
+    '- **Suggest puts each manifold in the middle of the wall that covers' + LineEnding +
+    '  its zone best**, clear of obstacles in front of it.' + LineEnding +
+    '- **Searching is faster**, and building uses the layout you searched' + LineEnding +
+    '  instead of searching again.' + LineEnding +
+    '- **A built manifold''s box no longer turns into a face** - selecting' + LineEnding +
+    '  the floor again gave it an extra tiny zone.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.24.10' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +

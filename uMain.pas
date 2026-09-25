@@ -101,7 +101,8 @@ type
     it.  The painter is dumb and reads this; the mouse looks in the same
     place for what it hit. }
   TInfoAct = (iaNone, iaSides, iaSoft, iaNoteSize, iaReverse, iaWidth, iaColor,
-    iaMaterial, iaUnpaint, iaPartOpen, iaPartLock, iaPartExplode, iaPartRename);
+    iaMaterial, iaUnpaint, iaPartOpen, iaPartLock, iaPartExplode, iaPartRename,
+    iaPartHide);
   TInfoRow = record
     Caption: string;
     Value: string;
@@ -1217,6 +1218,7 @@ type
     procedure OpenGroup(Id: Integer);
     procedure CloseGroup;
     procedure LockGroups(Locked: Boolean);
+    procedure HideGroups(PutAway: Boolean; const Named: string);
     procedure RenameGroup(const NewName: string);
     function SplitMoveSelection: Boolean;
     function InContextFace(F: Integer): Integer;
@@ -1518,7 +1520,7 @@ const
     One row per action rather than one per word - /erase, /e and /del are the
     same thing and three rows of it would be a worse list.  The other words
     are in Also: typing one finds the row, and the row says so. }
-  CMD_LIST: array[0..83] of TCmdItem = (
+  CMD_LIST: array[0..85] of TCmdItem = (
     (Name: 'all';        Hint: 'select everything on this sheet';      Arg: False; Eg: ''; Also: 'selectall'),
     (Name: 'arc';        Hint: 'the arc tool';                          Arg: False; Eg: ''; Also: 'a'),
     (Name: 'back';       Hint: 'look from behind';                      Arg: False),
@@ -1548,6 +1550,9 @@ const
     (Name: 'group';      Hint: 'make what is picked a group';           Arg: False; Eg: ''; Also: 'makegroup'),
     (Name: 'guides';     Hint: 'clear the guide lines';                 Arg: False; Eg: ''; Also: 'noguides'),
     (Name: 'help';       Hint: 'about this program';                    Arg: False; Eg: ''; Also: '?'),
+    (Name: 'hide';       Hint: 'put away the picked groups, or every group so named';  Arg: True;
+                         Eg:   '/hide labels';
+                         Also: 'putaway'),
     (Name: 'holes';      Hint: 'draw where a solid is not closed';      Arg: False; Eg: ''; Also: 'openedges notclosed'),
     (Name: 'info';       Hint: 'the entity panel: on, off';            Arg: False;
                          Eg:   '/info on';
@@ -1606,6 +1611,9 @@ const
     (Name: 'session';    Hint: 'what has happened, most recent last';   Arg: False;
                          Eg:   '/session session.txt';
                          Also: 'acts'),
+    (Name: 'show';       Hint: 'bring back what was put away - all, or the groups so named';  Arg: True;
+                         Eg:   '/show labels';
+                         Also: 'unhide'),
     (Name: 'source';     Hint: 'this sheet as its text, picked both ways';  Arg: False;
                          Eg:   '/source complete off';
                          Also: 'src text-view'),
@@ -7579,6 +7587,7 @@ var
   M: TIntArrayW;
   E: TWorkEnt;
   TotL, TotA: Double;
+  Lo, Hi: TP3;
   MatCol: TColor;
 
   procedure Head(const S: string);
@@ -7665,8 +7674,25 @@ begin
     Row('Holds', Format('%d thing%s', [Length(M), IfThen(Length(M) = 1, '', 's')]));
     if FD.Doc.PartParent(G) <> 0 then
       Row('Inside', FD.Doc.PartName(FD.Doc.PartParent(G)));
+    { what it measures, groups inside it and all: its lines end to end,
+      reference lines too - a radiant loop is all reference line, and its
+      run from port to port is the number wanted - and the box it sits in }
+    NL := 0; TotL := 0;
+    for K := 0 to High(M) do
+      if FD.Doc[M[K]].Kind = ekLine then
+      begin
+        Inc(NL); TotL := TotL + Dist(FD.Doc[M[K]].A, FD.Doc[M[K]].B);
+      end;
+    if NL > 0 then Row('Lines', IntToStr(NL) + '   ' + FormatLen(TotL, FD.Units));
+    if FD.Doc.PartBounds(G, Lo, Hi) then
+      if Abs(Hi.Z - Lo.Z) > 1E-6 then
+        Row('Size', FormatLen(Hi.X - Lo.X, FD.Units) + ' x ' + FormatLen(Hi.Y - Lo.Y, FD.Units) +
+          ' x ' + FormatLen(Hi.Z - Lo.Z, FD.Units))
+      else
+        Row('Size', FormatLen(Hi.X - Lo.X, FD.Units) + ' x ' + FormatLen(Hi.Y - Lo.Y, FD.Units));
     Head('');
     Row('Locked', IfThen(FD.Doc.PartLocked(G), 'Unlock', 'Lock'), iaPartLock, G);
+    Row('Put away', 'Hide', iaPartHide, G);
     Row('Work inside it', 'Open', iaPartOpen, G);
     Row('Take it apart', 'Explode', iaPartExplode, G);
     Exit;
@@ -8152,6 +8178,7 @@ begin
         if FD.Doc.PartLocked(FInfoRows[Row].Ent) then FCmdMsg := 'Locked.' else FCmdMsg := 'Unlocked.';
       end;
     iaPartExplode: ExplodeGroups;
+    iaPartHide: HideGroups(True, '');
     iaPartRename:
       begin
         { the command bar, with the name ready to be typed over }
@@ -9961,6 +9988,7 @@ var
   Spec: TRadiantSpec;
   Manifolds: TP3Array;
   Ports: TIntArray;
+  Layouts: TRadiantResults;
   R: TRadiantResult;
   Loops: Integer;
   Ft: Double;
@@ -9987,7 +10015,7 @@ begin
     ShowMessage(FCmdMsg);
     Exit;
   end;
-  if not TRadiantForm.Ask(FD.Units, Zones, Spec, Manifolds, Ports) then Exit;
+  if not TRadiantForm.Ask(FD.Units, Zones, Spec, Manifolds, Ports, Layouts) then Exit;
   PushUndo;
   First := FD.Doc.Live;
   Loops := 0; Ft := 0;
@@ -10001,7 +10029,10 @@ begin
     end;
     SetLength(Spec.Manifolds, 1); SetLength(Spec.Ports, 1);
     Spec.Manifolds[0] := Manifolds[Z]; Spec.Ports[0] := Ports[Z];
-    R := ComputeRadiantLayout(Zones[Z].Outline, Holes, Spec);
+    { the layout the wizard searched and showed - searching again here
+      took as long a second time, with nothing on screen to say so }
+    if Z > High(Layouts) then Continue;
+    R := Layouts[Z];
     if not R.Ok then Continue;
     BuildRadiant(FD.Doc, Zones[Z].Outline, Zones[Z].Holes, R, Spec, RGBToColor(200, 48, 32),
       IfThen(Spec.Tag <> '', Spec.Tag + ' ', 'Radiant ') + 'zone ' + IntToStr(Z + 1), Z);
@@ -15294,6 +15325,13 @@ begin
     if FD.Doc.Context <> 0 then CloseGroup
     else FCmdMsg := 'No group is open.';
   end
+  else if (W = 'hide') or (W = 'putaway') then
+    { the name as typed - a group is found by it however it is cased }
+    if Rest = '' then HideGroups(True, '')
+    else HideGroups(True, Copy(Trim(S), Pos(' ', Trim(S)) + 1, MaxInt))
+  else if (W = 'show') or (W = 'unhide') then
+    if Rest = '' then HideGroups(False, '')
+    else HideGroups(False, Copy(Trim(S), Pos(' ', Trim(S)) + 1, MaxInt))
   else if W = 'lock' then LockGroups(True)
   else if W = 'unlock' then LockGroups(False)
   else if (W = 'name') or (W = 'rename') then
@@ -19771,6 +19809,58 @@ begin
   pbScreen.Invalidate;
 end;
 
+{ Put groups away, or bring them back.  Named: every group whose name has
+  that in it, anywhere in the drawing - "/hide labels" puts away the labels
+  of every radiant zone at once.  Not named: hiding takes the picked
+  groups, and showing brings back everything put away.  The groups keep
+  everything; only what is drawn, picked and snapped to changes. }
+procedure TMainForm.HideGroups(PutAway: Boolean; const Named: string);
+var
+  Gs: TIntArrayW;
+  I, K, N: Integer;
+  Want: string;
+begin
+  SetLength(Gs, 0);
+  Want := LowerCase(Trim(Named));
+  for I := 0 to FD.Doc.Live - 1 do
+    if (FD.Doc[I].Kind = ekPart) and (FD.Doc[I].Hidden <> PutAway) and
+       (((Want <> '') and (Pos(Want, LowerCase(FD.Doc.PartName(FD.Doc[I].Grp))) > 0)) or
+        ((Want = '') and not PutAway)) then
+    begin
+      SetLength(Gs, Length(Gs) + 1); Gs[High(Gs)] := FD.Doc[I].Grp;
+    end;
+  if (Want = '') and PutAway then Gs := SelectedGroups;
+  if Length(Gs) = 0 then
+  begin
+    if Want <> '' then
+      FCmdMsg := Format('No group %s has "%s" in its name.', [IfThen(PutAway, 'showing', 'put away'), Trim(Named)])
+    else if PutAway then FCmdMsg := 'Pick a group first - or /hide labels puts away every group named so.'
+    else FCmdMsg := 'Nothing is put away.';
+    InvalidateStatus;
+    Exit;
+  end;
+  PushUndo;
+  N := 0;
+  for K := 0 to High(Gs) do
+    if FD.Doc.PartHidden(Gs[K]) <> PutAway then
+    begin
+      FD.Doc.SetPartHidden(Gs[K], PutAway);
+      Inc(N);
+    end;
+  { what is put away cannot stay picked - it is not there to see }
+  if PutAway then SetLength(FSel, 0);
+  RenderPro;
+  RecomposeAll;
+  InfoChanged;
+  if PutAway then
+    FCmdMsg := Format('%d group%s put away - /show brings %s back.', [N, IfThen(N = 1, '', 's'),
+      IfThen(N = 1, 'it', 'them')])
+  else
+    FCmdMsg := Format('%d group%s brought back.', [N, IfThen(N = 1, '', 's')]);
+  InvalidateStatus;
+  pbScreen.Invalidate;
+end;
+
 procedure TMainForm.RenameGroup(const NewName: string);
 var
   G: Integer;
@@ -20258,6 +20348,13 @@ begin
       the solid already has is that face, and is dropped. }
     case FD.Doc[I].Kind of
       ekLine:
+        { A reference line - a dimension's own, a radiant run - is drawn and
+          not built: it closes no face, the same rule the edge passes in
+          uWork keep.  This one let them in, and the box a radiant build
+          draws for each manifold, a closed ring of reference lines, came
+          back as a little face - a zone of its own the next time the
+          floor was selected (24 September, the owner's barn). }
+        if not FD.Doc[I].Dim then
         begin
           if N >= Length(Result) then SetLength(Result, N * 2);
           Result[N].A := FD.Doc[I].A;

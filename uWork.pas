@@ -183,6 +183,11 @@ type
       barrel of staves, and shows them only where the surface turns away from
       you and the crease is the outline. }
     Soft: Boolean;
+    { ekPart: the group is put away - it, and every group inside it, is
+      neither drawn, picked nor snapped to, and is still all there.  Kept
+      on the group and not on its members, so a whole radiant zone's
+      labels go off and on as one; see EntHidden. }
+    Hidden: Boolean;
   end;
 
   TWorkEntArray = array of TWorkEnt;
@@ -599,6 +604,15 @@ type
     function PartJig(Id: Integer): string;
     procedure SetPartJig(Id: Integer; const Spec: string);
     procedure SetPartParent(Id, Parent: Integer);
+    { a group put away, or brought back - see TWorkEnt.Hidden }
+    function PartHidden(Id: Integer): Boolean;
+    procedure SetPartHidden(Id: Integer; Hidden: Boolean);
+    { Is this entity in a group that is put away, or inside one that is -
+      however deep?  A group's own record counts as in itself.  Asked by
+      InSlice, so everything that draws or picks by the slice leaves it
+      out, and by the snaps. }
+    function EntHidden(I: Integer): Boolean;
+    procedure WorkOutHidden;
     { which group an entity is in, and putting it in one }
     procedure SetPart(Index, Id: Integer);
     { Is this entity inside the open context - in it, or in a group inside
@@ -886,6 +900,11 @@ type
       things up, and nothing is wrong when it is late, discarded or off. }
     Threads: Boolean;
     FEditSeq: Integer;
+    { EntHidden's answers, worked out once per edit: FHideOf[I] for each
+      entity, good while FHideSeq is FEditSeq and the list is as long }
+    FHideOf: array of Boolean;
+    FHideSeq: Integer;
+    FAnyHidden: Boolean;
     FOnFaceWorker: TThread;
     { the last build of the cache: how long, and where it ran }
     OnFaceWorkerMs: Double;
@@ -3227,6 +3246,9 @@ var
   end;
 
 begin
+  { a group put away is out of the drawing the same way, and every pass
+    that asks this leaves it out without asking anything else }
+  if EntHidden(Index) then Exit(False);
   Result := True;
   if not FSliceOn then Exit;
   if (Index < 0) or (Index >= FLive) then Exit;
@@ -3265,7 +3287,7 @@ begin
   Result := 0;
   if not FSliceOn then Exit;
   for I := 0 to FLive - 1 do
-    if not InSlice(I) then Inc(Result);
+    if not EntHidden(I) and not InSlice(I) then Inc(Result);
 end;
 
 { Is this solid closed?
@@ -4974,6 +4996,82 @@ begin
   if (E < 0) or (Id = Parent) then Exit;
   FEnts[E].Part := Parent;
   Inc(FEditSeq);
+end;
+
+function TWorkDoc.PartHidden(Id: Integer): Boolean;
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  Result := (E >= 0) and FEnts[E].Hidden;
+end;
+
+procedure TWorkDoc.SetPartHidden(Id: Integer; Hidden: Boolean);
+var
+  E: Integer;
+begin
+  E := PartEnt(Id);
+  if (E < 0) or (FEnts[E].Hidden = Hidden) then Exit;
+  FEnts[E].Hidden := Hidden;
+  FSnapDirty := True;
+  Inc(FEditSeq);
+end;
+
+function TWorkDoc.EntHidden(I: Integer): Boolean;
+begin
+  if (FHideSeq <> FEditSeq) or (Length(FHideOf) <> FLive) then WorkOutHidden;
+  Result := FAnyHidden and (I >= 0) and (I < FLive) and FHideOf[I];
+end;
+
+{ Every group's answer from the groups above it, then every entity's from
+  its group.  A drawing with nothing put away - nearly all of them - costs
+  one walk of the list and no more. }
+procedure TWorkDoc.WorkOutHidden;
+var
+  I, Id, Up, Guard: Integer;
+  Self_, Parent_: array of Integer;
+  Down: array of ShortInt;       { 0 not known yet, 1 put away, 2 not }
+
+  function Away(G: Integer): Boolean;
+  begin
+    Result := False;
+    Guard := 0;
+    Up := G;
+    { up until an answer is known, a group put away, or the top - and a
+      loop of parents, which a damaged file could hold, ends it }
+    while (Up > 0) and (Up <= High(Down)) and (Guard < 1000) do
+    begin
+      if Down[Up] <> 0 then Exit(Down[Up] = 1);
+      if (Self_[Up] >= 0) and FEnts[Self_[Up]].Hidden then Exit(True);
+      Up := Parent_[Up];
+      Inc(Guard);
+    end;
+  end;
+
+begin
+  FHideSeq := FEditSeq;
+  SetLength(FHideOf, FLive);
+  FAnyHidden := False;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekPart) and FEnts[I].Hidden then begin FAnyHidden := True; Break; end;
+  if not FAnyHidden then Exit;
+  SetLength(Self_, FNextPart + 1);
+  SetLength(Parent_, FNextPart + 1);
+  SetLength(Down, FNextPart + 1);
+  for Id := 0 to FNextPart do begin Self_[Id] := -1; Parent_[Id] := 0; Down[Id] := 0; end;
+  for I := 0 to FLive - 1 do
+    if (FEnts[I].Kind = ekPart) and (FEnts[I].Grp > 0) and (FEnts[I].Grp <= FNextPart) then
+    begin
+      Self_[FEnts[I].Grp] := I;
+      Parent_[FEnts[I].Grp] := FEnts[I].Part;
+    end;
+  for Id := 1 to FNextPart do
+    if Away(Id) then Down[Id] := 1 else Down[Id] := 2;
+  for I := 0 to FLive - 1 do
+  begin
+    if FEnts[I].Kind = ekPart then Id := FEnts[I].Grp else Id := FEnts[I].Part;
+    FHideOf[I] := (Id > 0) and (Id <= FNextPart) and (Down[Id] = 1);
+  end;
 end;
 
 procedure TWorkDoc.SetPart(Index, Id: Integer);
@@ -8908,6 +9006,7 @@ begin
   Put(P3(0, 0, 0), snOrigin);
 
   for I := 0 to FLive - 1 do
+    if not EntHidden(I) then
     case FEnts[I].Kind of
       ekLine:
         begin
@@ -8971,7 +9070,7 @@ begin
       if Seen.Find(Key) = nil then Seen.Add(Key, Pointer(1));
     end;
     for I := 0 to FLive - 1 do
-      if FEnts[I].Kind = ekFace then
+      if (FEnts[I].Kind = ekFace) and not EntHidden(I) then
       begin
         for K := 0 to High(FEnts[I].Poly) do
         begin
@@ -8997,7 +9096,7 @@ begin
   SetLength(Idx, FLive);
   LineCount := 0;
   for I := 0 to FLive - 1 do
-    if FEnts[I].Kind = ekLine then
+    if (FEnts[I].Kind = ekLine) and not EntHidden(I) then
     begin
       Idx[LineCount] := I;
       Inc(LineCount);
@@ -9185,6 +9284,7 @@ begin
   begin
     if FEnts[I].Kind <> ekPart then Continue;
     if FEnts[I].Part <> FContext then Continue;
+    if EntHidden(I) then Continue;
     if not PartBounds(FEnts[I].Grp, Lo, Hi) then Continue;
     { a flat group has a box with no height; its points are still its
       points, so nothing below minds }
@@ -9428,7 +9528,7 @@ begin
   SetLength(Idx, FLive);
   ArcCount := 0;
   for I := 0 to FLive - 1 do
-    if (FEnts[I].Kind = ekArc) and (FEnts[I].R > 1E-9) then
+    if (FEnts[I].Kind = ekArc) and (FEnts[I].R > 1E-9) and not EntHidden(I) then
     begin
       Idx[ArcCount] := I;
       Inc(ArcCount);
@@ -10568,7 +10668,7 @@ var
 begin
   { Last drawn wins, which is the one on top. }
   for I := FLive - 1 downto 0 do
-    if (FEnts[I].Kind = ekText) and (FEnts[I].BoxR > FEnts[I].BoxL) and
+    if (FEnts[I].Kind = ekText) and not EntHidden(I) and (FEnts[I].BoxR > FEnts[I].BoxL) and
        (SX >= FEnts[I].BoxL) and (SX <= FEnts[I].BoxR) and
        (SY >= FEnts[I].BoxT) and (SY <= FEnts[I].BoxB) then
       Exit(I);
@@ -10888,6 +10988,9 @@ begin
             [FEnts[I].Grp, Ord(FEnts[I].Solid), FEnts[I].Part, EscapeNote(FEnts[I].Txt)])));
           if FEnts[I].Jig <> '' then
             L.Add('JIG ' + IntToStr(FEnts[I].Grp) + ' ' + EscapeNote(FEnts[I].Jig));
+          { a line of its own, like JIG: a reader from before it skips it
+            and shows the group, which loses nothing }
+          if FEnts[I].Hidden then L.Add('HIDDEN ' + IntToStr(FEnts[I].Grp));
         end;
       ekLine:
         L.Add(Format('LINE %s %s %d %.3f %d %d %d',
@@ -11149,6 +11252,8 @@ begin
       end
       else if (Kind = 'JIG') and (T.Count >= 3) then
         SetPartJig(StrToIntDef(T[1], 0), UnescapeNote(JoinFrom(T, 2)))
+      else if (Kind = 'HIDDEN') and (T.Count >= 2) then
+        SetPartHidden(StrToIntDef(T[1], 0), True)
       else if (Kind = 'FACE') and (T.Count >= 4) then
       begin
         N := StrToIntDef(T[3], 0);

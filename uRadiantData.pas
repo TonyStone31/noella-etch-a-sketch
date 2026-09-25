@@ -105,12 +105,51 @@ const
     the spacing - the fan from the ports onto the grid.  The owner's
     number: about a foot. }
   MANIFOLD_FAN_IN = 13.0;
+  { How far round a manifold its tubes may run closer than the spacing -
+    down to the port pitch - before every one of them has to be out on
+    the grid: the owner's rule, 24 September.  Four feet; the tubes are
+    to be on the grid within three feet of run. }
+  MANIFOLD_BREAKOUT_FT = 4.0;
+  { how much of the floor a breakout has to cover to be kept - short of
+    it, the next two feet wider is tried.  On the owner's barn (3/4" at
+    12") six feet covers 95.0% with six loops and eight 96.9% with eight:
+    the closer breakout and the smaller manifold are worth the two
+    percent, so the bar sits under the first. }
+  BREAKOUT_COVER = 0.93;
+  { how many breakouts the search climbs through, two feet apart from
+    MANIFOLD_BREAKOUT_FT: four, six, eight, ten, twelve.  Only as far as
+    the floor needs - each is tried only when the one before fell short -
+    and the ticket says which. }
+  BREAKOUT_LEVELS = 5;
   LOOP_AREA_FACTOR = 0.7;
   { how far apart in length the loops on one manifold may be before the
     layout is tried again - the owner's rule of thumb: loops within ten
     or fifteen feet of each other balance; a 300 ft loop beside a 50 ft
     one never will. }
   LOOP_EVEN_FT = 15.0;
+  { Growing a loop into bare floor beside it (uRadiant, GrowLoops), for
+    whoever has to lay it.  A turn - the end of a pair of rows - is pushed
+    out no less than this part of a spacing at a time, since a nudge is
+    not worth the fitter's trouble.  A finger - a hairpin out of a
+    straight run - is laid no shorter than this many spacings: every one
+    is four bends, and a comb of short ones is the zigzag nobody wants to
+    lay. }
+  PUSH_MIN = 0.25;
+  FINGER_MIN_SPACINGS = 6;
+  { What a bend costs a layout in the search's ranking, against coverage
+    and even loops (uRadiant, RankOf): a fifth of a point, where a
+    percentage point of coverage short of the goal is fifty and one of
+    evenness five.  So under the coverage goal the floor wins - about two
+    hundred and fifty bends to a point - and over it, a finger has to be
+    about eight feet long to earn its four bends.  The owner: mostly
+    straight runs, minimal zigzags, "but we gotta do what we gotta do
+    sometimes". }
+  BEND_WEIGHT = 0.2;
+  { a straight this many spacings long or more counts as a long run on
+    the ticket's installer line }
+  STRAIGHT_RUN_SPACINGS = 6;
+  { how many solutions a search keeps for the wizard to step through }
+  SOLUTIONS_KEPT = 24;
   { and how many feet of row left bare weigh the same as one more loop,
     when the layout is scored - a guess, the owner's to move }
   UNFILLED_LOOP_FT = 20.0;

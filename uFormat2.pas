@@ -1907,6 +1907,7 @@ var
       begin
         Put(Depth, 'group ' + Quoted(D[I].Txt), I);
         if D[I].Solid then Put(Depth + 1, 'locked = true', I);
+        if D[I].Hidden then Put(Depth + 1, 'hidden = true', I);
         if D[I].Jig <> '' then Put(Depth + 1, 'jig = ' + D[I].Jig, I);
         PutLevel(Depth + 1, D[I].Grp);
         Put(Depth, 'end', I);
