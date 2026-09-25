@@ -308,9 +308,14 @@ pixel by pixel.  What the pictures said:
     `RadiantFrameOf` - the longest wall along, up from the outline's
     winding - so a clockwise floor came out mirrored and a quarter turn
     was square to the diagonal.  `RadiantPlanFrame` is the drawing's own
-    plan for a flat floor.  And a compass on the plan, and E/W N/S U/D on
-    the axes while the grid is on ("then i would have noticed this long
-    ago") - moved along their own line while one would land on another.
+    plan for a flat floor.  And a compass on the plan ("then i would have
+    noticed this long ago"); on the drawing a compass in a top corner the
+    view cube is not in (`PaintCompass`), with the grid - first tried as
+    E/W N/S U/D at the origin, but a direction is the same everywhere and
+    he draws away from the origin, so the axes say X/-X, Y/-Y, Z/-Z there
+    instead, moved along their own line while one would land on another.
+    A north of the drawing's own (a building not square to the page) when
+    something needs it.
   - Later, his words: "we should let moving manifolds around snap to the
     walls and let me select the allowed distance from there" - with the
     placement line below.

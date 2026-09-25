@@ -17,9 +17,11 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
-    '- **Which way is north.**  With the grid on, the axes are labeled where' + LineEnding +
-    '  they meet - E and W on the red, N and S on the green, U and D on the' + LineEnding +
-    '  blue.  The radiant wizard''s plan has a compass.' + LineEnding +
+    '- **A compass.**  With the grid on, a small compass sits in a top corner' + LineEnding +
+    '  of the drawing - north up the green axis, east along the red - and' + LineEnding +
+    '  turns with the view in iso and 3D, keeping out of the view cube''s' + LineEnding +
+    '  corner.  Where the axes meet they are labeled X, Y and Z (and -X, -Y,' + LineEnding +
+    '  -Z).  The radiant wizard''s plan has a compass too.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +

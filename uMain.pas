@@ -1391,6 +1391,7 @@ type
     function OverCube(X, Y: Integer): Boolean;
     function CubeZone(X, Y: Integer): Boolean;
     procedure PaintViewCube(C: TCanvas);
+    procedure PaintCompass(C: TCanvas);
     function CubeMouse(X, Y: Integer; Down, Up: Boolean): Boolean;
     function TurnPivot: TP3;
     function FitTarget(OnSelection: Boolean; AzT, ElT: Double;
@@ -5207,13 +5208,14 @@ end;
   not the origin itself is anywhere near the window. }
 procedure TMainForm.PaintAxes;
 const
-  { Which way is which where the three meet - the owner, 25 September:
-    "it should put a north east south west and up down just on the line
-    outside the points and show it when the grid is turned on".  Red runs
-    east, green north, blue up; their dashed halves west, south and down -
-    one letter each, U and D too: "Up" and "Down" across a line that runs
-    up the screen read as a label, not a direction. }
-  AXIS_TAGS: array[0..2, 0..1] of string = (('E', 'W'), ('N', 'S'), ('U', 'D'));
+  { Which axis is which where the three meet, while the grid is on.  They
+    said north, east and up at first (the owner, 25 September), but a
+    direction is the same everywhere, and here it only showed while the
+    origin was on the paper - he draws out in the positive quarter, away
+    from it.  The directions went to a compass in the corner
+    (PaintCompass); the axes say what they are: "x y and z on the lines...
+    would be -z for down". }
+  AXIS_TAGS: array[0..2, 0..1] of string = (('X', '-X'), ('Y', '-Y'), ('Z', '-Z'));
   { how far out from the origin, pixels, and how much further a word is
     moved while it would land on one already down }
   AXIS_TAG_OUT = 60;
@@ -12905,6 +12907,7 @@ begin
 
   { --- the view cube ---------------------------------------------------- }
   PaintViewCube(C);
+  PaintCompass(C);
 
   { --- the action chip beside the cursor --------------------------------
 
@@ -22909,6 +22912,68 @@ begin
     C.TextOut(R.Left + ((R.Right - R.Left) - TW) div 2,
       R.Bottom + Round(2 * FUIScale), FCubeHot.Name);
   end;
+end;
+
+{ Which way north is, in a corner of the drawing, while the grid is on.
+  Letters at the origin said it first, and only while the origin was on
+  the paper - the owner draws out in the positive quarter, away from it
+  (25 September: "the compass would have solidified our previews are
+  wrong in the radiant build wizard").  North is the drawing's green axis,
+  east its red, up its blue, each drawn the way the view shows it - flat
+  in plan, turning with the camera in iso and orbit - in the axis's own
+  color.  It keeps to a top corner the view cube is not in. }
+procedure TMainForm.PaintCompass(C: TCanvas);
+const
+  TAGS: array[0..4] of string = ('E', 'W', 'N', 'S', 'U');
+var
+  R, M, Pad, CX, CY, K, TX, TY, OX, OY: Integer;
+  Rt, Up, Dir: TP3;
+  DX, DY, L: Double;
+  Col: TPix;
+begin
+  if not FShowGrid or (FMode <> mdPro) or (FD = nil) then Exit;
+  R := Round(20 * FUIScale);
+  M := Round(14 * FUIScale);
+  Pad := Round(12 * FUIScale);
+  { top right; top left when the cube is showing there }
+  if FCubeOn and (FD.View = vkOrbit) and (FCubeCorner = 1) then CX := M + Pad + R
+  else CX := pbScreen.Width - M - Pad - R;
+  CY := M + Pad + R;
+  Rt := ViewRight(Proj);
+  Up := ViewUp(Proj);
+  C.Brush.Style := bsClear;
+  C.Pen.Width := 1;
+  C.Pen.Color := PixToColor(Theme.Grid);
+  C.Ellipse(CX - R, CY - R, CX + R + 1, CY + R + 1);
+  UIFont(C, 9, True, Pix(0, 0, 0));
+  for K := 0 to High(TAGS) do
+  begin
+    case K of
+      0: Dir := P3(1, 0, 0);
+      1: Dir := P3(-1, 0, 0);
+      2: Dir := P3(0, 1, 0);
+      3: Dir := P3(0, -1, 0);
+    else Dir := P3(0, 0, 1);
+    end;
+    DX := Dot3(Dir, Rt); DY := -Dot3(Dir, Up);
+    L := Hypot(DX, DY);
+    { pointing at the eye - up, in plan - there is nothing to draw }
+    if L < 0.2 then Continue;
+    Col := AxisPix(K div 2);
+    C.Pen.Color := PixToColor(Col);
+    if K mod 2 = 0 then C.Pen.Width := Max(2, Round(2 * FUIScale)) else C.Pen.Width := 1;
+    C.Line(CX, CY, CX + Round(DX * R), CY + Round(DY * R));
+    { the letter just past the point, ringed in black like the axes' }
+    TX := CX + Round(DX / L * (R * L + Pad * 0.75)) - C.TextWidth(TAGS[K]) div 2;
+    TY := CY + Round(DY / L * (R * L + Pad * 0.75)) - C.TextHeight(TAGS[K]) div 2;
+    C.Font.Color := clBlack;
+    for OX := -1 to 1 do
+      for OY := -1 to 1 do
+        if (OX <> 0) or (OY <> 0) then C.TextOut(TX + OX, TY + OY, TAGS[K]);
+    C.Font.Color := PixToColor(Col);
+    C.TextOut(TX, TY, TAGS[K]);
+  end;
+  C.Pen.Width := 1;
 end;
 
 { The pointer, over the cube.  True when the cube took it, so the drawing

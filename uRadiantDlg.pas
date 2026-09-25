@@ -1492,11 +1492,16 @@ begin
       2: begin DX := -NU; DY := NV; end;
     else begin DX := -EU; DY := EV; end;
     end;
-    if K = 0 then begin C.Pen.Color := clRed; C.Pen.Width := 2; end
+    { north the drawing's green axis and east its red, as the drawing's
+      own compass has them }
+    case K of
+      0: begin C.Pen.Color := $0030A030; C.Pen.Width := 2; end;
+      1: begin C.Pen.Color := $002030C8; C.Pen.Width := 2; end;
     else begin C.Pen.Color := clGray; C.Pen.Width := 1; end;
+    end;
     C.Line(CX, CY, CX + Round(DX * R), CY + Round(DY * R));
-    if K = 0 then C.Font.Style := [fsBold] else C.Font.Style := [];
-    if K = 0 then C.Font.Color := clRed else C.Font.Color := clGray;
+    if K <= 1 then C.Font.Style := [fsBold] else C.Font.Style := [];
+    if K <= 1 then C.Font.Color := C.Pen.Color else C.Font.Color := clGray;
     C.TextOut(CX + Round(DX * (R + 9)) - C.TextWidth(TAGS[K]) div 2,
       CY + Round(DY * (R + 9)) - C.TextHeight(TAGS[K]) div 2, TAGS[K]);
   end;
