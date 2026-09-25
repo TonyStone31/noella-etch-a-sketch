@@ -13,6 +13,25 @@ const
     '  "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.' + LineEnding +
     '-->' + LineEnding +
     '' + LineEnding +
+    '## Next release' + LineEnding +
+    '' + LineEnding +
+    '### New' + LineEnding +
+    '' + LineEnding +
+    '- **Which way is north.**  With the grid on, the axes are labeled where' + LineEnding +
+    '  they meet - E and W on the red, N and S on the green, U and D on the' + LineEnding +
+    '  blue.  The radiant wizard''s plan has a compass.' + LineEnding +
+    '' + LineEnding +
+    '### Fixed' + LineEnding +
+    '' + LineEnding +
+    '- **Faces with a curved side no longer vanish.**  After a drawing was' + LineEnding +
+    '  opened again, the first edit - deleting a radiant layout, say - could' + LineEnding +
+    '  take every face with an arc for a side with it.  A drawing that has' + LineEnding +
+    '  already lost them gets them back at its next edit.' + LineEnding +
+    '- **The radiant wizard''s plan is your plan** - north up, the way the' + LineEnding +
+    '  drawing shows it.  It was turned to line up with the longest wall and,' + LineEnding +
+    '  on some drawings, mirrored; now a manifold turned a quarter lines up' + LineEnding +
+    '  square with the walls.' + LineEnding +
+    '' + LineEnding +
     '## v2026.09.25' + LineEnding +
     '' + LineEnding +
     '### New' + LineEnding +

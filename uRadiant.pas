@@ -228,6 +228,15 @@ function LoopInk(Zone, Loop: Integer): TColor;
   dialog's plan, so a point dragged on the plan lands where the layout
   thinks it is. }
 function RadiantFrameOf(const Outline: TP3Array): TRadiantFrame;
+{ The frame the wizard draws its plan in: the drawing's own plan - east to
+  the right, north up - for a floor that lies flat, whichever way round
+  its outline was drawn.  RadiantFrameOf turns with the outline's longest
+  wall and takes its up from the way the outline winds, so a floor drawn
+  clockwise came out on the wizard's plan turned and mirrored (the
+  owner's odd floor, 25 September: "is the preview in the plan mirroring
+  the actually selected layout").  A floor that does not lie flat keeps
+  its longest wall along, seen from its upper side. }
+function RadiantPlanFrame(const Outline: TP3Array): TRadiantFrame;
 function RadiantTo2(const F: TRadiantFrame; const P: TP3): T2;
 function RadiantFrom2(const F: TRadiantFrame; U, V: Double): TP3;
 
@@ -347,6 +356,22 @@ begin
   Result.U := VNorm(P3(Outline[J].X - Outline[Best].X, Outline[J].Y - Outline[Best].Y,
     Outline[J].Z - Outline[Best].Z));
   Result.V := VNorm(Cross3(Result.N, Result.U));
+end;
+
+function RadiantPlanFrame(const Outline: TP3Array): TRadiantFrame;
+begin
+  Result := RadiantFrameOf(Outline);
+  if Abs(Result.N.Z) > 0.99 then
+  begin
+    Result.N := P3(0, 0, 1);
+    Result.U := P3(1, 0, 0);
+    Result.V := P3(0, 1, 0);
+  end
+  else if Result.N.Z < 0 then
+  begin
+    Result.N := P3(-Result.N.X, -Result.N.Y, -Result.N.Z);
+    Result.V := VNorm(Cross3(Result.N, Result.U));
+  end;
 end;
 
 function RadiantTo2(const F: TRadiantFrame; const P: TP3): T2;

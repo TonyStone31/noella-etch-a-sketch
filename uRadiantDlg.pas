@@ -192,6 +192,7 @@ type
     procedure SearchProgress(Done, Total: Integer; const Best: TRadiantResult; var Stop: Boolean);
     { one kept solution as a line of the busy window's list }
     function FoundLine(const R: TRadiantResult): string;
+    procedure PaintCompass(C: TCanvas; CX, CY: Integer);
     function Read(out Spec: TRadiantSpec): Boolean;
     function ZoneHoles(Z: Integer): TRadiantHoles;
     function AnyLayout: Boolean;
@@ -845,7 +846,7 @@ begin
   try
     Sel := lbManifolds.ItemIndex;
     lbManifolds.Items.Clear;
-    if Length(FOutline) >= 3 then FFrame := RadiantFrameOf(FOutline);
+    if Length(FOutline) >= 3 then FFrame := RadiantPlanFrame(FOutline);
     for I := 0 to High(FManifolds) do
     begin
       P := RadiantTo2(FFrame, FManifolds[I]);
@@ -904,7 +905,7 @@ begin
   SetLength(FPorts, Length(FZones));
   for Z := 0 to High(FZones) do
     RadiantSuggestZoneManifold(FZones[Z], Mid, Spec, FManifolds[Z], FPorts[Z]);
-  if Length(FOutline) >= 3 then FFrame := RadiantFrameOf(FOutline);
+  if Length(FOutline) >= 3 then FFrame := RadiantPlanFrame(FOutline);
   SetLength(FAngles, Length(FZones));
   for Z := 0 to High(FZones) do FAngles[Z] := WallAngle(Z);
   lbManifolds.ItemIndex := -1;
@@ -1022,7 +1023,7 @@ begin
     for Z := 0 to High(FZones) do N := N + Length(FZones[Z].Holes);
     if N > 0 then lbObstacles.Items.Add(Format('%d in the drawing already - removed faces', [N]));
     N := Min(1, N);
-    if Length(FOutline) >= 3 then FFrame := RadiantFrameOf(FOutline);
+    if Length(FOutline) >= 3 then FFrame := RadiantPlanFrame(FOutline);
     for I := 0 to High(FExtra) do
     begin
       P := ObstacleMid(I);
@@ -1094,7 +1095,7 @@ begin
     Exit;
   end;
   { in the middle of the floor, square to its frame, to be dragged }
-  FFrame := RadiantFrameOf(FOutline);
+  FFrame := RadiantPlanFrame(FOutline);
   Mid := P3(0, 0, 0);
   for I := 0 to High(FOutline) do
     Mid := P3(Mid.X + FOutline[I].X / Length(FOutline), Mid.Y + FOutline[I].Y / Length(FOutline),
@@ -1316,7 +1317,7 @@ begin
   C.Rectangle(0, 0, W, H);
   FSc := 0;
   if Length(FOutline) < 3 then Exit;
-  FFrame := RadiantFrameOf(FOutline);
+  FFrame := RadiantPlanFrame(FOutline);
   FMargin := 30;
   FMinX := 1E30; MaxX := -1E30; FMinY := 1E30; MaxY := -1E30;
   for Z := 0 to High(FZones) do
@@ -1453,6 +1454,54 @@ begin
   else if not AnyLayout then C.TextOut(8, H - 20, 'no layout found - move a manifold and search again')
   else C.TextOut(8, H - 20, Format('%d zone(s), %d loop(s) - drag a manifold, right-click to turn it',
     [Length(FZones), Loops]));
+  PaintCompass(C, W - 34, 62);
+end;
+
+{ Which way north is on the plan, at CX, CY - the owner, 25 September:
+  "in the previews of the different builders we should have the compass!
+  then i would have noticed this long ago" (the plan had been drawn turned
+  and mirrored).  North is the drawing's green axis, east its red, carried
+  through the plan's own frame, so the rose says what the plan shows even
+  when it is not the drawing's plan. }
+procedure TRadiantForm.PaintCompass(C: TCanvas; CX, CY: Integer);
+const
+  R = 16;
+  TAGS: array[0..3] of string = ('N', 'E', 'S', 'W');
+var
+  K: Integer;
+  NU, NV, EU, EV, L, DX, DY: Double;
+begin
+  NU := FFrame.U.Y; NV := FFrame.V.Y;
+  EU := FFrame.U.X; EV := FFrame.V.X;
+  L := Hypot(NU, NV);
+  if L < 0.2 then Exit;
+  NU := NU / L; NV := NV / L;
+  L := Hypot(EU, EV);
+  if L < 0.2 then Exit;
+  EU := EU / L; EV := EV / L;
+  C.Pen.Width := 1;
+  C.Pen.Color := clSilver;
+  C.Brush.Style := bsClear;
+  C.Ellipse(CX - R, CY - R, CX + R + 1, CY + R + 1);
+  { the four points, screen y down; north the heavy one }
+  for K := 0 to 3 do
+  begin
+    case K of
+      0: begin DX := NU; DY := -NV; end;
+      1: begin DX := EU; DY := -EV; end;
+      2: begin DX := -NU; DY := NV; end;
+    else begin DX := -EU; DY := EV; end;
+    end;
+    if K = 0 then begin C.Pen.Color := clRed; C.Pen.Width := 2; end
+    else begin C.Pen.Color := clGray; C.Pen.Width := 1; end;
+    C.Line(CX, CY, CX + Round(DX * R), CY + Round(DY * R));
+    if K = 0 then C.Font.Style := [fsBold] else C.Font.Style := [];
+    if K = 0 then C.Font.Color := clRed else C.Font.Color := clGray;
+    C.TextOut(CX + Round(DX * (R + 9)) - C.TextWidth(TAGS[K]) div 2,
+      CY + Round(DY * (R + 9)) - C.TextHeight(TAGS[K]) div 2, TAGS[K]);
+  end;
+  C.Font.Style := [];
+  C.Pen.Width := 1;
 end;
 
 procedure TRadiantForm.btnReportClick(Sender: TObject);

@@ -848,6 +848,98 @@ begin
   Ok(P > Reg, 'and the edit added a region');
 end;
 
+{ The areas a drawing's own lines and arcs close - the pieces
+  EdgeSegments hands the finder: every line that is not a reference line,
+  every arc walked in its sides. }
+function DocRegions(D: TWorkDoc): TRegionArray;
+var
+  I, K, Steps: Integer;
+  A: TP3;
+begin
+  Clear;
+  for I := 0 to D.Live - 1 do
+    case D[I].Kind of
+      ekLine: if not D[I].Dim then Seg(D[I].A, D[I].B);
+      ekArc:
+        begin
+          A := ArcPoint(D[I].C, D[I].R, D[I].A0, D[I].Plane, D[I].Nm);
+          Steps := ArcSteps(D[I]);
+          for K := 1 to Steps do
+          begin
+            Seg(A, ArcPoint(D[I].C, D[I].R, D[I].A0 + D[I].Sweep * K / Steps, D[I].Plane, D[I].Nm));
+            A := Segs[NSeg - 1].B;
+          end;
+        end;
+    end;
+  Result := Built;
+end;
+
+{ The owner's odd floor, as the file keeps it (report 20260925-161037):
+  its arcs a center, a radius and two angles to six places.  Read back,
+  an arc of fifty feet ended two hundred-thousandths of a foot off the
+  corner it was drawn to, the finder closed only the one area with no arc
+  in it, and the first edit after opening the drawing took the other
+  three faces - he deleted a radiant zone and they went with it. }
+procedure TestArcsReadBack;
+var
+  L: TStringList;
+  D, D2: TWorkDoc;
+  Idx, I: Integer;
+  R: TRegionArray;
+  Far: Double;
+begin
+  Say('Arcs read back from a file meet their corners');
+  L := TStringList.Create;
+  D := TWorkDoc.Create;
+  D2 := TWorkDoc.Create;
+  try
+    L.Add('LINE 15.942708 5.536458 0.000000 75.942708 5.536458 0.000000 2104346 4.000 0 0 0');
+    L.Add('LINE 75.942708 5.536458 0.000000 135.942708 5.536458 0.000000 2104346 4.000 0 0 0');
+    L.Add('LINE 15.942708 105.536458 0.000000 15.942708 55.536458 0.000000 2104346 4.000 0 0 0');
+    L.Add('LINE 15.942708 55.536458 0.000000 15.942708 5.536458 0.000000 2104346 4.000 0 0 0');
+    L.Add('LINE 75.942708 105.536458 0.000000 75.942708 55.536458 0.000000 2104346 1.000 0 0 0');
+    L.Add('LINE 15.942708 55.536458 0.000000 75.942708 55.536458 0.000000 2104346 1.000 0 0 0');
+    L.Add('ARC 149.252849 79.596554 0.000000 19.413818 2.326226 -4.652452 0 2104346 1.000 0.000000 0.000000 0.000000');
+    L.Add('SIDES 12');
+    L.Add('LINE 135.942708 55.536458 0.000000 135.942708 65.463739 0.000000 2104346 4.000 0 0 0');
+    L.Add('LINE 135.942708 93.729369 0.000000 135.942708 105.536458 0.000000 2104346 4.000 0 0 0');
+    L.Add('ARC 139.752444 26.837455 0.000000 14.014210 1.846109 -3.692218 0 2104346 1.000 0.000000 0.000000 0.000000');
+    L.Add('SIDES 12');
+    L.Add('LINE 135.942708 5.536458 0.000000 135.942708 13.351017 0.000000 2104346 4.000 0 0 0');
+    L.Add('LINE 135.942708 40.323892 0.000000 135.942708 55.536458 0.000000 2104346 4.000 0 0 0');
+    L.Add('ARC 105.942708 64.824307 0.000000 50.571526 0.935745 1.270104 0 2104346 1.000 0.000000 0.000000 0.000000');
+    L.Add('SIDES 12');
+    L.Add('ARC 45.942708 107.198772 0.000000 30.046019 -0.055354 3.252300 0 2104346 1.000 0.000000 0.000000 0.000000');
+    L.Add('SIDES 12');
+    L.Add('LINE 75.942708 55.536458 0.000000 105.942708 55.536458 0.000000 2104346 1.000 0 0 0');
+    L.Add('LINE 105.942708 55.536458 0.000000 135.942708 55.536458 0.000000 2104346 1.000 0 0 0');
+    L.Add('LINE 105.942708 55.536458 0.000000 15.942708 5.536458 0.000000 2104346 1.000 0 0 0');
+    Idx := 0;
+    D.LoadFrom(L, Idx);
+    R := DocRegions(D);
+    EqI(Length(R), 4, 'the odd floor''s four areas, from the file as he sent it');
+
+    { and written out and read back again: nothing moves }
+    L.Clear;
+    D.SaveTo(L);
+    Idx := 0;
+    D2.LoadFrom(L, Idx);
+    Far := 0;
+    for I := 0 to D.Live - 1 do
+      if D[I].Kind = ekArc then
+        Far := Max(Far, Max(Dist(ArcPoint(D[I].C, D[I].R, D[I].A0, D[I].Plane, D[I].Nm),
+          ArcPoint(D2[I].C, D2[I].R, D2[I].A0, D2[I].Plane, D2[I].Nm)),
+          Dist(ArcPoint(D[I].C, D[I].R, D[I].A0 + D[I].Sweep, D[I].Plane, D[I].Nm),
+          ArcPoint(D2[I].C, D2[I].R, D2[I].A0 + D2[I].Sweep, D2[I].Plane, D2[I].Nm))));
+    Ok(Far < 1E-9, Format('saved and opened again, no arc''s end has moved: %.2g ft', [Far]));
+    EqI(Length(DocRegions(D2)), 4, '  and all four areas still close');
+  finally
+    L.Free;
+    D.Free;
+    D2.Free;
+  end;
+end;
+
 begin
   WriteLn('Heckers Sketch - planar region engine');
   WriteLn;
@@ -882,6 +974,7 @@ begin
   TestCache;            WriteLn;
   TestNearPlanarQuad;   WriteLn;
   TestCanonicalNormal;  WriteLn;
+  TestArcsReadBack;     WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);
 end.

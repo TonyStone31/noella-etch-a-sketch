@@ -294,6 +294,26 @@ pixel by pixel.  What the pictures said:
     supply and return side by side at the port pitch, and
     `MANIFOLD_ENDS_IN` for valves and caps).
   - `TestRadiantOdd` holds the odd floor's triangle and arc.
+  - **Faces went when a radiant zone was deleted** (report 164745: "its
+    deleting the faces under the radiant when i delete the radiant
+    group").  Not the delete: v1 keeps an arc as a center, radius and
+    angles to six places, the end of a 50 ft arc came back 2E-5 ft off its
+    corner, the region finder (to 1E-6) closed only the face with no arc,
+    and the first edit after opening dropped the other three.
+    `TWorkDoc.HealArcEnds` puts every arc's ends back on the corner they
+    miss by under 1E-3 (after `LoadFrom` and `ReadHeck`), and arcs are
+    written to nine places.  `TestArcsReadBack` in regiontest.
+  - **The wizard's plan was turned and mirrored** ("the preview is loading
+    the drawing perpendicular to one of my angled lines"): it was drawn in
+    `RadiantFrameOf` - the longest wall along, up from the outline's
+    winding - so a clockwise floor came out mirrored and a quarter turn
+    was square to the diagonal.  `RadiantPlanFrame` is the drawing's own
+    plan for a flat floor.  And a compass on the plan, and E/W N/S U/D on
+    the axes while the grid is on ("then i would have noticed this long
+    ago") - moved along their own line while one would land on another.
+  - Later, his words: "we should let moving manifolds around snap to the
+    walls and let me select the allowed distance from there" - with the
+    placement line below.
   - **Next, the owner's asks, in his words where they matter:**
     - *The manifold's allowed place*: "when we place a manifold in a
       drawing we should probably be able to draw a rectangle of where it

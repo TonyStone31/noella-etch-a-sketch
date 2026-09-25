@@ -805,6 +805,17 @@ type
       a thing's text and a line's thing. }
     procedure SaveTo(L: TStrings; out First, Last: TIntArrayW); overload;
     procedure LoadFrom(L: TStrings; var Idx: Integer);
+    { Every arc whose end falls a hair short of a line's end, or another
+      arc's, brought onto it exactly - the circle laid again through the
+      two ends, its center moved the least there is.  A file keeps an arc
+      as a center, a radius and two angles, rounded, and on a big radius
+      the rounding lands the end a few hundred-thousandths of a foot off
+      the corner it was drawn to: the region finder, working to a
+      millionth, no longer closed the area, and the first edit after the
+      drawing was opened again took every face with an arc for a side
+      (the owner's odd floor, 25 September - he deleted a radiant zone
+      and three floors went with it).  Called after every load. }
+    procedure HealArcEnds;
     { The drawing as DXF.  ThreeD writes the model in its own coordinates,
       faces and all; otherwise it is this view, flat, the way the SVG is -
       but as entities somebody can snap to and measure in their own CAD. }
@@ -11002,7 +11013,11 @@ begin
             existed still reads and one written now still opens in a build
             that has never heard of them.  The side count follows on a line
             of its own, for the same reason. }
-          L.Add(Format('ARC %s %.6f %.6f %.6f %d %d %.3f %s',
+          { the radius and the angles to nine places: to six, the end of an
+            arc of fifty feet fell a few hundred-thousandths off the corner
+            it was drawn to, and no face closed on it again - see
+            HealArcEnds, which puts right the files already written }
+          L.Add(Format('ARC %s %.9f %.9f %.9f %d %d %.3f %s',
             [N3(FEnts[I].C), FEnts[I].R, FEnts[I].A0, FEnts[I].Sweep,
              Ord(FEnts[I].Plane), FEnts[I].Ink, FEnts[I].Weight,
              N3(FEnts[I].Nm)], FS));
@@ -11277,6 +11292,146 @@ begin
   FStamp := 0;
   FContext := 0;
   RecountParts;
+  HealArcEnds;
+end;
+
+procedure TWorkDoc.HealArcEnds;
+const
+  { a hundredth of an inch or so, in feet: far more than any rounding,
+    far less than any gap anybody drew }
+  HEAL_TOL = 1E-3;
+type
+  TEnd = record X: Double; P: TP3; Ent: Integer; end;
+var
+  Ends: array of TEnd;
+  NE, I, Pass: Integer;
+  AU, AV, Ps, Pe, Ts, Te, C2: TP3;
+  SU, SV, EU, EV, MU, MV, DU, DV, NU, NV, L, T, CU, CV, R2, A0, A1, Sw: Double;
+  Moved: Boolean;
+
+  procedure AddEnd(const P: TP3; Ent: Integer);
+  begin
+    if NE >= Length(Ends) then SetLength(Ends, Max(64, NE * 2));
+    Ends[NE].X := P.X; Ends[NE].P := P; Ends[NE].Ent := Ent;
+    Inc(NE);
+  end;
+
+  procedure SortEnds(Lo, Hi: Integer);
+  var
+    A, B: Integer;
+    Piv: Double;
+    Tmp: TEnd;
+  begin
+    while Lo < Hi do
+    begin
+      A := Lo; B := Hi; Piv := Ends[(Lo + Hi) div 2].X;
+      repeat
+        while Ends[A].X < Piv do Inc(A);
+        while Ends[B].X > Piv do Dec(B);
+        if A <= B then
+        begin
+          Tmp := Ends[A]; Ends[A] := Ends[B]; Ends[B] := Tmp;
+          Inc(A); Dec(B);
+        end;
+      until A > B;
+      if B - Lo < Hi - A then begin SortEnds(Lo, B); Lo := A; end
+      else begin SortEnds(A, Hi); Hi := B; end;
+    end;
+  end;
+
+  { the nearest end of something else within the tolerance, or P itself }
+  function Nearest(const P: TP3; Self_: Integer): TP3;
+  var
+    Lo, Hi, Mid, K: Integer;
+    D, Best: Double;
+  begin
+    Result := P;
+    Best := HEAL_TOL;
+    Lo := 0; Hi := NE;
+    while Lo < Hi do
+    begin
+      Mid := (Lo + Hi) div 2;
+      if Ends[Mid].X < P.X - HEAL_TOL then Lo := Mid + 1 else Hi := Mid;
+    end;
+    K := Lo;
+    while (K < NE) and (Ends[K].X <= P.X + HEAL_TOL) do
+    begin
+      if Ends[K].Ent <> Self_ then
+      begin
+        D := Dist(P, Ends[K].P);
+        if D < Best then begin Best := D; Result := Ends[K].P; end;
+      end;
+      Inc(K);
+    end;
+  end;
+
+begin
+  { twice: an arc meeting an arc meets it where the first pass left it }
+  for Pass := 1 to 2 do
+  begin
+    NE := 0;
+    Ends := nil;
+    for I := 0 to FLive - 1 do
+      case FEnts[I].Kind of
+        ekLine:
+          if not FEnts[I].Dim then
+          begin
+            AddEnd(FEnts[I].A, I); AddEnd(FEnts[I].B, I);
+          end;
+        ekArc:
+          begin
+            AddEnd(ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm), I);
+            AddEnd(ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0 + FEnts[I].Sweep, FEnts[I].Plane, FEnts[I].Nm), I);
+          end;
+      end;
+    if NE = 0 then Exit;
+    SortEnds(0, NE - 1);
+    Moved := False;
+    for I := 0 to FLive - 1 do
+    begin
+      if FEnts[I].Kind <> ekArc then Continue;
+      { a whole circle has no ends to bring anywhere }
+      if Abs(Abs(FEnts[I].Sweep) - 2 * Pi) < 1E-6 then Continue;
+      Ps := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0, FEnts[I].Plane, FEnts[I].Nm);
+      Pe := ArcPoint(FEnts[I].C, FEnts[I].R, FEnts[I].A0 + FEnts[I].Sweep, FEnts[I].Plane, FEnts[I].Nm);
+      Ts := Nearest(Ps, I); Te := Nearest(Pe, I);
+      if (Dist(Ts, Ps) < 1E-12) and (Dist(Te, Pe) < 1E-12) then Continue;
+      if FEnts[I].Plane = plFree then AxesFromNormal(FEnts[I].Nm, AU, AV)
+      else PlaneAxes(FEnts[I].Plane, AU, AV);
+      { in the arc's own plane, from its old center }
+      SU := Dot3(P3(Ts.X - FEnts[I].C.X, Ts.Y - FEnts[I].C.Y, Ts.Z - FEnts[I].C.Z), AU);
+      SV := Dot3(P3(Ts.X - FEnts[I].C.X, Ts.Y - FEnts[I].C.Y, Ts.Z - FEnts[I].C.Z), AV);
+      EU := Dot3(P3(Te.X - FEnts[I].C.X, Te.Y - FEnts[I].C.Y, Te.Z - FEnts[I].C.Z), AU);
+      EV := Dot3(P3(Te.X - FEnts[I].C.X, Te.Y - FEnts[I].C.Y, Te.Z - FEnts[I].C.Z), AV);
+      { the circle through both ends whose center is nearest the old one:
+        on the line halfway between them, square to the chord }
+      MU := (SU + EU) / 2; MV := (SV + EV) / 2;
+      DU := EU - SU; DV := EV - SV;
+      L := Hypot(DU, DV);
+      if L < 1E-9 then Continue;
+      NU := -DV / L; NV := DU / L;
+      T := -(MU * NU + MV * NV);
+      CU := MU + NU * T; CV := MV + NV * T;
+      R2 := Hypot(SU - CU, SV - CV);
+      { nothing but rounding to put right, or leave it be }
+      if (Hypot(CU, CV) > HEAL_TOL) or (Abs(R2 - FEnts[I].R) > HEAL_TOL) then Continue;
+      A0 := ArcTan2(SV - CV, SU - CU);
+      A1 := ArcTan2(EV - CV, EU - CU);
+      Sw := A1 - A0;
+      while Sw - FEnts[I].Sweep > Pi do Sw := Sw - 2 * Pi;
+      while FEnts[I].Sweep - Sw > Pi do Sw := Sw + 2 * Pi;
+      C2 := P3(FEnts[I].C.X + AU.X * CU + AV.X * CV, FEnts[I].C.Y + AU.Y * CU + AV.Y * CV,
+        FEnts[I].C.Z + AU.Z * CU + AV.Z * CV);
+      FEnts[I].C := C2;
+      FEnts[I].R := R2;
+      FEnts[I].A0 := A0;
+      FEnts[I].Sweep := Sw;
+      FEnts[I].A := ArcPoint(C2, R2, A0, FEnts[I].Plane, FEnts[I].Nm);
+      FEnts[I].B := ArcPoint(C2, R2, A0 + Sw, FEnts[I].Plane, FEnts[I].Nm);
+      Moved := True;
+    end;
+    if not Moved then Break;
+  end;
 end;
 
 { SVG export - real vectors, so it opens in Inkscape or a CAD package at the

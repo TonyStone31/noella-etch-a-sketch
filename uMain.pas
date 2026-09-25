@@ -5206,17 +5206,76 @@ end;
   forwards from the origin, the dashed half back the other way - whether or
   not the origin itself is anywhere near the window. }
 procedure TMainForm.PaintAxes;
+const
+  { Which way is which where the three meet - the owner, 25 September:
+    "it should put a north east south west and up down just on the line
+    outside the points and show it when the grid is turned on".  Red runs
+    east, green north, blue up; their dashed halves west, south and down -
+    one letter each, U and D too: "Up" and "Down" across a line that runs
+    up the screen read as a label, not a direction. }
+  AXIS_TAGS: array[0..2, 0..1] of string = (('E', 'W'), ('N', 'S'), ('U', 'D'));
+  { how far out from the origin, pixels, and how much further a word is
+    moved while it would land on one already down }
+  AXIS_TAG_OUT = 60;
+  AXIS_TAG_STEP = 18;
 var
-  K, N: Integer;
+  K, N, NPlaced: Integer;
   Len, T0, T1, Step, A, B2: Double;
   B: TP3;
   PO, PB, D: TPointF;
   Col: TPix;
+  Placed: array[0..5] of TRect;
+
+  { a word out along the axis from the origin, centered on the line itself
+    and ringed in black so it reads over the line and the grid ("directly
+    on the lines... maybe outline them in black").  Orbiting, two axes can
+    come to point the same way on the glass, and the words at one
+    distance sat on top of each other ("keep them all far enough away from
+    the point so in 3d view they arent looking stacked") - so a word that
+    would land on one already down moves further out along its own line
+    until it is clear.  Left out where it would be off the paper. }
+  procedure Tag(Sg: Integer; const S: string);
+  var
+    Sz: TSize;
+    X, Y, Out_: Double;
+    TX, TY, OX, OY, Try_, J: Integer;
+    Box: TRect;
+    Clear: Boolean;
+  begin
+    Sz := FPaper.TextExtent(S, FDimFont);
+    Out_ := AXIS_TAG_OUT * FUIScale;
+    for Try_ := 0 to 15 do
+    begin
+      X := PO.X + Sg * D.X * Out_;
+      Y := PO.Y + Sg * D.Y * Out_;
+      TX := Round(X - Sz.cx / 2); TY := Round(Y - Sz.cy / 2);
+      Box := Rect(TX - 4, TY - 2, TX + Sz.cx + 4, TY + Sz.cy + 2);
+      Clear := True;
+      for J := 0 to NPlaced - 1 do
+        if (Box.Left < Placed[J].Right) and (Placed[J].Left < Box.Right) and
+           (Box.Top < Placed[J].Bottom) and (Placed[J].Top < Box.Bottom) then Clear := False;
+      if Clear then Break;
+      Out_ := Out_ + AXIS_TAG_STEP * FUIScale;
+    end;
+    if (X < Sz.cx) or (Y < Sz.cy) or (X > FPaper.Width - Sz.cx) or (Y > FPaper.Height - Sz.cy) then Exit;
+    if NPlaced <= High(Placed) then
+    begin
+      Placed[NPlaced] := Box;
+      Inc(NPlaced);
+    end;
+    for OX := -1 to 1 do
+      for OY := -1 to 1 do
+        if (OX <> 0) or (OY <> 0) then
+          FPaper.TextOut(TX + OX, TY + OY, S, FDimFont, Pix(0, 0, 0));
+    FPaper.TextOut(TX, TY, S, FDimFont, Col);
+  end;
+
 begin
   PO := ScreenOf(P3(0, 0, 0));
   if IsNan(PO.X) or IsNan(PO.Y) or IsInfinite(PO.X) or IsInfinite(PO.Y) then
     Exit;
   if (Abs(PO.X) > 1E7) or (Abs(PO.Y) > 1E7) then Exit;
+  NPlaced := 0;
 
   for K := 0 to 2 do
   begin
@@ -5266,6 +5325,12 @@ begin
           sees; stop before it becomes the slowest thing on the screen }
         if N > 4000 then Break;
       end;
+    end;
+
+    if FShowGrid then
+    begin
+      Tag(1, AXIS_TAGS[K, 0]);
+      Tag(-1, AXIS_TAGS[K, 1]);
     end;
   end;
   FPaper.Touch;

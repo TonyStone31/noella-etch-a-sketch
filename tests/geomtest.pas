@@ -9886,6 +9886,17 @@ begin
   Ok(Nearest in [0, 1, 2, 3, 16], Format('the arc: Suggest hangs it on a flat wall, not the circle (%.1f, %.1f, wall %d)',
     [Spec.Manifolds[0].X, Spec.Manifolds[0].Y, Nearest]));
 
+  { The wizard's plan is the drawing's plan, whichever way round the
+    outline was drawn: the odd floor's outline runs clockwise, and its
+    plan came out turned to the diagonal and mirrored }
+  F := RadiantPlanFrame(Z.Outline);
+  Ok((Abs(F.U.X - 1) < 1E-9) and (Abs(F.V.Y - 1) < 1E-9),
+    'the plan of a clockwise floor has east to the right and north up');
+  Z.Outline := Poly([15.943, 55.536, 105.943, 55.536, 15.943, 5.536]);
+  F := RadiantPlanFrame(Z.Outline);
+  Ok((Abs(F.U.X - 1) < 1E-9) and (Abs(F.V.Y - 1) < 1E-9),
+    '  and so does a triangle whose longest side is a diagonal');
+
   { and the ticket says how much wall it wants }
   Ok(Pos('wall space: about', RadiantTicketText(Spec, R, usImperial)) > 0, 'the ticket gives the manifold''s wall space');
   EqF(RadiantManifoldWallIn(8), 44, '  eight loops: sixteen connections at 2", and a foot for the ends', 1E-9);

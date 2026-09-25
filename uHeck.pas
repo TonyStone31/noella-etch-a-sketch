@@ -2116,6 +2116,9 @@ begin
     try
       R.Run(L);
       Implied := Copy(R.Implied);
+      { an arc written to so many places meets its corner a hair off -
+        see HealArcEnds }
+      D.HealArcEnds;
       Result := True;
     except
       on E: Exception do

@@ -10,6 +10,25 @@
   "### New" and "### Fixed", then "- " bullets.  Keep the bullets short.
 -->
 
+## Next release
+
+### New
+
+- **Which way is north.**  With the grid on, the axes are labeled where
+  they meet - E and W on the red, N and S on the green, U and D on the
+  blue.  The radiant wizard's plan has a compass.
+
+### Fixed
+
+- **Faces with a curved side no longer vanish.**  After a drawing was
+  opened again, the first edit - deleting a radiant layout, say - could
+  take every face with an arc for a side with it.  A drawing that has
+  already lost them gets them back at its next edit.
+- **The radiant wizard's plan is your plan** - north up, the way the
+  drawing shows it.  It was turned to line up with the longest wall and,
+  on some drawings, mirrored; now a manifold turned a quarter lines up
+  square with the walls.
+
 ## v2026.09.25
 
 ### New
