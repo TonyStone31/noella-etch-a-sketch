@@ -20,6 +20,18 @@ const
     '- **How far apart the loops are, in feet as well** - beside the' + LineEnding +
     '  percentage in the search window, the solution arrows, the evenness bar' + LineEnding +
     '  and the ticket: the longest loop less the shortest.' + LineEnding +
+    '- **Change the goals while it searches.**  The search window has the two' + LineEnding +
+    '  goals in it - lower one and it takes the best layout that meets the new' + LineEnding +
+    '  goals and stops.  And **Give up after** - never, a minute, five, up to' + LineEnding +
+    '  an hour a zone - keeping the best it found.' + LineEnding +
+    '- **The search moves the manifold when it is stuck.**  After a while with' + LineEnding +
+    '  nothing better it slides the manifold along its wall, a few feet at' + LineEnding +
+    '  first and further the longer it goes, and tries forcing a loop or two' + LineEnding +
+    '  more or fewer.  The manifold on the plan goes where the layout has it,' + LineEnding +
+    '  and the ticket says how far it moved.' + LineEnding +
+    '- **Square the manifold** - right-click it for east - west, north -' + LineEnding +
+    '  south, or either diagonal.  A manifold on a curved wall starts square' + LineEnding +
+    '  to the sheet.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +

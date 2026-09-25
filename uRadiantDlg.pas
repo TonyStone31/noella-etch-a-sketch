@@ -81,6 +81,11 @@ type
     miClearAll: TMenuItem;
     miClearZone: TMenuItem;
     miRotate: TMenuItem;
+    miFace: TMenuItem;
+    miFaceEW: TMenuItem;
+    miFaceNS: TMenuItem;
+    miFace45: TMenuItem;
+    miFace135: TMenuItem;
     miSearchAll: TMenuItem;
     miSearchZone: TMenuItem;
     miSep: TMenuItem;
@@ -118,6 +123,7 @@ type
     procedure miClearAllClick(Sender: TObject);
     procedure miClearZoneClick(Sender: TObject);
     procedure miRotateClick(Sender: TObject);
+    procedure miFaceClick(Sender: TObject);
     procedure miSearchZoneClick(Sender: TObject);
     procedure pmZonePopup(Sender: TObject);
     procedure RoutingChange(Sender: TObject);
@@ -142,6 +148,12 @@ type
     { the solutions the search has kept so far, best first, kept up to
       date by it as it goes - for the busy window's list }
     FLiveFound: TRadiantResults;
+    { the goals as the busy window has them, read by the search after
+      every layout; when the zone being searched began; and the busy
+      window's give-up choice, remembered with the rest }
+    FLiveGoals: TRadiantGoals;
+    FZoneStart: QWord;
+    FGiveUpIdx: Integer;
     { the evenness gauge's worst zone as a length: its longest loop less
       its shortest, feet }
     FEvenFt: Double;
@@ -286,6 +298,7 @@ begin
         else if C is TComboBox then Ini.WriteInteger('radiant', C.Name, TComboBox(C).ItemIndex)
         else if C is TCheckBox then Ini.WriteBool('radiant', C.Name, TCheckBox(C).Checked);
       end;
+      Ini.WriteInteger('radiant', 'GiveUp', FGiveUpIdx);
     finally
       Ini.Free;
     end;
@@ -306,6 +319,7 @@ begin
       Ini := TIniFile.Create(ConfigFile);
       try
         if not Ini.SectionExists('radiant') then Exit;
+        FGiveUpIdx := Ini.ReadInteger('radiant', 'GiveUp', 0);
         for I := 0 to ComponentCount - 1 do
         begin
           C := Components[I];
@@ -524,8 +538,10 @@ var
   I, J: Integer;
   A, B, M: T2;
   T, L, D, Best: Double;
+  Curved: Boolean;
 begin
   Result := 0;
+  Curved := False;
   if (Z < 0) or (Z > High(FZones)) or (Z > High(FManifolds)) then Exit;
   M := RadiantTo2(FFrame, FManifolds[Z]);
   Best := 1E300;
@@ -542,8 +558,13 @@ begin
     begin
       Best := D;
       Result := RadToDeg(ArcTan2(B.Y - A.Y, B.X - A.X));
+      Curved := RadiantEdgeCurved(FZones[Z].Outline, I);
     end;
   end;
+  { A piece of a curve is no wall to square to: a chord of the circle ran
+    at whatever angle it ran, and the quarter turn kept it (report
+    174734).  Square to the sheet, whichever of the two is nearer. }
+  if Curved then Result := 90 * Round(Result / 90);
   { a heading, not a direction: 0 up to 180 }
   while Result < 0 do Result := Result + 180;
   while Result >= 180 do Result := Result - 180;
@@ -619,6 +640,23 @@ begin
   Summarize;
 end;
 
+{ The manifold set square to the sheet, or on a diagonal - the owner, 25
+  September (reports 173001 and 174734): on a round zone it hung on a
+  chord of the circle at whatever angle that ran, a quarter turn kept the
+  angle, and "its still not square to the paper... give some fixed
+  squared options".  The tag is the heading in the plan, which is the
+  drawing's own: 0 the long side east - west. }
+procedure TRadiantForm.miFaceClick(Sender: TObject);
+var
+  Z: Integer;
+begin
+  Z := SelectedZone;
+  if (Z < 0) or (Z > High(FAngles)) or not (Sender is TMenuItem) then Exit;
+  FAngles[Z] := TMenuItem(Sender).Tag;
+  ClearZone(Z);
+  Summarize;
+end;
+
 procedure TRadiantForm.ClearZone(Z: Integer);
 begin
   if (Z < 0) or (Z > High(FZones)) then Exit;
@@ -668,7 +706,21 @@ begin
   FBusy := TRadiantBusyForm.CreateBusy(Self);
   try
     FBusy.OnWork := @SearchWork;
+    FLiveGoals.CoverPct := FWorkSpec.GoalCoverPct;
+    FLiveGoals.EvenPct := FWorkSpec.GoalEvenPct;
+    FBusy.SetGoals(FLiveGoals.CoverPct, FLiveGoals.EvenPct);
+    FBusy.cbGiveUp.ItemIndex := EnsureRange(FGiveUpIdx, 0, FBusy.cbGiveUp.Items.Count - 1);
     FBusy.ShowModal;
+    { goals changed while it searched are the goals now }
+    FGiveUpIdx := FBusy.cbGiveUp.ItemIndex;
+    FListing := True;
+    try
+      edGoalCover.Text := FormatFloat('0.#', FLiveGoals.CoverPct);
+      edGoalEven.Text := FormatFloat('0.#', FLiveGoals.EvenPct);
+    finally
+      FListing := False;
+    end;
+    SaveLast;
   finally
     FreeAndNil(FBusy);
   end;
@@ -694,8 +746,9 @@ begin
       Format(' - %d of %d', [K + 1, FBusyCount]), '')]), 'Starting the search...',
       Round(100 * K / FBusyCount));
     FLiveFound := nil;
+    FZoneStart := GetTickCount64;
     R := ComputeRadiantLayout(FZones[Z].Outline, ZoneHoles(Z), ZoneSpec(Z, FWorkSpec),
-      FWorkTrace, @SearchProgress, @FLiveFound);
+      FWorkTrace, @SearchProgress, @FLiveFound, @FLiveGoals);
     SetLength(FSolutions, Length(FZones)); SetLength(FSolIdx, Length(FZones));
     FSolutions[Z] := FLiveFound; FSolIdx[Z] := 0;
     FLiveFound := nil;
@@ -718,7 +771,13 @@ begin
       if it fell short of the goals }
     FLayouts[Z] := R;
     FSearched[Z] := True;
-    if R.Ok and (Length(R.Manifolds) > 0) then FPorts[Z] := R.Manifolds[0].Ports;
+    if R.Ok and (Length(R.Manifolds) > 0) then
+    begin
+      FPorts[Z] := R.Manifolds[0].Ports;
+      { where the layout has it - the search may have slid it along its
+        wall, and the plan shows the manifold the layout was laid from }
+      FManifolds[Z] := R.Manifolds[0].At;
+    end;
     if FWorkTrace then
     begin
       FReplayTrace := R.Trace;
@@ -745,6 +804,11 @@ var
   I: Integer;
 begin
   if FBusy = nil then Exit;
+  { the goals as typed in the busy window now - the search reads them
+    back when this returns }
+  FBusy.ReadGoals(FLiveGoals.CoverPct, FLiveGoals.EvenPct);
+  FWorkSpec.GoalCoverPct := FLiveGoals.CoverPct;
+  FWorkSpec.GoalEvenPct := FLiveGoals.EvenPct;
   { what it has kept so far, best first, for the owner to pick from -
     before the stage line, which paints the window }
   SetLength(Lines, Length(FLiveFound));
@@ -764,7 +828,8 @@ begin
     FBusy.Stage(FBusy.lblStage.Caption,
       Format('Still after the goals - layout %d tried.  %s.  Stop keeps it.', [Done, Now_]),
       Round(100 * Cover));
-  Stop := FBusy.Stopping;
+  Stop := FBusy.Stopping or
+    ((FBusy.GiveUpSecs > 0) and (GetTickCount64 - FZoneStart > QWord(FBusy.GiveUpSecs) * 1000));
 end;
 
 function TRadiantForm.FoundLine(const R: TRadiantResult): string;
@@ -819,6 +884,7 @@ begin
   miSearchZone.Enabled := (Z >= 0) and (FBusy = nil);
   miClearZone.Enabled := Z >= 0;
   miRotate.Enabled := (Z >= 0) and (FBusy = nil);
+  miFace.Enabled := (Z >= 0) and (FBusy = nil);
   miSearchAll.Enabled := (Length(FZones) > 0) and (FBusy = nil);
   if Z >= 0 then
   begin
@@ -933,7 +999,11 @@ begin
   Idx := ((Idx mod N) + N) mod N;
   FSolIdx[Z] := Idx;
   FLayouts[Z] := FSolutions[Z][Idx];
-  if FLayouts[Z].Ok and (Length(FLayouts[Z].Manifolds) > 0) then FPorts[Z] := FLayouts[Z].Manifolds[0].Ports;
+  if FLayouts[Z].Ok and (Length(FLayouts[Z].Manifolds) > 0) then
+  begin
+    FPorts[Z] := FLayouts[Z].Manifolds[0].Ports;
+    FManifolds[Z] := FLayouts[Z].Manifolds[0].At;
+  end;
   if FReplayZone = Z then begin tmrReplay.Enabled := False; FReplayZone := -1; end;
   Summarize;
 end;

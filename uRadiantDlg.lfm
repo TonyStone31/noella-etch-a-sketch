@@ -481,6 +481,28 @@ object RadiantForm: TRadiantForm
       Caption = 'Rotate manifold 90 degrees'
       OnClick = miRotateClick
     end
+    object miFace: TMenuItem
+      Caption = 'Square the manifold'
+      object miFaceEW: TMenuItem
+        Caption = 'Long side east - west'
+        OnClick = miFaceClick
+      end
+      object miFaceNS: TMenuItem
+        Tag = 90
+        Caption = 'Long side north - south'
+        OnClick = miFaceClick
+      end
+      object miFace45: TMenuItem
+        Tag = 45
+        Caption = 'At 45 degrees'
+        OnClick = miFaceClick
+      end
+      object miFace135: TMenuItem
+        Tag = 135
+        Caption = 'At 135 degrees'
+        OnClick = miFaceClick
+      end
+    end
     object miSep: TMenuItem
       Caption = '-'
     end

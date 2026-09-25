@@ -28,8 +28,15 @@ type
   TRadiantBusyForm = class(TForm)
     btnStop: TButton;
     btnStopAll: TButton;
+    cbGiveUp: TComboBox;
+    edBusyCover: TEdit;
+    edBusyEven: TEdit;
+    lblBusyCover: TLabel;
+    lblBusyEven: TLabel;
     lblDetail: TLabel;
     lblFound: TLabel;
+    lblGiveUp: TLabel;
+    lblGoals: TLabel;
     lblStage: TLabel;
     lbFound: TListBox;
     pbProgress: TProgressBar;
@@ -64,6 +71,16 @@ type
     { the line picked, '' for none - the caller matches it to what it
       kept }
     function Picked: string;
+    { The goals as typed now, and how long a zone may go on - the owner,
+      25 September: "the user should be able to adjust it during its
+      search and have a drop down that says give up in 1 minute 5
+      minutes etc maybe up to one hour".  A goal box that does not hold a
+      number leaves the goal as it was. }
+    procedure SetGoals(CoverPct, EvenPct: Double);
+    procedure ReadGoals(var CoverPct, EvenPct: Double);
+    { seconds a zone is searched before it gives up with its best, 0 for
+      never }
+    function GiveUpSecs: Integer;
     { pump messages this long, so what was just put up is painted }
     procedure Settle(Milliseconds: QWord);
   end;
@@ -151,6 +168,28 @@ end;
 function TRadiantBusyForm.Picked: string;
 begin
   Result := FPicked;
+end;
+
+procedure TRadiantBusyForm.SetGoals(CoverPct, EvenPct: Double);
+begin
+  edBusyCover.Text := FormatFloat('0.#', CoverPct);
+  edBusyEven.Text := FormatFloat('0.#', EvenPct);
+end;
+
+procedure TRadiantBusyForm.ReadGoals(var CoverPct, EvenPct: Double);
+var
+  V: Double;
+begin
+  if TryStrToFloat(Trim(edBusyCover.Text), V) and (V >= 0) and (V <= 100) then CoverPct := V;
+  if TryStrToFloat(Trim(edBusyEven.Text), V) and (V >= 0) and (V <= 100) then EvenPct := V;
+end;
+
+function TRadiantBusyForm.GiveUpSecs: Integer;
+const
+  SECS: array[0..5] of Integer = (0, 60, 300, 900, 1800, 3600);
+begin
+  if (cbGiveUp.ItemIndex >= 0) and (cbGiveUp.ItemIndex <= High(SECS)) then Result := SECS[cbGiveUp.ItemIndex]
+  else Result := 0;
 end;
 
 procedure TRadiantBusyForm.lbFoundClick(Sender: TObject);

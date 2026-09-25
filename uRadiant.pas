@@ -168,6 +168,9 @@ type
       not }
     OddRows: Boolean;
     TightestGap: Double;
+    { how far the search slid the manifold along its wall from where it
+      was put, feet - 0 when it was not moved; see ComputeRadiantLayout }
+    ManifoldShiftFt: Double;
     Ok: Boolean;
     Why: string;
     { every lane the search tried to reach this - empty unless asked
@@ -192,10 +195,23 @@ type
   TRadiantProgress = procedure(Done, Total: Integer; const Best: TRadiantResult;
     var Stop: Boolean) of object;
 
+  { goals a watcher can change while the search runs - read after every
+    layout tried; see LiveGoals on ComputeRadiantLayout }
+  TRadiantGoals = record
+    CoverPct, EvenPct: Double;
+  end;
+  PRadiantGoals = ^TRadiantGoals;
+
 function DefaultRadiantSpec: TRadiantSpec;
 function Point2(X, Y: Double): T2;
 function SegsMeet(const P0, P1, Q0, Q1: T2): Boolean;
 function RadiantInside(const Outline: TP3Array; const P: TP3): Boolean;
+
+{ Edge I of the outline a piece of a curve - an arc's side - rather than a
+  wall: it turns only a little into a neighbor about as long as itself
+  (SUGGEST_ARC_TURN, SUGGEST_ARC_RATIO).  A flat cabinet does not hang on
+  one, nor square itself to one. }
+function RadiantEdgeCurved(const Outline: TP3Array; I: Integer): Boolean;
 
 { Where a zone's manifold goes when nothing better is known: a foot in
   from the middle of the zone's wall nearest Toward - the middle of all
@@ -268,10 +284,15 @@ function RadiantProblem(const Outline: TP3Array; const Spec: TRadiantSpec): stri
   Progress, when given, is called after every layout tried, and a
   search it stops hands back the best it had.  Found, when given, gets
   the distinct solutions kept, best first - brought up to date after
-  every layout tried, so Progress can list them as they come. }
+  every layout tried, so Progress can list them as they come.
+  LiveGoals, when given, is read after every layout tried: goals changed
+  there are the search's goals from then on - what it has kept ranked
+  again by them, and done the moment its best meets them (the owner, 25
+  September: "the user should be able to adjust it during its search"). }
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace: Boolean = False;
-  Progress: TRadiantProgress = nil; Found: PRadiantResults = nil): TRadiantResult;
+  Progress: TRadiantProgress = nil; Found: PRadiantResults = nil;
+  LiveGoals: PRadiantGoals = nil): TRadiantResult;
 
 { How much of its floor a layout covers and how far its shortest loop
   falls short of its longest (the worst manifold), as fractions; and
@@ -658,7 +679,45 @@ end;
 function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget: Double; ExtraRanks: Integer;
   BreakFt: Double; Seed: Cardinal; RowOff: Double = 0; Fingers: Boolean = True;
-  Quick: Boolean = False; EvenRows: Boolean = False): TRadiantResult; forward;
+  Quick: Boolean = False; EvenRows: Boolean = False; LoopDelta: Integer = 0): TRadiantResult; forward;
+
+function RadiantEdgeCurved(const Outline: TP3Array; I: Integer): Boolean;
+var
+  N: Integer;
+
+  function Len(K: Integer): Double;
+  begin
+    K := (K + N) mod N;
+    Result := Dist(Outline[K], Outline[(K + 1) mod N]);
+  end;
+
+  { the turn at corner K, from edge K-1 into edge K, degrees }
+  function TurnAt(K: Integer): Double;
+  var
+    A, B, C: TP3;
+  begin
+    A := Outline[(K + N - 1) mod N]; B := Outline[K mod N]; C := Outline[(K + 1) mod N];
+    Result := Abs(RadToDeg(ArcTan2((B.X - A.X) * (C.Y - B.Y) - (B.Y - A.Y) * (C.X - B.X),
+      (B.X - A.X) * (C.X - B.X) + (B.Y - A.Y) * (C.Y - B.Y))));
+  end;
+
+  function Gentle(T: Double): Boolean;
+  begin
+    Result := (T >= 1) and (T < SUGGEST_ARC_TURN);
+  end;
+
+  function Alike(A, B: Double): Boolean;
+  begin
+    Result := (A <= SUGGEST_ARC_RATIO * B) and (B <= SUGGEST_ARC_RATIO * A);
+  end;
+
+begin
+  N := Length(Outline);
+  Result := False;
+  if (N < 3) or (I < 0) or (I >= N) then Exit;
+  Result := (Gentle(TurnAt(I)) and Alike(Len(I), Len(I - 1))) or
+    (Gentle(TurnAt(I + 1)) and Alike(Len(I), Len(I + 1)));
+end;
 
 procedure RadiantSuggestZoneManifold(const Zone: TRadiantZone; const Toward: TP3;
   const Spec: TRadiantSpec; out At: TP3; out Ports: Integer);
@@ -951,7 +1010,7 @@ end;
 function ComputeRadiantOriented(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace, Turn: Boolean; FirstBudget: Double; ExtraRanks: Integer;
   BreakFt: Double; Seed: Cardinal; RowOff: Double = 0; Fingers: Boolean = True;
-  Quick: Boolean = False; EvenRows: Boolean = False): TRadiantResult;
+  Quick: Boolean = False; EvenRows: Boolean = False; LoopDelta: Integer = 0): TRadiantResult;
 var
   { with a seed, every loop its own share of the limit and its lane's
     first guess nudged - the same seed, the same layout, so a winner can
@@ -2091,9 +2150,10 @@ var
     even dozen short loops are not an answer either. }
   procedure LayManifold;
   var
-    Trial, Best: TRadiantLoopArray;
-    BestTrace: TRadiantTrace;
+    Trial, Best, Saved: TRadiantLoopArray;
+    BestTrace, SavedTrace: TRadiantTrace;
     Unf, BestUnf, T, BestT, Lo, Hi, Spread, Cost, BestCost, PPitch, Total: Double;
+    SavedUnf, SavedCost, SavedT: Double;
     I, NBest: Integer;
 
     { the whole manifold laid under one limit - or toward one length,
@@ -2181,6 +2241,27 @@ var
       for I := -1 to 1 do
         if (NBest + I >= 1) and (Total / (NBest + I) <= MaxFt) then
           TryLimit(MaxFt, Total / (NBest + I));
+      { And forced: LoopDelta loops more or fewer than the best came to,
+        laid toward that share of the tube and kept whatever the cost
+        says - the cost counts every loop against it, and a search stuck
+        a point off its goals never left the count it started with (the
+        owner, 25 September: "force trying to do it with 2 more loops...
+        or one less loop or 2 less loops and push the distance limits").
+        Fewer loops go as long as the tube's maximum and no further -
+        that is the tube, not a preference.  Nothing laid, and the best
+        stands. }
+      if (LoopDelta <> 0) and (NBest + LoopDelta >= 1) then
+      begin
+        Saved := Best; SavedUnf := BestUnf; SavedCost := BestCost; SavedT := BestT;
+        if WantTrace then SavedTrace := BestTrace;
+        BestCost := 1E300;
+        TryLimit(MaxFt, Min(MaxFt, Total / (NBest + LoopDelta)));
+        if Length(Best) = 0 then
+        begin
+          Best := Saved; BestUnf := SavedUnf; BestCost := SavedCost; BestT := SavedT;
+          if WantTrace then BestTrace := SavedTrace;
+        end;
+      end;
     end;
     for I := 0 to High(Best) do
     begin
@@ -2805,7 +2886,8 @@ end;
 
 function ComputeRadiantLayout(const Outline: TP3Array; const Holes: array of TP3Array;
   const Spec: TRadiantSpec; WantTrace: Boolean = False;
-  Progress: TRadiantProgress = nil; Found: PRadiantResults = nil): TRadiantResult;
+  Progress: TRadiantProgress = nil; Found: PRadiantResults = nil;
+  LiveGoals: PRadiantGoals = nil): TRadiantResult;
 type
   { everything a layout is laid from - enough to lay it again, the same }
   TTry = record
@@ -2820,18 +2902,25 @@ type
     NoFingers: Boolean;
     { every side's rows evened up at the far wall - see RowPlan }
     EvenRows: Boolean;
+    { the manifold slid this far along its wall, feet - see Slid }
+    Shift: Double;
+    { this many loops more, or fewer, than the layout would choose - see
+      LoopDelta on ComputeRadiantOriented }
+    LoopDelta: Integer;
   end;
 const
   { a search nobody stops is not left running for ever }
   MAX_TRIES = 20000;
 var
   TurnIndex, TurnLo, TurnHi, BudgetIndex, RankTry, Done, Total, Level: Integer;
-  BestRank, Cover, Spread, BreakFt, MostCover, FirstCover, LastCover: Double;
+  BestRank, Cover, Spread, BreakFt, MostCover, FirstCover, LastCover, Reach: Double;
   { a way of turning the rows given up on at this breakout }
   Weak: array[0..1] of Boolean;
-  { the solutions kept for the wizard to show - see Offer }
+  { the solutions kept for the wizard to show - see Offer - and the tries
+    that laid them }
   Kept: TRadiantResults;
   KeptRank: array of Double;
+  KeptTry: array of TTry;
   KeptMeet: Boolean;
   Stop, Met, Probe, Goals: Boolean;
   RF, WF: TRadiantFrame;
@@ -2839,13 +2928,20 @@ var
   Best, R: TRadiantResult;
   BestTry, T: TTry;
   Seed, RandState: Cardinal;
+  { the spec searched with - Spec, its goals as LiveGoals last had them }
+  Work: TRadiantSpec;
+  { the try that last bettered the best, and how far along its wall the
+    manifold can slide either way - see Slid }
+  BetterAt: Integer;
+  RoomBack, RoomOn: Double;
+  WallDir: TP3;
 
   function Score(const R: TRadiantResult): Double;
   var
     M, L: Integer;
     Lo, Hi: Double;
   begin
-    Result := R.UnfilledSqFt / (Spec.Spacing * UNFILLED_LOOP_FT) + Length(R.Loops);
+    Result := R.UnfilledSqFt / (Work.Spacing * UNFILLED_LOOP_FT) + Length(R.Loops);
     for M := 0 to High(R.Manifolds) do
     begin
       Lo := 1E300; Hi := 0;
@@ -2876,36 +2972,45 @@ var
     if not R.Ok or (R.Crossings > 0) then Exit(1E300);
     RadiantMeasure(R, Cv, Sp);
     Short := 0;
-    if Spec.GoalCoverPct > 0 then
-      Short := Short + 10 * Max(0, Spec.GoalCoverPct - Cv * 100)
+    if Work.GoalCoverPct > 0 then
+      Short := Short + 10 * Max(0, Work.GoalCoverPct - Cv * 100)
         { and past the goal the floor still bare counts, twice what a
           point of evenness does: a layout at the goal with a strip left
           along a wall is not as good as the one that heats it with the
           loops a little less even (the owner, 25 September: "the engine
           seems to favor leaving unheated space rather than cheating in
           a close run") }
-        + 2 * Min(100 - Cv * 100, 100 - Spec.GoalCoverPct)
+        + 2 * Min(100 - Cv * 100, 100 - Work.GoalCoverPct)
     { with no coverage goal, coverage still leads: every point of it
       missing from a whole floor }
     else Short := Short + 10 * (100 - Cv * 100);
-    if Spec.GoalEvenPct > 0 then Short := Short + Max(0, Sp * 100 - Spec.GoalEvenPct);
+    if Work.GoalEvenPct > 0 then Short := Short + Max(0, Sp * 100 - Work.GoalEvenPct);
     Result := 5 * Short + Score(R) + 0.25 * (BreakFt - MANIFOLD_BREAKOUT_FT) + BEND_WEIGHT * R.Bends;
+    { and a layout that meets the goals before any that does not: counting
+      the floor bare past the coverage goal, a layout at 81% covered and
+      19% apart outranked one at 75% and 8% with the goals at 30 and 10,
+      and a search told the new goals went on looking with a layout that
+      met them in hand (25 September) }
+    if Goals and not RadiantMeetsGoals(R, Work) then Result := Result + GOAL_MISS;
   end;
 
   { A try kept among the solutions to show: every distinct one that meets
     the goals, best first - or, while none has, the few nearest them - for
     the wizard's arrows to step through.  Two tries that lay the same
     layout are one solution. }
-  procedure Offer(const R: TRadiantResult; Rk: Double);
+  procedure Offer(const R: TRadiantResult; Rk: Double; const T: TTry);
   var
     I, J: Integer;
     Cv, Sp, Cv2, Sp2: Double;
     Meets: Boolean;
   begin
     if (Found = nil) or (Rk >= 1E299) then Exit;
-    Meets := RadiantMeetsGoals(R, Spec);
+    Meets := RadiantMeetsGoals(R, Work);
     { the first to meet the goals clears out the near misses kept so far }
-    if Meets and (Length(Kept) > 0) and not KeptMeet then SetLength(Kept, 0);
+    if Meets and (Length(Kept) > 0) and not KeptMeet then
+    begin
+      SetLength(Kept, 0); SetLength(KeptRank, 0); SetLength(KeptTry, 0);
+    end;
     if not Meets and KeptMeet then Exit;
     KeptMeet := KeptMeet or Meets;
     RadiantMeasure(R, Cv, Sp);
@@ -2918,16 +3023,123 @@ var
     I := Length(Kept);
     while (I > 0) and (KeptRank[I - 1] > Rk) do Dec(I);
     if I >= SOLUTIONS_KEPT then Exit;
-    SetLength(Kept, Length(Kept) + 1); SetLength(KeptRank, Length(Kept));
+    SetLength(Kept, Length(Kept) + 1); SetLength(KeptRank, Length(Kept)); SetLength(KeptTry, Length(Kept));
     for J := High(Kept) downto I + 1 do
     begin
-      Kept[J] := Kept[J - 1]; KeptRank[J] := KeptRank[J - 1];
+      Kept[J] := Kept[J - 1]; KeptRank[J] := KeptRank[J - 1]; KeptTry[J] := KeptTry[J - 1];
     end;
-    Kept[I] := R; KeptRank[I] := Rk;
+    Kept[I] := R; KeptRank[I] := Rk; KeptTry[I] := T;
     if Length(Kept) > SOLUTIONS_KEPT then
     begin
-      SetLength(Kept, SOLUTIONS_KEPT); SetLength(KeptRank, SOLUTIONS_KEPT);
+      SetLength(Kept, SOLUTIONS_KEPT); SetLength(KeptRank, SOLUTIONS_KEPT); SetLength(KeptTry, SOLUTIONS_KEPT);
     end;
+  end;
+
+  { The wall the manifold is on, and how far along it the manifold can go
+    either way and stay on it, a foot short of its ends - worked out once.
+    A piece of a curve is not a wall to slide along. }
+  procedure FindWall;
+  var
+    I, J, Best_: Integer;
+    D, BestD, L, Tp: Double;
+    A, B, M: TP3;
+  begin
+    RoomBack := 0; RoomOn := 0; WallDir := P3(0, 0, 0);
+    if Length(Work.Manifolds) = 0 then Exit;
+    M := Work.Manifolds[0];
+    Best_ := -1; BestD := 1E300;
+    for I := 0 to High(Outline) do
+    begin
+      J := (I + 1) mod Length(Outline);
+      A := Outline[I]; B := Outline[J];
+      L := Sqr(B.X - A.X) + Sqr(B.Y - A.Y) + Sqr(B.Z - A.Z);
+      if L < 1E-12 then Continue;
+      Tp := Max(0, Min(1, ((M.X - A.X) * (B.X - A.X) + (M.Y - A.Y) * (B.Y - A.Y) + (M.Z - A.Z) * (B.Z - A.Z)) / L));
+      D := Dist(M, P3(A.X + Tp * (B.X - A.X), A.Y + Tp * (B.Y - A.Y), A.Z + Tp * (B.Z - A.Z)));
+      if D < BestD then begin BestD := D; Best_ := I; end;
+    end;
+    { off every wall by more than its breakout is out in the room: nothing
+      to slide along }
+    if (Best_ < 0) or (BestD > MANIFOLD_BREAKOUT_FT) or RadiantEdgeCurved(Outline, Best_) then Exit;
+    A := Outline[Best_]; B := Outline[(Best_ + 1) mod Length(Outline)];
+    L := Dist(A, B);
+    WallDir := P3((B.X - A.X) / L, (B.Y - A.Y) / L, (B.Z - A.Z) / L);
+    Tp := (M.X - A.X) * WallDir.X + (M.Y - A.Y) * WallDir.Y + (M.Z - A.Z) * WallDir.Z;
+    RoomBack := Max(0, Tp - 1);
+    RoomOn := Max(0, L - Tp - 1);
+  end;
+
+  { the spec with the manifold slid Shift feet along its wall - the same
+    spec when that would leave the floor or land in an obstacle }
+  function Slid(Shift: Double): TRadiantSpec;
+  var
+    M: TP3;
+    H2: Integer;
+  begin
+    Result := Work;
+    if (Abs(Shift) < 1E-9) or (Length(Work.Manifolds) = 0) then Exit;
+    M := Work.Manifolds[0];
+    M := P3(M.X + WallDir.X * Shift, M.Y + WallDir.Y * Shift, M.Z + WallDir.Z * Shift);
+    if not RadiantInside(Outline, M) then Exit;
+    for H2 := 0 to High(Holes) do
+      if RadiantInside(Holes[H2], M) then Exit;
+    Result.Manifolds := Copy(Work.Manifolds);
+    Result.Manifolds[0] := M;
+  end;
+
+  { the watcher changed the goals: everything kept ranked again by them -
+    the best, and the solutions, which keep only those that meet them
+    once any does }
+  procedure Regoal;
+  var
+    I, J: Integer;
+    TmpR: TRadiantResult;
+    TmpK: Double;
+    TmpT: TTry;
+  begin
+    Work.GoalCoverPct := LiveGoals^.CoverPct;
+    Work.GoalEvenPct := LiveGoals^.EvenPct;
+    Goals := (Work.GoalCoverPct > 0) or (Work.GoalEvenPct > 0);
+    if Best.Ok then
+    begin
+      BestRank := RankOf(Best, BestTry.BreakFt);
+      if BestTry.EvenRows and (BestRank < 1E299) then BestRank := BestRank + 1;
+    end;
+    for I := 0 to High(Kept) do
+    begin
+      KeptRank[I] := RankOf(Kept[I], Kept[I].BreakoutFt);
+      if KeptTry[I].EvenRows and (KeptRank[I] < 1E299) then KeptRank[I] := KeptRank[I] + 1;
+    end;
+    for I := 1 to High(Kept) do
+    begin
+      J := I;
+      while (J > 0) and (KeptRank[J - 1] > KeptRank[J]) do
+      begin
+        TmpR := Kept[J]; Kept[J] := Kept[J - 1]; Kept[J - 1] := TmpR;
+        TmpK := KeptRank[J]; KeptRank[J] := KeptRank[J - 1]; KeptRank[J - 1] := TmpK;
+        TmpT := KeptTry[J]; KeptTry[J] := KeptTry[J - 1]; KeptTry[J - 1] := TmpT;
+        Dec(J);
+      end;
+    end;
+    { one of those kept may be the best there is by the new goals }
+    if (Length(Kept) > 0) and (KeptRank[0] < BestRank - 1E-6) then
+    begin
+      Best := Kept[0]; BestRank := KeptRank[0]; BestTry := KeptTry[0];
+    end;
+    KeptMeet := False;
+    for I := 0 to High(Kept) do
+      if RadiantMeetsGoals(Kept[I], Work) then KeptMeet := True;
+    if KeptMeet then
+    begin
+      J := 0;
+      for I := 0 to High(Kept) do
+        if RadiantMeetsGoals(Kept[I], Work) then
+        begin
+          Kept[J] := Kept[I]; KeptRank[J] := KeptRank[I]; KeptTry[J] := KeptTry[I]; Inc(J);
+        end;
+      SetLength(Kept, J); SetLength(KeptRank, J); SetLength(KeptTry, J);
+    end;
+    if Found <> nil then Found^ := Copy(Kept);
   end;
 
   { one layout tried, kept if it is the best yet; says so and asks
@@ -2936,8 +3148,9 @@ var
   var
     Rk, Cv, Sp, Cv2, Sp2: Double;
   begin
-    R := ComputeRadiantOriented(Outline, Holes, Spec, False, T.Turn, T.Budget, T.Ranks,
-      T.BreakFt, T.Seed, T.RowOff, not T.NoFingers, False, T.EvenRows);
+    R := ComputeRadiantOriented(Outline, Holes, Slid(T.Shift), False, T.Turn, T.Budget, T.Ranks,
+      T.BreakFt, T.Seed, T.RowOff, not T.NoFingers, False, T.EvenRows, T.LoopDelta);
+    R.ManifoldShiftFt := T.Shift;
     R.BreakoutFt := T.BreakFt;
     Rk := RankOf(R, T.BreakFt);
     { the rows closed up at a wall are a cheat: of two as good, the true
@@ -2963,16 +3176,19 @@ var
       MostCover := Max(MostCover, Cv);
     end;
     R.Tries := Done + 1;
-    Offer(R, Rk);
+    Offer(R, Rk, T);
     { kept up to date as it goes, for a watcher to list }
     if Found <> nil then Found^ := Copy(Kept);
     if Rk < BestRank - 1E-6 then
     begin
       Best := R; BestRank := Rk; BestTry := T;
+      BetterAt := Done;
     end;
     Inc(Done);
     Stop := False;
     if Assigned(Progress) then Progress(Done, Total, Best, Stop);
+    if (LiveGoals <> nil) and ((Abs(LiveGoals^.CoverPct - Work.GoalCoverPct) > 1E-9) or
+       (Abs(LiveGoals^.EvenPct - Work.GoalEvenPct) > 1E-9)) then Regoal;
     Result := not Stop;
   end;
 
@@ -2992,7 +3208,7 @@ var
       covers more }
     if Stop or T.EvenRows or not R.Ok or (R.Crossings > 0) or not R.OddRows then Exit;
     RadiantMeasure(R, Cv, Sp);
-    if RadiantMeetsGoals(R, Spec) and (Cv >= EVEN_TRY_BELOW) then Exit;
+    if RadiantMeetsGoals(R, Work) and (Cv >= EVEN_TRY_BELOW) then Exit;
     { nor one so far short of the best seen that a row more will not
       bring it near }
     if Cv < MostCover - EVEN_TWIN_WITHIN then Exit;
@@ -3009,27 +3225,34 @@ var
   end;
 
 begin
+  Work := Spec;
+  if LiveGoals <> nil then
+  begin
+    Work.GoalCoverPct := LiveGoals^.CoverPct;
+    Work.GoalEvenPct := LiveGoals^.EvenPct;
+  end;
   Result := Default(TRadiantResult);
-  Result.Why := RadiantProblem(Outline, Spec);
+  Result.Why := RadiantProblem(Outline, Work);
   if Result.Why <> '' then Exit;
-  Goals := (Spec.GoalCoverPct > 0) or (Spec.GoalEvenPct > 0);
+  Goals := (Work.GoalCoverPct > 0) or (Work.GoalEvenPct > 0);
   { Which way the ports run.  A manifold given a heading - the box turned
     on the wizard's plan - is laid the way it faces: ports along the
     wall it hangs on, tubes out square from it, or turned a quarter so
     they run out along the wall.  With no heading both are tried, as
     they always were. }
   TurnLo := 0; TurnHi := 1;
-  if (Length(Spec.ManifoldAngles) > 0) and (Length(Spec.Manifolds) > 0) then
+  if (Length(Work.ManifoldAngles) > 0) and (Length(Work.Manifolds) > 0) then
   begin
     RF := RadiantFrameOf(Outline);
-    WF := FrameAt(Outline, Spec.Manifolds[0]);
-    H := P3(RF.U.X * Cos(DegToRad(Spec.ManifoldAngles[0])) + RF.V.X * Sin(DegToRad(Spec.ManifoldAngles[0])),
-            RF.U.Y * Cos(DegToRad(Spec.ManifoldAngles[0])) + RF.V.Y * Sin(DegToRad(Spec.ManifoldAngles[0])),
-            RF.U.Z * Cos(DegToRad(Spec.ManifoldAngles[0])) + RF.V.Z * Sin(DegToRad(Spec.ManifoldAngles[0])));
+    WF := FrameAt(Outline, Work.Manifolds[0]);
+    H := P3(RF.U.X * Cos(DegToRad(Work.ManifoldAngles[0])) + RF.V.X * Sin(DegToRad(Work.ManifoldAngles[0])),
+            RF.U.Y * Cos(DegToRad(Work.ManifoldAngles[0])) + RF.V.Y * Sin(DegToRad(Work.ManifoldAngles[0])),
+            RF.U.Z * Cos(DegToRad(Work.ManifoldAngles[0])) + RF.V.Z * Sin(DegToRad(Work.ManifoldAngles[0])));
     if Abs(Dot3(H, WF.U)) >= Abs(Dot3(H, WF.V)) then TurnHi := 0 else TurnLo := 1;
   end;
-  Best := Default(TRadiantResult); BestRank := 1E300; MostCover := 0;
-  Kept := nil; KeptRank := nil; KeptMeet := False;
+  Best := Default(TRadiantResult); BestRank := 1E300; MostCover := 0; BetterAt := 0;
+  RoomBack := 0; RoomOn := 0; WallDir := P3(0, 0, 0);
+  Kept := nil; KeptRank := nil; KeptTry := nil; KeptMeet := False;
   BestTry := Default(TTry); BestTry.Budget := 1; BestTry.BreakFt := MANIFOLD_BREAKOUT_FT;
   Done := 0; Total := BREAKOUT_LEVELS * (TurnHi - TurnLo + 1) * (3 + 4); Stop := False;
 
@@ -3062,7 +3285,7 @@ begin
           RadiantMeasure(R, Cover, Spread);
           if not R.Ok then Cover := 0;
           if (TurnIndex = TurnLo) and (Level < BREAKOUT_LEVELS - 1) and
-             (Cover < Max(BREAKOUT_COVER, Spec.GoalCoverPct / 100) - 0.1) then Probe := False;
+             (Cover < Max(BREAKOUT_COVER, Work.GoalCoverPct / 100) - 0.1) then Probe := False;
           { The rows turned the other way, far behind the first way at
             its first try: no more of them at this breakout.  On the
             owner's odd floor (25 September) the turned rows trailed by
@@ -3104,7 +3327,7 @@ begin
     if Best.Ok then
     begin
       RadiantMeasure(Best, Cover, Spread);
-      if Cover >= IfThen(Spec.GoalCoverPct > 0, Spec.GoalCoverPct / 100, BREAKOUT_COVER) - 1E-9 then Break;
+      if Cover >= IfThen(Work.GoalCoverPct > 0, Work.GoalCoverPct / 100, BREAKOUT_COVER) - 1E-9 then Break;
     end;
   end;
 
@@ -3113,7 +3336,7 @@ begin
     manifold.  Where the rows fall against a slanting wall, an obstacle
     or the far wall changes what is left bare - heizkreis-planer's panel
     offset, pointed at the floor instead of the panels. }
-  if not Stop and Best.Ok and not RadiantMeetsGoals(Best, Spec) then
+  if not Stop and Best.Ok and not RadiantMeetsGoals(Best, Work) then
   begin
     Inc(Total, 3);
     T := BestTry;
@@ -3141,11 +3364,12 @@ begin
     ones first, the owner's idea - its lane nudged, the breakout and the
     turn of the rows drawn at random.  Each one is its seed, so the one
     kept can be laid again exactly. }
-  Met := RadiantMeetsGoals(Best, Spec);
+  Met := RadiantMeetsGoals(Best, Work);
   if Assigned(Progress) and Goals and not Stop and not Met then
   begin
     Total := 0;
     Seed := 0;
+    FindWall;
     while not Stop and not Met and (Done < MAX_TRIES) do
     begin
       Inc(Seed);
@@ -3161,9 +3385,30 @@ begin
       T.RowOff := Trunc(Rnd * 4) * 0.25;
       T.NoFingers := Rnd < 0.25;
       T.EvenRows := Rnd < 0.5;
+      { The manifold slid along its wall, more often and further the
+        longer nothing has bettered the best - the owner, 25 September:
+        "it needs to get more aggressive with moving the manifold i think
+        when it has 500 tries in and its not making progress" (report
+        174734).  A few feet at first, a foot more every SHIFT_GROW tries
+        without a better layout, never off the wall's ends. }
+      if (Done - BetterAt > SHIFT_AFTER) or (Rnd < 0.15) then
+      begin
+        Reach := SHIFT_FT + Max(0, Done - BetterAt - SHIFT_AFTER) / SHIFT_GROW;
+        if Rnd < 0.5 then T.Shift := -Min(RoomBack, Reach) * Rnd
+        else T.Shift := Min(RoomOn, Reach) * Rnd;
+        { whole inches, so a layout is laid again the same }
+        T.Shift := Round(T.Shift * 12) / 12;
+      end;
+      { and, stuck, the loops forced one or two more or fewer than the
+        layout would take - see LoopDelta }
+      if (Done - BetterAt > SHIFT_AFTER) and (Rnd < 0.4) then
+      begin
+        T.LoopDelta := 1 + Trunc(Rnd * 2);
+        if Rnd < 0.5 then T.LoopDelta := -T.LoopDelta;
+      end;
       T.Seed := Seed;
       if not Consider(T, R) then Break;
-      Met := RadiantMeetsGoals(Best, Spec);
+      Met := RadiantMeetsGoals(Best, Work);
     end;
   end;
 
@@ -3172,19 +3417,20 @@ begin
     accepted loops in the animation. Normal preview allocates no trace. }
   if WantTrace and Result.Ok then
   begin
-    Result := ComputeRadiantOriented(Outline, Holes, Spec, True,
+    Result := ComputeRadiantOriented(Outline, Holes, Slid(BestTry.Shift), True,
       BestTry.Turn, BestTry.Budget, BestTry.Ranks, BestTry.BreakFt, BestTry.Seed, BestTry.RowOff,
-      not BestTry.NoFingers, False, BestTry.EvenRows);
+      not BestTry.NoFingers, False, BestTry.EvenRows, BestTry.LoopDelta);
     Result.BreakoutFt := BestTry.BreakFt;
+    Result.ManifoldShiftFt := BestTry.Shift;
   end;
   Result.Tries := Done;
-  Result.ShortOfGoals := Goals and not RadiantMeetsGoals(Result, Spec);
+  Result.ShortOfGoals := Goals and not RadiantMeetsGoals(Result, Work);
   if Found <> nil then
   begin
     for Level := 0 to High(Kept) do
     begin
       Kept[Level].Tries := Done;
-      Kept[Level].ShortOfGoals := Goals and not RadiantMeetsGoals(Kept[Level], Spec);
+      Kept[Level].ShortOfGoals := Goals and not RadiantMeetsGoals(Kept[Level], Work);
     end;
     Found^ := Kept;
   end;
@@ -3348,6 +3594,11 @@ begin
       [FormatFloat('0.#', Spec.Spacing / Spec.Inch), FormatFloat('0', R.BreakoutFt),
        IfThen(R.BreakoutFt > MANIFOLD_BREAKOUT_FT + 1E-6,
          Format(' - wider than %s ft to cover the floor', [FormatFloat('0', MANIFOLD_BREAKOUT_FT)]), '')]) + LineEnding;
+  { the manifold where the search moved it, said: it is not where it was
+    put }
+  if (Length(R.Loops) > 0) and (Abs(R.ManifoldShiftFt) > 1E-6) then
+    Result := Result + Format('manifold moved %s along its wall from where it was placed, for a better layout',
+      [FormatLen(Abs(R.ManifoldShiftFt), U)]) + LineEnding;
   { the owner's cheat, where it was taken: said, since a fitter chalking
     the rows out at the spacing would come up a row short }
   if (Length(R.Loops) > 0) and (R.TightestGap < Spec.Spacing - 1E-6) then

@@ -17,6 +17,18 @@
 - **How far apart the loops are, in feet as well** - beside the
   percentage in the search window, the solution arrows, the evenness bar
   and the ticket: the longest loop less the shortest.
+- **Change the goals while it searches.**  The search window has the two
+  goals in it - lower one and it takes the best layout that meets the new
+  goals and stops.  And **Give up after** - never, a minute, five, up to
+  an hour a zone - keeping the best it found.
+- **The search moves the manifold when it is stuck.**  After a while with
+  nothing better it slides the manifold along its wall, a few feet at
+  first and further the longer it goes, and tries forcing a loop or two
+  more or fewer.  The manifold on the plan goes where the layout has it,
+  and the ticket says how far it moved.
+- **Square the manifold** - right-click it for east - west, north -
+  south, or either diagonal.  A manifold on a curved wall starts square
+  to the sheet.
 
 ### Fixed
 

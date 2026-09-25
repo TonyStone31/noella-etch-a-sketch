@@ -173,6 +173,18 @@ const
     first try covers this much less than the first way's did }
   TURN_WEAK = 0.05;
 
+  { the manifold slid along its wall by the search once it is stuck - see
+    ComputeRadiantLayout: tried now and then from the start, on every try
+    once this many have gone by without a better layout; this far either
+    way at first, a foot further for every SHIFT_GROW tries more }
+  SHIFT_AFTER = 40;
+  SHIFT_FT = 3.0;
+  SHIFT_GROW = 20;
+
+  { what missing the goals adds to a layout's rank, so any layout that
+    meets them ranks before every one that does not }
+  GOAL_MISS = 1000.0;
+
   { where the manifold is suggested: a wall that turns less than this,
     degrees, into a neighbor no more than this many times longer or
     shorter than itself is one piece of a curve, and no place to hang a

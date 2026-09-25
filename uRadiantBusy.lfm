@@ -1,11 +1,11 @@
 object RadiantBusyForm: TRadiantBusyForm
   Left = 520
-  Height = 430
+  Height = 464
   Top = 240
   Width = 700
   BorderIcons = []
   Caption = 'Searching for a layout'
-  ClientHeight = 430
+  ClientHeight = 464
   ClientWidth = 700
   Constraints.MinHeight = 300
   Constraints.MinWidth = 480
@@ -41,10 +41,75 @@ object RadiantBusyForm: TRadiantBusyForm
     Max = 100
     TabOrder = 0
   end
+  object lblGoals: TLabel
+    Left = 24
+    Height = 18
+    Top = 125
+    Width = 44
+    Caption = 'Goals:'
+  end
+  object edBusyCover: TEdit
+    Left = 76
+    Height = 28
+    Top = 120
+    Width = 52
+    Hint = 'change it while it searches - it works to the new goal from the next layout'
+    ShowHint = True
+    TabOrder = 4
+  end
+  object lblBusyCover: TLabel
+    Left = 134
+    Height = 18
+    Top = 125
+    Width = 160
+    Caption = '% covered, loops within'
+  end
+  object edBusyEven: TEdit
+    Left = 300
+    Height = 28
+    Top = 120
+    Width = 52
+    Hint = 'change it while it searches - it works to the new goal from the next layout'
+    ShowHint = True
+    TabOrder = 5
+  end
+  object lblBusyEven: TLabel
+    Left = 358
+    Height = 18
+    Top = 125
+    Width = 14
+    Caption = '%'
+  end
+  object lblGiveUp: TLabel
+    Left = 400
+    Height = 18
+    Top = 125
+    Width = 90
+    Caption = 'Give up after'
+  end
+  object cbGiveUp: TComboBox
+    Left = 496
+    Height = 28
+    Top = 120
+    Width = 180
+    ItemHeight = 0
+    ItemIndex = 0
+    Items.Strings = (
+      'never'
+      '1 minute a zone'
+      '5 minutes a zone'
+      '15 minutes a zone'
+      '30 minutes a zone'
+      '1 hour a zone'
+    )
+    Style = csDropDownList
+    TabOrder = 6
+    Text = 'never'
+  end
   object lblFound: TLabel
     Left = 24
     Height = 36
-    Top = 120
+    Top = 154
     Width = 652
     Anchors = [akTop, akLeft, akRight]
     AutoSize = False
@@ -54,7 +119,7 @@ object RadiantBusyForm: TRadiantBusyForm
   object lbFound: TListBox
     Left = 24
     Height = 208
-    Top = 160
+    Top = 194
     Width = 652
     Anchors = [akTop, akLeft, akRight, akBottom]
     Font.Name = 'Monospace'
@@ -67,7 +132,7 @@ object RadiantBusyForm: TRadiantBusyForm
   object btnStopAll: TButton
     Left = 366
     Height = 32
-    Top = 384
+    Top = 418
     Width = 100
     Anchors = [akRight, akBottom]
     Caption = 'Stop all'
@@ -79,7 +144,7 @@ object RadiantBusyForm: TRadiantBusyForm
   object btnStop: TButton
     Left = 476
     Height = 32
-    Top = 384
+    Top = 418
     Width = 200
     Anchors = [akRight, akBottom]
     Cancel = True
@@ -94,6 +159,6 @@ object RadiantBusyForm: TRadiantBusyForm
     Interval = 30
     OnTimer = tmrStartTimer
     Left = 8
-    Top = 384
+    Top = 418
   end
 end

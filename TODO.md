@@ -325,6 +325,41 @@ pixel by pixel.  What the pictures said:
     angle; not done, asked about.
   - The spread in feet beside the percent everywhere it is shown
     (`RadiantSpreadFt`).
+  - **Report 174734** ("the manifold in the circle doesnt get squared to
+    the sheet... the engine struggles... it needs to get more aggressive
+    with moving the manifold... when it has 500 tries in and its not
+    making progress"; in chat: "force trying to do it with 2 more loops...
+    or one less loop or 2 less loops and push the distance limits").
+    Done: a manifold on a curved wall starts square (`RadiantEdgeCurved`,
+    `WallAngle`), and "Square the manifold" on the right-click (0, 90, 45,
+    135).  The random phase slides the manifold along its wall (`TTry.Shift`,
+    `SHIFT_*`) - always now and then, every try once `SHIFT_AFTER` go by
+    without a better layout, further as it stays stuck - and forces the
+    loop count one or two either way (`LoopDelta`, the tube's maximum
+    still the limit).  On his square-with-a-circle floor zone 2 sat at
+    97.8% / 10.2% apart for 1,000 tries without; met the goals at try 478
+    with.  The chosen layout brings its manifold back to the plan; the
+    ticket says it moved.
+  - Goals editable in the busy window while it searches (`LiveGoals`,
+    `Regoal` - what is kept ranked again, the best switched to what meets
+    them) and "Give up after" per zone, remembered.  A layout meeting the
+    goals now always ranks before one that does not (`GOAL_MISS`) - the
+    floor-past-goal term let a miss outrank a hit.
+  - **Still hard there: zone 1**, the manifold on the closet (the notch)
+    wall - the strip between the closet and the east wall gets a loop of
+    its own (106 ft against 260-350): wants a pass that folds a runt loop
+    into its neighbor, or refuses a side too small for a loop.
+  - **Where the wizard is headed** (his words, 25 September): "each zone
+    should have its own tabsheet... then you could eliminate the draw
+    arrow buttons to show the attempts... and probably time to ditch the
+    replay stuff... but clicking in a zone in the image should show the
+    respective panel... eventually we will need to export the full drawing
+    with the material report and everything and color coding... gonna need
+    some dimension drawn and tags labels etc... make the builder the full
+    suite for radiant... eventually opening a radiant group on the main
+    drawing will open the radiant dialog again."  And: "eventually we can
+    multi thread this... and get a bunch of threads trying various things"
+    - the tries are independent, a thread per try works.
   - Later, his words: "we should let moving manifolds around snap to the
     walls and let me select the allowed distance from there" - with the
     placement line below.
