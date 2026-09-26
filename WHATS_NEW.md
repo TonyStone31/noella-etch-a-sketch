@@ -36,10 +36,11 @@
 - **The search keeps a record** - when it ran, how many layouts, how
   long, and what happened: goals changed, met or not, a manifold moved,
   stopped by hand, given up on time.  It is on the material list.
-- **Export the submittal** - the system in brief, a schedule of the zones
-  and of every loop, each zone's material list and notes, and the design
-  record with the other layouts each search kept.  As text for now; as a
-  PDF, a zone to a page, when the PDF export takes pages of text.
+- **Export the submittal as a PDF** - letter pages (A4 for a metric
+  drawing): the system, a material list for the job, the zone schedule and
+  the plan; then a page for every zone - its plan to scale with every loop
+  tagged, its loops and their colors, what it takes; then the design record
+  of every search.  A title block on every sheet.  Or as plain text.
 
 ### Fixed
 

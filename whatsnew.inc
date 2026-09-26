@@ -39,10 +39,11 @@ const
     '- **The search keeps a record** - when it ran, how many layouts, how' + LineEnding +
     '  long, and what happened: goals changed, met or not, a manifold moved,' + LineEnding +
     '  stopped by hand, given up on time.  It is on the material list.' + LineEnding +
-    '- **Export the submittal** - the system in brief, a schedule of the zones' + LineEnding +
-    '  and of every loop, each zone''s material list and notes, and the design' + LineEnding +
-    '  record with the other layouts each search kept.  As text for now; as a' + LineEnding +
-    '  PDF, a zone to a page, when the PDF export takes pages of text.' + LineEnding +
+    '- **Export the submittal as a PDF** - letter pages (A4 for a metric' + LineEnding +
+    '  drawing): the system, a material list for the job, the zone schedule and' + LineEnding +
+    '  the plan; then a page for every zone - its plan to scale with every loop' + LineEnding +
+    '  tagged, its loops and their colors, what it takes; then the design record' + LineEnding +
+    '  of every search.  A title block on every sheet.  Or as plain text.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
