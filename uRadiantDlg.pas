@@ -24,7 +24,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  ComCtrls, Dialogs, StrUtils, Menus, uWork, uRadiantData, uRadiant, uRadiantBusy;
+  ComCtrls, Dialogs, StrUtils, Menus, uWork, uRadiantData, uRadiant, uRadiantBusy, uRadiantSubmittal;
 
 type
 
@@ -38,6 +38,8 @@ type
     btnReport: TButton;
     btnSearchAll: TButton;
     btnSuggest: TButton;
+    btnExport: TButton;
+    sdExport: TSaveDialog;
     btnZoneClear: TButton;
     btnZoneSearch: TButton;
     lblFoundHead: TLabel;
@@ -102,6 +104,7 @@ type
     procedure btnSearchAllClick(Sender: TObject);
     procedure btnSearchZoneClick(Sender: TObject);
     procedure btnSuggestClick(Sender: TObject);
+    procedure btnExportClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -232,7 +235,7 @@ implementation
 {$R *.lfm}
 
 uses
-  IniFiles, uPaths, uMain;
+  IniFiles, uPaths, uMain, uUpdate;
 
 { A bare number is inches - the trade says 9, not 9" - and a mark makes it
   the drawing's own notation, the same rule the fitting wizard keeps. }
@@ -1583,6 +1586,50 @@ begin
   end;
   C.Font.Style := [];
   C.Pen.Width := 1;
+end;
+
+{ The job as a submittal - for now as text; the PDF when its writer takes
+  pages of text and a plan in vectors (see uRadiantSubmittal). }
+procedure TRadiantForm.btnExportClick(Sender: TObject);
+var
+  Job: TRadiantJob;
+  Z: Integer;
+  L: TStringList;
+begin
+  if not Read(Job.Spec) or (Length(FZones) = 0) then Exit;
+  Job.Spec.GoalCoverPct := StrToFloatDef(Trim(edGoalCover.Text), 0);
+  Job.Spec.GoalEvenPct := StrToFloatDef(Trim(edGoalEven.Text), 0);
+  Job.Title := Trim(edTag.Text);
+  Job.When := Now;
+  Job.Made := 'Heckers Sketch ' + CurrentVersion;
+  Job.Units := FUnits;
+  Job.Zones := FZones;
+  SetLength(Job.ZoneSpecs, Length(FZones));
+  for Z := 0 to High(FZones) do Job.ZoneSpecs[Z] := ZoneSpec(Z, Job.Spec);
+  Job.Searched := Copy(FSearched);
+  Job.Layouts := Copy(FLayouts);
+  SetLength(Job.Solutions, Length(FZones));
+  SetLength(Job.Picked, Length(FZones));
+  for Z := 0 to High(FZones) do
+  begin
+    if Z <= High(FSolutions) then Job.Solutions[Z] := FSolutions[Z] else Job.Solutions[Z] := nil;
+    if Z <= High(FSolIdx) then Job.Picked[Z] := FSolIdx[Z] else Job.Picked[Z] := 0;
+  end;
+  if Job.Title <> '' then sdExport.FileName := Job.Title + ' - radiant submittal.txt'
+  else sdExport.FileName := 'radiant submittal ' + FormatDateTime('yyyy-mm-dd', Now) + '.txt';
+  if not sdExport.Execute then Exit;
+  L := TStringList.Create;
+  try
+    L.Text := SubmittalAsText(RadiantSubmittal(Job));
+    try
+      L.SaveToFile(sdExport.FileName);
+      lblProblem.Caption := 'Exported: ' + ExtractFileName(sdExport.FileName);
+    except
+      on E: Exception do lblProblem.Caption := 'Could not write it: ' + E.Message;
+    end;
+  finally
+    L.Free;
+  end;
 end;
 
 procedure TRadiantForm.btnReportClick(Sender: TObject);

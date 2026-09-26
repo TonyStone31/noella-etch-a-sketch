@@ -3676,13 +3676,6 @@ begin
     Result := Result + Format('to lay: %d bends, %s%% of the tube in straights of %s or more',
       [R.Bends, FormatFloat('0', R.StraightPct), FormatLen(STRAIGHT_RUN_SPACINGS * Spec.Spacing, U)]) + LineEnding;
   Result := Result + 'total tube, no waste: ' + FormatLen(R.TotalFt, U) + LineEnding;
-  { the search's record - how long, how many, what happened }
-  if R.Tries > 0 then
-  begin
-    Result := Result + Format('search: %d layouts tried in %s', [R.Tries, RadiantDuration(R.SearchSecs)]) + LineEnding;
-    for I := 0 to High(R.SearchLog) do
-      Result := Result + '  - ' + R.SearchLog[I] + LineEnding;
-  end;
   Result := Result + 'order (with ' + FormatFloat('0', Spec.WastePct) + '% waste): ' +
     FormatLen(R.OrderFt, U) + LineEnding;
   { R.TotalFt is feet already; times 12 is inches of run, over the tie
@@ -3719,6 +3712,13 @@ begin
     Result := Result + Format('not reached: about %s - a lone row, or the far side of an obstacle', [FormatArea(R.UnfilledSqFt, U)]) + LineEnding;
   Result := Result + LineEnding + 'Flow rate and pump sizing are not worked out here - they ' +
     'come from a room-by-room heat loss, not from the tube size alone.' + LineEnding;
+  { the search's record, last - how long, how many, what happened }
+  if R.Tries > 0 then
+  begin
+    Result := Result + Format('search: %d layouts tried in %s', [R.Tries, RadiantDuration(R.SearchSecs)]) + LineEnding;
+    for I := 0 to High(R.SearchLog) do
+      Result := Result + '  - ' + R.SearchLog[I] + LineEnding;
+  end;
 end;
 
 end.

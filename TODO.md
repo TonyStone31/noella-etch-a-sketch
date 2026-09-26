@@ -349,6 +349,29 @@ pixel by pixel.  What the pictures said:
     wall - the strip between the closet and the east wall gets a loop of
     its own (106 ft against 260-350): wants a pass that folds a runt loop
     into its neighbor, or refuses a side too small for a loop.
+  - **Done, the evening of the 25th: a tab a zone** (`tcZones` - the
+    zone's manifold and search, Search/Clear, the layouts kept as a list
+    to click, its material list; All zones), clicking a zone on the plan
+    brings its tab up, the arrows and Replay search gone.  The search's
+    record on every result (`SearchSecs`, `SearchLog`) and on the ticket.
+    **The submittal** (`uRadiantSubmittal`): `RadiantSubmittal` gives the
+    job as blocks - title, System table, Zones schedule, the plan, then a
+    zone to a page (plan, loop schedule with inks, material and notes,
+    design record with the kept layouts, the chosen marked), then how it
+    was made and what it does not claim (no heat loss, flow or water
+    temperature).  `RadiantPlanStrokes` gives the plan as strokes and
+    labels in feet (walls, holes, loops in their inks, manifold boxes,
+    zone names, a tag on every loop - "each loop will need a tag... its
+    length its color").  Written as text by the wizard's Export button
+    until the PDF writer can take it.
+  - **What the submittal needs from the PDF writer** (uPdf, the owner's,
+    in progress 25 September - one raster page so far): several pages;
+    text that wraps in a box and runs on to the next page; tables; the
+    plan as vectors - polylines in a color and a weight in mm, closed
+    ones, text at a point in a color - scaled to fit a letter page's box
+    with a scale noted; a title block (job, sheet N of M, date, north
+    arrow).  Letter pages, a zone to a page ("like a good submittal
+    package"); the dimensions stay on his big drawing, printed apart.
   - **Where the wizard is headed** (his words, 25 September): "each zone
     should have its own tabsheet... then you could eliminate the draw
     arrow buttons to show the attempts... and probably time to ditch the

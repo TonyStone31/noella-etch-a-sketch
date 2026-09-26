@@ -9,7 +9,7 @@ program geomtest;
 
 uses
   SysUtils, Classes, Math, Types, Graphics, uSurface, uWork, uCube, uTri, uShoot, uRegion, uUpdate, uUnfold, uBore, uFittings, uPipe, uExamples, uHelpDocs, zipper, uFormat2, uHeck, uJig,
-  uRadiantData, uRadiant;
+  uRadiantData, uRadiant, uRadiantSubmittal;
 
 var
   Fails: Integer = 0;
@@ -9813,6 +9813,57 @@ begin
   EqI(R.Crossings, 0, '  nothing crosses');
 end;
 
+{ The submittal: a zone laid out comes back as its schedule row, its own
+  page, its material list, its design record, and its plan - a stroke a
+  loop and a tag a loop, in the loop's ink. }
+procedure TestRadiantSubmittal;
+var
+  Job: TRadiantJob;
+  B: TSubmittalBlocks;
+  St: TPlanStrokes;
+  Lb: TPlanLabels;
+  I, Loops, Tags, Pages: Integer;
+  Txt: string;
+begin
+  WriteLn('Radiant, the submittal');
+  Job := Default(TRadiantJob);
+  Job.Title := 'Test barn';
+  Job.When := EncodeDate(2026, 9, 25);
+  Job.Made := 'Heckers Sketch test';
+  Job.Units := usImperial;
+  Job.Spec := DefaultRadiantSpec; Job.Spec.Tube := tsThreeQuarter; Job.Spec.Spacing := 1;
+  SetLength(Job.Zones, 1);
+  SetLength(Job.Zones[0].Outline, 4);
+  Job.Zones[0].Outline[0] := P3(0, 0, 0); Job.Zones[0].Outline[1] := P3(40, 0, 0);
+  Job.Zones[0].Outline[2] := P3(40, 30, 0); Job.Zones[0].Outline[3] := P3(0, 30, 0);
+  Job.Zones[0].Holes := nil;
+  SetLength(Job.ZoneSpecs, 1);
+  Job.ZoneSpecs[0] := Job.Spec;
+  SetLength(Job.ZoneSpecs[0].Manifolds, 1);
+  Job.ZoneSpecs[0].Manifolds[0] := P3(20, 1, 0);
+  SetLength(Job.Layouts, 1);
+  Job.Layouts[0] := ComputeRadiantLayout(Job.Zones[0].Outline, Job.Zones[0].Holes, Job.ZoneSpecs[0]);
+  SetLength(Job.Searched, 1); Job.Searched[0] := True;
+  SetLength(Job.Solutions, 1); Job.Solutions[0] := nil;
+  SetLength(Job.Picked, 1); Job.Picked[0] := 0;
+  B := RadiantSubmittal(Job);
+  Txt := SubmittalAsText(B);
+  Ok(Pos('Test barn', Txt) = 1, 'the submittal is titled for the job');
+  Ok(Pos('Zone 1 - design record', Txt) > 0, '  each zone has its design record');
+  Ok(Pos('layouts tried in', Txt) > 0, '  which says how long the search worked');
+  Ok(Pos('Zone 1 - material and notes', Txt) > 0, '  and its material list');
+  Pages := 0;
+  for I := 0 to High(B) do if B[I].Kind = skPageBreak then Inc(Pages);
+  Ok(Pages >= 2, Format('  a zone to a page, and the notes on their own: %d page breaks', [Pages]));
+  RadiantPlanStrokes(Job, 0, St, Lb);
+  Loops := 0;
+  for I := 0 to High(St) do if St[I].Kind = psLoop then Inc(Loops);
+  Tags := 0;
+  for I := 0 to High(Lb) do if Pos('Z1 L', Lb[I].Text) = 1 then Inc(Tags);
+  EqI(Loops, Length(Job.Layouts[0].Loops), '  the plan draws every loop');
+  EqI(Tags, Length(Job.Layouts[0].Loops), '  and tags every loop with its name and length');
+end;
+
 { The owner's odd floor, report 20260925-161037: a triangle whose long
   side is a diagonal, and a big arc with a circle bumped out of it. }
 procedure TestRadiantOdd;
@@ -9918,7 +9969,7 @@ end;
 begin
   if ParamStr(1) = 'radiant' then
   begin
-    TestRadiant; TestRadiantSearch; TestRadiantBuild; TestRadiantBarn2; TestRadiantOdd;
+    TestRadiant; TestRadiantSearch; TestRadiantBuild; TestRadiantBarn2; TestRadiantOdd; TestRadiantSubmittal;
     WriteLn(Checks, ' checks, ', Fails, ' failed');
     if Fails <> 0 then Halt(1);
     Halt(0);
@@ -10042,6 +10093,7 @@ begin
   TestRadiantBuild; WriteLn;
   TestRadiantBarn2; WriteLn;
   TestRadiantOdd; WriteLn;
+  TestRadiantSubmittal; WriteLn;
   TestHeckRoundTrips; WriteLn;
   WriteLn(Format('%d checks, %d failed', [Checks, Fails]));
   if Fails > 0 then Halt(1);

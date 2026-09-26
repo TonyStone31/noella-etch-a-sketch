@@ -343,6 +343,25 @@ object RadiantForm: TRadiantForm
     ModalResult = 2
     TabOrder = 17
   end
+  object btnExport: TButton
+    Left = 24
+    Height = 32
+    Top = 600
+    Width = 236
+    Caption = 'Export the submittal...'
+    Hint = 'the system, the zone and loop schedules, every zone''s material list and notes, and the design record - how each zone was searched and what else it found'
+    OnClick = btnExportClick
+    ShowHint = True
+    TabOrder = 22
+  end
+  object sdExport: TSaveDialog
+    Title = 'Export the radiant submittal'
+    DefaultExt = '.txt'
+    Filter = 'Text (*.txt)|*.txt|All files|*'
+    Options = [ofOverwritePrompt, ofEnableSizing, ofViewDetail]
+    Left = 72
+    Top = 8
+  end
   object btnReport: TButton
     Left = 280
     Height = 32

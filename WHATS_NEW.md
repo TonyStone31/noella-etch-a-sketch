@@ -29,6 +29,17 @@
 - **Square the manifold** - right-click it for east - west, north -
   south, or either diagonal.  A manifold on a curved wall starts square
   to the sheet.
+- **A tab for every zone** in the radiant wizard: the zone's manifold,
+  how its search went, the layouts it found (click one to use it), and
+  its material list - and an All zones tab.  Click a zone on the plan to
+  bring its tab up.  The arrows and Replay search are gone.
+- **The search keeps a record** - when it ran, how many layouts, how
+  long, and what happened: goals changed, met or not, a manifold moved,
+  stopped by hand, given up on time.  It is on the material list.
+- **Export the submittal** - the system in brief, a schedule of the zones
+  and of every loop, each zone's material list and notes, and the design
+  record with the other layouts each search kept.  As text for now; as a
+  PDF, a zone to a page, when the PDF export takes pages of text.
 
 ### Fixed
 
