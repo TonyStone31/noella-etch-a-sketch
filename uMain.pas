@@ -24967,7 +24967,7 @@ begin
   Holes := False;
   if RunExport(FD.Doc, Proj, FD.Units, FDimFont, AnnotColor, FEdgeW,
        FArt.Width, FArt.Height, Base, Themes[FThemeIdx], ExpPivot,
-       @ReportFromDialog, @ExportDirFor, @KeepExportDir, Msg, Holes) then
+       @ReportFromDialog, @ExportDirFor, @KeepExportDir, Msg, Holes, FD.ScaleIdx) then
   begin
     FHint := Msg;
     FCmdMsg := Msg;

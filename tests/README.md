@@ -46,3 +46,13 @@ saved barn failure, derived manifold sizes, four-quadrant coverage from an
 interior manifold, complete return lengths, deterministic search and replay.
 See [the search notes](../docs/radiant-search.md) for measured improvements
 and the remaining coverage limits.
+
+## PDF export
+
+`./tests/run-pdf.sh` builds the pure Pascal writer with runtime checks and
+verifies all 21 paper sizes in both orientations, metric/imperial printed
+lengths, zoom independence, holes, clipping, and SVG labels. It independently
+reads PDF coordinates and rejects image objects.
+The outputs are `/tmp/hsk-pdf-*.pdf`. `./tests/run-drive.sh export-dialog`
+also opens the PDF controls and exports `/tmp/hsk-dialog-export.pdf` through
+the real UI (remove a previous output first to avoid the overwrite prompt).

@@ -41,3 +41,21 @@ at 388 428
 click
 wait 700
 shot /tmp/hsk-export-stl.png
+
+# PDF: paper, orientation and real print scale controls.
+at 388 542
+click
+wait 700
+shot /tmp/hsk-export-pdf.png
+
+# Write a PDF through the real dialog, including path normalization.
+at 610 674
+click
+hold ctrl
+key a
+let ctrl
+type /tmp/hsk-dialog-export.pdf
+at 1130 672
+click
+wait 2500
+shot /tmp/hsk-export-pdf-written.png

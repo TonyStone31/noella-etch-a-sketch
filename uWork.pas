@@ -26,7 +26,7 @@ interface
 
 uses
   Contnrs,
-  Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface, uTri, uDxf;
+  Classes, SysUtils, Types, Math, StrUtils, Graphics, uSurface, uTri, uDxf, uVector;
 
 type
   TUnitSystem = (usImperial, usMetric);
@@ -871,6 +871,8 @@ type
       Returns the triangle count, and says how many solids through Solids. }
     function WriteSCAD(L: TStrings; U: TUnitSystem; out Solids: Integer;
       out Closed: Boolean; AtOrigin: Boolean = True): Integer;
+    procedure WriteVectors(Writer: TVectorWriter; const V: TProjector;
+      U: TUnitSystem; EdgeW: Single);
     procedure WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
       EdgeW: Single);
 
@@ -11918,14 +11920,83 @@ begin
   end;
 end;
 
+{ Both formats consume these same projected entities, in the same order.
+  Like SVG, this exports geometry rather than the screen's hidden-line pass. }
+procedure TWorkDoc.WriteVectors(Writer: TVectorWriter; const V: TProjector;
+  U: TUnitSystem; EdgeW: Single);
+var
+  I, K, H, Steps: Integer;
+  Loops: TVectorLoops;
+  PA, PB: TPointF;
+  Ang: Double;
+  LabelText: string;
+begin
+  for I := 0 to FLive - 1 do
+  begin
+    Loops := nil;
+    case FEnts[I].Kind of
+      ekFace:
+        begin
+          SetLength(Loops, 1 + Length(FEnts[I].Holes));
+          SetLength(Loops[0], Length(FEnts[I].Poly));
+          for K := 0 to High(FEnts[I].Poly) do
+            Loops[0][K] := Project(V, FEnts[I].Poly[K]);
+          for H := 0 to High(FEnts[I].Holes) do
+          begin
+            SetLength(Loops[H + 1], Length(FEnts[I].Holes[H]));
+            for K := 0 to High(FEnts[I].Holes[H]) do
+              Loops[H + 1][K] := Project(V, FEnts[I].Holes[H][K]);
+          end;
+          Writer.Path(Loops, FEnts[I].Ink, 1, True);
+        end;
+      ekArc:
+        begin
+          if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides else Steps := 64;
+          SetLength(Loops, 1);
+          SetLength(Loops[0], Steps + 1);
+          for K := 0 to Steps do
+          begin
+            Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
+            Loops[0][K] := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R,
+              Ang, FEnts[I].Plane, FEnts[I].Nm));
+          end;
+          Writer.Path(Loops, FEnts[I].Ink, EdgeW, False);
+        end;
+      ekText:
+        begin
+          PA := Project(V, FEnts[I].A);
+          PA.X := PA.X + 5; PA.Y := PA.Y - 4;
+          Writer.Text(PA, FEnts[I].Txt, FEnts[I].Ink, 12, False);
+        end;
+      ekLine, ekDim:
+        begin
+          PA := Project(V, FEnts[I].A);
+          PB := Project(V, FEnts[I].B);
+          SetLength(Loops, 1);
+          SetLength(Loops[0], 2);
+          Loops[0][0] := PA; Loops[0][1] := PB;
+          Writer.Path(Loops, FEnts[I].Ink, EdgeW, False);
+          if FEnts[I].Dim then
+          begin
+            LabelText := FEnts[I].Txt;
+            if LabelText = '' then LabelText := FormatLen(Dist(FEnts[I].A, FEnts[I].B), U);
+            PA.X := (PA.X + PB.X) / 2;
+            PA.Y := (PA.Y + PB.Y) / 2 - 6;
+            Writer.Text(PA, LabelText, FEnts[I].Ink, 11, True);
+          end;
+        end;
+    end;
+  end;
+end;
+
 procedure TWorkDoc.WriteSVG(L: TStrings; const V: TProjector; U: TUnitSystem;
   EdgeW: Single);
 var
-  I, K, H, Steps: Integer;
-  PA, PB: TPointF;
-  Ang, MinX, MinY, MaxX, MaxY: Double;
+  I, K: Integer;
+  Writer: TSVGWriter;
+  MinX, MinY, MaxX, MaxY: Double;
   PW, PH, WUnit: Double;
-  Un, D: string;
+  Un: string;
 
   procedure Grow(const P: TPointF);
   begin
@@ -11933,11 +12004,6 @@ var
     MaxX := Max(MaxX, P.X); MaxY := Max(MaxY, P.Y);
   end;
 
-  function Col(C: TColor): string;
-  begin
-    Result := Format('#%.2x%.2x%.2x',
-      [Byte(C), Byte(C shr 8), Byte(C shr 16)]);
-  end;
 
 begin
   MinX := 1E30; MinY := 1E30; MaxX := -1E30; MaxY := -1E30;
@@ -11988,76 +12054,12 @@ begin
     'width="%.3f%s" height="%.3f%s" viewBox="%.2f %.2f %.2f %.2f">',
     [PW, Un, PH, Un, MinX, MinY, MaxX - MinX, MaxY - MinY], FS));
 
-  for I := 0 to FLive - 1 do
-    case FEnts[I].Kind of
-      ekFace:
-        begin
-          { A path rather than a polygon, because a polygon cannot have a
-            hole in it and a face can.  Each loop is one subpath and the
-            even-odd rule fills between them, which is the same rule the
-            screen uses - so a wall exported with a window in it arrives with
-            the window, and the sheet somebody cuts from this has the opening
-            the drawing had. }
-          D := '';
-          for K := 0 to High(FEnts[I].Poly) do
-          begin
-            PA := Project(V, FEnts[I].Poly[K]);
-            if K = 0 then D := D + 'M ' else D := D + 'L ';
-            D := D + Format('%.2f %.2f ', [PA.X, PA.Y], FS);
-          end;
-          D := D + 'Z ';
-          for H := 0 to High(FEnts[I].Holes) do
-          begin
-            for K := 0 to High(FEnts[I].Holes[H]) do
-            begin
-              PA := Project(V, FEnts[I].Holes[H][K]);
-              if K = 0 then D := D + 'M ' else D := D + 'L ';
-              D := D + Format('%.2f %.2f ', [PA.X, PA.Y], FS);
-            end;
-            D := D + 'Z ';
-          end;
-          L.Add(Format('<path d="%s" fill="#d8d8d8" fill-rule="evenodd" ' +
-            'stroke="%s" stroke-width="1"/>', [Trim(D), Col(FEnts[I].Ink)]));
-        end;
-      ekArc:
-        begin
-          if FEnts[I].Sides >= 3 then Steps := FEnts[I].Sides else Steps := 64;
-          D := '';
-          for K := 0 to Steps do
-          begin
-            Ang := FEnts[I].A0 + FEnts[I].Sweep * K / Steps;
-            PA := Project(V, ArcPoint(FEnts[I].C, FEnts[I].R, Ang, FEnts[I].Plane, FEnts[I].Nm));
-            D := D + Format('%.2f,%.2f ', [PA.X, PA.Y], FS);
-          end;
-          L.Add(Format('<polyline points="%s" fill="none" stroke="%s" ' +
-            'stroke-width="%.2f"/>', [Trim(D), Col(FEnts[I].Ink), EdgeW], FS));
-        end;
-      ekText:
-        begin
-          PA := Project(V, FEnts[I].A);
-          L.Add(Format('<text x="%.2f" y="%.2f" font-family="sans-serif" ' +
-            'font-size="12" fill="%s">%s</text>',
-            [PA.X + 5, PA.Y - 4, Col(FEnts[I].Ink), FEnts[I].Txt], FS));
-        end;
-      ekLine, ekDim:
-        begin
-          PA := Project(V, FEnts[I].A);
-          PB := Project(V, FEnts[I].B);
-          L.Add(Format('<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" ' +
-            'stroke="%s" stroke-width="%.2f"/>',
-            [PA.X, PA.Y, PB.X, PB.Y, Col(FEnts[I].Ink), EdgeW], FS));
-          if FEnts[I].Dim then
-            { the written-over figure goes out too - an export that quietly
-              put the measured length back would be worse than no export,
-              because it is the file that gets sent }
-            L.Add(Format('<text x="%.2f" y="%.2f" font-family="sans-serif" ' +
-              'font-size="11" text-anchor="middle" fill="%s">%s</text>',
-              [(PA.X + PB.X) / 2, (PA.Y + PB.Y) / 2 - 6, Col(FEnts[I].Ink),
-               XmlText(IfThen(FEnts[I].Txt <> '', FEnts[I].Txt,
-                 FormatLen(Dist(FEnts[I].A, FEnts[I].B), U)))], FS));
-        end;
-    end;
-
+  Writer := TSVGWriter.Create(L);
+  try
+    WriteVectors(Writer, V, U, EdgeW);
+  finally
+    Writer.Free;
+  end;
   L.Add('</svg>');
 end;
 

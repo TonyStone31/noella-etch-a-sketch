@@ -29,11 +29,11 @@ uses
   Classes, SysUtils, Math, Types, Graphics, Controls, Forms, StdCtrls,
   ExtCtrls, ComCtrls, Dialogs, LCLType,
   BCButton, BCPanel, BCLabel,
-  uSurface, uWork, uSkin, uDlgSkin, uShoot, uRecord;
+  uPdf, uSurface, uWork, uSkin, uDlgSkin, uShoot, uRecord;
 
 type
   TExportKind = (exPng, exJpeg, exGif, exWebP, exSvg, exDxfView, exDxfModel,
-    exStl, exScad);
+    exStl, exScad, exPdf);
 
 type
   { how the dialog asks the main window to send a bug report - it cannot do
@@ -54,7 +54,7 @@ function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
   const Suggest: string; const T: TTheme; const Pivot: TP3;
   OnReport: TReportProc; DirFor: TDirFor; DirKeep: TDirKeep;
-  out Msg: string; out ShowHoles: Boolean): Boolean;
+  out Msg: string; out ShowHoles: Boolean; PrintScale: Integer = 2): Boolean;
 
 implementation
 
@@ -122,6 +122,7 @@ type
     FTellBad: TLabel;
     FCam: TCamPath;
     FDxfWhat: TComboBox;
+    FPdfPaper, FPdfOrientation, FPdfScale: TComboBox;
     FTimer: TTimer;
     FPrevS: TArtSurface;
     { how far along an export is, and what it is doing }
@@ -130,6 +131,8 @@ type
     FDone, FTotal: Integer;
     FDoing: string;
 
+    function PdfDenominator: Double;
+    function PdfPreviewView: TProjector;
     procedure ComboDraw(Control: TWinControl; Index: Integer;
       ARect: TRect; State: TOwnerDrawState);
     procedure BuildChrome;
@@ -207,10 +210,10 @@ const
 
   KIND_NAME: array[TExportKind] of string =
     ('PNG', 'JPEG', 'GIF', 'WebP', 'SVG', 'DXF view', 'DXF model', 'STL',
-     'OpenSCAD');
+     'OpenSCAD', 'PDF');
   KIND_EXT: array[TExportKind] of string =
     ('.png', '.jpg', '.gif', '.webp', '.svg', '.dxf', '.dxf', '.stl',
-     '.scad');
+     '.scad', '.pdf');
   KIND_BLURB: array[TExportKind] of string =
     ('A picture, with the paper behind it or nothing at all.',
      'A picture, smaller and slightly softened.  No transparency.',
@@ -221,7 +224,8 @@ const
      'This view, flat, as entities somebody can measure in their own CAD.',
      'The model itself, in three dimensions, faces and all.',
      'Triangles in millimeters, which is what a 3D printer wants.',
-     'A polyhedron per solid, to cut and union in OpenSCAD.');
+     'A polyhedron per solid, to cut and union in OpenSCAD.',
+     'Paper, orientation, then print scale. Vector geometry; 10 mm margins and a scale bar. Print at 100%.');
 
 { ------------------------------------------------------------------------ }
 
@@ -393,6 +397,55 @@ begin
   FHEdit.SetBounds(146, 148, 100, 26);
   uDlgSkin.SkinEdit(FHEdit);
   FByLbl := MkLbl(Opt, 'x', 122, 150, 16, True);
+
+  FPdfPaper := TComboBox.Create(Self);
+  FPdfPaper.Parent := Opt;
+  FPdfPaper.SetBounds(14, 116, 232, 26);
+  for Y := Low(PDF_SHEETS) to High(PDF_SHEETS) do
+    FPdfPaper.Items.Add(PDF_SHEETS[Y].Name);
+  FPdfPaper.ItemIndex := 0;
+  FPdfPaper.Style := csOwnerDrawFixed;
+  FPdfPaper.ItemHeight := 22;
+  FPdfPaper.OnDrawItem := @ComboDraw;
+  FPdfPaper.OnChange := @SizeChanged;
+  FPdfPaper.Color := FSize.Color;
+  FPdfPaper.Font.Color := FSize.Font.Color;
+  FPdfOrientation := TComboBox.Create(Self);
+  FPdfOrientation.Parent := Opt;
+  FPdfOrientation.SetBounds(14, 150, 232, 26);
+  FPdfOrientation.Items.Add('Portrait');
+  FPdfOrientation.Items.Add('Landscape');
+  FPdfOrientation.ItemIndex := 1;
+  FPdfOrientation.Style := csOwnerDrawFixed;
+  FPdfOrientation.OnDrawItem := @ComboDraw;
+  FPdfOrientation.OnChange := @SizeChanged;
+  FPdfOrientation.Color := FSize.Color;
+  FPdfOrientation.Font.Color := FSize.Font.Color;
+  FPdfScale := TComboBox.Create(Self);
+  FPdfScale.Parent := Opt;
+  FPdfScale.SetBounds(14, 184, 232, 26);
+  for Y := 0 to SCALE_COUNT - 1 do
+    if FUnits = usImperial then
+      FPdfScale.Items.Add(ScaleTable(FUnits, Y).Name + ' = 1 foot')
+    else FPdfScale.Items.Add(ScaleTable(FUnits, Y).Name);
+  FPdfScale.Items.Add('1:1');
+  FPdfScale.Items.Add('1:2');
+  FPdfScale.Items.Add('1:5');
+  FPdfScale.Items.Add('1:25');
+  FPdfScale.Items.Add('1:250');
+  FPdfScale.Items.Add('1:500');
+  FPdfScale.Items.Add('1:1000');
+  FPdfScale.Items.Add('1:240 (1 inch = 20 feet)');
+  FPdfScale.Items.Add('1:360 (1 inch = 30 feet)');
+  FPdfScale.Items.Add('1:480 (1 inch = 40 feet)');
+  FPdfScale.Items.Add('1:600 (1 inch = 50 feet)');
+  FPdfScale.Items.Add('1:1200 (1 inch = 100 feet)');
+  FPdfScale.ItemIndex := 2;
+  FPdfScale.Style := csOwnerDrawFixed;
+  FPdfScale.OnDrawItem := @ComboDraw;
+  FPdfScale.OnChange := @SizeChanged;
+  FPdfScale.Color := FSize.Color;
+  FPdfScale.Font.Color := FSize.Font.Color;
 
   FTransp := MkBtn(Opt, '', 14, 212, 232, 26, bkPlain);
   FTransp.Tag := 1;
@@ -649,7 +702,7 @@ var
   K: TExportKind;
   Raster, Anim: Boolean;
   W, H, NF, Rate: Integer;
-  Secs: Double;
+  Secs, PW, PH, Fit: Double;
 begin
   for K := Low(TExportKind) to High(TExportKind) do
     if K = FKind then uDlgSkin.SkinButton(FKindBtn[K], bkGo)
@@ -659,9 +712,18 @@ begin
   FNoteLbl.Caption := KIND_BLURB[FKind];
 
   Raster := FKind in [exPng, exJpeg, exGif, exWebP];
+  FPdfPaper.Visible := FKind = exPdf;
+  FPdfOrientation.Visible := FKind = exPdf;
+  FPdfScale.Visible := FKind = exPdf;
+  if FKind = exPdf then
+    FHint.Caption := 'Drawing area at the selected print scale. Right-drag to frame; middle-drag to turn. Use PLAN for measured plans.'
+  else
+    FHint.Caption := 'Middle-drag turns it, right-drag slides it, wheel zooms - the same as the drawing.';
   Anim := FKind in [exGif, exWebP];
 
-  FSizeLbl.Visible := Raster;
+  FSizeLbl.Visible := Raster or (FKind = exPdf);
+  if FKind = exPdf then FSizeLbl.Caption := 'Paper / orientation / scale'
+  else FSizeLbl.Caption := 'Size';
   FSize.Visible := Raster;
   FWEdit.Visible := Raster and (FSize.ItemIndex = SIZE_MINE);
   FHEdit.Visible := FWEdit.Visible;
@@ -688,7 +750,8 @@ begin
         [CamPathLength(FCam)]);
   end;
   FClipLbl.Visible := Anim;
-  FAxes.Visible := Raster;
+  FAxes.Visible := Raster or (FKind = exPdf);
+  if FKind = exPdf then FAxes.Top := 224 else FAxes.Top := 180;
   FRec.Visible := Anim;
   FDxfWhat.Visible := FKind in [exDxfView, exDxfModel];
   { the origin matters to anything importing the model - a slicer, a CAD, a
@@ -735,6 +798,16 @@ begin
   else if Raster then
     FShotLbl.Caption := 'that size will not do';
 
+  if FKind = exPdf then
+  begin
+    PdfSheetSize(FPdfPaper.ItemIndex, FPdfOrientation.ItemIndex = 1, PW, PH);
+    PW := PW - 2 * PDF_MARGIN;
+    PH := PH - 2 * PDF_MARGIN - PDF_FOOTER;
+    Fit := Min(420 / PW, 396 / PH);
+    FPrev.SetBounds(10 + Round((420 - PW * Fit) / 2),
+      10 + Round((396 - PH * Fit) / 2), Round(PW * Fit), Round(PH * Fit));
+  end
+  else FPrev.SetBounds(10, 10, 420, 396);
   FPrev.Invalidate;
 end;
 
@@ -878,6 +951,30 @@ begin
   Result := SampleCamPath(FCam, T);
 end;
 
+function TExportDlg.PdfDenominator: Double;
+const
+  Extra: array[0..11] of Double = (1, 2, 5, 25, 250, 500, 1000,
+    240, 360, 480, 600, 1200);
+begin
+  if FPdfScale.ItemIndex >= SCALE_COUNT then
+    Exit(Extra[FPdfScale.ItemIndex - SCALE_COUNT]);
+  Result := ScaleTable(FUnits, FPdfScale.ItemIndex).Paper;
+  if FUnits = usImperial then Result := 12 / Result
+  else Result := 1 / Result;
+end;
+
+function TExportDlg.PdfPreviewView: TProjector;
+var
+  PW, PH, MMUnit: Double;
+begin
+  PdfSheetSize(FPdfPaper.ItemIndex, FPdfOrientation.ItemIndex = 1, PW, PH);
+  if FUnits = usImperial then MMUnit := 304.8 else MMUnit := 1000;
+  Result := FView;
+  Result.Ppu := MMUnit / PdfDenominator * FPrev.Width / (PW - 2 * PDF_MARGIN);
+  Result.OX := FPrev.Width / 2 + (FView.OX - FSrcW / 2) * Result.Ppu / FView.Ppu;
+  Result.OY := FPrev.Height / 2 + (FView.OY - FSrcH / 2) * Result.Ppu / FView.Ppu;
+end;
+
 procedure TExportDlg.PrevPaint(Sender: TObject);
 var
   S: TArtSurface;
@@ -899,8 +996,10 @@ begin
   if FPrevS = nil then
     FPrevS := TArtSurface.Create(Max(1, FPrev.Width), Max(1, FPrev.Height));
   S := FPrevS;
-  ShootInto(S, FDoc, Fitted(V, FSrcW, FSrcH, FPrev.Width, FPrev.Height),
-    FUnits, FFont, FLabelCol, FEdgeW, Bg, FDragging or FPlaying);
+  if FKind = exPdf then V := PdfPreviewView
+  else V := Fitted(V, FSrcW, FSrcH, FPrev.Width, FPrev.Height);
+  ShootInto(S, FDoc, V,
+    FUnits, FFont, FLabelCol, FEdgeW, Bg, FDragging or FPlaying, FAxesOn);
   FPrev.Canvas.Draw(0, 0, S.AsBitmap);
 end;
 
@@ -927,6 +1026,7 @@ begin
     you can grab it part way through a turn and slide instead - which is what
     the drawing area does and what the hand expects. }
   K := ViewScale(FSrcW, FSrcH, FPrev.Width, FPrev.Height);
+  if FKind = exPdf then K := PdfPreviewView.Ppu / FView.Ppu;
   if FPanning or (ssShift in Shift) then
     { the preview and the shot are different sizes, so a slide measured here
       goes back through the same scale the picture was fitted with, or it
@@ -960,6 +1060,11 @@ begin
   { 1.15 and anchored on the cursor, both the same as the drawing area.
     MousePos is in screen terms, so it comes back to the preview and then
     through the fitting scale into the terms the view is kept in. }
+  if FKind = exPdf then
+  begin
+    Handled := True;
+    Exit;
+  end;
   P := FPrev.ScreenToClient(MousePos);
   K := ViewScale(FSrcW, FSrcH, FPrev.Width, FPrev.Height);
   AX := FSrcW / 2 + (P.X - FPrev.Width / 2) / K;
@@ -1153,6 +1258,7 @@ end;
 
 procedure TExportDlg.WriteIt;
 var
+  PW, PH: Double;
   W, H, N, NTri: Integer;
   Fn: string;
   L: TStringList;
@@ -1166,6 +1272,17 @@ begin
   if ExtractFileDir(Fn) <> '' then
     ForceDirectories(ExtractFileDir(Fn));
   case FKind of
+    exPdf:
+      begin
+        FStage := 'working out the size';
+        PdfSheetSize(FPdfPaper.ItemIndex, FPdfOrientation.ItemIndex = 1, PW, PH);
+        FStage := 'writing the vector PDF';
+        SaveDrawingPDF(FDoc, FView, FSrcW, FSrcH, FUnits, FEdgeW,
+          Fn, PW, PH, PdfDenominator, FAxesOn);
+        FMsg := Format('Wrote %s - one vector page, scale 1:%g.',
+          [ExtractFileName(Fn), PdfDenominator]);
+      end;
+
     exSvg:
       begin
         FStage := 'writing the SVG';
@@ -1276,13 +1393,14 @@ function RunExport(Doc: TWorkDoc; const V: TProjector; U: TUnitSystem;
   AFont: TFont; const LabelCol: TPix; EdgeW: Single; SrcW, SrcH: Integer;
   const Suggest: string; const T: TTheme; const Pivot: TP3;
   OnReport: TReportProc; DirFor: TDirFor; DirKeep: TDirKeep;
-  out Msg: string; out ShowHoles: Boolean): Boolean;
+  out Msg: string; out ShowHoles: Boolean; PrintScale: Integer): Boolean;
 var
   Dlg: TExportDlg;
 begin
   uDlgSkin.UseTheme(T);
   Dlg := TExportDlg.Make(Doc, V, U, AFont, LabelCol, EdgeW, SrcW, SrcH,
     Suggest, DirFor, DirKeep);
+  Dlg.FPdfScale.ItemIndex := EnsureRange(PrintScale, 0, SCALE_COUNT - 1);
   Dlg.FOnReport := OnReport;
   Dlg.FPivot := Pivot;
   try
