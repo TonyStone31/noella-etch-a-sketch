@@ -9849,9 +9849,9 @@ begin
   B := RadiantSubmittal(Job);
   Txt := SubmittalAsText(B);
   Ok(Pos('Test barn', Txt) = 1, 'the submittal is titled for the job');
-  Ok(Pos('Zone 1 - design record', Txt) > 0, '  each zone has its design record');
-  Ok(Pos('layouts tried in', Txt) > 0, '  which says how long the search worked');
-  Ok(Pos('Zone 1 - material and notes', Txt) > 0, '  and its material list');
+  Ok(Pos('Material list', Txt) > 0, '  with the material list');
+  Ok(Pos('Design record', Txt) > 0, '  and the design record');
+  Ok(Pos('layouts tried in', Txt) > 0, '  which says how long each search worked');
   Pages := 0;
   for I := 0 to High(B) do if B[I].Kind = skPageBreak then Inc(Pages);
   Ok(Pages >= 2, Format('  a zone to a page, and the notes on their own: %d page breaks', [Pages]));
@@ -9862,6 +9862,26 @@ begin
   for I := 0 to High(Lb) do if Pos('Z1 L', Lb[I].Text) = 1 then Inc(Tags);
   EqI(Loops, Length(Job.Layouts[0].Loops), '  the plan draws every loop');
   EqI(Tags, Length(Job.Layouts[0].Loops), '  and tags every loop with its name and length');
+  { and as a PDF: letter pages, the cover, the zone's page, the record }
+  SubmittalToPdf(Job, B, '/tmp/hsk-radiant-submittal.pdf', 215.9, 279.4);
+  with TStringList.Create do
+  try
+    LoadFromFile('/tmp/hsk-radiant-submittal.pdf');
+    Txt := Text;
+  finally
+    Free;
+  end;
+  Ok(Copy(Txt, 1, 5) = '%PDF-', '  the PDF is written');
+  Ok(Pos('/MediaBox [0 0 612', Txt) > 0, '  on letter paper');
+  Pages := 0;
+  I := Pos('/Type /Page', Txt);
+  while I > 0 do
+  begin
+    if Copy(Txt, I, 12) <> '/Type /Pages' then Inc(Pages);
+    Delete(Txt, 1, I);
+    I := Pos('/Type /Page', Txt);
+  end;
+  Ok(Pages >= 3, Format('  on its own pages: %d', [Pages]));
 end;
 
 { The owner's odd floor, report 20260925-161037: a triangle whose long

@@ -7,7 +7,7 @@ unit uPdf;
 
 interface
 
-uses uWork;
+uses Classes, Types, Graphics, fpPDF, fpTTF, uWork;
 
 type
   TPdfSheet = record
@@ -40,7 +40,48 @@ const
     (Name: 'ISO A5 - 148 x 210 mm'; W: 148; H: 210),
     (Name: 'Engineering F - 28 x 40 in'; W: 711.2; H: 1016));
 
+type
+  { A document of pages to write on, for what is not one drawing on one
+    sheet - the radiant submittal: text that wraps, tables, a plan in lines.
+    Millimeters from the top left of the page, sizes in points; the fonts
+    the drawing export uses (a system sans read directly, subset and
+    embedded), a bold one where the system has it. }
+  TPdfBook = class
+  private
+    FPDF: TPDFDocument;
+    FPage: TPDFPage;
+    { every page in the one section: fpPDF gives the pages of a second
+      section no parent unless outlines are on, and cannot write them }
+    FSection: TPDFSection;
+    FPages: TList;
+    FW, FH: Double;
+    FFont, FBold: Integer;
+    FMetrics, FBoldMetrics: TFPFontCacheItem;
+    function Y(Y0: Double): Double;
+  public
+    constructor Create(const Title: string; PageW, PageH: Double);
+    destructor Destroy; override;
+    { a new page, the one written on from here; its number from 1 }
+    function NewPage: Integer;
+    { back to page N (from 1) - a footer written once the count is known }
+    procedure OnPage(N: Integer);
+    function PageCount: Integer;
+    { S with its baseline at Y }
+    procedure Text(X, Y0: Double; const S: string; SizePt: Double;
+      Ink: TColor = clBlack; Bold: Boolean = False);
+    function TextWidth(const S: string; SizePt: Double; Bold: Boolean = False): Double;
+    procedure Line(X1, Y1, X2, Y2: Double; Ink: TColor; WidthMM: Double);
+    procedure Poly(const Pts: array of TPointF; Closed: Boolean; Ink: TColor;
+      WidthMM: Double; Fill: TColor = clNone);
+    procedure SaveToFile(const Path: string);
+    property Width: Double read FW;
+    property Height: Double read FH;
+  end;
+
 procedure PdfSheetSize(Index: Integer; Landscape: Boolean; out W, H: Double);
+{ A print scale as the trade says it: 1/4" = 1'-0" for an imperial drawing
+  when the scale is one, 1:100 otherwise. }
+function PdfScaleWords(Denominator: Double; U: TUnitSystem): string;
 { The camera supplies the center and direction, not the printed scale. }
 procedure SaveDrawingPDF(Doc: TWorkDoc; const V: TProjector;
   SrcW, SrcH: Integer; U: TUnitSystem; EdgeW: Single; const Path: string;
@@ -48,7 +89,26 @@ procedure SaveDrawingPDF(Doc: TWorkDoc; const V: TProjector;
 
 implementation
 
-uses SysUtils, Math, Types, Graphics, fpPDF, fpTTF, uVector;
+uses SysUtils, Math, uVector;
+
+{ the system sans the drawing export embeds, regular or bold, '' when
+  there is none }
+function SansFontFile(Bold: Boolean): string;
+begin
+  {$ifdef windows}
+  if Bold then Result := 'arialbd.ttf' else Result := 'arial.ttf';
+  Result := IncludeTrailingPathDelimiter(GetEnvironmentVariable('WINDIR')) + 'Fonts\' + Result;
+  if FileExists(Result) then Exit;
+  {$else}
+  if Bold then Result := '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+  else Result := '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+  if FileExists(Result) then Exit;
+  if Bold then Result := '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'
+  else Result := '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf';
+  if FileExists(Result) then Exit;
+  {$endif}
+  Result := '';
+end;
 
 type
   TPDFVectorWriter = class(TVectorWriter)
@@ -155,6 +215,29 @@ begin
   FPage.WriteText(A, S);
 end;
 
+function PdfScaleWords(Denominator: Double; U: TUnitSystem): string;
+var
+  Inch, Num: Double;
+  Den: Integer;
+begin
+  Result := Format('1:%g', [Denominator]);
+  if (U <> usImperial) or (Denominator <= 0) then Exit;
+  { inches of paper to the foot }
+  Inch := 12 / Denominator;
+  Den := 1;
+  while Den <= 128 do
+  begin
+    Num := Inch * Den;
+    if Abs(Num - Round(Num)) < 1E-9 then
+    begin
+      if Den = 1 then Result := Format('%d" = 1''-0"', [Round(Num)])
+      else Result := Format('%d/%d" = 1''-0"', [Round(Num), Den]);
+      Exit;
+    end;
+    Den := Den * 2;
+  end;
+end;
+
 procedure PdfSheetSize(Index: Integer; Landscape: Boolean; out W, H: Double);
 begin
   if (Index < Low(PDF_SHEETS)) or (Index > High(PDF_SHEETS)) then
@@ -252,7 +335,7 @@ begin
       Page.DrawLine(PDF_MARGIN + BarMM, 10, PDF_MARGIN + BarMM, 14, 0.7);
       Page.SetFont(Writer.FFont, 9);
       Page.WriteText(PDF_MARGIN, 16, FormatLen(Bar, U));
-      Page.WriteText(PDF_MARGIN, 5, Format('1:%g (view plane) - print at 100%% / Actual size', [Denominator]));
+      Page.WriteText(PDF_MARGIN, 5, PdfScaleWords(Denominator, U) + ' (view plane) - print at 100% / Actual size');
       PDF.SaveToFile(Path);
     finally
       Writer.Free;
@@ -260,6 +343,122 @@ begin
   finally
     PDF.Free;
   end;
+end;
+
+{ ---- TPdfBook ---- }
+
+constructor TPdfBook.Create(const Title: string; PageW, PageH: Double);
+var
+  F: string;
+begin
+  inherited Create;
+  FW := PageW; FH := PageH;
+  FPages := TList.Create;
+  FPDF := TPDFDocument.Create(nil);
+  FPDF.Options := [poSubsetFont, poCompressFonts];
+  FPDF.Infos.Title := Title;
+  FPDF.Infos.Producer := 'Heckers Sketch';
+  FPDF.Infos.CreationDate := Now;
+  FPDF.DefaultUnitOfMeasure := uomMillimeters;
+  FPDF.StartDocument;
+  FSection := FPDF.Sections.AddSection;
+  F := SansFontFile(False);
+  if F <> '' then
+  begin
+    FMetrics := TFPFontCacheItem.Create(F);
+    FFont := FPDF.AddFont(F, 'BookSans');
+  end
+  else FFont := FPDF.AddFont('Helvetica');
+  F := SansFontFile(True);
+  if (F <> '') and (FMetrics <> nil) then
+  begin
+    FBoldMetrics := TFPFontCacheItem.Create(F);
+    FBold := FPDF.AddFont(F, 'BookSansBold');
+  end
+  else if FMetrics = nil then FBold := FPDF.AddFont('Helvetica-Bold')
+  else FBold := FFont;
+end;
+
+destructor TPdfBook.Destroy;
+begin
+  FMetrics.Free;
+  FBoldMetrics.Free;
+  FPages.Free;
+  FPDF.Free;
+  inherited Destroy;
+end;
+
+function TPdfBook.Y(Y0: Double): Double;
+begin
+  Result := FH - Y0;
+end;
+
+function TPdfBook.NewPage: Integer;
+var
+  Paper: TPDFPaper;
+begin
+  FPage := FPDF.Pages.AddPage;
+  Paper := Default(TPDFPaper);
+  Paper.W := FW * 72 / 25.4;
+  Paper.H := FH * 72 / 25.4;
+  FPage.Paper := Paper;
+  FSection.AddPage(FPage);
+  FPages.Add(FPage);
+  Result := FPages.Count;
+end;
+
+procedure TPdfBook.OnPage(N: Integer);
+begin
+  if (N >= 1) and (N <= FPages.Count) then FPage := TPDFPage(FPages[N - 1]);
+end;
+
+function TPdfBook.PageCount: Integer;
+begin
+  Result := FPages.Count;
+end;
+
+procedure TPdfBook.Text(X, Y0: Double; const S: string; SizePt: Double; Ink: TColor; Bold: Boolean);
+begin
+  if (FPage = nil) or (S = '') then Exit;
+  FPage.SetColor(PDFColor(Ink), False);
+  if Bold then FPage.SetFont(FBold, SizePt) else FPage.SetFont(FFont, SizePt);
+  FPage.WriteText(X, Y(Y0), S);
+end;
+
+function TPdfBook.TextWidth(const S: string; SizePt: Double; Bold: Boolean): Double;
+var
+  M: TFPFontCacheItem;
+begin
+  if Bold and (FBoldMetrics <> nil) then M := FBoldMetrics else M := FMetrics;
+  if M <> nil then Result := M.TextWidth(S, 0) / M.FontData.Head.UnitsPerEm * SizePt * 25.4 / 72
+  else Result := Length(UTF8Decode(S)) * SizePt * 0.55 * 25.4 / 72;
+end;
+
+procedure TPdfBook.Line(X1, Y1, X2, Y2: Double; Ink: TColor; WidthMM: Double);
+begin
+  if FPage = nil then Exit;
+  FPage.SetColor(PDFColor(Ink), True);
+  FPage.DrawLine(X1, Y(Y1), X2, Y(Y2), WidthMM * 72 / 25.4, True);
+end;
+
+procedure TPdfBook.Poly(const Pts: array of TPointF; Closed: Boolean; Ink: TColor;
+  WidthMM: Double; Fill: TColor);
+var
+  I: Integer;
+begin
+  if (FPage = nil) or (Length(Pts) < 2) then Exit;
+  FPage.SetColor(PDFColor(Ink), True);
+  if Fill <> clNone then FPage.SetColor(PDFColor(Fill), False);
+  FPage.MoveTo(Pts[0].X, Y(Pts[0].Y));
+  for I := 1 to High(Pts) do
+    FPage.DrawLine(Pts[I - 1].X, Y(Pts[I - 1].Y), Pts[I].X, Y(Pts[I].Y), WidthMM * 72 / 25.4, False);
+  if Closed then FPage.ClosePath;
+  if Fill <> clNone then FPage.FillEvenOddStrokePath else FPage.StrokePath;
+end;
+
+procedure TPdfBook.SaveToFile(const Path: string);
+begin
+  FPDF.SaveToFile(Path);
 end;
 
 end.

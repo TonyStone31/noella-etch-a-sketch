@@ -1588,8 +1588,8 @@ begin
   C.Pen.Width := 1;
 end;
 
-{ The job as a submittal - for now as text; the PDF when its writer takes
-  pages of text and a plan in vectors (see uRadiantSubmittal). }
+{ The job as a submittal: a PDF, a zone to a page, or its text (see
+  uRadiantSubmittal). }
 procedure TRadiantForm.btnExportClick(Sender: TObject);
 var
   Job: TRadiantJob;
@@ -1615,14 +1615,22 @@ begin
     if Z <= High(FSolutions) then Job.Solutions[Z] := FSolutions[Z] else Job.Solutions[Z] := nil;
     if Z <= High(FSolIdx) then Job.Picked[Z] := FSolIdx[Z] else Job.Picked[Z] := 0;
   end;
-  if Job.Title <> '' then sdExport.FileName := Job.Title + ' - radiant submittal.txt'
-  else sdExport.FileName := 'radiant submittal ' + FormatDateTime('yyyy-mm-dd', Now) + '.txt';
+  if Job.Title <> '' then sdExport.FileName := Job.Title + ' - radiant submittal.pdf'
+  else sdExport.FileName := 'radiant submittal ' + FormatDateTime('yyyy-mm-dd', Now) + '.pdf';
   if not sdExport.Execute then Exit;
   L := TStringList.Create;
   try
-    L.Text := SubmittalAsText(RadiantSubmittal(Job));
     try
-      L.SaveToFile(sdExport.FileName);
+      { a PDF on letter paper, or A4 for a metric drawing - the text of
+        it when a .txt was asked for }
+      if LowerCase(ExtractFileExt(sdExport.FileName)) = '.txt' then
+      begin
+        L.Text := SubmittalAsText(RadiantSubmittal(Job));
+        L.SaveToFile(sdExport.FileName);
+      end
+      else if FUnits = usImperial then
+        SubmittalToPdf(Job, RadiantSubmittal(Job), sdExport.FileName, 215.9, 279.4)
+      else SubmittalToPdf(Job, RadiantSubmittal(Job), sdExport.FileName, 210, 297);
       lblProblem.Caption := 'Exported: ' + ExtractFileName(sdExport.FileName);
     except
       on E: Exception do lblProblem.Caption := 'Could not write it: ' + E.Message;

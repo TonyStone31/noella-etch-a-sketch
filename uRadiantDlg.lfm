@@ -356,8 +356,8 @@ object RadiantForm: TRadiantForm
   end
   object sdExport: TSaveDialog
     Title = 'Export the radiant submittal'
-    DefaultExt = '.txt'
-    Filter = 'Text (*.txt)|*.txt|All files|*'
+    DefaultExt = '.pdf'
+    Filter = 'PDF (*.pdf)|*.pdf|Text (*.txt)|*.txt'
     Options = [ofOverwritePrompt, ofEnableSizing, ofViewDetail]
     Left = 72
     Top = 8
