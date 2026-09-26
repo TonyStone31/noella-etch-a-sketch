@@ -14,6 +14,11 @@
 
 ### New
 
+- **Export the drawing as a PDF, to scale.**  Pick the paper - letter and
+  tabloid through ARCH E, ISO A5 through A0 - portrait or landscape, and a
+  print scale; the lines, faces, arcs, notes and dimensions come out as
+  sharp vector lines with a scale bar.  Print it at 100%.
+
 - **How far apart the loops are, in feet as well** - beside the
   percentage in the search window, the solution arrows, the evenness bar
   and the ticket: the longest loop less the shortest.

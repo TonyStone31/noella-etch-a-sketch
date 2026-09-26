@@ -17,6 +17,11 @@ const
     '' + LineEnding +
     '### New' + LineEnding +
     '' + LineEnding +
+    '- **Export the drawing as a PDF, to scale.**  Pick the paper - letter and' + LineEnding +
+    '  tabloid through ARCH E, ISO A5 through A0 - portrait or landscape, and a' + LineEnding +
+    '  print scale; the lines, faces, arcs, notes and dimensions come out as' + LineEnding +
+    '  sharp vector lines with a scale bar.  Print it at 100%.' + LineEnding +
+    '' + LineEnding +
     '- **How far apart the loops are, in feet as well** - beside the' + LineEnding +
     '  percentage in the search window, the solution arrows, the evenness bar' + LineEnding +
     '  and the ticket: the longest loop less the shortest.' + LineEnding +
