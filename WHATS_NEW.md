@@ -44,6 +44,10 @@
 
 ### Fixed
 
+- **Slash commands complete to the one you meant.**  A command's own name
+  now comes before one it is also called by - `/reb` and Tab gives
+  `/rebuild`, even after using `/reface` (which is also `rebuildfaces`).
+
 - **A problem report sent from inside a dialog took a picture of the
   whole screen** - every monitor and every other program on them.  Now it
   is only this program's own windows.

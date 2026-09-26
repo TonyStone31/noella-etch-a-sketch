@@ -47,6 +47,10 @@ const
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
+    '- **Slash commands complete to the one you meant.**  A command''s own name' + LineEnding +
+    '  now comes before one it is also called by - `/reb` and Tab gives' + LineEnding +
+    '  `/rebuild`, even after using `/reface` (which is also `rebuildfaces`).' + LineEnding +
+    '' + LineEnding +
     '- **A problem report sent from inside a dialog took a picture of the' + LineEnding +
     '  whole screen** - every monitor and every other program on them.  Now it' + LineEnding +
     '  is only this program''s own windows.' + LineEnding +

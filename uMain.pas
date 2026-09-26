@@ -4574,23 +4574,31 @@ var
   Parts: TStringList;
   Want: string;
 
-  { 0 no match, 1 it starts with it, 2 it is in there somewhere }
+  { How well a word matches what is typed: 0 it is it, 2 it starts with
+    it, 4 it is in there somewhere, -1 not at all.  A command's own name
+    ranks a step ahead of one of its other words (see Rank): "/reb" is
+    rebuild, not reface because reface is also called rebuildfaces - and
+    recency, which orders the rows of a rank, only orders them within it
+    (the owner, report 20260925-205056: "i type /reb it should be selecting
+    rebuild, i press tab and it selects reface"). }
   function RankWord(const Name: string): Integer;
   begin
-    if Copy(Name, 1, Length(Want)) = Want then Exit(1);
-    if Pos(Want, Name) > 0 then Exit(2);
-    Result := 0;
+    if Name = Want then Exit(0);
+    if Copy(Name, 1, Length(Want)) = Want then Exit(2);
+    if Pos(Want, Name) > 0 then Exit(4);
+    Result := -1;
   end;
 
-  { the best of the row's name and its other words }
+  { the best of the row's name and, a step behind it, its other words -
+    -1 when neither matches }
   function Rank(M: Integer): Integer;
   var
     Words: TStringList;
     K, R: Integer;
   begin
-    if Want = '' then Exit(1);
+    if Want = '' then Exit(0);
     Result := RankWord(CMD_LIST[M].Name);
-    if (Result = 1) or (CMD_LIST[M].Also = '') then Exit;
+    if (Result = 0) or (CMD_LIST[M].Also = '') then Exit;
     Words := TStringList.Create;
     try
       Words.Delimiter := ' ';
@@ -4599,7 +4607,8 @@ var
       for K := 0 to Words.Count - 1 do
       begin
         R := RankWord(Words[K]);
-        if (R > 0) and ((Result = 0) or (R < Result)) then Result := R;
+        if R >= 0 then Inc(R);
+        if (R >= 0) and ((Result < 0) or (R < Result)) then Result := R;
       end;
     finally
       Words.Free;
@@ -4651,8 +4660,7 @@ begin
   SetLength(Used, Length(CMD_LIST));
   for I := 0 to High(Used) do Used[I] := False;
   N := 0;
-  Sweep(1);
-  Sweep(2);
+  for I := 0 to 5 do Sweep(I);
   SetLength(FCmdOrder, N);
 end;
 
