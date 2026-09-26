@@ -171,6 +171,14 @@ type
     { how far the search slid the manifold along its wall from where it
       was put, feet - 0 when it was not moved; see ComputeRadiantLayout }
     ManifoldShiftFt: Double;
+    { The search's own record, for the ticket and whatever exports it -
+      the owner, 25 September: "we will need to record everything such as
+      time spent trying to compute ideal layouts... effort used... special
+      things that happened during an algorithm".  How long it ran, and
+      what happened on the way, a line each: the goals changed, met or
+      not, loops forced; the wizard adds its own (stopped, gave up). }
+    SearchSecs: Double;
+    SearchLog: TStringArray;
     Ok: Boolean;
     Why: string;
     { every lane the search tried to reach this - empty unless asked
@@ -311,6 +319,9 @@ function RadiantMeetsGoals(const R: TRadiantResult; const Spec: TRadiantSpec): B
 function BuildRadiant(D: TWorkDoc; const Outline: TP3Array; const Holes: array of TP3Array;
   const R: TRadiantResult; const Spec: TRadiantSpec; Ink: TColor; PartName: string;
   Zone: Integer = 0): Integer;
+
+{ Seconds as a person says them: 42 s, 3 min 05 s, 1 h 02 min. }
+function RadiantDuration(Secs: Double): string;
 
 { About how much wall a manifold of this many loops wants, inches: its
   connections, supply and return side by side a port pitch apart the way
@@ -2930,6 +2941,11 @@ var
   Seed, RandState: Cardinal;
   { the spec searched with - Spec, its goals as LiveGoals last had them }
   Work: TRadiantSpec;
+  { the record: when it began, what happened, and the layout at which the
+    goals were first met }
+  StartTick: QWord;
+  Log: TStringArray;
+  MetAt: Integer;
   { the try that last bettered the best, and how far along its wall the
     manifold can slide either way - see Slid }
   BetterAt: Integer;
@@ -3087,6 +3103,12 @@ var
     Result.Manifolds[0] := M;
   end;
 
+  procedure Note(const S: string);
+  begin
+    SetLength(Log, Length(Log) + 1);
+    Log[High(Log)] := S;
+  end;
+
   { the watcher changed the goals: everything kept ranked again by them -
     the best, and the solutions, which keep only those that meet them
     once any does }
@@ -3097,6 +3119,9 @@ var
     TmpK: Double;
     TmpT: TTry;
   begin
+    Note(Format('goals changed at layout %d: %s%% covered, loops within %s%%, was %s%% and %s%%',
+      [Done, FormatFloat('0.#', LiveGoals^.CoverPct), FormatFloat('0.#', LiveGoals^.EvenPct),
+       FormatFloat('0.#', Work.GoalCoverPct), FormatFloat('0.#', Work.GoalEvenPct)]));
     Work.GoalCoverPct := LiveGoals^.CoverPct;
     Work.GoalEvenPct := LiveGoals^.EvenPct;
     Goals := (Work.GoalCoverPct > 0) or (Work.GoalEvenPct > 0);
@@ -3183,6 +3208,7 @@ var
     begin
       Best := R; BestRank := Rk; BestTry := T;
       BetterAt := Done;
+      if (MetAt < 0) and Goals and RadiantMeetsGoals(Best, Work) then MetAt := Done + 1;
     end;
     Inc(Done);
     Stop := False;
@@ -3225,6 +3251,9 @@ var
   end;
 
 begin
+  StartTick := GetTickCount64;
+  Log := nil;
+  MetAt := -1;
   Work := Spec;
   if LiveGoals <> nil then
   begin
@@ -3425,12 +3454,27 @@ begin
   end;
   Result.Tries := Done;
   Result.ShortOfGoals := Goals and not RadiantMeetsGoals(Result, Work);
+  { the record: the goals met, and where, or not; loops forced }
+  if Goals then
+  begin
+    if RadiantMeetsGoals(Result, Work) and (MetAt > 0) then
+      Note(Format('met the goals at layout %d', [MetAt]))
+    else if not RadiantMeetsGoals(Result, Work) then
+      Note(Format('short of the goals after %d layouts', [Done]));
+  end;
+  if BestTry.LoopDelta <> 0 then
+    Note(Format('laid with %d loop%s %s than the layout would have taken',
+      [Abs(BestTry.LoopDelta), IfThen(Abs(BestTry.LoopDelta) = 1, '', 's'), IfThen(BestTry.LoopDelta > 0, 'more', 'fewer')]));
+  Result.SearchSecs := (GetTickCount64 - StartTick) / 1000;
+  Result.SearchLog := Copy(Log);
   if Found <> nil then
   begin
     for Level := 0 to High(Kept) do
     begin
       Kept[Level].Tries := Done;
       Kept[Level].ShortOfGoals := Goals and not RadiantMeetsGoals(Kept[Level], Work);
+      Kept[Level].SearchSecs := Result.SearchSecs;
+      Kept[Level].SearchLog := Copy(Log);
     end;
     Found^ := Kept;
   end;
@@ -3542,6 +3586,16 @@ begin
   D.Stamp := 0;
 end;
 
+function RadiantDuration(Secs: Double): string;
+var
+  S: Int64;
+begin
+  S := Round(Max(0, Secs));
+  if S < 60 then Result := Format('%d s', [S])
+  else if S < 3600 then Result := Format('%d min %.2d s', [S div 60, S mod 60])
+  else Result := Format('%d h %.2d min', [S div 3600, (S mod 3600) div 60]);
+end;
+
 function RadiantManifoldWallIn(Ports: Integer): Double;
 begin
   Result := Ceil(2 * Max(Ports, MANIFOLD_PORTS_MIN) * MANIFOLD_PORT_PITCH_IN + MANIFOLD_ENDS_IN);
@@ -3622,6 +3676,13 @@ begin
     Result := Result + Format('to lay: %d bends, %s%% of the tube in straights of %s or more',
       [R.Bends, FormatFloat('0', R.StraightPct), FormatLen(STRAIGHT_RUN_SPACINGS * Spec.Spacing, U)]) + LineEnding;
   Result := Result + 'total tube, no waste: ' + FormatLen(R.TotalFt, U) + LineEnding;
+  { the search's record - how long, how many, what happened }
+  if R.Tries > 0 then
+  begin
+    Result := Result + Format('search: %d layouts tried in %s', [R.Tries, RadiantDuration(R.SearchSecs)]) + LineEnding;
+    for I := 0 to High(R.SearchLog) do
+      Result := Result + '  - ' + R.SearchLog[I] + LineEnding;
+  end;
   Result := Result + 'order (with ' + FormatFloat('0', Spec.WastePct) + '% waste): ' +
     FormatLen(R.OrderFt, U) + LineEnding;
   { R.TotalFt is feet already; times 12 is inches of run, over the tie

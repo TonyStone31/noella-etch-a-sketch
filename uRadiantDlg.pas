@@ -31,19 +31,21 @@ type
   { TRadiantForm }
 
   TRadiantForm = class(TForm)
-    btnAddManifold: TButton;
     btnAddObstacle: TButton;
     btnBuild: TButton;
     btnCancel: TButton;
-    btnRemoveManifold: TButton;
     btnRemoveObstacle: TButton;
-    btnReplay: TButton;
-    btnSolNext: TButton;
-    btnSolPrev: TButton;
     btnReport: TButton;
     btnSearchAll: TButton;
-    btnSearchZone: TButton;
     btnSuggest: TButton;
+    btnZoneClear: TButton;
+    btnZoneSearch: TButton;
+    lblFoundHead: TLabel;
+    lblZoneHead: TLabel;
+    lblZonesHint: TLabel;
+    lbSolutions: TListBox;
+    pnZone: TPanel;
+    tcZones: TTabControl;
     cbLabels: TCheckBox;
     cbTube: TComboBox;
     edMaxLoop: TEdit;
@@ -54,7 +56,6 @@ type
     edSpacing: TEdit;
     edTag: TEdit;
     edWaste: TEdit;
-    lbManifolds: TListBox;
     lblGoal: TLabel;
     lblGoalCover: TLabel;
     lblGoalEven: TLabel;
@@ -65,7 +66,6 @@ type
     lblObsHead: TLabel;
     lblObsX: TLabel;
     lblProblem: TLabel;
-    lblSol: TLabel;
     lblSpacing: TLabel;
     lblSpacingIn: TLabel;
     lblTag: TLabel;
@@ -94,16 +94,10 @@ type
     pbPlan: TPaintBox;
     pcRight: TPageControl;
     pmZone: TPopupMenu;
-    tmrReplay: TTimer;
     tsPlan: TTabSheet;
     procedure AnyChange(Sender: TObject);
-    procedure btnAddManifoldClick(Sender: TObject);
     procedure btnAddObstacleClick(Sender: TObject);
-    procedure btnRemoveManifoldClick(Sender: TObject);
     procedure btnRemoveObstacleClick(Sender: TObject);
-    procedure btnReplayClick(Sender: TObject);
-    procedure btnSolNextClick(Sender: TObject);
-    procedure btnSolPrevClick(Sender: TObject);
     procedure btnReportClick(Sender: TObject);
     procedure btnSearchAllClick(Sender: TObject);
     procedure btnSearchZoneClick(Sender: TObject);
@@ -111,9 +105,9 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure lbManifoldsClick(Sender: TObject);
-    procedure lbManifoldsMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure lbObstaclesClick(Sender: TObject);
+    procedure lbSolutionsClick(Sender: TObject);
+    procedure tcZonesChange(Sender: TObject);
     procedure pbCoveragePaint(Sender: TObject);
     procedure pbEvenPaint(Sender: TObject);
     procedure pbPlanMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -127,7 +121,6 @@ type
     procedure miSearchZoneClick(Sender: TObject);
     procedure pmZonePopup(Sender: TObject);
     procedure RoutingChange(Sender: TObject);
-    procedure tmrReplayTimer(Sender: TObject);
   private
     FUnits: TUnitSystem;
     FZones: TRadiantZones;           { every face selected, with its holes }
@@ -161,37 +154,42 @@ type
       window and has it run SearchWork }
     FWorkSpec: TRadiantSpec;
     FWorkZones: TIntArray;
-    FWorkTrace: Boolean;
     { the outline of everything, for the plan's frame and the fit }
     FOutline: TP3Array;
     { the plan's own projection, worked out at paint time and kept for the
       mouse: the outline's frame, and how its plane maps to pixels }
     FFrame: TRadiantFrame;
     FMinX, FMinY, FSc: Double;
+    { what centers the floor in the plan's box }
+    FOffX, FOffY: Double;
     FMargin: Integer;
     { what is being dragged on the plan: a manifold (0..), an obstacle
       (0..) or nothing }
     FDragManifold, FDragObstacle: Integer;
     FDragOff: T2;
     FDragMoved: Boolean;
-    FListing, FSelectLast: Boolean;
+    FListing: Boolean;
     { the two gauges, kept from the last Summarize for the bars to paint
       from - -1 means nothing to show yet }
     FCoverage, FEvenness: Double;
-    { the search behind whichever zone Replay search last ran for - -1
-      means nothing is playing, so the plan paints the settled layout
-      the ordinary way; FReplayPerTick steps more than one candidate a
-      tick on a long search, so watching it never takes more than a
-      few seconds regardless of how many lanes it tried }
-    FReplayZone, FReplayStep, FReplayPerTick: Integer;
-    FReplayTrace: TRadiantTrace;
+    { each zone's material list, and every zone's together, as Summarize
+      last wrote them - the zone tabs show one or the other }
+    FZoneTicket: array of string;
+    FAllTicket: string;
+    { how the zone's search just ended, when it was not by itself - the
+      busy window's Stop, or its give-up time - for the search's record }
+    FStopWhy: string;
     { every zone's solutions as its last search found them - the ones
       that met the goals, best first, or the nearest few when none did -
       and which of them the zone is showing and will build }
     FSolutions: array of TRadiantResults;
     FSolIdx: TIntArray;
     procedure ShowSolution(Z, Idx: Integer);
-    procedure ListSolution;
+    { the zone tabs, one a zone and one for them all, and the panel under
+      them filled for the tab that is up }
+    procedure ListZones;
+    procedure ShowZonePanel;
+    procedure SelectZone(Z: Integer);
     procedure Summarize;
     procedure LoadLast;
     procedure SaveLast;
@@ -202,16 +200,17 @@ type
     function WallAngle(Z: Integer): Double;
     function ManifoldBox(Z: Integer): T2Array;
     function ManifoldAt(X, Y: Integer): Integer;
-    procedure Search(const Which: array of Integer; WantTrace: Boolean = False);
+    procedure Search(const Which: array of Integer);
     procedure SearchWork(Sender: TObject);
     procedure SearchProgress(Done, Total: Integer; const Best: TRadiantResult; var Stop: Boolean);
-    { one kept solution as a line of the busy window's list }
+    { one kept solution as a line of the busy window's list, and shorter
+      for the zone tab's }
     function FoundLine(const R: TRadiantResult): string;
+    function ShortLine(const R: TRadiantResult): string;
     procedure PaintCompass(C: TCanvas; CX, CY: Integer);
     function Read(out Spec: TRadiantSpec): Boolean;
     function ZoneHoles(Z: Integer): TRadiantHoles;
     function AnyLayout: Boolean;
-    procedure ListManifolds;
     procedure ListObstacles;
     function PlanX(U: Double): Integer;
     function PlanY(V: Double): Integer;
@@ -273,7 +272,6 @@ begin
   FDragManifold := -1;
   FDragObstacle := -1;
   FCoverage := -1; FEvenness := -1;
-  FReplayZone := -1;
   LoadLast;
 end;
 
@@ -406,8 +404,8 @@ var
   Spec, ZS: TRadiantSpec;
   Z: Integer;
   Ticket: string;
-  TotalFt, OrderFt, Worst, Lo, Hi, TotalArea, TotalUnfilled: Double;
-  Loops, I, Waiting: Integer;
+  TotalFt, OrderFt, Worst, Lo, Hi, TotalArea, TotalUnfilled, Secs: Double;
+  Loops, I, Waiting, Tried: Integer;
   HasEven: Boolean;
 begin
   SetLength(FLayouts, Length(FZones));
@@ -415,7 +413,8 @@ begin
   if not Read(Spec) then
   begin
     lblProblem.Caption := 'A size did not read - 9, 9.5, or a foot mark.';
-    memTicket.Lines.Text := '';
+    FAllTicket := ''; FZoneTicket := nil;
+    ListZones;
     FCoverage := -1; FEvenness := -1;
     btnBuild.Enabled := False;
     pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
@@ -424,7 +423,8 @@ begin
   if Length(FZones) = 0 then
   begin
     lblProblem.Caption := 'Nothing is selected to fill - select the floor and run this again.';
-    memTicket.Lines.Text := '';
+    FAllTicket := ''; FZoneTicket := nil;
+    ListZones;
     FCoverage := -1; FEvenness := -1;
     btnBuild.Enabled := False;
     pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
@@ -433,6 +433,7 @@ begin
   lblProblem.Caption := '';
   Ticket := '';
   if Spec.Tag <> '' then Ticket := Spec.Tag + LineEnding + LineEnding;
+  SetLength(FZoneTicket, Length(FZones));
   TotalFt := 0; OrderFt := 0; Loops := 0; TotalArea := 0; TotalUnfilled := 0; Waiting := 0;
   for Z := 0 to High(FZones) do
   begin
@@ -443,6 +444,7 @@ begin
     begin
       Inc(Waiting);
       Ticket := Ticket + 'not searched yet' + LineEnding + LineEnding;
+      FZoneTicket[Z] := 'not searched yet - Search this zone, or right-click its manifold';
       Continue;
     end;
     if not FLayouts[Z].Ok and (lblProblem.Caption = '') then
@@ -450,7 +452,12 @@ begin
     { the waste is only the order, never the layout - typed after a
       search, it changes the order without asking for the search again }
     FLayouts[Z].OrderFt := FLayouts[Z].TotalFt * (1 + ZS.WastePct / 100);
-    Ticket := Ticket + RadiantTicketText(ZS, FLayouts[Z], FUnits) + LineEnding;
+    FZoneTicket[Z] := RadiantTicketText(ZS, FLayouts[Z], FUnits);
+    { which of the layouts the search kept this is }
+    if (Z <= High(FSolutions)) and (Length(FSolutions[Z]) > 1) then
+      FZoneTicket[Z] := FZoneTicket[Z] + Format('layout %d of the %d the search kept', [FSolIdx[Z] + 1,
+        Length(FSolutions[Z])]) + LineEnding;
+    Ticket := Ticket + FZoneTicket[Z] + LineEnding;
     if FLayouts[Z].Ok then
     begin
       TotalFt := TotalFt + FLayouts[Z].TotalFt;
@@ -487,10 +494,22 @@ begin
     end;
   if HasEven then FEvenness := 1 - Worst else FEvenness := -1;
   if Length(FZones) > 1 then
+  begin
     Ticket := Ticket + '===== ALL ZONES =====' + LineEnding +
       Format('%d of %d zones searched, %d loops', [Length(FZones) - Waiting, Length(FZones), Loops]) + LineEnding +
       'total tube, no waste: ' + FormatLen(TotalFt, FUnits) + LineEnding +
       'order: ' + FormatLen(OrderFt, FUnits) + LineEnding;
+    { the effort, all told }
+    Secs := 0; Tried := 0;
+    for Z := 0 to High(FLayouts) do
+      if FSearched[Z] then
+      begin
+        Secs := Secs + FLayouts[Z].SearchSecs;
+        Tried := Tried + FLayouts[Z].Tries;
+      end;
+    if Tried > 0 then
+      Ticket := Ticket + Format('searching: %d layouts tried in %s', [Tried, RadiantDuration(Secs)]) + LineEnding;
+  end;
   if Waiting = Length(FZones) then
     lblNeed.Caption := Format('%d zone%s, none searched yet - place the manifolds, then Search',
       [Length(FZones), IfThen(Length(FZones) = 1, '', 's')])
@@ -500,10 +519,9 @@ begin
   else
     lblNeed.Caption := Format('%d zone%s, %d routed loops - manifold sizes follow the layout',
       [Length(FZones), IfThen(Length(FZones) = 1, '', 's'), Loops]);
-  memTicket.Lines.Text := Ticket;
+  FAllTicket := Ticket;
   btnBuild.Enabled := (Waiting = 0) and AnyLayout and (lblProblem.Caption = '');
-  ListManifolds;
-  ListSolution;
+  ListZones;
   pbPlan.Invalidate; pbCoverage.Invalidate; pbEven.Invalidate;
 end;
 
@@ -666,7 +684,6 @@ begin
   FSearched[Z] := False;
   SetLength(FSolutions, Length(FZones)); SetLength(FSolIdx, Length(FZones));
   FSolutions[Z] := nil; FSolIdx[Z] := 0;
-  if FReplayZone = Z then begin tmrReplay.Enabled := False; FReplayZone := -1; end;
 end;
 
 procedure TRadiantForm.ClearAll;
@@ -676,20 +693,121 @@ begin
   for Z := 0 to High(FZones) do ClearZone(Z);
 end;
 
+{ the zone whose tab is up; -1 on the All zones tab }
 function TRadiantForm.SelectedZone: Integer;
 begin
-  Result := lbManifolds.ItemIndex;
-  if (Result < 0) or (Result > High(FZones)) then
-    if Length(FZones) > 0 then Result := 0 else Result := -1;
+  Result := tcZones.TabIndex;
+  if (Result < 0) or (Result > High(FZones)) then Result := -1;
+end;
+
+procedure TRadiantForm.SelectZone(Z: Integer);
+begin
+  if (Z < 0) or (Z > High(FZones)) or (Z >= tcZones.Tabs.Count) then Exit;
+  if tcZones.TabIndex <> Z then tcZones.TabIndex := Z;
+  ShowZonePanel;
+  pbPlan.Invalidate;
+end;
+
+procedure TRadiantForm.tcZonesChange(Sender: TObject);
+begin
+  ShowZonePanel;
+  pbPlan.Invalidate;
+end;
+
+{ One tab a zone, and All zones after them when there is more than one;
+  the tab that was up stays up. }
+procedure TRadiantForm.ListZones;
+var
+  Z, Was, N: Integer;
+begin
+  Was := tcZones.TabIndex;
+  N := Length(FZones);
+  if N > 1 then Inc(N);
+  if tcZones.Tabs.Count <> N then
+  begin
+    tcZones.Tabs.BeginUpdate;
+    try
+      tcZones.Tabs.Clear;
+      for Z := 0 to High(FZones) do tcZones.Tabs.Add(Format('Zone %d', [Z + 1]));
+      if Length(FZones) > 1 then tcZones.Tabs.Add('All zones');
+    finally
+      tcZones.Tabs.EndUpdate;
+    end;
+  end;
+  if (Was >= 0) and (Was < tcZones.Tabs.Count) then tcZones.TabIndex := Was
+  else if tcZones.Tabs.Count > 0 then tcZones.TabIndex := 0;
+  ShowZonePanel;
+end;
+
+{ The panel under the tabs: the zone's manifold and how its search went,
+  the layouts its search kept - click one and it is the zone's - and its
+  material list; on All zones, the whole list. }
+procedure TRadiantForm.ShowZonePanel;
+var
+  Z, I: Integer;
+  P: T2;
+  S: string;
+begin
+  Z := SelectedZone;
+  FListing := True;
+  try
+    lbSolutions.Items.BeginUpdate;
+    try
+      lbSolutions.Items.Clear;
+      if (Z >= 0) and (Z <= High(FSolutions)) then
+        for I := 0 to High(FSolutions[Z]) do lbSolutions.Items.Add(ShortLine(FSolutions[Z][I]));
+    finally
+      lbSolutions.Items.EndUpdate;
+    end;
+    if (Z >= 0) and (Z <= High(FSolIdx)) and (FSolIdx[Z] < lbSolutions.Items.Count) then
+      lbSolutions.ItemIndex := FSolIdx[Z];
+  finally
+    FListing := False;
+  end;
+  btnZoneSearch.Enabled := (Z >= 0) and (FBusy = nil);
+  btnZoneClear.Enabled := (Z >= 0) and (Z <= High(FSearched)) and FSearched[Z];
+  lbSolutions.Enabled := Z >= 0;
+  lblFoundHead.Enabled := Z >= 0;
+  if Z < 0 then
+  begin
+    lblZoneHead.Caption := Format('Every zone: %d of them.  Pick a zone''s tab, or click it on the plan, to work on it.',
+      [Length(FZones)]);
+    memTicket.Lines.Text := FAllTicket;
+    Exit;
+  end;
+  if Length(FOutline) >= 3 then FFrame := RadiantPlanFrame(FOutline);
+  S := '';
+  if Z <= High(FManifolds) then
+  begin
+    P := RadiantTo2(FFrame, FManifolds[Z]);
+    S := Format('Manifold at %s along, %s in', [FormatLen(P.X, FUnits), FormatLen(P.Y, FUnits)]);
+    if Z <= High(FAngles) then S := S + Format(', long side at %s degrees', [FormatFloat('0', FAngles[Z])]);
+  end;
+  if (Z > High(FSearched)) or not FSearched[Z] then S := S + ' - not searched yet.'
+  else if FLayouts[Z].Ok then
+  begin
+    if Length(FLayouts[Z].Manifolds) > 0 then S := S + Format(' - a %d-loop manifold.', [FLayouts[Z].Manifolds[0].Ports]);
+    S := S + Format('  Searched %d layouts in %s.', [FLayouts[Z].Tries, RadiantDuration(FLayouts[Z].SearchSecs)]);
+  end
+  else S := S + ' - no layout.';
+  lblZoneHead.Caption := S;
+  if Z <= High(FZoneTicket) then memTicket.Lines.Text := FZoneTicket[Z] else memTicket.Lines.Text := '';
+end;
+
+procedure TRadiantForm.lbSolutionsClick(Sender: TObject);
+var
+  Z: Integer;
+begin
+  if FListing then Exit;
+  Z := SelectedZone;
+  if (Z >= 0) and (lbSolutions.ItemIndex >= 0) then ShowSolution(Z, lbSolutions.ItemIndex);
 end;
 
 { Search the zones in Which, one after another, under the busy window.
   Everything but that window is disabled while it runs, so nothing can
   be dragged or typed into a layout that is half worked out.  A zone
-  stopped part way stays not searched.  With WantTrace - Replay search -
-  the one zone asked for comes back with every lane it tried, for the
-  plan to play back. }
-procedure TRadiantForm.Search(const Which: array of Integer; WantTrace: Boolean);
+  stopped part way keeps the best it had, and its record says so. }
+procedure TRadiantForm.Search(const Which: array of Integer);
 var
   K: Integer;
 begin
@@ -699,7 +817,6 @@ begin
   SetLength(FSearched, Length(FZones));
   SetLength(FWorkZones, Length(Which));
   for K := 0 to High(Which) do FWorkZones[K] := Which[K];
-  FWorkTrace := WantTrace;
   SaveLast;
   { the search runs inside the busy window, shown modal over this one -
     see uRadiantBusy for why it cannot be the other way round }
@@ -725,7 +842,6 @@ begin
     FreeAndNil(FBusy);
   end;
   Summarize;
-  if WantTrace and (FReplayZone >= 0) then tmrReplay.Enabled := True;
 end;
 
 { the zones asked for, one after another, the busy window up the while }
@@ -734,6 +850,8 @@ var
   K, Z, I: Integer;
   R: TRadiantResult;
   Picked: string;
+  Began: TDateTime;
+  Extra: TStringArray;
 begin
   FBusyCount := Length(FWorkZones);
   for K := 0 to High(FWorkZones) do
@@ -747,26 +865,41 @@ begin
       Round(100 * K / FBusyCount));
     FLiveFound := nil;
     FZoneStart := GetTickCount64;
+    FStopWhy := '';
+    Began := Now;
     R := ComputeRadiantLayout(FZones[Z].Outline, ZoneHoles(Z), ZoneSpec(Z, FWorkSpec),
-      FWorkTrace, @SearchProgress, @FLiveFound, @FLiveGoals);
+      False, @SearchProgress, @FLiveFound, @FLiveGoals);
     SetLength(FSolutions, Length(FZones)); SetLength(FSolIdx, Length(FZones));
     FSolutions[Z] := FLiveFound; FSolIdx[Z] := 0;
     FLiveFound := nil;
-    { what the search hands back is its best, and the first of the ones it
-      kept is the same layout - but the one handed back carries the
-      replay's trace, so it stands for the first }
-    if Length(FSolutions[Z]) > 0 then FSolutions[Z][0] := R;
-    { one picked from the busy window's list is the one shown - the
-      replay, if asked for, is of the best }
+    { what the search hands back is its best, the first of the ones it
+      kept }
+    if Length(FSolutions[Z]) > 0 then FSolutions[Z][0] := R
+    else begin SetLength(FSolutions[Z], 1); FSolutions[Z][0] := R; end;
+    { the record, every solution's: when, and how it ended when that was
+      not by itself }
+    Extra := nil;
+    SetLength(Extra, 1);
+    Extra[0] := 'searched ' + FormatDateTime('yyyy-mm-dd hh:nn', Began);
+    if FStopWhy <> '' then
+    begin
+      SetLength(Extra, 2);
+      Extra[1] := FStopWhy;
+    end;
+    { one picked from the busy window's list is the one shown }
     Picked := FBusy.Picked;
     if Picked <> '' then
       for I := 0 to High(FSolutions[Z]) do
         if FoundLine(FSolutions[Z][I]) = Picked then
         begin
           FSolIdx[Z] := I;
-          if I > 0 then R := FSolutions[Z][I];
+          SetLength(Extra, Length(Extra) + 1);
+          Extra[High(Extra)] := Format('layout %d of %d picked by hand in the search window', [I + 1, Length(FSolutions[Z])]);
           Break;
         end;
+    for I := 0 to High(FSolutions[Z]) do
+      FSolutions[Z][I].SearchLog := Concat(Extra, FSolutions[Z][I].SearchLog);
+    R := FSolutions[Z][FSolIdx[Z]];
     { stopped, it hands back the best it had - kept, and the ticket says
       if it fell short of the goals }
     FLayouts[Z] := R;
@@ -778,15 +911,9 @@ begin
         wall, and the plan shows the manifold the layout was laid from }
       FManifolds[Z] := R.Manifolds[0].At;
     end;
-    if FWorkTrace then
-    begin
-      FReplayTrace := R.Trace;
-      FReplayStep := 0;
-      FReplayPerTick := Max(1, Ceil(Length(FReplayTrace) / 200));
-      if Length(FReplayTrace) > 0 then FReplayZone := Z else FReplayZone := -1;
-    end;
-    { each zone shows as it comes, not all at the end }
+    { each zone shows as it comes, not all at the end, its tab up }
     Summarize;
+    SelectZone(Z);
     { Stop kept this zone's best; Stop all, and there is no next zone }
     if FBusy.StoppingAll then Break;
     FBusy.NextZone;
@@ -828,8 +955,13 @@ begin
     FBusy.Stage(FBusy.lblStage.Caption,
       Format('Still after the goals - layout %d tried.  %s.  Stop keeps it.', [Done, Now_]),
       Round(100 * Cover));
-  Stop := FBusy.Stopping or
-    ((FBusy.GiveUpSecs > 0) and (GetTickCount64 - FZoneStart > QWord(FBusy.GiveUpSecs) * 1000));
+  Stop := FBusy.Stopping;
+  if Stop and (FStopWhy = '') then FStopWhy := Format('stopped by hand at layout %d', [Done]);
+  if not Stop and (FBusy.GiveUpSecs > 0) and (GetTickCount64 - FZoneStart > QWord(FBusy.GiveUpSecs) * 1000) then
+  begin
+    Stop := True;
+    FStopWhy := Format('gave up after %s, at layout %d', [RadiantDuration(FBusy.GiveUpSecs), Done]);
+  end;
 end;
 
 function TRadiantForm.FoundLine(const R: TRadiantResult): string;
@@ -839,7 +971,17 @@ begin
   RadiantMeasure(R, Cover, Spread);
   Result := Format('%5s%% covered  %4s%% apart (%3s ft)  %2d loops  %4d bends  %5s ft%s',
     [FormatFloat('0.0', Cover * 100), FormatFloat('0.0', Spread * 100), FormatFloat('0', RadiantSpreadFt(R)),
-     Length(R.Loops), R.Bends, FormatFloat('0', R.TotalFt), IfThen(RadiantMeetsGoals(R, FWorkSpec), '  goals met', '')]);
+     Length(R.Loops), R.Bends, FormatFloat('0', R.TotalFt), IfThen(RadiantMeetsGoals(R, FWorkSpec), '  ok', '')]);
+end;
+
+function TRadiantForm.ShortLine(const R: TRadiantResult): string;
+var
+  Cover, Spread: Double;
+begin
+  RadiantMeasure(R, Cover, Spread);
+  Result := Format('%5s%%  %3s%% (%3s ft)  %2d loops  %3d bends%s',
+    [FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100), FormatFloat('0', RadiantSpreadFt(R)),
+     Length(R.Loops), R.Bends, IfThen(RadiantMeetsGoals(R, FWorkSpec), '  ok', '')]);
 end;
 
 procedure TRadiantForm.btnSearchZoneClick(Sender: TObject);
@@ -910,54 +1052,6 @@ end;
 
 { ---- manifolds ---- }
 
-procedure TRadiantForm.ListManifolds;
-var
-  I, Sel: Integer;
-  P: T2;
-  S: string;
-begin
-  FListing := True;
-  try
-    Sel := lbManifolds.ItemIndex;
-    lbManifolds.Items.Clear;
-    if Length(FOutline) >= 3 then FFrame := RadiantPlanFrame(FOutline);
-    for I := 0 to High(FManifolds) do
-    begin
-      P := RadiantTo2(FFrame, FManifolds[I]);
-      S := Format('zone %d:  at %s along, %s in', [I + 1, FormatLen(P.X, FUnits), FormatLen(P.Y, FUnits)]);
-      if (I > High(FSearched)) or not FSearched[I] then S := S + '  -  not searched'
-      else if FLayouts[I].Ok and (Length(FLayouts[I].Manifolds) > 0) then
-        S := S + Format('  -  a %d-loop manifold', [FLayouts[I].Manifolds[0].Ports])
-      else S := S + '  -  no layout';
-      lbManifolds.Items.Add(S);
-    end;
-    if FSelectLast then Sel := lbManifolds.Items.Count - 1;
-    FSelectLast := False;
-    if (Sel >= 0) and (Sel < lbManifolds.Items.Count) then lbManifolds.ItemIndex := Sel
-    else if lbManifolds.Items.Count > 0 then lbManifolds.ItemIndex := 0;
-  finally
-    FListing := False;
-  end;
-end;
-
-procedure TRadiantForm.lbManifoldsClick(Sender: TObject);
-begin
-  ListSolution;
-  pbPlan.Invalidate;
-end;
-
-{ a right-click picks the row under it first, so its menu acts on that
-  zone and not whichever was selected before }
-procedure TRadiantForm.lbManifoldsMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-var
-  I: Integer;
-begin
-  if Button <> mbRight then Exit;
-  I := lbManifolds.ItemAtPos(Point(X, Y), True);
-  if I >= 0 then lbManifolds.ItemIndex := I;
-  pbPlan.Invalidate;
-end;
-
 procedure TRadiantForm.btnSuggestClick(Sender: TObject);
 var
   Spec: TRadiantSpec;
@@ -982,7 +1076,6 @@ begin
   if Length(FOutline) >= 3 then FFrame := RadiantPlanFrame(FOutline);
   SetLength(FAngles, Length(FZones));
   for Z := 0 to High(FZones) do FAngles[Z] := WallAngle(Z);
-  lbManifolds.ItemIndex := -1;
   ClearAll;
   Summarize;
 end;
@@ -1004,86 +1097,7 @@ begin
     FPorts[Z] := FLayouts[Z].Manifolds[0].Ports;
     FManifolds[Z] := FLayouts[Z].Manifolds[0].At;
   end;
-  if FReplayZone = Z then begin tmrReplay.Enabled := False; FReplayZone := -1; end;
   Summarize;
-end;
-
-{ which of the selected zone's solutions is up, and what it is }
-procedure TRadiantForm.ListSolution;
-var
-  Z, N: Integer;
-  R: TRadiantResult;
-  Cover, Spread: Double;
-begin
-  Z := SelectedZone;
-  N := 0;
-  if (Z >= 0) and (Z <= High(FSolutions)) then N := Length(FSolutions[Z]);
-  btnSolPrev.Enabled := N > 1; btnSolNext.Enabled := N > 1;
-  if N = 0 then begin lblSol.Caption := ''; Exit; end;
-  R := FSolutions[Z][FSolIdx[Z]];
-  RadiantMeasure(R, Cover, Spread);
-  { short, to sit beside the arrows; the whole sentence on the hint }
-  lblSol.Caption := Format('%d/%d  %s%%  %s%% spread (%s ft)  %d bends%s',
-    [FSolIdx[Z] + 1, N, FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100),
-     FormatFloat('0', RadiantSpreadFt(R)), R.Bends, IfThen(R.ShortOfGoals, '', '  ok')]);
-  lblSol.Hint := Format('Solution %d of the %d this zone''s search kept: %s%% of the floor covered, ' +
-    'the loops within %s%% (%s ft) of each other, %d bends, %s%% of the tube in long straights - %s.  ' +
-    'The arrows step through them; the one showing is the one built.',
-    [FSolIdx[Z] + 1, N, FormatFloat('0.0', Cover * 100), FormatFloat('0', Spread * 100),
-     FormatFloat('0', RadiantSpreadFt(R)), R.Bends,
-     FormatFloat('0', R.StraightPct), IfThen(R.ShortOfGoals, 'the nearest it came to the goals', 'it meets the goals')]);
-  lblSol.ShowHint := True;
-end;
-
-procedure TRadiantForm.btnSolPrevClick(Sender: TObject);
-var
-  Z: Integer;
-begin
-  Z := SelectedZone;
-  if (Z >= 0) and (Z <= High(FSolIdx)) then ShowSolution(Z, FSolIdx[Z] - 1);
-end;
-
-procedure TRadiantForm.btnSolNextClick(Sender: TObject);
-var
-  Z: Integer;
-begin
-  Z := SelectedZone;
-  if (Z >= 0) and (Z <= High(FSolIdx)) then ShowSolution(Z, FSolIdx[Z] + 1);
-end;
-
-{ Searches the zone currently selected (or the first, with none), this
-  once asking for the trace of every lane the search tried - not just
-  what it kept - and plays that back a few candidates a tick, capped so
-  a long search is never more than a few seconds to watch: red for one
-  turned back for crossing tube already down, green for the one that
-  settled it, before it takes the ordinary color and stays.  The layout
-  it settles on is the zone's, the same one Search would have found. }
-procedure TRadiantForm.btnReplayClick(Sender: TObject);
-begin
-  if SelectedZone >= 0 then Search([SelectedZone], True);
-end;
-
-procedure TRadiantForm.tmrReplayTimer(Sender: TObject);
-begin
-  Inc(FReplayStep, FReplayPerTick);
-  if FReplayStep >= Length(FReplayTrace) then
-  begin
-    tmrReplay.Enabled := False;
-    FReplayZone := -1;
-  end;
-  pbPlan.Invalidate;
-end;
-
-procedure TRadiantForm.btnAddManifoldClick(Sender: TObject);
-begin
-  { one manifold a zone: to have two, draw a line across the zone on the
-    sheet and it is two zones }
-  lblProblem.Caption := 'One manifold a zone - draw a line across the floor to make two zones.';
-end;
-
-procedure TRadiantForm.btnRemoveManifoldClick(Sender: TObject);
-begin
-  lblProblem.Caption := 'One manifold a zone - it cannot be taken away.';
 end;
 
 { ---- obstacles ---- }
@@ -1211,24 +1225,24 @@ end;
 
 function TRadiantForm.PlanX(U: Double): Integer;
 begin
-  Result := Round(FMargin + (U - FMinX) * FSc);
+  Result := Round(FMargin + FOffX + (U - FMinX) * FSc);
 end;
 
 function TRadiantForm.PlanY(V: Double): Integer;
 begin
-  Result := Round(pbPlan.Height - FMargin - (V - FMinY) * FSc);
+  Result := Round(pbPlan.Height - FMargin - FOffY - (V - FMinY) * FSc);
 end;
 
 function TRadiantForm.PlanU(X: Integer): Double;
 begin
   if FSc <= 0 then Exit(0);
-  Result := FMinX + (X - FMargin) / FSc;
+  Result := FMinX + (X - FMargin - FOffX) / FSc;
 end;
 
 function TRadiantForm.PlanV(Y: Integer): Double;
 begin
   if FSc <= 0 then Exit(0);
-  Result := FMinY + (pbPlan.Height - FMargin - Y) / FSc;
+  Result := FMinY + (pbPlan.Height - FMargin - FOffY - Y) / FSc;
 end;
 
 procedure TRadiantForm.pbPlanMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -1246,22 +1260,18 @@ begin
     if I < 0 then
       for I := High(FZones) downto 0 do
         if RadiantInside(FZones[I].Outline, RadiantFrom2(FFrame, M.X, M.Y)) then Break;
-    if I >= 0 then lbManifolds.ItemIndex := I;
+    if I >= 0 then SelectZone(I);
     pbPlan.Invalidate;
     Exit;
   end;
   if Button <> mbLeft then Exit;
-  { a stale search is worse than none - a fresh drag means whatever
-    position it was tried at is already out of date }
-  if FReplayZone >= 0 then begin tmrReplay.Enabled := False; FReplayZone := -1; end;
   { a manifold under the pointer; then an obstacle }
   FDragManifold := ManifoldAt(X, Y); FDragObstacle := -1; FDragMoved := False;
   if FDragManifold >= 0 then
   begin
     P := RadiantTo2(FFrame, FManifolds[FDragManifold]);
     FDragOff := Point2(P.X - M.X, P.Y - M.Y);
-    lbManifolds.ItemIndex := FDragManifold;
-    lbManifoldsClick(nil);
+    SelectZone(FDragManifold);
     Exit;
   end;
   for I := 0 to High(FExtra) do
@@ -1277,6 +1287,15 @@ begin
       Exit;
     end;
   end;
+  { nothing to drag: the zone clicked in, its tab up (the owner, 25
+    September: "clicking in a zone in the image should show the
+    respective panel") }
+  for I := High(FZones) downto 0 do
+    if RadiantInside(FZones[I].Outline, RadiantFrom2(FFrame, M.X, M.Y)) then
+    begin
+      SelectZone(I);
+      Exit;
+    end;
 end;
 
 procedure TRadiantForm.pbPlanMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -1408,11 +1427,16 @@ begin
       FMinY := Min(FMinY, P.Y); MaxY := Max(MaxY, P.Y);
     end;
   FSc := Min((W - 2 * FMargin) / Max(MaxX - FMinX, 1E-6), (H - 2 * FMargin) / Max(MaxY - FMinY, 1E-6));
+  FOffX := Max(0, (W - 2 * FMargin - (MaxX - FMinX) * FSc) / 2);
+  FOffY := Max(0, (H - 2 * FMargin - (MaxY - FMinY) * FSc) / 2);
 
   for Z := 0 to High(FZones) do
   begin
     C.Pen.Color := clBlack; C.Pen.Width := 2; C.Brush.Style := bsClear;
+    { the zone whose tab is up, lightly tinted }
+    if Z = SelectedZone then begin C.Brush.Style := bsSolid; C.Brush.Color := $00E6F7FF; end;
     C.Polygon(Poly(FZones[Z].Outline));
+    C.Brush.Style := bsClear;
     C.Pen.Width := 1;
     C.Brush.Style := bsSolid; C.Brush.Color := $00D0D0D0;
     for I := 0 to High(FZones[Z].Holes) do
@@ -1426,35 +1450,7 @@ begin
   end;
   C.Brush.Style := bsClear;
   for Z := 0 to High(FLayouts) do
-    if Z = FReplayZone then
-    begin
-      { every lane tried, up to the one the timer is currently on: one
-        already kept paints in the zone's own color and stays: one
-        turned back paints only for its own moment, in red, and is
-        skipped from here on - it never became part of the floor }
-      for I := 0 to Min(FReplayStep, High(FReplayTrace)) do
-      begin
-        if I = FReplayStep then
-        begin
-          if FReplayTrace[I].Accepted then C.Pen.Color := clLime else C.Pen.Color := clRed;
-          C.Pen.Width := 3;
-        end
-        else if FReplayTrace[I].Accepted then
-        begin
-          C.Pen.Color := ZoneInk(Z);
-          C.Pen.Width := 1;
-        end
-        else Continue;
-        for J := 1 to High(FReplayTrace[I].Pts) do
-        begin
-          P := RadiantTo2(FFrame, FReplayTrace[I].Pts[J - 1]);
-          C.MoveTo(PlanX(P.X), PlanY(P.Y));
-          P := RadiantTo2(FFrame, FReplayTrace[I].Pts[J]);
-          C.LineTo(PlanX(P.X), PlanY(P.Y));
-        end;
-      end;
-    end
-    else if (Z <= High(FSearched)) and FSearched[Z] and FLayouts[Z].Ok then
+    if (Z <= High(FSearched)) and FSearched[Z] and FLayouts[Z].Ok then
       for I := 0 to High(FLayouts[Z].Loops) do
       begin
         { every loop its own color - what the build draws }
@@ -1476,19 +1472,19 @@ begin
   SetLength(FAngles, Length(FManifolds));
   SetLength(Order, 0);
   for I := 0 to High(FManifolds) do
-    if I <> lbManifolds.ItemIndex then
+    if I <> SelectedZone then
     begin
       SetLength(Order, Length(Order) + 1); Order[High(Order)] := I;
     end;
-  if (lbManifolds.ItemIndex >= 0) and (lbManifolds.ItemIndex <= High(FManifolds)) then
+  if (SelectedZone >= 0) and (SelectedZone <= High(FManifolds)) then
   begin
-    SetLength(Order, Length(Order) + 1); Order[High(Order)] := lbManifolds.ItemIndex;
+    SetLength(Order, Length(Order) + 1); Order[High(Order)] := SelectedZone;
   end;
   for K := 0 to High(Order) do
   begin
     I := Order[K];
     P := RadiantTo2(FFrame, FManifolds[I]);
-    if lbManifolds.ItemIndex = I then C.Brush.Color := clYellow else C.Brush.Color := clWhite;
+    if SelectedZone = I then C.Brush.Color := clYellow else C.Brush.Color := clWhite;
     C.Brush.Style := bsSolid;
     C.Pen.Color := ZoneInk(I);
     C.Pen.Width := 2;

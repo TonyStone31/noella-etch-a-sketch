@@ -9897,6 +9897,19 @@ begin
   Ok((Abs(F.U.X - 1) < 1E-9) and (Abs(F.V.Y - 1) < 1E-9),
     '  and so does a triangle whose longest side is a diagonal');
 
+  { The search keeps a record, for the ticket and the export - how long,
+    how many layouts, and what happened: here, whether the goals were
+    met (25 September: "we will need to record everything such as time
+    spent...") }
+  Z.Outline := Poly([0, 0, 40, 0, 40, 30, 0, 30]);
+  Spec.Manifolds[0] := P3(20, 1, 0);
+  Z.Holes := nil;
+  R := ComputeRadiantLayout(Z.Outline, Z.Holes, Spec);
+  Ok((R.Tries > 0) and (R.SearchSecs >= 0), Format('the search keeps its record: %d layouts in %.1f s', [R.Tries, R.SearchSecs]));
+  Ok((Length(R.SearchLog) > 0) and ((Pos('met the goals', R.SearchLog[High(R.SearchLog)]) > 0) or
+    (Pos('short of the goals', R.SearchLog[High(R.SearchLog)]) > 0)), '  and says whether it met its goals');
+  Ok(Pos('search: ', RadiantTicketText(Spec, R, usImperial)) > 0, '  and the ticket carries it');
+
   { and the ticket says how much wall it wants }
   Ok(Pos('wall space: about', RadiantTicketText(Spec, R, usImperial)) > 0, 'the ticket gives the manifold''s wall space');
   EqF(RadiantManifoldWallIn(8), 44, '  eight loops: sixteen connections at 2", and a foot for the ends', 1E-9);

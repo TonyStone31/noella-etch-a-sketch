@@ -2,11 +2,11 @@ object RadiantForm: TRadiantForm
   Left = 300
   Height = 788
   Top = 120
-  Width = 980
+  Width = 1340
   BorderStyle = bsDialog
   Caption = 'Lay out the radiant tube'
   ClientHeight = 788
-  ClientWidth = 980
+  ClientWidth = 1340
   Position = poMainFormCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
@@ -192,63 +192,34 @@ object RadiantForm: TRadiantForm
     Width = 476
     OnPaint = pbEvenPaint
   end
-  object lbManifolds: TListBox
-    Left = 24
-    Height = 104
-    Top = 224
-    Width = 300
-    ItemHeight = 0
-    OnClick = lbManifoldsClick
-    OnMouseDown = lbManifoldsMouseDown
-    PopupMenu = pmZone
-    TabOrder = 12
-  end
   object btnSuggest: TButton
-    Left = 332
+    Left = 24
     Height = 26
-    Top = 224
-    Width = 128
+    Top = 228
+    Width = 150
     Caption = 'Suggest manifolds'
     OnClick = btnSuggestClick
     TabOrder = 13
   end
-  object btnSearchZone: TButton
-    Left = 332
-    Height = 24
-    Top = 254
-    Width = 128
-    Caption = 'Search this zone'
-    OnClick = btnSearchZoneClick
-    TabOrder = 24
-  end
   object btnSearchAll: TButton
-    Left = 332
-    Height = 24
-    Top = 280
-    Width = 128
+    Left = 182
+    Height = 26
+    Top = 228
+    Width = 150
     Caption = 'Search all zones'
     OnClick = btnSearchAllClick
     TabOrder = 25
   end
-  object btnAddManifold: TButton
-    Left = 332
-    Height = 26
-    Top = 252
-    Width = 62
-    Caption = 'Add'
-    OnClick = btnAddManifoldClick
-    TabOrder = 14
-    Visible = False
-  end
-  object btnRemoveManifold: TButton
-    Left = 398
-    Height = 26
-    Top = 252
-    Width = 62
-    Caption = 'Remove'
-    OnClick = btnRemoveManifoldClick
-    TabOrder = 15
-    Visible = False
+  object lblZonesHint: TLabel
+    Left = 24
+    Height = 52
+    Top = 262
+    Width = 436
+    AutoSize = False
+    WordWrap = True
+    Caption = 'Each zone has a tab on the right - click a zone on the plan to open it.  Drag a manifold to move it; right-click it to search, square or turn it.'
+    Font.Color = clGrayText
+    ParentFont = False
   end
   object lblObsHead: TLabel
     Left = 24
@@ -383,7 +354,7 @@ object RadiantForm: TRadiantForm
   end
   object pcRight: TPageControl
     Left = 480
-    Height = 364
+    Height = 650
     Top = 112
     Width = 476
     ActivePage = tsPlan
@@ -391,11 +362,11 @@ object RadiantForm: TRadiantForm
     TabOrder = 19
     object tsPlan: TTabSheet
       Caption = 'Plan'
-      ClientHeight = 366
+      ClientHeight = 652
       ClientWidth = 468
       object pbPlan: TPaintBox
         Left = 0
-        Height = 366
+        Height = 652
         Top = 0
         Width = 468
         Align = alClient
@@ -405,65 +376,98 @@ object RadiantForm: TRadiantForm
         OnPaint = pbPlanPaint
         PopupMenu = pmZone
       end
-      object btnReplay: TButton
-        Left = 344
-        Height = 24
-        Top = 4
-        Width = 116
-        Caption = 'Replay search'
-        OnClick = btnReplayClick
-      end
-      object btnSolPrev: TButton
-        Left = 4
-        Height = 24
-        Top = 4
-        Width = 28
-        Caption = '<'
-        Hint = 'the solution before - of those the search found that met the goals'
-        OnClick = btnSolPrevClick
-        ShowHint = True
-      end
-      object btnSolNext: TButton
-        Left = 34
-        Height = 24
-        Top = 4
-        Width = 28
-        Caption = '>'
-        Hint = 'the next solution the search found'
-        OnClick = btnSolNextClick
-        ShowHint = True
-      end
-      object lblSol: TLabel
-        Left = 68
-        Height = 18
-        Top = 8
-        Width = 270
-        AutoSize = False
-        Caption = ''
-        Font.Height = -11
-        ParentFont = False
-        Transparent = True
-      end
     end
   end
-  object lblTicket: TLabel
-    Left = 480
-    Height = 18
-    Top = 486
-    Width = 200
-    Caption = 'Material list'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object memTicket: TMemo
-    Left = 480
-    Height = 250
-    Top = 512
-    Width = 476
-    Font.Name = 'monospace'
-    ReadOnly = True
-    ScrollBars = ssAutoVertical
-    TabOrder = 20
+  object tcZones: TTabControl
+    Left = 976
+    Height = 718
+    Top = 44
+    Width = 344
+    OnChange = tcZonesChange
+    TabOrder = 21
+    object pnZone: TPanel
+      Left = 0
+      Height = 670
+      Top = 0
+      Width = 344
+      Align = alClient
+      BevelOuter = bvNone
+      ClientHeight = 670
+      ClientWidth = 344
+      TabOrder = 0
+      object lblZoneHead: TLabel
+        Left = 8
+        Height = 58
+        Top = 8
+        Width = 324
+        AutoSize = False
+        WordWrap = True
+        Caption = ''
+      end
+      object btnZoneSearch: TButton
+        Left = 8
+        Height = 26
+        Top = 70
+        Width = 150
+        Caption = 'Search this zone'
+        OnClick = btnSearchZoneClick
+        TabOrder = 0
+      end
+      object btnZoneClear: TButton
+        Left = 166
+        Height = 26
+        Top = 70
+        Width = 100
+        Caption = 'Clear it'
+        OnClick = miClearZoneClick
+        TabOrder = 1
+      end
+      object lblFoundHead: TLabel
+        Left = 8
+        Height = 18
+        Top = 104
+        Width = 324
+        AutoSize = False
+        Caption = 'Found - covered, apart, loops, bends'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object lbSolutions: TListBox
+        Left = 8
+        Height = 150
+        Top = 124
+        Width = 324
+        Font.Height = -11
+        Font.Name = 'monospace'
+        ItemHeight = 0
+        OnClick = lbSolutionsClick
+        ParentFont = False
+        TabOrder = 2
+      end
+      object lblTicket: TLabel
+        Left = 8
+        Height = 18
+        Top = 282
+        Width = 324
+        AutoSize = False
+        Caption = 'Material list'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object memTicket: TMemo
+        Left = 8
+        Height = 360
+        Top = 302
+        Width = 324
+        Anchors = [akTop, akLeft, akRight, akBottom]
+        Font.Height = -11
+        Font.Name = 'monospace'
+        ParentFont = False
+        ReadOnly = True
+        ScrollBars = ssAutoVertical
+        TabOrder = 3
+      end
+    end
   end
   object pmZone: TPopupMenu
     OnPopup = pmZonePopup
@@ -514,12 +518,5 @@ object RadiantForm: TRadiantForm
       Caption = 'Clear all zones'
       OnClick = miClearAllClick
     end
-  end
-  object tmrReplay: TTimer
-    Enabled = False
-    Interval = 30
-    OnTimer = tmrReplayTimer
-    Left = 40
-    Top = 8
   end
 end
