@@ -32,6 +32,17 @@ const
     '- **Square the manifold** - right-click it for east - west, north -' + LineEnding +
     '  south, or either diagonal.  A manifold on a curved wall starts square' + LineEnding +
     '  to the sheet.' + LineEnding +
+    '- **A tab for every zone** in the radiant wizard: the zone''s manifold,' + LineEnding +
+    '  how its search went, the layouts it found (click one to use it), and' + LineEnding +
+    '  its material list - and an All zones tab.  Click a zone on the plan to' + LineEnding +
+    '  bring its tab up.  The arrows and Replay search are gone.' + LineEnding +
+    '- **The search keeps a record** - when it ran, how many layouts, how' + LineEnding +
+    '  long, and what happened: goals changed, met or not, a manifold moved,' + LineEnding +
+    '  stopped by hand, given up on time.  It is on the material list.' + LineEnding +
+    '- **Export the submittal** - the system in brief, a schedule of the zones' + LineEnding +
+    '  and of every loop, each zone''s material list and notes, and the design' + LineEnding +
+    '  record with the other layouts each search kept.  As text for now; as a' + LineEnding +
+    '  PDF, a zone to a page, when the PDF export takes pages of text.' + LineEnding +
     '' + LineEnding +
     '### Fixed' + LineEnding +
     '' + LineEnding +
